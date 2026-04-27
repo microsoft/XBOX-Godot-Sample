@@ -14,3 +14,5 @@ configuration:
     role: Maintain
   - member: sebastianp
     role: Maintain
+  - member: jameslen
+    role: Maintain
