@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-GodotGDK is a GDExtension plugin (C++17) that integrates the **Microsoft public GDK** (not GDKX) with Godot 4.x, exposing Xbox Live services and GameInput to GDScript via engine singletons. It targets PC/Xbox app via the GRDK (Gaming Runtime Development Kit) only — Xbox console (ERA/GDKX) is explicitly out of scope. It ships as a Windows-only DLL loaded through the `.gdextension` system.
+GodotGDK is a repository of GDExtension addons (C++17) centered on the **Microsoft public GDK** (not GDKX) for Godot 4.x. The primary addon is `godot_gdk`, and `godot_gameinput` is a separate addon target with its own `CMakeLists.txt`. The repo targets PC/Xbox app via the GRDK (Gaming Runtime Development Kit) only — Xbox console (ERA/GDKX) is explicitly out of scope. The addons ship as Windows-only DLLs loaded through the `.gdextension` system.
 
 ## Build Commands
 
@@ -15,11 +15,17 @@ cmake --build build --preset debug
 
 # Build release
 cmake --build build --preset release
+
+# Optional: build only the GameInput addon
+cmake --preset gameinput-only
+cmake --build --preset debug-gameinput
 ```
 
-Output DLL lands in `addons/godot_gdk/bin/` and is auto-copied to `sample/addons/godot_gdk/bin/` along with PDB (debug) and addon scripts.
+The root `CMakeLists.txt` is a thin superproject. Addon-local build logic lives in `addons/godot_gdk/CMakeLists.txt` and `addons/godot_gameinput/CMakeLists.txt`, with shared helpers in `cmake/`.
 
-The CMake build auto-detects the GDK via the `GRDKLatest` environment variable (set by the GDK installer), falling back to the standard install path. It also auto-detects **Xbox Services API (XSAPI)** and **libHttpClient** from `ExtensionLibraries/` relative to the GDK. Override with `-DGDK_GAMEKIT=<path>`, `-DXSAPI_ROOT=<path>`, or `-DLIBHTTPCLIENT_ROOT=<path>` if needed.
+Output DLLs land in `addons/godot_gdk/bin/` and `addons/godot_gameinput/bin/`, and are auto-copied to the matching `sample/addons/.../bin/` folders. The GDK addon also copies its PDB (debug), editor assets, and runtime DLLs.
+
+The GDK addon build auto-detects the GDK via the `GRDKLatest` environment variable (set by the GDK installer), falling back to the standard install path. It also auto-detects **Xbox Services API (XSAPI)** and **libHttpClient** from `ExtensionLibraries/` relative to the GDK. Override with `-DGDK_GAMEKIT=<path>`, `-DXSAPI_ROOT=<path>`, or `-DLIBHTTPCLIENT_ROOT=<path>` if needed.
 
 ## Test Commands
 
@@ -90,12 +96,12 @@ Async callbacks follow a context-struct pattern:
 
 ### Adding a New GDK Module
 
-1. Create `src/gdk_<module>.h` and `src/gdk_<module>.cpp`
+1. Create `addons/godot_gdk/src/gdk_<module>.h` and `addons/godot_gdk/src/gdk_<module>.cpp`
 2. Class extends `Object`, uses `GDCLASS` macro, has a static singleton pointer with `get_singleton()` accessor
 3. Bind methods in `_bind_methods()` via `ClassDB::bind_method(D_METHOD("name", "param1", "param2"), &Class::method)`
 4. Bind signals via `ADD_SIGNAL(MethodInfo("name", PropertyInfo(Variant::TYPE, "param")))`
-5. Register the class and create/register the singleton in `register_types.cpp`
-6. Add the `.cpp` file to `CMakeLists.txt`'s `add_library` source list
+5. Register the class and create/register the singleton in `addons/godot_gdk/src/register_types.cpp`
+6. Add the `.cpp` file to `addons/godot_gdk/CMakeLists.txt`'s `add_library` source list
 7. Add cleanup in `uninitialize_gdk_extension` in reverse order
 
 ### Windows Header Ordering
@@ -115,7 +121,7 @@ Every header that includes GDK/Windows APIs must follow this order:
 #include <XGameRuntimeInit.h>
 ```
 
-The `_GAMING_DESKTOP` compile definition (set in CMakeLists.txt) is required for XSAPI/libHttpClient platform detection.
+The `_GAMING_DESKTOP` compile definition (set in `addons/godot_gdk/CMakeLists.txt`) is required for XSAPI/libHttpClient platform detection.
 
 ### Error Handling
 

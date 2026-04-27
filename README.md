@@ -1,8 +1,8 @@
 # GodotGDK
 
-A GDExtension plugin that integrates the Microsoft public GDK
-(Game Development Kit) with Godot 4.x — enabling Godot games to ship on the
-Xbox app / Microsoft Store with Xbox Live services.
+A repository of Godot GDExtension addons for the Microsoft public GDK
+(Game Development Kit). The primary addon is `godot_gdk`, with a second
+`godot_gameinput` addon scaffolded as a separate build target.
 
 ## Features (POC)
 
@@ -38,24 +38,43 @@ git submodule update --init --recursive
 ### 2. Configure and build
 
 ```powershell
-# Configure (auto-detects GDK and Xbox Services API paths)
-cmake -B build -G "Visual Studio 17 2022" -A x64
+# Configure all addons
+cmake --preset default
 
 # Build debug
-cmake --build build --config Debug
+cmake --build build --preset debug
 
 # Build release
-cmake --build build --config Release
+cmake --build build --preset release
 ```
 
 The build:
-- Outputs the plugin DLL to `addons/godot_gdk/bin/`
-- Copies the DLL + PDB to `sample/addons/godot_gdk/bin/`
-- Copies required runtime DLLs (XSAPI, libHttpClient) to both locations
+- Outputs addon DLLs to `addons/godot_gdk/bin/` and `addons/godot_gameinput/bin/`
+- Copies built addon DLLs into `sample/addons/godot_gdk/bin/` and `sample/addons/godot_gameinput/bin/`
+- Copies required GDK runtime DLLs (XSAPI, libHttpClient) for `godot_gdk` to both locations
 
-### 3. CMake auto-detection
+Selective configure/build flows are also available:
 
-CMake automatically detects:
+```powershell
+# Configure and build only the GDK addon
+cmake --preset gdk-only
+cmake --build --preset debug-gdk
+
+# Configure and build only the GameInput addon
+cmake --preset gameinput-only
+cmake --build --preset debug-gameinput
+```
+
+### 3. Repository layout
+
+- `addons/godot_gdk/` — addon assets, addon-local `CMakeLists.txt`, and native sources under `src/`
+- `addons/godot_gameinput/` — second addon scaffold with its own `CMakeLists.txt` and `src/`
+- `cmake/` — shared CMake helpers for addon output naming, sample sync, and GDK dependency discovery
+- `sample/` — shared Godot sample project populated by each addon's build steps
+
+### 4. CMake auto-detection
+
+CMake automatically detects the GDK dependencies needed by `godot_gdk`:
 - **GDK GameKit** — via the `GRDKLatest` env var or `C:/Program Files (x86)/Microsoft GDK/`
 - **Xbox Services API (XSAPI)** — from `ExtensionLibraries/Xbox.Services.API.C`
 - **libHttpClient** — from `ExtensionLibraries/Xbox.LibHttpClient`
@@ -63,7 +82,7 @@ CMake automatically detects:
 If auto-detection fails, override manually:
 
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64 `
+cmake --preset default `
     -DGDK_GAMEKIT="C:/path/to/GameKit" `
     -DXSAPI_ROOT="C:/path/to/Xbox.Services.API.C" `
     -DLIBHTTPCLIENT_ROOT="C:/path/to/Xbox.LibHttpClient"
@@ -106,9 +125,9 @@ You can configure everything through the **in-editor GDK Setup panel** or via a 
 
 ### Option A: Configure in the Godot editor (recommended)
 
-1. Build the plugin and open the sample in the editor:
+1. Build the addon and open the sample in the editor:
    ```powershell
-   cmake --build build --config Debug
+   cmake --build build --preset debug
    .\sample\launch_editor.bat
    ```
 2. Find the **GDK Setup** panel in the bottom-right dock
@@ -171,7 +190,7 @@ as a fallback.
 
 ```powershell
 # Build
-cmake --build build --config Debug
+cmake --build build --preset debug
 
 # Launch editor
 .\sample\launch_editor.bat
@@ -180,7 +199,7 @@ cmake --build build --config Debug
 ## Usage
 
 1. Copy `addons/godot_gdk/` into your Godot project
-2. Enable the plugin in Project → Project Settings → Plugins
+2. Enable the addon in Project → Project Settings → Plugins
 3. Use from GDScript:
 
 ```gdscript

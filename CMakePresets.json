@@ -9,7 +9,29 @@
             "architecture": "x64",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "17"
+                "CMAKE_CXX_STANDARD": "17",
+                "BUILD_GODOT_GDK": "ON",
+                "BUILD_GODOT_GAMEINPUT": "ON"
+            }
+        },
+        {
+            "name": "gdk-only",
+            "displayName": "GDK addon only",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/gdk-only",
+            "cacheVariables": {
+                "BUILD_GODOT_GDK": "ON",
+                "BUILD_GODOT_GAMEINPUT": "OFF"
+            }
+        },
+        {
+            "name": "gameinput-only",
+            "displayName": "GameInput addon only",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/gameinput-only",
+            "cacheVariables": {
+                "BUILD_GODOT_GDK": "OFF",
+                "BUILD_GODOT_GAMEINPUT": "ON"
             }
         }
     ],
@@ -25,6 +47,42 @@
             "displayName": "Release",
             "configurePreset": "default",
             "configuration": "Release"
+        },
+        {
+            "name": "debug-gdk",
+            "displayName": "Debug (godot_gdk only)",
+            "configurePreset": "gdk-only",
+            "configuration": "Debug",
+            "targets": [
+                "godot_gdk"
+            ]
+        },
+        {
+            "name": "release-gdk",
+            "displayName": "Release (godot_gdk only)",
+            "configurePreset": "gdk-only",
+            "configuration": "Release",
+            "targets": [
+                "godot_gdk"
+            ]
+        },
+        {
+            "name": "debug-gameinput",
+            "displayName": "Debug (godot_gameinput only)",
+            "configurePreset": "gameinput-only",
+            "configuration": "Debug",
+            "targets": [
+                "godot_gameinput"
+            ]
+        },
+        {
+            "name": "release-gameinput",
+            "displayName": "Release (godot_gameinput only)",
+            "configurePreset": "gameinput-only",
+            "configuration": "Release",
+            "targets": [
+                "godot_gameinput"
+            ]
         }
     ]
 }
