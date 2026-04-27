@@ -28,6 +28,7 @@ cmake_install.cmake
 addons/godot_gdk/bin/
 addons/godot_gameinput/bin/
 sample/addons/godot_gdk/bin/
+sample/addons/godot_gameinput/bin/
 
 # ── Godot ────────────────────────────────────────────────────────
 .godot/

@@ -12,7 +12,7 @@ void initialize_godot_gameinput_extension(ModuleInitializationLevel p_level) {
         return;
     }
 
-    ClassDB::register_class<GodotGameInputExtension>();
+    ClassDB::register_class<GodotGameInputProbe>();
 }
 
 void uninitialize_godot_gameinput_extension(ModuleInitializationLevel p_level) {

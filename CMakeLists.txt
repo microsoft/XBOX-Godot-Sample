@@ -131,6 +131,9 @@ set_target_properties(godot_gdk PROPERTIES
 )
 
 set(GAMEINPUT_ADDON_BIN "${CMAKE_SOURCE_DIR}/addons/godot_gameinput/bin")
+set(GAMEINPUT_ADDON_SRC "${CMAKE_SOURCE_DIR}/addons/godot_gameinput")
+set(GAMEINPUT_SAMPLE_ADDON_DST "${CMAKE_SOURCE_DIR}/sample/addons/godot_gameinput")
+set(GAMEINPUT_SAMPLE_BIN "${GAMEINPUT_SAMPLE_ADDON_DST}/bin")
 
 set_target_properties(godot_gameinput PROPERTIES
     OUTPUT_NAME                      "godot_gameinput.windows.release.x86_64"
@@ -145,6 +148,32 @@ set_target_properties(godot_gameinput PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_RELEASE "${GAMEINPUT_ADDON_BIN}"
     PREFIX ""
     SUFFIX ".dll"
+)
+
+add_custom_command(TARGET godot_gameinput POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${GAMEINPUT_SAMPLE_BIN}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:godot_gameinput>"
+        "${GAMEINPUT_SAMPLE_BIN}/$<TARGET_FILE_NAME:godot_gameinput>"
+    COMMENT "Copying GameInput DLL to sample project"
+)
+
+add_custom_command(TARGET godot_gameinput POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E
+        $<IF:$<CONFIG:Debug>,copy_if_different,true>
+        $<IF:$<CONFIG:Debug>,$<TARGET_FILE_DIR:godot_gameinput>/$<TARGET_FILE_BASE_NAME:godot_gameinput>.pdb,>
+        $<IF:$<CONFIG:Debug>,${GAMEINPUT_SAMPLE_BIN}/,>
+    COMMENT "Copying GameInput PDB to sample project (Debug only)"
+)
+
+add_custom_command(TARGET godot_gameinput POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${GAMEINPUT_SAMPLE_ADDON_DST}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${GAMEINPUT_ADDON_SRC}/godot_gameinput.gdextension"
+        "${GAMEINPUT_SAMPLE_ADDON_DST}/godot_gameinput.gdextension"
+    COMMENT "Syncing GameInput addon files to sample project"
 )
 
 # ── Post-build: copy DLL + PDB to sample ────────────────────────
