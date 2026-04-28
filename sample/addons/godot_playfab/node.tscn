@@ -1,0 +1,52 @@
+[gd_scene load_steps=4 format=3 uid="uid://d325tqe7uhmqv"]
+
+[ext_resource type="Script" uid="uid://diq6a3gog46tn" path="res://node.gd" id="1_sy5k4"]
+[ext_resource type="Texture2D" uid="uid://g2juf20t85rg" path="res://icon.svg" id="2_j2q8x"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_112p8"]
+size = Vector2(119, 116)
+
+[node name="Node" type="Node"]
+script = ExtResource("1_sy5k4")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="myPlayer" type="myPlayer" parent="."]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+physics_interpolation_mode = 0
+auto_translate_mode = 0
+editor_description = ""
+script = null
+
+[node name="Sprite2D" type="Sprite2D" parent="myPlayer"]
+texture = ExtResource("2_j2q8x")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="myPlayer"]
+position = Vector2(1.5, -2)
+shape = SubResource("RectangleShape2D_112p8")
+
+[node name="PlayFabManager" type="PlayFabManager" parent="."]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+physics_interpolation_mode = 0
+auto_translate_mode = 0
+editor_description = ""
+script = null
+
+[node name="Button" type="Button" parent="."]
+offset_left = -339.0
+offset_top = -192.0
+offset_right = -155.0
+offset_bottom = -40.0
+text = "Start Test"
+
+[connection signal="pressed" from="Button" to="." method="_run_playfab"]

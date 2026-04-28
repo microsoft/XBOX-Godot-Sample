@@ -4,7 +4,6 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include "summator.h"
 #include "myPlayer.h"
 #include "PlayFabManager.h"
 
@@ -16,8 +15,6 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 		return;
 	}
 	//GDREGISTER_CLASS(YourClass);
-
-	GDREGISTER_CLASS(Summator);
 	GDREGISTER_RUNTIME_CLASS(PlayFabManager);
 	GDREGISTER_RUNTIME_CLASS(myPlayer);
 }
@@ -31,7 +28,7 @@ void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
 extern "C"
 {
 	// Initialization
-	GDExtensionBool GDE_EXPORT libgdxexample_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization)
+	GDExtensionBool GDE_EXPORT godot_playfab_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization)
 	{
 		GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 		init_obj.register_initializer(initialize_gdextension_types);

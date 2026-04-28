@@ -3,6 +3,9 @@
 #include <godot_cpp/godot.hpp>
 #include <godot_cpp/core/print_string.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#ifdef HC_PLATFORM == HC_PLATFORM_GDK
+#include <XGameRuntimeInit.h>
+#endif // HC_PLATFORM_GDK
 
 using namespace Party;
 
@@ -31,8 +34,10 @@ void PFUtils::RunPlayFabSDKSample(const std::string& title)
     // Initialize PlayFabCore
 #ifdef PLAYFAB_SAMPLE_SWITCH
     HRESULT hr = InitializePF();
-#else
-    HRESULT hr = PFInitialize(nullptr);
+#elif HC_PLATFORM == HC_PLATFORM_GDK
+    HRESULT hr = XGameRuntimeInitialize();    
+    ExitIfFailed(hr, "XGameRuntimeInitialize");
+    hr = PFInitialize(nullptr);
 #endif
     ExitIfFailed(hr, "PFInitialize");
 
@@ -132,6 +137,8 @@ void PFUtils::RunPlayFabSDKSample(const std::string& title)
 	PFServicesUninitializeAsync(&asyncPFServices);
     hr = XAsyncGetStatus(&asyncPFServices, true);
     ExitIfFailed(hr, "PFServicesUninitializeAsync");
+
+    XGameRuntimeUninitialize();
 
     godot::String Done = "Test run finished\n";
     godot::UtilityFunctions::print(Done);
