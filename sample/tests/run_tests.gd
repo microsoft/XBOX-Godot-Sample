@@ -1,13 +1,10 @@
 extends SceneTree
-## GodotGDK Test Suite
+## GodotGDK runtime/services baseline test suite
 ## Run: godot --headless --script res://tests/run_tests.gd
 
 var _pass_count := 0
 var _fail_count := 0
 var _skip_count := 0
-var _current_test := ""
-
-# ── Helpers ──────────────────────────────────────────────────────
 
 func _log_pass(name: String, detail: String = "") -> void:
 	_pass_count += 1
@@ -56,282 +53,203 @@ func _assert_has_signal(obj: Object, signal_name: String, test_name: String = ""
 	var label = test_name if test_name else "%s.%s signal exists" % [obj.get_class(), signal_name]
 	_assert_true(obj.has_signal(signal_name), label)
 
-# ── Test Groups ──────────────────────────────────────────────────
-
 func _test_singleton_availability() -> void:
 	print("\n── Singleton Availability ──")
 
 	var gdk = Engine.get_singleton("GDK")
 	_assert_not_null(gdk, "Engine.get_singleton('GDK')")
-
-	var gdk_user = Engine.get_singleton("GDKUser")
-	_assert_not_null(gdk_user, "Engine.get_singleton('GDKUser')")
-
-	var gdk_input = Engine.get_singleton("GDKInput")
-	_assert_not_null(gdk_input, "Engine.get_singleton('GDKInput')")
-
-	# Test global access (the way GDScript users will actually use them)
-	var gdk_global = Engine.get_singleton("GDK")
-	_assert_true(gdk_global != null, "GDK global accessible")
-
-func _test_gdk_core_api() -> void:
-	print("\n── GDKCore API ──")
-
-	var gdk = Engine.get_singleton("GDK")
-	if gdk == null:
-		_log_fail("GDKCore: singleton not found, skipping group")
-		return
-
-	# Methods exist
-	_assert_has_method(gdk, "initialize")
-	_assert_has_method(gdk, "shutdown")
-	_assert_has_method(gdk, "is_initialized")
-	_assert_has_method(gdk, "get_version")
-	_assert_has_method(gdk, "tick")
-
-	# Signals exist
-	_assert_has_signal(gdk, "initialized")
-	_assert_has_signal(gdk, "shutdown_completed")
-	_assert_has_signal(gdk, "error_occurred")
-
-	# get_version returns a non-empty string
-	var version = gdk.get_version()
-	_assert_true(version is String and version.length() > 0,
-		"get_version() returns string", version)
-
-	# is_initialized starts false
-	_assert_eq(gdk.is_initialized(), false, "is_initialized() starts false")
-
-	# tick() should not crash when not initialized
-	gdk.tick()
-	_log_pass("tick() safe when not initialized")
-
-	# shutdown() should not crash when not initialized
-	gdk.shutdown()
-	_log_pass("shutdown() safe when not initialized")
-
-	# Try initialize — may fail without Gaming Services, that's OK
-	var err = gdk.initialize()
-	if err == OK:
-		_log_pass("initialize() succeeded", "GDK runtime available")
-		_assert_eq(gdk.is_initialized(), true, "is_initialized() true after init")
-
-		# tick() should work after init
-		gdk.tick()
-		_log_pass("tick() works after init")
-
-		# shutdown
-		gdk.shutdown()
-		_assert_eq(gdk.is_initialized(), false, "is_initialized() false after shutdown")
-	else:
-		_log_skip("initialize()",
-			"GDK runtime not available (err=%d) — expected without Gaming Services" % err)
-		# Verify state is clean after failed init
-		_assert_eq(gdk.is_initialized(), false, "is_initialized() false after failed init")
-
-func _test_gdk_user_api() -> void:
-	print("\n── GDKUser API ──")
-
-	var gdk_user = Engine.get_singleton("GDKUser")
-	if gdk_user == null:
-		_log_fail("GDKUser: singleton not found, skipping group")
-		return
-
-	# Methods exist
-	_assert_has_method(gdk_user, "sign_in")
-	_assert_has_method(gdk_user, "sign_in_silently")
-	_assert_has_method(gdk_user, "sign_out")
-	_assert_has_method(gdk_user, "get_current_user")
-	_assert_has_method(gdk_user, "is_signed_in")
-	_assert_has_method(gdk_user, "is_sign_in_pending")
-
-	# Signals exist
-	_assert_has_signal(gdk_user, "user_signed_in")
-	_assert_has_signal(gdk_user, "sign_in_failed")
-	_assert_has_signal(gdk_user, "user_signed_out")
-
-	# Initial state
-	_assert_eq(gdk_user.is_signed_in(), false, "is_signed_in() starts false")
-	_assert_eq(gdk_user.is_sign_in_pending(), false, "is_sign_in_pending() starts false")
-
-	# get_current_user returns null when not signed in
-	var user = gdk_user.get_current_user()
-	_assert_true(user == null, "get_current_user() null when not signed in")
-
-	# sign_out() is safe when not signed in
-	gdk_user.sign_out()
-	_log_pass("sign_out() safe when not signed in")
-
-	# GDKUserInfo class
-	var user_info = ClassDB.instantiate("GDKUserInfo")
-	if user_info != null:
-		_log_pass("GDKUserInfo class instantiable")
-		_assert_has_method(user_info, "get_gamertag")
-		_assert_has_method(user_info, "get_xuid")
-		_assert_has_method(user_info, "is_valid")
-		_assert_eq(user_info.is_valid(), false, "new GDKUserInfo.is_valid() == false")
-		_assert_eq(user_info.get_gamertag(), "", "new GDKUserInfo.gamertag == empty")
-		_assert_eq(user_info.get_xuid(), 0, "new GDKUserInfo.xuid == 0")
-	else:
-		_log_fail("GDKUserInfo class not instantiable")
-
-func _test_gdk_input_api() -> void:
-	print("\n── GDKInput API ──")
-
-	var gdk_input = Engine.get_singleton("GDKInput")
-	if gdk_input == null:
-		_log_fail("GDKInput: singleton not found, skipping group")
-		return
-
-	# Methods exist
-	_assert_has_method(gdk_input, "initialize")
-	_assert_has_method(gdk_input, "shutdown")
-	_assert_has_method(gdk_input, "process")
-	_assert_has_method(gdk_input, "is_initialized")
-	_assert_has_method(gdk_input, "get_connected_device_count")
-
-	# Signals exist
-	_assert_has_signal(gdk_input, "device_connected")
-	_assert_has_signal(gdk_input, "device_disconnected")
-
-	# Starts not initialized
-	_assert_eq(gdk_input.is_initialized(), false, "is_initialized() starts false")
-	_assert_eq(gdk_input.get_connected_device_count(), 0, "device count starts 0")
-
-	# process() safe when not initialized
-	gdk_input.process()
-	_log_pass("process() safe when not initialized")
-
-	# shutdown() safe when not initialized
-	gdk_input.shutdown()
-	_log_pass("shutdown() safe when not initialized")
-
-	# Try initialize — may fail without GameInput service
-	var err = gdk_input.initialize()
-	if err == OK:
-		_log_pass("initialize() succeeded")
-		_assert_eq(gdk_input.is_initialized(), true, "is_initialized() true after init")
-		var count = gdk_input.get_connected_device_count()
-		_log_pass("get_connected_device_count()", str(count))
-		gdk_input.process()
-		_log_pass("process() works after init")
-		gdk_input.shutdown()
-		_assert_eq(gdk_input.is_initialized(), false, "is_initialized() false after shutdown")
-	else:
-		_log_skip("initialize()",
-			"GameInput not available (err=%d) — may need GameInput service" % err)
-
-func _test_signal_connectivity() -> void:
-	print("\n── Signal Connectivity ──")
-
-	# Test that we can connect to signals without errors
-	var gdk = Engine.get_singleton("GDK")
-	var gdk_user = Engine.get_singleton("GDKUser")
-	var gdk_input = Engine.get_singleton("GDKInput")
-
-	if gdk:
-		var connected := true
-		gdk.connect("initialized", func(): pass)
-		gdk.connect("shutdown_completed", func(): pass)
-		gdk.connect("error_occurred", func(_msg): pass)
-		_log_pass("GDK signals connectable")
-		# Disconnect to clean up
-		for sig in ["initialized", "shutdown_completed", "error_occurred"]:
-			for conn in gdk.get_signal_connection_list(sig):
-				gdk.disconnect(sig, conn["callable"])
-
-	if gdk_user:
-		gdk_user.connect("user_signed_in", func(_user): pass)
-		gdk_user.connect("sign_in_failed", func(_err): pass)
-		_log_pass("GDKUser signals connectable")
-		for sig in ["user_signed_in", "sign_in_failed"]:
-			for conn in gdk_user.get_signal_connection_list(sig):
-				gdk_user.disconnect(sig, conn["callable"])
-
-	if gdk_input:
-		gdk_input.connect("device_connected", func(_id): pass)
-		gdk_input.connect("device_disconnected", func(_id): pass)
-		_log_pass("GDKInput signals connectable")
-		for sig in ["device_connected", "device_disconnected"]:
-			for conn in gdk_input.get_signal_connection_list(sig):
-				gdk_input.disconnect(sig, conn["callable"])
+	_assert_true(Engine.get_singleton("GDKUser") == null, "legacy GDKUser singleton removed")
 
 func _test_class_registration() -> void:
 	print("\n── Class Registration ──")
 
-	_assert_true(ClassDB.class_exists("GDKCore"), "GDKCore registered in ClassDB")
-	_assert_true(ClassDB.class_exists("GDKUserInfo"), "GDKUserInfo registered in ClassDB")
-	_assert_true(ClassDB.class_exists("GDKUserManager"), "GDKUserManager registered in ClassDB")
-	_assert_true(ClassDB.class_exists("GDKInput"), "GDKInput registered in ClassDB")
+	for registered_class in ["GDK", "GDKUsers", "GDKUser", "GDKAchievements", "GDKAchievement", "GDKAsyncOp", "GDKDispatchOp", "GDKResult"]:
+		_assert_true(ClassDB.class_exists(registered_class), "%s registered in ClassDB" % registered_class)
 
-	# Check inheritance
-	_assert_true(ClassDB.is_parent_class("GDKCore", "Object"),
-		"GDKCore extends Object")
-	_assert_true(ClassDB.is_parent_class("GDKUserInfo", "RefCounted"),
-		"GDKUserInfo extends RefCounted")
-	_assert_true(ClassDB.is_parent_class("GDKUserManager", "Object"),
-		"GDKUserManager extends Object")
-	_assert_true(ClassDB.is_parent_class("GDKInput", "Object"),
-		"GDKInput extends Object")
+	_assert_true(ClassDB.is_parent_class("GDK", "Object"), "GDK extends Object")
+	_assert_true(ClassDB.is_parent_class("GDKUsers", "RefCounted"), "GDKUsers extends RefCounted")
+	_assert_true(ClassDB.is_parent_class("GDKUser", "RefCounted"), "GDKUser extends RefCounted")
+	_assert_true(ClassDB.is_parent_class("GDKAchievements", "RefCounted"), "GDKAchievements extends RefCounted")
+	_assert_true(ClassDB.is_parent_class("GDKAchievement", "RefCounted"), "GDKAchievement extends RefCounted")
+	_assert_true(ClassDB.is_parent_class("GDKAsyncOp", "RefCounted"), "GDKAsyncOp extends RefCounted")
+	_assert_true(ClassDB.is_parent_class("GDKDispatchOp", "GDKAsyncOp"), "GDKDispatchOp extends GDKAsyncOp")
+	_assert_true(ClassDB.is_parent_class("GDKResult", "RefCounted"), "GDKResult extends RefCounted")
+
+func _test_gdk_root_api() -> void:
+	print("\n── GDK Root API ──")
+
+	var gdk = Engine.get_singleton("GDK")
+	if gdk == null:
+		_log_fail("GDK root singleton missing, skipping root API group")
+		return
+
+	gdk.shutdown()
+
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_achievements"]:
+		_assert_has_method(gdk, method_name)
+
+	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
+		_assert_has_signal(gdk, signal_name)
+
+	_assert_true(gdk.get_users() != null, "GDK.users service available")
+	_assert_true(gdk.get_achievements() != null, "GDK.achievements service available")
+	_assert_true(gdk.is_available() is bool, "is_available() returns bool")
+	_assert_eq(gdk.is_initialized(), false, "is_initialized() starts false")
+	_assert_eq(gdk.dispatch(), 0, "dispatch() safe before init")
+
+	var last_error = gdk.get_last_error()
+	_assert_not_null(last_error, "get_last_error() returns GDKResult")
+	if last_error != null:
+		_assert_true(last_error.has_method("is_ok"), "last error exposes result API")
+
+	var init_result = gdk.initialize()
+	_assert_not_null(init_result, "initialize() returns GDKResult")
+	if init_result == null:
+		return
+
+	if init_result.ok:
+		_assert_eq(gdk.is_initialized(), true, "is_initialized() true after init")
+		_assert_true(gdk.dispatch() is int, "dispatch() returns int after init")
+		gdk.shutdown()
+		_assert_eq(gdk.is_initialized(), false, "is_initialized() false after shutdown")
+	else:
+		_log_skip("GDK.initialize()", init_result.message)
+		_assert_eq(gdk.is_initialized(), false, "is_initialized() remains false after failed init")
+
+func _test_gdk_users_api() -> void:
+	print("\n── GDK Users API ──")
+
+	var gdk = Engine.get_singleton("GDK")
+	if gdk == null:
+		_log_fail("GDK root singleton missing, skipping users API group")
+		return
+
+	gdk.shutdown()
+
+	var users = gdk.get_users()
+	_assert_not_null(users, "GDK.users returns service object")
+	if users == null:
+		return
+
+	for method_name in ["add_default_user_async", "add_user_with_ui_async", "get_primary_user", "get_users"]:
+		_assert_has_method(users, method_name)
+
+	for signal_name in ["user_added", "user_removed", "user_changed", "primary_user_changed"]:
+		_assert_has_signal(users, signal_name)
+
+	_assert_true(users.get_users() is Array, "get_users() returns Array")
+	_assert_true(users.get_primary_user() == null, "get_primary_user() starts null")
+
+	var op = users.add_default_user_async()
+	_assert_not_null(op, "add_default_user_async() returns GDKAsyncOp")
+	if op != null:
+		_assert_true(op is GDKAsyncOp, "add_default_user_async() uses XAsync-backed op type")
+		_assert_true(op.is_done(), "uninitialized add_default_user_async() completes immediately")
+		var result = op.get_result()
+		_assert_not_null(result, "immediate async error exposes result")
+		if result != null:
+			_assert_eq(result.ok, false, "immediate async error result.ok == false")
+			_assert_true(result.message.length() > 0, "immediate async error includes message")
+
+func _test_gdk_achievements_api() -> void:
+	print("\n── GDK Achievements API ──")
+
+	var gdk = Engine.get_singleton("GDK")
+	if gdk == null:
+		_log_fail("GDK root singleton missing, skipping achievements API group")
+		return
+
+	gdk.shutdown()
+
+	var achievements = gdk.get_achievements()
+	_assert_not_null(achievements, "GDK.achievements returns service object")
+	if achievements == null:
+		return
+
+	for method_name in ["query_player_achievements_async", "update_achievement_async", "get_cached_achievements"]:
+		_assert_has_method(achievements, method_name)
+
+	for signal_name in ["achievement_unlocked", "achievements_updated"]:
+		_assert_has_signal(achievements, signal_name)
+
+	_assert_true(achievements.get_cached_achievements(null) is Array, "get_cached_achievements() returns Array")
+
+	var query_op = achievements.query_player_achievements_async(null)
+	_assert_not_null(query_op, "query_player_achievements_async() returns GDKDispatchOp")
+	if query_op != null:
+		_assert_true(query_op is GDKDispatchOp, "query_player_achievements_async() uses dispatch-backed op type")
+		_assert_true(query_op.is_done(), "uninitialized query_player_achievements_async() completes immediately")
+		var query_result = query_op.get_result()
+		_assert_not_null(query_result, "achievement query error exposes result")
+		if query_result != null:
+			_assert_eq(query_result.ok, false, "achievement query error result.ok == false")
+			_assert_true(query_result.message.length() > 0, "achievement query error includes message")
+
+	var update_op = achievements.update_achievement_async(null, "1", 25)
+	_assert_not_null(update_op, "update_achievement_async() returns GDKDispatchOp")
+	if update_op != null:
+		_assert_true(update_op is GDKDispatchOp, "update_achievement_async() uses dispatch-backed op type")
+		_assert_true(update_op.is_done(), "uninitialized update_achievement_async() completes immediately")
+		var update_result = update_op.get_result()
+		_assert_not_null(update_result, "achievement update error exposes result")
+		if update_result != null:
+			_assert_eq(update_result.ok, false, "achievement update error result.ok == false")
+			_assert_true(update_result.message.length() > 0, "achievement update error includes message")
+
+func _test_signal_connectivity() -> void:
+	print("\n── Signal Connectivity ──")
+
+	var gdk = Engine.get_singleton("GDK")
+	if gdk:
+		gdk.connect("initialized", func(): pass)
+		gdk.connect("shutdown_completed", func(): pass)
+		gdk.connect("runtime_error", func(_result): pass)
+		_log_pass("GDK root signals connectable")
+		for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
+			for conn in gdk.get_signal_connection_list(signal_name):
+				gdk.disconnect(signal_name, conn["callable"])
+
+		var users = gdk.get_users()
+		if users:
+			users.connect("user_added", func(_user): pass)
+			users.connect("user_removed", func(_local_id): pass)
+			users.connect("user_changed", func(_user): pass)
+			users.connect("primary_user_changed", func(_user): pass)
+			_log_pass("GDK.users signals connectable")
+			for signal_name in ["user_added", "user_removed", "user_changed", "primary_user_changed"]:
+				for conn in users.get_signal_connection_list(signal_name):
+					users.disconnect(signal_name, conn["callable"])
+
+		var achievements = gdk.get_achievements()
+		if achievements:
+			achievements.connect("achievement_unlocked", func(_user, _achievement_id): pass)
+			achievements.connect("achievements_updated", func(_user): pass)
+			_log_pass("GDK.achievements signals connectable")
+			for signal_name in ["achievement_unlocked", "achievements_updated"]:
+				for conn in achievements.get_signal_connection_list(signal_name):
+					achievements.disconnect(signal_name, conn["callable"])
 
 func _test_addon_structure() -> void:
-	print("\n── Addon Structure (Export Platform) ──")
+	print("\n── Addon Structure ──")
 
-	# Verify addon files exist
-	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/plugin.cfg"),
-		"plugin.cfg exists")
-	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/godot_gdk.gdextension"),
-		".gdextension file exists")
-	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/editor/gdk_export_platform.gd"),
-		"gdk_export_platform.gd exists")
-	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/editor/gdk_editor_plugin.gd"),
-		"gdk_editor_plugin.gd exists")
-
-	# Verify plugin.cfg has correct script path
-	var cfg := ConfigFile.new()
-	var err := cfg.load("res://addons/godot_gdk/plugin.cfg")
-	_assert_eq(err, OK, "plugin.cfg loads without error")
-	if err == OK:
-		var script_path: String = cfg.get_value("plugin", "script", "")
-		_assert_eq(script_path, "editor/gdk_editor_plugin.gd",
-			"plugin.cfg script points to editor plugin")
-		var plugin_name: String = cfg.get_value("plugin", "name", "")
-		_assert_eq(plugin_name, "GodotGDK", "plugin.cfg name is GodotGDK")
-
-	# Verify .gdextension references correct library path
-	var ext_cfg := ConfigFile.new()
-	err = ext_cfg.load("res://addons/godot_gdk/godot_gdk.gdextension")
-	_assert_eq(err, OK, ".gdextension loads without error")
-
-	# Verify DLL exists
-	var dll_exists := FileAccess.file_exists("res://addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll") or \
-		FileAccess.file_exists("res://addons/godot_gdk/bin/Debug/godot_gdk.windows.debug.x86_64.dll")
-	_assert_true(dll_exists, "GDK DLL exists in bin/")
-
-	# Verify export platform script can be loaded (as a Resource)
-	var script = load("res://addons/godot_gdk/editor/gdk_export_platform.gd")
-	_assert_true(script != null, "gdk_export_platform.gd loads as script")
-
-	# Verify editor plugin script can be loaded
-	var editor_script = load("res://addons/godot_gdk/editor/gdk_editor_plugin.gd")
-	_assert_true(editor_script != null, "gdk_editor_plugin.gd loads as script")
-
-# ── Entry Point ──────────────────────────────────────────────────
+	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/plugin.cfg"), "plugin.cfg exists")
+	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/godot_gdk.gdextension"), ".gdextension file exists")
+	_assert_true(FileAccess.file_exists("res://addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll") or \
+		FileAccess.file_exists("res://addons/godot_gdk/bin/Debug/godot_gdk.windows.debug.x86_64.dll"), "GDK DLL exists in bin/")
 
 func _initialize() -> void:
 	print("╔══════════════════════════════════════╗")
-	print("║       GodotGDK Test Suite            ║")
+	print("║   GodotGDK Runtime/Services Tests    ║")
 	print("╚══════════════════════════════════════╝")
 
 	_test_singleton_availability()
 	_test_class_registration()
-	_test_gdk_core_api()
-	_test_gdk_user_api()
-	_test_gdk_input_api()
+	_test_gdk_root_api()
+	_test_gdk_users_api()
+	_test_gdk_achievements_api()
 	_test_signal_connectivity()
 	_test_addon_structure()
 
-	# Summary
 	var total = _pass_count + _fail_count + _skip_count
 	print("\n══════════════════════════════════════")
 	print("Results: %d passed, %d failed, %d skipped (of %d)" % [

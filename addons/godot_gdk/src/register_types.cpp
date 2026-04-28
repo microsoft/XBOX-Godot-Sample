@@ -5,66 +5,40 @@
 #include <gdextension_interface.h>
 #include <godot_cpp/godot.hpp>
 
-#include "gdk_core.h"
+#include "gdk_achievement.h"
+#include "gdk.h"
+#include "gdk_async_op.h"
+#include "gdk_dispatch_op.h"
+#include "gdk_result.h"
 #include "gdk_user.h"
-#include "gdk_input.h"
-#include "gdk_achievements.h"
 
 using namespace godot;
 
-static GDKCore *gdk_core_singleton = nullptr;
-static GDKUserManager *gdk_user_singleton = nullptr;
-static GDKInput *gdk_input_singleton = nullptr;
-static GDKAchievements *gdk_achievements_singleton = nullptr;
+static GDK *gdk_singleton = nullptr;
 
 void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
-        // Register classes
-        ClassDB::register_class<GDKCore>();
-        ClassDB::register_class<GDKUserInfo>();
-        ClassDB::register_class<GDKUserManager>();
-        ClassDB::register_class<GDKInput>();
+        ClassDB::register_class<GDK>();
+        ClassDB::register_class<GDKResult>();
+        ClassDB::register_class<GDKAsyncOp>();
+        ClassDB::register_class<GDKDispatchOp>();
+        ClassDB::register_class<GDKUser>();
+        ClassDB::register_class<GDKUsers>();
+        ClassDB::register_class<GDKAchievement>();
         ClassDB::register_class<GDKAchievements>();
 
-        // Create and register singletons
-        gdk_core_singleton = memnew(GDKCore);
-        Engine::get_singleton()->register_singleton("GDK", GDKCore::get_singleton());
-
-        gdk_user_singleton = memnew(GDKUserManager);
-        Engine::get_singleton()->register_singleton("GDKUser", GDKUserManager::get_singleton());
-
-        gdk_input_singleton = memnew(GDKInput);
-        Engine::get_singleton()->register_singleton("GDKInput", GDKInput::get_singleton());
-
-        gdk_achievements_singleton = memnew(GDKAchievements);
-        Engine::get_singleton()->register_singleton("GDKAchievements", GDKAchievements::get_singleton());
+        gdk_singleton = memnew(GDK);
+        Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());
     }
 }
 
 void uninitialize_gdk_extension(ModuleInitializationLevel p_level) {
     if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
-        // Unregister singletons
-        Engine::get_singleton()->unregister_singleton("GDKAchievements");
-        Engine::get_singleton()->unregister_singleton("GDKInput");
-        Engine::get_singleton()->unregister_singleton("GDKUser");
         Engine::get_singleton()->unregister_singleton("GDK");
 
-        // Clean up (reverse order of creation)
-        if (gdk_achievements_singleton) {
-            memdelete(gdk_achievements_singleton);
-            gdk_achievements_singleton = nullptr;
-        }
-        if (gdk_input_singleton) {
-            memdelete(gdk_input_singleton);
-            gdk_input_singleton = nullptr;
-        }
-        if (gdk_user_singleton) {
-            memdelete(gdk_user_singleton);
-            gdk_user_singleton = nullptr;
-        }
-        if (gdk_core_singleton) {
-            memdelete(gdk_core_singleton);
-            gdk_core_singleton = nullptr;
+        if (gdk_singleton) {
+            memdelete(gdk_singleton);
+            gdk_singleton = nullptr;
         }
     }
 }

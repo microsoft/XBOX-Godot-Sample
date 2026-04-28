@@ -69,7 +69,7 @@ text = "Controllers: 0"
 layout_mode = 2
 focus_mode = 2
 focus_neighbor_bottom = NodePath("../HapticsToggle")
-text = "Sign In"
+text = "Silent Sign-In"
 
 [node name="HapticsToggle" type="CheckButton" parent="VBoxContainer"]
 layout_mode = 2
@@ -86,12 +86,12 @@ focus_mode = 2
 focus_neighbor_top = NodePath("../HapticsToggle")
 focus_neighbor_bottom = NodePath("../SignInButton")
 disabled = true
-text = "🏆 Unlock Achievement: Demo Played"
+text = "Update Achievement 1"
 
 [node name="AchievementLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-text = ""
+text = "Achievement 1: sign in to load progress"
 
 [node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
 layout_mode = 2

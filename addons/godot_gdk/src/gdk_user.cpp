@@ -1,431 +1,419 @@
 #include "gdk_user.h"
-#include "gdk_core.h"
 
-#include <godot_cpp/variant/utility_functions.hpp>
-#include <godot_cpp/classes/engine.hpp>
-#include <godot_cpp/classes/image.hpp>
-#include <godot_cpp/classes/image_texture.hpp>
-#include <godot_cpp/variant/packed_byte_array.hpp>
+#include <algorithm>
 
-#include <XUser.h>
-#include <XAsync.h>
-
-#include <vector>
+#include "gdk.h"
+#include "gdk_async_op.h"
+#include "gdk_result.h"
+#include "gdk_runtime.h"
+#include "gdk_xasync_context.h"
 
 namespace godot {
 
-// ── GDKUserInfo ─────────────────────────────────────────────────
+namespace {
 
-GDKUserInfo::GDKUserInfo() {}
+class AddUserAsyncContext final : public GDKXAsyncContext {
+    GDKUsers *m_users = nullptr;
+    String m_action;
 
-GDKUserInfo::~GDKUserInfo() {
-    if (m_user_handle && m_handle_owned) {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        Ref<GDKResult> result;
+
+        if (get_runtime()->is_shutting_down() || get_op()->was_cancel_requested()) {
+            result = GDKResult::cancelled("User add operation cancelled.");
+            get_runtime()->set_last_error(result);
+            get_op()->complete(result);
+            return;
+        }
+
+        XUserHandle user_handle = nullptr;
+        HRESULT result_hr = XUserAddResult(p_async_block, &user_handle);
+        if (result_hr == E_ABORT) {
+            result = GDKResult::cancelled("User add operation cancelled.");
+            get_runtime()->set_last_error(result);
+            get_op()->complete(result);
+            return;
+        }
+
+        if (FAILED(result_hr)) {
+            result = GDKResult::hresult_error(result_hr, m_action, "user_add_result_failed");
+            get_runtime()->set_last_error(result);
+            get_op()->complete(result);
+            return;
+        }
+
+        m_users->complete_add_user(user_handle, get_op());
+    }
+
+public:
+    AddUserAsyncContext(GDKUsers *p_users, GDKRuntime *p_runtime, const Ref<GDKAsyncOp> &p_op, const String &p_action) :
+            GDKXAsyncContext(p_runtime, p_op),
+            m_users(p_users),
+            m_action(p_action) {}
+};
+
+} // namespace
+
+void GDKUser::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("get_local_id"), &GDKUser::get_local_id);
+    ClassDB::bind_method(D_METHOD("get_xuid"), &GDKUser::get_xuid);
+    ClassDB::bind_method(D_METHOD("get_gamertag"), &GDKUser::get_gamertag);
+    ClassDB::bind_method(D_METHOD("is_guest"), &GDKUser::is_guest);
+    ClassDB::bind_method(D_METHOD("is_signed_in"), &GDKUser::is_signed_in);
+
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "local_id"), "", "get_local_id");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "xuid"), "", "get_xuid");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "gamertag"), "", "get_gamertag");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "guest"), "", "is_guest");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "signed_in"), "", "is_signed_in");
+}
+
+GDKUser::GDKUser() {}
+
+GDKUser::~GDKUser() {
+    clear();
+}
+
+int64_t GDKUser::get_local_id() const {
+    return static_cast<int64_t>(m_local_id.value);
+}
+
+String GDKUser::get_xuid() const {
+    return m_xuid;
+}
+
+String GDKUser::get_gamertag() const {
+    return m_gamertag;
+}
+
+bool GDKUser::is_guest() const {
+    return m_is_guest;
+}
+
+bool GDKUser::is_signed_in() const {
+    return m_is_signed_in;
+}
+
+HRESULT GDKUser::_populate_from_handle(XUserHandle p_user_handle) {
+    XUserLocalId local_id = {};
+    HRESULT hr = XUserGetLocalId(p_user_handle, &local_id);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    uint64_t xuid = 0;
+    hr = XUserGetId(p_user_handle, &xuid);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    char gamertag[XUserGamertagComponentClassicMaxBytes] = {};
+    size_t gamertag_used = 0;
+    hr = XUserGetGamertag(
+        p_user_handle,
+        XUserGamertagComponent::Classic,
+        sizeof(gamertag),
+        gamertag,
+        &gamertag_used);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    bool is_guest = false;
+    hr = XUserGetIsGuest(p_user_handle, &is_guest);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    XUserState user_state = XUserState::SignedOut;
+    hr = XUserGetState(p_user_handle, &user_state);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    m_local_id = local_id;
+    m_xuid = String::num_uint64(xuid);
+    m_gamertag = String::utf8(gamertag);
+    m_is_guest = is_guest;
+    m_is_signed_in = user_state == XUserState::SignedIn;
+
+    return S_OK;
+}
+
+HRESULT GDKUser::adopt_handle(XUserHandle p_user_handle) {
+    clear();
+
+    if (p_user_handle == nullptr) {
+        return E_INVALIDARG;
+    }
+
+    m_user_handle = p_user_handle;
+    HRESULT hr = _populate_from_handle(m_user_handle);
+    if (FAILED(hr)) {
+        clear();
+    }
+
+    return hr;
+}
+
+HRESULT GDKUser::refresh() {
+    if (m_user_handle == nullptr) {
+        return E_FAIL;
+    }
+
+    return _populate_from_handle(m_user_handle);
+}
+
+bool GDKUser::matches_local_id(XUserLocalId p_user_local_id) const {
+    return m_local_id.value == p_user_local_id.value;
+}
+
+XUserHandle GDKUser::get_handle() const {
+    return m_user_handle;
+}
+
+void GDKUser::clear() {
+    if (m_user_handle != nullptr) {
         XUserCloseHandle(m_user_handle);
         m_user_handle = nullptr;
     }
-}
 
-void GDKUserInfo::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("get_gamertag"), &GDKUserInfo::get_gamertag);
-    ClassDB::bind_method(D_METHOD("get_xuid"), &GDKUserInfo::get_xuid);
-    ClassDB::bind_method(D_METHOD("is_valid"), &GDKUserInfo::is_valid);
-
-    ADD_PROPERTY(PropertyInfo(Variant::STRING, "gamertag"), "", "get_gamertag");
-    ADD_PROPERTY(PropertyInfo(Variant::INT, "xuid"), "", "get_xuid");
-}
-
-void GDKUserInfo::set_from_handle(XUserHandle handle) {
-    if (m_user_handle && m_handle_owned) {
-        XUserCloseHandle(m_user_handle);
-    }
-    m_user_handle = handle;
-    m_handle_owned = (handle != nullptr);
+    m_local_id = {};
+    m_xuid = "";
     m_gamertag = "";
-    m_xuid = 0;
+    m_is_guest = false;
+    m_is_signed_in = false;
+}
 
-    if (!handle) return;
+void GDKUsers::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("add_default_user_async", "allow_guests"), &GDKUsers::add_default_user_async, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("add_user_with_ui_async"), &GDKUsers::add_user_with_ui_async);
+    ClassDB::bind_method(D_METHOD("get_primary_user"), &GDKUsers::get_primary_user);
+    ClassDB::bind_method(D_METHOD("get_users"), &GDKUsers::get_users);
 
-    // Retrieve gamertag
-    char gamertag[XUserGamertagComponentClassicMaxBytes] = {};
-    size_t gamertag_size = sizeof(gamertag);
-    HRESULT hr = XUserGetGamertag(
-        handle,
-        XUserGamertagComponent::Classic,
-        gamertag_size,
-        gamertag,
-        &gamertag_size
-    );
-    if (SUCCEEDED(hr)) {
-        m_gamertag = String::utf8(gamertag);
-    } else {
-        UtilityFunctions::push_warning("GDK: Failed to retrieve gamertag");
+    ADD_SIGNAL(MethodInfo("user_added", PropertyInfo(Variant::OBJECT, "user")));
+    ADD_SIGNAL(MethodInfo("user_removed", PropertyInfo(Variant::INT, "local_id")));
+    ADD_SIGNAL(MethodInfo("user_changed", PropertyInfo(Variant::OBJECT, "user")));
+    ADD_SIGNAL(MethodInfo("primary_user_changed", PropertyInfo(Variant::OBJECT, "user")));
+}
+
+void GDKUsers::set_owner(GDK *p_owner) {
+    m_owner = p_owner;
+}
+
+Ref<GDKResult> GDKUsers::on_runtime_initialized() {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return GDKResult::error_result(E_FAIL, "runtime_not_initialized", "Cannot initialize the users service before the GDK runtime.");
     }
 
-    // Retrieve XUID
-    uint64_t xuid = 0;
-    hr = XUserGetId(handle, &xuid);
-    if (SUCCEEDED(hr)) {
-        m_xuid = xuid;
-    } else {
-        UtilityFunctions::push_warning("GDK: Failed to retrieve XUID");
+    if (m_change_event_registered) {
+        m_runtime_ready = true;
+        return GDKResult::ok_result();
     }
-}
-
-String GDKUserInfo::get_gamertag() const { return m_gamertag; }
-uint64_t GDKUserInfo::get_xuid() const { return m_xuid; }
-bool GDKUserInfo::is_valid() const { return m_user_handle != nullptr; }
-
-void GDKUserInfo::invalidate() {
-    if (m_user_handle && m_handle_owned) {
-        XUserCloseHandle(m_user_handle);
-    }
-    m_user_handle = nullptr;
-    m_handle_owned = false;
-    m_gamertag = "";
-    m_xuid = 0;
-}
-
-// ── GDKUserManager ─────────────────────────────────────────────
-
-GDKUserManager *GDKUserManager::singleton = nullptr;
-
-GDKUserManager *GDKUserManager::get_singleton() {
-    return singleton;
-}
-
-GDKUserManager::GDKUserManager() {
-    ERR_FAIL_COND(singleton != nullptr);
-    singleton = this;
-}
-
-GDKUserManager::~GDKUserManager() {
-    _unregister_change_event();
-    _clear_user();
-    singleton = nullptr;
-}
-
-void GDKUserManager::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("sign_in"), &GDKUserManager::sign_in);
-    ClassDB::bind_method(D_METHOD("sign_in_silently"), &GDKUserManager::sign_in_silently);
-    ClassDB::bind_method(D_METHOD("sign_out"), &GDKUserManager::sign_out);
-    ClassDB::bind_method(D_METHOD("get_gamer_picture"), &GDKUserManager::get_gamer_picture);
-    ClassDB::bind_method(D_METHOD("get_current_user"), &GDKUserManager::get_current_user);
-    ClassDB::bind_method(D_METHOD("is_signed_in"), &GDKUserManager::is_signed_in);
-    ClassDB::bind_method(D_METHOD("is_sign_in_pending"), &GDKUserManager::is_sign_in_pending);
-
-    ADD_SIGNAL(MethodInfo("user_signed_in", PropertyInfo(Variant::OBJECT, "user")));
-    ADD_SIGNAL(MethodInfo("sign_in_failed", PropertyInfo(Variant::STRING, "error")));
-    ADD_SIGNAL(MethodInfo("user_signed_out"));
-    ADD_SIGNAL(MethodInfo("gamer_picture_loaded", PropertyInfo(Variant::OBJECT, "texture")));
-}
-
-// ── Internal state management ───────────────────────────────────
-
-void GDKUserManager::_store_user(Ref<GDKUserInfo> user) {
-    _clear_user();
-    m_current_user = user;
-    _register_change_event();
-}
-
-void GDKUserManager::_clear_user() {
-    _unregister_change_event();
-    if (m_current_user.is_valid()) {
-        m_current_user->invalidate();
-        m_current_user.unref();
-    }
-}
-
-// ── XUserChangeEvent ────────────────────────────────────────────
-
-static void CALLBACK user_change_callback(
-    void *context,
-    XUserLocalId user_local_id,
-    XUserChangeEvent event
-) {
-    auto *mgr = static_cast<GDKUserManager *>(context);
-    mgr->_on_user_change(user_local_id, event);
-}
-
-void GDKUserManager::_register_change_event() {
-    if (m_change_registered || !m_current_user.is_valid()) return;
 
     HRESULT hr = XUserRegisterForChangeEvent(
-        nullptr, // default task queue
+        runtime->get_task_queue(),
         this,
-        user_change_callback,
-        &m_change_token
-    );
-
-    if (SUCCEEDED(hr)) {
-        m_change_registered = true;
+        _user_change_callback,
+        &m_change_token);
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to register the runtime-wide XUser change callback.", "user_change_event_register_failed");
     }
+
+    m_runtime_ready = true;
+    m_change_event_registered = true;
+    return GDKResult::ok_result();
 }
 
-void GDKUserManager::_unregister_change_event() {
-    if (!m_change_registered) return;
-    XUserUnregisterForChangeEvent(m_change_token, false);
-    m_change_registered = false;
+void GDKUsers::shutdown() {
+    m_runtime_ready = false;
+
+    if (m_change_event_registered) {
+        XUserUnregisterForChangeEvent(m_change_token, false);
+        m_change_event_registered = false;
+    }
+
+    m_primary_user.unref();
+    m_users.clear();
 }
 
-void GDKUserManager::_on_user_change(XUserLocalId user_local_id, XUserChangeEvent event) {
-    if (!m_current_user.is_valid()) return;
+Ref<GDKAsyncOp> GDKUsers::add_default_user_async(bool p_allow_guests) {
+    XUserAddOptions options = XUserAddOptions::AddDefaultUserSilently;
+    if (p_allow_guests) {
+        options = options | XUserAddOptions::AllowGuests;
+    }
 
-    switch (event) {
-        case XUserChangeEvent::SignedOut:
-            UtilityFunctions::print("GDK: User signed out externally");
-            _clear_user();
-            call_deferred("emit_signal", "user_signed_out");
-            break;
-        case XUserChangeEvent::SigningOut:
-            UtilityFunctions::print("GDK: User signing out...");
-            break;
-        case XUserChangeEvent::GamerPicture:
-            // Re-fetch the gamer picture
-            if (m_current_user.is_valid() && m_current_user->get_handle()) {
-                get_gamer_picture();
+    return _start_add_user_async(options, "Failed to add the default user.");
+}
+
+Ref<GDKAsyncOp> GDKUsers::add_user_with_ui_async() {
+    return _start_add_user_async(XUserAddOptions::AddDefaultUserAllowingUI, "Failed to add a user with UI.");
+}
+
+Ref<GDKUser> GDKUsers::get_primary_user() const {
+    return m_primary_user;
+}
+
+Array GDKUsers::get_users() const {
+    Array users;
+    for (const Ref<GDKUser> &user : m_users) {
+        users.push_back(user);
+    }
+    return users;
+}
+
+void GDKUsers::on_user_change(XUserLocalId p_user_local_id, XUserChangeEvent p_event) {
+    GDKRuntime *runtime = _get_runtime();
+    if (!m_runtime_ready || runtime == nullptr || runtime->is_shutting_down()) {
+        return;
+    }
+
+    Ref<GDKUser> user = _find_user_by_local_id(p_user_local_id);
+    if (!user.is_valid()) {
+        return;
+    }
+
+    switch (p_event) {
+        case XUserChangeEvent::SignedOut: {
+            const int64_t local_id = user->get_local_id();
+            const bool was_primary = m_primary_user.is_valid() && m_primary_user->get_local_id() == local_id;
+
+            if (m_owner != nullptr) {
+                m_owner->notify_user_removed(user);
             }
-            break;
+
+            _remove_user_by_local_id(p_user_local_id);
+            if (was_primary) {
+                m_primary_user = m_users.empty() ? Ref<GDKUser>() : m_users.front();
+                emit_signal("primary_user_changed", m_primary_user);
+            }
+
+            emit_signal("user_removed", local_id);
+        } break;
+        case XUserChangeEvent::SignedInAgain:
         case XUserChangeEvent::Gamertag:
-            // Refresh user data
-            if (m_current_user.is_valid() && m_current_user->get_handle()) {
-                m_current_user->set_from_handle(m_current_user->get_handle());
+        case XUserChangeEvent::GamerPicture:
+        case XUserChangeEvent::Privileges: {
+            if (SUCCEEDED(user->refresh())) {
+                emit_signal("user_changed", user);
             }
-            break;
+        } break;
+        case XUserChangeEvent::SigningOut:
         default:
             break;
     }
 }
 
-// ── Async sign-in ───────────────────────────────────────────────
+void GDKUsers::complete_add_user(XUserHandle p_user_handle, const Ref<GDKAsyncOp> &p_op) {
+    Ref<GDKUser> user;
+    user.instantiate();
 
-struct SignInContext {
-    GDKUserManager *manager;
-    bool was_silent;
-    XAsyncBlock async;
-};
+    HRESULT hr = user->adopt_handle(p_user_handle);
+    if (FAILED(hr)) {
+        if (p_user_handle != nullptr) {
+            XUserCloseHandle(p_user_handle);
+        }
 
-static void CALLBACK sign_in_complete(XAsyncBlock *async) {
-    auto *ctx = static_cast<SignInContext *>(async->context);
+        Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to translate the native XUser into a Godot wrapper.", "user_wrapper_create_failed");
+        _get_runtime()->set_last_error(result);
+        p_op->complete(result);
+        return;
+    }
 
-    XUserHandle user_handle = nullptr;
-    HRESULT hr = XUserAddResult(async, &user_handle);
+    const bool is_new_user = _upsert_user(user);
+    const bool primary_changed = !m_primary_user.is_valid() || m_primary_user->get_local_id() != user->get_local_id();
+    m_primary_user = user;
 
-    ctx->manager->_on_sign_in_complete(user_handle, hr, ctx->was_silent);
-    delete ctx;
-}
-
-void GDKUserManager::_on_sign_in_complete(XUserHandle handle, HRESULT hr, bool was_silent) {
-    if (SUCCEEDED(hr) && handle) {
-        Ref<GDKUserInfo> user;
-        user.instantiate();
-        user->set_from_handle(handle);
-
-        m_sign_in_pending = false;
-        _store_user(user);
-
-        // Log without PII — only indicate success
-        UtilityFunctions::print("GDK: Xbox user signed in successfully");
-        call_deferred("emit_signal", "user_signed_in", user);
+    if (is_new_user) {
+        emit_signal("user_added", user);
     } else {
-        if (handle) {
-            XUserCloseHandle(handle);
+        emit_signal("user_changed", user);
+    }
+
+    if (primary_changed) {
+        emit_signal("primary_user_changed", user);
+    }
+
+    _get_runtime()->clear_last_error();
+    p_op->complete(GDKResult::ok_result(user));
+}
+
+void CALLBACK GDKUsers::_user_change_callback(void *p_context, XUserLocalId p_user_local_id, XUserChangeEvent p_event) {
+    auto *users = static_cast<GDKUsers *>(p_context);
+    users->on_user_change(p_user_local_id, p_event);
+}
+
+GDKRuntime *GDKUsers::_get_runtime() const {
+    return m_owner != nullptr ? m_owner->get_runtime() : nullptr;
+}
+
+Ref<GDKAsyncOp> GDKUsers::_start_add_user_async(XUserAddOptions p_options, const String &p_action) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        if (m_owner != nullptr) {
+            return m_owner->make_async_error_op(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
         }
 
-        // If silent attempt failed asynchronously, fall back to UI
-        if (was_silent) {
-            UtilityFunctions::print("GDK: Silent sign-in failed, falling back to UI");
-            m_sign_in_pending = false;
-            m_silent_attempt = false;
-            sign_in();
-            return;
+        Ref<GDKAsyncOp> op;
+        op.instantiate();
+        op->complete(GDKResult::error_result(E_FAIL, "not_initialized", "The users service is not attached to a GDK runtime."));
+        return op;
+    }
+
+    Ref<GDKAsyncOp> op;
+    op.instantiate();
+    runtime->retain_op(op);
+
+    auto *context = new AddUserAsyncContext(this, runtime, op, p_action);
+    context->bind_cancel_handler();
+
+    HRESULT hr = XUserAddAsync(p_options, context->get_async_block());
+    if (FAILED(hr)) {
+        op->clear_cancel_handler();
+        delete context;
+
+        Ref<GDKResult> result = GDKResult::hresult_error(hr, p_action, "user_add_start_failed");
+        runtime->set_last_error(result);
+        op->complete(result);
+        return op;
+    }
+
+    return op;
+}
+
+bool GDKUsers::_upsert_user(const Ref<GDKUser> &p_user) {
+    for (Ref<GDKUser> &existing : m_users) {
+        if (existing.is_valid() && existing->get_local_id() == p_user->get_local_id()) {
+            existing = p_user;
+            return false;
         }
-
-        m_sign_in_pending = false;
-
-        char hex_buf[16];
-        snprintf(hex_buf, sizeof(hex_buf), "0x%08X", (unsigned int)hr);
-        String msg = String("Sign-in failed: ") + hex_buf;
-        UtilityFunctions::push_error("GDK: ", msg);
-        call_deferred("emit_signal", "sign_in_failed", msg);
     }
+
+    m_users.push_back(p_user);
+    return true;
 }
 
-// ── Public API ──────────────────────────────────────────────────
-
-void GDKUserManager::sign_in() {
-    GDKCore *core = GDKCore::get_singleton();
-    ERR_FAIL_COND_MSG(!core || !core->is_initialized(),
-        "GDK not initialized. Call GDK.initialize() first.");
-
-    if (m_sign_in_pending) {
-        UtilityFunctions::push_warning("GDK: Sign-in already in progress");
-        return;
+Ref<GDKUser> GDKUsers::_find_user_by_local_id(XUserLocalId p_user_local_id) const {
+    for (const Ref<GDKUser> &user : m_users) {
+        if (user.is_valid() && user->matches_local_id(p_user_local_id)) {
+            return user;
+        }
     }
 
-    m_sign_in_pending = true;
-    m_silent_attempt = false;
-
-    auto *ctx = new SignInContext();
-    ctx->manager = this;
-    ctx->was_silent = false;
-    ctx->async = {};
-    ctx->async.queue = core->get_task_queue();
-    ctx->async.context = ctx;
-    ctx->async.callback = sign_in_complete;
-
-    HRESULT hr = XUserAddAsync(
-        XUserAddOptions::AddDefaultUserAllowingUI,
-        &ctx->async
-    );
-
-    if (FAILED(hr)) {
-        m_sign_in_pending = false;
-        char hex_buf[16];
-        snprintf(hex_buf, sizeof(hex_buf), "0x%08X", (unsigned int)hr);
-        String msg = String("Failed to start sign-in: ") + hex_buf;
-        UtilityFunctions::push_error("GDK: ", msg);
-        emit_signal("sign_in_failed", msg);
-        delete ctx;
-    }
+    return Ref<GDKUser>();
 }
 
-void GDKUserManager::sign_in_silently() {
-    GDKCore *core = GDKCore::get_singleton();
-    ERR_FAIL_COND_MSG(!core || !core->is_initialized(),
-        "GDK not initialized. Call GDK.initialize() first.");
-
-    if (m_sign_in_pending) {
-        UtilityFunctions::push_warning("GDK: Sign-in already in progress");
-        return;
-    }
-
-    m_sign_in_pending = true;
-    m_silent_attempt = true;
-
-    auto *ctx = new SignInContext();
-    ctx->manager = this;
-    ctx->was_silent = true;
-    ctx->async = {};
-    ctx->async.queue = core->get_task_queue();
-    ctx->async.context = ctx;
-    ctx->async.callback = sign_in_complete;
-
-    HRESULT hr = XUserAddAsync(
-        XUserAddOptions::AddDefaultUserSilently,
-        &ctx->async
-    );
-
-    if (FAILED(hr)) {
-        // Immediate failure on silent — fall back to UI
-        m_sign_in_pending = false;
-        m_silent_attempt = false;
-        UtilityFunctions::print("GDK: Silent sign-in unavailable, falling back to UI");
-        delete ctx;
-        sign_in();
-    }
-}
-
-// ── Async gamer picture ─────────────────────────────────────────
-
-struct GamerPictureContext {
-    GDKUserManager *manager;
-    XAsyncBlock async;
-};
-
-static void CALLBACK gamer_picture_complete(XAsyncBlock *async) {
-    auto *ctx = static_cast<GamerPictureContext *>(async->context);
-    ctx->manager->_on_gamer_picture_complete(async);
-    delete ctx;
-}
-
-void GDKUserManager::get_gamer_picture() {
-    GDKCore *core = GDKCore::get_singleton();
-    ERR_FAIL_COND_MSG(!core || !core->is_initialized(),
-        "GDK not initialized. Call GDK.initialize() first.");
-    ERR_FAIL_COND_MSG(!is_signed_in(), "No user signed in.");
-
-    if (m_picture_pending) {
-        UtilityFunctions::push_warning("GDK: Gamer picture fetch already in progress");
-        return;
-    }
-
-    m_picture_pending = true;
-
-    auto *ctx = new GamerPictureContext();
-    ctx->manager = this;
-    ctx->async = {};
-    ctx->async.queue = core->get_task_queue();
-    ctx->async.context = ctx;
-    ctx->async.callback = gamer_picture_complete;
-
-    HRESULT hr = XUserGetGamerPictureAsync(
-        m_current_user->get_handle(),
-        XUserGamerPictureSize::Medium, // 208x208
-        &ctx->async
-    );
-
-    if (FAILED(hr)) {
-        m_picture_pending = false;
-        UtilityFunctions::push_warning("GDK: Failed to start gamer picture fetch");
-        delete ctx;
-    }
-}
-
-void GDKUserManager::_on_gamer_picture_complete(XAsyncBlock *async) {
-    m_picture_pending = false;
-
-    size_t buffer_size = 0;
-    HRESULT hr = XUserGetGamerPictureResultSize(async, &buffer_size);
-    if (FAILED(hr) || buffer_size == 0) {
-        UtilityFunctions::push_warning("GDK: Failed to get gamer picture size");
-        return;
-    }
-
-    std::vector<uint8_t> buffer(buffer_size);
-    size_t buffer_used = 0;
-    hr = XUserGetGamerPictureResult(async, buffer.size(), buffer.data(), &buffer_used);
-    if (FAILED(hr)) {
-        UtilityFunctions::push_warning("GDK: Failed to get gamer picture data");
-        return;
-    }
-
-    // Convert PNG bytes to Godot ImageTexture
-    PackedByteArray png_data;
-    png_data.resize(buffer_used);
-    memcpy(png_data.ptrw(), buffer.data(), buffer_used);
-
-    Ref<Image> image;
-    image.instantiate();
-    Error err = image->load_png_from_buffer(png_data);
-    if (err != OK) {
-        UtilityFunctions::push_warning("GDK: Failed to decode gamer picture PNG");
-        return;
-    }
-
-    Ref<ImageTexture> texture = ImageTexture::create_from_image(image);
-    call_deferred("emit_signal", "gamer_picture_loaded", texture);
-}
-
-void GDKUserManager::sign_out() {
-    if (!m_current_user.is_valid()) {
-        return;
-    }
-
-    UtilityFunctions::print("GDK: Signing out user");
-    _clear_user();
-    emit_signal("user_signed_out");
-}
-
-Ref<GDKUserInfo> GDKUserManager::get_current_user() const {
-    return m_current_user;
-}
-
-bool GDKUserManager::is_signed_in() const {
-    return m_current_user.is_valid() && m_current_user->is_valid();
-}
-
-bool GDKUserManager::is_sign_in_pending() const {
-    return m_sign_in_pending;
+void GDKUsers::_remove_user_by_local_id(XUserLocalId p_user_local_id) {
+    m_users.erase(
+        std::remove_if(
+            m_users.begin(),
+            m_users.end(),
+            [p_user_local_id](const Ref<GDKUser> &user) {
+                return user.is_null() || user->matches_local_id(p_user_local_id);
+            }),
+        m_users.end());
 }
 
 } // namespace godot

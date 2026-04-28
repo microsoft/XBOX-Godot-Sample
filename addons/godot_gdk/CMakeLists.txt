@@ -9,10 +9,15 @@ gdk_detect_dependencies(
 
 add_library(godot_gdk SHARED
     src/register_types.cpp
-    src/gdk_core.cpp
+    src/gdk.cpp
+    src/gdk_runtime.cpp
+    src/gdk_result.cpp
+    src/gdk_async_op.cpp
+    src/gdk_dispatch_op.cpp
+    src/gdk_xasync_context.cpp
     src/gdk_user.cpp
-    src/gdk_input.cpp
-    src/gdk_achievements.cpp
+    src/gdk_achievement.cpp
+    src/gdk_xbox_services.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE
@@ -27,7 +32,6 @@ target_link_directories(godot_gdk PRIVATE
 target_link_libraries(godot_gdk PRIVATE
     godot::cpp
     xgameruntime
-    GameInput
     "$<IF:$<CONFIG:Debug>,Microsoft.Xbox.Services.C.Thunks.Debug,Microsoft.Xbox.Services.C.Thunks>"
     libHttpClient
 )
