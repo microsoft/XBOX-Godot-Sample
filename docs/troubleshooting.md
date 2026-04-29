@@ -89,12 +89,12 @@ winget install Microsoft.Gaming.GDK
 Windows cannot find 'Godot_v4.6.1-stable_win64.exe'.
 ```
 
-**Cause:** `sample/launch_editor.bat` expects the Godot executable to be
-placed in the `sample/` directory with that exact filename.
+**Cause:** `sample/gdk_demo/launch_editor.bat` expects the Godot executable to be
+placed in the `sample/gdk_demo/` directory with that exact filename.
 
 **Fix:** Download Godot 4.6.1 stable from
 [godotengine.org](https://godotengine.org/download) and place the executable
-in the `sample/` directory. The `.exe` filename must match what's in
+in the `sample/gdk_demo/` directory. The `.exe` filename must match what's in
 `launch_editor.bat`.
 
 ## Visual Studio version mismatch

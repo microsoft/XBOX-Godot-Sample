@@ -39,10 +39,10 @@ At the repository level, `godot_gdk` is one GDExtension addon inside a repo that
 
 ### Sample project
 
-- `sample\project.godot`
-- `sample\gdk_bootstrap.gd`
-- `sample\main.gd`
-- `sample\tests\run_tests.gd`
+- `sample\gdk_demo\project.godot`
+- `sample\gdk_demo\gdk_bootstrap.gd`
+- `sample\gdk_demo\main.gd`
+- `sample\gdk_demo\tests\run_tests.gd`
 
 ## Build and packaging flow
 
@@ -66,7 +66,7 @@ The effective runtime artifact chain is:
 native C++ sources
   -> godot_gdk.windows.<config>.x86_64.dll
   -> addons/godot_gdk/bin/
-  -> sample/addons/godot_gdk/bin/
+  -> sample/gdk_demo/addons/godot_gdk/bin/
 ```
 
 ## Runtime loading path
@@ -106,7 +106,7 @@ Gameplay code should therefore treat `GDK` as the only root singleton and reach 
 
 ## Why the sample is part of the build flow
 
-The build scripts do not just produce the addon DLL. They also sync the addon metadata and runtime DLL dependencies into `sample\addons\godot_gdk\`.
+The build scripts do not just produce the addon DLL. They also sync the addon metadata and runtime DLL dependencies into `sample\gdk_demo\addons\godot_gdk\`.
 
 That makes the sample project the easiest place to:
 

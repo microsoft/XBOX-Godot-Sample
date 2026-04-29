@@ -28,7 +28,7 @@ Xbox Live services. You can configure everything through the in-editor
 1. Build the addon and open the sample in the editor:
    ```powershell
    cmake --build build --preset debug
-   .\sample\launch_editor.bat
+   .\sample\gdk_demo\launch_editor.bat
    ```
 2. Find the **GDK Setup** panel in the bottom-right dock
 3. Enter your Partner Center values

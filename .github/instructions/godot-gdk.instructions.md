@@ -1,6 +1,6 @@
 ---
 description: Godot GDK addon architecture, async model, script conventions, and sample workflow
-applyTo: "addons/godot_gdk/**, sample/addons/godot_gdk/**, sample/gdk_bootstrap.gd, sample/main.gd, sample/main.tscn, sample/MicrosoftGame.config, sample/project.godot, sample/sample_config.cfg.template, sample/tests/**, docs/godot-gdk-*.md, spec/gdext-gdk.md, tools/setup_sample.ps1"
+applyTo: "addons/godot_gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/gdk_bootstrap.gd, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_demo/tests/**, docs/godot-gdk-*.md, spec/gdext-gdk.md, tools/setup_sample.ps1"
 ---
 
 # Godot GDK Addon Instructions
@@ -56,7 +56,7 @@ applyTo: "addons/godot_gdk/**, sample/addons/godot_gdk/**, sample/gdk_bootstrap.
 - The headless test entry point for this addon is:
 
 ```powershell
-cd sample
+cd sample/gdk_demo
 godot --headless --script res://tests/run_tests.gd
 ```
 
@@ -66,5 +66,5 @@ godot --headless --script res://tests/run_tests.gd
 cmake --build build --preset debug
 ```
 
-  so the `sample\addons\godot_gdk\` copy is refreshed.
+  so the `sample\gdk_demo\addons\godot_gdk\` copy is refreshed.
 - Keep `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` aligned with the current addon architecture and sample workflow when those surfaces change.

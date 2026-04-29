@@ -2,7 +2,7 @@
 # Generates sample_config.cfg and MicrosoftGame.config from your Partner Center values.
 
 param(
-    [string]$ConfigPath = "$PSScriptRoot\..\sample\sample_config.cfg"
+    [string]$ConfigPath = "$PSScriptRoot\..\sample\gdk_demo\sample_config.cfg"
 )
 
 $ErrorActionPreference = "Stop"
@@ -153,5 +153,5 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Set your PC sandbox:  XblPCSandbox.exe set $SandboxId"
 Write-Host "  2. Build the addon:      cmake --build build --preset debug"
-Write-Host "  3. Launch the editor:    .\sample\launch_editor.bat"
+Write-Host "  3. Launch the editor:    .\sample\gdk_demo\launch_editor.bat"
 Write-Host ""

@@ -22,7 +22,7 @@ cmake --preset default
 cmake --build build --preset debug
 
 # Launch the sample
-.\sample\launch_editor.bat
+.\sample\gdk_demo\launch_editor.bat
 ```
 
 > **Note:** Building and opening the sample works immediately. Xbox Live
@@ -46,7 +46,9 @@ addons/godot_gameinput/   # GameInput addon: metadata, native sources
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
-sample/                   # Shared Godot sample project
+sample/                   # Sample projects
+  gdk_demo/              #   GDK addon demo and tests
+  multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```

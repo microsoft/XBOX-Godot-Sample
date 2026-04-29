@@ -45,7 +45,7 @@ cmake --build build --preset release
 The build:
 
 - Outputs addon DLLs to `addons/<addon>/bin/`
-- Copies built DLLs and runtime dependencies into `sample/addons/<addon>/bin/`
+- Copies built DLLs and runtime dependencies into `sample/gdk_demo/addons/<addon>/bin/`
 - Syncs addon metadata and editor scripts into the sample project
 
 ### Selective builds
@@ -81,7 +81,7 @@ cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/26040
 cmake --build build --preset debug
 
 # Launch the Godot editor with the sample project
-.\sample\launch_editor.bat
+.\sample\gdk_demo\launch_editor.bat
 ```
 
 > **Important:** Building and opening the sample works immediately. Xbox Live
@@ -111,7 +111,9 @@ addons/godot_gameinput/   # GameInput addon: metadata, native sources
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
-sample/                   # Shared Godot sample project
+sample/                   # Sample projects
+  gdk_demo/              #   GDK addon demo and tests
+  multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```
@@ -130,7 +132,7 @@ project.
 ### Running headless tests
 
 ```powershell
-cd sample
+cd sample/gdk_demo
 .\Godot_v4.6.1-stable_win64.exe --headless --script res://tests/run_tests.gd
 ```
 

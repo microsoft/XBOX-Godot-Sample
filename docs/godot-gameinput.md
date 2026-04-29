@@ -55,7 +55,7 @@ cmake --build build --preset debug
 ```
 
 Output DLLs land in `addons/godot_gameinput/bin/` and are synced to
-`sample/addons/godot_gameinput/bin/` by the build.
+`sample/gdk_demo/addons/godot_gameinput/bin/` by the build.
 
 ## Using in a project
 

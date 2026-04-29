@@ -13,7 +13,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
-set(GODOT_SAMPLE_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/sample/addons")
+set(GODOT_SAMPLE_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/sample/gdk_demo/addons")
 
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)
 option(BUILD_GODOT_GAMEINPUT "Build the godot_gameinput addon" ON)
