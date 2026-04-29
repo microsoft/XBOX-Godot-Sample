@@ -29,27 +29,27 @@ func run(context) -> void:
 	for signal_name in ["social_graph_changed", "social_group_updated", "social_user_changed"]:
 		context.assert_has_signal(social, signal_name)
 
-	var filter = GDKSocialFilter.new()
+	var filter = context.instantiate_class("GDKSocialFilter")
 	context.assert_not_null(filter, "GDKSocialFilter.new() returns wrapper")
 	if filter != null:
 		for method_name in ["get_presence_filter", "set_presence_filter", "get_relationship_filter", "set_relationship_filter"]:
 			context.assert_has_method(filter, method_name)
-		context.assert_eq(filter.get_presence_filter(), GDKSocialFilter.PRESENCE_FILTER_ALL, "GDKSocialFilter presence_filter defaults to PRESENCE_FILTER_ALL")
-		context.assert_eq(filter.get_relationship_filter(), GDKSocialFilter.RELATIONSHIP_FILTER_FRIENDS, "GDKSocialFilter relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
+		context.assert_eq(filter.get_presence_filter(), context.get_class_constant("GDKSocialFilter", "PRESENCE_FILTER_ALL"), "GDKSocialFilter presence_filter defaults to PRESENCE_FILTER_ALL")
+		context.assert_eq(filter.get_relationship_filter(), context.get_class_constant("GDKSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "GDKSocialFilter relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
 
-	var group = GDKSocialGroup.new()
+	var group = context.instantiate_class("GDKSocialGroup")
 	context.assert_not_null(group, "GDKSocialGroup.new() returns wrapper")
 	if group != null:
 		for method_name in ["get_local_user", "is_loaded", "get_group_type", "get_group_type_name", "get_presence_filter", "get_relationship_filter", "get_tracked_xuids"]:
 			context.assert_has_method(group, method_name)
 		context.assert_eq(group.is_loaded(), false, "blank GDKSocialGroup loaded defaults false")
-		context.assert_eq(group.get_group_type(), GDKSocialGroup.GROUP_TYPE_FILTER, "blank GDKSocialGroup group_type defaults to GROUP_TYPE_FILTER")
+		context.assert_eq(group.get_group_type(), context.get_class_constant("GDKSocialGroup", "GROUP_TYPE_FILTER"), "blank GDKSocialGroup group_type defaults to GROUP_TYPE_FILTER")
 		context.assert_eq(group.get_group_type_name(), "filter", "blank GDKSocialGroup group_type_name defaults to filter")
-		context.assert_eq(group.get_presence_filter(), GDKSocialFilter.PRESENCE_FILTER_ALL, "blank GDKSocialGroup presence_filter defaults to PRESENCE_FILTER_ALL")
-		context.assert_eq(group.get_relationship_filter(), GDKSocialFilter.RELATIONSHIP_FILTER_FRIENDS, "blank GDKSocialGroup relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
+		context.assert_eq(group.get_presence_filter(), context.get_class_constant("GDKSocialFilter", "PRESENCE_FILTER_ALL"), "blank GDKSocialGroup presence_filter defaults to PRESENCE_FILTER_ALL")
+		context.assert_eq(group.get_relationship_filter(), context.get_class_constant("GDKSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "blank GDKSocialGroup relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
 		context.assert_true(group.get_tracked_xuids() is PackedStringArray, "blank GDKSocialGroup tracked_xuids returns PackedStringArray")
 
-	var social_user = GDKSocialUser.new()
+	var social_user = context.instantiate_class("GDKSocialUser")
 	context.assert_not_null(social_user, "GDKSocialUser.new() returns wrapper")
 	if social_user != null:
 		for method_name in [
@@ -77,7 +77,7 @@ func run(context) -> void:
 		context.assert_true(social_user.get_title_history() is Dictionary, "blank GDKSocialUser title_history returns Dictionary")
 		context.assert_true(social_user.get_preferred_color() is Dictionary, "blank GDKSocialUser preferred_color returns Dictionary")
 
-	var blank_user = GDKUser.new()
+	var blank_user = context.instantiate_class("GDKUser")
 	context.assert_true(social.create_social_group(blank_user) == null, "create_social_group() returns null when the graph cannot start")
 	context.assert_true(social.create_social_group_from_xuids(blank_user, PackedStringArray(["1"])) == null, "create_social_group_from_xuids() returns null when the graph cannot start")
 	context.assert_true(social.get_group_users(null) is Array, "get_group_users() returns Array")
@@ -122,7 +122,7 @@ func run(context) -> void:
 		var friends_op = social.get_friends_async(user)
 		context.assert_not_null(friends_op, "get_friends_async() returns GDKAsyncOp for a signed-in user")
 		if friends_op != null:
-			context.assert_true(friends_op is GDKAsyncOp, "get_friends_async() uses async op surface")
+			context.assert_object_is(friends_op, "GDKAsyncOp", "get_friends_async() uses async op surface")
 			var friends_result = context.wait_for_op(friends_op, 8000)
 			if friends_result == null:
 				friends_op.cancel()
@@ -133,8 +133,8 @@ func run(context) -> void:
 				return
 
 			if friends_result.ok:
-				context.assert_true(friends_result.data is GDKSocialGroup, "friends query returns a GDKSocialGroup on success")
-				if friends_result.data is GDKSocialGroup:
+				context.assert_object_is(friends_result.data, "GDKSocialGroup", "friends query returns a GDKSocialGroup on success")
+				if context.is_class_instance(friends_result.data, "GDKSocialGroup"):
 					var friends_group = friends_result.data
 					context.assert_eq(friends_group.is_loaded(), true, "friends group reports loaded after a successful query")
 					var local_user = friends_group.get_local_user()
@@ -145,7 +145,7 @@ func run(context) -> void:
 					var group_users = social.get_group_users(friends_group)
 					context.assert_true(group_users is Array, "get_group_users() returns Array for a loaded group")
 					if group_users.size() > 0:
-						context.assert_true(group_users[0] is GDKSocialUser, "loaded social groups return GDKSocialUser wrappers")
+						context.assert_object_is(group_users[0], "GDKSocialUser", "loaded social groups return GDKSocialUser wrappers")
 
 				var runtime_error_count = runtime_errors.size()
 				var invalid_group = social.create_social_group_from_xuids(user, PackedStringArray())

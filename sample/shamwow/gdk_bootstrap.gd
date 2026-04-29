@@ -2,6 +2,7 @@ extends Node
 ## Autoload that keeps the GDK extension loaded and pumps dispatch when initialized.
 
 const GDK_EXTENSION_PATH = "res://addons/godot_gdk/godot_gdk.gdextension"
+const GD_SCRIPT_CHECK_FLAG = "--gd-script-check"
 
 var _gdk_extension = null
 var _gdk_load_attempted = false
@@ -20,6 +21,9 @@ func _gdk():
 	return null
 
 func _ready() -> void:
+	var user_args := OS.get_cmdline_user_args()
+	if user_args.has(GD_SCRIPT_CHECK_FLAG):
+		return
 	if _gdk() == null:
 		push_warning("[GDK] Extension singleton is not available yet. Build the addon before opening this sample.")
 

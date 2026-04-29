@@ -2,6 +2,7 @@ extends Node
 ## Autoload script that initializes the shared GDK runtime and pumps async dispatch.
 
 const GDK_EXTENSION_PATH := "res://addons/godot_gdk/godot_gdk.gdextension"
+const GD_SCRIPT_CHECK_FLAG := "--gd-script-check"
 
 var _startup_user_op = null
 var _bootstrap_active := false
@@ -20,6 +21,9 @@ func get_gdk():
 	return null
 
 func _ready() -> void:
+	var user_args := OS.get_cmdline_user_args()
+	if user_args.has(GD_SCRIPT_CHECK_FLAG):
+		return
 	var args := OS.get_cmdline_args()
 	if args.has("--script") and args.has("res://tests/run_tests.gd"):
 		print("[GDK] Bootstrap skipped for headless tests")

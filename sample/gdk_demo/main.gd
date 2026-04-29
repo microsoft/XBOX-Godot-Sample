@@ -32,6 +32,12 @@ var _loaded_gamer_picture_xuid := ""
 var _pending_gamer_picture_xuid := ""
 var _last_mpa_event_text := "No invite events yet."
 
+func _get_gdk():
+	var bootstrap = get_node_or_null("/root/GDKBootstrap")
+	if bootstrap != null and bootstrap.has_method("get_gdk"):
+		return bootstrap.get_gdk()
+	return null
+
 func _ready() -> void:
 	achievement_button.visible = true
 	achievement_label.visible = true
@@ -44,7 +50,7 @@ func _ready() -> void:
 	mpa_invite_ui_button.pressed.connect(_on_mpa_invite_ui_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk != null:
 		gdk.initialized.connect(_on_runtime_initialized)
 		gdk.shutdown_completed.connect(_on_runtime_shutdown)
@@ -62,7 +68,7 @@ func _ready() -> void:
 	_refresh_state()
 
 func _refresh_state() -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk != null and gdk.is_initialized():
 		status_label.text = "GDK: Initialized ✓"
 		sign_in_button.disabled = false
@@ -104,7 +110,7 @@ func _clear_user() -> void:
 	xuid_label.text = ""
 	user_label.text = "User: Not signed in"
 	_clear_avatar()
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk != null and gdk.is_initialized():
 		sign_in_button.text = "Retry Silent Sign-In"
 		sign_in_button.disabled = false
@@ -138,7 +144,7 @@ func _load_gamer_picture(user) -> void:
 	avatar_rect.visible = false
 
 	var requested_xuid: String = user.xuid
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		_clear_avatar()
 		return
@@ -156,7 +162,7 @@ func _on_gamer_picture_completed(result, gamer_picture_op, requested_xuid: Strin
 
 	_pending_gamer_picture_xuid = ""
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	var primary_user = gdk.users.get_primary_user() if gdk != null else null
 	if primary_user == null or primary_user.xuid != requested_xuid:
 		return
@@ -175,7 +181,7 @@ func _on_sign_in_pressed() -> void:
 	if _silent_sign_in_op and not _silent_sign_in_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		status_label.text = "GDK: Extension not loaded"
 		return
@@ -215,7 +221,7 @@ func _on_sign_in_completed(result) -> void:
 		_refresh_achievement_ui()
 
 func _on_runtime_initialized() -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	status_label.text = "GDK: Initialized ✓"
 	if gdk != null and not gdk.users.get_primary_user():
 		sign_in_button.text = "Retry Silent Sign-In"
@@ -229,7 +235,7 @@ func _on_runtime_shutdown() -> void:
 	sign_in_button.disabled = true
 
 func _on_runtime_error(result) -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	status_label.text = "GDK Error: %s" % result.message
 	if gdk != null and not gdk.users.get_primary_user():
 		sign_in_button.text = "Retry Silent Sign-In"
@@ -254,12 +260,12 @@ func _on_primary_user_changed(user) -> void:
 		_clear_user()
 
 func _is_primary_user(user) -> bool:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	var primary_user = gdk.users.get_primary_user() if gdk != null else null
 	return user != null and primary_user != null and user.local_id == primary_user.local_id
 
 func _find_cached_achievement(user, achievement_id: String):
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return null
 
@@ -269,7 +275,7 @@ func _find_cached_achievement(user, achievement_id: String):
 	return null
 
 func _refresh_achievement_ui() -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	var query_in_progress: bool = _achievement_query_op != null and not _achievement_query_op.is_done()
 	var update_in_progress: bool = _achievement_update_op != null and not _achievement_update_op.is_done()
 
@@ -348,7 +354,7 @@ func _format_invite_event(invite) -> String:
 	return String(invite.get("raw_uri", "Unknown invite event"))
 
 func _refresh_mpa_ui() -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	var set_in_progress = _mpa_set_op != null and not _mpa_set_op.is_done()
 	var delete_in_progress = _mpa_delete_op != null and not _mpa_delete_op.is_done()
 	var invite_ui_in_progress = _mpa_invite_ui_op != null and not _mpa_invite_ui_op.is_done()
@@ -396,7 +402,7 @@ func _on_mpa_set_pressed() -> void:
 	if _mpa_set_op != null and not _mpa_set_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return
 
@@ -430,7 +436,7 @@ func _on_mpa_clear_pressed() -> void:
 	if _mpa_delete_op != null and not _mpa_delete_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return
 
@@ -456,7 +462,7 @@ func _on_mpa_invite_ui_pressed() -> void:
 	if _mpa_invite_ui_op != null and not _mpa_invite_ui_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return
 
@@ -479,7 +485,7 @@ func _on_mpa_invite_ui_completed(result) -> void:
 	_refresh_mpa_ui()
 
 func _on_mpa_activities_updated(xuids: PackedStringArray) -> void:
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	var user = gdk.users.get_primary_user() if gdk != null else null
 	if user != null and xuids.has(user.xuid):
 		_refresh_mpa_ui()
@@ -500,7 +506,7 @@ func _start_achievement_query(user) -> void:
 	if _achievement_query_op != null and not _achievement_query_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return
 
@@ -527,7 +533,7 @@ func _on_achievement_pressed() -> void:
 	if _achievement_update_op != null and not _achievement_update_op.is_done():
 		return
 
-	var gdk = GDKBootstrap.get_gdk()
+	var gdk = _get_gdk()
 	if gdk == null:
 		return
 

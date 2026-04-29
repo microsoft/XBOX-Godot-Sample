@@ -34,7 +34,7 @@ func run(context) -> void:
 	context.assert_true(users.get_users() is Array, "get_users() returns Array")
 	context.assert_true(users.get_primary_user() == null, "get_primary_user() starts null before init")
 
-	var blank_user = GDKUser.new()
+	var blank_user = context.instantiate_class("GDKUser")
 	context.assert_not_null(blank_user, "GDKUser.new() returns wrapper")
 	if blank_user != null:
 		for method_name in [
@@ -54,9 +54,9 @@ func run(context) -> void:
 		context.assert_eq(blank_user.get_local_id(), 0, "blank GDKUser local_id defaults to 0")
 		context.assert_eq(blank_user.get_xuid(), "", "blank GDKUser xuid defaults empty")
 		context.assert_eq(blank_user.get_gamertag(), "", "blank GDKUser gamertag defaults empty")
-		context.assert_eq(blank_user.get_age_group(), GDKUser.AGE_GROUP_UNKNOWN, "blank GDKUser age_group defaults to AGE_GROUP_UNKNOWN")
+		context.assert_eq(blank_user.get_age_group(), context.get_class_constant("GDKUser", "AGE_GROUP_UNKNOWN"), "blank GDKUser age_group defaults to AGE_GROUP_UNKNOWN")
 		context.assert_eq(blank_user.get_age_group_name(), "unknown", "blank GDKUser age_group_name defaults to unknown")
-		context.assert_eq(blank_user.get_sign_in_state(), GDKUser.SIGN_IN_STATE_SIGNED_OUT, "blank GDKUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
+		context.assert_eq(blank_user.get_sign_in_state(), context.get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_OUT"), "blank GDKUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
 		context.assert_eq(blank_user.get_sign_in_state_name(), "signed_out", "blank GDKUser sign_in_state_name defaults to signed_out")
 		context.assert_eq(blank_user.is_guest(), false, "blank GDKUser guest defaults false")
 		context.assert_eq(blank_user.is_signed_in(), false, "blank GDKUser signed_in defaults false")
@@ -87,7 +87,7 @@ func run(context) -> void:
 	var add_result = sign_in["result"]
 	var user = sign_in["user"]
 	if add_op != null:
-		context.assert_true(add_op is GDKAsyncOp, "add_default_user_async() uses XAsync-backed op type")
+		context.assert_object_is(add_op, "GDKAsyncOp", "add_default_user_async() uses XAsync-backed op type")
 	if add_op != null and add_result == null:
 		context.log_fail("add_default_user_async() completes", "timed out waiting for the default user flow")
 		context.disconnect_signal_handlers(users, ["user_added", "user_removed", "user_changed", "primary_user_changed"])
@@ -116,8 +116,8 @@ func run(context) -> void:
 		context.reset_runtime()
 		return
 
-	context.assert_true(user is GDKUser, "default-user flow returns a GDKUser")
-	if add_result != null and add_result.data != null and add_result.data is GDKUser:
+	context.assert_object_is(user, "GDKUser", "default-user flow returns a GDKUser")
+	if add_result != null and context.is_class_instance(add_result.data, "GDKUser"):
 		context.assert_eq(add_result.data.get_local_id(), user.get_local_id(), "default-user result data matches the cached primary user")
 
 	var primary_user = users.get_primary_user()
@@ -134,13 +134,13 @@ func run(context) -> void:
 	context.assert_true(user.get_local_id() != 0, "signed-in user local_id is populated")
 	context.assert_true(user.get_xuid().length() > 0, "signed-in user XUID is populated")
 	context.assert_true(user.get_gamertag().length() > 0, "signed-in user gamertag is populated")
-	context.assert_eq(user.get_sign_in_state(), GDKUser.SIGN_IN_STATE_SIGNED_IN, "signed-in user reports SIGNED_IN")
+	context.assert_eq(user.get_sign_in_state(), context.get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_IN"), "signed-in user reports SIGNED_IN")
 	context.assert_eq(user.is_signed_in(), true, "signed-in user reports signed_in == true")
 
 	var privilege_op = users.check_privilege_async(user, 254)
 	context.assert_not_null(privilege_op, "check_privilege_async() returns GDKAsyncOp for a signed-in user")
 	if privilege_op != null:
-		context.assert_true(privilege_op is GDKAsyncOp, "check_privilege_async() uses GDKAsyncOp")
+		context.assert_object_is(privilege_op, "GDKAsyncOp", "check_privilege_async() uses GDKAsyncOp")
 		context.assert_true(privilege_op.is_done(), "check_privilege_async() completes immediately")
 		var privilege_result = privilege_op.get_result()
 		context.assert_not_null(privilege_result, "check_privilege_async() yields a result")

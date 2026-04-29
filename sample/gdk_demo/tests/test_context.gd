@@ -57,6 +57,23 @@ func assert_has_signal(obj: Object, signal_name: String, test_name: String = "")
 	var label = test_name if test_name else "%s.%s signal exists" % [obj.get_class(), signal_name]
 	assert_true(obj.has_signal(signal_name), label)
 
+func instantiate_class(target_class: String):
+	if not ClassDB.class_exists(target_class) or not ClassDB.can_instantiate(target_class):
+		return null
+	return ClassDB.instantiate(target_class)
+
+func get_class_constant(target_class: String, constant_name: String) -> int:
+	return ClassDB.class_get_integer_constant(target_class, constant_name)
+
+func is_class_instance(value, target_class: String) -> bool:
+	if value == null or typeof(value) != TYPE_OBJECT:
+		return false
+	var object_value: Object = value
+	return object_value.is_class(target_class)
+
+func assert_object_is(value, target_class: String, name: String) -> void:
+	assert_true(is_class_instance(value, target_class), name)
+
 func disconnect_signal_handlers(obj: Object, signal_names: Array) -> void:
 	for signal_name in signal_names:
 		for conn in obj.get_signal_connection_list(signal_name):
