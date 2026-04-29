@@ -27,8 +27,12 @@ cmake_install.cmake
 # ── Built DLLs (output of CMake build) ──────────────────────────
 addons/godot_gdk/bin/
 addons/godot_gameinput/bin/
-**/addons/godot_gdk/bin/
-**/addons/godot_gameinput/bin/
+addons/godot_playfab/bin/
+addons/godot_playfab/demo/bin/
+sample/addons/godot_gdk/bin/
+sample/addons/godot_gameinput/bin/
+sample*/addons/godot_gdk/bin/
+sample*/addons/godot_gameinput/bin/
 
 # ── Godot ────────────────────────────────────────────────────────
 .godot/

@@ -22,6 +22,7 @@ set(GODOT_SAMPLE_DIRS
 
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)
 option(BUILD_GODOT_GAMEINPUT "Build the godot_gameinput addon" ON)
+option(BUILD_GODOT_PLAYFAB "Build the godot_playfab addon" ON)
 
 add_subdirectory(godot-cpp)
 
@@ -31,4 +32,8 @@ endif()
 
 if(BUILD_GODOT_GAMEINPUT)
     add_subdirectory(addons/godot_gameinput)
+endif()
+
+if(BUILD_GODOT_PLAYFAB)
+    add_subdirectory(addons/godot_playfab)
 endif()
