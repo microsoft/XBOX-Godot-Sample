@@ -561,6 +561,9 @@ func _on_achievement_save() -> void:
 	if err == OK:
 		_achievement_status_label.text = "✅ Saved to sample_config.cfg"
 		_log("Achievement config saved")
+		var fs = EditorInterface.get_resource_filesystem()
+		if not fs.is_scanning():
+			fs.scan()
 	else:
 		_achievement_status_label.text = "Failed to save: " + error_string(err)
 		push_error("[GDK] Failed to save achievement config: " + error_string(err))

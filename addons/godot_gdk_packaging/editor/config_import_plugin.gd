@@ -13,7 +13,7 @@ func _get_visible_name() -> String:
 
 
 func _get_recognized_extensions() -> PackedStringArray:
-	return PackedStringArray(["config"])
+	return PackedStringArray(["config", "cfg"])
 
 
 func _get_save_extension() -> String:
