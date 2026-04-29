@@ -53,14 +53,8 @@ func _setup_xbox() -> void:
 		gdk.users.user_added.connect(_on_user_added)
 		gdk.users.user_removed.connect(_on_user_removed)
 		gdk.users.primary_user_changed.connect(_on_primary_user_changed)
-		# Also listen for late initialization
-		if not gdk.is_initialized():
-			gdk.initialized.connect(_on_gdk_initialized)
+		gdk.initialized.connect(_refresh_xbox_state)
 
-	_refresh_xbox_state()
-
-
-func _on_gdk_initialized() -> void:
 	_refresh_xbox_state()
 
 
@@ -88,9 +82,17 @@ func _process(delta: float) -> void:
 #region Xbox Identity
 func _refresh_xbox_state() -> void:
 	var gdk = _get_gdk()
-	if gdk == null or not gdk.is_initialized():
-		xbox_status_label.text = "Xbox: Unavailable"
+	if gdk == null:
+		xbox_status_label.text = "Xbox: Extension not loaded"
 		xbox_status_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		sign_in_button.visible = false
+		host_button.disabled = true
+		join_button.disabled = true
+		return
+
+	if not gdk.is_initialized():
+		xbox_status_label.text = "Xbox: Initializing..."
+		xbox_status_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.3))
 		sign_in_button.visible = false
 		# Multiplayer disabled without Xbox, single player always works
 		host_button.disabled = true
