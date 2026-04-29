@@ -105,14 +105,17 @@ in the `sample/` directory. The `.exe` filename must match what's in
 CMake Error: Generator "Visual Studio 17 2022" could not find any instance of Visual Studio.
 ```
 
-**Cause:** The CMake preset specifies Visual Studio 2022, but a different
-version is installed.
+**Cause:** The repository CMake presets target Visual Studio 2022. This
+error usually means Visual Studio 2022 is not installed, or only a different
+Visual Studio version is installed.
 
-**Fix:** Configure manually with the correct generator:
+**Fix:** Either install Visual Studio 2022 to match the presets, or configure
+manually with the generator for the Visual Studio version you have installed:
 
 ```powershell
-# For Visual Studio 2026
-cmake -G "Visual Studio 18 2026" -A x64 -B build -DCMAKE_CXX_STANDARD=17 -DBUILD_GODOT_GDK=ON -DBUILD_GODOT_GAMEINPUT=ON
+# Replace the generator string with your installed Visual Studio version,
+# for example: "Visual Studio 17 2022" or "Visual Studio 18 2026"
+cmake -G "<your installed Visual Studio generator>" -A x64 -B build -DCMAKE_CXX_STANDARD=17 -DBUILD_GODOT_GDK=ON -DBUILD_GODOT_GAMEINPUT=ON
 ```
 
 ## godot-cpp submodule not found

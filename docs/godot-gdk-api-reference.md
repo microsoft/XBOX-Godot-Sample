@@ -17,7 +17,7 @@ accessed as namespaces under this root.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `initialize(config)` | `GDKResult` | Start the GDK runtime |
+| `initialize(config := null)` | `GDKResult` | Start the GDK runtime. `config` is optional and reserved for future use. |
 | `shutdown()` | `void` | Clean up the runtime |
 | `is_available()` | `bool` | Whether the GDK runtime is available on this platform |
 | `is_initialized()` | `bool` | Whether the runtime has been initialized |
@@ -101,12 +101,20 @@ Script-visible wrapper around a local Xbox user.
 | `xuid` | `String` | Xbox User ID |
 | `gamertag` | `String` | Display name |
 | `age_group` | `GDKUser.AgeGroup` | Age group enum |
-| `age_group_name` | `String` | Age group as string |
 | `sign_in_state` | `GDKUser.SignInState` | Sign-in state enum |
-| `sign_in_state_name` | `String` | Sign-in state as string |
-| `is_guest` | `bool` | Whether the user is a guest |
-| `is_signed_in` | `bool` | Whether the user is signed in |
-| `is_store_user` | `bool` | Whether the user is a store user |
+| `guest` | `bool` | Whether the user is a guest |
+| `signed_in` | `bool` | Whether the user is signed in |
+| `store_user` | `bool` | Whether the user is a store user |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_age_group_name()` | `String` | Age group as human-readable string |
+| `get_sign_in_state_name()` | `String` | Sign-in state as human-readable string |
+| `is_guest()` | `bool` | Whether the user is a guest |
+| `is_signed_in()` | `bool` | Whether the user is signed in |
+| `is_store_user()` | `bool` | Whether the user is a store user |
 
 ## Achievements service: `GDK.achievements`
 
@@ -152,15 +160,22 @@ Script-visible wrapper around a cached achievement.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `achievement_id` | `String` | Achievement identifier |
+| `id` | `String` | Achievement identifier |
 | `name` | `String` | Localized display name |
 | `service_configuration_id` | `String` | Service config ID |
-| `progress_state` | `int` | Progress state |
+| `progress_state` | `String` | Progress state |
 | `progress_percent` | `int` | Computed progress (0–100) |
-| `is_unlocked` | `bool` | Whether fully unlocked |
-| `is_secret` | `bool` | Whether hidden until unlocked |
+| `unlocked` | `bool` | Whether fully unlocked |
+| `secret` | `bool` | Whether hidden until unlocked |
 | `locked_description` | `String` | Description shown when locked |
 | `unlocked_description` | `String` | Description shown when unlocked |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_unlocked()` | `bool` | Whether the achievement is fully unlocked |
+| `is_secret()` | `bool` | Whether the achievement is hidden until unlocked |
 
 ## Async operation types
 
