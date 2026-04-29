@@ -6,6 +6,8 @@ const DEFAULT_PORT = 8910
 @onready var host_button: Button = $HostButton
 @onready var join_button: Button = $JoinButton
 @onready var single_player_button: Button = $SinglePlayerButton
+@onready var sign_in_button: Button = $SignInButton
+@onready var xbox_status_label: Label = $XboxStatusLabel
 @onready var status_ok: Label = $StatusOk
 @onready var status_fail: Label = $StatusFail
 @onready var port_forward_label: Label = $PortForward
@@ -13,6 +15,8 @@ const DEFAULT_PORT = 8910
 
 var peer: ENetMultiplayerPeer
 var _title_hue := 0.0
+var _signed_in := false
+var _sign_in_op = null
 
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_player_connected)
@@ -22,7 +26,7 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_server_disconnected)
 
 	# Dark neon background
-	var bg := get_parent().get_node_or_null("Background")
+	var bg = get_parent().get_node_or_null("Background")
 	if bg == null:
 		bg = ColorRect.new()
 		bg.name = "Background"
@@ -31,10 +35,24 @@ func _ready() -> void:
 		bg.z_index = -1
 		get_parent().add_child(bg)
 
-	# Style the title
 	var title_label = get_parent().get_node_or_null("Title")
 	if title_label:
 		title_label.add_theme_font_size_override("font_size", 40)
+
+	# Wire Xbox signals
+	var gdk = _get_gdk()
+	if gdk != null:
+		gdk.users.user_added.connect(_on_user_added)
+		gdk.users.user_removed.connect(_on_user_removed)
+		gdk.users.primary_user_changed.connect(_on_primary_user_changed)
+
+	_refresh_xbox_state()
+
+
+func _get_gdk():
+	if Engine.has_singleton("GDK"):
+		return Engine.get_singleton("GDK")
+	return null
 
 
 func _process(delta: float) -> void:
@@ -46,6 +64,78 @@ func _process(delta: float) -> void:
 		title_label.add_theme_color_override("font_color",
 			Color.from_hsv(_title_hue, 0.7, 1.0))
 
+
+#region Xbox Identity
+func _refresh_xbox_state() -> void:
+	var gdk = _get_gdk()
+	if gdk == null or not gdk.is_initialized():
+		xbox_status_label.text = "Xbox: Unavailable"
+		xbox_status_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		sign_in_button.visible = false
+		# Multiplayer disabled without Xbox, single player always works
+		host_button.disabled = true
+		join_button.disabled = true
+		return
+
+	var user = gdk.users.get_primary_user()
+	if user != null and user.signed_in:
+		_signed_in = true
+		xbox_status_label.text = "Xbox: %s" % user.gamertag
+		xbox_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		sign_in_button.visible = false
+		host_button.disabled = false
+		join_button.disabled = false
+	else:
+		_signed_in = false
+		xbox_status_label.text = "Xbox: Not signed in"
+		xbox_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		sign_in_button.visible = true
+		sign_in_button.disabled = false
+		host_button.disabled = true
+		join_button.disabled = true
+
+
+func _on_sign_in_pressed() -> void:
+	var gdk = _get_gdk()
+	if gdk == null or not gdk.is_initialized():
+		return
+
+	sign_in_button.disabled = true
+	sign_in_button.text = "Signing in..."
+
+	_sign_in_op = gdk.users.add_user_with_ui_async()
+	if _sign_in_op == null:
+		sign_in_button.text = "Sign In to Xbox"
+		sign_in_button.disabled = false
+		return
+
+	if _sign_in_op.is_done():
+		_on_sign_in_completed(_sign_in_op.get_result())
+	else:
+		_sign_in_op.completed.connect(_on_sign_in_completed)
+
+
+func _on_sign_in_completed(result) -> void:
+	if result != null and result.ok:
+		_set_status("Signed in!", true)
+	else:
+		var msg = result.message if result != null else "Sign-in failed"
+		_set_status(msg, false)
+	_refresh_xbox_state()
+	sign_in_button.text = "Sign In to Xbox"
+
+
+func _on_user_added(_user) -> void:
+	_refresh_xbox_state()
+
+
+func _on_user_removed(_local_id: int) -> void:
+	_refresh_xbox_state()
+
+
+func _on_primary_user_changed(_user) -> void:
+	_refresh_xbox_state()
+#endregion
 
 #region Network callbacks
 func _player_connected(_id: int) -> void:
@@ -59,16 +149,13 @@ func _player_disconnected(_id: int) -> void:
 		_end_game("Server disconnected.")
 
 
-# Callback from SceneTree, only for clients (not server).
 func _connected_ok() -> void:
-	pass # This function is not needed for this project.
+	pass
 
 
-# Callback from SceneTree, only for clients (not server).
 func _connected_fail() -> void:
 	_set_status("Couldn't connect.", false)
-
-	multiplayer.set_multiplayer_peer(null)  # Remove peer.
+	multiplayer.set_multiplayer_peer(null)
 	_set_buttons_disabled(false)
 
 
@@ -76,37 +163,38 @@ func _server_disconnected() -> void:
 	_end_game("Server disconnected.")
 #endregion
 
-#region Game creation methods
+#region Game creation
 func _start_game(single_player: bool) -> void:
 	var pong: Node2D = load("res://pong.tscn").instantiate()
 	pong.is_single_player = single_player
 	pong.game_finished.connect(_end_game, CONNECT_DEFERRED)
-
 	get_tree().get_root().add_child(pong)
-	hide()
+	get_parent().hide()
 
 
 func _end_game(with_error: String = "") -> void:
 	if has_node(^"/root/Pong"):
-		# Erase immediately, otherwise network might show
-		# errors (this is why we connected deferred above).
 		get_node(^"/root/Pong").free()
-		show()
+		get_parent().show()
 
-	multiplayer.set_multiplayer_peer(null)  # Remove peer.
+	multiplayer.set_multiplayer_peer(null)
 	_set_buttons_disabled(false)
-
 	_set_status(with_error, false)
 
 
 func _set_buttons_disabled(disabled: bool) -> void:
-	host_button.set_disabled(disabled)
-	join_button.set_disabled(disabled)
+	# Single player is always available
 	single_player_button.set_disabled(disabled)
+	# Multiplayer requires Xbox sign-in
+	if _signed_in:
+		host_button.set_disabled(disabled)
+		join_button.set_disabled(disabled)
+	else:
+		host_button.set_disabled(true)
+		join_button.set_disabled(true)
 
 
 func _set_status(text: String, is_ok: bool) -> void:
-	# Simple way to show status.
 	if is_ok:
 		status_ok.set_text(text)
 		status_fail.set_text("")
@@ -122,12 +210,14 @@ func _on_single_player_pressed() -> void:
 
 
 func _on_host_pressed() -> void:
+	if not _signed_in:
+		_set_status("Sign in to Xbox first.", false)
+		return
+
 	peer = ENetMultiplayerPeer.new()
-	# Set a maximum of 1 peer, since Pong is a 2-player game.
-	var err := peer.create_server(DEFAULT_PORT, 1)
+	var err = peer.create_server(DEFAULT_PORT, 1)
 	if err != OK:
-		# Is another server running?
-		_set_status("Can't host, address in use.",false)
+		_set_status("Can't host, address in use.", false)
 		return
 	peer.get_host().compress(ENetConnection.COMPRESS_RANGE_CODER)
 
@@ -136,13 +226,16 @@ func _on_host_pressed() -> void:
 	_set_status("Waiting for player...", true)
 	get_window().title = ProjectSettings.get_setting("application/config/name") + ": Server"
 
-	# Only show hosting instructions when relevant.
 	port_forward_label.visible = true
 	find_public_ip_button.visible = true
 
 
 func _on_join_pressed() -> void:
-	var ip := address.get_text()
+	if not _signed_in:
+		_set_status("Sign in to Xbox first.", false)
+		return
+
+	var ip = address.get_text()
 	if not ip.is_valid_ip_address():
 		_set_status("IP address is invalid.", false)
 		return
