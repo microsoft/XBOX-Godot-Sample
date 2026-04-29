@@ -30,7 +30,18 @@ This is the landing page for the `godot_gdk` docs set.
 
 ## Document map
 
-### Plugin overview
+### User guides
+
+- [`getting-started.md`](getting-started.md)  
+  Prerequisites, building, VS Code setup, and development workflow.
+
+- [`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md)  
+  Partner Center configuration, sandbox setup, test accounts, and configuration flow.
+
+- [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
+  Public GDScript API surface for `GDK`, `GDK.users`, and `GDK.achievements`.
+
+### Architecture
 
 - [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md)  
   How the addon is laid out, built, packaged, and loaded by Godot.
@@ -49,10 +60,20 @@ This is the landing page for the `godot_gdk` docs set.
 - [`godot-gdk-async-system.md`](godot-gdk-async-system.md)  
   Lower-level explanation of the shared async bridge and its current runtime/users/achievements implementation.
 
+### Reference
+
+- [`troubleshooting.md`](troubleshooting.md)  
+  Common build and runtime issues.
+
+- [`../spec/gdext-gdk.md`](../spec/gdext-gdk.md)  
+  Design spec (planned API, not necessarily current implementation).
+
 ## Recommended reading order
 
-1. Start here for scope.
-2. Read [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md) for the addon lifecycle.
-3. Read [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md) for the current runtime architecture.
-4. Use [`godot-gdk-async-system.md`](godot-gdk-async-system.md) when you need the lower-level async mechanics.
-5. Read [`godot-gdk-editor-tools.md`](godot-gdk-editor-tools.md) and [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) when working on tooling or validation.
+1. Start with [`getting-started.md`](getting-started.md) to build and run.
+2. Read this page for current scope.
+3. Read [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md) for the public API.
+4. Read [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md) for the addon lifecycle.
+5. Read [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md) for the current runtime architecture.
+6. Use [`godot-gdk-async-system.md`](godot-gdk-async-system.md) when you need the lower-level async mechanics.
+7. Read [`godot-gdk-editor-tools.md`](godot-gdk-editor-tools.md) and [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) when working on tooling or validation.
