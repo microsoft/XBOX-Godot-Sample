@@ -3,7 +3,6 @@ include(GDKDependencies)
 
 gdk_detect_dependencies(
     GDK_WINDOWS_OUT GDK_WINDOWS
-    XSAPI_RUNTIME_DLL_OUT XSAPI_RUNTIME_DLL
     LIBHTTPCLIENT_RUNTIME_DLL_OUT LIBHTTPCLIENT_RUNTIME_DLL
     PLAYFAB_CORE_RUNTIME_DLL_OUT PLAYFAB_CORE_RUNTIME_DLL
     PLAYFAB_SERVICES_RUNTIME_DLL_OUT PLAYFAB_SERVICES_RUNTIME_DLL
@@ -13,7 +12,6 @@ gdk_detect_dependencies(
 
 add_library(godot_playfab SHARED
     src/GenericPlayer.cpp
-    src/myPlayer.cpp
     src/pch.cpp
     src/PFUtils.cpp
     src/PlayFabManager.cpp

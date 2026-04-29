@@ -4,7 +4,6 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include "myPlayer.h"
 #include "PlayFabManager.h"
 
 using namespace godot;
@@ -14,9 +13,7 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
-	//GDREGISTER_CLASS(YourClass);
 	GDREGISTER_RUNTIME_CLASS(PlayFabManager);
-	GDREGISTER_RUNTIME_CLASS(myPlayer);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
