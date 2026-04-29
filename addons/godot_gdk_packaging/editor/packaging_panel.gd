@@ -368,8 +368,9 @@ func _on_create_config() -> void:
 	var err = _config_mgr.create_template()
 	if err == OK:
 		_log("Created template MicrosoftGame.config in project root")
-		# Trigger Godot filesystem rescan so it appears in the FileSystem dock
-		EditorInterface.get_resource_filesystem().scan()
+		# Trigger Godot filesystem rescan so new files appear in the FileSystem dock
+		# Use call_deferred to ensure file handles are flushed first
+		EditorInterface.get_resource_filesystem().call_deferred("scan")
 		_refresh_config_status()
 	elif err == ERR_ALREADY_EXISTS:
 		_log("MicrosoftGame.config already exists")
