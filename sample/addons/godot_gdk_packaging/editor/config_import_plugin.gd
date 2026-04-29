@@ -17,18 +17,18 @@ func _get_recognized_extensions() -> PackedStringArray:
 
 
 func _get_save_extension() -> String:
-	return "config"
+	return "res"
 
 
 func _get_resource_type() -> String:
-	return "Resource"
+	return "JSON"
 
 
 func _get_preset_count() -> int:
 	return 1
 
 
-func _get_preset_name(preset_index: int) -> String:
+func _get_preset_name(_preset_index: int) -> String:
 	return "Default"
 
 
@@ -46,11 +46,12 @@ func _get_priority() -> float:
 
 func _import(source_file: String, save_path: String, _options: Dictionary,
 		_platform_variants: Array[String], _gen_files: Array[String]) -> Error:
-	# Just copy the file as a generic Resource so it appears in the dock
 	var file = FileAccess.open(source_file, FileAccess.READ)
 	if file == null:
 		return FileAccess.get_open_error()
+	var content = file.get_as_text()
 	file.close()
-	# Save a trivial resource so the import pipeline is satisfied
-	var res = Resource.new()
-	return ResourceSaver.save(res, save_path + "." + _get_save_extension())
+
+	var json = JSON.new()
+	json.data = content
+	return ResourceSaver.save(json, save_path + ".res")
