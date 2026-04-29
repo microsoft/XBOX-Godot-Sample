@@ -39,8 +39,6 @@ var _validate_btn: Button
 var _pack_btn: Button
 
 # Output
-var _output_log: TextEdit
-var _clear_log_btn: Button
 var _status_label: Label
 
 # Logo watcher
@@ -292,26 +290,6 @@ func _build_ui() -> void:
 
 	root.add_child(HSeparator.new())
 
-	# ── Output Log ──
-	var log_header := HBoxContainer.new()
-	root.add_child(log_header)
-	var log_label := Label.new()
-	log_label.text = "Output"
-	log_label.add_theme_font_size_override("font_size", 14)
-	log_header.add_child(log_label)
-
-	_clear_log_btn = Button.new()
-	_clear_log_btn.text = "Clear"
-	_clear_log_btn.pressed.connect(func(): _output_log.text = "")
-	log_header.add_child(_clear_log_btn)
-
-	_output_log = TextEdit.new()
-	_output_log.editable = false
-	_output_log.custom_minimum_size.y = 150
-	_output_log.size_flags_vertical = SIZE_EXPAND_FILL
-	_output_log.scroll_fit_content_height = false
-	root.add_child(_output_log)
-
 	_set_actions_enabled(_toolchain.is_gdk_available())
 
 
@@ -371,9 +349,6 @@ func _set_actions_enabled(enabled: bool) -> void:
 
 func _log(text: String) -> void:
 	print("[GDK Packaging] ", text)
-	_output_log.text += text + "\n"
-	# Scroll to bottom
-	_output_log.set_caret_line(_output_log.get_line_count() - 1)
 
 func _log_result(result: Dictionary) -> void:
 	if result["stdout"] != "":
