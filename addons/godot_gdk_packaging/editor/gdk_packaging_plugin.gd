@@ -6,6 +6,7 @@ extends EditorPlugin
 const PackagingPanel = preload("res://addons/godot_gdk_packaging/editor/packaging_panel.gd")
 const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
+const ConfigImportPlugin = preload("res://addons/godot_gdk_packaging/editor/config_import_plugin.gd")
 
 # Documentation URLs
 const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/packaging/pc/pc-packaging-getting-started"
@@ -18,6 +19,7 @@ var _gdk_menu_index: int = -1
 var _packaging_panel: Control
 var _toolchain: RefCounted
 var _config_mgr: RefCounted
+var _config_import_plugin: EditorImportPlugin
 
 # Menu item IDs
 enum MenuID {
@@ -37,6 +39,10 @@ enum MenuID {
 func _enter_tree() -> void:
 	_toolchain = GDKToolchainScript.new()
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
+
+	# Register .config file import so they appear in the FileSystem dock
+	_config_import_plugin = ConfigImportPlugin.new()
+	add_import_plugin(_config_import_plugin)
 
 	# ── Find the editor MenuBar and add a "GDK" top-level menu ──
 	_menu_bar = _find_menu_bar(EditorInterface.get_base_control())
@@ -87,6 +93,11 @@ func _exit_tree() -> void:
 
 	_toolchain = null
 	_config_mgr = null
+
+	if _config_import_plugin:
+		remove_import_plugin(_config_import_plugin)
+		_config_import_plugin = null
+
 	print("[GDK Packaging] Editor plugin unloaded")
 
 
