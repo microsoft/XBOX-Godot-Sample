@@ -120,3 +120,11 @@ bbcode_enabled = true
 text = "[color=gray]MPA: sign in to configure an activity[/color]"
 fit_content = false
 scroll_active = false
+
+[node name="SocialLabel" type="RichTextLabel" parent="VBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 60)
+bbcode_enabled = true
+text = "[color=gray]Presence: sign in to load\nFriends tracked: sign in to load[/color]"
+fit_content = false
+scroll_active = false

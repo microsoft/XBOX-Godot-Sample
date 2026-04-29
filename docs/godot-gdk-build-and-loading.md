@@ -111,5 +111,5 @@ The build scripts do not just produce the addon DLL. They also sync the addon me
 That makes the sample project the easiest place to:
 
 - open the addon in the editor
-- exercise the runtime/users/achievements baseline
+- exercise the runtime/users/achievements/presence/social baseline
 - run the current headless regression suite

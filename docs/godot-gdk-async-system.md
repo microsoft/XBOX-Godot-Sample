@@ -1,6 +1,6 @@
 # Godot GDK async system
 
-This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users` and `GDK.achievements`).
+This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`godot-gdk-plugin.md`](godot-gdk-plugin.md).
 
@@ -18,7 +18,7 @@ The current baseline gives us:
 - one normalized result type: `GDKResult`
 - one internal `XAsync` bridge base: `GDKXAsyncContext`
 - one internal Xbox services scaffold: `GDKXboxServices`
-- two concrete services using the pattern: `GDK.users` and `GDK.achievements`
+- four concrete services using the pattern: `GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`
 
 ## Public surface
 
@@ -36,6 +36,8 @@ Current public methods:
 - `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
 - `get_achievements() -> GDKAchievements`
+- `get_presence() -> GDKPresence`
+- `get_social() -> GDKSocial`
 
 Current public signals:
 
@@ -95,6 +97,47 @@ Current public signals:
 - `achievement_unlocked(user: GDKUser, achievement_id: String)`
 - `achievements_updated(user: GDKUser)`
 
+### `GDK.presence`
+
+`GDK.presence` is a `RefCounted` service object returned by `GDK.get_presence()`.
+
+Current public methods:
+
+- `set_presence_async(user, state, rich_presence := {}) -> GDKAsyncOp`
+- `clear_presence_async(user) -> GDKAsyncOp`
+- `get_presence_async(xuids) -> GDKAsyncOp`
+- `get_cached_presence(xuid) -> GDKPresenceRecord`
+
+Current public signals:
+
+- `presence_changed(xuid: String, presence: GDKPresenceRecord)`
+- `local_presence_set(user: GDKUser)`
+
+Important current behavior:
+
+- `state` is the configured rich-presence string ID for the title's SCID in Partner Center.
+- `get_presence_async(xuids)` still requires a signed-in primary user because the XSAPI read needs a caller context.
+
+### `GDK.social`
+
+`GDK.social` is a `RefCounted` service object returned by `GDK.get_social()`.
+
+Current public methods:
+
+- `start_social_graph(user) -> GDKResult`
+- `stop_social_graph(user) -> void`
+- `get_friends_async(user) -> GDKAsyncOp`
+- `create_social_group(user, filter := null) -> GDKSocialGroup`
+- `create_social_group_from_xuids(user, xuids) -> GDKSocialGroup`
+- `destroy_social_group(group) -> void`
+- `get_group_users(group) -> Array`
+
+Current public signals:
+
+- `social_graph_changed(user: GDKUser)`
+- `social_group_updated(group: GDKSocialGroup)`
+- `social_user_changed(xuid: String, social_user: GDKSocialUser)`
+
 ### `GDKAsyncOp`
 
 `GDKAsyncOp` is the script-visible wrapper for one-shot work backed by a native `XAsyncBlock`.
@@ -121,7 +164,7 @@ It inherits the same `completed(result)`, `is_done()`, `cancel()`, and `get_resu
 
 - it unregisters itself from the service's pending dispatch state immediately
 - it completes with a cancelled `GDKResult` right away
-- it is intended for manager/event-driven systems such as Achievements Manager and future Social Manager-backed waits
+- it is intended for manager/event-driven systems such as Achievements Manager and Social Manager-backed waits
 
 ### `GDKResult`
 
@@ -135,14 +178,14 @@ Fields:
 - `message: String`
 - `data: Variant`
 
-`data` carries the operation payload. In the current implementation, successful user-add calls complete with a `GDKUser` in `data`, privilege and token/signature calls complete with `Dictionary` payloads, gamer-picture requests complete with a Godot `Image`, and successful achievement queries/updates complete with cached `GDKAchievement` data in `data`.
+`data` carries the operation payload. In the current implementation, successful user-add calls complete with a `GDKUser` in `data`, privilege and token/signature calls complete with `Dictionary` payloads, gamer-picture requests complete with a Godot `Image`, successful achievement queries/updates complete with cached `GDKAchievement` data in `data`, successful presence queries complete with an `Array` of `GDKPresenceRecord`, and successful friends-group queries complete with a `GDKSocialGroup`.
 
 ## File map
 
 ### Root/runtime
 
 - `gdk.cpp` / `gdk.h`  
-  Root singleton. Owns `GDKRuntime`, `GDKXboxServices`, `GDKUsers`, and `GDKAchievements`.
+  Root singleton. Owns `GDKRuntime`, `GDKXboxServices`, `GDKUsers`, `GDKAchievements`, `GDKPresence`, and `GDKSocial`.
 
 - `gdk_runtime.cpp` / `gdk_runtime.h`  
   Shared GDK runtime owner. Creates the queue, retains active ops, dispatches completions, and shuts everything down safely.
@@ -172,8 +215,14 @@ Fields:
 - `gdk_achievement.cpp` / `gdk_achievement.h`
   `GDKAchievement`, `GDKAchievements`, the Achievements Manager cache, and manager-driven `GDKDispatchOp` completion.
 
+- `gdk_presence.cpp` / `gdk_presence.h`
+  `GDKPresence`, `GDKPresenceRecord`, the presence cache, and XAsync-backed presence set/clear/query flows.
+
+- `gdk_social.cpp` / `gdk_social.h`
+  `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, and Social Manager-backed dispatch completion.
+
 - `register_types.cpp`  
-  Registers `GDK`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`, `GDKAsyncOp`, `GDKDispatchOp`, and `GDKResult`, then publishes the `GDK` singleton.
+  Registers `GDK`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKAsyncOp`, `GDKDispatchOp`, and `GDKResult`, then publishes the `GDK` singleton.
 
 ## Core model
 
@@ -436,4 +485,4 @@ Today the system covers:
 - one reusable `XAsync` context base
 - the users baseline
 
-It does **not** yet implement the other service namespaces from the spec (`save`, `achievements`, `stats`, `leaderboards`, `presence`, `social`), but they are expected to reuse the same pattern.
+It does **not** yet implement every service namespace from the spec (`save`, `stats`, and `leaderboards` are still missing), but presence and social now reuse the same shared async/dispatch pattern beside users and achievements.

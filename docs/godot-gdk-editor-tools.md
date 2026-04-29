@@ -9,7 +9,7 @@ See also:
 
 ## Editor plugin overview
 
-The addon still ships an editor plugin even though the native runtime implementation is still at an early runtime/users/achievements baseline.
+The addon still ships an editor plugin even though the native runtime implementation is still at an early runtime/users/achievements/presence/social baseline.
 
 The editor-side pieces are:
 
@@ -77,7 +77,7 @@ So even though the gameplay-side native feature set is still early, the addon al
 
 ## Relationship to the current native scope
 
-The native runtime currently implements the runtime/users/achievements baseline.
+The native runtime currently implements the runtime/users/achievements/presence/social baseline.
 
 The editor tools are therefore broader than the currently implemented runtime APIs. They remain part of the shipped addon because they support:
 

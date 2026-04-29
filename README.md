@@ -7,7 +7,7 @@ A repository of Godot 4.x GDExtension addons for the Microsoft public GDK
 
 | Addon | Description | Status |
 |-------|-------------|--------|
-| [`godot_gdk`](addons/godot_gdk/) | GDK runtime, Xbox user identity, Xbox achievements, Xbox multiplayer activity | Runtime/users/achievements/multiplayer activity baseline |
+| [`godot_gdk`](addons/godot_gdk/) | GDK runtime, Xbox user identity, Xbox achievements, Xbox presence, Xbox social graph, Xbox multiplayer activity | Runtime/users/achievements/presence/social/multiplayer-activity baseline |
 | [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput controller support | Scaffold (build pipeline verified) |
 
 ## Quick start
@@ -29,6 +29,13 @@ cmake --build build --preset debug
 > features require Partner Center setup —
 > see [Sample Project Setup](docs/godot-gdk-sample-setup.md).
 
+The repo also includes a ShamWow-inspired scenario shell sample at
+`sample\shamwow\`. Launch it with:
+
+```powershell
+.\sample\shamwow\launch_editor.bat
+```
+
 ### Requirements
 
 - Windows 10 (18362+) or Windows 11
@@ -49,9 +56,16 @@ godot-cpp/                # godot-cpp submodule
 sample/                   # Sample projects
   gdk_demo/              #   GDK addon demo and tests
   multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
+  shamwow/               #   ShamWow-inspired scenario shell sample
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```
+
+## Sample projects
+
+- `sample\gdk_demo\` — baseline runtime/users/achievements demo
+- `sample\shamwow\` — scenario-driven shell inspired by ShamWow, built around grouped runtime/users/achievements/multiplayer-activity actions and an event log
+- `sample\multiplayer_pong\` — multiplayer pong with Xbox identity and single player mode
 
 ## Documentation
 
@@ -60,7 +74,7 @@ Full documentation lives in [`docs/`](docs/README.md):
 - [**Getting Started**](docs/getting-started.md) — prerequisites, building,
   VS Code setup, development workflow
 - [**GDScript API Reference**](docs/godot-gdk-api-reference.md) — `GDK`,
-  `GDK.users`, `GDK.achievements`
+  `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`
 - [**Sample Project Setup**](docs/godot-gdk-sample-setup.md) — Partner Center
   config, sandbox, test accounts
 - [**GameInput Addon**](docs/godot-gameinput.md) — status and planned API
@@ -94,4 +108,25 @@ func _exit_tree():
 ```
 
 See the [API Reference](docs/godot-gdk-api-reference.md) for the full surface.
+
+## Testing Achievements
+
+Achievements must be configured in [Partner Center](https://partner.microsoft.com/) and published
+to your development sandbox before they can be unlocked.
+
+To **reset** achievements for re-testing, use the included helper script:
+
+```powershell
+.\tools\reset_player_data.ps1
+```
+
+This signs into Partner Center via `XblDevAccount.exe`, then calls `XblPlayerDataReset.exe`
+to wipe achievements, stats, and leaderboards for the specified test account. You'll need:
+
+- **Service Config ID (SCID)** — from Partner Center → Xbox Live → Xbox Live Setup
+- **Sandbox ID** — the development sandbox your test account is signed into
+- **XUID** — the Xbox User ID of the test account to reset
+
+> **Note:** Resets only work on Xbox test accounts in a development sandbox, not retail accounts.
+> Restart the game after resetting for changes to take effect.
 

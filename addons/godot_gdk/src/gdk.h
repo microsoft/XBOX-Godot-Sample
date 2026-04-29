@@ -13,6 +13,8 @@
 
 #include "gdk_achievement.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_presence.h"
+#include "gdk_social.h"
 #include "gdk_user.h"
 
 namespace godot {
@@ -32,6 +34,8 @@ class GDK : public Object {
     GDKXboxServices *m_xbox_services = nullptr;
     Ref<GDKUsers> m_users;
     Ref<GDKAchievements> m_achievements;
+    Ref<GDKPresence> m_presence;
+    Ref<GDKSocial> m_social;
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
 
 protected:
@@ -51,6 +55,8 @@ public:
     Ref<GDKResult> get_last_error() const;
     Ref<GDKUsers> get_users() const;
     Ref<GDKAchievements> get_achievements() const;
+    Ref<GDKPresence> get_presence() const;
+    Ref<GDKSocial> get_social() const;
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;
 
     GDKRuntime *get_runtime() const;

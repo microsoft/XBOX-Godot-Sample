@@ -11,12 +11,14 @@ See also:
 
 ## Runtime structure
 
-The current native implementation is the runtime/users/achievements baseline:
+The current native implementation is the runtime/users/achievements/presence/social baseline:
 
 - root singleton: `GDK`
 - service namespace: `GDK.users`
 - service namespace: `GDK.achievements`
-- wrapper types: `GDKResult`, `GDKAsyncOp`, `GDKDispatchOp`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`
+- service namespace: `GDK.presence`
+- service namespace: `GDK.social`
+- wrapper types: `GDKResult`, `GDKAsyncOp`, `GDKDispatchOp`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`
 - internal Xbox services scaffold: `GDKXboxServices`
 
 ## Root object: `GDK`
@@ -28,6 +30,8 @@ It owns:
 - `GDKRuntime`
 - `GDKUsers`
 - `GDKAchievements`
+- `GDKPresence`
+- `GDKSocial`
 - `GDKXboxServices`
 
 Its responsibilities are:
@@ -49,6 +53,8 @@ Current public shape:
 - `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
 - `get_achievements() -> GDKAchievements`
+- `get_presence() -> GDKPresence`
+- `get_social() -> GDKSocial`
 
 ## Shared runtime: `GDKRuntime`
 
@@ -169,6 +175,60 @@ It emits:
 - unlock/secret flags
 - locked/unlocked descriptions
 
+## Presence service
+
+`GDKPresence` is the XAsync-backed presence layer implemented on top of the shared Xbox services scaffold.
+
+It currently exposes:
+
+- `set_presence_async(user, state, rich_presence := {})`
+- `clear_presence_async(user)`
+- `get_presence_async(xuids)`
+- `get_cached_presence(xuid)`
+
+It emits:
+
+- `presence_changed`
+- `local_presence_set`
+
+`GDKPresenceRecord` is the script-visible wrapper around one cached presence snapshot. It stores:
+
+- XUID
+- enum-backed user state plus a string name helper
+- translated title/device presence records as Godot dictionaries
+
+Important contract details:
+
+- `state` is the configured rich-presence string ID for the current title SCID in Partner Center, not arbitrary text.
+- `rich_presence` can override `scid` and pass `token_ids` / `tokens` for rich-presence formatting.
+- `get_presence_async(xuids)` reads presence by XUID, but it still requires a signed-in primary user because the XSAPI call needs an Xbox services context.
+
+## Social service
+
+`GDKSocial` is the dispatch-driven Social Manager layer.
+
+It currently exposes:
+
+- `start_social_graph(user)`
+- `stop_social_graph(user)`
+- `get_friends_async(user)`
+- `create_social_group(user, filter := null)`
+- `create_social_group_from_xuids(user, xuids)`
+- `destroy_social_group(group)`
+- `get_group_users(group)`
+
+It emits:
+
+- `social_graph_changed`
+- `social_group_updated`
+- `social_user_changed`
+
+Its main wrapper types are:
+
+- `GDKSocialFilter` for filter-based group creation
+- `GDKSocialGroup` for tracked Social Manager groups
+- `GDKSocialUser` for copied social-graph user snapshots
+
 ## Request flow
 
 The current `add_default_user_async()` flow is the best end-to-end example of the runtime behavior:
@@ -203,11 +263,13 @@ The current `query_player_achievements_async()` and `update_achievement_async()`
 6. service signals are emitted
 7. only then does the pending `GDKDispatchOp` complete
 
-That is why `GDK.dispatch()` now pumps both the shared `XTaskQueue` completions and manager-driven service state.
+`GDKSocial` follows that same dispatch-driven model: it registers local users with Social Manager, creates `GDKSocialGroup` wrappers around Social Manager group handles, reacts to `XblSocialManagerDoWork()` events on `GDK.dispatch()`, refreshes cached group/user/presence state, emits service signals, and only then completes pending friends-group ops.
+
+That is why `GDK.dispatch()` now pumps the shared `XTaskQueue`, Achievements Manager, and Social Manager in one main-thread pass.
 
 ## Why the async layer matters plugin-wide
 
-Even though the implementation is still early, the async subsystem is already a plugin-wide architectural rule because both users and achievements depend on it.
+Even though the implementation is still early, the async subsystem is already a plugin-wide architectural rule because users, achievements, presence, and social all depend on it.
 
 Future one-shot wrappers should all follow the same contract:
 

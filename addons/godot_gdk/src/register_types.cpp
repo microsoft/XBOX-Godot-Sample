@@ -10,7 +10,9 @@
 #include "gdk_async_op.h"
 #include "gdk_dispatch_op.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_presence.h"
 #include "gdk_result.h"
+#include "gdk_social.h"
 #include "gdk_user.h"
 
 using namespace godot;
@@ -27,6 +29,12 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKUsers>();
         ClassDB::register_class<GDKAchievement>();
         ClassDB::register_class<GDKAchievements>();
+        ClassDB::register_class<GDKPresenceRecord>();
+        ClassDB::register_class<GDKPresence>();
+        ClassDB::register_class<GDKSocialFilter>();
+        ClassDB::register_class<GDKSocialGroup>();
+        ClassDB::register_class<GDKSocialUser>();
+        ClassDB::register_class<GDKSocial>();
         ClassDB::register_class<GDKMultiplayerActivityInfo>();
         ClassDB::register_class<GDKMultiplayerActivity>();
 

@@ -25,6 +25,8 @@ accessed as namespaces under this root.
 | `get_last_error()` | `GDKResult` | Last error result |
 | `get_users()` | `GDKUsers` | Access the users service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
+| `get_presence()` | `GDKPresence` | Access the presence service |
+| `get_social()` | `GDKSocial` | Access the social graph service |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
 
 ### Signals
@@ -177,6 +179,147 @@ Script-visible wrapper around a cached achievement.
 |--------|---------|-------------|
 | `is_unlocked()` | `bool` | Whether the achievement is fully unlocked |
 | `is_secret()` | `bool` | Whether the achievement is hidden until unlocked |
+
+## Presence service: `GDK.presence`
+
+`GDK.presence` is a `RefCounted` service object returned by `GDK.get_presence()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `set_presence_async(user, state, rich_presence)` | `GDKAsyncOp` | Set rich presence for a local user |
+| `clear_presence_async(user)` | `GDKAsyncOp` | Clear presence for a local user |
+| `get_presence_async(xuids)` | `GDKAsyncOp` | Query presence records for a list of XUIDs |
+| `get_cached_presence(xuid)` | `GDKPresenceRecord` | Get a cached presence record by XUID |
+
+**Notes:**
+- `state` is the configured rich-presence string ID for the title's SCID in Partner Center. It is not arbitrary display text.
+- `get_presence_async(xuids)` uses the signed-in primary user as its Xbox services caller context, so `GDK.users.get_primary_user()` must be non-null.
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `presence_changed(record: GDKPresenceRecord)` | A cached presence record was updated |
+| `local_presence_set(user: GDKUser)` | Local user presence was set successfully |
+
+### Usage
+
+```gdscript
+# Set presence
+var op = GDK.presence.set_presence_async(user, "InGame")
+await op.completed
+
+# Query presence for a list of XUIDs
+var query_op = GDK.presence.get_presence_async(["1234567890123456"])
+var result = await query_op.completed
+if result.ok:
+    var record = GDK.presence.get_cached_presence("1234567890123456")
+    print(record.gamertag, " is ", record.presence_text)
+```
+
+## `GDKPresenceRecord`
+
+Script-visible wrapper around a cached Xbox presence record.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `xuid` | `String` | Xbox User ID |
+| `gamertag` | `String` | Gamertag |
+| `online` | `bool` | Whether the user is online |
+| `presence_text` | `String` | Human-readable presence string |
+
+## Social service: `GDK.social`
+
+`GDK.social` is a `RefCounted` service object returned by `GDK.get_social()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `start_social_graph(user)` | `GDKResult` | Start tracking the social graph for a user |
+| `stop_social_graph(user)` | `void` | Stop tracking the social graph for a user |
+| `get_friends_async(user)` | `GDKAsyncOp` | Query the default friends group |
+| `create_social_group(user, filter)` | `GDKSocialGroup` | Create a filtered social group |
+| `create_social_group_from_xuids(user, xuids)` | `GDKSocialGroup` | Create a social group from explicit XUIDs |
+| `destroy_social_group(group)` | `void` | Destroy a social group |
+| `get_group_users(group)` | `Array` | Get the `GDKSocialUser` list for a group |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `social_graph_changed(user: GDKUser)` | The social graph loaded or changed for a user |
+| `social_group_updated(group: GDKSocialGroup)` | A social group's membership was updated |
+| `social_user_changed(social_user: GDKSocialUser)` | A tracked user's social/presence data changed |
+
+### Usage
+
+```gdscript
+GDK.social.social_graph_changed.connect(_on_graph_changed)
+var result = GDK.social.start_social_graph(user)
+if result.ok:
+    var op = GDK.social.get_friends_async(user)
+    var friends_result = await op.completed
+    if friends_result.ok:
+        for friend in GDK.social.get_group_users(friends_result.data):
+            print(friend.gamertag)
+```
+
+## `GDKSocialUser`
+
+Script-visible wrapper around a tracked social user.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `xuid` | `String` | Xbox User ID |
+| `gamertag` | `String` | Gamertag |
+| `display_name` | `String` | Display name |
+| `real_name` | `String` | Real name (if available) |
+| `online` | `bool` | Whether the user is online |
+| `playing_title_id` | `int` | Title ID the user is currently playing |
+| `title_name` | `String` | Name of the title being played |
+| `presence_text` | `String` | Human-readable presence string |
+
+## `GDKSocialGroup`
+
+Script-visible wrapper around a Social Manager group.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `presence_filter` | `GDKSocialFilter.PresenceFilter` | Presence filter used to create this group |
+| `relationship_filter` | `GDKSocialFilter.RelationshipFilter` | Relationship filter used to create this group |
+
+## `GDKSocialFilter`
+
+Namespace for social filter enums.
+
+### Enums
+
+**`PresenceFilter`**
+
+| Value | Description |
+|-------|-------------|
+| `UNKNOWN` | Unknown |
+| `TITLE_ONLINE` | Online in this title |
+| `TITLE_ALL_USERS` | All users for this title |
+| `ALL_ONLINE` | All online users |
+| `ALL_DEVICES` | All users on any device |
+| `ALL_USERS` | All users |
+
+**`RelationshipFilter`**
+
+| Value | Description |
+|-------|-------------|
+| `FRIENDS` | Friends only |
+| `FAVORITE` | Favorite friends only |
 
 ## Multiplayer activity service: `GDK.multiplayer_activity`
 

@@ -25,6 +25,10 @@ GDK::GDK() {
     m_users->set_owner(this);
     m_achievements.instantiate();
     m_achievements->set_owner(this);
+    m_presence.instantiate();
+    m_presence->set_owner(this);
+    m_social.instantiate();
+    m_social->set_owner(this);
     m_multiplayer_activity.instantiate();
     m_multiplayer_activity->set_owner(this);
 }
@@ -44,6 +48,8 @@ GDK::~GDK() {
 
     m_users.unref();
     m_achievements.unref();
+    m_presence.unref();
+    m_social.unref();
     m_multiplayer_activity.unref();
     singleton = nullptr;
 }
@@ -57,10 +63,14 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_last_error"), &GDK::get_last_error);
     ClassDB::bind_method(D_METHOD("get_users"), &GDK::get_users);
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
+    ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
+    ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKAchievements"), "", "get_achievements");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKPresence"), "", "get_presence");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKSocial"), "", "get_social");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
 
     ADD_SIGNAL(MethodInfo("initialized"));
@@ -109,10 +119,35 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return achievements_result;
     }
 
+    Ref<GDKResult> presence_result = m_presence->on_runtime_initialized();
+    if (!presence_result->is_ok()) {
+        emit_runtime_error(presence_result);
+        m_presence->shutdown();
+        m_achievements->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return presence_result;
+    }
+
+    Ref<GDKResult> social_result = m_social->on_runtime_initialized();
+    if (!social_result->is_ok()) {
+        emit_runtime_error(social_result);
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_achievements->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return social_result;
+    }
+
     Ref<GDKResult> multiplayer_activity_result = m_multiplayer_activity->on_runtime_initialized();
     if (!multiplayer_activity_result->is_ok()) {
         emit_runtime_error(multiplayer_activity_result);
         m_multiplayer_activity->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
         m_achievements->shutdown();
         m_users->shutdown();
         m_xbox_services->shutdown();
@@ -130,6 +165,8 @@ void GDK::shutdown() {
     }
 
     m_multiplayer_activity->shutdown();
+    m_social->shutdown();
+    m_presence->shutdown();
     m_achievements->shutdown();
     m_users->shutdown();
     m_xbox_services->shutdown();
@@ -147,7 +184,7 @@ bool GDK::is_initialized() const {
 }
 
 int64_t GDK::dispatch() {
-    return static_cast<int64_t>(m_runtime->dispatch() + m_achievements->dispatch());
+    return static_cast<int64_t>(m_runtime->dispatch() + m_achievements->dispatch() + m_social->dispatch() + m_multiplayer_activity->dispatch());
 }
 
 Ref<GDKResult> GDK::get_last_error() const {
@@ -160,6 +197,14 @@ Ref<GDKUsers> GDK::get_users() const {
 
 Ref<GDKAchievements> GDK::get_achievements() const {
     return m_achievements;
+}
+
+Ref<GDKPresence> GDK::get_presence() const {
+    return m_presence;
+}
+
+Ref<GDKSocial> GDK::get_social() const {
+    return m_social;
 }
 
 Ref<GDKMultiplayerActivity> GDK::get_multiplayer_activity() const {
@@ -194,6 +239,12 @@ void GDK::notify_user_removed(const Ref<GDKUser> &p_user) {
 
     if (m_achievements.is_valid()) {
         m_achievements->on_user_removed(p_user);
+    }
+    if (m_presence.is_valid()) {
+        m_presence->on_user_removed(p_user);
+    }
+    if (m_social.is_valid()) {
+        m_social->on_user_removed(p_user);
     }
     if (m_multiplayer_activity.is_valid()) {
         m_multiplayer_activity->on_user_removed(p_user);

@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_gdk` docs set.
 
-`godot_gdk` is the primary GDExtension addon in this repository. It currently implements the new runtime/users/achievements baseline and also ships editor-side setup and export tooling for the broader GDK workflow.
+`godot_gdk` is the primary GDExtension addon in this repository. It currently implements the runtime/users/achievements/presence/social baseline and also ships editor-side setup and export tooling for the broader GDK workflow.
 
 ## Current implementation status
 
@@ -14,10 +14,12 @@ This is the landing page for the `godot_gdk` docs set.
 - shared Xbox services scaffold
 - users service
 - achievements service
+- presence service
+- social service
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
-- sample demo for runtime/users/achievements
-- headless runtime/users/achievements tests
+- sample demo for runtime/users/achievements/presence/social
+- headless runtime/users/achievements/presence/social tests
 - editor setup/export scripts shipped with the addon
 
 ### Not implemented yet in native runtime
@@ -25,8 +27,6 @@ This is the landing page for the `godot_gdk` docs set.
 - save service
 - stats service
 - leaderboards service
-- presence service
-- social service
 
 ## Document map
 
@@ -39,7 +39,7 @@ This is the landing page for the `godot_gdk` docs set.
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
 
 - [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
-  Public GDScript API surface for `GDK`, `GDK.users`, and `GDK.achievements`.
+  Public GDScript API surface for `GDK`, `GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`.
 
 ### Architecture
 
@@ -58,7 +58,7 @@ This is the landing page for the `godot_gdk` docs set.
 ### Subsystem deep dive
 
 - [`godot-gdk-async-system.md`](godot-gdk-async-system.md)  
-  Lower-level explanation of the shared async bridge and its current runtime/users/achievements implementation.
+  Lower-level explanation of the shared async bridge and its current runtime/users/achievements/presence/social implementation.
 
 ### Reference
 

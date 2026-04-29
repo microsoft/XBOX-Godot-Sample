@@ -2,6 +2,10 @@
 # Resets achievements, stats, and leaderboards for a test account.
 # Requires: GDK installed, Partner Center "Tools Access" permission.
 
+param(
+    [string]$ConfigPath = "$PSScriptRoot\..\sample\sample_config.cfg"
+)
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== Xbox Live Player Data Reset ===" -ForegroundColor Cyan
@@ -40,9 +44,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 
 # Step 2: Collect parameters
-# Try to read SCID from sample config
+# Try to read SCID from the chosen sample config
 $DefaultScid = ""
-$SampleConfig = Join-Path $PSScriptRoot "..\sample\sample_config.cfg"
+$SampleConfig = $ConfigPath
 if (Test-Path $SampleConfig) {
     $match = Select-String -Path $SampleConfig -Pattern 'scid\s*=\s*"([^"]+)"'
     if ($match) { $DefaultScid = $match.Matches[0].Groups[1].Value }
