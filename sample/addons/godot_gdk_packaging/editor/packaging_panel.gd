@@ -43,6 +43,17 @@ var _output_log: TextEdit
 var _clear_log_btn: Button
 var _status_label: Label
 
+# Logo watcher
+var _watch_timer: float = 0.0
+const WATCH_INTERVAL := 2.0
+const ROOT_LOGO_FILES := [
+	"StoreLogo.png",
+	"Square44x44Logo.png",
+	"Square150x150Logo.png",
+	"Square480x480Logo.png",
+	"SplashScreenImage.png",
+]
+
 
 func _ready() -> void:
 	_toolchain = GDKToolchainScript.new()
@@ -50,6 +61,63 @@ func _ready() -> void:
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
 	_build_ui()
 	_refresh_config_status()
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	_watch_timer += delta
+	if _watch_timer < WATCH_INTERVAL:
+		return
+	_watch_timer = 0.0
+	_check_and_relocate_root_logos()
+
+
+func _check_and_relocate_root_logos() -> void:
+	var project_dir = ProjectSettings.globalize_path("res://")
+	var logos_dir = project_dir.path_join("storelogos")
+
+	# Check if any known logo files exist at root
+	var found_any := false
+	for filename in ROOT_LOGO_FILES:
+		if FileAccess.file_exists(project_dir.path_join(filename)):
+			found_any = true
+			break
+
+	if not found_any:
+		return
+
+	# Ensure storelogos directory exists
+	DirAccess.make_dir_recursive_absolute(logos_dir)
+
+	var dir = DirAccess.open(project_dir)
+	if dir == null:
+		return
+
+	var moved := 0
+	for filename in ROOT_LOGO_FILES:
+		var src = project_dir.path_join(filename)
+		if not FileAccess.file_exists(src):
+			continue
+		var dest = logos_dir.path_join(filename)
+		var err = dir.rename(src, dest)
+		if err == OK:
+			moved += 1
+			print("[GDK Packaging] Auto-moved ", filename, " -> storelogos/")
+			# Also move the .import file if it exists
+			var import_src = src + ".import"
+			if FileAccess.file_exists(import_src):
+				dir.remove(import_src)
+		else:
+			push_warning("[GDK Packaging] Failed to move " + filename + ": " + error_string(err))
+
+	if moved > 0:
+		_log("Auto-relocated %d logo(s) to storelogos/" % moved)
+		# Update config paths to point to storelogos/
+		_config_mgr.relocate_logos_to_storelogos()
+		# Trigger filesystem rescan
+		var fs = EditorInterface.get_resource_filesystem()
+		if not fs.is_scanning():
+			fs.scan()
 
 
 # ── UI Construction ─────────────────────────────────────────────────────────
