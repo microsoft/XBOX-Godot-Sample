@@ -234,24 +234,30 @@ func sync_store_logos() -> int:
 		push_warning("[GDK Packaging] Failed to load 480x480 logo: " + error_string(err))
 		return 0
 
-	# Map config keys to their sizes
+	var logos_dir = project_dir.path_join("storelogos")
+	DirAccess.make_dir_recursive_absolute(logos_dir)
+
+	# All logos including the 480x480 itself
 	var logo_map := {
+		"logo_480": Vector2i(480, 480),
 		"logo_150": Vector2i(150, 150),
 		"logo_44": Vector2i(44, 44),
 		"store_logo": Vector2i(50, 50),
 		"splash_screen": Vector2i(1920, 1080),
 	}
 
+	# Standard filenames for each logo
+	var standard_names := {
+		"logo_480": "Square480x480Logo.png",
+		"logo_150": "Square150x150Logo.png",
+		"logo_44": "Square44x44Logo.png",
+		"store_logo": "StoreLogo.png",
+		"splash_screen": "SplashScreenImage.png",
+	}
+
 	var updated := 0
 	for key in logo_map:
-		var rel_path: String = info.get(key, "")
-		if rel_path == "":
-			continue
-		var dest_path = project_dir.path_join(rel_path.replace("\\", "/"))
-
-		# Ensure the destination directory exists
-		var dest_dir = dest_path.get_base_dir()
-		DirAccess.make_dir_recursive_absolute(dest_dir)
+		var dest_path = logos_dir.path_join(standard_names[key])
 
 		var img = source_image.duplicate()
 		var size: Vector2i = logo_map[key]
@@ -259,9 +265,9 @@ func sync_store_logos() -> int:
 		err = img.save_png(dest_path)
 		if err == OK:
 			updated += 1
-			print("[GDK Packaging] Synced logo: ", rel_path)
+			print("[GDK Packaging] Synced logo: storelogos/", standard_names[key])
 		else:
-			push_warning("[GDK Packaging] Failed to sync " + rel_path + ": " + error_string(err))
+			push_warning("[GDK Packaging] Failed to sync " + standard_names[key] + ": " + error_string(err))
 
 	return updated
 
