@@ -5,15 +5,24 @@ const MOTION_SPEED = 150
 const REACTION_DISTANCE = 40.0
 
 var _motion := 0.0
+var _screen_size_y := 0.0
 
-@onready var _screen_size_y := get_viewport_rect().size.y
+func _ready() -> void:
+	_screen_size_y = get_viewport_rect().size.y
+	# Reconnect the collision signal since set_script() may drop it.
+	if not area_entered.is_connected(_on_paddle_area_enter):
+		area_entered.connect(_on_paddle_area_enter)
+
 
 func _process(delta: float) -> void:
+	if _screen_size_y == 0.0:
+		_screen_size_y = get_viewport_rect().size.y
+
 	var ball = get_node_or_null(^"../Ball")
 	if ball == null:
 		return
 
-	var diff = ball.position.y - position.y
+	var diff: float = ball.position.y - position.y
 	if absf(diff) > REACTION_DISTANCE:
 		_motion = signf(diff) * MOTION_SPEED
 	else:
