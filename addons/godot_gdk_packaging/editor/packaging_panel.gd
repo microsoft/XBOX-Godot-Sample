@@ -7,8 +7,6 @@ const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_
 const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/editor/makepkg_executor.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
 
-const SAMPLE_CONFIG_PATH := "res://sample_config.cfg"
-
 var _toolchain: RefCounted
 var _makepkg: RefCounted
 var _config_mgr: RefCounted
@@ -311,7 +309,7 @@ func _build_ui() -> void:
 	var ach_btn_row := HBoxContainer.new()
 	root.add_child(ach_btn_row)
 	_achievement_save_btn = Button.new()
-	_achievement_save_btn.text = "Save to Config"
+	_achievement_save_btn.text = "Save"
 	_achievement_save_btn.pressed.connect(_on_achievement_save)
 	ach_btn_row.add_child(_achievement_save_btn)
 
@@ -545,23 +543,62 @@ func _on_pack() -> void:
 # ── Achievements ────────────────────────────────────────────────────────────
 
 func _load_achievement_config() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(SAMPLE_CONFIG_PATH) == OK:
-		var val = cfg.get_value("achievements", "demo_achievement_id", "")
-		_achievement_id_edit.text = str(val)
-		_achievement_status_label.text = "Loaded from sample_config.cfg"
+	if not _config_mgr.config_exists():
+		_achievement_status_label.text = "Create MicrosoftGame.config first."
+		return
+
+	var config_path = _config_mgr.get_config_path()
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if file == null:
+		_achievement_status_label.text = "Could not read MicrosoftGame.config"
+		return
+
+	var content = file.get_as_text()
+	file.close()
+
+	# Look for <GodotGDK DemoAchievementId="..." />
+	var regex = RegEx.new()
+	regex.compile('DemoAchievementId="([^"]*)"')
+	var result = regex.search(content)
+	if result:
+		_achievement_id_edit.text = result.get_string(1)
+		_achievement_status_label.text = "Loaded from MicrosoftGame.config"
 	else:
-		_achievement_status_label.text = "No sample_config.cfg — enter a value and save."
+		_achievement_status_label.text = "No achievement ID set yet."
 
 func _on_achievement_save() -> void:
-	var cfg := ConfigFile.new()
-	# Load existing config to preserve other fields
-	cfg.load(SAMPLE_CONFIG_PATH)
-	cfg.set_value("achievements", "demo_achievement_id", _achievement_id_edit.text.strip_edges())
-	var err = cfg.save(SAMPLE_CONFIG_PATH)
-	if err == OK:
-		_achievement_status_label.text = "✅ Saved to sample_config.cfg"
-		_log("Achievement config saved")
+	if not _config_mgr.config_exists():
+		_achievement_status_label.text = "Create MicrosoftGame.config first."
+		push_warning("[GDK] MicrosoftGame.config not found")
+		return
+
+	var config_path = _config_mgr.get_config_path()
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if file == null:
+		_achievement_status_label.text = "Could not read MicrosoftGame.config"
+		return
+
+	var content = file.get_as_text()
+	file.close()
+
+	var achievement_id = _achievement_id_edit.text.strip_edges()
+	var godot_gdk_element = '  <GodotGDK DemoAchievementId="%s" />' % achievement_id
+
+	# Replace existing GodotGDK element or insert before </Game>
+	var regex = RegEx.new()
+	regex.compile('  <GodotGDK [^/]*/>')
+	var result = regex.search(content)
+	if result:
+		content = regex.sub(content, godot_gdk_element)
 	else:
-		_achievement_status_label.text = "Failed to save: " + error_string(err)
-		push_error("[GDK] Failed to save achievement config: " + error_string(err))
+		content = content.replace("</Game>", godot_gdk_element + "\n</Game>")
+
+	file = FileAccess.open(config_path, FileAccess.WRITE)
+	if file == null:
+		_achievement_status_label.text = "Failed to write MicrosoftGame.config"
+		return
+
+	file.store_string(content)
+	file.close()
+	_achievement_status_label.text = "✅ Saved to MicrosoftGame.config"
+	_log("Achievement ID saved to MicrosoftGame.config")
