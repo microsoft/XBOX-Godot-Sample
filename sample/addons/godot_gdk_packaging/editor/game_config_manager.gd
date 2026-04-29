@@ -19,6 +19,10 @@ func _init(toolchain: RefCounted) -> void:
 func get_config_path() -> String:
 	return ProjectSettings.globalize_path("res://" + CONFIG_FILENAME)
 
+## Returns the res:// path of MicrosoftGame.config.
+func get_config_res_path() -> String:
+	return "res://" + CONFIG_FILENAME
+
 ## Returns true if MicrosoftGame.config exists in the project root.
 func config_exists() -> bool:
 	return FileAccess.file_exists("res://" + CONFIG_FILENAME)
@@ -95,9 +99,9 @@ func parse_config() -> Dictionary:
 func create_template(game_name: String = "MyGodotGame",
 		publisher: String = "CN=Publisher",
 		display_name: String = "My Godot Game") -> Error:
-	var path := get_config_path()
+	var res_path = get_config_res_path()
 
-	if FileAccess.file_exists(path):
+	if FileAccess.file_exists(res_path):
 		push_warning("[GDK Packaging] MicrosoftGame.config already exists — not overwriting.")
 		return ERR_ALREADY_EXISTS
 
@@ -125,14 +129,14 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '                ForegroundText="light" />\n'
 	xml += '</Game>\n'
 
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	var file = FileAccess.open(res_path, FileAccess.WRITE)
 	if file == null:
 		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(FileAccess.get_open_error()))
 		return FileAccess.get_open_error()
 
 	file.store_string(xml)
 	file.close()
-	print("[GDK Packaging] Created template MicrosoftGame.config at: ", path)
+	print("[GDK Packaging] Created template MicrosoftGame.config at: ", res_path)
 
 	# Generate placeholder logo images so GameConfigEditor doesn't error
 	_ensure_placeholder_images()
