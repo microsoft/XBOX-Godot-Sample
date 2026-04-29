@@ -36,6 +36,12 @@ The repo also includes a ShamWow-inspired scenario shell sample at
 .\sample\shamwow\launch_editor.bat
 ```
 
+To enable the repo-managed pre-commit hook that runs headless GDScript validation, run:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
 ### Requirements
 
 - Windows 10 (18362+) or Windows 11

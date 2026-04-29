@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -eu
+
+if command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "./tools/check_gd_scripts_headless.ps1"
+fi
+
+if command -v powershell >/dev/null 2>&1; then
+  exec powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "./tools/check_gd_scripts_headless.ps1"
+fi
+
+echo "PowerShell was not found. Install pwsh or powershell to run the headless GDScript pre-commit check." >&2
+exit 1

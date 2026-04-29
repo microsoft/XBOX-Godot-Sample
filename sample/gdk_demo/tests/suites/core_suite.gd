@@ -10,7 +10,7 @@ func _test_singleton_availability(context) -> void:
 
 	var gdk = context.get_gdk()
 	context.assert_not_null(gdk, "Engine.get_singleton('GDK')")
-	context.assert_true(Engine.get_singleton("GDKUser") == null, "legacy GDKUser singleton removed")
+	context.assert_true(not Engine.has_singleton("GDKUser"), "legacy GDKUser singleton removed")
 
 func _test_class_registration(context) -> void:
 	context.log_section("Class Registration")

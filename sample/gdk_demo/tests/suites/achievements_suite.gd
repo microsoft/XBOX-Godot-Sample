@@ -54,7 +54,7 @@ func run(context) -> void:
 	var query_op = achievements.query_player_achievements_async(user)
 	context.assert_not_null(query_op, "query_player_achievements_async() returns GDKDispatchOp")
 	if query_op != null:
-		context.assert_true(query_op is GDKDispatchOp, "query_player_achievements_async() uses dispatch-backed op type")
+		context.assert_object_is(query_op, "GDKDispatchOp", "query_player_achievements_async() uses dispatch-backed op type")
 		var query_result = context.wait_for_op(query_op, 8000)
 		if query_result == null:
 			query_op.cancel()
@@ -70,7 +70,7 @@ func run(context) -> void:
 				context.assert_true(cached_achievements is Array, "get_cached_achievements(user) returns Array after a query")
 				context.assert_eq(cached_achievements.size(), queried_achievements.size(), "achievement cache size matches the query result size")
 				if queried_achievements.size() > 0:
-					context.assert_true(queried_achievements[0] is GDKAchievement, "achievement query returns GDKAchievement wrappers")
+					context.assert_object_is(queried_achievements[0], "GDKAchievement", "achievement query returns GDKAchievement wrappers")
 
 			var invalid_id_op = achievements.update_achievement_async(user, "", 25)
 			context.assert_not_null(invalid_id_op, "update_achievement_async() returns GDKDispatchOp for a signed-in user")

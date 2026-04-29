@@ -21,14 +21,14 @@ func run(context) -> void:
 	for signal_name in ["presence_changed", "local_presence_set"]:
 		context.assert_has_signal(presence, signal_name)
 
-	var blank_record = GDKPresenceRecord.new()
+	var blank_record = context.instantiate_class("GDKPresenceRecord")
 	context.assert_not_null(blank_record, "GDKPresenceRecord.new() returns wrapper")
 	if blank_record != null:
 		for method_name in ["get_xuid", "get_user_state", "get_user_state_name", "is_online", "get_title_records"]:
 			context.assert_has_method(blank_record, method_name)
 
 		context.assert_eq(blank_record.get_xuid(), "", "blank GDKPresenceRecord xuid defaults empty")
-		context.assert_eq(blank_record.get_user_state(), GDKPresenceRecord.USER_STATE_UNKNOWN, "blank GDKPresenceRecord user_state defaults to USER_STATE_UNKNOWN")
+		context.assert_eq(blank_record.get_user_state(), context.get_class_constant("GDKPresenceRecord", "USER_STATE_UNKNOWN"), "blank GDKPresenceRecord user_state defaults to USER_STATE_UNKNOWN")
 		context.assert_eq(blank_record.get_user_state_name(), "unknown", "blank GDKPresenceRecord user_state_name defaults to unknown")
 		context.assert_eq(blank_record.is_online(), false, "blank GDKPresenceRecord is_online defaults false")
 		context.assert_true(blank_record.get_title_records() is Array, "blank GDKPresenceRecord title_records returns Array")
@@ -92,8 +92,8 @@ func run(context) -> void:
 				var records: Array = query_result.data
 				context.assert_eq(records.size(), 1, "presence query returns one record for one XUID")
 				if records.size() == 1:
-					context.assert_true(records[0] is GDKPresenceRecord, "presence query returns GDKPresenceRecord wrappers")
-					if records[0] is GDKPresenceRecord:
+					context.assert_object_is(records[0], "GDKPresenceRecord", "presence query returns GDKPresenceRecord wrappers")
+					if context.is_class_instance(records[0], "GDKPresenceRecord"):
 						context.assert_eq(records[0].get_xuid(), user.get_xuid(), "presence query record matches the requested XUID")
 
 			var cached_record = presence.get_cached_presence(user.get_xuid())

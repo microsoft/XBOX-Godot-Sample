@@ -152,3 +152,11 @@ cmake --build build --preset debug
 2. Run the headless test suite
 3. Open the sample in the editor and verify the GDK Setup panel loads
 4. If Xbox Live features changed, test with a sandbox and test account
+
+### Optional pre-commit hook
+
+Enable the repo-managed pre-commit hook to run headless GDScript validation before each commit:
+
+```powershell
+git config core.hooksPath .githooks
+```
