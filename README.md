@@ -29,6 +29,13 @@ cmake --build build --preset debug
 > features require Partner Center setup —
 > see [Sample Project Setup](docs/godot-gdk-sample-setup.md).
 
+The repo also includes a ShamWow-inspired scenario shell sample at
+`sample_shamwow\`. Launch it with:
+
+```powershell
+.\sample_shamwow\launch_editor.bat
+```
+
 ### Requirements
 
 - Windows 10 (18362+) or Windows 11
@@ -47,9 +54,15 @@ cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
 sample/                   # Shared Godot sample project
+sample_shamwow/          # ShamWow-inspired scenario shell sample
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```
+
+## Sample projects
+
+- `sample\` — baseline runtime/users/achievements demo
+- `sample_shamwow\` — scenario-driven shell inspired by ShamWow, built around grouped runtime/users/achievements/multiplayer-activity actions and an event log
 
 ## Documentation
 

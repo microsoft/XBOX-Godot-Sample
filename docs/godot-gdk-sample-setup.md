@@ -25,10 +25,13 @@ Xbox Live services. You can configure everything through the in-editor
 
 ## Option A: Configure in the Godot editor (recommended)
 
-1. Build the addon and open the sample in the editor:
+1. Build the addon and open one of the sample projects in the editor:
    ```powershell
-   cmake --build build --preset debug
-   .\sample\launch_editor.bat
+    cmake --build build --preset debug
+    .\sample\launch_editor.bat
+
+    # Or the ShamWow-style sample
+    .\sample_shamwow\launch_editor.bat
    ```
 2. Find the **GDK Setup** panel in the bottom-right dock
 3. Enter your Partner Center values
@@ -43,10 +46,14 @@ The config file is gitignored, so your credentials stay local.
 
 ```powershell
 .\tools\setup_sample.ps1
+
+# Or target the ShamWow-style sample explicitly
+.\tools\setup_sample.ps1 -ConfigPath .\sample_shamwow\sample_config.cfg
 ```
 
 This prompts for each value and generates `sample_config.cfg`,
-`MicrosoftGame.config`, and updates `export_presets.cfg` in one step.
+`MicrosoftGame.config`, and updates `export_presets.cfg` in one step for the
+chosen sample project path.
 
 ## Set your PC sandbox
 
@@ -65,7 +72,7 @@ Your PC must be in the same sandbox as your test account:
 The sample uses **Xbox test accounts**, not personal Microsoft accounts:
 
 1. Ensure your PC sandbox matches the sandbox in Partner Center
-2. Launch the sample — it will attempt silent sign-in automatically
+2. Launch the sample project you configured
 3. If prompted, sign in with your **test account** credentials (not your
    personal account)
 4. Your test account must be provisioned in Partner Center under the same
@@ -79,8 +86,8 @@ The sample uses **Xbox test accounts**, not personal Microsoft accounts:
 
 ```
 sample_config.cfg (single source of truth)
-  ├─► gdk_bootstrap.gd    reads SCID at runtime → initializes Xbox Live
-  ├─► main.gd             reads achievement ID at runtime → unlock button
+  ├─► gdk_bootstrap.gd    initializes or pumps GDK runtime flow for that sample
+  ├─► main.gd             uses the configured achievement ID and sample logic
   ├─► export preset        auto-populates defaults → used during export
   └─► MicrosoftGame.config generated at export time from preset values
 ```

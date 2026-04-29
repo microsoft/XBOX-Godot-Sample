@@ -9,9 +9,11 @@ See also:
 
 ## Sample project role
 
-The sample project is the easiest place to see how the plugin is expected to be used in Godot.
+The sample projects are the easiest place to see how the plugin is expected to be used in Godot.
 
-It currently exercises the runtime/users/achievements baseline and acts as the main integration target for the addon's synced binaries and editor metadata.
+`sample\` remains the baseline runtime/users/achievements demo, while `sample_shamwow\` is a ShamWow-inspired scenario browser that groups runtime, users, achievements, and multiplayer activity actions behind nested navigation and a persistent event log.
+
+Both act as integration targets for the addon's synced binaries and editor metadata.
 
 ## Autoload bootstrap
 
@@ -28,6 +30,8 @@ That bootstrap currently:
 
 That means the sample currently treats `GDK.dispatch()` as a per-frame pump managed by an autoload.
 
+`sample_shamwow\project.godot` also autoloads `sample_shamwow\gdk_bootstrap.gd`, but that bootstrap only keeps the extension loaded and pumps dispatch when the runtime is already initialized. Runtime initialization itself is left to explicit scenarios in the shell.
+
 ## Demo scene
 
 `sample\main.gd` is a minimal runtime/users/achievements demo layered onto the existing sample scene.
@@ -42,6 +46,14 @@ It currently:
 - shows the current cached progress for achievement `1`
 
 The older controller widgets are still present in the scene tree, but the script hides them because those native subsystems are not part of the current baseline.
+
+`sample_shamwow\main.gd` instead builds a scenario catalog with grouped runtime, users, achievements, and multiplayer activity actions. It mirrors ShamWow conceptually through:
+
+- grouped scenarios
+- nested "up one level" navigation
+- a tile-style menu
+- a persistent event log
+- a side panel that reflects the currently selected scenario and live GDK state
 
 ## Headless tests
 

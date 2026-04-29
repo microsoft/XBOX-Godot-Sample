@@ -6,6 +6,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$SampleDir = Split-Path $ConfigPath -Parent
+$SampleProjectName = Split-Path $SampleDir -Leaf
+$DefaultGameName = if ($SampleProjectName -eq "sample_shamwow") { "GodotGDK ShamWow" } else { "GodotGDK Demo" }
+$LaunchScriptPath = Join-Path $SampleDir "launch_editor.bat"
 
 function Normalize-TitleId {
     param([string]$Value)
@@ -24,10 +28,11 @@ function Normalize-TitleId {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  GodotGDK Sample Setup" -ForegroundColor Cyan
+Write-Host "  GodotGDK Project Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "This script configures the sample project with your Partner Center values."
+Write-Host "This script configures the Godot sample project at:"
+Write-Host "  $SampleDir" -ForegroundColor DarkGray
 Write-Host "You can find these in Partner Center (https://partner.microsoft.com/)."
 Write-Host ""
 
@@ -44,8 +49,8 @@ Write-Host "Derived SCID: $Scid" -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "--- Identity Settings ---" -ForegroundColor Yellow
-$GameName = Read-Host "Game name [GodotGDK Demo]"
-if ([string]::IsNullOrWhiteSpace($GameName)) { $GameName = "GodotGDK Demo" }
+$GameName = Read-Host "Game name [$DefaultGameName]"
+if ([string]::IsNullOrWhiteSpace($GameName)) { $GameName = $DefaultGameName }
 $Publisher = Read-Host "Publisher CN (e.g. CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)"
 $PublisherDisplay = Read-Host "Publisher display name"
 $Version = Read-Host "Version [1.0.0.0]"
@@ -87,7 +92,6 @@ Write-Host ""
 Write-Host "Wrote: $ConfigPath" -ForegroundColor Green
 
 # Write MicrosoftGame.config
-$SampleDir = Split-Path $ConfigPath -Parent
 $MgcPath = Join-Path $SampleDir "MicrosoftGame.config"
 $GodotExe = "Godot_v4.6.1-stable_win64.exe"
 
@@ -153,5 +157,5 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Set your PC sandbox:  XblPCSandbox.exe set $SandboxId"
 Write-Host "  2. Build the addon:      cmake --build build --preset debug"
-Write-Host "  3. Launch the editor:    .\sample\launch_editor.bat"
+Write-Host "  3. Launch the editor:    $LaunchScriptPath"
 Write-Host ""

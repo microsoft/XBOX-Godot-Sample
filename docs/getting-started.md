@@ -45,8 +45,8 @@ cmake --build build --preset release
 The build:
 
 - Outputs addon DLLs to `addons/<addon>/bin/`
-- Copies built DLLs and runtime dependencies into `sample/addons/<addon>/bin/`
-- Syncs addon metadata and editor scripts into the sample project
+- Copies built DLLs and runtime dependencies into each sample project's `addons/<addon>/bin/`
+- Syncs addon metadata and editor scripts into both `sample\` and `sample_shamwow\`
 
 ### Selective builds
 
@@ -74,14 +74,17 @@ To override manually:
 cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/260400/windows"
 ```
 
-## Run the sample
+## Run a sample project
 
 ```powershell
 # Build first
 cmake --build build --preset debug
 
-# Launch the Godot editor with the sample project
+# Launch the baseline sample
 .\sample\launch_editor.bat
+
+# Or launch the ShamWow-style scenario shell
+.\sample_shamwow\launch_editor.bat
 ```
 
 > **Important:** Building and opening the sample works immediately. Xbox Live
@@ -112,6 +115,7 @@ cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
 sample/                   # Shared Godot sample project
+sample_shamwow/           # ShamWow-inspired scenario shell sample
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```
@@ -125,7 +129,7 @@ cmake --build build --preset debug
 ```
 
 This rebuilds the DLL and syncs it (plus addon metadata) into the sample
-project.
+projects.
 
 ### Running headless tests
 
