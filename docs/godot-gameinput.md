@@ -61,7 +61,7 @@ reads two project settings and runs the lifecycle for you:
 | --- | --- | --- |
 | `game_input/runtime/initialize_on_startup` | `false` | When `true`, the bootstrap calls `GameInput.initialize()` on `_ready`. |
 | `game_input/runtime/auto_poll` | `true` | When `true`, the bootstrap calls `GameInput.poll()` from `_process`. |
-| `game_input/mapper/default_action_map` | `""` | Path to a `.tres` `GameInputActionMap` used as a fallback by `GameInputMapper`. |
+| `game_input/mapper/default_action_map` | `""` | Path to a `.tres` `GameInputActionMap`. When set, the bootstrap spawns a `GameInputMapper` named `DefaultMapper` as its own child and assigns the loaded resource — so your project's `InputMap` can be driven from a GameInput action map without dropping a Mapper node into any scene. The same path is used as the fallback `action_map` for any user-placed `GameInputMapper` whose `action_map` property is null. |
 
 Disabling the plugin removes the autoload — there is no orphaned state.
 
@@ -116,8 +116,9 @@ In the editor:
    * `deadzone` — values within `[-deadzone, deadzone]` are clamped to 0.
 3. Save the resource.
 4. In your scene, add a `GameInputMapper` node and assign the action map to
-   its `action_map` property (or set the project-wide
-   `game_input/mapper/default_action_map`).
+   its `action_map` property — *or* set the project-wide
+   `game_input/mapper/default_action_map` to your `.tres` and skip the node
+   entirely (the bootstrap spawns a `DefaultMapper` for you).
 
 The Mapper calls `Input.action_press(action, strength)` /
 `Input.action_release(action)` each frame, so the rest of your code can stay
