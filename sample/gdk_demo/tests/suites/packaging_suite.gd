@@ -70,54 +70,37 @@ func _test_config_parsing(context) -> void:
 	test_xml += '  <MSStore ProductId="test-product-id" />\n'
 	test_xml += '</Game>\n'
 
-	var test_path = ProjectSettings.globalize_path("res://test_config_parse.config")
-	var f = FileAccess.open(test_path, FileAccess.WRITE)
+	var config_path = ProjectSettings.globalize_path("res://MicrosoftGame.config")
+	var had_original_config := FileAccess.file_exists(config_path)
+	var original_config_contents := ""
+	if had_original_config:
+		var original_file = FileAccess.open(config_path, FileAccess.READ)
+		if original_file == null:
+			context.log_fail("backup original config", "cannot open existing MicrosoftGame.config")
+			return
+		original_config_contents = original_file.get_as_text()
+		original_file.close()
+
+	var f = FileAccess.open(config_path, FileAccess.WRITE)
 	if f == null:
-		context.log_fail("write test config", "cannot open file")
+		context.log_fail("write test config", "cannot open MicrosoftGame.config")
 		return
 	f.store_string(test_xml)
 	f.close()
 
-	# Parse it — we need to temporarily point the manager at our test file
-	# Since parse_config() uses get_config_path(), we parse manually
-	var parser := XMLParser.new()
-	var err := parser.open(test_path)
-	context.assert_eq(err, OK, "open test XML")
+	var config_mgr = GameConfigManagerScript.new()
+	var result = config_mgr.parse_config()
 
-	# Clean up by parsing inline (same logic as game_config_manager)
-	var result := {}
-	while parser.read() == OK:
-		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
-			continue
-		var node_name := parser.get_node_name()
-		if node_name == "Game":
-			for i in parser.get_attribute_count():
-				if parser.get_attribute_name(i) == "configVersion":
-					result["config_version"] = parser.get_attribute_value(i)
-		elif node_name == "Identity":
-			for i in parser.get_attribute_count():
-				match parser.get_attribute_name(i):
-					"Name": result["name"] = parser.get_attribute_value(i)
-					"Publisher": result["publisher"] = parser.get_attribute_value(i)
-					"Version": result["version"] = parser.get_attribute_value(i)
-		elif node_name == "TitleId":
-			if not parser.is_empty():
-				if parser.read() == OK and parser.get_node_type() == XMLParser.NODE_TEXT:
-					result["title_id"] = parser.get_node_data().strip_edges()
-		elif node_name == "Executable":
-			for i in parser.get_attribute_count():
-				if parser.get_attribute_name(i) == "Name":
-					result["executable"] = parser.get_attribute_value(i)
-		elif node_name == "ShellVisuals":
-			for i in parser.get_attribute_count():
-				match parser.get_attribute_name(i):
-					"DefaultDisplayName": result["display_name"] = parser.get_attribute_value(i)
-					"Description": result["description"] = parser.get_attribute_value(i)
-					"BackgroundColor": result["background_color"] = parser.get_attribute_value(i)
-		elif node_name == "MSStore":
-			for i in parser.get_attribute_count():
-				if parser.get_attribute_name(i) == "ProductId":
-					result["product_id"] = parser.get_attribute_value(i)
+	if had_original_config:
+		var restore_file = FileAccess.open(config_path, FileAccess.WRITE)
+		if restore_file == null:
+			context.log_fail("restore original config", "cannot restore MicrosoftGame.config")
+			return
+		restore_file.store_string(original_config_contents)
+		restore_file.close()
+	else:
+		var remove_err = DirAccess.remove_absolute(config_path)
+		context.assert_eq(remove_err, OK, "remove temporary MicrosoftGame.config")
 
 	context.assert_eq(result.get("config_version"), "1", "parsed configVersion")
 	context.assert_eq(result.get("name"), "TestGame", "parsed Identity.Name")
