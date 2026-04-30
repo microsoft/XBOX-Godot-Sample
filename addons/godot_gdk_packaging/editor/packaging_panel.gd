@@ -146,17 +146,18 @@ func _build_ui() -> void:
 	# ── Header (above tabs) ──
 	_status_label = Label.new()
 	if _toolchain.is_gdk_available():
-		_status_label.text = "✅ GDK tools found"
+		var version_text = _toolchain.get_gdk_version()
+		if version_text != "":
+			_status_label.text = "✅ GDK %s" % version_text
+		else:
+			_status_label.text = "✅ GDK tools found"
 	else:
 		_status_label.text = "❌ GDK not found — install Microsoft GDK"
 	outer.add_child(_status_label)
 
-	# ── MicrosoftGame.config (above tabs) ──
-	_build_config_ui(outer)
-	outer.add_child(HSeparator.new())
-
 	# ── Tab Bar (visible, styled buttons) ──
 	var tab_bar := TabBar.new()
+	tab_bar.add_tab("⚙️ Config")
 	tab_bar.add_tab("📦 Packaging")
 	tab_bar.add_tab("🔒 Sandbox")
 	tab_bar.add_tab("🏆 Achievements")
@@ -168,9 +169,20 @@ func _build_ui() -> void:
 	# ── Content pages (one per tab) ──
 	var _tab_pages: Array[ScrollContainer] = []
 
+	var config_scroll := ScrollContainer.new()
+	config_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	config_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	outer.add_child(config_scroll)
+	var config_root := VBoxContainer.new()
+	config_root.size_flags_horizontal = SIZE_EXPAND_FILL
+	config_scroll.add_child(config_root)
+	_build_config_ui(config_root)
+	_tab_pages.append(config_scroll)
+
 	var pkg_scroll := ScrollContainer.new()
 	pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	pkg_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	pkg_scroll.visible = false
 	outer.add_child(pkg_scroll)
 	var pkg := VBoxContainer.new()
 	pkg.size_flags_horizontal = SIZE_EXPAND_FILL
