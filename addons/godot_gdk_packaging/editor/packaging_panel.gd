@@ -438,24 +438,6 @@ func _build_playfab_ui(root: VBoxContainer) -> void:
 	_playfab_status_label.text = ""
 	root.add_child(_playfab_status_label)
 
-	root.add_child(HSeparator.new())
-
-	# Documentation links
-	_add_section_header(root, "Documentation")
-
-	var doc_btn_row := HBoxContainer.new()
-	root.add_child(doc_btn_row)
-
-	var doc_ids_btn := Button.new()
-	doc_ids_btn.text = "📖 Get PlayFab IDs from Xbox Live"
-	doc_ids_btn.pressed.connect(func(): OS.shell_open("https://learn.microsoft.com/en-us/rest/api/playfab/client/account-management/get-playfab-ids-from-xbox-live-ids"))
-	doc_btn_row.add_child(doc_ids_btn)
-
-	var doc_gdk_btn := Button.new()
-	doc_gdk_btn.text = "📖 PlayFab + GDK Quickstart"
-	doc_gdk_btn.pressed.connect(func(): OS.shell_open("https://learn.microsoft.com/en-us/gaming/playfab/sdks/playfab-sdk-for-gdk/quickstart-gdk"))
-	doc_btn_row.add_child(doc_gdk_btn)
-
 
 func _build_packaging_ui(root: VBoxContainer) -> void:
 	# ── Source Configuration ──

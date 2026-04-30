@@ -14,6 +14,8 @@ const DOC_MAKEPKG := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/p
 const DOC_GAME_CONFIG_EDITOR := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/system/overviews/game-config-editor"
 const DOC_ACHIEVEMENTS := "https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/tutorials/pc-e2e-guide/e2e-services/e2e-achievements"
 const DOC_PLAYFAB_GAME_MANAGER := "https://developer.playfab.com/en-us/r/sign-in"
+const DOC_PLAYFAB_IDS := "https://learn.microsoft.com/en-us/rest/api/playfab/client/account-management/get-playfab-ids-from-xbox-live-ids"
+const DOC_PLAYFAB_GDK := "https://learn.microsoft.com/en-us/gaming/playfab/sdks/playfab-sdk-for-gdk/quickstart-gdk"
 
 var _menu_bar: MenuBar
 var _gdk_popup: PopupMenu
@@ -37,6 +39,8 @@ enum MenuID {
 	DOC_CONFIG_EDITOR,
 	DOC_ACHIEVEMENTS,
 	DOC_PLAYFAB,
+	DOC_PLAYFAB_IDS_LINK,
+	DOC_PLAYFAB_GDK_LINK,
 }
 
 
@@ -65,6 +69,8 @@ func _enter_tree() -> void:
 		_gdk_popup.add_item("📖 GameConfigEditor Reference", MenuID.DOC_CONFIG_EDITOR)
 		_gdk_popup.add_item("📖 Achievements Guide", MenuID.DOC_ACHIEVEMENTS)
 		_gdk_popup.add_item("📖 PlayFab Game Manager", MenuID.DOC_PLAYFAB)
+		_gdk_popup.add_item("📖 PlayFab IDs from Xbox Live", MenuID.DOC_PLAYFAB_IDS_LINK)
+		_gdk_popup.add_item("📖 PlayFab + GDK Quickstart", MenuID.DOC_PLAYFAB_GDK_LINK)
 		_gdk_popup.id_pressed.connect(_on_menu_item_pressed)
 
 		_menu_bar.add_child(_gdk_popup)
@@ -167,6 +173,12 @@ func _on_menu_item_pressed(id: int) -> void:
 
 		MenuID.DOC_PLAYFAB:
 			OS.shell_open(DOC_PLAYFAB_GAME_MANAGER)
+
+		MenuID.DOC_PLAYFAB_IDS_LINK:
+			OS.shell_open(DOC_PLAYFAB_IDS)
+
+		MenuID.DOC_PLAYFAB_GDK_LINK:
+			OS.shell_open(DOC_PLAYFAB_GDK)
 
 
 func _focus_packaging_panel() -> void:
