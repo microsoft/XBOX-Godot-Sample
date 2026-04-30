@@ -8,6 +8,8 @@ const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/editor/m
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
 
 const SAMPLE_CONFIG_PATH := "res://sample_config.cfg"
+const PLAYFAB_CONFIG_PATH := "res://sample_pf_config.cfg"
+const PACKAGING_SETTINGS_PATH := "res://.gdk_packaging.cfg"
 
 var _toolchain: RefCounted
 var _makepkg: RefCounted
@@ -41,6 +43,7 @@ var _sandbox_id_edit: LineEdit
 var _sandbox_set_btn: Button
 var _sandbox_retail_btn: Button
 var _dev_account_label: Label
+var _test_account_edit: LineEdit
 
 # Actions
 var _genmap_btn: Button
@@ -51,6 +54,11 @@ var _pack_btn: Button
 var _achievement_id_edit: LineEdit
 var _achievement_save_btn: Button
 var _achievement_status_label: Label
+
+# PlayFab
+var _playfab_title_id_edit: LineEdit
+var _playfab_status_label: Label
+var _playfab_version_label: Label
 
 # Output
 var _status_label: Label
@@ -72,6 +80,7 @@ func _ready() -> void:
 	_makepkg = MakePkgExecutorScript.new(_toolchain)
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
 	_build_ui()
+	_load_packaging_settings()
 	_refresh_sandbox_status()
 	_refresh_config_status()
 	set_process(true)
@@ -163,6 +172,7 @@ func _build_ui() -> void:
 	tab_bar.add_tab("📦 Packaging")
 	tab_bar.add_tab("🔒 Sandbox")
 	tab_bar.add_tab("🏆 Achievements")
+	tab_bar.add_tab("☁️ PlayFab")
 	tab_bar.clip_tabs = false
 	tab_bar.size_flags_horizontal = SIZE_EXPAND_FILL
 	tab_bar.add_theme_font_size_override("font_size", 18)
@@ -214,6 +224,17 @@ func _build_ui() -> void:
 	_build_achievements_ui(ach)
 	_tab_pages.append(ach_scroll)
 
+	var playfab_scroll := ScrollContainer.new()
+	playfab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	playfab_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	playfab_scroll.visible = false
+	outer.add_child(playfab_scroll)
+	var playfab := VBoxContainer.new()
+	playfab.size_flags_horizontal = SIZE_EXPAND_FILL
+	playfab_scroll.add_child(playfab)
+	_build_playfab_ui(playfab)
+	_tab_pages.append(playfab_scroll)
+
 	# Wire tab switching
 	tab_bar.tab_changed.connect(func(idx: int):
 		for i in _tab_pages.size():
@@ -222,6 +243,8 @@ func _build_ui() -> void:
 
 	_set_actions_enabled(_toolchain.is_gdk_available())
 	_load_achievement_config()
+	_load_playfab_config()
+	_connect_autosave()
 
 
 func _build_sandbox_ui(root: VBoxContainer) -> void:
@@ -284,6 +307,29 @@ func _build_sandbox_ui(root: VBoxContainer) -> void:
 	test_accounts_btn.tooltip_text = "Open the Xbox Live Test Account GUI"
 	test_accounts_btn.pressed.connect(_on_open_test_accounts)
 	dev_btn_row.add_child(test_accounts_btn)
+
+	root.add_child(HSeparator.new())
+
+	# ── Test Account ──
+	_add_section_header(root, "Active Test Account")
+
+	var test_row := HBoxContainer.new()
+	root.add_child(test_row)
+	var test_label := Label.new()
+	test_label.text = "Gamertag / Email"
+	test_label.custom_minimum_size.x = 130
+	test_row.add_child(test_label)
+	_test_account_edit = LineEdit.new()
+	_test_account_edit.placeholder_text = "e.g. TestAccount1 or test@xboxtest.com"
+	_test_account_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	test_row.add_child(_test_account_edit)
+
+	var test_hint := Label.new()
+	test_hint.text = "Sign into this account via the Xbox App before running your game."
+	test_hint.add_theme_font_size_override("font_size", 11)
+	test_hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	test_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(test_hint)
 
 
 func _build_config_ui(root: VBoxContainer) -> void:
@@ -351,6 +397,58 @@ func _build_achievements_ui(root: VBoxContainer) -> void:
 	_achievement_status_label = Label.new()
 	_achievement_status_label.text = ""
 	root.add_child(_achievement_status_label)
+
+
+func _build_playfab_ui(root: VBoxContainer) -> void:
+	var desc := Label.new()
+	desc.text = "Configure your PlayFab Title ID for Xbox Live integration.\nThe Title ID is used at runtime to connect to PlayFab services."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	root.add_child(desc)
+
+	root.add_child(HSeparator.new())
+
+	# PlayFab Title ID
+	var title_row := HBoxContainer.new()
+	root.add_child(title_row)
+	var title_label := Label.new()
+	title_label.text = "PlayFab Title ID"
+	title_label.custom_minimum_size.x = 130
+	title_label.tooltip_text = "Your PlayFab Title ID from Game Manager → Settings → API Keys. Used at runtime to initialize the PlayFab SDK."
+	title_row.add_child(title_label)
+	_playfab_title_id_edit = LineEdit.new()
+	_playfab_title_id_edit.placeholder_text = "e.g. A1B2C"
+	_playfab_title_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	title_row.add_child(_playfab_title_id_edit)
+
+	var btn_row := HBoxContainer.new()
+	root.add_child(btn_row)
+
+	var save_btn := Button.new()
+	save_btn.text = "Save"
+	save_btn.pressed.connect(_on_playfab_save)
+	btn_row.add_child(save_btn)
+
+	var manager_btn := Button.new()
+	manager_btn.text = "Open Game Manager"
+	manager_btn.tooltip_text = "Open the PlayFab Game Manager in your browser"
+	manager_btn.pressed.connect(func(): OS.shell_open("https://developer.playfab.com/en-us/r/sign-in"))
+	btn_row.add_child(manager_btn)
+
+	_playfab_status_label = Label.new()
+	_playfab_status_label.text = ""
+	root.add_child(_playfab_status_label)
+
+	root.add_child(HSeparator.new())
+
+	# PlayFab SDK version
+	_playfab_version_label = Label.new()
+	_playfab_version_label.text = "PlayFab SDK: detecting..."
+	_playfab_version_label.add_theme_font_size_override("font_size", 12)
+	_playfab_version_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	root.add_child(_playfab_version_label)
+	_detect_playfab_version()
 
 
 func _build_packaging_ui(root: VBoxContainer) -> void:
@@ -491,10 +589,12 @@ func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
 		if is_dir:
 			dialog.dir_selected.connect(func(dir: String):
 				edit.text = dir
+				_save_packaging_settings()
 				dialog.queue_free())
 		else:
 			dialog.file_selected.connect(func(path: String):
 				edit.text = path
+				_save_packaging_settings()
 				dialog.queue_free())
 
 		dialog.canceled.connect(func(): dialog.queue_free())
@@ -738,6 +838,143 @@ func _refresh_config_preview(info: Dictionary) -> void:
 		row.add_child(val_label)
 
 
+# ── Settings Persistence ────────────────────────────────────────────────────
+
+func _load_packaging_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(PACKAGING_SETTINGS_PATH) != OK:
+		return
+	_source_dir_edit.text = cfg.get_value("packaging", "source_dir", "")
+	_map_file_edit.text = cfg.get_value("packaging", "map_file", "")
+	_auto_genmap_check.button_pressed = cfg.get_value("packaging", "auto_genmap", true)
+	_output_dir_edit.text = cfg.get_value("packaging", "output_dir", "")
+	_content_id_edit.text = cfg.get_value("packaging", "content_id", "")
+	_product_id_edit.text = cfg.get_value("packaging", "product_id", "")
+	_encrypt_option.selected = cfg.get_value("packaging", "encrypt_option", 0)
+	_encrypt_key_edit.text = cfg.get_value("packaging", "encrypt_key", "")
+	_updcompat_option.selected = cfg.get_value("packaging", "updcompat_option", 0)
+	_sandbox_id_edit.text = cfg.get_value("sandbox", "sandbox_id", "")
+	_test_account_edit.text = cfg.get_value("sandbox", "test_account", "")
+	# Trigger visibility update for encrypt key field
+	_on_encrypt_changed(_encrypt_option.selected)
+	_on_auto_genmap_toggled(_auto_genmap_check.button_pressed)
+
+func _save_packaging_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("packaging", "source_dir", _source_dir_edit.text)
+	cfg.set_value("packaging", "map_file", _map_file_edit.text)
+	cfg.set_value("packaging", "auto_genmap", _auto_genmap_check.button_pressed)
+	cfg.set_value("packaging", "output_dir", _output_dir_edit.text)
+	cfg.set_value("packaging", "content_id", _content_id_edit.text)
+	cfg.set_value("packaging", "product_id", _product_id_edit.text)
+	cfg.set_value("packaging", "encrypt_option", _encrypt_option.selected)
+	cfg.set_value("packaging", "encrypt_key", _encrypt_key_edit.text)
+	cfg.set_value("packaging", "updcompat_option", _updcompat_option.selected)
+	cfg.set_value("sandbox", "sandbox_id", _sandbox_id_edit.text)
+	cfg.set_value("sandbox", "test_account", _test_account_edit.text)
+	cfg.save(PACKAGING_SETTINGS_PATH)
+
+func _connect_autosave() -> void:
+	var save_fn = func(_arg = null): _save_packaging_settings()
+	for edit in [_source_dir_edit, _map_file_edit, _output_dir_edit,
+			_content_id_edit, _product_id_edit, _encrypt_key_edit, _sandbox_id_edit,
+			_test_account_edit]:
+		edit.text_changed.connect(save_fn)
+		edit.focus_exited.connect(_save_packaging_settings)
+	_auto_genmap_check.toggled.connect(save_fn)
+	_encrypt_option.item_selected.connect(save_fn)
+	_updcompat_option.item_selected.connect(save_fn)
+
+
+# ── Packaging Helpers ───────────────────────────────────────────────────────
+
+## Ensures MicrosoftGame.config, logos, and VC14 dependency exist in the content directory.
+## makepkg requires these alongside the game files.
+func _ensure_config_in_content_dir(content_dir: String) -> bool:
+	var project_dir = ProjectSettings.globalize_path("res://")
+	var config_src = _config_mgr.get_config_path()
+	var config_dest = content_dir.path_join("MicrosoftGame.config")
+
+	if not FileAccess.file_exists(config_src):
+		_log("❌ MicrosoftGame.config not found — create one first.")
+		return false
+
+	# Read the config, patch it, and write to content dir
+	var file = FileAccess.open(config_src, FileAccess.READ)
+	if file == null:
+		_log("❌ Cannot read MicrosoftGame.config")
+		return false
+	var content = file.get_as_text()
+	file.close()
+
+	# Add VC14 KnownDependency if not already present
+	if not content.contains("KnownDependency") and content.contains("</Game>"):
+		var dep_xml = '  <DesktopRegistration>\n    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n  </DesktopRegistration>\n'
+		content = content.replace("</Game>", dep_xml + "</Game>")
+		_log("Added VC14 KnownDependency to config")
+
+	# Patch executable name to match actual exe in content dir
+	var dir = DirAccess.open(content_dir)
+	if dir:
+		dir.list_dir_begin()
+		var fname = dir.get_next()
+		while fname != "":
+			# Find the main game exe (not .console.exe)
+			if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
+				var regex = RegEx.new()
+				regex.compile('Executable Name="[^"]*"')
+				if regex.search(content):
+					content = regex.sub(content, 'Executable Name="%s"' % fname)
+					_log("Patched executable name to: %s" % fname)
+				break
+			fname = dir.get_next()
+		dir.list_dir_end()
+
+	file = FileAccess.open(config_dest, FileAccess.WRITE)
+	if file == null:
+		_log("❌ Cannot write to content directory")
+		return false
+	file.store_string(content)
+	file.close()
+	_log("Copied MicrosoftGame.config to content directory")
+
+	# Parse the config to find where logos are referenced
+	var info = _config_mgr.parse_config()
+	var logo_keys := {
+		"store_logo": "StoreLogo",
+		"logo_150": "Square150x150Logo",
+		"logo_44": "Square44x44Logo",
+		"logo_480": "Square480x480Logo",
+		"splash_screen": "SplashScreenImage",
+	}
+
+	# Copy each logo to the path the config expects (relative to content dir)
+	for key in logo_keys:
+		var rel_path: String = info.get(key, "")
+		if rel_path == "":
+			# Default name at root if not in config
+			rel_path = logo_keys[key] + ".png"
+		var normalized = rel_path.replace("\\", "/")
+		var dest_path = content_dir.path_join(normalized)
+
+		# Find the source — check storelogos/ first, then project root
+		var src_path = ""
+		var filename = normalized.get_file()
+		var storelogos_src = project_dir.path_join("storelogos").path_join(filename)
+		var root_src = project_dir.path_join(filename)
+		if FileAccess.file_exists(storelogos_src):
+			src_path = storelogos_src
+		elif FileAccess.file_exists(root_src):
+			src_path = root_src
+
+		if src_path != "":
+			var dest_dir = dest_path.get_base_dir()
+			DirAccess.make_dir_recursive_absolute(dest_dir)
+			DirAccess.open(project_dir).copy(src_path, dest_path)
+
+	return true
+
+
 # ── Signal Handlers ─────────────────────────────────────────────────────────
 
 func _on_encrypt_changed(index: int) -> void:
@@ -793,6 +1030,23 @@ func _on_genmap() -> void:
 	if output == "":
 		output = source
 	var map_path := output.path_join("layout.xml")
+
+	# Confirm overwrite if layout.xml already exists
+	if FileAccess.file_exists(map_path):
+		var confirm := ConfirmationDialog.new()
+		confirm.dialog_text = "layout.xml already exists at:\n%s\n\nOverwrite it?" % map_path
+		confirm.title = "Overwrite Mapping File?"
+		confirm.confirmed.connect(func():
+			_do_genmap(source, map_path)
+			confirm.queue_free())
+		confirm.canceled.connect(func(): confirm.queue_free())
+		add_child(confirm)
+		confirm.popup_centered()
+		return
+
+	_do_genmap(source, map_path)
+
+func _do_genmap(source: String, map_path: String) -> void:
 	_log("Generating mapping file...")
 	var result = _makepkg.genmap(source, map_path)
 	_log_result(result)
@@ -802,12 +1056,36 @@ func _on_genmap() -> void:
 func _on_validate() -> void:
 	var source := _source_dir_edit.text.strip_edges()
 	var map_file := _map_file_edit.text.strip_edges()
+	var output := _output_dir_edit.text.strip_edges()
 	if source == "" or map_file == "":
 		_log("❌ Content directory and mapping file are required for validation.")
 		return
+	if output == "":
+		output = source
+	if not _ensure_config_in_content_dir(source):
+		return
+
+	var progress := AcceptDialog.new()
+	progress.title = "Validating Package"
+	progress.dialog_text = "Validating package, this may take a minute..."
+	progress.get_ok_button().visible = false
+	add_child(progress)
+	progress.popup_centered(Vector2i(450, 150))
+
+	# Wait two frames so the dialog fully renders before the blocking call
+	await get_tree().process_frame
+	await get_tree().process_frame
+
 	_log("Validating package layout...")
-	var result = _makepkg.validate(map_file, source)
+	var result = _makepkg.validate(map_file, source, output)
 	_log_result(result)
+
+	progress.get_ok_button().visible = true
+	if result["exit_code"] == 0:
+		progress.dialog_text = "✅ Package validation passed!"
+	else:
+		progress.dialog_text = "❌ Package validation failed.\nCheck the Output panel for details."
+	progress.confirmed.connect(func(): progress.queue_free())
 
 func _on_pack() -> void:
 	var source := _source_dir_edit.text.strip_edges()
@@ -818,19 +1096,44 @@ func _on_pack() -> void:
 	if output == "":
 		_log("❌ Output directory is required.")
 		return
+	if not _ensure_config_in_content_dir(source):
+		return
+
+	var progress := AcceptDialog.new()
+	progress.title = "Creating Package"
+	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
+	progress.get_ok_button().visible = false
+	add_child(progress)
+	progress.popup_centered(Vector2i(400, 120))
+
+	# Defer the blocking call so the dialog renders
+	await get_tree().process_frame
 
 	# Auto-generate mapping file if checkbox is on
 	var map_file := _map_file_edit.text.strip_edges()
 	if _auto_genmap_check.button_pressed or map_file == "":
-		_log("Auto-generating mapping file...")
 		var map_path := output.path_join("layout.xml")
+
+		# Confirm overwrite of layout.xml during pack flow
+		if FileAccess.file_exists(map_path):
+			_log("Overwriting existing layout.xml for packaging...")
+
+		progress.dialog_text = "Generating mapping file..."
+		await get_tree().process_frame
+
 		var genmap_result = _makepkg.genmap(source, map_path)
 		_log_result(genmap_result)
 		if genmap_result["exit_code"] != 0:
 			_log("❌ Mapping file generation failed — aborting package.")
+			progress.dialog_text = "❌ Mapping file generation failed."
+			progress.get_ok_button().visible = true
+			progress.confirmed.connect(func(): progress.queue_free())
 			return
 		map_file = map_path
 		_map_file_edit.text = map_file
+
+	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
+	await get_tree().process_frame
 
 	# Build options
 	var options := {}
@@ -851,6 +1154,13 @@ func _on_pack() -> void:
 	_log("Creating MSIXVC package...")
 	var result = _makepkg.pack(source, map_file, output, options)
 	_log_result(result)
+
+	progress.get_ok_button().visible = true
+	if result["exit_code"] == 0:
+		progress.dialog_text = "✅ Package created successfully!"
+	else:
+		progress.dialog_text = "❌ Package creation failed.\nCheck the Output panel for details."
+	progress.confirmed.connect(func(): progress.queue_free())
 
 
 # ── Achievements ────────────────────────────────────────────────────────────
@@ -878,3 +1188,61 @@ func _on_achievement_save() -> void:
 	else:
 		_achievement_status_label.text = "Failed to save: " + error_string(err)
 		push_error("[GDK] Failed to save achievement config: " + error_string(err))
+
+
+# ── PlayFab ─────────────────────────────────────────────────────────────────
+
+func _load_playfab_config() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(PLAYFAB_CONFIG_PATH) == OK:
+		var val = cfg.get_value("playfab", "title_id", "")
+		_playfab_title_id_edit.text = str(val)
+		if val != "":
+			_playfab_status_label.text = "Loaded from sample_pf_config.cfg"
+		else:
+			_playfab_status_label.text = "No PlayFab Title ID set — enter one and save."
+	else:
+		_playfab_status_label.text = "No sample_pf_config.cfg — enter a value and save."
+
+func _on_playfab_save() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(PLAYFAB_CONFIG_PATH)
+	cfg.set_value("playfab", "title_id", _playfab_title_id_edit.text.strip_edges())
+	var err = cfg.save(PLAYFAB_CONFIG_PATH)
+	if err == OK:
+		_playfab_status_label.text = "✅ Saved to sample_pf_config.cfg"
+		_log("PlayFab Title ID saved")
+		var fs = EditorInterface.get_resource_filesystem()
+		if not fs.is_scanning():
+			fs.scan()
+	else:
+		_playfab_status_label.text = "Failed to save: " + error_string(err)
+		push_error("[GDK] Failed to save PlayFab config: " + error_string(err))
+
+func _detect_playfab_version() -> void:
+	# Look for PlayFabCore.dll in the project's addon bin directory
+	var search_paths := [
+		"res://addons/godot_playfab/bin/PlayFabCore.dll",
+	]
+	var dll_path := ""
+	for p in search_paths:
+		var global_p = ProjectSettings.globalize_path(p)
+		if FileAccess.file_exists(global_p):
+			dll_path = global_p
+			break
+
+	if dll_path == "":
+		_playfab_version_label.text = "PlayFab SDK: not found"
+		return
+
+	# Use PowerShell to read the DLL product version
+	var output: Array = []
+	var ps_cmd = "(Get-Item '%s').VersionInfo.ProductVersion" % dll_path.replace("'", "''")
+	var exit_code = OS.execute("powershell", PackedStringArray(["-NoProfile", "-Command", ps_cmd]), output, true, false)
+	if exit_code == 0 and output.size() > 0:
+		var version = str(output[0]).strip_edges()
+		if version != "":
+			_playfab_version_label.text = "PlayFab SDK: %s" % version
+			return
+
+	_playfab_version_label.text = "PlayFab SDK: installed (version unknown)"

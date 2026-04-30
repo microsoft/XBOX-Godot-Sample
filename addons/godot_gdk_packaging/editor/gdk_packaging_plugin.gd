@@ -13,6 +13,9 @@ const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/_content
 const DOC_MAKEPKG := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/packaging/deployment/makepkg-package-creation"
 const DOC_GAME_CONFIG_EDITOR := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/system/overviews/game-config-editor"
 const DOC_ACHIEVEMENTS := "https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/tutorials/pc-e2e-guide/e2e-services/e2e-achievements"
+const DOC_PLAYFAB_GAME_MANAGER := "https://developer.playfab.com/en-us/r/sign-in"
+const DOC_PLAYFAB_IDS := "https://learn.microsoft.com/en-us/rest/api/playfab/client/account-management/get-playfab-ids-from-xbox-live-ids"
+const DOC_PLAYFAB_GDK := "https://learn.microsoft.com/en-us/gaming/playfab/sdks/playfab-sdk-for-gdk/quickstart-gdk"
 
 var _menu_bar: MenuBar
 var _gdk_popup: PopupMenu
@@ -35,6 +38,9 @@ enum MenuID {
 	DOC_MAKEPKG,
 	DOC_CONFIG_EDITOR,
 	DOC_ACHIEVEMENTS,
+	DOC_PLAYFAB,
+	DOC_PLAYFAB_IDS_LINK,
+	DOC_PLAYFAB_GDK_LINK,
 }
 
 
@@ -62,6 +68,9 @@ func _enter_tree() -> void:
 		_gdk_popup.add_item("📖 makepkg Reference", MenuID.DOC_MAKEPKG)
 		_gdk_popup.add_item("📖 GameConfigEditor Reference", MenuID.DOC_CONFIG_EDITOR)
 		_gdk_popup.add_item("📖 Achievements Guide", MenuID.DOC_ACHIEVEMENTS)
+		_gdk_popup.add_item("📖 PlayFab Game Manager", MenuID.DOC_PLAYFAB)
+		_gdk_popup.add_item("📖 PlayFab IDs from Xbox Live", MenuID.DOC_PLAYFAB_IDS_LINK)
+		_gdk_popup.add_item("📖 PlayFab + GDK Quickstart", MenuID.DOC_PLAYFAB_GDK_LINK)
 		_gdk_popup.id_pressed.connect(_on_menu_item_pressed)
 
 		_menu_bar.add_child(_gdk_popup)
@@ -117,14 +126,19 @@ func _find_menu_bar(node: Node) -> MenuBar:
 func _on_menu_item_pressed(id: int) -> void:
 	match id:
 		MenuID.CREATE_PACKAGE:
-			# Focus the packaging panel — user clicks "Create Package" there
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_pack"):
+				_packaging_panel._on_pack()
 
 		MenuID.GENERATE_MAP:
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_genmap"):
+				_packaging_panel._on_genmap()
 
 		MenuID.VALIDATE:
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_validate"):
+				_packaging_panel._on_validate()
 
 		MenuID.EDIT_CONFIG:
 			if _config_mgr.config_exists():
@@ -133,11 +147,17 @@ func _on_menu_item_pressed(id: int) -> void:
 				push_warning("[GDK Packaging] MicrosoftGame.config not found — create one first.")
 
 		MenuID.CREATE_CONFIG:
-			var err = _config_mgr.create_template()
-			if err == OK:
-				print("[GDK Packaging] Created template MicrosoftGame.config")
-			elif err == ERR_ALREADY_EXISTS:
-				push_warning("[GDK Packaging] MicrosoftGame.config already exists.")
+			if _config_mgr.config_exists():
+				var dialog := AcceptDialog.new()
+				dialog.title = "MicrosoftGame.config"
+				dialog.dialog_text = "MicrosoftGame.config already exists.\nUse \"Edit MicrosoftGame.config\" from the GDK menu\nor the Config tab to modify it."
+				dialog.confirmed.connect(func(): dialog.queue_free())
+				EditorInterface.get_base_control().add_child(dialog)
+				dialog.popup_centered(Vector2i(450, 150))
+			else:
+				var err = _config_mgr.create_template()
+				if err == OK:
+					print("[GDK Packaging] Created template MicrosoftGame.config")
 
 		MenuID.DOC_PACKAGING:
 			OS.shell_open(DOC_PC_PACKAGING)
@@ -151,9 +171,16 @@ func _on_menu_item_pressed(id: int) -> void:
 		MenuID.DOC_ACHIEVEMENTS:
 			OS.shell_open(DOC_ACHIEVEMENTS)
 
+		MenuID.DOC_PLAYFAB:
+			OS.shell_open(DOC_PLAYFAB_GAME_MANAGER)
+
+		MenuID.DOC_PLAYFAB_IDS_LINK:
+			OS.shell_open(DOC_PLAYFAB_IDS)
+
+		MenuID.DOC_PLAYFAB_GDK_LINK:
+			OS.shell_open(DOC_PLAYFAB_GDK)
+
 
 func _focus_packaging_panel() -> void:
 	if _packaging_panel:
-		# Make the dock visible and bring it to focus
 		_packaging_panel.visible = true
-		_packaging_panel.grab_focus()
