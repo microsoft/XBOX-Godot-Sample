@@ -31,9 +31,7 @@ func _run_suites() -> void:
 	]
 
 	for suite in suites:
-		var run_result = suite.run(context)
-		if run_result is GDScriptFunctionState:
-			await run_result
+		await suite.run(context)
 
 	var total = context.pass_count + context.fail_count + context.skip_count
 	print("\n══════════════════════════════════════")
