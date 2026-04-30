@@ -802,11 +802,14 @@ func _on_genmap() -> void:
 func _on_validate() -> void:
 	var source := _source_dir_edit.text.strip_edges()
 	var map_file := _map_file_edit.text.strip_edges()
+	var output := _output_dir_edit.text.strip_edges()
 	if source == "" or map_file == "":
 		_log("❌ Content directory and mapping file are required for validation.")
 		return
+	if output == "":
+		output = source
 	_log("Validating package layout...")
-	var result = _makepkg.validate(map_file, source)
+	var result = _makepkg.validate(map_file, source, output)
 	_log_result(result)
 
 func _on_pack() -> void:

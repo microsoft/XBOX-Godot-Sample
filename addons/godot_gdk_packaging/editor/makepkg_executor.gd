@@ -72,11 +72,12 @@ func genmap(content_dir: String, output_file: String) -> Dictionary:
 # ── validate ────────────────────────────────────────────────────────────────
 
 ## Validates a package layout without creating it.
-func validate(map_file: String, source_dir: String) -> Dictionary:
+func validate(map_file: String, source_dir: String, output_dir: String) -> Dictionary:
 	var args: PackedStringArray = [
 		"validate",
 		"/f", map_file,
 		"/d", source_dir,
+		"/pd", output_dir,
 		"/pc",
 	]
 	print("[GDK Packaging] makepkg ", " ".join(args))
