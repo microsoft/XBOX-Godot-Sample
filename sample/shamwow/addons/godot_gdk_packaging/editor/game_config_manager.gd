@@ -397,13 +397,13 @@ func relocate_logos_to_storelogos() -> int:
 
 # ── GameConfigEditor Launch ─────────────────────────────────────────────────
 
-## Launches MicrosoftGameConfigEditor.exe with the project's config file.
-## Returns the PID, or -1 on failure.
 ## Escapes special characters for safe use in XML attribute values.
 static func _escape_xml_attr(value: String) -> String:
 	return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+## Launches MicrosoftGameConfigEditor.exe with the project's config file.
+## Returns the PID, or -1 on failure.
 func launch_editor() -> int:
 	var config_path := get_config_path()
 	if not FileAccess.file_exists(config_path):
