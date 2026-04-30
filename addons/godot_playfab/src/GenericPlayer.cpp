@@ -21,6 +21,6 @@ std::string const& GenericPlayer::Id() const noexcept
 
 std::shared_ptr<Player> Player::GetPlayer()
 {
-    static const char* s_defaultPlayerId = s_defaultCustomId;
+    static const char* s_defaultPlayerId = "SampleLoginCustomId";
     return std::make_shared<GenericPlayer>(std::string(s_defaultPlayerId));
 }

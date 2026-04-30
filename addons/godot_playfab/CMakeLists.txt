@@ -13,8 +13,11 @@ gdk_detect_dependencies(
 add_library(godot_playfab SHARED
     src/GenericPlayer.cpp
     src/pch.cpp
-    src/PFUtils.cpp
-    src/PlayFabManager.cpp
+    src/PlayFabCore.cpp
+    src/PlayFabServices.cpp
+    src/PlayFabMultiplayer.cpp
+    src/PlayFabParty.cpp
+    src/EntityHandle.cpp
     src/register_types.cpp
 )
 

@@ -7,8 +7,6 @@ script = ExtResource("1_sy5k4")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=180518430]
 
-[node name="PlayFabManager" type="PlayFabManager" parent="." unique_id=1283338869]
-
 [node name="Button" type="Button" parent="." unique_id=890347282]
 offset_left = -339.0
 offset_top = -192.0

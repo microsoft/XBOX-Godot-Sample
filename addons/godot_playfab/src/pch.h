@@ -19,13 +19,13 @@
 
 #include <Party.h>
 #include <Party_c.h>
-
+#include <PFUtils.h>
 #include <PFMultiplayer.h>
 #include <PFLobby.h>
+#include <EntityHandle.h>
 
 #include <playfab/services/PFServices.h>
 
-#include "PFUtils.h"
 #include "Player.h"
 
 #if HC_PLATFORM == HC_PLATFORM_GDK
