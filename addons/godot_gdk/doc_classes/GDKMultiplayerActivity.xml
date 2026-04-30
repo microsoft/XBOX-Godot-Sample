@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKMultiplayerActivity" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Multiplayer activity service accessed via GDK.multiplayer_activity.
+	</brief_description>
+	<description>
+		Manages Xbox multiplayer activities, invites, and recent players. Set your game's activity with [method set_activity_async], send invites with [method send_invites_async], and handle incoming invites via signals.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="set_activity_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="connection_string" type="String" />
+			<param index="2" name="join_restriction" type="String" default="&quot;followed&quot;" />
+			<param index="3" name="max_players" type="int" default="0" />
+			<param index="4" name="current_players" type="int" default="0" />
+			<param index="5" name="group_id" type="String" default="&quot;&quot;" />
+			<param index="6" name="allow_cross_platform_join" type="bool" default="false" />
+			<description>
+				Sets the multiplayer activity for the given local user. Returns a [GDKAsyncOp] that completes when the operation finishes.
+			</description>
+		</method>
+		<method name="get_activities_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<description>
+				Queries multiplayer activities for the specified users. Results are cached and accessible via [method get_cached_activity].
+			</description>
+		</method>
+		<method name="get_cached_activity">
+			<return type="GDKMultiplayerActivityInfo" />
+			<param index="0" name="xuid" type="String" />
+			<description>
+				Returns the cached [GDKMultiplayerActivityInfo] for the given XUID, or [code]null[/code] if not cached.
+			</description>
+		</method>
+		<method name="delete_activity_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Deletes the multiplayer activity for the given local user.
+			</description>
+		</method>
+		<method name="send_invites_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<param index="2" name="allow_cross_platform_join" type="bool" default="true" />
+			<param index="3" name="connection_string" type="String" default="&quot;&quot;" />
+			<description>
+				Sends multiplayer invites to the specified users.
+			</description>
+		</method>
+		<method name="show_invite_ui_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Shows the system invite UI for the given local user.
+			</description>
+		</method>
+		<method name="update_recent_players">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<param index="2" name="encounter_type" type="String" default="&quot;default&quot;" />
+			<description>
+				Updates the recent players list for the given local user.
+			</description>
+		</method>
+		<method name="flush_recent_players_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Flushes the recent players batch to the Xbox service.
+			</description>
+		</method>
+		<method name="accept_pending_invite">
+			<return type="GDKResult" />
+			<param index="0" name="invite_uri" type="String" />
+			<description>
+				Accepts a pending invite by its URI.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="activities_updated">
+			<param index="0" name="xuids" type="PackedStringArray" />
+			<description>
+				Emitted when multiplayer activities have been updated for the specified XUIDs.
+			</description>
+		</signal>
+		<signal name="pending_invite_received">
+			<param index="0" name="invite" type="Dictionary" />
+			<description>
+				Emitted when a pending multiplayer invite has been received.
+			</description>
+		</signal>
+		<signal name="invite_accepted">
+			<param index="0" name="invite" type="Dictionary" />
+			<description>
+				Emitted when a multiplayer invite has been accepted.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

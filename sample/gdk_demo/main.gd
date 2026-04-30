@@ -244,14 +244,19 @@ func _on_runtime_error(result) -> void:
 	_refresh_mpa_ui()
 
 func _on_user_added(user) -> void:
-	_show_user(user)
+	if _is_primary_user(user):
+		_show_user(user)
 
 func _on_user_changed(user) -> void:
-	_show_user(user)
+	if _is_primary_user(user):
+		_show_user(user)
 
 func _on_user_removed(local_id: int) -> void:
 	status_label.text = "GDK: User %d removed" % local_id
-	_clear_user()
+	var gdk = _get_gdk()
+	var primary_user = gdk.users.get_primary_user() if gdk != null else null
+	if primary_user == null:
+		_clear_user()
 
 func _on_primary_user_changed(user) -> void:
 	if user:

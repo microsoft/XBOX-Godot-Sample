@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKDispatchOp" inherits="GDKAsyncOp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Dispatch-driven async operation for manager/event waits.
+	</brief_description>
+	<description>
+		A specialized async operation used for Achievements Manager and other dispatch-driven flows. Behaves like [GDKAsyncOp] but completes through [method GDK.dispatch] pumping rather than XAsync callbacks.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

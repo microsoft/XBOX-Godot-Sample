@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSocialGroup" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A Social Manager group tracking a set of users.
+	</brief_description>
+	<description>
+		Created via [code]GDK.social.create_social_group()[/code] or [code]GDK.social.create_social_group_from_xuids()[/code]. Use [code]GDK.social.get_group_users()[/code] to retrieve the [GDKSocialUser] list.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_local_user">
+			<return type="GDKUser" />
+			<description>
+				Returns the local user associated with this social group.
+			</description>
+		</method>
+		<method name="is_loaded">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the social group has finished loading its initial data.
+			</description>
+		</method>
+		<method name="get_group_type">
+			<return type="int" enum="GDKSocialGroup.GroupType" />
+			<description>
+				Returns the type of this social group.
+			</description>
+		</method>
+		<method name="get_group_type_name">
+			<return type="String" />
+			<description>
+				Returns the group type as a human-readable string.
+			</description>
+		</method>
+		<method name="get_presence_filter">
+			<return type="int" enum="GDKSocialFilter.PresenceFilter" />
+			<description>
+				Returns the presence filter used by this group, if it is a filter-based group.
+			</description>
+		</method>
+		<method name="get_relationship_filter">
+			<return type="int" enum="GDKSocialFilter.RelationshipFilter" />
+			<description>
+				Returns the relationship filter used by this group, if it is a filter-based group.
+			</description>
+		</method>
+		<method name="get_tracked_xuids">
+			<return type="PackedStringArray" />
+			<description>
+				Returns the XUIDs currently tracked by this social group.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="local_user" type="GDKUser" setter="" getter="get_local_user">
+			The local user associated with this social group.
+		</member>
+		<member name="loaded" type="bool" setter="" getter="is_loaded">
+			Whether the social group has finished loading its initial data.
+		</member>
+		<member name="group_type" type="int" setter="" getter="get_group_type" enum="GDKSocialGroup.GroupType">
+			The type of this social group.
+		</member>
+		<member name="tracked_xuids" type="PackedStringArray" setter="" getter="get_tracked_xuids">
+			The XUIDs currently tracked by this social group.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="GROUP_TYPE_FILTER" value="0" enum="GroupType">
+			A group created from a presence and relationship filter.
+		</constant>
+		<constant name="GROUP_TYPE_USER_LIST" value="1" enum="GroupType">
+			A group created from an explicit list of XUIDs.
+		</constant>
+	</constants>
+</class>

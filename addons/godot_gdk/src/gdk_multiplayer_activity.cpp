@@ -607,6 +607,11 @@ Ref<GDKResult> GDKMultiplayerActivity::on_runtime_initialized() {
     return GDKResult::ok_result();
 }
 
+int GDKMultiplayerActivity::dispatch() {
+    // Multiplayer activity uses one-shot async calls, no manager to dispatch.
+    return 0;
+}
+
 void GDKMultiplayerActivity::shutdown() {
     m_runtime_ready = false;
 

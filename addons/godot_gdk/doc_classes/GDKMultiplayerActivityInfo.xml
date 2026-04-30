@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKMultiplayerActivityInfo" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached multiplayer activity info for a user.
+	</brief_description>
+	<description>
+		Contains multiplayer activity details for a user, including connection string, player counts, and join restrictions. Retrieved from [code]GDK.multiplayer_activity.get_cached_activity()[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_xuid">
+			<return type="String" />
+			<description>
+				Returns the Xbox User ID for this activity record.
+			</description>
+		</method>
+		<method name="get_connection_string">
+			<return type="String" />
+			<description>
+				Returns the connection string for joining the activity.
+			</description>
+		</method>
+		<method name="get_join_restriction">
+			<return type="String" />
+			<description>
+				Returns the join restriction for the activity.
+			</description>
+		</method>
+		<method name="get_max_players">
+			<return type="int" />
+			<description>
+				Returns the maximum number of players for the activity.
+			</description>
+		</method>
+		<method name="get_current_players">
+			<return type="int" />
+			<description>
+				Returns the current number of players in the activity.
+			</description>
+		</method>
+		<method name="get_group_id">
+			<return type="String" />
+			<description>
+				Returns the group ID for the activity.
+			</description>
+		</method>
+		<method name="get_platform">
+			<return type="String" />
+			<description>
+				Returns the platform of the activity.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="xuid" type="String" setter="" getter="get_xuid">
+			The Xbox User ID for this activity record.
+		</member>
+		<member name="connection_string" type="String" setter="" getter="get_connection_string">
+			The connection string for joining the activity.
+		</member>
+		<member name="join_restriction" type="String" setter="" getter="get_join_restriction">
+			The join restriction for the activity.
+		</member>
+		<member name="max_players" type="int" setter="" getter="get_max_players">
+			The maximum number of players for the activity.
+		</member>
+		<member name="current_players" type="int" setter="" getter="get_current_players">
+			The current number of players in the activity.
+		</member>
+		<member name="group_id" type="String" setter="" getter="get_group_id">
+			The group ID for the activity.
+		</member>
+		<member name="platform" type="String" setter="" getter="get_platform">
+			The platform of the activity.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

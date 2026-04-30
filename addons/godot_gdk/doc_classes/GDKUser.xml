@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKUser" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Represents a signed-in Xbox user.
+	</brief_description>
+	<description>
+		Wrapper around an Xbox user handle. Provides identity info like gamertag, XUID, age group, and sign-in state.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_local_id" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the local user ID assigned by the GDK runtime.
+			</description>
+		</method>
+		<method name="get_xuid" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the Xbox User ID (XUID) as a string.
+			</description>
+		</method>
+		<method name="get_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's gamertag.
+			</description>
+		</method>
+		<method name="get_age_group" qualifiers="const">
+			<return type="int" enum="GDKUser.AgeGroup" />
+			<description>
+				Returns the user's age group as an [enum AgeGroup] value.
+			</description>
+		</method>
+		<method name="get_age_group_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's age group as a human-readable string.
+			</description>
+		</method>
+		<method name="get_sign_in_state" qualifiers="const">
+			<return type="int" enum="GDKUser.SignInState" />
+			<description>
+				Returns the user's sign-in state as a [enum SignInState] value.
+			</description>
+		</method>
+		<method name="get_sign_in_state_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's sign-in state as a human-readable string.
+			</description>
+		</method>
+		<method name="is_guest" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is a guest account.
+			</description>
+		</method>
+		<method name="is_signed_in" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is currently signed in.
+			</description>
+		</method>
+		<method name="is_store_user" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is the store user.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="local_id" type="int" setter="" getter="get_local_id">
+			The local user ID assigned by the GDK runtime.
+		</member>
+		<member name="xuid" type="String" setter="" getter="get_xuid">
+			The Xbox User ID (XUID) as a string.
+		</member>
+		<member name="gamertag" type="String" setter="" getter="get_gamertag">
+			The user's gamertag.
+		</member>
+		<member name="age_group" type="int" setter="" getter="get_age_group" enum="GDKUser.AgeGroup">
+			The user's age group. See [enum AgeGroup].
+		</member>
+		<member name="sign_in_state" type="int" setter="" getter="get_sign_in_state" enum="GDKUser.SignInState">
+			The user's sign-in state. See [enum SignInState].
+		</member>
+		<member name="guest" type="bool" setter="" getter="is_guest">
+			[code]true[/code] if the user is a guest account.
+		</member>
+		<member name="signed_in" type="bool" setter="" getter="is_signed_in">
+			[code]true[/code] if the user is currently signed in.
+		</member>
+		<member name="store_user" type="bool" setter="" getter="is_store_user">
+			[code]true[/code] if the user is the store user.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="AGE_GROUP_UNKNOWN" value="0" enum="AgeGroup">
+			Age group is unknown.
+		</constant>
+		<constant name="AGE_GROUP_CHILD" value="1" enum="AgeGroup">
+			User is a child.
+		</constant>
+		<constant name="AGE_GROUP_TEEN" value="2" enum="AgeGroup">
+			User is a teen.
+		</constant>
+		<constant name="AGE_GROUP_ADULT" value="3" enum="AgeGroup">
+			User is an adult.
+		</constant>
+		<constant name="SIGN_IN_STATE_SIGNED_OUT" value="0" enum="SignInState">
+			User is signed out.
+		</constant>
+		<constant name="SIGN_IN_STATE_SIGNING_OUT" value="1" enum="SignInState">
+			User is in the process of signing out.
+		</constant>
+		<constant name="SIGN_IN_STATE_SIGNED_IN" value="2" enum="SignInState">
+			User is signed in.
+		</constant>
+	</constants>
+</class>

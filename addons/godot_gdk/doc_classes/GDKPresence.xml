@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPresence" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Presence service accessed via GDK.presence.
+	</brief_description>
+	<description>
+		Manages Xbox rich presence for local and remote users. Set presence with [method set_presence_async], query remote users with [method get_presence_async], and access cached records with [method get_cached_presence].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="set_presence_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="state" type="String" />
+			<param index="2" name="rich_presence" type="Dictionary" default="{}" />
+			<description>
+				Sets the presence state for the given local user. Returns a [GDKAsyncOp] that completes when the operation finishes.
+			</description>
+		</method>
+		<method name="clear_presence_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Clears the presence state for the given local user.
+			</description>
+		</method>
+		<method name="get_presence_async">
+			<return type="GDKAsyncOp" />
+			<param index="0" name="xuids" type="PackedStringArray" />
+			<description>
+				Queries the presence of the specified users by XUID. Results are cached and accessible via [method get_cached_presence].
+			</description>
+		</method>
+		<method name="get_cached_presence">
+			<return type="GDKPresenceRecord" />
+			<param index="0" name="xuid" type="String" />
+			<description>
+				Returns the cached [GDKPresenceRecord] for the given XUID, or [code]null[/code] if not cached.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="presence_changed">
+			<param index="0" name="xuid" type="String" />
+			<param index="1" name="presence" type="GDKPresenceRecord" />
+			<description>
+				Emitted when a tracked user's presence changes.
+			</description>
+		</signal>
+		<signal name="local_presence_set">
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Emitted when a local user's presence has been successfully set.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

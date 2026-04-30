@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKAsyncOp" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Async operation handle for GDK XAsync-backed requests.
+	</brief_description>
+	<description>
+		Represents an in-flight asynchronous GDK operation. Connect to [signal completed] or poll [method is_done] to check status. Call [method get_result] after completion to retrieve the result.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="is_done" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the async operation has completed.
+			</description>
+		</method>
+		<method name="cancel">
+			<return type="bool" />
+			<description>
+				Attempts to cancel the in-flight operation. Returns [code]true[/code] if cancellation was requested successfully.
+			</description>
+		</method>
+		<method name="get_result" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the [GDKResult] of the completed operation. Only valid after [method is_done] returns [code]true[/code] or after the [signal completed] signal fires.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="completed">
+			<param index="0" name="result" type="GDKResult" />
+			<description>
+				Emitted when the async operation completes. The [param result] contains the operation outcome.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

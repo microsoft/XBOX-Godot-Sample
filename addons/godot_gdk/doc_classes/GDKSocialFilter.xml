@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSocialFilter" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Filter configuration for social groups.
+	</brief_description>
+	<description>
+		Defines presence and relationship filters for creating social groups via [code]GDK.social.create_social_group()[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_presence_filter">
+			<return type="int" enum="GDKSocialFilter.PresenceFilter" />
+			<description>
+				Returns the current presence filter.
+			</description>
+		</method>
+		<method name="set_presence_filter">
+			<return type="void" />
+			<param index="0" name="presence_filter" type="int" enum="GDKSocialFilter.PresenceFilter" />
+			<description>
+				Sets the presence filter.
+			</description>
+		</method>
+		<method name="get_relationship_filter">
+			<return type="int" enum="GDKSocialFilter.RelationshipFilter" />
+			<description>
+				Returns the current relationship filter.
+			</description>
+		</method>
+		<method name="set_relationship_filter">
+			<return type="void" />
+			<param index="0" name="relationship_filter" type="int" enum="GDKSocialFilter.RelationshipFilter" />
+			<description>
+				Sets the relationship filter.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="presence_filter" type="int" setter="set_presence_filter" getter="get_presence_filter" enum="GDKSocialFilter.PresenceFilter">
+			The presence filter for this social filter configuration.
+		</member>
+		<member name="relationship_filter" type="int" setter="set_relationship_filter" getter="get_relationship_filter" enum="GDKSocialFilter.RelationshipFilter">
+			The relationship filter for this social filter configuration.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="PRESENCE_FILTER_UNKNOWN" value="0" enum="PresenceFilter">
+			Unknown presence filter.
+		</constant>
+		<constant name="PRESENCE_FILTER_TITLE_ONLINE" value="1" enum="PresenceFilter">
+			Users online in the current title.
+		</constant>
+		<constant name="PRESENCE_FILTER_TITLE_OFFLINE" value="2" enum="PresenceFilter">
+			Users offline in the current title.
+		</constant>
+		<constant name="PRESENCE_FILTER_TITLE_ONLINE_OUTSIDE_TITLE" value="3" enum="PresenceFilter">
+			Users online but outside the current title.
+		</constant>
+		<constant name="PRESENCE_FILTER_ALL_ONLINE" value="4" enum="PresenceFilter">
+			All online users.
+		</constant>
+		<constant name="PRESENCE_FILTER_ALL_OFFLINE" value="5" enum="PresenceFilter">
+			All offline users.
+		</constant>
+		<constant name="PRESENCE_FILTER_ALL_TITLE" value="6" enum="PresenceFilter">
+			All users associated with the current title.
+		</constant>
+		<constant name="PRESENCE_FILTER_ALL" value="7" enum="PresenceFilter">
+			All users regardless of presence or title.
+		</constant>
+		<constant name="RELATIONSHIP_FILTER_UNKNOWN" value="0" enum="RelationshipFilter">
+			Unknown relationship filter.
+		</constant>
+		<constant name="RELATIONSHIP_FILTER_FRIENDS" value="1" enum="RelationshipFilter">
+			Friends of the local user.
+		</constant>
+		<constant name="RELATIONSHIP_FILTER_FAVORITE" value="2" enum="RelationshipFilter">
+			Favorite friends of the local user.
+		</constant>
+	</constants>
+</class>

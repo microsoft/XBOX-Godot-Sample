@@ -202,6 +202,9 @@ func _end_game(with_error: String = "") -> void:
 	multiplayer.set_multiplayer_peer(null)
 	_set_buttons_disabled(false)
 	_set_status(with_error, false)
+	port_forward_label.visible = false
+	find_public_ip_button.visible = false
+	get_window().title = ProjectSettings.get_setting("application/config/name")
 
 
 func _set_buttons_disabled(disabled: bool) -> void:
