@@ -23,11 +23,11 @@ void GameInputBinding::_bind_methods() {
 
     ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "action"), "set_action", "get_action");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "source", PROPERTY_HINT_ENUM,
-                              "Menu,View,A,B,X,Y,DPad Up,DPad Down,DPad Left,DPad Right,"
-                              "Left Shoulder,Right Shoulder,Left Thumb,Right Thumb,,,,,,,,,,"
-                              ",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"
-                              ",,,,,,,,,,,,,,Axis Left X,Axis Left Y,Axis Right X,Axis Right Y,"
-                              "Axis Left Trigger,Axis Right Trigger"),
+                              "Menu:0,View:1,A:2,B:3,X:4,Y:5,DPad Up:6,DPad Down:7,"
+                              "DPad Left:8,DPad Right:9,Left Shoulder:10,Right Shoulder:11,"
+                              "Left Thumb:12,Right Thumb:13,Axis Left X:100,Axis Left Y:101,"
+                              "Axis Right X:102,Axis Right Y:103,Axis Left Trigger:104,"
+                              "Axis Right Trigger:105"),
                  "set_source", "get_source");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "is_axis"), "set_is_axis", "get_is_axis");
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "axis_threshold",

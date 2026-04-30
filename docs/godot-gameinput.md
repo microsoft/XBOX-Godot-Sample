@@ -52,7 +52,7 @@ project's `addons/godot_gameinput/` by the build's sample-sync step.
 
 1. Copy `addons/godot_gameinput/` into your project (or symlink it).
 2. Open the project once — Godot will detect `plugin.cfg`.
-3. Project → Project Settings → Plugins → enable **GodotGameInput**.
+3. Project → Project Settings → Plugins → enable **Godot GameInput**.
 
 Enabling the plugin installs an autoload called `GameInputBootstrap` that
 reads two project settings and runs the lifecycle for you:
@@ -106,8 +106,8 @@ In the editor:
 2. Edit the map; add `GameInputBinding` rows. For each row:
    * `action` — a Godot action name that already exists in
      **Project Settings → Input Map** (e.g. `&"jump"`).
-   * `source` — a `GameInputDevice.SOURCE_*` value
-     (e.g. `SOURCE_BUTTON_A`, `SOURCE_AXIS_LEFT_X`).
+   * `source` — a `GameInputDevice.SRC_*` value
+     (e.g. `SRC_BTN_A`, `SRC_AXIS_LEFT_X`).
    * `is_axis` — toggle on for thumbsticks / triggers.
    * `axis_threshold` — for axis-as-button, fire `action_press` when
      `|value| >= threshold`.

@@ -5,7 +5,7 @@
 	</brief_description>
 	<description>
 		[GameInput] is the engine singleton that owns the [code]IGameInput[/code] runtime, the device cache, and main-thread poll dispatch. Access it from GDScript with [code]Engine.get_singleton("GameInput")[/code]. Lifecycle is normally driven by the [code]GameInputBootstrap[/code] autoload that the editor plugin installs; that autoload reads the project settings [code]game_input/runtime/initialize_on_startup[/code] and [code]game_input/runtime/auto_poll[/code] to decide whether to call [method initialize] at startup and [method poll] every frame.
-		All public methods on this class are GDScript-safe: when called before [method initialize] succeeds, after [method shutdown], or when [code]GameInputCreate()[/code] failed on this host, they return safe defaults ([code]false[/code], an empty [Array], [code]null[/code], [code]-1.0[/code]) and emit a single [code]push_warning[/code] per process to flag the misuse.
+		All public methods on this class are GDScript-safe: when called before [method initialize] succeeds, after [method shutdown], or when [code]GameInputCreate()[/code] failed on this host, they soft-fail instead of crashing. [method poll] becomes a no-op in that state and does not emit a warning, while data-returning methods return safe defaults ([code]false[/code], an empty [Array], [code]null[/code], [code]-1.0[/code]) and emit a single [code]push_warning[/code] per process to flag the misuse.
 		Device-callback events from the GameInput worker thread are queued and only applied on the main thread inside [method poll], so the [signal device_connected] and [signal device_disconnected] signals are always emitted on the main thread.
 	</description>
 	<tutorials></tutorials>
