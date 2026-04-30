@@ -248,8 +248,6 @@ func _build_ui() -> void:
 	_encrypt_key_edit = _add_path_field(root, "EKB Key File",
 		"Path to encryption key bundle file", false)
 	_encrypt_key_edit.get_parent().visible = false  # hidden until /lk selected
-	# Store the HBox parent for toggling visibility
-	_encrypt_key_browse = _encrypt_key_edit.get_parent().get_child(2) if _encrypt_key_edit.get_parent().get_child_count() > 2 else null
 
 	# Update compatibility
 	var compat_row := HBoxContainer.new()
