@@ -44,6 +44,12 @@ applyTo: "addons/godot_gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_d
 - Add new implementation files to `addons\godot_gdk\CMakeLists.txt`.
 - When exposing object-returning properties from C++, set the `PropertyInfo` class name (for example `GDKUsers` or `GDKAchievements`) so Godot does not instantiate anonymous object defaults.
 
+## Public API Documentation Contract
+
+- Public Godot-facing classes in `godot_gdk` should have matching documentation under `addons\godot_gdk\doc_classes\`.
+- When public methods, properties, signals, enums, or behavior change, update the relevant `doc_classes\*.xml` in the same change.
+- The addon CMake already collects `doc_classes\*.xml` automatically for editor and debug-template builds; keep the XML set aligned with the script-visible surface instead of treating it as optional follow-up documentation.
+
 ## GDScript and Editor Script Rules
 
 - In the GDK-owned `sample\` scripts and in `addons\godot_gdk\editor\`, avoid `:=` when the right-hand side comes from Variant-returning engine APIs. Prefer explicit `: Type = ...` or plain `=`.
@@ -53,6 +59,13 @@ applyTo: "addons/godot_gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_d
 ## Sample, Docs, and Tooling Workflow
 
 - The GDK-owned sample surfaces under `sample\` are part of the addon contract. Update them when public `godot_gdk` behavior changes.
+- When public `godot_gdk` API or behavior changes, keep `doc_classes`, `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, the sample, and tests aligned in the same change.
+- For `.gd` changes in the GDK-owned sample or editor/plugin scripts, run the repo headless validator:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
+```
+
 - The headless test entry point for this addon is:
 
 ```powershell
