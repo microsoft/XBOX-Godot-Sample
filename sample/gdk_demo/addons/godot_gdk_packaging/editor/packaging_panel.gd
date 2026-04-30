@@ -969,12 +969,13 @@ func _on_validate() -> void:
 
 	var progress := AcceptDialog.new()
 	progress.title = "Validating Package"
-	progress.dialog_text = "Running package validation...\nThis may take a few seconds."
+	progress.dialog_text = "Validating package, this may take a minute..."
 	progress.get_ok_button().visible = false
 	add_child(progress)
-	progress.popup_centered(Vector2i(400, 120))
+	progress.popup_centered(Vector2i(450, 150))
 
-	# Defer the blocking call so the dialog renders
+	# Wait two frames so the dialog fully renders before the blocking call
+	await get_tree().process_frame
 	await get_tree().process_frame
 
 	_log("Validating package layout...")
