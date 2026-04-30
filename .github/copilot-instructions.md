@@ -40,6 +40,7 @@ Output binaries land in each addon's `bin\` folder. Addon-local build logic may 
 ## Path-Scoped Instructions
 
 - `addons\godot_gdk\`, the GDK-owned sample files, `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` are covered by `.github\instructions\godot-gdk.instructions.md`.
+- `addons\godot_gameinput\`, the GameInput-touching sample files (`sample\shamwow\tests\**`, the pong logic scripts that pulse rumble or wire hot-plug), `docs\godot-gameinput.md`, and `spec\gdext-gameinput.md` are covered by `.github\instructions\godot-gameinput.instructions.md`.
 - If future addon-specific guidance is needed, add another scoped instruction file instead of expanding this top-level file with rules that only apply to one addon.
 
 ## Workflow Quality Gates

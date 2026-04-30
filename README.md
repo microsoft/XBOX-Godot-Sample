@@ -8,7 +8,7 @@ A repository of Godot 4.x GDExtension addons for the Microsoft public GDK
 | Addon | Description | Status |
 |-------|-------------|--------|
 | [`godot_gdk`](addons/godot_gdk/) | GDK runtime, Xbox user identity, Xbox achievements, Xbox presence, Xbox social graph, Xbox multiplayer activity | Runtime/users/achievements/presence/social/multiplayer-activity baseline |
-| [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput controller support | Scaffold (build pipeline verified) |
+| [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput controller support — devices, polling, vibration, action bridge | v1: Devices, Polling, Vibration, Action Bridge |
 | [`godot_gdk_packaging`](addons/godot_gdk_packaging/) | GDScript editor plugin for PC MSIXVC packaging via `makepkg.exe` | Editor plugin (no C++ build) |
 
 ## Quick start
@@ -85,7 +85,8 @@ Full documentation lives in [`docs/`](docs/README.md):
   `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`
 - [**Sample Project Setup**](docs/godot-gdk-sample-setup.md) — Partner Center
   config, sandbox, test accounts
-- [**GameInput Addon**](docs/godot-gameinput.md) — status and planned API
+- [**GameInput Addon**](docs/godot-gameinput.md) — devices, polling,
+  vibration, action bridge, sample integration
 - [**Troubleshooting**](docs/troubleshooting.md) — common build and runtime
   issues
 

@@ -1,5 +1,15 @@
 # GameInput GDExtension Spec
 
+> **Status: v1 shipped.** Devices, polling, vibration, action bridge, project
+> settings, EditorPlugin-installed bootstrap autoload, and sample integration
+> in `shamwow` and `multiplayer_pong` are all live. Headless tests pass under
+> `sample/shamwow/tests/`. Issue #23 (battery + device info) is satisfied via
+> `GameInputDevice.get_battery_level()` / `GameInputDevice.get_device_info()`.
+>
+> Deviations from the original sketch are listed in
+> [§ Deviations](#deviations-from-the-original-sketch). Deferred items are in
+> [§ Deferred to v2](#deferred-to-v2).
+
 ## Overview
 
 This document defines a **GDScript-first** plan for the `godot_gameinput` Godot GDExtension plugin.
@@ -20,14 +30,16 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 | Domain | v1 | Notes |
 | --- | --- | --- |
-| Runtime init/shutdown | Yes | `GameInputCreate`, callback registration, teardown |
-| Device discovery/lifecycle | Yes | connected/disconnected device cache |
-| Polling API | Yes | current-reading access |
-| Reading callbacks | Yes | optional event-driven device input |
-| Vibration/rumble | Yes | `SetRumbleState`-backed |
-| Force feedback / advanced haptics | Later | optional follow-on after basic rumble |
-| Godot action bridge | Yes | `GameInputMapper` + `GameInputActionMap` |
-| Dependency on `godot_gdk` | No | should ship independently |
+| Runtime init/shutdown | Shipped | `GameInputCreate`, callback registration, idempotent teardown |
+| Device discovery/lifecycle | Shipped | connected/disconnected device cache, hot-plug signals on the main thread |
+| Polling API | Shipped | `GameInput.poll()` is per-frame idempotent |
+| Reading callbacks | Deferred | event-driven readings — see [§ Deferred to v2](#deferred-to-v2) |
+| Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first |
+| Force feedback / advanced haptics | Deferred | optional follow-on after basic rumble |
+| Battery + device info | Shipped | `GameInputDevice.get_battery_level()` / `get_device_info()` (issue #23) |
+| Godot action bridge | Shipped | `GameInputMapper` + `GameInputActionMap` + `GameInputBinding` |
+| Project Settings + bootstrap autoload | Shipped | EditorPlugin installs `GameInputBootstrap` autoload |
+| Dependency on `godot_gdk` | None | ships independently |
 
 ## Rationale and prior art
 
@@ -163,15 +175,20 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `game_input/runtime/initialize_on_startup` | `false` | Calls `GameInput.initialize()` automatically during startup. |
-| `game_input/runtime/embed_dispatch` | `true` | Enables automatic per-frame polling/callback dispatch integration. |
-| `game_input/runtime/enable_device_callbacks` | `false` | Registers device connection and disconnection callbacks during initialization. |
+| `game_input/runtime/initialize_on_startup` | `false` | Bootstrap autoload calls `GameInput.initialize()` after the SceneTree is ready. |
+| `game_input/runtime/auto_poll` | `true` | Bootstrap autoload calls `GameInput.poll()` from `_process` so apps don't have to. `GameInputMapper` nodes also call `poll()` defensively (idempotent). |
 
 ### Mapper
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `game_input/mapper/default_action_map` | `""` | Optional default `GameInputActionMap` resource for `GameInputMapper`. |
+| `game_input/mapper/default_action_map` | `""` | When set to a `GameInputActionMap` resource path (e.g. `res://input/actions.tres`), the bootstrap autoload spawns a `GameInputMapper` named `DefaultMapper` as its child and assigns the loaded resource to it. Lets a project drive its `InputMap` from a GameInput action map without adding any nodes to its scenes. Also serves as the fallback `action_map` for any user-placed `GameInputMapper` whose `action_map` property is null. |
+
+> **Note:** `game_input/runtime/embed_dispatch` was dropped — GameInput
+> dispatches callbacks on its own worker thread and we don't manually drive
+> `IGameInputDispatcher`. `game_input/runtime/enable_device_callbacks` was
+> also dropped: device callbacks are always-on after `initialize()` because
+> the device cache and `get_devices()` depend on them.
 
 ## Build and packaging rules
 
@@ -193,7 +210,81 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 
 ## Rollout
 
-| Step | Deliverable |
-| --- | --- |
-| 1 | `GameInput` raw polling + device callbacks + vibration |
-| 2 | `GameInputMapper` + action map resource |
+| Step | Deliverable | Status |
+| --- | --- | --- |
+| 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
+| 2 | `GameInputMapper` + action map resource | Shipped |
+| 3 | Battery + device info (issue #23) | Shipped |
+| 4 | Sample integration (`shamwow` panel + `multiplayer_pong` rumble & hot-plug) | Shipped |
+| 5 | Headless test suite + manual hardware checklist | Shipped |
+| 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
+
+## Deviations from the original sketch
+
+These are intentional design changes from the early draft of this spec, made
+during implementation and validated through a rubber-duck design pass:
+
+- **`GameInputMapper` is action-level, not physical-event-level.**
+  The Mapper emits via `Input.action_press(action, strength)` /
+  `Input.action_release(action)` keyed off `GameInputBinding` rows. It does
+  **not** inject `InputEventJoypadButton` / `InputEventJoypadMotion` — that
+  would create a split-brain where the same input flows through two paths.
+  Action names must already exist in `InputMap`; missing actions trigger a
+  single per-instance `push_warning` (debounced via
+  `HashSet<StringName> m_warned_missing_actions`).
+- **Bootstrap autoload installed by `EditorPlugin`.**
+  Project settings alone never bootstrap runtime logic. The
+  `GameInputBootstrap` autoload is the single bootstrap surface;
+  `editor/gameinput_editor_plugin.gd::_enable_plugin()` calls
+  `add_autoload_singleton(...)`, and `_disable_plugin()` removes it. There is
+  no orphaned state when the plugin is disabled.
+- **Threading model is explicit.**
+  GameInput device callbacks fire on a worker thread. They only push events
+  into a mutex-protected queue and `AddRef` the device pointer. The main
+  thread drains the queue inside `poll()` and emits Godot signals from there
+  — no `call_deferred` dance.
+- **`poll()` is per-frame idempotent.**
+  Backed by `Engine::get_singleton()->get_process_frames()`. Multiple
+  Mappers + the bootstrap autoload all call `poll()` defensively, but the
+  real refresh runs only once per frame and `prev` button state stays correct
+  for `was_button_pressed()`.
+- **Device IDs are session-local monotonic, never recycled.**
+  `GameInputDevice` wrappers hold only the id (a weak handle), never a raw
+  `IGameInputDevice*`. After disconnect the id is retired, the wrapper stays
+  alive as an inert RefCounted, and methods return safe defaults.
+- **`GameInputBinding` is a Resource per binding** (not `Array[Dictionary]`).
+  Inspector-friendly typed exports for `action`, `source`, `is_axis`,
+  `axis_threshold`, `axis_invert`, `deadzone`. `GameInputActionMap.bindings`
+  is a `TypedArray<GameInputBinding>` with `PROPERTY_HINT_ARRAY_TYPE` so the
+  editor renders an inspector for resource children.
+- **Single combined `Source` enum** for `GameInputBinding.source` covering
+  buttons (0–13) and axes (100–105).
+- **Soft-fail only — no compile-time platform guards.**
+  This repo is Windows-only by mission. Every public method checks
+  `_ensure_initialized()` and returns safe defaults (`false`, `null`, empty
+  `Array`, `-1.0`) when conditions fail.
+- **`embed_dispatch` and `enable_device_callbacks` settings dropped.**
+  Documented above.
+- **Doc XML race fix:** `addons/godot_gameinput/CMakeLists.txt` serializes
+  `target_doc_sources` execution against the `godot_gdk` doc target via
+  `add_dependencies`, sidestepping the MSB8065 "two writers race for the
+  same gen/ output dir" failure.
+
+## Deferred to v2
+
+These were on the wishlist for v1 but pushed out so the cohesive raw API +
+action bridge could ship quickly. Each will get its own GitHub issue:
+
+- **Reading callbacks** — event-driven readings via
+  `IGameInput::RegisterReadingCallback` (so games can react in the same
+  millisecond that input arrives, instead of waiting for the next frame).
+- **Force feedback / advanced haptics** — beyond the basic
+  `SetRumbleState` rumble that ships in v1.
+- **Arcade stick / fight stick** support.
+- **Racing wheel** support.
+- **Keyboard / mouse raw input** through GameInput (the addon is gamepad-only
+  in v1; KB/M still flows through Godot's standard event pipeline).
+- **XInput fallback** for hosts where GameInput isn't available.
+- **Linux/macOS native paths** — out of scope for the GDK-flavoured Windows
+  mission of this repo.
+

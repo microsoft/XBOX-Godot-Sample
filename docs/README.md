@@ -48,8 +48,11 @@ for Partner Center configuration.
 
 ## GameInput addon (`godot_gameinput`)
 
-- [**GameInput Addon**](godot-gameinput.md) — current status, planned API, and
-  build instructions
+- [**GameInput Addon**](godot-gameinput.md) — devices, polling, vibration,
+  action bridge, project settings, sample integration
+- [**GameInput Manual Tests**](godot-gameinput-manual-tests.md) — hardware
+  checklist for things headless tests can't cover (real controllers, rumble,
+  battery, hot-plug)
 
 ## Design specs
 

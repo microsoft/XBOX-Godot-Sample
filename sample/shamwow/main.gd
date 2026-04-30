@@ -2,6 +2,7 @@ extends Control
 ## ShamWow-inspired scenario shell for the Godot GDK sample surface.
 
 const GDK_EXTENSION_PATH = "res://addons/godot_gdk/godot_gdk.gdextension"
+const GAMEINPUT_EXTENSION_PATH = "res://addons/godot_gameinput/godot_gameinput.gdextension"
 const DEFAULT_ACHIEVEMENT_ID = "1"
 const ACHIEVEMENT_STEP = 25
 const DEMO_MPA_CONNECTION_STRING = "godot-gdk-shamwow://sample-session"
@@ -9,6 +10,10 @@ const DEMO_MPA_GROUP_ID = "shamwow-mpa-group"
 const DEMO_MPA_MAX_PLAYERS = 4
 const DEMO_MPA_CURRENT_PLAYERS = 1
 const MAX_LOG_LINES = 80
+
+const RUMBLE_DEMO_LOW = 0.45
+const RUMBLE_DEMO_HIGH = 0.25
+const RUMBLE_DEMO_DURATION = 0.4
 
 @onready var title_label: Label = $OuterMargin/RootVBox/HeaderPanel/HeaderVBox/TitleLabel
 @onready var tagline_label: Label = $OuterMargin/RootVBox/HeaderPanel/HeaderVBox/TaglineLabel
@@ -25,6 +30,10 @@ const MAX_LOG_LINES = 80
 
 var _gdk_extension = null
 var _gdk_load_attempted = false
+var _gameinput_extension = null
+var _gameinput_load_attempted = false
+var _gameinput_signals_bound = false
+var _gameinput_last_event = "No GameInput events yet."
 var _scenario_root: Dictionary = {}
 var _scenario_stack: Array[Dictionary] = []
 var _current_group: Dictionary = {}
@@ -51,6 +60,19 @@ func _gdk():
 
 	return null
 
+func _gameinput():
+	if Engine.has_singleton("GameInput"):
+		return Engine.get_singleton("GameInput")
+
+	if not _gameinput_load_attempted and _gameinput_extension == null and FileAccess.file_exists(GAMEINPUT_EXTENSION_PATH):
+		_gameinput_load_attempted = true
+		_gameinput_extension = load(GAMEINPUT_EXTENSION_PATH)
+
+	if Engine.has_singleton("GameInput"):
+		return Engine.get_singleton("GameInput")
+
+	return null
+
 func _ready() -> void:
 	title_label.text = "GodotGDK ShamWow"
 	back_button.pressed.connect(_on_back_pressed)
@@ -58,6 +80,7 @@ func _ready() -> void:
 
 	_load_sample_config()
 	_bind_gdk_signals()
+	_bind_gameinput_signals()
 	_scenario_root = _build_scenario_catalog()
 	_current_group = _scenario_root
 
@@ -140,6 +163,19 @@ func _build_scenario_catalog() -> Dictionary:
 					_scenario("mpa_log_snapshot", "Log Activity Snapshot", "Write the cached local multiplayer activity summary to the event log.", Callable(self, "_scenario_log_mpa_snapshot")),
 					_scenario("mpa_invite_ui", "Show Invite UI", "Open the system invite UI for the current multiplayer activity.", Callable(self, "_scenario_show_mpa_invite_ui")),
 					_scenario("mpa_clear_activity", "Clear Local Activity", "Delete the primary user's current multiplayer activity.", Callable(self, "_scenario_clear_mpa_activity"))
+				]
+			),
+			_group(
+				"gameinput",
+				"GameInput",
+				"Drive the godot_gameinput addon: initialize the runtime, list connected devices, query battery + device info, and pulse rumble on the primary controller.",
+				[
+					_scenario("gameinput_initialize", "Initialize GameInput", "Call GameInput.initialize() and report whether the GameInput runtime is ready.", Callable(self, "_scenario_gameinput_initialize")),
+					_scenario("gameinput_shutdown", "Shutdown GameInput", "Call GameInput.shutdown() and confirm the runtime returns to an uninitialized state.", Callable(self, "_scenario_gameinput_shutdown")),
+					_scenario("gameinput_list_devices", "List Devices", "Poll GameInput, enumerate gamepads, and log each device's display name + ID.", Callable(self, "_scenario_gameinput_list_devices")),
+					_scenario("gameinput_inspect_primary", "Inspect Primary Device", "Show the primary device's display name, vendor/product IDs, battery level, and rumble support.", Callable(self, "_scenario_gameinput_inspect_primary")),
+					_scenario("gameinput_rumble_pulse", "Rumble Pulse", "Run a short low+high frequency rumble on the primary device, then stop haptics.", Callable(self, "_scenario_gameinput_rumble_pulse")),
+					_scenario("gameinput_stop_rumble", "Stop Rumble", "Call GameInput.stop_haptics() on the primary device immediately.", Callable(self, "_scenario_gameinput_stop_rumble"))
 				]
 			)
 		]
@@ -325,6 +361,12 @@ func _refresh_state_panel() -> void:
 	lines.append("Multiplayer Activity")
 	lines.append(_get_mpa_snapshot_text(primary_user))
 	lines.append("Invite Events: %s" % _last_mpa_event_text)
+
+	lines.append("")
+	lines.append("GameInput")
+	for gi_line in _get_gameinput_snapshot_lines():
+		lines.append(gi_line)
+	lines.append("Last Event: %s" % _gameinput_last_event)
 
 	state_details.text = "\n".join(lines)
 
@@ -784,3 +826,208 @@ func _on_invite_accepted(invite: Dictionary) -> void:
 	_last_mpa_event_text = "Accepted invite — %s" % _format_invite_event(invite)
 	_log_event(_last_mpa_event_text)
 	_refresh_state_panel()
+
+# === GameInput integration ===========================================
+
+func _set_scenario_status(status: String) -> void:
+	_set_selected_status(_selected_entry, status)
+
+func _bind_gameinput_signals() -> void:
+	if _gameinput_signals_bound:
+		return
+	var gi = _gameinput()
+	if gi == null:
+		_log_event("GameInput addon files are not loaded yet. Build the repo before launching this sample.")
+		return
+	gi.device_connected.connect(_on_gameinput_device_connected)
+	gi.device_disconnected.connect(_on_gameinput_device_disconnected)
+	_gameinput_signals_bound = true
+
+func _on_gameinput_device_connected(device) -> void:
+	var label := _format_gameinput_device_label(device)
+	_gameinput_last_event = "Connected — %s" % label
+	_log_event("GameInput device connected: %s" % label)
+	_refresh_state_panel()
+
+func _on_gameinput_device_disconnected(device_id: int) -> void:
+	_gameinput_last_event = "Disconnected — device #%d" % device_id
+	_log_event("GameInput device disconnected: #%d" % device_id)
+	_refresh_state_panel()
+
+func _format_gameinput_device_label(device) -> String:
+	if device == null:
+		return "<null device>"
+	var device_name: String = ""
+	if device.has_method("get_display_name"):
+		device_name = str(device.get_display_name())
+	var device_id: int = -1
+	if device.has_method("get_device_id"):
+		device_id = int(device.get_device_id())
+	if device_name == "":
+		device_name = "Device"
+	return "%s (#%d)" % [device_name, device_id]
+
+func _get_gameinput_snapshot_lines() -> Array:
+	var lines: Array = []
+	var gi = _gameinput()
+	if gi == null:
+		lines.append("Available: false (addon missing)")
+		return lines
+
+	var initialized: bool = bool(gi.is_initialized())
+	lines.append("Initialized: %s" % str(initialized))
+	if not initialized:
+		lines.append("Run 'Initialize GameInput' to query devices.")
+		return lines
+
+	gi.poll()
+	var devices = gi.get_devices()
+	lines.append("Devices: %d" % devices.size())
+
+	var primary = gi.get_primary_device()
+	if primary == null:
+		lines.append("Primary: none connected")
+		return lines
+
+	lines.append("Primary: %s" % _format_gameinput_device_label(primary))
+	if primary.has_method("supports_vibration"):
+		lines.append("  Vibration: %s" % str(primary.supports_vibration()))
+	if primary.has_method("get_battery_level"):
+		var battery: float = float(primary.get_battery_level())
+		if battery < 0.0:
+			lines.append("  Battery: wired/unknown")
+		else:
+			lines.append("  Battery: %d%%" % int(round(battery * 100.0)))
+	return lines
+
+func _scenario_gameinput_initialize() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable — build the addon first.")
+		return
+	_bind_gameinput_signals()
+	if gi.is_initialized():
+		_set_scenario_status("GameInput already initialized.")
+		_log_event("GameInput already initialized.")
+		_refresh_state_panel()
+		return
+	var ok: bool = bool(gi.initialize())
+	if ok:
+		_set_scenario_status("GameInput.initialize() succeeded.")
+		_log_event("GameInput initialized.")
+	else:
+		_set_scenario_status("GameInput.initialize() returned false (no GameInput available).")
+		_log_event("GameInput.initialize() returned false; check editor output / system requirements.")
+	_refresh_state_panel()
+
+func _scenario_gameinput_shutdown() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable.")
+		return
+	gi.shutdown()
+	_set_scenario_status("GameInput.shutdown() called.")
+	_log_event("GameInput shutdown.")
+	_refresh_state_panel()
+
+func _scenario_gameinput_list_devices() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable.")
+		return
+	if not gi.is_initialized():
+		_set_scenario_status("GameInput not initialized — run 'Initialize GameInput' first.")
+		_log_event("GameInput.list_devices skipped — runtime not initialized.")
+		return
+	gi.poll()
+	var devices = gi.get_devices()
+	if devices.size() == 0:
+		_set_scenario_status("No GameInput devices connected.")
+		_log_event("GameInput.list_devices: 0 devices.")
+		return
+	var summaries: Array = []
+	for d in devices:
+		summaries.append(_format_gameinput_device_label(d))
+	_set_scenario_status("Found %d device(s): %s" % [devices.size(), ", ".join(summaries)])
+	_log_event("GameInput.list_devices: %d device(s) — %s" % [devices.size(), ", ".join(summaries)])
+
+func _scenario_gameinput_inspect_primary() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable.")
+		return
+	if not gi.is_initialized():
+		_set_scenario_status("GameInput not initialized.")
+		return
+	gi.poll()
+	var primary = gi.get_primary_device()
+	if primary == null:
+		_set_scenario_status("No primary GameInput device.")
+		_log_event("GameInput.inspect_primary: no primary device.")
+		return
+	var info: Dictionary = primary.get_device_info() if primary.has_method("get_device_info") else {}
+	var battery: float = -1.0
+	if primary.has_method("get_battery_level"):
+		battery = float(primary.get_battery_level())
+	var supports_vibration: bool = false
+	if primary.has_method("supports_vibration"):
+		supports_vibration = bool(primary.supports_vibration())
+	var battery_text: String = "wired/unknown" if battery < 0.0 else "%d%%" % int(round(battery * 100.0))
+	var summary: String = "%s — vendor=0x%04X product=0x%04X battery=%s vibration=%s" % [
+		_format_gameinput_device_label(primary),
+		int(info.get("vendor_id", 0)),
+		int(info.get("product_id", 0)),
+		battery_text,
+		str(supports_vibration)
+	]
+	_set_scenario_status(summary)
+	_log_event("GameInput.inspect_primary: %s" % summary)
+
+func _scenario_gameinput_rumble_pulse() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable.")
+		return
+	if not gi.is_initialized():
+		_set_scenario_status("GameInput not initialized.")
+		return
+	gi.poll()
+	var primary = gi.get_primary_device()
+	if primary == null:
+		_set_scenario_status("No primary GameInput device.")
+		return
+	if not bool(primary.supports_vibration()):
+		_set_scenario_status("Primary device does not report rumble support.")
+		_log_event("GameInput.rumble_pulse skipped — primary device does not support vibration.")
+		return
+	var ok: bool = bool(gi.set_vibration(primary, RUMBLE_DEMO_LOW, RUMBLE_DEMO_HIGH))
+	if not ok:
+		_set_scenario_status("set_vibration() returned false.")
+		_log_event("GameInput.set_vibration returned false.")
+		return
+	_set_scenario_status("Rumbling primary device (low=%.2f high=%.2f) for %.2fs." % [
+		RUMBLE_DEMO_LOW, RUMBLE_DEMO_HIGH, RUMBLE_DEMO_DURATION
+	])
+	_log_event("GameInput.rumble_pulse started on %s." % _format_gameinput_device_label(primary))
+	await get_tree().create_timer(RUMBLE_DEMO_DURATION).timeout
+	var still = gi.get_primary_device()
+	if still != null:
+		gi.stop_haptics(still)
+	_log_event("GameInput.rumble_pulse stopped.")
+
+func _scenario_gameinput_stop_rumble() -> void:
+	var gi = _gameinput()
+	if gi == null:
+		_set_scenario_status("GameInput unavailable.")
+		return
+	if not gi.is_initialized():
+		_set_scenario_status("GameInput not initialized.")
+		return
+	gi.poll()
+	var primary = gi.get_primary_device()
+	if primary == null:
+		_set_scenario_status("No primary GameInput device.")
+		return
+	gi.stop_haptics(primary)
+	_set_scenario_status("Stopped haptics on primary device.")
+	_log_event("GameInput.stop_haptics called on %s." % _format_gameinput_device_label(primary))

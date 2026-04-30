@@ -7,6 +7,13 @@ const AI_PADDLE_SCRIPT = preload("res://logic/ai_paddle.gd")
 const SHAKE_DURATION = 0.2
 const SHAKE_STRENGTH = 6.0
 
+const HIT_RUMBLE_LOW = 0.35
+const HIT_RUMBLE_HIGH = 0.15
+const HIT_RUMBLE_DURATION = 0.08
+const SCORE_RUMBLE_LOW = 0.7
+const SCORE_RUMBLE_HIGH = 0.4
+const SCORE_RUMBLE_DURATION = 0.25
+
 var score_left := 0
 var score_right := 0
 var is_single_player := false
@@ -76,6 +83,7 @@ func _shake() -> void:
 @rpc("any_peer", "call_local")
 func update_score(add_to_left: bool) -> void:
 	_shake()
+	pulse_rumble(SCORE_RUMBLE_LOW, SCORE_RUMBLE_HIGH, SCORE_RUMBLE_DURATION)
 
 	if add_to_left:
 		score_left += 1
@@ -100,6 +108,27 @@ func update_score(add_to_left: bool) -> void:
 			$Ball.stop()
 		else:
 			$Ball.stop.rpc()
+
+
+func pulse_rumble(low: float, high: float, duration: float) -> void:
+	# Primary-device rumble pulse via godot_gameinput. Soft-fails when GameInput
+	# is unavailable / not initialized, when no device is connected, or when the
+	# device doesn't support vibration. Pong stays fully playable in either case.
+	if not Engine.has_singleton("GameInput"):
+		return
+	var gi = Engine.get_singleton("GameInput")
+	if not gi.is_initialized():
+		return
+	gi.poll()
+	var device = gi.get_primary_device()
+	if device == null or not device.supports_vibration():
+		return
+	gi.set_vibration(device, low, high)
+	await get_tree().create_timer(duration).timeout
+	# Re-resolve in case the device hot-unplugged during the pulse.
+	var still = gi.get_primary_device()
+	if still != null:
+		gi.stop_haptics(still)
 
 
 func _pop_label(label: Label) -> void:

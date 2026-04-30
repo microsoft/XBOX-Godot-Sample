@@ -17,19 +17,20 @@ config/features=PackedStringArray("4.6")
 [autoload]
 
 GDKBootstrap="*res://gdk_bootstrap.gd"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
-
-[gdk]
-
-runtime/embed_dispatch=true
+GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
 
 [display]
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg")
+
+[gdk]
+
+runtime/embed_dispatch=true
 
 [rendering]
 

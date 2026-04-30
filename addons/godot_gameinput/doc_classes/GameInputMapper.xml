@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInputMapper" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Bridges a [GameInputActionMap] onto Godot's [code]InputMap[/code] each frame.
+	</brief_description>
+	<description>
+		[GameInputMapper] is a [Node] that resolves a target [GameInputDevice] (either by id via [member target_device_id] or as the primary device of [member target_kind_mask]) every [code]_process[/code] frame, fetches its [GameInputReading], and walks [member action_map] calling [code]Input.action_press(action, strength)[/code] or [code]Input.action_release(action)[/code] on each press / release edge. The rest of your game can then keep using the standard [code]Input.is_action_pressed("jump")[/code] APIs without knowing GameInput exists.
+		The mapper calls [method GameInput.poll] defensively at the start of each frame; that call is per-frame idempotent so multiple [GameInputMapper] instances in the same scene do not refresh device state more than once per frame.
+		Action names listed in [member GameInputBinding.action] must already exist in the project's [code]InputMap[/code]. Missing actions emit a single [code]push_warning[/code] per [GameInputMapper] instance per action (debounced via an internal set) and the binding is then ignored. On [code]NOTIFICATION_EXIT_TREE[/code], any actions the mapper currently holds pressed are released so freed actions never get stuck.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_action_map" qualifiers="const">
+			<return type="GameInputActionMap" />
+			<description>
+				Returns the currently assigned action map. See [member action_map].
+			</description>
+		</method>
+		<method name="set_action_map">
+			<return type="void" />
+			<param index="0" name="map" type="GameInputActionMap" />
+			<description>
+				Assigns a new action map. Resets the internal "previously pressed" state and the missing-action warning set so the new map gets a clean slate.
+			</description>
+		</method>
+		<method name="get_target_kind_mask" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the kind mask used when [member target_device_id] is [code]-1[/code]. See [member target_kind_mask].
+			</description>
+		</method>
+		<method name="set_target_kind_mask">
+			<return type="void" />
+			<param index="0" name="mask" type="int" />
+			<description>
+				Sets the kind mask used to pick a primary device. See [member target_kind_mask].
+			</description>
+		</method>
+		<method name="get_target_device_id" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the explicitly targeted device id, or [code]-1[/code] when targeting the primary device of [member target_kind_mask]. See [member target_device_id].
+			</description>
+		</method>
+		<method name="set_target_device_id">
+			<return type="void" />
+			<param index="0" name="id" type="int" />
+			<description>
+				Sets a specific [GameInputDevice] id to drive. Pass [code]-1[/code] to revert to "primary device of [member target_kind_mask]". See [member target_device_id].
+			</description>
+		</method>
+		<method name="get_active_binding_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of bindings whose action is currently being held pressed by this mapper. Useful for tests and HUD-style debugging.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="action_map" type="GameInputActionMap" setter="set_action_map" getter="get_action_map">
+			The [GameInputActionMap] this mapper iterates each frame. When [code]null[/code] the mapper is a no-op.
+		</member>
+		<member name="target_kind_mask" type="int" setter="set_target_kind_mask" getter="get_target_kind_mask" default="1">
+			Bitfield of [enum KindFlags] values used to pick the primary device when [member target_device_id] is [code]-1[/code]. Defaults to [constant KIND_GAMEPAD]. Despite its enum, the field accepts an OR-ed combination so a mapper can be retargeted at, for example, [code]KIND_GAMEPAD | KIND_KEYBOARD[/code].
+		</member>
+		<member name="target_device_id" type="int" setter="set_target_device_id" getter="get_target_device_id" default="-1">
+			Specific [GameInputDevice] id to drive, or [code]-1[/code] (the default) to use the primary device matching [member target_kind_mask]. Use this for split-screen / per-player mapper instances by storing the id reported by [signal GameInput.device_connected].
+		</member>
+	</members>
+	<constants>
+		<constant name="KIND_GAMEPAD" value="1" enum="KindFlags">
+			Bit flag for gamepad-style devices. Mirrors [constant GameInput.DEVICE_GAMEPAD] and is the default value of [member target_kind_mask].
+		</constant>
+		<constant name="KIND_KEYBOARD" value="2" enum="KindFlags">
+			Bit flag for keyboard devices. Mirrors [constant GameInput.DEVICE_KEYBOARD].
+		</constant>
+		<constant name="KIND_MOUSE" value="4" enum="KindFlags">
+			Bit flag for mouse devices. Mirrors [constant GameInput.DEVICE_MOUSE].
+		</constant>
+	</constants>
+</class>

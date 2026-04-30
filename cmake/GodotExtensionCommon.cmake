@@ -142,3 +142,71 @@ function(godot_addon_sync_files_to_sample)
         )
     endforeach()
 endfunction()
+
+
+#[[ godot_addon_doc_sources
+
+Wrapper around godot-cpp's `target_doc_sources` that uses an addon-unique
+custom-target name. Required because `target_doc_sources` (in
+godot-cpp/cmake/GodotCPPModule.cmake) hardcodes `add_custom_target(generate_doc_source ...)`,
+so calling it from more than one addon in the same superproject collides
+with CMake's "logical target names must be globally unique" rule.
+
+Usage:
+    godot_addon_doc_sources(
+        TARGET     <library_target>
+        ADDON_NAME <addon_name>
+        SOURCES    <list of .xml paths>
+    )
+]]
+function(godot_addon_doc_sources)
+    set(one_value_args TARGET ADDON_NAME)
+    set(multi_value_args SOURCES)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT ARG_TARGET OR NOT ARG_ADDON_NAME)
+        message(FATAL_ERROR "godot_addon_doc_sources requires TARGET and ADDON_NAME.")
+    endif()
+
+    if(NOT ARG_SOURCES)
+        return()
+    endif()
+
+    # Python3 is normally found by godot-cpp, but its directory scope doesn't
+    # propagate variables up to addon scopes. Re-find here so Python3_EXECUTABLE
+    # is reliably defined regardless of which subdirectory called us.
+    find_package(Python3 3.4 REQUIRED COMPONENTS Interpreter)
+
+    if(NOT DEFINED godot-cpp_SOURCE_DIR)
+        set(godot-cpp_SOURCE_DIR "${CMAKE_SOURCE_DIR}/godot-cpp")
+    endif()
+
+    set(doc_target "${ARG_ADDON_NAME}_generate_doc_source")
+    set(doc_source_file "${CMAKE_CURRENT_BINARY_DIR}/gen/doc_source.cpp")
+
+    get_filename_component(doc_output_dir "${doc_source_file}" DIRECTORY)
+    file(MAKE_DIRECTORY "${doc_output_dir}")
+
+    set(_dispatcher "${CMAKE_SOURCE_DIR}/cmake/run_doc_source_generator.py")
+
+    add_custom_command(
+        OUTPUT "${doc_source_file}"
+        COMMAND "${Python3_EXECUTABLE}"
+                "${_dispatcher}"
+                "${godot-cpp_SOURCE_DIR}"
+                "${doc_source_file}"
+                ${ARG_SOURCES}
+        VERBATIM
+        DEPENDS
+            "${_dispatcher}"
+            "${godot-cpp_SOURCE_DIR}/doc_source_generator.py"
+            ${ARG_SOURCES}
+        COMMENT "Generating doc source for ${ARG_ADDON_NAME}"
+    )
+
+    add_custom_target(${doc_target} DEPENDS "${doc_source_file}")
+    set_target_properties(${doc_target} PROPERTIES FOLDER "godot-cpp")
+
+    target_sources(${ARG_TARGET} PRIVATE "${doc_source_file}")
+    add_dependencies(${ARG_TARGET} ${doc_target})
+endfunction()

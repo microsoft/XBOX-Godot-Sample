@@ -31,6 +31,8 @@ func _ready() -> void:
 	# Defer Xbox setup so GDKBootstrap has time to initialize
 	call_deferred("_setup_xbox")
 
+	_setup_gameinput()
+
 
 func _setup_visuals() -> void:
 	var bg = get_parent().get_node_or_null("Background")
@@ -40,7 +42,11 @@ func _setup_visuals() -> void:
 		bg.set_anchors_preset(PRESET_FULL_RECT)
 		bg.color = Color(0.05, 0.05, 0.12, 1.0)
 		bg.z_index = -1
+		# Decorative only — must not eat clicks intended for the panel buttons.
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		get_parent().add_child(bg)
+		# Also move behind existing siblings so it doesn't render on top of them.
+		get_parent().move_child(bg, 0)
 
 	var title_label = get_parent().get_node_or_null("Title")
 	if title_label:
@@ -276,3 +282,30 @@ func _on_join_pressed() -> void:
 
 func _on_find_public_ip_pressed() -> void:
 	OS.shell_open("https://icanhazip.com/")
+
+
+#region GameInput hot-plug surface
+func _setup_gameinput() -> void:
+	if not Engine.has_singleton("GameInput"):
+		return
+	var gi = Engine.get_singleton("GameInput")
+	if not gi.device_connected.is_connected(_on_gameinput_device_connected):
+		gi.device_connected.connect(_on_gameinput_device_connected)
+	if not gi.device_disconnected.is_connected(_on_gameinput_device_disconnected):
+		gi.device_disconnected.connect(_on_gameinput_device_disconnected)
+
+
+func _on_gameinput_device_connected(device) -> void:
+	if device == null:
+		return
+	var name: String = ""
+	if device.has_method("get_display_name"):
+		name = str(device.get_display_name())
+	if name == "":
+		name = "Controller"
+	_set_status("Controller connected: %s" % name, true)
+
+
+func _on_gameinput_device_disconnected(_device_id: int) -> void:
+	_set_status("Controller disconnected.", false)
+#endregion

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInput" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Engine singleton for the Microsoft GameInput runtime.
+	</brief_description>
+	<description>
+		[GameInput] is the engine singleton that owns the [code]IGameInput[/code] runtime, the device cache, and main-thread poll dispatch. Access it from GDScript with [code]Engine.get_singleton("GameInput")[/code]. Lifecycle is normally driven by the [code]GameInputBootstrap[/code] autoload that the editor plugin installs; that autoload reads the project settings [code]game_input/runtime/initialize_on_startup[/code] and [code]game_input/runtime/auto_poll[/code] to decide whether to call [method initialize] at startup and [method poll] every frame.
+		All public methods on this class are GDScript-safe: when called before [method initialize] succeeds, after [method shutdown], or when [code]GameInputCreate()[/code] failed on this host, they soft-fail instead of crashing. [method poll] becomes a no-op in that state and does not emit a warning, while data-returning methods return safe defaults ([code]false[/code], an empty [Array], [code]null[/code], [code]-1.0[/code]) and emit a single [code]push_warning[/code] per process to flag the misuse.
+		Device-callback events from the GameInput worker thread are queued and only applied on the main thread inside [method poll], so the [signal device_connected] and [signal device_disconnected] signals are always emitted on the main thread.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="initialize">
+			<return type="bool" />
+			<description>
+				Creates the underlying [code]IGameInput[/code] runtime and registers the device-connection callback. Returns [code]true[/code] on success, or [code]false[/code] if [code]GameInputCreate()[/code] failed (in which case the singleton stays in disabled mode and every other method returns a safe default). Calling this when already initialized is a no-op and returns [code]true[/code].
+			</description>
+		</method>
+		<method name="shutdown">
+			<return type="void" />
+			<description>
+				Releases the [code]IGameInput[/code] runtime, unregisters the device callback, stops rumble on every connected device, and clears the device cache. Safe to call when not initialized. After this returns, all other methods soft-fail again.
+			</description>
+		</method>
+		<method name="is_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if [method initialize] succeeded and [method shutdown] has not yet been called. Use this to gate input-dependent code paths in GDScript.
+			</description>
+		</method>
+		<method name="poll">
+			<return type="void" />
+			<description>
+				Drains pending device-connection events on the main thread (firing [signal device_connected] / [signal device_disconnected]) and refreshes cached gamepad state for every connected device. This is per-frame idempotent: multiple [GameInputMapper] nodes calling [method poll] defensively in the same frame cause only one real refresh, keyed on [code]Engine.get_process_frames()[/code].
+			</description>
+		</method>
+		<method name="get_devices">
+			<return type="Array" />
+			<param index="0" name="kind_mask" type="int" default="1" />
+			<description>
+				Returns an [Array] of [GameInputDevice] wrappers whose kind mask intersects [param kind_mask]. The mask is a bitfield built from the [enum DeviceKind] constants ([constant DEVICE_GAMEPAD], [constant DEVICE_KEYBOARD], [constant DEVICE_MOUSE], or [constant DEVICE_ALL]). Returns an empty [Array] when the runtime is not initialized.
+			</description>
+		</method>
+		<method name="get_primary_device">
+			<return type="GameInputDevice" />
+			<param index="0" name="kind_mask" type="int" default="1" />
+			<description>
+				Returns the first connected [GameInputDevice] whose kind mask intersects [param kind_mask], in insertion order. Returns [code]null[/code] when no matching device is connected or the runtime is not initialized. This is what [GameInputMapper] uses by default when its [member GameInputMapper.target_device_id] is [code]-1[/code].
+			</description>
+		</method>
+		<method name="get_current_reading">
+			<return type="GameInputReading" />
+			<param index="0" name="device" type="GameInputDevice" />
+			<description>
+				Returns a [GameInputReading] snapshot of [param device]'s current and previous gamepad state. If [method poll] has not yet captured a state for this device this frame, an on-demand reading is fetched so press/release queries still work. Returns [code]null[/code] when [param device] is null, no longer connected, or the runtime is not initialized.
+			</description>
+		</method>
+		<method name="set_vibration">
+			<return type="bool" />
+			<param index="0" name="device" type="GameInputDevice" />
+			<param index="1" name="low_freq" type="float" />
+			<param index="2" name="high_freq" type="float" />
+			<param index="3" name="left_trigger" type="float" default="0.0" />
+			<param index="4" name="right_trigger" type="float" default="0.0" />
+			<description>
+				Sets the rumble motor levels on [param device]. Each value is clamped to [code][0.0, 1.0][/code]. Returns [code]true[/code] when the rumble request was sent, or [code]false[/code] when the device is null, disconnected, has no rumble motors, or the runtime is not initialized. Trigger motors are only meaningful on impulse-trigger gamepads; pass [code]0.0[/code] on devices without them.
+			</description>
+		</method>
+		<method name="stop_haptics">
+			<return type="void" />
+			<param index="0" name="device" type="GameInputDevice" />
+			<description>
+				Convenience for [code]set_vibration(device, 0, 0, 0, 0)[/code]. Use it to silence rumble when leaving a damage state or transitioning UI. Soft-fails on disconnected or null devices.
+			</description>
+		</method>
+		<method name="get_connected_device_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the total number of currently connected devices in the cache, regardless of kind. Intended primarily for tests and diagnostics.
+			</description>
+		</method>
+	</methods>
+	<signals>
+		<signal name="device_connected">
+			<param index="0" name="device" type="GameInputDevice" />
+			<description>
+				Emitted on the main thread when a new device finishes being added to the cache, after the [code]IGameInput[/code] worker callback enqueued the event and [method poll] drained it. The same [GameInputDevice] wrapper instance is reused for the lifetime of that connection.
+			</description>
+		</signal>
+		<signal name="device_disconnected">
+			<param index="0" name="device_id" type="int" />
+			<description>
+				Emitted on the main thread when a device is removed from the cache. The wrapper that was previously handed out for this id stays alive (held by user code), but every method on it now returns a safe default. Device ids are session-local and are never recycled, so it is safe to use [param device_id] as a key in user-side dictionaries until shutdown.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="DEVICE_UNKNOWN" value="0" enum="DeviceKind">
+			Sentinel value used internally when a device's supported input kinds did not map to any of the recognized categories. Not a useful argument to [method get_devices].
+		</constant>
+		<constant name="DEVICE_GAMEPAD" value="1" enum="DeviceKind">
+			Bit flag for gamepad-style devices. This is the default [param kind_mask] for [method get_devices] and [method get_primary_device].
+		</constant>
+		<constant name="DEVICE_KEYBOARD" value="2" enum="DeviceKind">
+			Bit flag for keyboard devices.
+		</constant>
+		<constant name="DEVICE_MOUSE" value="4" enum="DeviceKind">
+			Bit flag for mouse devices.
+		</constant>
+		<constant name="DEVICE_ALL" value="7" enum="DeviceKind">
+			Bit mask matching every recognized device kind. Pass this to [method get_devices] to enumerate every connected device.
+		</constant>
+	</constants>
+</class>

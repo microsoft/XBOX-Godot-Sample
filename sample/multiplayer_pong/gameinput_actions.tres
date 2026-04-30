@@ -1,0 +1,34 @@
+; Pong's GameInput action map. Loaded by `GameInputBootstrap` at startup
+; because `game_input/mapper/default_action_map` is set to this file in
+; project.godot. Drives `move_up` / `move_down` from the gamepad's left
+; stick Y and dpad up / down via the `GameInputMapper`.
+[gd_resource type="GameInputActionMap" load_steps=5 format=3]
+
+[sub_resource type="GameInputBinding" id="GameInputBinding_up_axis"]
+action = &"move_up"
+source = 101
+is_axis = true
+axis_threshold = 0.5
+axis_invert = true
+deadzone = 0.2
+
+[sub_resource type="GameInputBinding" id="GameInputBinding_down_axis"]
+action = &"move_down"
+source = 101
+is_axis = true
+axis_threshold = 0.5
+axis_invert = false
+deadzone = 0.2
+
+[sub_resource type="GameInputBinding" id="GameInputBinding_up_dpad"]
+action = &"move_up"
+source = 6
+is_axis = false
+
+[sub_resource type="GameInputBinding" id="GameInputBinding_down_dpad"]
+action = &"move_down"
+source = 7
+is_axis = false
+
+[resource]
+bindings = Array[Resource]([SubResource("GameInputBinding_up_axis"), SubResource("GameInputBinding_down_axis"), SubResource("GameInputBinding_up_dpad"), SubResource("GameInputBinding_down_dpad")])
