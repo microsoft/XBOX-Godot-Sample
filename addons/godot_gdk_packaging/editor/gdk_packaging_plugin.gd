@@ -117,14 +117,19 @@ func _find_menu_bar(node: Node) -> MenuBar:
 func _on_menu_item_pressed(id: int) -> void:
 	match id:
 		MenuID.CREATE_PACKAGE:
-			# Focus the packaging panel — user clicks "Create Package" there
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_pack"):
+				_packaging_panel._on_pack()
 
 		MenuID.GENERATE_MAP:
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_genmap"):
+				_packaging_panel._on_genmap()
 
 		MenuID.VALIDATE:
 			_focus_packaging_panel()
+			if _packaging_panel.has_method("_on_validate"):
+				_packaging_panel._on_validate()
 
 		MenuID.EDIT_CONFIG:
 			if _config_mgr.config_exists():
@@ -154,6 +159,4 @@ func _on_menu_item_pressed(id: int) -> void:
 
 func _focus_packaging_panel() -> void:
 	if _packaging_panel:
-		# Make the dock visible and bring it to focus
 		_packaging_panel.visible = true
-		_packaging_panel.grab_focus()
