@@ -12,6 +12,7 @@ var _bin_dir: String = ""
 var _makepkg_path: String = ""
 var _game_config_editor_path: String = ""
 var _sandbox_path: String = ""
+var _dev_account_path: String = ""
 var _gdk_version: String = ""
 var _is_available: bool = false
 
@@ -32,6 +33,9 @@ func get_game_config_editor_path() -> String:
 
 func get_sandbox_path() -> String:
 	return _sandbox_path
+
+func get_dev_account_path() -> String:
+	return _dev_account_path
 
 func get_gdk_version() -> String:
 	return _gdk_version
@@ -103,6 +107,9 @@ func _try_bin_dir(dir: String) -> void:
 		_game_config_editor_path = config_editor
 		if FileAccess.file_exists(sandbox):
 			_sandbox_path = sandbox
+		var dev_account := dir.path_join("XblDevAccount.exe")
+		if FileAccess.file_exists(dev_account):
+			_dev_account_path = dev_account
 		_is_available = true
 		print("[GDK Packaging] GDK tools found at: ", dir)
 	else:

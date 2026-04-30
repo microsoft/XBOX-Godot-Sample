@@ -40,6 +40,7 @@ var _sandbox_label: Label
 var _sandbox_id_edit: LineEdit
 var _sandbox_set_btn: Button
 var _sandbox_retail_btn: Button
+var _dev_account_label: Label
 
 # Actions
 var _genmap_btn: Button
@@ -255,6 +256,34 @@ func _build_sandbox_ui(root: VBoxContainer) -> void:
 	sandbox_refresh_btn.text = "Refresh"
 	sandbox_refresh_btn.pressed.connect(_refresh_sandbox_status)
 	sandbox_btn_row.add_child(sandbox_refresh_btn)
+
+	root.add_child(HSeparator.new())
+
+	# ── Dev Account ──
+	_add_section_header(root, "Partner Center Account")
+	_dev_account_label = Label.new()
+	_dev_account_label.text = "Checking..."
+	_dev_account_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(_dev_account_label)
+
+	var dev_btn_row := HBoxContainer.new()
+	root.add_child(dev_btn_row)
+
+	var signin_btn := Button.new()
+	signin_btn.text = "Sign In"
+	signin_btn.pressed.connect(_on_dev_account_signin)
+	dev_btn_row.add_child(signin_btn)
+
+	var signout_btn := Button.new()
+	signout_btn.text = "Sign Out"
+	signout_btn.pressed.connect(_on_dev_account_signout)
+	dev_btn_row.add_child(signout_btn)
+
+	var test_accounts_btn := Button.new()
+	test_accounts_btn.text = "Test Accounts"
+	test_accounts_btn.tooltip_text = "Open the Xbox Live Test Account GUI"
+	test_accounts_btn.pressed.connect(_on_open_test_accounts)
+	dev_btn_row.add_child(test_accounts_btn)
 
 
 func _build_config_ui(root: VBoxContainer) -> void:
@@ -518,6 +547,7 @@ func _refresh_sandbox_status() -> void:
 		_sandbox_label.text = "Current: could not determine"
 	_sandbox_set_btn.disabled = false
 	_sandbox_retail_btn.disabled = false
+	_refresh_dev_account()
 
 func _on_sandbox_set() -> void:
 	var sandbox_id = _sandbox_id_edit.text.strip_edges()
@@ -553,6 +583,63 @@ func _on_sandbox_retail() -> void:
 		_log("Sandbox switch failed: %s" % result["stdout"])
 		push_warning("[GDK] Sandbox switch failed — may need admin privileges")
 	_refresh_sandbox_status()
+
+
+func _refresh_dev_account() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		_dev_account_label.text = "XblDevAccount.exe not found"
+		return
+
+	var result = _toolchain.execute_tool(dev_exe, PackedStringArray(["show"]))
+	if result["exit_code"] == 0:
+		var output: String = result["stdout"].strip_edges()
+		if output.contains("is currently signed in"):
+			# Parse email from "Microsoft Partner Center account <email> from <source> is currently signed in."
+			var email_start = output.find("account ") + 8
+			var email_end = output.find(" from")
+			if email_start > 8 and email_end > email_start:
+				var email = output.substr(email_start, email_end - email_start)
+				_dev_account_label.text = "✅ Signed in: %s" % email
+			else:
+				_dev_account_label.text = "✅ Signed in"
+		elif output.contains("No account"):
+			_dev_account_label.text = "⚠️ Not signed in"
+		else:
+			_dev_account_label.text = output.substr(0, 80)
+	else:
+		_dev_account_label.text = "⚠️ Not signed in"
+
+func _on_dev_account_signin() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		return
+	_dev_account_label.text = "Signing in..."
+	_log("Launching Partner Center sign-in...")
+	_toolchain.launch_detached(dev_exe, PackedStringArray(["signin"]))
+	# Refresh after a delay to pick up the new state
+	get_tree().create_timer(5.0).timeout.connect(_refresh_dev_account)
+
+func _on_dev_account_signout() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		return
+	_dev_account_label.text = "Signing out..."
+	var result = _toolchain.execute_tool(dev_exe, PackedStringArray(["signout"]))
+	if result["exit_code"] == 0:
+		_log("Dev account signed out")
+	else:
+		_log("Sign out failed: %s" % result["stdout"])
+	_refresh_dev_account()
+
+func _on_open_test_accounts() -> void:
+	var test_gui = _toolchain.get_bin_dir().path_join("XblTestAccountGui.exe")
+	if FileAccess.file_exists(test_gui):
+		_toolchain.launch_detached(test_gui, PackedStringArray([]))
+		_log("Launched Xbox Live Test Account GUI")
+	else:
+		_log("XblTestAccountGui.exe not found")
+		push_warning("[GDK] XblTestAccountGui.exe not found")
 
 
 # ── Config Status ───────────────────────────────────────────────────────────
