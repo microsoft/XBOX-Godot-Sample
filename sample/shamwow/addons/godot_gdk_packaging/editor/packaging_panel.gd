@@ -943,7 +943,7 @@ func _ensure_config_in_content_dir(content_dir: String) -> bool:
 	file.close()
 
 	# GDK DLLs link against VC++ runtime; makepkg requires this declared as a framework dependency
-	if not content.contains("KnownDependency") and content.contains("</Game>"):
+	if not content.contains('<KnownDependency Name="VC14"/>') and content.contains("</Game>"):
 		var dep_xml = '  <DesktopRegistration>\n    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n  </DesktopRegistration>\n'
 		content = content.replace("</Game>", dep_xml + "</Game>")
 		_log("Added VC14 KnownDependency to config")
