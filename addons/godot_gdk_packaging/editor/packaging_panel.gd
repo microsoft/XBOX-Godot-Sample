@@ -494,10 +494,13 @@ func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
 		if is_dir:
 			dialog.dir_selected.connect(func(dir: String):
 				edit.text = dir
+				_save_packaging_settings()
 				dialog.queue_free())
 		else:
 			dialog.file_selected.connect(func(path: String):
 				edit.text = path
+				_save_packaging_settings()
+				dialog.queue_free())
 				dialog.queue_free())
 
 		dialog.canceled.connect(func(): dialog.queue_free())
@@ -777,13 +780,10 @@ func _save_packaging_settings() -> void:
 
 func _connect_autosave() -> void:
 	var save_fn = func(_arg = null): _save_packaging_settings()
-	_source_dir_edit.text_changed.connect(save_fn)
-	_map_file_edit.text_changed.connect(save_fn)
-	_output_dir_edit.text_changed.connect(save_fn)
-	_content_id_edit.text_changed.connect(save_fn)
-	_product_id_edit.text_changed.connect(save_fn)
-	_encrypt_key_edit.text_changed.connect(save_fn)
-	_sandbox_id_edit.text_changed.connect(save_fn)
+	for edit in [_source_dir_edit, _map_file_edit, _output_dir_edit,
+			_content_id_edit, _product_id_edit, _encrypt_key_edit, _sandbox_id_edit]:
+		edit.text_changed.connect(save_fn)
+		edit.focus_exited.connect(_save_packaging_settings)
 	_auto_genmap_check.toggled.connect(save_fn)
 	_encrypt_option.item_selected.connect(save_fn)
 	_updcompat_option.item_selected.connect(save_fn)

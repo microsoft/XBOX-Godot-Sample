@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://t026ho4y32p"]
 
-[ext_resource type="Script" path="res://main.gd" id="1"]
+[ext_resource type="Script" uid="uid://fjcq6jfyamjt" path="res://main.gd" id="1"]
 
 [node name="Main" type="Control" unique_id=1637588514]
 layout_mode = 3
@@ -32,91 +32,84 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Initializing..."
 
-[node name="UserPanel" type="PanelContainer" parent="VBoxContainer"]
+[node name="UserPanel" type="PanelContainer" parent="VBoxContainer" unique_id=525557701]
 layout_mode = 2
 
-[node name="UserHBox" type="HBoxContainer" parent="VBoxContainer/UserPanel"]
+[node name="UserHBox" type="HBoxContainer" parent="VBoxContainer/UserPanel" unique_id=94366282]
 layout_mode = 2
 
-[node name="AvatarRect" type="TextureRect" parent="VBoxContainer/UserPanel/UserHBox"]
-layout_mode = 2
+[node name="AvatarRect" type="TextureRect" parent="VBoxContainer/UserPanel/UserHBox" unique_id=1070056739]
+visible = false
 custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
-visible = false
 
-[node name="GamertagLabel" type="Label" parent="VBoxContainer/UserPanel/UserHBox"]
+[node name="GamertagLabel" type="Label" parent="VBoxContainer/UserPanel/UserHBox" unique_id=207435071]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Not signed in"
 
-[node name="XuidLabel" type="Label" parent="VBoxContainer/UserPanel/UserHBox"]
+[node name="XuidLabel" type="Label" parent="VBoxContainer/UserPanel/UserHBox" unique_id=1198699061]
 layout_mode = 2
 size_flags_horizontal = 10
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-text = ""
 
 [node name="UserLabel" type="Label" parent="VBoxContainer" unique_id=376679492]
-layout_mode = 2
 visible = false
+layout_mode = 2
 text = "User: Not signed in"
 
 [node name="SignInButton" type="Button" parent="VBoxContainer" unique_id=521297586]
 layout_mode = 2
-focus_mode = 2
 focus_neighbor_bottom = NodePath("../MpaSetActivityButton")
 text = "Silent Sign-In"
 
-[node name="MpaSetActivityButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
+[node name="MpaSetActivityButton" type="Button" parent="VBoxContainer" unique_id=1816595025]
 custom_minimum_size = Vector2(0, 48)
-focus_mode = 2
+layout_mode = 2
 focus_neighbor_top = NodePath("../SignInButton")
 focus_neighbor_bottom = NodePath("../MpaClearActivityButton")
 theme_override_font_sizes/font_size = 20
 disabled = true
 text = "Set Multiplayer Activity"
 
-[node name="MpaClearActivityButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
+[node name="MpaClearActivityButton" type="Button" parent="VBoxContainer" unique_id=1946096394]
 custom_minimum_size = Vector2(0, 48)
-focus_mode = 2
+layout_mode = 2
 focus_neighbor_top = NodePath("../MpaSetActivityButton")
 focus_neighbor_bottom = NodePath("../MpaInviteUiButton")
 theme_override_font_sizes/font_size = 20
 disabled = true
 text = "Clear Multiplayer Activity"
 
-[node name="MpaInviteUiButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
+[node name="MpaInviteUiButton" type="Button" parent="VBoxContainer" unique_id=1873188295]
 custom_minimum_size = Vector2(0, 48)
-focus_mode = 2
+layout_mode = 2
 focus_neighbor_top = NodePath("../MpaClearActivityButton")
 focus_neighbor_bottom = NodePath("../AchievementButton")
 theme_override_font_sizes/font_size = 20
 disabled = true
 text = "Open Invite UI"
 
-[node name="AchievementButton" type="Button" parent="VBoxContainer"]
+[node name="AchievementButton" type="Button" parent="VBoxContainer" unique_id=1756962482]
 layout_mode = 2
-focus_mode = 2
 focus_neighbor_top = NodePath("../MpaInviteUiButton")
 focus_neighbor_bottom = NodePath("../SignInButton")
 disabled = true
 text = "Update Achievement 1"
 
-[node name="AchievementLabel" type="Label" parent="VBoxContainer"]
+[node name="AchievementLabel" type="Label" parent="VBoxContainer" unique_id=2074674685]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
 text = "Achievement 1: sign in to load progress"
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer" unique_id=763012506]
 layout_mode = 2
 
-[node name="MpaLabel" type="RichTextLabel" parent="VBoxContainer"]
-layout_mode = 2
+[node name="MpaLabel" type="RichTextLabel" parent="VBoxContainer" unique_id=1695665070]
 custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
 bbcode_enabled = true
 text = "[color=gray]MPA: sign in to configure an activity[/color]"
-fit_content = false
 scroll_active = false
