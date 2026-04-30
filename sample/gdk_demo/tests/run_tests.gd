@@ -9,6 +9,7 @@ const AchievementsSuite = preload("res://tests/suites/achievements_suite.gd")
 const PresenceSuite = preload("res://tests/suites/presence_suite.gd")
 const SocialSuite = preload("res://tests/suites/social_suite.gd")
 const IntegrationSuite = preload("res://tests/suites/integration_suite.gd")
+const PackagingSuite = preload("res://tests/suites/packaging_suite.gd")
 
 func _initialize() -> void:
 	print("╔══════════════════════════════════════╗")
@@ -25,13 +26,12 @@ func _run_suites() -> void:
 		AchievementsSuite.new(),
 		PresenceSuite.new(),
 		SocialSuite.new(),
-		IntegrationSuite.new()
+		IntegrationSuite.new(),
+		PackagingSuite.new()
 	]
 
 	for suite in suites:
-		var run_result = suite.run(context)
-		if run_result is GDScriptFunctionState:
-			await run_result
+		await suite.run(context)
 
 	var total = context.pass_count + context.fail_count + context.skip_count
 	print("\n══════════════════════════════════════")

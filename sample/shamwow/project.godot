@@ -20,7 +20,7 @@ GDKBootstrap="*res://gdk_bootstrap.gd"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
 
 [gdk]
 

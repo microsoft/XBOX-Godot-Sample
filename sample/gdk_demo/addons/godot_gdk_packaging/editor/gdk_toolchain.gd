@@ -76,8 +76,12 @@ func launch_detached(exe_path: String, args: PackedStringArray) -> int:
 
 # ── Private ─────────────────────────────────────────────────────────────────
 
+## Detects GDK installation: extracts version from GameDKCoreLatest env var
+## (e.g. "C:\Program Files (x86)\Microsoft GDK\260400\" → "260400"),
+## then resolves the bin directory from GDK_BIN env var or default path.
 func _detect_gdk() -> void:
-	# Detect GDK version from environment
+	# GameDKCoreLatest is set by the GDK installer, e.g. "C:\...\Microsoft GDK\260400\"
+	# Extract the 6-digit edition number from the path segments
 	var gdk_core = OS.get_environment("GameDKCoreLatest")
 	if gdk_core != "":
 		var parts = gdk_core.replace("\\", "/").split("/")
@@ -86,7 +90,7 @@ func _detect_gdk() -> void:
 				_gdk_version = part
 				break
 
-	# 1. Check GDK_BIN env var
+	# 1. Check GDK_BIN env var (user override)
 	var env_bin := OS.get_environment("GDK_BIN")
 	if env_bin != "" and DirAccess.dir_exists_absolute(env_bin):
 		_try_bin_dir(env_bin)
@@ -96,6 +100,8 @@ func _detect_gdk() -> void:
 	# 2. Default install path
 	_try_bin_dir(_DEFAULT_GDK_BIN)
 
+## Validates a bin directory by checking for required tools (makepkg, GameConfigEditor)
+## and optional tools (XblPCSandbox, XblDevAccount). Sets paths and _is_available.
 func _try_bin_dir(dir: String) -> void:
 	var makepkg := dir.path_join("makepkg.exe")
 	var config_editor := dir.path_join("GameConfigEditor.exe")
