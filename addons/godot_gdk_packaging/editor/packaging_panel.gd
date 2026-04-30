@@ -932,6 +932,23 @@ func _on_genmap() -> void:
 	if output == "":
 		output = source
 	var map_path := output.path_join("layout.xml")
+
+	# Confirm overwrite if layout.xml already exists
+	if FileAccess.file_exists(map_path):
+		var confirm := ConfirmationDialog.new()
+		confirm.dialog_text = "layout.xml already exists at:\n%s\n\nOverwrite it?" % map_path
+		confirm.title = "Overwrite Mapping File?"
+		confirm.confirmed.connect(func():
+			_do_genmap(source, map_path)
+			confirm.queue_free())
+		confirm.canceled.connect(func(): confirm.queue_free())
+		add_child(confirm)
+		confirm.popup_centered()
+		return
+
+	_do_genmap(source, map_path)
+
+func _do_genmap(source: String, map_path: String) -> void:
 	_log("Generating mapping file...")
 	var result = _makepkg.genmap(source, map_path)
 	_log_result(result)
@@ -949,9 +966,27 @@ func _on_validate() -> void:
 		output = source
 	if not _ensure_config_in_content_dir(source):
 		return
+
+	var progress := AcceptDialog.new()
+	progress.title = "Validating Package"
+	progress.dialog_text = "Running package validation...\nThis may take a few seconds."
+	progress.get_ok_button().visible = false
+	add_child(progress)
+	progress.popup_centered(Vector2i(400, 120))
+
+	# Defer the blocking call so the dialog renders
+	await get_tree().process_frame
+
 	_log("Validating package layout...")
 	var result = _makepkg.validate(map_file, source, output)
 	_log_result(result)
+
+	progress.get_ok_button().visible = true
+	if result["exit_code"] == 0:
+		progress.dialog_text = "✅ Package validation passed!"
+	else:
+		progress.dialog_text = "❌ Package validation failed.\nCheck the Output panel for details."
+	progress.confirmed.connect(func(): progress.queue_free())
 
 func _on_pack() -> void:
 	var source := _source_dir_edit.text.strip_edges()
@@ -965,18 +1000,41 @@ func _on_pack() -> void:
 	if not _ensure_config_in_content_dir(source):
 		return
 
+	var progress := AcceptDialog.new()
+	progress.title = "Creating Package"
+	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
+	progress.get_ok_button().visible = false
+	add_child(progress)
+	progress.popup_centered(Vector2i(400, 120))
+
+	# Defer the blocking call so the dialog renders
+	await get_tree().process_frame
+
 	# Auto-generate mapping file if checkbox is on
 	var map_file := _map_file_edit.text.strip_edges()
 	if _auto_genmap_check.button_pressed or map_file == "":
-		_log("Auto-generating mapping file...")
 		var map_path := output.path_join("layout.xml")
+
+		# Confirm overwrite of layout.xml during pack flow
+		if FileAccess.file_exists(map_path):
+			_log("Overwriting existing layout.xml for packaging...")
+
+		progress.dialog_text = "Generating mapping file..."
+		await get_tree().process_frame
+
 		var genmap_result = _makepkg.genmap(source, map_path)
 		_log_result(genmap_result)
 		if genmap_result["exit_code"] != 0:
 			_log("❌ Mapping file generation failed — aborting package.")
+			progress.dialog_text = "❌ Mapping file generation failed."
+			progress.get_ok_button().visible = true
+			progress.confirmed.connect(func(): progress.queue_free())
 			return
 		map_file = map_path
 		_map_file_edit.text = map_file
+
+	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
+	await get_tree().process_frame
 
 	# Build options
 	var options := {}
@@ -997,6 +1055,13 @@ func _on_pack() -> void:
 	_log("Creating MSIXVC package...")
 	var result = _makepkg.pack(source, map_file, output, options)
 	_log_result(result)
+
+	progress.get_ok_button().visible = true
+	if result["exit_code"] == 0:
+		progress.dialog_text = "✅ Package created successfully!"
+	else:
+		progress.dialog_text = "❌ Package creation failed.\nCheck the Output panel for details."
+	progress.confirmed.connect(func(): progress.queue_free())
 
 
 # ── Achievements ────────────────────────────────────────────────────────────
