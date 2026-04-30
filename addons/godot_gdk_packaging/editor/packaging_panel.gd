@@ -139,33 +139,66 @@ func _check_and_relocate_root_logos() -> void:
 # ── UI Construction ─────────────────────────────────────────────────────────
 
 func _build_ui() -> void:
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	var outer := VBoxContainer.new()
+	outer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(outer)
 
-	var root := VBoxContainer.new()
-	root.size_flags_horizontal = SIZE_EXPAND_FILL
-	scroll.add_child(root)
-
-	# ── Header ──
-	var title := Label.new()
-	title.text = "GDK Tools"
-	title.add_theme_font_size_override("font_size", 18)
-	root.add_child(title)
-
+	# ── Header (above tabs) ──
 	_status_label = Label.new()
 	if _toolchain.is_gdk_available():
 		_status_label.text = "✅ GDK tools found"
 	else:
 		_status_label.text = "❌ GDK not found — install Microsoft GDK"
-	root.add_child(_status_label)
+	outer.add_child(_status_label)
 
-	root.add_child(HSeparator.new())
+	# ── MicrosoftGame.config (above tabs) ──
+	_build_config_ui(outer)
+	outer.add_child(HSeparator.new())
 
-	# ── Sandbox Switcher ──
-	_add_section_header(root, "PC Sandbox")
+	# ── Tab Container ──
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = SIZE_EXPAND_FILL
+	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
+	outer.add_child(tabs)
 
+	# ── Tab 1: Sandbox ──
+	var sandbox_scroll := ScrollContainer.new()
+	sandbox_scroll.name = "Sandbox"
+	sandbox_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(sandbox_scroll)
+
+	var sandbox := VBoxContainer.new()
+	sandbox.size_flags_horizontal = SIZE_EXPAND_FILL
+	sandbox_scroll.add_child(sandbox)
+	_build_sandbox_ui(sandbox)
+
+	# ── Tab 2: Achievements ──
+	var ach_scroll := ScrollContainer.new()
+	ach_scroll.name = "Achievements"
+	ach_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(ach_scroll)
+
+	var ach := VBoxContainer.new()
+	ach.size_flags_horizontal = SIZE_EXPAND_FILL
+	ach_scroll.add_child(ach)
+	_build_achievements_ui(ach)
+
+	# ── Tab 3: Packaging ──
+	var pkg_scroll := ScrollContainer.new()
+	pkg_scroll.name = "Packaging"
+	pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(pkg_scroll)
+
+	var pkg := VBoxContainer.new()
+	pkg.size_flags_horizontal = SIZE_EXPAND_FILL
+	pkg_scroll.add_child(pkg)
+	_build_packaging_ui(pkg)
+
+	_set_actions_enabled(_toolchain.is_gdk_available())
+	_load_achievement_config()
+
+
+func _build_sandbox_ui(root: VBoxContainer) -> void:
 	_sandbox_label = Label.new()
 	_sandbox_label.text = "Current: checking..."
 	root.add_child(_sandbox_label)
@@ -198,9 +231,8 @@ func _build_ui() -> void:
 	sandbox_refresh_btn.pressed.connect(_refresh_sandbox_status)
 	sandbox_btn_row.add_child(sandbox_refresh_btn)
 
-	root.add_child(HSeparator.new())
 
-	# ── MicrosoftGame.config Status ──
+func _build_config_ui(root: VBoxContainer) -> void:
 	_add_section_header(root, "MicrosoftGame.config")
 
 	_config_status_label = Label.new()
@@ -234,8 +266,32 @@ func _build_ui() -> void:
 	open_folder_btn.pressed.connect(_on_open_config_folder)
 	config_btns.add_child(open_folder_btn)
 
-	root.add_child(HSeparator.new())
 
+func _build_achievements_ui(root: VBoxContainer) -> void:
+	var ach_row := HBoxContainer.new()
+	root.add_child(ach_row)
+	var ach_label := Label.new()
+	ach_label.text = "Demo Achievement ID"
+	ach_label.custom_minimum_size.x = 130
+	ach_row.add_child(ach_label)
+	_achievement_id_edit = LineEdit.new()
+	_achievement_id_edit.placeholder_text = "Achievement ID to test (e.g. 1)"
+	_achievement_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	ach_row.add_child(_achievement_id_edit)
+
+	var ach_btn_row := HBoxContainer.new()
+	root.add_child(ach_btn_row)
+	_achievement_save_btn = Button.new()
+	_achievement_save_btn.text = "Save"
+	_achievement_save_btn.pressed.connect(_on_achievement_save)
+	ach_btn_row.add_child(_achievement_save_btn)
+
+	_achievement_status_label = Label.new()
+	_achievement_status_label.text = ""
+	root.add_child(_achievement_status_label)
+
+
+func _build_packaging_ui(root: VBoxContainer) -> void:
 	# ── Source Configuration ──
 	_add_section_header(root, "Package Source Configuration")
 
@@ -258,7 +314,6 @@ func _build_ui() -> void:
 	# ── Packaging Options ──
 	_add_section_header(root, "Packaging Options")
 
-	# Content ID
 	var cid_row := HBoxContainer.new()
 	root.add_child(cid_row)
 	var cid_label := Label.new()
@@ -270,7 +325,6 @@ func _build_ui() -> void:
 	_content_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	cid_row.add_child(_content_id_edit)
 
-	# Product ID
 	var pid_row := HBoxContainer.new()
 	root.add_child(pid_row)
 	var pid_label := Label.new()
@@ -282,7 +336,6 @@ func _build_ui() -> void:
 	_product_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	pid_row.add_child(_product_id_edit)
 
-	# Encryption
 	var enc_row := HBoxContainer.new()
 	root.add_child(enc_row)
 	var enc_label := Label.new()
@@ -290,17 +343,16 @@ func _build_ui() -> void:
 	enc_label.custom_minimum_size.x = 130
 	enc_row.add_child(enc_label)
 	_encrypt_option = OptionButton.new()
-	_encrypt_option.add_item("None (dev default)")       # 0
-	_encrypt_option.add_item("License encrypt (/l)")     # 1
-	_encrypt_option.add_item("Custom key (/lk)")         # 2
+	_encrypt_option.add_item("None (dev default)")
+	_encrypt_option.add_item("License encrypt (/l)")
+	_encrypt_option.add_item("Custom key (/lk)")
 	_encrypt_option.item_selected.connect(_on_encrypt_changed)
 	enc_row.add_child(_encrypt_option)
 
 	_encrypt_key_edit = _add_path_field(root, "EKB Key File",
 		"Path to encryption key bundle file", false)
-	_encrypt_key_edit.get_parent().visible = false  # hidden until /lk selected
+	_encrypt_key_edit.get_parent().visible = false
 
-	# Update compatibility
 	var compat_row := HBoxContainer.new()
 	root.add_child(compat_row)
 	var compat_label := Label.new()
@@ -308,9 +360,9 @@ func _build_ui() -> void:
 	compat_label.custom_minimum_size.x = 130
 	compat_row.add_child(compat_label)
 	_updcompat_option = OptionButton.new()
-	_updcompat_option.add_item("3 — Sub-file granularity (default)")  # 0 → value 3
-	_updcompat_option.add_item("2 — File-level granularity")           # 1 → value 2
-	_updcompat_option.add_item("1 — Legacy")                           # 2 → value 1
+	_updcompat_option.add_item("3 — Sub-file granularity (default)")
+	_updcompat_option.add_item("2 — File-level granularity")
+	_updcompat_option.add_item("1 — Legacy")
 	compat_row.add_child(_updcompat_option)
 
 	root.add_child(HSeparator.new())
@@ -336,40 +388,10 @@ func _build_ui() -> void:
 	_pack_btn.pressed.connect(_on_pack)
 	action_row.add_child(_pack_btn)
 
-	root.add_child(HSeparator.new())
-
-	# ── Achievements ──
-	_add_section_header(root, "Achievements Demo")
-
-	var ach_row := HBoxContainer.new()
-	root.add_child(ach_row)
-	var ach_label := Label.new()
-	ach_label.text = "Demo Achievement ID"
-	ach_label.custom_minimum_size.x = 130
-	ach_row.add_child(ach_label)
-	_achievement_id_edit = LineEdit.new()
-	_achievement_id_edit.placeholder_text = "Achievement ID to test (e.g. 1)"
-	_achievement_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
-	ach_row.add_child(_achievement_id_edit)
-
-	var ach_btn_row := HBoxContainer.new()
-	root.add_child(ach_btn_row)
-	_achievement_save_btn = Button.new()
-	_achievement_save_btn.text = "Save"
-	_achievement_save_btn.pressed.connect(_on_achievement_save)
-	ach_btn_row.add_child(_achievement_save_btn)
-
-	_achievement_status_label = Label.new()
-	_achievement_status_label.text = ""
-	root.add_child(_achievement_status_label)
-
-	_set_actions_enabled(_toolchain.is_gdk_available())
-	_load_achievement_config()
-
 
 # ── UI Helpers ──────────────────────────────────────────────────────────────
 
-func _add_section_header(parent: VBoxContainer, text: String) -> void:
+func _add_section_header(parent: Control, text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 14)
