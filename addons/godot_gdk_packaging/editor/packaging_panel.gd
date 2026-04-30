@@ -815,6 +815,23 @@ func _ensure_config_in_content_dir(content_dir: String) -> bool:
 		content = content.replace("</Game>", dep_xml + "</Game>")
 		_log("Added VC14 KnownDependency to config")
 
+	# Patch executable name to match actual exe in content dir
+	var dir = DirAccess.open(content_dir)
+	if dir:
+		dir.list_dir_begin()
+		var fname = dir.get_next()
+		while fname != "":
+			# Find the main game exe (not .console.exe)
+			if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
+				var regex = RegEx.new()
+				regex.compile('Executable Name="[^"]*"')
+				if regex.search(content):
+					content = regex.sub(content, 'Executable Name="%s"' % fname)
+					_log("Patched executable name to: %s" % fname)
+				break
+			fname = dir.get_next()
+		dir.list_dir_end()
+
 	file = FileAccess.open(config_dest, FileAccess.WRITE)
 	if file == null:
 		_log("❌ Cannot write to content directory")
