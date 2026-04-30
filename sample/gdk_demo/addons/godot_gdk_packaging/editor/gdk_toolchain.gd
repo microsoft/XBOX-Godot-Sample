@@ -11,6 +11,9 @@ const _DEFAULT_GDK_BIN := "C:/Program Files (x86)/Microsoft GDK/bin"
 var _bin_dir: String = ""
 var _makepkg_path: String = ""
 var _game_config_editor_path: String = ""
+var _sandbox_path: String = ""
+var _dev_account_path: String = ""
+var _gdk_version: String = ""
 var _is_available: bool = false
 
 func _init() -> void:
@@ -27,6 +30,15 @@ func get_makepkg_path() -> String:
 
 func get_game_config_editor_path() -> String:
 	return _game_config_editor_path
+
+func get_sandbox_path() -> String:
+	return _sandbox_path
+
+func get_dev_account_path() -> String:
+	return _dev_account_path
+
+func get_gdk_version() -> String:
+	return _gdk_version
 
 func get_bin_dir() -> String:
 	return _bin_dir
@@ -65,6 +77,15 @@ func launch_detached(exe_path: String, args: PackedStringArray) -> int:
 # ── Private ─────────────────────────────────────────────────────────────────
 
 func _detect_gdk() -> void:
+	# Detect GDK version from environment
+	var gdk_core = OS.get_environment("GameDKCoreLatest")
+	if gdk_core != "":
+		var parts = gdk_core.replace("\\", "/").split("/")
+		for part in parts:
+			if part.length() == 6 and part.is_valid_int():
+				_gdk_version = part
+				break
+
 	# 1. Check GDK_BIN env var
 	var env_bin := OS.get_environment("GDK_BIN")
 	if env_bin != "" and DirAccess.dir_exists_absolute(env_bin):
@@ -78,11 +99,17 @@ func _detect_gdk() -> void:
 func _try_bin_dir(dir: String) -> void:
 	var makepkg := dir.path_join("makepkg.exe")
 	var config_editor := dir.path_join("GameConfigEditor.exe")
+	var sandbox := dir.path_join("XblPCSandbox.exe")
 
 	if FileAccess.file_exists(makepkg) and FileAccess.file_exists(config_editor):
 		_bin_dir = dir
 		_makepkg_path = makepkg
 		_game_config_editor_path = config_editor
+		if FileAccess.file_exists(sandbox):
+			_sandbox_path = sandbox
+		var dev_account := dir.path_join("XblDevAccount.exe")
+		if FileAccess.file_exists(dev_account):
+			_dev_account_path = dev_account
 		_is_available = true
 		print("[GDK Packaging] GDK tools found at: ", dir)
 	else:

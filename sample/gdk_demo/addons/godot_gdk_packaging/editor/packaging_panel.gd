@@ -33,6 +33,14 @@ var _config_status_label: Label
 var _config_identity_label: Label
 var _edit_config_btn: Button
 var _create_config_btn: Button
+var _config_preview_container: VBoxContainer
+
+# Sandbox
+var _sandbox_label: Label
+var _sandbox_id_edit: LineEdit
+var _sandbox_set_btn: Button
+var _sandbox_retail_btn: Button
+var _dev_account_label: Label
 
 # Actions
 var _genmap_btn: Button
@@ -64,6 +72,7 @@ func _ready() -> void:
 	_makepkg = MakePkgExecutorScript.new(_toolchain)
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
 	_build_ui()
+	_refresh_sandbox_status()
 	_refresh_config_status()
 	set_process(true)
 
@@ -132,31 +141,152 @@ func _check_and_relocate_root_logos() -> void:
 # ── UI Construction ─────────────────────────────────────────────────────────
 
 func _build_ui() -> void:
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	var outer := VBoxContainer.new()
+	outer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(outer)
 
-	var root := VBoxContainer.new()
-	root.size_flags_horizontal = SIZE_EXPAND_FILL
-	scroll.add_child(root)
-
-	# ── Header ──
-	var title := Label.new()
-	title.text = "GDK Tools"
-	title.add_theme_font_size_override("font_size", 18)
-	root.add_child(title)
-
+	# ── Header (above tabs) ──
 	_status_label = Label.new()
 	if _toolchain.is_gdk_available():
-		_status_label.text = "✅ GDK tools found"
+		var version_text = _toolchain.get_gdk_version()
+		if version_text != "":
+			_status_label.text = "✅ GDK %s" % version_text
+		else:
+			_status_label.text = "✅ GDK tools found"
 	else:
 		_status_label.text = "❌ GDK not found — install Microsoft GDK"
-	root.add_child(_status_label)
+	outer.add_child(_status_label)
+
+	# ── Tab Bar (visible, styled buttons) ──
+	var tab_bar := TabBar.new()
+	tab_bar.add_tab("⚙️ Config")
+	tab_bar.add_tab("📦 Packaging")
+	tab_bar.add_tab("🔒 Sandbox")
+	tab_bar.add_tab("🏆 Achievements")
+	tab_bar.clip_tabs = false
+	tab_bar.size_flags_horizontal = SIZE_EXPAND_FILL
+	tab_bar.add_theme_font_size_override("font_size", 18)
+	outer.add_child(tab_bar)
+
+	# ── Content pages (one per tab) ──
+	var _tab_pages: Array[ScrollContainer] = []
+
+	var config_scroll := ScrollContainer.new()
+	config_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	config_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	outer.add_child(config_scroll)
+	var config_root := VBoxContainer.new()
+	config_root.size_flags_horizontal = SIZE_EXPAND_FILL
+	config_scroll.add_child(config_root)
+	_build_config_ui(config_root)
+	_tab_pages.append(config_scroll)
+
+	var pkg_scroll := ScrollContainer.new()
+	pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pkg_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	pkg_scroll.visible = false
+	outer.add_child(pkg_scroll)
+	var pkg := VBoxContainer.new()
+	pkg.size_flags_horizontal = SIZE_EXPAND_FILL
+	pkg_scroll.add_child(pkg)
+	_build_packaging_ui(pkg)
+	_tab_pages.append(pkg_scroll)
+
+	var sandbox_scroll := ScrollContainer.new()
+	sandbox_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sandbox_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	sandbox_scroll.visible = false
+	outer.add_child(sandbox_scroll)
+	var sandbox := VBoxContainer.new()
+	sandbox.size_flags_horizontal = SIZE_EXPAND_FILL
+	sandbox_scroll.add_child(sandbox)
+	_build_sandbox_ui(sandbox)
+	_tab_pages.append(sandbox_scroll)
+
+	var ach_scroll := ScrollContainer.new()
+	ach_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ach_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	ach_scroll.visible = false
+	outer.add_child(ach_scroll)
+	var ach := VBoxContainer.new()
+	ach.size_flags_horizontal = SIZE_EXPAND_FILL
+	ach_scroll.add_child(ach)
+	_build_achievements_ui(ach)
+	_tab_pages.append(ach_scroll)
+
+	# Wire tab switching
+	tab_bar.tab_changed.connect(func(idx: int):
+		for i in _tab_pages.size():
+			_tab_pages[i].visible = (i == idx)
+	)
+
+	_set_actions_enabled(_toolchain.is_gdk_available())
+	_load_achievement_config()
+
+
+func _build_sandbox_ui(root: VBoxContainer) -> void:
+	_sandbox_label = Label.new()
+	_sandbox_label.text = "Current: checking..."
+	root.add_child(_sandbox_label)
+
+	var sandbox_row := HBoxContainer.new()
+	root.add_child(sandbox_row)
+	var sandbox_id_label := Label.new()
+	sandbox_id_label.text = "Sandbox ID"
+	sandbox_id_label.custom_minimum_size.x = 130
+	sandbox_row.add_child(sandbox_id_label)
+	_sandbox_id_edit = LineEdit.new()
+	_sandbox_id_edit.placeholder_text = "e.g. XDKS.1"
+	_sandbox_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	sandbox_row.add_child(_sandbox_id_edit)
+
+	var sandbox_btn_row := HBoxContainer.new()
+	root.add_child(sandbox_btn_row)
+	_sandbox_set_btn = Button.new()
+	_sandbox_set_btn.text = "Set Sandbox"
+	_sandbox_set_btn.pressed.connect(_on_sandbox_set)
+	sandbox_btn_row.add_child(_sandbox_set_btn)
+
+	_sandbox_retail_btn = Button.new()
+	_sandbox_retail_btn.text = "Switch to RETAIL"
+	_sandbox_retail_btn.pressed.connect(_on_sandbox_retail)
+	sandbox_btn_row.add_child(_sandbox_retail_btn)
+
+	var sandbox_refresh_btn := Button.new()
+	sandbox_refresh_btn.text = "Refresh"
+	sandbox_refresh_btn.pressed.connect(_refresh_sandbox_status)
+	sandbox_btn_row.add_child(sandbox_refresh_btn)
 
 	root.add_child(HSeparator.new())
 
-	# ── MicrosoftGame.config Status ──
+	# ── Dev Account ──
+	_add_section_header(root, "Partner Center Account")
+	_dev_account_label = Label.new()
+	_dev_account_label.text = "Checking..."
+	_dev_account_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(_dev_account_label)
+
+	var dev_btn_row := HBoxContainer.new()
+	root.add_child(dev_btn_row)
+
+	var signin_btn := Button.new()
+	signin_btn.text = "Sign In"
+	signin_btn.pressed.connect(_on_dev_account_signin)
+	dev_btn_row.add_child(signin_btn)
+
+	var signout_btn := Button.new()
+	signout_btn.text = "Sign Out"
+	signout_btn.pressed.connect(_on_dev_account_signout)
+	dev_btn_row.add_child(signout_btn)
+
+	var test_accounts_btn := Button.new()
+	test_accounts_btn.text = "Test Accounts"
+	test_accounts_btn.tooltip_text = "Open the Xbox Live Test Account GUI"
+	test_accounts_btn.pressed.connect(_on_open_test_accounts)
+	dev_btn_row.add_child(test_accounts_btn)
+
+
+func _build_config_ui(root: VBoxContainer) -> void:
 	_add_section_header(root, "MicrosoftGame.config")
 
 	_config_status_label = Label.new()
@@ -192,6 +322,38 @@ func _build_ui() -> void:
 
 	root.add_child(HSeparator.new())
 
+	# ── Config Preview ──
+	_add_section_header(root, "MicrosoftGame.config Preview")
+	_config_preview_container = VBoxContainer.new()
+	_config_preview_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	root.add_child(_config_preview_container)
+
+
+func _build_achievements_ui(root: VBoxContainer) -> void:
+	var ach_row := HBoxContainer.new()
+	root.add_child(ach_row)
+	var ach_label := Label.new()
+	ach_label.text = "Demo Achievement ID"
+	ach_label.custom_minimum_size.x = 130
+	ach_row.add_child(ach_label)
+	_achievement_id_edit = LineEdit.new()
+	_achievement_id_edit.placeholder_text = "Achievement ID to test (e.g. 1)"
+	_achievement_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	ach_row.add_child(_achievement_id_edit)
+
+	var ach_btn_row := HBoxContainer.new()
+	root.add_child(ach_btn_row)
+	_achievement_save_btn = Button.new()
+	_achievement_save_btn.text = "Save"
+	_achievement_save_btn.pressed.connect(_on_achievement_save)
+	ach_btn_row.add_child(_achievement_save_btn)
+
+	_achievement_status_label = Label.new()
+	_achievement_status_label.text = ""
+	root.add_child(_achievement_status_label)
+
+
+func _build_packaging_ui(root: VBoxContainer) -> void:
 	# ── Source Configuration ──
 	_add_section_header(root, "Package Source Configuration")
 
@@ -214,7 +376,6 @@ func _build_ui() -> void:
 	# ── Packaging Options ──
 	_add_section_header(root, "Packaging Options")
 
-	# Content ID
 	var cid_row := HBoxContainer.new()
 	root.add_child(cid_row)
 	var cid_label := Label.new()
@@ -226,7 +387,6 @@ func _build_ui() -> void:
 	_content_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	cid_row.add_child(_content_id_edit)
 
-	# Product ID
 	var pid_row := HBoxContainer.new()
 	root.add_child(pid_row)
 	var pid_label := Label.new()
@@ -238,7 +398,6 @@ func _build_ui() -> void:
 	_product_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	pid_row.add_child(_product_id_edit)
 
-	# Encryption
 	var enc_row := HBoxContainer.new()
 	root.add_child(enc_row)
 	var enc_label := Label.new()
@@ -246,17 +405,16 @@ func _build_ui() -> void:
 	enc_label.custom_minimum_size.x = 130
 	enc_row.add_child(enc_label)
 	_encrypt_option = OptionButton.new()
-	_encrypt_option.add_item("None (dev default)")       # 0
-	_encrypt_option.add_item("License encrypt (/l)")     # 1
-	_encrypt_option.add_item("Custom key (/lk)")         # 2
+	_encrypt_option.add_item("None (dev default)")
+	_encrypt_option.add_item("License encrypt (/l)")
+	_encrypt_option.add_item("Custom key (/lk)")
 	_encrypt_option.item_selected.connect(_on_encrypt_changed)
 	enc_row.add_child(_encrypt_option)
 
 	_encrypt_key_edit = _add_path_field(root, "EKB Key File",
 		"Path to encryption key bundle file", false)
-	_encrypt_key_edit.get_parent().visible = false  # hidden until /lk selected
+	_encrypt_key_edit.get_parent().visible = false
 
-	# Update compatibility
 	var compat_row := HBoxContainer.new()
 	root.add_child(compat_row)
 	var compat_label := Label.new()
@@ -264,9 +422,9 @@ func _build_ui() -> void:
 	compat_label.custom_minimum_size.x = 130
 	compat_row.add_child(compat_label)
 	_updcompat_option = OptionButton.new()
-	_updcompat_option.add_item("3 — Sub-file granularity (default)")  # 0 → value 3
-	_updcompat_option.add_item("2 — File-level granularity")           # 1 → value 2
-	_updcompat_option.add_item("1 — Legacy")                           # 2 → value 1
+	_updcompat_option.add_item("3 — Sub-file granularity (default)")
+	_updcompat_option.add_item("2 — File-level granularity")
+	_updcompat_option.add_item("1 — Legacy")
 	compat_row.add_child(_updcompat_option)
 
 	root.add_child(HSeparator.new())
@@ -292,40 +450,10 @@ func _build_ui() -> void:
 	_pack_btn.pressed.connect(_on_pack)
 	action_row.add_child(_pack_btn)
 
-	root.add_child(HSeparator.new())
-
-	# ── Achievements ──
-	_add_section_header(root, "Achievements Demo")
-
-	var ach_row := HBoxContainer.new()
-	root.add_child(ach_row)
-	var ach_label := Label.new()
-	ach_label.text = "Demo Achievement ID"
-	ach_label.custom_minimum_size.x = 130
-	ach_row.add_child(ach_label)
-	_achievement_id_edit = LineEdit.new()
-	_achievement_id_edit.placeholder_text = "Achievement ID to test (e.g. 1)"
-	_achievement_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
-	ach_row.add_child(_achievement_id_edit)
-
-	var ach_btn_row := HBoxContainer.new()
-	root.add_child(ach_btn_row)
-	_achievement_save_btn = Button.new()
-	_achievement_save_btn.text = "Save"
-	_achievement_save_btn.pressed.connect(_on_achievement_save)
-	ach_btn_row.add_child(_achievement_save_btn)
-
-	_achievement_status_label = Label.new()
-	_achievement_status_label.text = ""
-	root.add_child(_achievement_status_label)
-
-	_set_actions_enabled(_toolchain.is_gdk_available())
-	_load_achievement_config()
-
 
 # ── UI Helpers ──────────────────────────────────────────────────────────────
 
-func _add_section_header(parent: VBoxContainer, text: String) -> void:
+func _add_section_header(parent: Control, text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 14)
@@ -393,6 +521,127 @@ func _log_result(result: Dictionary) -> void:
 		push_error("[GDK Packaging] Command failed with exit code " + str(result["exit_code"]))
 
 
+# ── Sandbox ─────────────────────────────────────────────────────────────────
+
+func _refresh_sandbox_status() -> void:
+	var sandbox_exe = _toolchain.get_sandbox_path()
+	if sandbox_exe == "":
+		_sandbox_label.text = "Current: XblPCSandbox.exe not found"
+		_sandbox_set_btn.disabled = true
+		_sandbox_retail_btn.disabled = true
+		return
+
+	var result = _toolchain.execute_tool(sandbox_exe, PackedStringArray(["/get"]))
+	if result["exit_code"] == 0:
+		var output: String = result["stdout"].strip_edges()
+		# Parse the sandbox name from output like "Current Xbox Live sandbox: XDKS.1"
+		var idx = output.find(":")
+		if idx >= 0:
+			var sandbox_name = output.substr(idx + 1).strip_edges()
+			_sandbox_label.text = "Current: %s" % sandbox_name
+			if sandbox_name != "" and sandbox_name != "RETAIL":
+				_sandbox_id_edit.text = sandbox_name
+		else:
+			_sandbox_label.text = "Current: %s" % output
+	else:
+		_sandbox_label.text = "Current: could not determine"
+	_sandbox_set_btn.disabled = false
+	_sandbox_retail_btn.disabled = false
+	_refresh_dev_account()
+
+func _on_sandbox_set() -> void:
+	var sandbox_id = _sandbox_id_edit.text.strip_edges()
+	if sandbox_id == "":
+		_sandbox_label.text = "Enter a sandbox ID first"
+		return
+
+	_sandbox_label.text = "Switching to %s..." % sandbox_id
+	_sandbox_set_btn.disabled = true
+	_sandbox_retail_btn.disabled = true
+	_log("Setting sandbox to: %s" % sandbox_id)
+
+	var sandbox_exe = _toolchain.get_sandbox_path()
+	var result = _toolchain.execute_tool(sandbox_exe, PackedStringArray(["/set", sandbox_id, "/noApps"]))
+	if result["exit_code"] == 0:
+		_log("Sandbox set to %s" % sandbox_id)
+	else:
+		_log("Sandbox switch failed: %s" % result["stdout"])
+		push_warning("[GDK] Sandbox switch failed — may need admin privileges")
+	_refresh_sandbox_status()
+
+func _on_sandbox_retail() -> void:
+	_sandbox_label.text = "Switching to RETAIL..."
+	_sandbox_set_btn.disabled = true
+	_sandbox_retail_btn.disabled = true
+	_log("Switching sandbox to RETAIL")
+
+	var sandbox_exe = _toolchain.get_sandbox_path()
+	var result = _toolchain.execute_tool(sandbox_exe, PackedStringArray(["/retail", "/noApps"]))
+	if result["exit_code"] == 0:
+		_log("Sandbox set to RETAIL")
+	else:
+		_log("Sandbox switch failed: %s" % result["stdout"])
+		push_warning("[GDK] Sandbox switch failed — may need admin privileges")
+	_refresh_sandbox_status()
+
+
+func _refresh_dev_account() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		_dev_account_label.text = "XblDevAccount.exe not found"
+		return
+
+	var result = _toolchain.execute_tool(dev_exe, PackedStringArray(["show"]))
+	if result["exit_code"] == 0:
+		var output: String = result["stdout"].strip_edges()
+		if output.contains("is currently signed in"):
+			# Parse email from "Microsoft Partner Center account <email> from <source> is currently signed in."
+			var email_start = output.find("account ") + 8
+			var email_end = output.find(" from")
+			if email_start > 8 and email_end > email_start:
+				var email = output.substr(email_start, email_end - email_start)
+				_dev_account_label.text = "✅ Signed in: %s" % email
+			else:
+				_dev_account_label.text = "✅ Signed in"
+		elif output.contains("No account"):
+			_dev_account_label.text = "⚠️ Not signed in"
+		else:
+			_dev_account_label.text = output.substr(0, 80)
+	else:
+		_dev_account_label.text = "⚠️ Not signed in"
+
+func _on_dev_account_signin() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		return
+	_dev_account_label.text = "Signing in..."
+	_log("Launching Partner Center sign-in...")
+	_toolchain.launch_detached(dev_exe, PackedStringArray(["signin"]))
+	# Refresh after a delay to pick up the new state
+	get_tree().create_timer(5.0).timeout.connect(_refresh_dev_account)
+
+func _on_dev_account_signout() -> void:
+	var dev_exe = _toolchain.get_dev_account_path()
+	if dev_exe == "":
+		return
+	_dev_account_label.text = "Signing out..."
+	var result = _toolchain.execute_tool(dev_exe, PackedStringArray(["signout"]))
+	if result["exit_code"] == 0:
+		_log("Dev account signed out")
+	else:
+		_log("Sign out failed: %s" % result["stdout"])
+	_refresh_dev_account()
+
+func _on_open_test_accounts() -> void:
+	var test_gui = _toolchain.get_bin_dir().path_join("XblTestAccountGui.exe")
+	if FileAccess.file_exists(test_gui):
+		_toolchain.launch_detached(test_gui, PackedStringArray([]))
+		_log("Launched Xbox Live Test Account GUI")
+	else:
+		_log("XblTestAccountGui.exe not found")
+		push_warning("[GDK] XblTestAccountGui.exe not found")
+
+
 # ── Config Status ───────────────────────────────────────────────────────────
 
 func _refresh_config_status() -> void:
@@ -406,18 +655,17 @@ func _refresh_config_status() -> void:
 				info.get("publisher", ""),
 				info.get("version", "?"),
 			]
-			# Auto-populate IDs if panel fields are empty
 			if _product_id_edit.text == "" and info.get("product_id", "") != "":
 				_product_id_edit.text = info["product_id"]
 		else:
 			_config_identity_label.text = "(could not parse identity)"
 
-		# Relocate any logos GameConfigEditor wrote to project root into storelogos/
+		_refresh_config_preview(info)
+
 		var relocated = _config_mgr.relocate_logos_to_storelogos()
 		if relocated > 0:
 			_log("Relocated %d logo(s) to storelogos/" % relocated)
 
-		# Sync remaining logos — regenerate other sizes from the 480x480 source
 		var synced = _config_mgr.sync_store_logos()
 		if synced > 0:
 			_log("Synced %d store logo(s) from 480x480 source" % synced)
@@ -425,6 +673,69 @@ func _refresh_config_status() -> void:
 		_config_status_label.text = "⚠️ MicrosoftGame.config not found"
 		_config_identity_label.text = "Create a template or use GameConfigEditor to get started."
 		_create_config_btn.visible = true
+		_refresh_config_preview({})
+
+
+func _refresh_config_preview(info: Dictionary) -> void:
+	# Clear existing preview rows
+	for child in _config_preview_container.get_children():
+		child.queue_free()
+
+	if info.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No config loaded."
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_config_preview_container.add_child(empty_label)
+		return
+
+	# Preview fields with tooltips from the MicrosoftGame.config schema
+	var fields := [
+		["Config Version", info.get("config_version", ""), "Game configVersion — must be '1' for GDK Oct 2023+. Controls schema validation rules."],
+		["Identity Name", info.get("name", ""), "Identity.Name — unique package name from Partner Center → Product Identity. Used during registration."],
+		["Publisher", info.get("publisher", ""), "Identity.Publisher — publisher CN string from Partner Center → Product Identity."],
+		["Version", info.get("version", ""), "Identity.Version — package version (Major.Minor.Build.Revision). Defaults to 1.0.0.0."],
+		["Display Name", info.get("display_name", ""), "ShellVisuals.DefaultDisplayName — title name shown in the Xbox shell and Store."],
+		["Description", info.get("description", ""), "ShellVisuals.Description — short description shown in the shell."],
+		["Title ID", info.get("title_id", ""), "TitleId — hex title ID from Partner Center → Xbox Live Setup. Required with configVersion 1."],
+		["MSA App ID", info.get("msa_app_id", ""), "MSAAppId — Microsoft Account app ID from Partner Center. Required when TitleId is set."],
+		["Store ID", info.get("store_id", ""), "StoreId — Microsoft Store product ID (e.g. 9XXXXXXXXX)."],
+		["Product ID", info.get("product_id", ""), "MSStore.ProductId — used for licensing and Store association."],
+		["Executable", info.get("executable", ""), "Executable.Name — the game executable filename (e.g. MyGame.exe)."],
+		["Background Color", info.get("background_color", ""), "ShellVisuals.BackgroundColor — hex color for the tile background (e.g. #000000)."],
+		["Foreground Text", info.get("foreground_text", ""), "ShellVisuals.ForegroundText — 'light' or 'dark' text on the tile background."],
+		["480x480 Logo", info.get("logo_480", ""), "ShellVisuals.Square480x480Logo — primary tile image path. Used to generate other sizes."],
+		["Store Logo", info.get("store_logo", ""), "ShellVisuals.StoreLogo — small logo used in the Store listing."],
+		["Splash Screen", info.get("splash_screen", ""), "ShellVisuals.SplashScreenImage — image shown during game launch."],
+	]
+
+	for field in fields:
+		var label_text: String = field[0]
+		var value: String = field[1]
+		var tooltip: String = field[2]
+
+		if value == "":
+			continue
+
+		var row := HBoxContainer.new()
+		_config_preview_container.add_child(row)
+
+		var key_label := Label.new()
+		key_label.text = label_text
+		key_label.custom_minimum_size.x = 120
+		key_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		key_label.add_theme_font_size_override("font_size", 14)
+		key_label.tooltip_text = tooltip
+		key_label.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(key_label)
+
+		var val_label := Label.new()
+		val_label.text = value
+		val_label.add_theme_font_size_override("font_size", 14)
+		val_label.size_flags_horizontal = SIZE_EXPAND_FILL
+		val_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		val_label.tooltip_text = tooltip
+		val_label.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(val_label)
 
 
 # ── Signal Handlers ─────────────────────────────────────────────────────────

@@ -52,6 +52,12 @@ func parse_config() -> Dictionary:
 		"executable": "",
 		"display_name": "",
 		"description": "",
+		"title_id": "",
+		"msa_app_id": "",
+		"store_id": "",
+		"config_version": "",
+		"background_color": "",
+		"foreground_text": "",
 	}
 
 	while parser.read() == OK:
@@ -60,7 +66,12 @@ func parse_config() -> Dictionary:
 
 		var node_name := parser.get_node_name()
 
-		if node_name == "Identity":
+		if node_name == "Game":
+			for i in parser.get_attribute_count():
+				if parser.get_attribute_name(i) == "configVersion":
+					result["config_version"] = parser.get_attribute_value(i)
+
+		elif node_name == "Identity":
 			for i in parser.get_attribute_count():
 				match parser.get_attribute_name(i):
 					"Name":
@@ -74,6 +85,21 @@ func parse_config() -> Dictionary:
 			for i in parser.get_attribute_count():
 				if parser.get_attribute_name(i) == "Name":
 					result["executable"] = parser.get_attribute_value(i)
+
+		elif node_name == "TitleId":
+			if not parser.is_empty():
+				if parser.read() == OK and parser.get_node_type() == XMLParser.NODE_TEXT:
+					result["title_id"] = parser.get_node_data().strip_edges()
+
+		elif node_name == "MSAAppId":
+			if not parser.is_empty():
+				if parser.read() == OK and parser.get_node_type() == XMLParser.NODE_TEXT:
+					result["msa_app_id"] = parser.get_node_data().strip_edges()
+
+		elif node_name == "StoreId":
+			if not parser.is_empty():
+				if parser.read() == OK and parser.get_node_type() == XMLParser.NODE_TEXT:
+					result["store_id"] = parser.get_node_data().strip_edges()
 
 		elif node_name == "ShellVisuals":
 			for i in parser.get_attribute_count():
@@ -92,6 +118,10 @@ func parse_config() -> Dictionary:
 						result["store_logo"] = parser.get_attribute_value(i)
 					"SplashScreenImage":
 						result["splash_screen"] = parser.get_attribute_value(i)
+					"BackgroundColor":
+						result["background_color"] = parser.get_attribute_value(i)
+					"ForegroundText":
+						result["foreground_text"] = parser.get_attribute_value(i)
 
 		# ProductId can appear as an attribute on the MSStore element
 		elif node_name == "MSStore":
