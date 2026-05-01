@@ -1,17 +1,17 @@
 # GameInput Manual Hardware Test Checklist
 
-The headless test suite under `sample/shamwow/tests/` covers everything that
+The headless test suite under `sample/gdk_launch_point/tests/` covers everything that
 can be verified without a real controller. This document covers the pieces
 that need a human + hardware in the loop.
 
 ## Setup
 
-1. Build the addon and launch the **shamwow** sample editor:
+1. Build the addon and launch the **GDK Launch Point** sample editor:
 
     ```powershell
     cmake --preset default
     cmake --build build --preset debug
-    cd sample\shamwow
+    cd sample\gdk_launch_point
     .\launch_editor.bat
     ```
 
@@ -131,11 +131,11 @@ After any change to the GameInput addon C++:
 
 - [ ] Headless tests still pass:
   ```powershell
-  cd sample\shamwow
+  cd sample\gdk_launch_point
   .\Godot_v4.6.1-stable_win64_console.exe --headless --script res://tests/run_tests.gd
   ```
   Expected output ends with `Results: N passed, 0 failed, 0 skipped`.
-- [ ] Both editors (`shamwow`, `multiplayer_pong`) launch without
+- [ ] Both editors (`gdk_launch_point`, `multiplayer_pong`) launch without
   `ERROR:` lines mentioning `gameinput` in editor output.
 - [ ] `GameInput` singleton appears in **Project → Project Settings →
   Globals** (or wherever Godot lists engine singletons in your version).

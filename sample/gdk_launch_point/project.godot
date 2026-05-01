@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="GodotGDK ShamWow"
+config/name="GDK Launch Point"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6")
 
@@ -18,6 +18,10 @@ config/features=PackedStringArray("4.6")
 
 GDKBootstrap="*res://gdk_bootstrap.gd"
 GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
+
+[gdk]
+
+runtime/embed_dispatch=true
 
 [display]
 

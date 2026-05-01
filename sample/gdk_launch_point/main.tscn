@@ -38,11 +38,11 @@ theme_override_constants/separation = 8
 [node name="TitleLabel" type="Label" parent="OuterMargin/RootVBox/HeaderPanel/HeaderVBox" unique_id=1114927798]
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "GodotGDK ShamWow"
+text = "GDK Launch Point"
 
 [node name="TaglineLabel" type="Label" parent="OuterMargin/RootVBox/HeaderPanel/HeaderVBox" unique_id=8717113]
 layout_mode = 2
-text = "Guest, you'll be saying \"WOW\" every time."
+text = "Start here to explore the Godot GDK surface."
 
 [node name="HeaderInfo" type="HBoxContainer" parent="OuterMargin/RootVBox/HeaderPanel/HeaderVBox" unique_id=773992676]
 layout_mode = 2
@@ -122,7 +122,7 @@ text = "Pick a scenario or group to see more detail."
 [node name="StateHeadingLabel" type="Label" parent="OuterMargin/RootVBox/BodySplit/StatusPanel/StatusVBox" unique_id=1272025411]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "Shell State"
+text = "Launch Point State"
 
 [node name="StateDetails" type="RichTextLabel" parent="OuterMargin/RootVBox/BodySplit/StatusPanel/StatusVBox" unique_id=701780898]
 custom_minimum_size = Vector2(0, 240)
@@ -157,4 +157,4 @@ text = "Clear"
 [node name="EventLog" type="RichTextLabel" parent="OuterMargin/RootVBox/LogPanel/LogVBox" unique_id=835560341]
 layout_mode = 2
 size_flags_vertical = 3
-text = "Scenario shell ready."
+text = "GDK Launch Point ready."

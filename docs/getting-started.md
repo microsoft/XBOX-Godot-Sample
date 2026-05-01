@@ -86,7 +86,7 @@ cmake --build build --preset debug
 
 # Launch any sample
 .\sample\gdk_demo\launch_editor.bat            # GDK addon demo
-.\sample\shamwow\launch_editor.bat             # ShamWow scenario shell
+.\sample\gdk_launch_point\launch_editor.bat    # GDK Launch Point scenario shell
 .\sample\multiplayer_pong\launch_editor.bat    # Multiplayer pong
 ```
 

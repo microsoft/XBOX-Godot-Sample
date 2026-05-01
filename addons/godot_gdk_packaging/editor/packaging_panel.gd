@@ -88,9 +88,7 @@ var _status_label: Label
 
 # Logo watcher
 var _watch_timer: float = 0.0
-# How often (seconds) to check for logo files GameConfigEditor writes to project root
 const WATCH_INTERVAL := 2.0
-# Standard filenames GameConfigEditor writes when regenerating tile images
 const ROOT_LOGO_FILES := [
 	"StoreLogo.png",
 	"Square44x44Logo.png",
@@ -100,7 +98,6 @@ const ROOT_LOGO_FILES := [
 ]
 
 
-## Initializes toolchain, builds UI, loads saved settings, and starts logo watcher.
 func _ready() -> void:
 	_toolchain = GDKToolchainScript.new()
 	_makepkg = MakePkgExecutorScript.new(_toolchain)
@@ -112,7 +109,6 @@ func _ready() -> void:
 	set_process(true)
 
 
-## Polls for GameConfigEditor logo output files at root and auto-relocates them.
 func _process(delta: float) -> void:
 	_watch_timer += delta
 	if _watch_timer < WATCH_INTERVAL:
@@ -121,8 +117,6 @@ func _process(delta: float) -> void:
 	_check_and_relocate_root_logos()
 
 
-## Detects known logo PNGs that GameConfigEditor writes to project root,
-## moves them to storelogos/, removes stale .import files, and triggers rescan.
 func _check_and_relocate_root_logos() -> void:
 	var project_dir = ProjectSettings.globalize_path("res://")
 	var logos_dir = project_dir.path_join("storelogos")
@@ -178,7 +172,6 @@ func _check_and_relocate_root_logos() -> void:
 
 # ── UI Construction ─────────────────────────────────────────────────────────
 
-## Constructs the tabbed dock UI: header, tab bar, and content pages.
 func _build_ui() -> void:
 	var outer := VBoxContainer.new()
 	outer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -289,7 +282,6 @@ func _build_ui() -> void:
 	_connect_autosave()
 
 
-## Builds the Sandbox tab: sandbox switcher, Partner Center account, test account.
 func _build_sandbox_ui(root: VBoxContainer) -> void:
 	_sandbox_label = Label.new()
 	_sandbox_label.text = "Current: checking..."
@@ -375,7 +367,6 @@ func _build_sandbox_ui(root: VBoxContainer) -> void:
 	root.add_child(test_hint)
 
 
-## Builds the Config tab: MicrosoftGame.config status, buttons, and preview.
 func _build_config_ui(root: VBoxContainer) -> void:
 	_add_section_header(root, "MicrosoftGame.config")
 
@@ -419,7 +410,6 @@ func _build_config_ui(root: VBoxContainer) -> void:
 	root.add_child(_config_preview_container)
 
 
-## Builds the Achievements tab: demo achievement ID field.
 func _build_achievements_ui(root: VBoxContainer) -> void:
 	var ach_row := HBoxContainer.new()
 	root.add_child(ach_row)
@@ -444,7 +434,6 @@ func _build_achievements_ui(root: VBoxContainer) -> void:
 	root.add_child(_achievement_status_label)
 
 
-## Builds the PlayFab tab: Title ID field, Game Manager link, SDK version.
 func _build_playfab_ui(root: VBoxContainer) -> void:
 	var desc := Label.new()
 	desc.text = "Configure your PlayFab Title ID for Xbox Live integration.\nThe Title ID is used at runtime to connect to PlayFab services."
@@ -488,6 +477,7 @@ func _build_playfab_ui(root: VBoxContainer) -> void:
 
 	root.add_child(HSeparator.new())
 
+## Builds the PlayFab tab: Title ID field, Game Manager link, SDK version.
 	# PlayFab SDK version
 	_playfab_version_label = Label.new()
 	_playfab_version_label.text = "PlayFab SDK: detecting..."
@@ -692,14 +682,12 @@ func _populate_preset_selector() -> void:
 
 # ── UI Helpers ──────────────────────────────────────────────────────────────
 
-## Adds a bold 14pt section label to the given parent container.
 func _add_section_header(parent: Control, text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 14)
 	parent.add_child(label)
 
-## Creates a labeled path field with a browse button. Returns the LineEdit.
 func _add_path_field(parent: VBoxContainer, label_text: String,
 		placeholder: String, is_dir: bool) -> LineEdit:
 	var row := HBoxContainer.new()
@@ -758,18 +746,15 @@ func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
 
 		dialog.canceled.connect(func(): dialog.queue_free())
 
-## Enables or disables the packaging action buttons based on GDK availability.
 func _set_actions_enabled(enabled: bool) -> void:
 	_genmap_btn.disabled = not enabled
 	_validate_btn.disabled = not enabled
 	_pack_btn.disabled = not enabled
 	_edit_config_btn.disabled = not enabled
 
-## Prints a message to Godot's Output panel with the [GDK Packaging] prefix.
 func _log(text: String) -> void:
 	print("[GDK Packaging] ", text)
 
-## Logs the stdout/stderr/exit_code from a tool execution result dict.
 func _log_result(result: Dictionary) -> void:
 	if result["stdout"] != "":
 		_log(result["stdout"])
@@ -785,7 +770,6 @@ func _log_result(result: Dictionary) -> void:
 
 # ── Sandbox ─────────────────────────────────────────────────────────────────
 
-## Queries XblPCSandbox /get and updates the sandbox status label.
 func _refresh_sandbox_status() -> void:
 	var sandbox_exe = _toolchain.get_sandbox_path()
 	if sandbox_exe == "":
@@ -797,7 +781,7 @@ func _refresh_sandbox_status() -> void:
 	var result = _toolchain.execute_tool(sandbox_exe, PackedStringArray(["/get"]))
 	if result["exit_code"] == 0:
 		var output: String = result["stdout"].strip_edges()
-		# XblPCSandbox /get outputs: "Current Xbox Live sandbox: <name>"
+		# Parse the sandbox name from output like "Current Xbox Live sandbox: XDKS.1"
 		var idx = output.find(":")
 		if idx >= 0:
 			var sandbox_name = output.substr(idx + 1).strip_edges()
@@ -812,7 +796,6 @@ func _refresh_sandbox_status() -> void:
 	_sandbox_retail_btn.disabled = false
 	_refresh_dev_account()
 
-## Sets the PC sandbox via XblPCSandbox /set with /noApps flag.
 func _on_sandbox_set() -> void:
 	var sandbox_id = _sandbox_id_edit.text.strip_edges()
 	if sandbox_id == "":
@@ -833,7 +816,6 @@ func _on_sandbox_set() -> void:
 		push_warning("[GDK] Sandbox switch failed — may need admin privileges")
 	_refresh_sandbox_status()
 
-## Switches back to RETAIL sandbox via XblPCSandbox /retail.
 func _on_sandbox_retail() -> void:
 	_sandbox_label.text = "Switching to RETAIL..."
 	_sandbox_set_btn.disabled = true
@@ -850,7 +832,6 @@ func _on_sandbox_retail() -> void:
 	_refresh_sandbox_status()
 
 
-## Queries XblDevAccount show and displays the signed-in Partner Center email.
 func _refresh_dev_account() -> void:
 	var dev_exe = _toolchain.get_dev_account_path()
 	if dev_exe == "":
@@ -861,8 +842,8 @@ func _refresh_dev_account() -> void:
 	if result["exit_code"] == 0:
 		var output: String = result["stdout"].strip_edges()
 		if output.contains("is currently signed in"):
-			# XblDevAccount show outputs: "Microsoft Partner Center account <email> from <source> is currently signed in."
-			var email_start= output.find("account ") + 8
+			# Parse email from "Microsoft Partner Center account <email> from <source> is currently signed in."
+			var email_start = output.find("account ") + 8
 			var email_end = output.find(" from")
 			if email_start > 8 and email_end > email_start:
 				var email = output.substr(email_start, email_end - email_start)
@@ -876,7 +857,6 @@ func _refresh_dev_account() -> void:
 	else:
 		_dev_account_label.text = "⚠️ Not signed in"
 
-## Launches XblDevAccount signin (opens browser auth flow).
 func _on_dev_account_signin() -> void:
 	var dev_exe = _toolchain.get_dev_account_path()
 	if dev_exe == "":
@@ -887,7 +867,6 @@ func _on_dev_account_signin() -> void:
 	# Refresh after a delay to pick up the new state
 	get_tree().create_timer(5.0).timeout.connect(_refresh_dev_account)
 
-## Signs out the Partner Center dev account via XblDevAccount signout.
 func _on_dev_account_signout() -> void:
 	var dev_exe = _toolchain.get_dev_account_path()
 	if dev_exe == "":
@@ -900,7 +879,6 @@ func _on_dev_account_signout() -> void:
 		_log("Sign out failed: %s" % result["stdout"])
 	_refresh_dev_account()
 
-## Launches the XblTestAccountGui.exe tool.
 func _on_open_test_accounts() -> void:
 	var test_gui = _toolchain.get_bin_dir().path_join("XblTestAccountGui.exe")
 	if FileAccess.file_exists(test_gui):
@@ -913,7 +891,6 @@ func _on_open_test_accounts() -> void:
 
 # ── Config Status ───────────────────────────────────────────────────────────
 
-## Parses MicrosoftGame.config, updates status labels, relocates logos, syncs sizes.
 func _refresh_config_status() -> void:
 	if _config_mgr.config_exists():
 		_config_status_label.text = "✅ MicrosoftGame.config found"
@@ -946,7 +923,6 @@ func _refresh_config_status() -> void:
 		_refresh_config_preview({})
 
 
-## Populates the config preview grid with parsed values and schema tooltips.
 func _refresh_config_preview(info: Dictionary) -> void:
 	# Clear existing preview rows
 	for child in _config_preview_container.get_children():
@@ -1022,7 +998,7 @@ func _load_packaging_settings() -> void:
 	_output_dir_edit.text = cfg.get_value("packaging", "output_dir", "")
 	_content_id_edit.text = cfg.get_value("packaging", "content_id", "")
 	_product_id_edit.text = cfg.get_value("packaging", "product_id", "")
-	_encrypt_option.selected = cfg.get_value("packaging", "encrypt_option", 0)
+	_encrypt_option.selected = cfg.get_value("packaging", "encrypt_option", ENCRYPT_NONE)
 	_encrypt_key_edit.text = cfg.get_value("packaging", "encrypt_key", "")
 	_updcompat_option.selected = cfg.get_value("packaging", "updcompat_option", 0)
 	_sandbox_id_edit.text = cfg.get_value("sandbox", "sandbox_id", "")
@@ -1095,7 +1071,7 @@ func _ensure_config_in_content_dir(content_dir: String) -> bool:
 	var content = file.get_as_text()
 	file.close()
 
-	# GDK DLLs link against VC++ runtime; makepkg requires this declared as a framework dependency
+	# GDK DLLs link against VC++ runtime; makepkg requires this declared as a framework dependency.
 	if not content.contains('<KnownDependency Name="VC14"/>') and content.contains("</Game>"):
 		var dep_xml = '  <DesktopRegistration>\n    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n  </DesktopRegistration>\n'
 		content = content.replace("</Game>", dep_xml + "</Game>")
@@ -1106,7 +1082,7 @@ func _ensure_config_in_content_dir(content_dir: String) -> bool:
 	if dir:
 		dir.list_dir_begin()
 		var fname = dir.get_next()
-		# Find the main game exe — skip .console.exe (Godot's headless variant, not the game entry point)
+		# Find the main game exe - skip .console.exe (Godot's headless variant, not the game entry point).
 		while fname != "":
 			if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
 				var regex = RegEx.new()
@@ -1165,12 +1141,10 @@ func _ensure_config_in_content_dir(content_dir: String) -> bool:
 
 # ── Signal Handlers ─────────────────────────────────────────────────────────
 
-## Shows/hides the EKB key file field based on encryption option selection.
 func _on_encrypt_changed(index: int) -> void:
 	# Show EKB key file field only when "Custom key" is selected
 	_encrypt_key_edit.get_parent().visible = (index == ENCRYPT_CUSTOM_KEY)
 
-## Toggles map file field editability when auto-generate checkbox changes.
 func _on_auto_genmap_toggled(pressed: bool) -> void:
 	_map_file_edit.editable = not pressed
 	if pressed:
@@ -1178,7 +1152,6 @@ func _on_auto_genmap_toggled(pressed: bool) -> void:
 	else:
 		_map_file_edit.placeholder_text = "XML mapping file path"
 
-## Launches GameConfigEditor with the project's MicrosoftGame.config.
 func _on_edit_config() -> void:
 	if not _config_mgr.config_exists():
 		_log("MicrosoftGame.config not found — create one first.")
@@ -1191,7 +1164,6 @@ func _on_edit_config() -> void:
 		_log("Failed to launch GameConfigEditor")
 		push_error("[GDK Packaging] Failed to launch GameConfigEditor")
 
-## Creates a template MicrosoftGame.config and triggers filesystem rescan.
 func _on_create_config() -> void:
 	var err = _config_mgr.create_template()
 	if err == OK:
@@ -1209,12 +1181,10 @@ func _on_create_config() -> void:
 		_log("Failed to create MicrosoftGame.config: " + error_string(err))
 		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(err))
 
-## Opens the project root folder in the OS file manager.
 func _on_open_config_folder() -> void:
 	var folder_path = ProjectSettings.globalize_path("res://")
 	OS.shell_open(folder_path)
 
-## Generates a layout.xml mapping file, with overwrite confirmation if it exists.
 func _on_genmap() -> void:
 	var source := _source_dir_edit.text.strip_edges()
 	if source == "":
@@ -1250,7 +1220,6 @@ func _do_genmap(source: String, map_path: String) -> void:
 	if result["exit_code"] == 0:
 		_map_file_edit.text = map_path
 
-## Validates the package layout with a progress dialog.
 func _on_validate() -> void:
 	var source := _source_dir_edit.text.strip_edges()
 	var map_file := _map_file_edit.text.strip_edges()
@@ -1344,14 +1313,13 @@ func _on_pack() -> void:
 	if _product_id_edit.text.strip_edges() != "":
 		options["product_id"] = _product_id_edit.text.strip_edges()
 
-	# Map encryption OptionButton selection to makepkg flags
 	match _encrypt_option.selected:
 		ENCRYPT_LICENSE:
 			options["encrypt"] = true
 		ENCRYPT_CUSTOM_KEY:
 			options["encrypt_key"] = _encrypt_key_edit.text.strip_edges()
 
-	var updcompat_map := [3, 2, 1]  # Maps OptionButton index → /updcompat value (reversed: index 0=level 3, 1=level 2, 2=level 1)
+	var updcompat_map := [3, 2, 1]
 	options["updcompat"] = updcompat_map[_updcompat_option.selected]
 
 	_log("Creating MSIXVC package...")
@@ -1783,7 +1751,6 @@ func _clean_directory(dir_path: String) -> void:
 
 # ── Achievements ────────────────────────────────────────────────────────────
 
-## Loads the demo achievement ID from sample_config.cfg.
 func _load_achievement_config() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAMPLE_CONFIG_PATH) == OK:
@@ -1793,7 +1760,6 @@ func _load_achievement_config() -> void:
 	else:
 		_achievement_status_label.text = "No sample_config.cfg — enter a value and save."
 
-## Saves the demo achievement ID to sample_config.cfg.
 func _on_achievement_save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SAMPLE_CONFIG_PATH)
@@ -1858,9 +1824,9 @@ func _detect_playfab_version() -> void:
 		_playfab_version_label.text = "PlayFab SDK: not found"
 		return
 
-	# GDScript can't read DLL metadata directly; use PowerShell to extract ProductVersion
+	# GDScript can't read DLL metadata directly; use PowerShell to extract ProductVersion.
 	var output: Array = []
-	var ps_cmd= "(Get-Item '%s').VersionInfo.ProductVersion" % dll_path.replace("'", "''")
+	var ps_cmd = "(Get-Item '%s').VersionInfo.ProductVersion" % dll_path.replace("'", "''")
 	var exit_code = OS.execute("powershell", PackedStringArray(["-NoProfile", "-Command", ps_cmd]), output, true, false)
 	if exit_code == 0 and output.size() > 0:
 		var version = str(output[0]).strip_edges()

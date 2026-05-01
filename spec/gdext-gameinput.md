@@ -2,8 +2,8 @@
 
 > **Status: v1 shipped.** Devices, polling, vibration, action bridge, project
 > settings, EditorPlugin-installed bootstrap autoload, and sample integration
-> in `shamwow` and `multiplayer_pong` are all live. Headless tests pass under
-> `sample/shamwow/tests/`. Issue #23 (battery + device info) is satisfied via
+> in `gdk_launch_point` and `multiplayer_pong` are all live. Headless tests pass under
+> `sample/gdk_launch_point/tests/`. Issue #23 (battery + device info) is satisfied via
 > `GameInputDevice.get_battery_level()` / `GameInputDevice.get_device_info()`.
 >
 > Deviations from the original sketch are listed in
@@ -215,7 +215,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
 | 3 | Battery + device info (issue #23) | Shipped |
-| 4 | Sample integration (`shamwow` panel + `multiplayer_pong` rumble & hot-plug) | Shipped |
+| 4 | Sample integration (`gdk_launch_point` panel + `multiplayer_pong` rumble & hot-plug) | Shipped |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
 

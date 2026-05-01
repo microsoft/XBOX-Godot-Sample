@@ -1,15 +1,37 @@
 extends Control
-## ShamWow-inspired scenario shell for the Godot GDK sample surface.
+## GDK Launch Point scenario shell for the Godot GDK sample surface.
 
 const GDK_EXTENSION_PATH = "res://addons/godot_gdk/godot_gdk.gdextension"
 const GAMEINPUT_EXTENSION_PATH = "res://addons/godot_gameinput/godot_gameinput.gdextension"
 const DEFAULT_ACHIEVEMENT_ID = "1"
 const ACHIEVEMENT_STEP = 25
-const DEMO_MPA_CONNECTION_STRING = "godot-gdk-shamwow://sample-session"
-const DEMO_MPA_GROUP_ID = "shamwow-mpa-group"
+const DEMO_MPA_CONNECTION_STRING = "godot-gdk-launch-point://sample-session"
+const DEMO_MPA_GROUP_ID = "gdk-launch-point-mpa-group"
 const DEMO_MPA_MAX_PLAYERS = 4
 const DEMO_MPA_CURRENT_PLAYERS = 1
 const MAX_LOG_LINES = 80
+const XBOX_BACKGROUND := Color(0.02, 0.03, 0.02)
+const XBOX_PANEL := Color(0.05, 0.08, 0.05, 0.94)
+const XBOX_PANEL_STRONG := Color(0.07, 0.12, 0.06, 0.96)
+const XBOX_PANEL_CARD := Color(0.04, 0.07, 0.04, 0.94)
+const XBOX_PANEL_GROUP := Color(0.08, 0.14, 0.06, 0.96)
+const XBOX_BORDER := Color(0.38, 0.68, 0.17, 0.82)
+const XBOX_BORDER_STRONG := Color(0.66, 0.96, 0.24, 0.96)
+const XBOX_GLOW := Color(0.23, 0.64, 0.12, 0.30)
+const XBOX_GLOW_STRONG := Color(0.36, 0.95, 0.14, 0.42)
+const XBOX_TEXT := Color(0.91, 0.97, 0.90)
+const XBOX_TEXT_SOFT := Color(0.69, 0.82, 0.68)
+const XBOX_ACCENT := Color(0.77, 0.98, 0.29)
+const XBOX_ACCENT_BRIGHT := Color(0.88, 1.0, 0.48)
+const XBOX_STATUS_READY := Color(0.79, 1.0, 0.42)
+const XBOX_STATUS_IDLE := Color(0.79, 0.90, 0.78)
+const XBOX_STATUS_WARN := Color(0.93, 0.96, 0.63)
+const XBOX_BUTTON := Color(0.14, 0.31, 0.09, 0.95)
+const XBOX_BUTTON_HOVER := Color(0.19, 0.42, 0.11, 0.98)
+const XBOX_BUTTON_PRESSED := Color(0.10, 0.22, 0.07, 0.98)
+const XBOX_BUTTON_SUBTLE := Color(0.08, 0.13, 0.07, 0.95)
+const XBOX_BUTTON_SUBTLE_HOVER := Color(0.12, 0.20, 0.08, 0.98)
+const XBOX_BUTTON_DISABLED := Color(0.07, 0.09, 0.07, 0.85)
 
 const RUMBLE_DEMO_LOW = 0.45
 const RUMBLE_DEMO_HIGH = 0.25
@@ -27,6 +49,13 @@ const RUMBLE_DEMO_DURATION = 0.4
 @onready var state_details: RichTextLabel = $OuterMargin/RootVBox/BodySplit/StatusPanel/StatusVBox/StateDetails
 @onready var event_log: RichTextLabel = $OuterMargin/RootVBox/LogPanel/LogVBox/EventLog
 @onready var clear_log_button: Button = $OuterMargin/RootVBox/LogPanel/LogVBox/LogHeader/ClearLogButton
+@onready var header_panel: PanelContainer = $OuterMargin/RootVBox/HeaderPanel
+@onready var menu_panel: PanelContainer = $OuterMargin/RootVBox/BodySplit/MenuPanel
+@onready var status_panel: PanelContainer = $OuterMargin/RootVBox/BodySplit/StatusPanel
+@onready var log_panel: PanelContainer = $OuterMargin/RootVBox/LogPanel
+@onready var selected_heading_label: Label = $OuterMargin/RootVBox/BodySplit/StatusPanel/StatusVBox/SelectedHeadingLabel
+@onready var state_heading_label: Label = $OuterMargin/RootVBox/BodySplit/StatusPanel/StatusVBox/StateHeadingLabel
+@onready var log_title_label: Label = $OuterMargin/RootVBox/LogPanel/LogVBox/LogHeader/LogTitleLabel
 
 var _gdk_extension = null
 var _gdk_load_attempted = false
@@ -74,9 +103,10 @@ func _gameinput():
 	return null
 
 func _ready() -> void:
-	title_label.text = "GodotGDK ShamWow"
+	title_label.text = "GDK Launch Point"
 	back_button.pressed.connect(_on_back_pressed)
 	clear_log_button.pressed.connect(_on_clear_log_pressed)
+	_apply_launch_point_theme()
 
 	_load_sample_config()
 	_bind_gdk_signals()
@@ -86,7 +116,7 @@ func _ready() -> void:
 
 	_render_current_group()
 	_refresh_state_panel()
-	_log_event("Scenario shell ready. Open a group to explore the current GDK addon surface.")
+	_log_event("GDK Launch Point ready. Open a group to explore the current GDK addon surface.")
 
 func _load_sample_config() -> void:
 	var cfg = ConfigFile.new()
@@ -119,8 +149,8 @@ func _bind_gdk_signals() -> void:
 func _build_scenario_catalog() -> Dictionary:
 	return _group(
 		"root",
-		"Scenario Shell",
-		"Grouped GDK scenarios for runtime, users, achievements, and multiplayer activity. Open a group to run sample actions and watch the event log update.",
+		"GDK Launch Point",
+		"Scenario-driven entry point for runtime, users, achievements, and multiplayer activity. Open a group to run sample actions and watch the event log update.",
 		[
 			_group(
 				"runtime",
@@ -233,6 +263,161 @@ func _build_breadcrumb() -> String:
 
 	return " > ".join(segments)
 
+func _apply_launch_point_theme() -> void:
+	RenderingServer.set_default_clear_color(XBOX_BACKGROUND)
+	_install_background_layers()
+
+	header_panel.add_theme_stylebox_override("panel",
+		_make_panel_style(XBOX_PANEL_STRONG, XBOX_BORDER_STRONG, XBOX_GLOW_STRONG, 2, 22, 16.0, 28))
+	menu_panel.add_theme_stylebox_override("panel",
+		_make_panel_style(XBOX_PANEL, XBOX_BORDER, XBOX_GLOW, 1, 20, 14.0, 22))
+	status_panel.add_theme_stylebox_override("panel",
+		_make_panel_style(XBOX_PANEL, XBOX_BORDER, XBOX_GLOW, 1, 20, 14.0, 22))
+	log_panel.add_theme_stylebox_override("panel",
+		_make_panel_style(XBOX_PANEL, XBOX_BORDER, XBOX_GLOW, 1, 20, 14.0, 22))
+
+	_apply_button_theme(back_button, false)
+	_apply_button_theme(clear_log_button, false)
+
+	title_label.add_theme_color_override("font_color", XBOX_ACCENT_BRIGHT)
+	tagline_label.add_theme_color_override("font_color", XBOX_TEXT_SOFT)
+	breadcrumb_label.add_theme_color_override("font_color", XBOX_TEXT_SOFT)
+	runtime_status_label.add_theme_color_override("font_color", XBOX_STATUS_IDLE)
+	group_title_label.add_theme_color_override("font_color", XBOX_ACCENT)
+	selected_heading_label.add_theme_color_override("font_color", XBOX_ACCENT)
+	state_heading_label.add_theme_color_override("font_color", XBOX_ACCENT)
+	log_title_label.add_theme_color_override("font_color", XBOX_ACCENT)
+	group_description.add_theme_color_override("default_color", XBOX_TEXT_SOFT)
+	selected_details.add_theme_color_override("default_color", XBOX_TEXT)
+	state_details.add_theme_color_override("default_color", XBOX_TEXT)
+	event_log.add_theme_color_override("default_color", XBOX_TEXT_SOFT)
+
+func _install_background_layers() -> void:
+	if has_node("BackgroundBase"):
+		return
+
+	var background := ColorRect.new()
+	background.name = "BackgroundBase"
+	background.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	background.color = XBOX_BACKGROUND
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(background)
+	move_child(background, 0)
+
+	var top_glow := Panel.new()
+	top_glow.name = "TopGlow"
+	top_glow.anchor_left = 0.5
+	top_glow.anchor_right = 0.5
+	top_glow.offset_left = -320.0
+	top_glow.offset_top = -32.0
+	top_glow.offset_right = 320.0
+	top_glow.offset_bottom = 108.0
+	top_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_glow.add_theme_stylebox_override("panel",
+		_make_glow_style(Color(0.52, 0.96, 0.18, 0.10), Color(0.29, 0.84, 0.12, 0.36), 88))
+	add_child(top_glow)
+	move_child(top_glow, 1)
+
+	var bottom_glow := Panel.new()
+	bottom_glow.name = "BottomGlow"
+	bottom_glow.anchor_left = 0.5
+	bottom_glow.anchor_top = 1.0
+	bottom_glow.anchor_right = 0.5
+	bottom_glow.anchor_bottom = 1.0
+	bottom_glow.offset_left = -280.0
+	bottom_glow.offset_top = -96.0
+	bottom_glow.offset_right = 280.0
+	bottom_glow.offset_bottom = -12.0
+	bottom_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_glow.add_theme_stylebox_override("panel",
+		_make_glow_style(Color(0.60, 0.98, 0.22, 0.16), Color(0.33, 0.96, 0.14, 0.46), 96))
+	add_child(bottom_glow)
+	move_child(bottom_glow, 2)
+
+func _make_panel_style(background: Color, border: Color, shadow: Color,
+		border_width: int = 1, corner_radius: int = 18, padding: float = 14.0,
+		shadow_size: int = 20) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.border_color = border
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = corner_radius
+	style.corner_radius_top_right = corner_radius
+	style.corner_radius_bottom_right = corner_radius
+	style.corner_radius_bottom_left = corner_radius
+	style.shadow_color = shadow
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2.ZERO
+	style.content_margin_left = padding
+	style.content_margin_top = padding
+	style.content_margin_right = padding
+	style.content_margin_bottom = padding
+	return style
+
+func _make_glow_style(background: Color, shadow: Color, shadow_size: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.corner_radius_top_left = 120
+	style.corner_radius_top_right = 120
+	style.corner_radius_bottom_right = 120
+	style.corner_radius_bottom_left = 120
+	style.shadow_color = shadow
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2.ZERO
+	return style
+
+func _make_button_style(background: Color, border: Color, shadow: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.border_color = border
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 14
+	style.corner_radius_top_right = 14
+	style.corner_radius_bottom_right = 14
+	style.corner_radius_bottom_left = 14
+	style.shadow_color = shadow
+	style.shadow_size = 16
+	style.shadow_offset = Vector2.ZERO
+	style.content_margin_left = 18.0
+	style.content_margin_top = 10.0
+	style.content_margin_right = 18.0
+	style.content_margin_bottom = 10.0
+	return style
+
+func _apply_button_theme(button: Button, primary: bool) -> void:
+	var normal_background = XBOX_BUTTON if primary else XBOX_BUTTON_SUBTLE
+	var hover_background = XBOX_BUTTON_HOVER if primary else XBOX_BUTTON_SUBTLE_HOVER
+	button.add_theme_stylebox_override("normal",
+		_make_button_style(normal_background, XBOX_BORDER, XBOX_GLOW))
+	button.add_theme_stylebox_override("hover",
+		_make_button_style(hover_background, XBOX_BORDER_STRONG, XBOX_GLOW_STRONG))
+	button.add_theme_stylebox_override("pressed",
+		_make_button_style(XBOX_BUTTON_PRESSED, XBOX_BORDER_STRONG, XBOX_GLOW_STRONG))
+	button.add_theme_stylebox_override("disabled",
+		_make_button_style(XBOX_BUTTON_DISABLED, XBOX_BORDER, Color(0.0, 0.0, 0.0, 0.0)))
+	button.add_theme_stylebox_override("focus",
+		_make_button_style(hover_background, XBOX_BORDER_STRONG, XBOX_GLOW_STRONG))
+	button.add_theme_color_override("font_color", XBOX_TEXT)
+	button.add_theme_color_override("font_hover_color", XBOX_TEXT)
+	button.add_theme_color_override("font_pressed_color", XBOX_TEXT)
+	button.add_theme_color_override("font_disabled_color", XBOX_TEXT_SOFT)
+
+func _style_scenario_card(card: PanelContainer, title: Label, description: RichTextLabel,
+		button: Button, is_group: bool) -> void:
+	var card_background = XBOX_PANEL_GROUP if is_group else XBOX_PANEL_CARD
+	var card_border = XBOX_BORDER_STRONG if is_group else XBOX_BORDER
+	card.add_theme_stylebox_override("panel",
+		_make_panel_style(card_background, card_border, XBOX_GLOW, 1, 20, 14.0, 18))
+	title.add_theme_color_override("font_color", XBOX_ACCENT if is_group else XBOX_TEXT)
+	description.add_theme_color_override("default_color", XBOX_TEXT_SOFT)
+	_apply_button_theme(button, true)
+
 func _create_scenario_card(entry: Dictionary) -> Control:
 	var card = PanelContainer.new()
 	card.custom_minimum_size = Vector2(0, 170)
@@ -262,6 +447,7 @@ func _create_scenario_card(entry: Dictionary) -> Control:
 		button.text = "Run Scenario"
 	button.pressed.connect(_on_entry_pressed.bind(entry))
 	layout.add_child(button)
+	_style_scenario_card(card, title, description, button, _entry_has_children(entry))
 
 	return card
 
@@ -291,7 +477,7 @@ func _on_back_pressed() -> void:
 	_last_selected_status = ""
 	_current_group = _scenario_stack.pop_back()
 	_render_current_group()
-	_log_event("Navigated up to: %s" % str(_current_group.get("title", "Scenario Shell")))
+	_log_event("Navigated up to: %s" % str(_current_group.get("title", "GDK Launch Point")))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not _scenario_stack.is_empty():
@@ -324,11 +510,14 @@ func _refresh_state_panel() -> void:
 	var gdk = _gdk()
 	if gdk == null:
 		runtime_status_label.text = "Runtime: addon missing"
-		tagline_label.text = "Build the addon, then launch the sample again."
+		runtime_status_label.add_theme_color_override("font_color", XBOX_STATUS_WARN)
+		tagline_label.text = "Build the addon, then bring Launch Point online."
 		state_details.text = "GDK singleton unavailable.\n\nExpected file:\nres://addons/godot_gdk/godot_gdk.gdextension"
 		return
 
 	runtime_status_label.text = "Runtime: initialized" if gdk.is_initialized() else "Runtime: not initialized"
+	runtime_status_label.add_theme_color_override("font_color",
+		XBOX_STATUS_READY if gdk.is_initialized() else XBOX_STATUS_IDLE)
 
 	var lines: Array[String] = []
 	lines.append("Available: %s" % str(gdk.is_available()))
@@ -339,7 +528,7 @@ func _refresh_state_panel() -> void:
 
 	var primary_user = gdk.users.get_primary_user()
 	if primary_user:
-		tagline_label.text = "%s, you'll be saying \"WOW\" every time." % primary_user.gamertag
+		tagline_label.text = "%s, Launch Point is green-lit." % primary_user.gamertag
 		lines.append("")
 		lines.append("Primary User")
 		lines.append("Gamertag: %s" % primary_user.gamertag)
@@ -348,7 +537,7 @@ func _refresh_state_panel() -> void:
 		lines.append("Age Group: %s" % primary_user.get_age_group_name())
 		lines.append("Store User: %s" % str(primary_user.store_user))
 	else:
-		tagline_label.text = "Guest, you'll be saying \"WOW\" every time."
+		tagline_label.text = "Sign in to light up the full GDK surface."
 		lines.append("")
 		lines.append("Primary User")
 		lines.append("No primary user")

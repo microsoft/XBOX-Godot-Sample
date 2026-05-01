@@ -1,6 +1,6 @@
 ---
 description: Godot GameInput addon architecture, threading model, action-bridge conventions, and sample workflow
-applyTo: "addons/godot_gameinput/**, sample/shamwow/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/shamwow/tests/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/godot-gameinput.md, spec/gdext-gameinput.md"
+applyTo: "addons/godot_gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/gdk_launch_point/tests/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/godot-gameinput.md, spec/gdext-gameinput.md"
 ---
 
 # Godot GameInput Addon Instructions
@@ -101,22 +101,22 @@ applyTo: "addons/godot_gameinput/**, sample/shamwow/addons/godot_gameinput/**, s
 
 ## Sample Integration
 
-- The GameInput addon is enabled in `sample/shamwow` (full scenario panel)
+- The GameInput addon is enabled in `sample/gdk_launch_point` (full scenario panel)
   and `sample/multiplayer_pong` (rumble on hit, controller hot-plug surface
   in the lobby). Update both samples when public `godot_gameinput` behaviour
   changes.
 - Pong's `pulse_rumble()` helper is the canonical "raw API" usage pattern;
-  shamwow's GameInput group is the canonical "explore the API surface"
+  gdk_launch_point's GameInput group is the canonical "explore the API surface"
   pattern.
-- The headless test entry point lives in shamwow:
+- The headless test entry point lives in gdk_launch_point:
 
 ```powershell
-cd sample/shamwow
+cd sample/gdk_launch_point
 .\Godot_v4.6.1-stable_win64_console.exe --headless --script res://tests/run_tests.gd
 ```
 
-  Tests live in `sample/shamwow/tests/`. Add new suites under
-  `sample/shamwow/tests/suites/` and register them in `tests/run_tests.gd`.
+  Tests live in `sample/gdk_launch_point/tests/`. Add new suites under
+  `sample/gdk_launch_point/tests/suites/` and register them in `tests/run_tests.gd`.
 
 ## GDScript Conventions
 
@@ -125,7 +125,7 @@ cd sample/shamwow
   API (e.g. `gi.initialize()`) — the parser cannot infer the type. Use
   `var x: bool = gi.initialize()` instead.
 - For float comparisons in tests, use `assert_eq_approx` (defined in
-  `sample/shamwow/tests/test_context.gd`) — C++ float properties round-trip
+  `sample/gdk_launch_point/tests/test_context.gd`) — C++ float properties round-trip
   through 32-bit storage and won't equal 64-bit double literals exactly.
 
 ## Documentation & Specs

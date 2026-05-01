@@ -16,7 +16,7 @@ Three sample projects live under `sample/`:
 | Sample | Description |
 |--------|-------------|
 | [`gdk_demo`](godot-gdk-sample-and-tests.md) | GDK addon demo + headless test suite |
-| [`shamwow`](godot-gdk-sample-and-tests.md) | ShamWow-inspired scenario shell |
+| [`gdk_launch_point`](godot-gdk-sample-and-tests.md) | GDK Launch Point scenario shell |
 | `multiplayer_pong` | Multiplayer pong with Xbox identity and single player AI |
 
 All samples share the same GDK setup. See [Sample Project Setup](godot-gdk-sample-setup.md)

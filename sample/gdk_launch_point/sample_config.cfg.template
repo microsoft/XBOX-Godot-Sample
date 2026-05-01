@@ -1,4 +1,4 @@
-; GodotGDK ShamWow Sample Configuration
+; GDK Launch Point Sample Configuration
 ; Copy this file to sample_config.cfg and fill in your Partner Center values.
 ; See README.md for instructions on where to find each value.
 
@@ -10,7 +10,7 @@ scid = ""
 sandbox_id = ""
 
 [identity]
-game_name = "GodotGDK ShamWow"
+game_name = "GDK Launch Point"
 publisher = "CN=YourPublisherGUID"
 publisher_display_name = "Your Studio Name"
 version = "1.0.0.0"

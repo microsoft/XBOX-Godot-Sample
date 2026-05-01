@@ -17,8 +17,8 @@ set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
 set(GODOT_SAMPLE_DIRS
     "${CMAKE_SOURCE_DIR}/sample/gdk_demo"
     "${CMAKE_SOURCE_DIR}/sample/multiplayer_pong"
-    "${CMAKE_SOURCE_DIR}/sample/playfab_demo"   
-    "${CMAKE_SOURCE_DIR}/sample/shamwow"
+    "${CMAKE_SOURCE_DIR}/sample/gdk_launch_point"
+    "${CMAKE_SOURCE_DIR}/sample/playfab_demo"
 )
 
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)

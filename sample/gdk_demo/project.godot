@@ -22,6 +22,10 @@ GDKBootstrap="*res://gdk_bootstrap.gd"
 
 enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
 
+[gdk]
+
+runtime/embed_dispatch=true
+
 [rendering]
 
 rendering_device/driver="d3d12"

@@ -24,7 +24,7 @@ The addon gives GDScript first-class access to:
 | `GameInputDevice.get_battery_level()` / `get_device_info()` | Shipped (issue #23) |
 | `GameInputBinding` / `GameInputActionMap` / `GameInputMapper` | Shipped |
 | `EditorPlugin` autoload installer + Project Settings | Shipped |
-| Sample integration (`shamwow`, `multiplayer_pong`) | Shipped |
+| Sample integration (`gdk_launch_point`, `multiplayer_pong`) | Shipped |
 | Headless test suite | Shipped |
 | Manual hardware checklist ([docs/godot-gameinput-manual-tests.md](godot-gameinput-manual-tests.md)) | Shipped |
 | Reading callbacks (event-driven) | Deferred — see issue list |
@@ -151,7 +151,7 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 
 ## Sample integration
 
-* **`sample/shamwow`** — full GameInput scenario panel with Initialize /
+* **`sample/gdk_launch_point`** — full GameInput scenario panel with Initialize /
   Shutdown / List Devices / Inspect Primary / Rumble Pulse / Stop Rumble.
   Live device count + battery surface in the state panel; hot-plug events
   appear in the event log.

@@ -48,6 +48,10 @@ runtime/embed_dispatch=true
 runtime/initialize_on_startup=true
 mapper/default_action_map="res://gameinput_actions.tres"
 
+[gdk]
+
+runtime/embed_dispatch=true
+
 [input]
 
 move_up={

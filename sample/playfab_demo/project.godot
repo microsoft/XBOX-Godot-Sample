@@ -21,7 +21,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-GameInputBootstrap="*uid://d2lk1vcj1l3tu"
+GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
 
 [editor_plugins]
 

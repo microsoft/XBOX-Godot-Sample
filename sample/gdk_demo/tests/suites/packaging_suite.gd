@@ -112,7 +112,6 @@ func _test_config_parsing(context) -> void:
 	context.assert_eq(result.get("background_color"), "#112233", "parsed ShellVisuals.BackgroundColor")
 	context.assert_eq(result.get("product_id"), "test-product-id", "parsed MSStore.ProductId")
 
-
 # ── Config Template ─────────────────────────────────────────────────────────
 
 func _test_config_template_creation(context) -> void:

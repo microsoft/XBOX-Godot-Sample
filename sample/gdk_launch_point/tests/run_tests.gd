@@ -1,12 +1,13 @@
 extends SceneTree
 ## godot_gameinput headless test runner.
-## Run from sample/shamwow:
+## Run from sample/gdk_launch_point:
 ##   godot --headless --script res://tests/run_tests.gd
 
 const TestContext = preload("res://tests/test_context.gd")
 const GameInputCoreSuite = preload("res://tests/suites/gameinput_core_suite.gd")
 const GameInputResourceSuite = preload("res://tests/suites/gameinput_resource_suite.gd")
 const GameInputMapperSuite = preload("res://tests/suites/gameinput_mapper_suite.gd")
+const GAMEINPUT_EXTENSION_PATH := "res://addons/godot_gameinput/godot_gameinput.gdextension"
 
 
 func _initialize() -> void:
@@ -14,6 +15,12 @@ func _initialize() -> void:
 	print("║   GodotGameInput Headless Tests      ║")
 	print("╚══════════════════════════════════════╝")
 
+	load(GAMEINPUT_EXTENSION_PATH)
+	call_deferred("_run_suites")
+
+
+func _run_suites() -> void:
+	await process_frame
 	var context := TestContext.new()
 	var suites := [
 		GameInputCoreSuite.new(),

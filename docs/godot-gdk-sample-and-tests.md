@@ -15,7 +15,7 @@ how to use the GDK addon:
 | Sample | Description |
 |--------|-------------|
 | `sample/gdk_demo/` | Baseline runtime/users/achievements/presence/social demo and headless test suite |
-| `sample/shamwow/` | ShamWow-inspired scenario shell with grouped actions and event log |
+| `sample/gdk_launch_point/` | GDK Launch Point scenario shell with grouped actions and event log |
 | `sample/multiplayer_pong/` | Multiplayer pong with Xbox identity, single player AI, and visual effects |
 
 All samples share the same GDK addon setup: `gdk_bootstrap.gd` autoload,
@@ -37,10 +37,7 @@ The `gdk_demo` bootstrap currently:
 That means the GDK demo sample expects native auto-dispatch to stay enabled and
 does not provide a manual pump path in the sample code.
 
-`sample\shamwow\gdk_bootstrap.gd` also autoloads in the ShamWow sample, but
-that bootstrap now only keeps the extension loaded while the shell drives
-runtime scenarios. The sample projects set `gdk/runtime/embed_dispatch=true`
-explicitly in `project.godot` and do not expose manual dispatch UI.
+`sample\gdk_launch_point\gdk_bootstrap.gd` also autoloads in the GDK Launch Point sample, but that bootstrap only keeps the extension loaded while the shell drives runtime scenarios. The sample projects set `gdk/runtime/embed_dispatch=true` explicitly in `project.godot` and do not expose manual dispatch UI.
 
 ## Demo scenes
 
@@ -63,9 +60,9 @@ It currently:
 
 The older controller widgets are still present in the scene tree, but the script now reuses one of the previously hidden text areas for the presence/social summary because controller-native functionality is still not part of the current baseline.
 
-### ShamWow (`sample\shamwow\main.gd`)
+### GDK Launch Point (`sample\gdk_launch_point\main.gd`)
 
-`sample\shamwow\main.gd` builds a scenario catalog with grouped runtime, users, achievements, and multiplayer activity actions. It mirrors ShamWow conceptually through:
+`sample\gdk_launch_point\main.gd` builds a scenario catalog with grouped runtime, users, achievements, and multiplayer activity actions. It serves as the repo's GDK Launch Point through:
 
 - grouped scenarios
 - nested "up one level" navigation

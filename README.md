@@ -30,11 +30,11 @@ cmake --build build --preset debug
 > features require Partner Center setup —
 > see [Sample Project Setup](docs/godot-gdk-sample-setup.md).
 
-The repo also includes a ShamWow-inspired scenario shell sample at
-`sample\shamwow\`. Launch it with:
+The repo also includes the GDK Launch Point scenario shell sample at
+`sample\gdk_launch_point\`. Launch it with:
 
 ```powershell
-.\sample\shamwow\launch_editor.bat
+.\sample\gdk_launch_point\launch_editor.bat
 ```
 
 To enable the repo-managed pre-commit hook that runs headless GDScript validation, run:
@@ -64,7 +64,7 @@ godot-cpp/                # godot-cpp submodule
 sample/                   # Sample projects
   gdk_demo/              #   GDK addon demo and tests
   multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
-  shamwow/               #   ShamWow-inspired scenario shell sample
+  gdk_launch_point/      #   GDK Launch Point scenario shell sample
 spec/                     # Design spec documents
 tools/                    # CLI helper scripts
 ```
@@ -72,7 +72,7 @@ tools/                    # CLI helper scripts
 ## Sample projects
 
 - `sample\gdk_demo\` — baseline runtime/users/achievements demo
-- `sample\shamwow\` — scenario-driven shell inspired by ShamWow, built around grouped runtime/users/achievements/multiplayer-activity actions and an event log
+- `sample\gdk_launch_point\` — scenario-driven launch point built around grouped runtime/users/achievements/multiplayer-activity actions and an event log
 - `sample\multiplayer_pong\` — multiplayer pong with Xbox identity and single player mode
 
 ## Documentation
