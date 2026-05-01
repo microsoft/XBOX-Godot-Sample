@@ -200,7 +200,7 @@ func _ensure_placeholder_images() -> void:
 		"Square480x480Logo.png": Vector2i(480, 480),
 		"Square150x150Logo.png": Vector2i(150, 150),
 		"Square44x44Logo.png": Vector2i(44, 44),
-		"StoreLogo.png": Vector2i(50, 50),
+		"StoreLogo.png": Vector2i(100, 100),
 		"SplashScreenImage.png": Vector2i(1920, 1080),
 	}
 
@@ -272,7 +272,7 @@ func sync_store_logos() -> int:
 		"logo_480": Vector2i(480, 480),
 		"logo_150": Vector2i(150, 150),
 		"logo_44": Vector2i(44, 44),
-		"store_logo": Vector2i(50, 50),
+		"store_logo": Vector2i(100, 100),
 		"splash_screen": Vector2i(1920, 1080),
 	}
 

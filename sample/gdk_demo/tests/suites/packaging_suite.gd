@@ -88,7 +88,6 @@ func _test_config_parsing(context) -> void:
 	f.store_string(test_xml)
 	f.close()
 
-	var config_mgr = GameConfigManagerScript.new()
 	var result = config_mgr.parse_config()
 
 	if had_original_config:
@@ -112,9 +111,6 @@ func _test_config_parsing(context) -> void:
 	context.assert_eq(result.get("description"), "A test game", "parsed ShellVisuals.Description")
 	context.assert_eq(result.get("background_color"), "#112233", "parsed ShellVisuals.BackgroundColor")
 	context.assert_eq(result.get("product_id"), "test-product-id", "parsed MSStore.ProductId")
-
-	# Clean up
-	DirAccess.remove_absolute(test_path)
 
 
 # ── Config Template ─────────────────────────────────────────────────────────

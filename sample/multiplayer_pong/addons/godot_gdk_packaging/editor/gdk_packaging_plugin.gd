@@ -7,6 +7,7 @@ const PackagingPanel = preload("res://addons/godot_gdk_packaging/editor/packagin
 const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
 const ConfigImportPlugin = preload("res://addons/godot_gdk_packaging/editor/config_import_plugin.gd")
+const GDKTutorialWizard = preload("res://addons/godot_gdk_packaging/editor/gdk_tutorial_wizard.gd")
 
 # Documentation URLs
 const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/packaging/pc/pc-packaging-getting-started"
@@ -27,6 +28,8 @@ var _config_import_plugin: EditorImportPlugin
 
 # Menu item IDs
 enum MenuID {
+	GETTING_STARTED,
+	SEP_0,
 	CREATE_PACKAGE,
 	GENERATE_MAP,
 	VALIDATE,
@@ -57,6 +60,8 @@ func _enter_tree() -> void:
 	if _menu_bar:
 		_gdk_popup = PopupMenu.new()
 		_gdk_popup.name = "GDKMenu"
+		_gdk_popup.add_item("🎓 Getting Started", MenuID.GETTING_STARTED)
+		_gdk_popup.add_separator("", MenuID.SEP_0)
 		_gdk_popup.add_item("Create MSIXVC Package...", MenuID.CREATE_PACKAGE)
 		_gdk_popup.add_item("Generate Mapping File...", MenuID.GENERATE_MAP)
 		_gdk_popup.add_item("Validate Package...", MenuID.VALIDATE)
@@ -125,10 +130,15 @@ func _find_menu_bar(node: Node) -> MenuBar:
 
 func _on_menu_item_pressed(id: int) -> void:
 	match id:
+		MenuID.GETTING_STARTED:
+			var wizard = GDKTutorialWizard.new()
+			EditorInterface.get_base_control().add_child(wizard)
+			wizard.popup_centered()
+
 		MenuID.CREATE_PACKAGE:
 			_focus_packaging_panel()
-			if _packaging_panel.has_method("_on_pack"):
-				_packaging_panel._on_pack()
+			if _packaging_panel.has_method("_on_export_and_package"):
+				_packaging_panel._on_export_and_package()
 
 		MenuID.GENERATE_MAP:
 			_focus_packaging_panel()

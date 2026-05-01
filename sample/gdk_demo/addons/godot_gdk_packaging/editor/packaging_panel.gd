@@ -50,6 +50,15 @@ var _sandbox_retail_btn: Button
 var _dev_account_label: Label
 var _test_account_edit: LineEdit
 
+# Export
+var _preset_selector: OptionButton
+var _clean_build_check: CheckBox
+var _export_btn: Button
+var _register_btn: Button
+var _export_register_btn: Button
+var _export_package_btn: Button
+var _export_status_label: Label
+
 # Actions
 var _genmap_btn: Button
 var _validate_btn: Button
@@ -64,6 +73,15 @@ var _achievement_status_label: Label
 var _playfab_title_id_edit: LineEdit
 var _playfab_status_label: Label
 var _playfab_version_label: Label
+
+# Install & Launch
+var _install_btn: Button
+var _uninstall_btn: Button
+var _install_status_label: Label
+var _app_selector: OptionButton
+var _launch_btn: Button
+var _terminate_btn: Button
+var _launch_status_label: Label
 
 # Output
 var _status_label: Label
@@ -181,8 +199,9 @@ func _build_ui() -> void:
 	# ── Tab Bar (visible, styled buttons) ──
 	var tab_bar := TabBar.new()
 	tab_bar.add_tab("⚙️ Config")
-	tab_bar.add_tab("📦 Packaging")
 	tab_bar.add_tab("🔒 Sandbox")
+	tab_bar.add_tab("📦 Export & Package")
+	tab_bar.add_tab("🚀 Install & Launch")
 	tab_bar.add_tab("🏆 Achievements")
 	tab_bar.add_tab("☁️ PlayFab")
 	tab_bar.clip_tabs = false
@@ -190,7 +209,7 @@ func _build_ui() -> void:
 	tab_bar.add_theme_font_size_override("font_size", 18)
 	outer.add_child(tab_bar)
 
-	# ── Content pages (one per tab) ──
+	# ── Content pages (one per tab, order must match tab_bar) ──
 	var _tab_pages: Array[ScrollContainer] = []
 
 	var config_scroll := ScrollContainer.new()
@@ -203,6 +222,17 @@ func _build_ui() -> void:
 	_build_config_ui(config_root)
 	_tab_pages.append(config_scroll)
 
+	var sandbox_scroll := ScrollContainer.new()
+	sandbox_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sandbox_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	sandbox_scroll.visible = false
+	outer.add_child(sandbox_scroll)
+	var sandbox := VBoxContainer.new()
+	sandbox.size_flags_horizontal = SIZE_EXPAND_FILL
+	sandbox_scroll.add_child(sandbox)
+	_build_sandbox_ui(sandbox)
+	_tab_pages.append(sandbox_scroll)
+
 	var pkg_scroll := ScrollContainer.new()
 	pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	pkg_scroll.size_flags_vertical = SIZE_EXPAND_FILL
@@ -214,16 +244,16 @@ func _build_ui() -> void:
 	_build_packaging_ui(pkg)
 	_tab_pages.append(pkg_scroll)
 
-	var sandbox_scroll := ScrollContainer.new()
-	sandbox_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sandbox_scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	sandbox_scroll.visible = false
-	outer.add_child(sandbox_scroll)
-	var sandbox := VBoxContainer.new()
-	sandbox.size_flags_horizontal = SIZE_EXPAND_FILL
-	sandbox_scroll.add_child(sandbox)
-	_build_sandbox_ui(sandbox)
-	_tab_pages.append(sandbox_scroll)
+	var install_launch_scroll := ScrollContainer.new()
+	install_launch_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	install_launch_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	install_launch_scroll.visible = false
+	outer.add_child(install_launch_scroll)
+	var install_launch := VBoxContainer.new()
+	install_launch.size_flags_horizontal = SIZE_EXPAND_FILL
+	install_launch_scroll.add_child(install_launch)
+	_build_install_launch_ui(install_launch)
+	_tab_pages.append(install_launch_scroll)
 
 	var ach_scroll := ScrollContainer.new()
 	ach_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -467,13 +497,63 @@ func _build_playfab_ui(root: VBoxContainer) -> void:
 	_detect_playfab_version()
 
 
-## Builds the Packaging tab: source config, options, and action buttons.
+## Builds the Export & Package tab: export section at top, packaging below.
 func _build_packaging_ui(root: VBoxContainer) -> void:
-	# ── Source Configuration ──
+	# ── Export ──
+	_add_section_header(root, "Export Presets & Actions")
+
+	# Preset selector row
+	var preset_row := HBoxContainer.new()
+	root.add_child(preset_row)
+	var preset_label := Label.new()
+	preset_label.text = "Export Preset"
+	preset_label.custom_minimum_size.x = 130
+	preset_row.add_child(preset_label)
+	_preset_selector = OptionButton.new()
+	_preset_selector.size_flags_horizontal = SIZE_EXPAND_FILL
+	_preset_selector.tooltip_text = "Select a Windows Desktop export preset"
+	preset_row.add_child(_preset_selector)
+
+	# Clean build checkbox
+	_clean_build_check = CheckBox.new()
+	_clean_build_check.text = "Clean Build/ folder before export"
+	_clean_build_check.button_pressed = false
+	root.add_child(_clean_build_check)
+
+	# Export buttons row
+	var export_btn_row := HBoxContainer.new()
+	root.add_child(export_btn_row)
+
+	_export_btn = Button.new()
+	_export_btn.text = "Export Build"
+	_export_btn.tooltip_text = "Export to Build/ folder using the selected preset"
+	_export_btn.pressed.connect(_on_export)
+	export_btn_row.add_child(_export_btn)
+
+	_export_register_btn = Button.new()
+	_export_register_btn.text = "Export + Register"
+	_export_register_btn.tooltip_text = "Export then register for immediate testing"
+	_export_register_btn.pressed.connect(_on_export_and_register)
+	export_btn_row.add_child(_export_register_btn)
+
+	_register_btn = Button.new()
+	_register_btn.text = "Register Build"
+	_register_btn.tooltip_text = "Register the Build/ folder with wdapp for fast dev iteration"
+	_register_btn.pressed.connect(_on_register_loose)
+	export_btn_row.add_child(_register_btn)
+
+	_export_status_label = Label.new()
+	_export_status_label.text = ""
+	root.add_child(_export_status_label)
+
+	root.add_child(HSeparator.new())
+
+	# ── Package Source Configuration ──
 	_add_section_header(root, "Package Source Configuration")
 
 	_source_dir_edit = _add_path_field(root, "Content Directory",
 		"Directory with exported game files", true)
+	_add_open_folder_btn(_source_dir_edit)
 	_map_file_edit = _add_path_field(root, "Mapping File",
 		"XML mapping file (or auto-generate)", false)
 
@@ -484,7 +564,8 @@ func _build_packaging_ui(root: VBoxContainer) -> void:
 	root.add_child(_auto_genmap_check)
 
 	_output_dir_edit = _add_path_field(root, "Output Directory",
-		"Where .msixvc package is placed", true)
+		"Package/ (default)", true)
+	_add_open_folder_btn(_output_dir_edit)
 
 	root.add_child(HSeparator.new())
 
@@ -550,20 +631,63 @@ func _build_packaging_ui(root: VBoxContainer) -> void:
 	var action_row := HBoxContainer.new()
 	root.add_child(action_row)
 
+	_export_package_btn = Button.new()
+	_export_package_btn.text = "Export & Package"
+	_export_package_btn.tooltip_text = "Export project then create MSIXVC package in one step"
+	_export_package_btn.pressed.connect(_on_export_and_package)
+	action_row.add_child(_export_package_btn)
+
+	_pack_btn = Button.new()
+	_pack_btn.text = "Create Package Only"
+	_pack_btn.pressed.connect(_on_pack)
+	action_row.add_child(_pack_btn)
+
+	_validate_btn = Button.new()
+	_validate_btn.text = "Validate Package"
+	_validate_btn.pressed.connect(_on_validate)
+	action_row.add_child(_validate_btn)
+
 	_genmap_btn = Button.new()
 	_genmap_btn.text = "Generate Map"
 	_genmap_btn.pressed.connect(_on_genmap)
 	action_row.add_child(_genmap_btn)
 
-	_validate_btn = Button.new()
-	_validate_btn.text = "Validate"
-	_validate_btn.pressed.connect(_on_validate)
-	action_row.add_child(_validate_btn)
+	_populate_preset_selector()
 
-	_pack_btn = Button.new()
-	_pack_btn.text = "Create Package"
-	_pack_btn.pressed.connect(_on_pack)
-	action_row.add_child(_pack_btn)
+
+## Populates the export preset dropdown with available Windows Desktop presets.
+## Populates the export preset dropdown by parsing export_presets.cfg directly.
+func _populate_preset_selector() -> void:
+	_preset_selector.clear()
+	var cfg_path = ProjectSettings.globalize_path("res://export_presets.cfg")
+	if not FileAccess.file_exists(cfg_path):
+		_preset_selector.add_item("No export presets — add one in Project → Export")
+		_export_btn.disabled = true
+		_export_register_btn.disabled = true
+		_export_package_btn.disabled = true
+		return
+
+	# Parse preset names from export_presets.cfg
+	var file = FileAccess.open(cfg_path, FileAccess.READ)
+	var content = file.get_as_text()
+	file.close()
+
+	var found_any := false
+	var regex = RegEx.new()
+	regex.compile('\\[preset\\.(\\d+)\\][\\s\\S]*?name="([^"]*)"[\\s\\S]*?platform="([^"]*)"')
+	for result in regex.search_all(content):
+		var idx = int(result.get_string(1))
+		var name = result.get_string(2)
+		var platform = result.get_string(3)
+		if platform == "Windows Desktop":
+			_preset_selector.add_item(name, idx)
+			found_any = true
+
+	if not found_any:
+		_preset_selector.add_item("No Windows preset — add one in Project → Export")
+		_export_btn.disabled = true
+		_export_register_btn.disabled = true
+		_export_package_btn.disabled = true
 
 
 # ── UI Helpers ──────────────────────────────────────────────────────────────
@@ -593,6 +717,21 @@ func _add_path_field(parent: VBoxContainer, label_text: String,
 	browse.pressed.connect(_make_browse_callback(edit, is_dir))
 	row.add_child(browse)
 	return edit
+
+## Adds a folder-open button to the row of the given LineEdit field.
+func _add_open_folder_btn(edit: LineEdit) -> void:
+	var row = edit.get_parent()
+	var open_btn := Button.new()
+	open_btn.text = "📂"
+	open_btn.tooltip_text = "Open folder in file manager"
+	open_btn.pressed.connect(func():
+		var path = edit.text.strip_edges()
+		if path != "" and DirAccess.dir_exists_absolute(path):
+			OS.shell_open(path)
+		elif path != "":
+			push_warning("[GDK] Directory not found: " + path)
+	)
+	row.add_child(open_btn)
 
 ## Returns a Callable that opens a file/directory dialog and sets the edit text.
 func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
@@ -888,6 +1027,14 @@ func _load_packaging_settings() -> void:
 	_updcompat_option.selected = cfg.get_value("packaging", "updcompat_option", 0)
 	_sandbox_id_edit.text = cfg.get_value("sandbox", "sandbox_id", "")
 	_test_account_edit.text = cfg.get_value("sandbox", "test_account", "")
+	# Export settings
+	_clean_build_check.button_pressed = cfg.get_value("export", "clean_build", false)
+	var saved_preset = cfg.get_value("export", "preset_name", "")
+	# Select the saved preset after populating
+	for i in _preset_selector.get_item_count():
+		if _preset_selector.get_item_text(i) == saved_preset:
+			_preset_selector.select(i)
+			break
 	# Trigger visibility update for encrypt key field
 	_on_encrypt_changed(_encrypt_option.selected)
 	_on_auto_genmap_toggled(_auto_genmap_check.button_pressed)
@@ -906,6 +1053,10 @@ func _save_packaging_settings() -> void:
 	cfg.set_value("packaging", "updcompat_option", _updcompat_option.selected)
 	cfg.set_value("sandbox", "sandbox_id", _sandbox_id_edit.text)
 	cfg.set_value("sandbox", "test_account", _test_account_edit.text)
+	# Export settings
+	if _preset_selector.selected >= 0:
+		cfg.set_value("export", "preset_name", _preset_selector.get_item_text(_preset_selector.selected))
+	cfg.set_value("export", "clean_build", _clean_build_check.button_pressed)
 	cfg.save(PACKAGING_SETTINGS_PATH)
 
 ## Connects text_changed/focus_exited/toggled signals to auto-save settings.
@@ -919,6 +1070,8 @@ func _connect_autosave() -> void:
 	_auto_genmap_check.toggled.connect(save_fn)
 	_encrypt_option.item_selected.connect(save_fn)
 	_updcompat_option.item_selected.connect(save_fn)
+	_preset_selector.item_selected.connect(save_fn)
+	_clean_build_check.toggled.connect(save_fn)
 
 
 # ── Packaging Helpers ───────────────────────────────────────────────────────
@@ -1089,6 +1242,8 @@ func _on_genmap() -> void:
 
 ## Runs makepkg genmap and updates the map file field on success.
 func _do_genmap(source: String, map_path: String) -> void:
+	# Ensure the output directory for the layout file exists
+	DirAccess.make_dir_recursive_absolute(map_path.get_base_dir())
 	_log("Generating mapping file...")
 	var result = _makepkg.genmap(source, map_path)
 	_log_result(result)
@@ -1109,6 +1264,7 @@ func _on_validate() -> void:
 		return
 
 	var progress := AcceptDialog.new()
+	progress.exclusive = false
 	progress.title = "Validating Package"
 	progress.dialog_text = "Validating package, this may take a minute..."
 	progress.get_ok_button().visible = false
@@ -1144,6 +1300,7 @@ func _on_pack() -> void:
 		return
 
 	var progress := AcceptDialog.new()
+	progress.exclusive = false
 	progress.title = "Creating Package"
 	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
 	progress.get_ok_button().visible = false
@@ -1157,6 +1314,7 @@ func _on_pack() -> void:
 	var map_file := _map_file_edit.text.strip_edges()
 	if _auto_genmap_check.button_pressed or map_file == "":
 		var map_path := output.path_join("layout.xml")
+		DirAccess.make_dir_recursive_absolute(output)
 
 		# Confirm overwrite of layout.xml during pack flow
 		if FileAccess.file_exists(map_path):
@@ -1206,6 +1364,421 @@ func _on_pack() -> void:
 	else:
 		progress.dialog_text = "❌ Package creation failed.\nCheck the Output panel for details."
 	progress.confirmed.connect(func(): progress.queue_free())
+
+
+# ── Export ───────────────────────────────────────────────────────────────────
+
+## Returns the absolute path to the Build/ folder in the project root.
+func _get_build_dir() -> String:
+	return ProjectSettings.globalize_path("res://Build")
+
+## Returns the absolute path to the Package/ folder in the project root.
+func _get_package_dir() -> String:
+	return ProjectSettings.globalize_path("res://Package")
+
+## Exports the project using the selected Windows preset to Build/.
+func _on_export() -> void:
+	var build_dir = _get_build_dir()
+	DirAccess.make_dir_recursive_absolute(build_dir)
+
+	if _clean_build_check.button_pressed:
+		_clean_directory(build_dir)
+		_log("Cleaned Build/ folder")
+
+	var preset_name = _preset_selector.get_item_text(_preset_selector.selected)
+	if preset_name == "" or preset_name.begins_with("No "):
+		_export_status_label.text = "❌ No valid export preset selected"
+		return
+
+	var game_name = ProjectSettings.get_setting("application/config/name", "Game")
+	var exe_path = build_dir.path_join(game_name + ".exe")
+
+	var progress := AcceptDialog.new()
+	progress.exclusive = false
+	progress.title = "Exporting"
+	progress.dialog_text = "Exporting project to Build/...\nThis may take a minute."
+	progress.get_ok_button().visible = false
+	add_child(progress)
+	progress.popup_centered(Vector2i(450, 150))
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# Use Godot CLI to export (--export-debug for debug build)
+	var godot_path = OS.get_executable_path()
+	var project_path = ProjectSettings.globalize_path("res://")
+	_log("Exporting '%s' preset to: %s" % [preset_name, exe_path])
+
+	var output: Array = []
+	var exit_code = OS.execute(godot_path, PackedStringArray([
+		"--headless",
+		"--path", project_path,
+		"--export-debug", preset_name, exe_path
+	]), output, true, false)
+
+	var stdout_text = str(output[0]) if output.size() > 0 else ""
+
+	if exit_code == OK:
+		_export_status_label.text = "✅ Exported to Build/"
+		_log("Export completed successfully")
+		_post_export_prepare(build_dir)
+		if _source_dir_edit.text.strip_edges() == "":
+			_source_dir_edit.text = build_dir
+			_save_packaging_settings()
+	else:
+		_export_status_label.text = "❌ Export failed (exit code %d)" % exit_code
+		_log("Export failed (exit code %d): %s" % [exit_code, stdout_text])
+		push_error("[GDK] Export failed (exit code %d)" % exit_code)
+
+	progress.get_ok_button().visible = true
+	if exit_code == OK:
+		progress.dialog_text = "✅ Export completed!\nBuild files are in the Build/ folder."
+	else:
+		progress.dialog_text = "❌ Export failed.\nCheck the Output panel for details."
+	progress.confirmed.connect(func(): progress.queue_free())
+
+## Runs post-export preparation: copies config, logos, and verifies DLLs.
+func _post_export_prepare(build_dir: String) -> void:
+	if not _ensure_config_in_content_dir(build_dir):
+		_log("⚠️ Post-export config setup had issues")
+
+	if _output_dir_edit.text.strip_edges() == "":
+		_output_dir_edit.text = _get_package_dir()
+		_save_packaging_settings()
+
+## Registers a loose build with wdapp for fast dev iteration.
+func _on_register_loose() -> void:
+	var build_dir = _get_build_dir()
+	if not DirAccess.dir_exists_absolute(build_dir):
+		_export_status_label.text = "❌ Build/ folder not found — export first"
+		return
+
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	if not FileAccess.file_exists(wdapp_path):
+		_export_status_label.text = "❌ wdapp.exe not found"
+		return
+
+	_log("Registering loose build: %s" % build_dir)
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["register", build_dir]))
+	if result["exit_code"] == 0:
+		_export_status_label.text = "✅ Registered loose build"
+		_log("wdapp register succeeded")
+	else:
+		_export_status_label.text = "❌ Registration failed"
+		_log("wdapp register failed: %s" % result["stdout"])
+		push_warning("[GDK] wdapp register failed — may need admin privileges")
+
+## Exports then registers in one step.
+func _on_export_and_register() -> void:
+	await _on_export()
+	if _export_status_label.text.begins_with("✅"):
+		_on_register_loose()
+
+## Exports then packages in one step.
+func _on_export_and_package() -> void:
+	await _on_export()
+	if _export_status_label.text.begins_with("✅"):
+		_source_dir_edit.text = _get_build_dir()
+		_output_dir_edit.text = _get_package_dir()
+		_save_packaging_settings()
+		await _on_pack()
+
+# ── Install & Launch ────────────────────────────────────────────────────────
+
+func _build_install_launch_ui(root: VBoxContainer) -> void:
+	# ── Install ──
+	_add_section_header(root, "Install")
+
+	var install_desc := Label.new()
+	install_desc.text = "Install or uninstall the MSIXVC package from the Package/ folder."
+	install_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	install_desc.add_theme_font_size_override("font_size", 12)
+	install_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	root.add_child(install_desc)
+
+	var install_btn_row := HBoxContainer.new()
+	root.add_child(install_btn_row)
+
+	_install_btn = Button.new()
+	_install_btn.text = "Install"
+	_install_btn.tooltip_text = "Install the MSIXVC package from the Package/ folder"
+	_install_btn.pressed.connect(_on_pkg_install)
+	install_btn_row.add_child(_install_btn)
+
+	_uninstall_btn = Button.new()
+	_uninstall_btn.text = "Uninstall"
+	_uninstall_btn.tooltip_text = "Uninstall the selected app"
+	_uninstall_btn.pressed.connect(_on_pkg_uninstall)
+	install_btn_row.add_child(_uninstall_btn)
+
+	_install_status_label = Label.new()
+	_install_status_label.text = ""
+	root.add_child(_install_status_label)
+
+	root.add_child(HSeparator.new())
+
+	# ── Launch ──
+	_add_section_header(root, "Launch")
+
+	var launch_desc := Label.new()
+	launch_desc.text = "Select a registered app to launch or terminate."
+	launch_desc.add_theme_font_size_override("font_size", 12)
+	launch_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	root.add_child(launch_desc)
+
+	var app_row := HBoxContainer.new()
+	root.add_child(app_row)
+	var app_label := Label.new()
+	app_label.text = "Registered App"
+	app_label.custom_minimum_size.x = 130
+	app_row.add_child(app_label)
+	_app_selector = OptionButton.new()
+	_app_selector.size_flags_horizontal = SIZE_EXPAND_FILL
+	_app_selector.tooltip_text = "Select a registered app to launch or terminate"
+	app_row.add_child(_app_selector)
+
+	var refresh_btn := Button.new()
+	refresh_btn.text = "Refresh"
+	refresh_btn.tooltip_text = "Refresh the list of registered apps"
+	refresh_btn.pressed.connect(_refresh_registered_apps)
+	app_row.add_child(refresh_btn)
+
+	var launch_btn_row := HBoxContainer.new()
+	root.add_child(launch_btn_row)
+
+	_launch_btn = Button.new()
+	_launch_btn.text = "Launch"
+	_launch_btn.tooltip_text = "Launch the selected app"
+	_launch_btn.pressed.connect(_on_app_launch)
+	launch_btn_row.add_child(_launch_btn)
+
+	_terminate_btn = Button.new()
+	_terminate_btn.text = "Terminate"
+	_terminate_btn.tooltip_text = "Terminate the selected app"
+	_terminate_btn.pressed.connect(_on_app_terminate)
+	launch_btn_row.add_child(_terminate_btn)
+
+	_launch_status_label = Label.new()
+	_launch_status_label.text = ""
+	root.add_child(_launch_status_label)
+
+	# Auto-populate on load
+	_refresh_registered_apps()
+
+
+## Stores AUMID and PackageFullName for each registered app entry.
+var _registered_apps: Array[Dictionary] = []
+
+## Populates the app selector dropdown with registered apps from wdapp list.
+func _refresh_registered_apps() -> void:
+	_app_selector.clear()
+	_registered_apps.clear()
+
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	if not FileAccess.file_exists(wdapp_path):
+		_app_selector.add_item("wdapp.exe not found")
+		_launch_btn.disabled = true
+		_terminate_btn.disabled = true
+		return
+
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["list"]))
+	if result["exit_code"] != 0:
+		_app_selector.add_item("Failed to list apps")
+		return
+
+	# Parse wdapp list output:
+	# PackageFullName lines have no "!" and contain "_"
+	# AUMID lines have "!" and are indented under the PackageFullName
+	var current_pfn := ""
+	for line in result["stdout"].split("\n"):
+		var trimmed = line.strip_edges()
+		if trimmed == "" or trimmed.begins_with("Run this") or trimmed.begins_with("The operation") or trimmed.begins_with("Registered"):
+			continue
+		if trimmed.contains("!"):
+			# This is an AUMID line
+			if current_pfn != "":
+				_registered_apps.append({"pfn": current_pfn, "aumid": trimmed})
+				_app_selector.add_item(trimmed)
+		elif trimmed.contains("_"):
+			# This is a PackageFullName line
+			current_pfn = trimmed
+
+	if _registered_apps.is_empty():
+		_app_selector.add_item("No registered apps")
+		_launch_btn.disabled = true
+		_terminate_btn.disabled = true
+	else:
+		_launch_btn.disabled = false
+		_terminate_btn.disabled = false
+
+
+## Gets the selected app's AUMID from the dropdown.
+func _get_selected_aumid() -> String:
+	var idx = _app_selector.selected
+	if idx < 0 or idx >= _registered_apps.size():
+		return ""
+	return _registered_apps[idx]["aumid"]
+
+## Gets the selected app's PackageFullName from the dropdown.
+func _get_selected_pfn() -> String:
+	var idx = _app_selector.selected
+	if idx < 0 or idx >= _registered_apps.size():
+		return ""
+	return _registered_apps[idx]["pfn"]
+
+func _on_app_launch() -> void:
+	var aumid = _get_selected_aumid()
+	if aumid == "":
+		_launch_status_label.text = "❌ No app selected"
+		return
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	_log("Launching: %s" % aumid)
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["launch", aumid]))
+	if result["exit_code"] == 0:
+		_launch_status_label.text = "✅ Launched"
+		_log("App launched successfully")
+	else:
+		_launch_status_label.text = "❌ Launch failed"
+		_log("Launch failed: %s" % result["stdout"])
+
+func _on_app_terminate() -> void:
+	var aumid = _get_selected_aumid()
+	var pfn = _get_selected_pfn()
+	if aumid == "":
+		_launch_status_label.text = "❌ No app selected"
+		return
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	# Try wdapp terminate first (works for MSIXVC packages)
+	_log("Terminating: %s" % pfn)
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["terminate", pfn]))
+	if result["exit_code"] == 0:
+		_launch_status_label.text = "✅ Terminated"
+		_log("App terminated")
+		return
+	# Fallback: find exe in Build/ and use taskkill
+	var build_dir = _get_build_dir()
+	if DirAccess.dir_exists_absolute(build_dir):
+		var dir = DirAccess.open(build_dir)
+		if dir:
+			dir.list_dir_begin()
+			var fname = dir.get_next()
+			while fname != "":
+				if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
+					_log("Falling back to taskkill: %s" % fname)
+					var output: Array = []
+					OS.execute("taskkill", PackedStringArray(["/IM", fname, "/F"]), output, true, false)
+					_launch_status_label.text = "✅ Terminated (taskkill)"
+					_log("Process terminated via taskkill")
+					dir.list_dir_end()
+					return
+				fname = dir.get_next()
+			dir.list_dir_end()
+	_launch_status_label.text = "❌ Terminate failed"
+	_log("Terminate failed: %s" % result["stdout"])
+
+## Finds the .msixvc file in the Package/ folder.
+func _find_msixvc_package() -> String:
+	var pkg_dir = _get_package_dir()
+	if not DirAccess.dir_exists_absolute(pkg_dir):
+		return ""
+	var dir = DirAccess.open(pkg_dir)
+	if dir == null:
+		return ""
+	dir.list_dir_begin()
+	var fname = dir.get_next()
+	while fname != "":
+		if fname.ends_with(".msixvc") and not fname.begins_with("clear."):
+			dir.list_dir_end()
+			return pkg_dir.path_join(fname)
+		fname = dir.get_next()
+	dir.list_dir_end()
+	return ""
+func _get_app_aumid() -> String:
+	var info = _config_mgr.parse_config()
+	var name = info.get("name", "")
+	if name == "":
+		return ""
+	# AUMID format: <Identity.Name>_<publisher_hash>!Game
+	# We can get it from wdapp list output instead
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["list"]))
+	if result["exit_code"] != 0:
+		return ""
+	# Find an AUMID line containing our app name
+	for line in result["stdout"].split("\n"):
+		var trimmed = line.strip_edges()
+		if trimmed.contains("!") and trimmed.contains(name):
+			return trimmed
+	return ""
+
+
+## Gets the PackageFullName for the registered app.
+func _get_package_full_name() -> String:
+	var info = _config_mgr.parse_config()
+	var name = info.get("name", "")
+	if name == "":
+		return ""
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["list"]))
+	if result["exit_code"] != 0:
+		return ""
+	for line in result["stdout"].split("\n"):
+		var trimmed = line.strip_edges()
+		if not trimmed.contains("!") and trimmed.contains(name) and trimmed.contains("_"):
+			return trimmed
+	return ""
+
+
+func _on_pkg_install() -> void:
+	var msixvc = _find_msixvc_package()
+	if msixvc == "":
+		_install_status_label.text = "❌ No .msixvc package found in Package/"
+		return
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	_log("Installing: %s" % msixvc)
+	_install_status_label.text = "Installing package..."
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["install", msixvc]))
+	if result["exit_code"] == 0:
+		_install_status_label.text = "✅ Package installed"
+		_log("Package installed successfully")
+		_refresh_registered_apps()
+	else:
+		_install_status_label.text = "❌ Install failed"
+		_log("Install failed: %s" % result["stdout"])
+
+
+func _on_pkg_uninstall() -> void:
+	var pfn = _get_selected_pfn()
+	if pfn == "":
+		_install_status_label.text = "❌ No app selected — select one from the Launch section"
+		return
+	var wdapp_path = _toolchain.get_bin_dir().path_join("wdapp.exe")
+	_log("Uninstalling: %s" % pfn)
+	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["uninstall", pfn]))
+	if result["exit_code"] == 0:
+		_install_status_label.text = "✅ Package uninstalled"
+		_log("Package uninstalled")
+		_refresh_registered_apps()
+	else:
+		_install_status_label.text = "❌ Uninstall failed"
+		_log("Uninstall failed: %s" % result["stdout"])
+
+
+## Removes all files and subdirectories from a directory.
+func _clean_directory(dir_path: String) -> void:
+	var dir = DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var fname = dir.get_next()
+	while fname != "":
+		if dir.current_is_dir():
+			_clean_directory(dir_path.path_join(fname))
+			dir.remove(fname)
+		else:
+			dir.remove(fname)
+		fname = dir.get_next()
+	dir.list_dir_end()
 
 
 # ── Achievements ────────────────────────────────────────────────────────────
