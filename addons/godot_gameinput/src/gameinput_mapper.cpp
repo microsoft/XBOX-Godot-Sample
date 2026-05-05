@@ -7,7 +7,12 @@
 #include "gameinput_reading.h"
 
 #include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/input_event_action.hpp>
+#include <godot_cpp/classes/input_event_joypad_button.hpp>
+#include <godot_cpp/classes/input_event_joypad_motion.hpp>
 #include <godot_cpp/classes/input_map.hpp>
+#include <godot_cpp/variant/typed_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <cmath>
@@ -61,6 +66,11 @@ void GameInputMapper::_notification(int p_what) {
                 StringName a = b->get_action();
                 if (a != StringName() && imap->has_action(a)) {
                     input->action_release(a);
+                    Ref<InputEventAction> evt;
+                    evt.instantiate();
+                    evt->set_action(a);
+                    evt->set_pressed(false);
+                    input->parse_input_event(evt);
                 }
             }
         }
@@ -71,6 +81,7 @@ void GameInputMapper::_notification(int p_what) {
 void GameInputMapper::set_action_map(const Ref<GameInputActionMap> &map) {
     m_action_map = map;
     m_prev_pressed.clear();
+    m_native_handles_cache.clear();
     m_warned_missing_actions.clear();
 }
 
@@ -220,13 +231,141 @@ void GameInputMapper::_process_bindings() {
         }
 
         if (is_pressed) {
+            // Keep polled state fresh every frame so analog strength tracks (e.g.,
+            // paddle handlers reading Input.is_action_pressed / get_action_strength).
             input->action_press(action, strength);
         } else if (was_pressed) {
             input->action_release(action);
         }
 
+        // Event-based handlers (Viewport GUI focus traversal for ui_*, Control
+        // _gui_input listeners, Node _input/_unhandled_input handlers) listen
+        // to InputEvent objects and don't see Input.action_press alone. Emit a
+        // transition InputEventAction so ui_up / ui_down / ui_accept / etc.
+        // actually drive Godot's UI nav.
+        //
+        // Skip the emit when Godot's built-in joypad backend is already wired
+        // to fire the same action (e.g., default project bindings have
+        // ui_accept ← JoypadButton(A) ← physical A press): in that case the
+        // engine emits its own equivalent InputEvent and double-firing makes
+        // menu items unselectable. The check is per-binding and cached so the
+        // hot path stays cheap.
+        if (is_pressed != was_pressed) {
+            bool native_handles = false;
+            if (HashMap<int, bool>::Iterator hit = m_native_handles_cache.find(i)) {
+                native_handles = hit->value;
+            } else {
+                native_handles = _native_path_handles_binding(b, action);
+                m_native_handles_cache[i] = native_handles;
+            }
+
+            if (!native_handles) {
+                Ref<InputEventAction> evt;
+                evt.instantiate();
+                evt->set_action(action);
+                evt->set_pressed(is_pressed);
+                evt->set_strength(is_pressed ? strength : 0.0f);
+                input->parse_input_event(evt);
+            }
+        }
+
         m_prev_pressed[i] = is_pressed;
     }
+}
+
+int GameInputMapper::_source_to_joy_button(int source) {
+    using GD = GameInputDevice;
+    // Maps a GameInput Source enum value to Godot's JoyButton enum integer
+    // (matches godot-cpp's JoyButton). Returns -1 for axis sources or unknowns.
+    switch (source) {
+        case GD::SRC_BTN_A:              return 0;  // JOY_BUTTON_A
+        case GD::SRC_BTN_B:              return 1;  // JOY_BUTTON_B
+        case GD::SRC_BTN_X:              return 2;  // JOY_BUTTON_X
+        case GD::SRC_BTN_Y:              return 3;  // JOY_BUTTON_Y
+        case GD::SRC_BTN_VIEW:           return 4;  // JOY_BUTTON_BACK
+        case GD::SRC_BTN_MENU:           return 6;  // JOY_BUTTON_START
+        case GD::SRC_BTN_LEFT_THUMB:     return 7;  // JOY_BUTTON_LEFT_STICK
+        case GD::SRC_BTN_RIGHT_THUMB:    return 8;  // JOY_BUTTON_RIGHT_STICK
+        case GD::SRC_BTN_LEFT_SHOULDER:  return 9;  // JOY_BUTTON_LEFT_SHOULDER
+        case GD::SRC_BTN_RIGHT_SHOULDER: return 10; // JOY_BUTTON_RIGHT_SHOULDER
+        case GD::SRC_BTN_DPAD_UP:        return 11; // JOY_BUTTON_DPAD_UP
+        case GD::SRC_BTN_DPAD_DOWN:      return 12; // JOY_BUTTON_DPAD_DOWN
+        case GD::SRC_BTN_DPAD_LEFT:      return 13; // JOY_BUTTON_DPAD_LEFT
+        case GD::SRC_BTN_DPAD_RIGHT:     return 14; // JOY_BUTTON_DPAD_RIGHT
+        default: return -1;
+    }
+}
+
+int GameInputMapper::_source_to_joy_axis(int source) {
+    using GD = GameInputDevice;
+    // Maps a GameInput Source enum value to Godot's JoyAxis enum integer.
+    // Returns -1 for button sources or unknowns.
+    switch (source) {
+        case GD::SRC_AXIS_LEFT_X:        return 0;  // JOY_AXIS_LEFT_X
+        case GD::SRC_AXIS_LEFT_Y:        return 1;  // JOY_AXIS_LEFT_Y
+        case GD::SRC_AXIS_RIGHT_X:       return 2;  // JOY_AXIS_RIGHT_X
+        case GD::SRC_AXIS_RIGHT_Y:       return 3;  // JOY_AXIS_RIGHT_Y
+        case GD::SRC_AXIS_LEFT_TRIGGER:  return 4;  // JOY_AXIS_TRIGGER_LEFT
+        case GD::SRC_AXIS_RIGHT_TRIGGER: return 5;  // JOY_AXIS_TRIGGER_RIGHT
+        default: return -1;
+    }
+}
+
+bool GameInputMapper::_native_path_handles_binding(
+        const Ref<GameInputBinding> &binding,
+        const StringName &action) const {
+    // Returns true when the project's InputMap already contains an
+    // InputEventJoypadButton / InputEventJoypadMotion that matches this
+    // binding's source. In that case Godot's built-in joypad backend will
+    // emit an InputEvent that resolves to `action` on its own, and the
+    // mapper must NOT emit its own synthetic InputEventAction or the action
+    // will fire twice per physical press.
+    if (binding.is_null() || action == StringName()) {
+        return false;
+    }
+    InputMap *imap = InputMap::get_singleton();
+    if (!imap || !imap->has_action(action)) {
+        return false;
+    }
+    TypedArray<Ref<InputEvent>> events = imap->action_get_events(action);
+
+    if (binding->get_is_axis()) {
+        int target_axis = _source_to_joy_axis(binding->get_source());
+        if (target_axis < 0) return false;
+        // Sign of the axis value when this binding considers itself "pressed":
+        // _process_bindings flips the raw value via axis_invert and treats the
+        // flipped positive direction as the press, so the matching native
+        // event's axis_value sign equals -1 when axis_invert is true and +1
+        // otherwise.
+        float pressed_sign = binding->get_axis_invert() ? -1.0f : 1.0f;
+        for (int i = 0; i < events.size(); ++i) {
+            Ref<InputEvent> ev = events[i];
+            if (ev.is_null()) continue;
+            Ref<InputEventJoypadMotion> motion = ev;
+            if (motion.is_null()) continue;
+            if ((int)motion->get_axis() != target_axis) continue;
+            // axis_value > 0 → positive direction matches; treat 0 as a
+            // wildcard so unconfigured-direction events still suppress emit.
+            float ev_val = motion->get_axis_value();
+            if (ev_val == 0.0f || ev_val * pressed_sign > 0.0f) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    int target_button = _source_to_joy_button(binding->get_source());
+    if (target_button < 0) return false;
+    for (int i = 0; i < events.size(); ++i) {
+        Ref<InputEvent> ev = events[i];
+        if (ev.is_null()) continue;
+        Ref<InputEventJoypadButton> btn = ev;
+        if (btn.is_null()) continue;
+        if ((int)btn->get_button_index() == target_button) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace godot

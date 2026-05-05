@@ -496,9 +496,82 @@ func _post_export_prepare(build_dir: String) -> void:
 	if not _coordinator.get_content_preparer().ensure_content_dir_ready(build_dir, Callable(_coordinator, "_log")):
 		_coordinator._log("⚠️ Post-export config setup had issues")
 
+	_copy_addon_runtime_dlls(build_dir)
+
 	if output_dir_edit.text.strip_edges() == "":
 		output_dir_edit.text = _coordinator.get_package_dir()
 		_coordinator._save_packaging_settings()
+
+
+## Copies satellite runtime DLLs from each addon's bin/ folder next to the
+## exported exe.  Godot's standard exporter only copies the GDExtension
+## library itself; native dependencies that the GDExtension links against
+## (e.g. libHttpClient.dll, Microsoft.Xbox.Services.C.Thunks*.dll for
+## godot_gdk; Party.dll, PlayFabCore.dll, etc. for godot_playfab) live next
+## to the GDExtension in the source tree and are picked up by the OS loader
+## via lazy resolution.  In an exported / registered loose-layout build the
+## GDExtension lives next to the exe instead, so its satellites must be
+## copied there too — otherwise the kernel can't resolve the imports and the
+## extension silently fails to load (HUD shows "GDK OFFLINE").
+##
+## Declaring the satellites in the .gdextension's [dependencies] block was
+## tried first, but that causes Godot's loader to force-load every listed
+## DLL eagerly via OS::open_dynamic_library, including in F5-from-editor.
+## When the bin/ folder contains parallel variants of the same XSAPI runtime
+## (e.g. Microsoft.Xbox.Services.C.Thunks.Debug.dll alongside the GDK
+## variant), force-loading multiple variants collides on identical exports
+## and hangs XGameRuntime initialization.  Lazy resolution picks exactly one
+## variant per import — whichever the GDExtension's IAT actually references
+## — so this packaging-time copy preserves that behavior in exported builds.
+func _copy_addon_runtime_dlls(build_dir: String) -> void:
+	var addons_root := "res://addons"
+	var addons_dir := DirAccess.open(addons_root)
+	if addons_dir == null:
+		return
+
+	addons_dir.list_dir_begin()
+	var copied_total := 0
+	var addon_name := addons_dir.get_next()
+	while addon_name != "":
+		if addons_dir.current_is_dir() and not addon_name.begins_with("."):
+			var bin_dir_res := "%s/%s/bin" % [addons_root, addon_name]
+			copied_total += _copy_addon_bin_dlls(addon_name, bin_dir_res, build_dir)
+		addon_name = addons_dir.get_next()
+	addons_dir.list_dir_end()
+
+	if copied_total > 0:
+		_coordinator._log("Copied %d addon runtime DLL(s) into build dir" % copied_total)
+
+
+## Copies non-GDExtension DLLs from a single addon's bin/ folder into the
+## build dir.  Returns the number of files copied.  Skips .pdb files and the
+## GDExtension library itself (Godot's exporter already places that next to
+## the exe).
+func _copy_addon_bin_dlls(addon_name: String, bin_dir_res: String, build_dir: String) -> int:
+	var bin_dir := DirAccess.open(bin_dir_res)
+	if bin_dir == null:
+		return 0
+
+	var copied := 0
+	var gdext_prefix := "%s.windows." % addon_name
+	bin_dir.list_dir_begin()
+	var fname := bin_dir.get_next()
+	while fname != "":
+		if not bin_dir.current_is_dir() and fname.to_lower().ends_with(".dll"):
+			# Skip the GDExtension library itself — Godot's exporter handles it.
+			if not fname.begins_with(gdext_prefix):
+				var src := "%s/%s" % [bin_dir_res, fname]
+				var dst := build_dir.path_join(fname)
+				var src_abs := ProjectSettings.globalize_path(src)
+				var copy_err := DirAccess.copy_absolute(src_abs, dst)
+				if copy_err == OK:
+					copied += 1
+				else:
+					_coordinator._log("⚠️ Failed to copy %s → %s (err %d)" % [src_abs, dst, copy_err])
+		fname = bin_dir.get_next()
+	bin_dir.list_dir_end()
+
+	return copied
 
 
 func on_register_loose() -> void:

@@ -17,7 +17,8 @@ This is the landing page for the `godot_playfab` docs set.
 - cached `PlayFabUser` wrappers keyed by local Xbox user id
 - Game Saves add/sync, upload, folder/quota queries, cloud connectivity queries, save description updates, and cloud reset through `PlayFab.game_saves`
 - leaderboard submit, global query, around-user query, and friends/social leaderboard query
-- sample demo wired to the new root singleton
+- sample demos wired to the new root singleton, including multiplayer_pong's
+  sample-local service wrapper for Game Saves and leaderboard sync
 - headless contract coverage under `sample\playfab_demo\tests\run_tests.gd`
 - idempotent extension registration so duplicated synced `.gdextension` files do not spam duplicate singleton/class registration
 

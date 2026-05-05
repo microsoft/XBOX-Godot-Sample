@@ -3,6 +3,9 @@ extends Area2D
 const DEFAULT_SPEED = 100.0
 const TRAIL_LENGTH = 8
 
+@export var bounce_speed_multiplier: float = 1.1
+@export var passive_acceleration: float = 1.0  # speed gained per second while in flight
+
 var direction := Vector2.LEFT
 var stopped: bool = false
 var _speed := DEFAULT_SPEED
@@ -16,7 +19,7 @@ func _is_local_game() -> bool:
 
 
 func _process(delta: float) -> void:
-	_speed += delta
+	_speed += passive_acceleration * delta
 	if not stopped:
 		translate(_speed * delta * direction)
 		_trail_points.push_front(position)
@@ -60,7 +63,7 @@ func bounce(left: bool, random: float) -> void:
 	else:
 		direction.x = -abs(direction.x)
 
-	_speed *= 1.1
+	_speed *= bounce_speed_multiplier
 	direction.y = random * 2.0 - 1
 	direction = direction.normalized()
 

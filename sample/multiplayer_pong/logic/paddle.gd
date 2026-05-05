@@ -69,3 +69,6 @@ func _on_paddle_area_enter(area: Area2D) -> void:
 					pong.HIT_RUMBLE_LOW,
 					pong.HIT_RUMBLE_HIGH,
 					pong.HIT_RUMBLE_DURATION)
+		# Roguelike scoring hook (no-op if parent doesn't define it).
+		if pong != null and pong.has_method("on_paddle_hit"):
+			pong.on_paddle_hit(self, area)

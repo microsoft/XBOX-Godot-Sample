@@ -123,7 +123,16 @@ In the editor:
 The Mapper calls `Input.action_press(action, strength)` /
 `Input.action_release(action)` each frame, so the rest of your code can stay
 on Godot's standard `Input.is_action_pressed("jump")` / `Input.get_axis()`
-APIs and gain GameInput device support transparently.
+APIs and gain GameInput device support transparently. On every
+press / release transition the Mapper also pushes an `InputEventAction`
+through `Input.parse_input_event` so event-driven consumers — UI focus
+traversal for `ui_*`, `_gui_input` listeners, `_input` /
+`_unhandled_input` handlers — actually see the action change. When Godot's
+built-in joypad backend is already wired to deliver the same action through
+a matching `InputEventJoypadButton` / `InputEventJoypadMotion` in your
+`InputMap` (the default project mapping for `ui_accept` etc.), the Mapper
+suppresses its own `InputEventAction` for that binding so menu actions fire
+exactly once per physical press instead of twice.
 
 ### Soft-fail behaviour
 

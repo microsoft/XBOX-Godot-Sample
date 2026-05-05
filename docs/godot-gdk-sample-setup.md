@@ -50,7 +50,9 @@ This prompts for each value and generates `sample_config.cfg`,
 
 ## Set your PC sandbox
 
-Your PC must be in the same sandbox as your test account:
+Setting the PC sandbox and signing into a test account is covered in its
+own document — see [`xbox-sandbox-and-test-account-setup.md`](xbox-sandbox-and-test-account-setup.md).
+The short version:
 
 ```powershell
 # Set sandbox (requires admin)
@@ -71,9 +73,8 @@ The sample uses **Xbox test accounts**, not personal Microsoft accounts:
 4. Your test account must be provisioned in Partner Center under the same
    sandbox
 
-> **Tip:** If sign-in fails, verify the sandbox with `XblPCSandbox.exe` and
-> check that your test account exists in Partner Center → Account Settings →
-> Xbox Live → Test Accounts.
+> **Tip:** If sign-in fails, see the troubleshooting table in
+> [`xbox-sandbox-and-test-account-setup.md`](xbox-sandbox-and-test-account-setup.md).
 
 ## How configuration flows
 

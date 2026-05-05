@@ -81,7 +81,20 @@ static func inject_vc14_dependency(content: String) -> String:
 	if content.contains('<KnownDependency Name="VC14"/>') or not content.contains("</Game>"):
 		return content
 
-	var dep_xml = '  <DesktopRegistration>\n    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n  </DesktopRegistration>\n'
+	var dep_inner = '    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n'
+	var existing_dr := RegEx.new()
+	# Match an existing <DesktopRegistration>...</DesktopRegistration> block (non-greedy, DOTALL so
+	# it can span newlines). If found, merge the DependencyList into it instead of appending a new
+	# DesktopRegistration block — GDK rejects configs with more than one DesktopRegistration.
+	existing_dr.compile('(?s)<DesktopRegistration>(.*?)</DesktopRegistration>')
+	var match = existing_dr.search(content)
+	if match:
+		var inner: String = match.get_string(1)
+		var trimmed: String = inner.strip_edges(false, true)
+		var merged: String = "<DesktopRegistration>%s\n%s  </DesktopRegistration>" % [trimmed, dep_inner]
+		return content.substr(0, match.get_start()) + merged + content.substr(match.get_end())
+
+	var dep_xml = '  <DesktopRegistration>\n' + dep_inner + '  </DesktopRegistration>\n'
 	return content.replace("</Game>", dep_xml + "</Game>")
 
 

@@ -11,8 +11,25 @@ namespace godot {
 
 class GameInputActionMap;
 
-// Bridges GameInput → Godot's Input/InputMap by emitting Input.action_press /
-// action_release each frame for every binding in the configured action_map.
+// Bridges GameInput → Godot's Input/InputMap. For every binding in the
+// configured action_map the mapper:
+//   * Refreshes the polled action state every frame via Input.action_press /
+//     action_release so consumers using Input.is_action_pressed("move_up")
+//     keep working.
+//   * On every press<->release transition, parses an InputEventAction so
+//     event-driven consumers (Viewport GUI focus traversal for ui_*,
+//     _gui_input listeners, _input/_unhandled_input handlers) actually
+//     observe the change, since Input.action_press alone updates polled
+//     state without delivering an InputEvent.
+//
+// To avoid double-firing when Godot's built-in joypad backend is already
+// wired to deliver the same action through an InputEventJoypadButton /
+// InputEventJoypadMotion in the InputMap (e.g., default ui_accept ←
+// joypad button A), the mapper checks each binding's action against the
+// InputMap once, caches the result per binding, and skips its own
+// InputEventAction emit when a matching native event exists. The polled
+// action_press path keeps running either way; only the synthetic event is
+// suppressed. The cache is invalidated whenever the action_map changes.
 //
 // Action names must already exist in Godot's InputMap for the standard
 // Input.is_action_pressed("jump") API to work; the Mapper warns once per
@@ -40,12 +57,27 @@ private:
     // press/release on the right edges. Keyed by binding index in the map.
     HashMap<int, bool> m_prev_pressed;
 
+    // Per-binding cache: does Godot's built-in joypad backend already drive
+    // this binding's action via an equivalent InputEventJoypadButton /
+    // InputEventJoypadMotion in the project's InputMap? When true, we skip
+    // emitting our own InputEventAction for the same press to avoid every
+    // ui_accept / ui_up / etc. firing twice. The polled state (action_press)
+    // still gets refreshed every frame either way. Cache is invalidated when
+    // the action map changes; rare runtime InputMap edits are tolerated as
+    // single-frame staleness.
+    HashMap<int, bool> m_native_handles_cache;
+
     // Action names we've already warned about being missing from InputMap.
     HashSet<StringName> m_warned_missing_actions;
 
     void _process_bindings();
     bool _is_pressed_for(int source, float &out_strength,
                          class GameInputReading *reading) const;
+    bool _native_path_handles_binding(const Ref<class GameInputBinding> &binding,
+                                      const StringName &action) const;
+
+    static int _source_to_joy_button(int source);
+    static int _source_to_joy_axis(int source);
 
 protected:
     static void _bind_methods();

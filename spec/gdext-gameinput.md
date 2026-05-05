@@ -226,9 +226,21 @@ during implementation and validated through a rubber-duck design pass:
 
 - **`GameInputMapper` is action-level, not physical-event-level.**
   The Mapper emits via `Input.action_press(action, strength)` /
-  `Input.action_release(action)` keyed off `GameInputBinding` rows. It does
-  **not** inject `InputEventJoypadButton` / `InputEventJoypadMotion` — that
-  would create a split-brain where the same input flows through two paths.
+  `Input.action_release(action)` keyed off `GameInputBinding` rows so polled
+  consumers (paddle handlers reading
+  `Input.is_action_pressed("move_up")`) keep working, and on every press /
+  release transition it additionally pushes an `InputEventAction` through
+  `Input.parse_input_event` so event-driven consumers — Viewport GUI focus
+  traversal for `ui_*`, `_gui_input`, `_input` / `_unhandled_input` — see the
+  action transition. It does **not** inject `InputEventJoypadButton` /
+  `InputEventJoypadMotion` — that would create a split-brain where the same
+  input flows through two paths.
+  When Godot's built-in joypad backend is already wired to deliver the same
+  action via a matching `InputEventJoypadButton` / `InputEventJoypadMotion` in
+  the project's `InputMap` (e.g., the default `ui_accept` mapping that
+  includes joypad button A), the Mapper detects the duplicate per binding,
+  caches the result, and skips its own `InputEventAction` so menu actions
+  fire exactly once per physical press instead of twice.
   Action names must already exist in `InputMap`; missing actions trigger a
   single per-instance `push_warning` (debounced via
   `HashSet<StringName> m_warned_missing_actions`).

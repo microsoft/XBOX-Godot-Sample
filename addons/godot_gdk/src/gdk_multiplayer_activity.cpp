@@ -1,12 +1,15 @@
 #include "gdk_multiplayer_activity.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include <XGameUI.h>
+
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "gdk.h"
 #include "gdk_pending_signal.h"
@@ -596,10 +599,22 @@ Ref<GDKResult> GDKMultiplayerActivity::on_runtime_initialized() {
             _activation_callback,
             &m_activation_token);
     if (FAILED(hr)) {
-        return GDKResult::hresult_error(
-                hr,
-                "Failed to register the multiplayer activity activation callback.",
-                "multiplayer_activity_activation_register_failed");
+        // Activation registration is an optional inbound-event listener.
+        // On PC GDK with strict GamingServices builds (>=35.112.23xxx) it
+        // can return ERROR_NOT_SUPPORTED (0x80070032) when the title is
+        // not running inside a fully-registered package context (notably
+        // F5-from-editor and partially-registered loose builds). The
+        // outbound multiplayer activity APIs (set/clear/get) still work,
+        // so degrade gracefully instead of failing the entire GDK init.
+        char hr_buf[16];
+        std::snprintf(hr_buf, sizeof(hr_buf), "0x%08X", static_cast<unsigned int>(hr));
+        UtilityFunctions::push_warning(
+                String("[GDK] XGameActivationRegisterForEvent failed (HRESULT ") +
+                String(hr_buf) +
+                ") — multiplayer activity inbound events disabled, outbound API still available.");
+        m_activation_registered = false;
+        m_runtime_ready = true;
+        return GDKResult::ok_result();
     }
 
     m_runtime_ready = true;

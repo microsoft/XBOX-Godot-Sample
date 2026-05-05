@@ -26,6 +26,7 @@ include(GodotExtensionCommon)
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)
 option(BUILD_GODOT_GAMEINPUT "Build the godot_gameinput addon" ON)
 option(BUILD_GODOT_PLAYFAB "Build the godot_playfab addon" ON)
+option(BUILD_GODOT_GDK_PACKAGING "Sync the godot_gdk_packaging editor plugin into samples" ON)
 
 set(GODOT_GDK_PACKAGING_MIRROR_DIRS)
 
