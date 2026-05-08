@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <XGame.h>
+#include <XSystem.h>
 
 #include "gdk.h"
 #include "gdk_result.h"
@@ -64,8 +65,18 @@ Ref<GDKResult> GDKSystem::get_title_id_hex() const {
 }
 
 Ref<GDKResult> GDKSystem::get_sandbox_id() const {
-    const char *sandbox_id = XGameGetSandboxId();
-    if (sandbox_id == nullptr || sandbox_id[0] == '\0') {
+    char sandbox_id[XSystemXboxLiveSandboxIdMaxBytes] = {};
+    size_t sandbox_id_used = 0;
+    const HRESULT hr = XSystemGetXboxLiveSandboxId(sizeof(sandbox_id), sandbox_id, &sandbox_id_used);
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(
+            hr,
+            "Xbox Live sandbox ID is unavailable.",
+            "sandbox_id_unavailable");
+    }
+
+    sandbox_id[sizeof(sandbox_id) - 1] = '\0';
+    if (sandbox_id_used == 0 || sandbox_id[0] == '\0') {
         return GDKResult::error_result(
             E_FAIL,
             "sandbox_id_unavailable",
