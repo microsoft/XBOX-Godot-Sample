@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, accessibility, achievements, presence, social, and multiplayer activity. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, accessibility, achievements, presence, social, launcher, and multiplayer activity. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -75,6 +75,12 @@
 				Returns the GDKSocial service for social features.
 			</description>
 		</method>
+		<method name="get_launcher" qualifiers="const">
+			<return type="GDKLauncher" />
+			<description>
+				Returns the [GDKLauncher] service for supported URI launch flows on PC GDK.
+			</description>
+		</method>
 		<method name="get_multiplayer_activity" qualifiers="const">
 			<return type="GDKMultiplayerActivity" />
 			<description>
@@ -97,6 +103,9 @@
 		</member>
 		<member name="social" type="GDKSocial" setter="" getter="get_social">
 			The GDKSocial service instance for social features.
+		</member>
+		<member name="launcher" type="GDKLauncher" setter="" getter="get_launcher">
+			The [GDKLauncher] service instance for supported URI launch flows on PC GDK.
 		</member>
 		<member name="multiplayer_activity" type="GDKMultiplayerActivity" setter="" getter="get_multiplayer_activity">
 			The GDKMultiplayerActivity service instance for multiplayer activity management.

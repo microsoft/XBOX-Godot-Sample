@@ -20,6 +20,7 @@ add_library(godot_gdk SHARED
     src/gdk_achievement.cpp
     src/gdk_presence.cpp
     src/gdk_social.cpp
+    src/gdk_launcher.cpp
     src/gdk_multiplayer_activity.cpp
     src/gdk_xbox_services.cpp
 )

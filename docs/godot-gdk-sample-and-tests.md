@@ -76,7 +76,7 @@ Use this command as the standard path. Direct Godot `--script` or GUT invocation
 
 | Host | Covers |
 |------|--------|
-| `tests\godot\gdk\` | `godot_gdk` runtime, users, achievements, presence, social, multiplayer activity, result helpers, embed dispatch, bootstrap behavior, and `godot_gdk_packaging` editor-helper logic under `tests\godot\gdk\tests\packaging\`. |
+| `tests\godot\gdk\` | `godot_gdk` runtime, users, achievements, presence, social, launcher URI validation, multiplayer activity, result helpers, embed dispatch, bootstrap behavior, and `godot_gdk_packaging` editor-helper logic under `tests\godot\gdk\tests\packaging\`. |
 | `tests\godot\playfab\` | `godot_playfab` root singleton, users, custom-ID sign-in, Game Saves, leaderboards, validation paths, and live PlayFab flows. |
 | `tests\godot\gameinput\` | `godot_gameinput` singleton, device/readings wrappers, resources, mapper/action bridge, threading smoke, and bootstrap autoload behavior. |
 
@@ -163,6 +163,15 @@ Parity baselines live at `tests\baselines\gdk.json`, `tests\baselines\playfab.js
 Update a baseline only when the host's intentional coverage changes. Do not lower `post.asserts` below `pre.asserts`; if coverage decreases for a legitimate reason, call it out in review instead of silently changing the baseline.
 
 ## Live test cleanup
+
+## Manual launcher smoke checks
+
+`GDK.launcher` success paths invoke OS-level URI handlers (`XLaunchUri`) and are
+not deterministic in CI/headless hosts. Keep automated coverage focused on input
+validation and unsupported-destination errors, then run manual smoke checks on a
+PC GDK machine for successful destinations (for example
+`GDK.launcher.launch_uri("ms-settings:privacy-microphone")` and
+`GDK.launcher.launch_uri("ms-windows-store://pdp/?productid=<StoreProductId>")`).
 
 After live runs that write online state, use `tools\reset_player_data.ps1` when sandbox state needs to be cleared for a test account. This is especially useful after mutating leaderboard, stats, or achievement-style data in a developer sandbox. Run it only against a test sandbox and test account, never production data.
 

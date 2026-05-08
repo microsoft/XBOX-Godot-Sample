@@ -4,7 +4,7 @@
 
 This document defines a **GDScript-first** plan for the `godot_gdk` Godot GDExtension plugin.
 
-`godot_gdk` owns the GDK runtime, users, save-container resolution, and Xbox services wrappers for achievements, stats, leaderboards, presence, and social features. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
+`godot_gdk` owns the GDK runtime, users, launcher URI flows, save-container resolution, and Xbox services wrappers for achievements, stats, leaderboards, presence, and social features. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
 
 The core architectural rule is: **C++ is internal; GDScript is the primary public surface**. Commerce, store, and licensing are intentionally deferred until the core runtime and service model are stable.
 
@@ -23,7 +23,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | --- | --- | --- |
 | Runtime init/shutdown | Yes | `XGameRuntimeInitialize`, queue/bootstrap |
 | User identity/sign-in | Yes | `XUser`-backed |
-| Commerce / store / licensing | Deferred | Revisit after the core runtime and service layers are stable. |
+| Commerce / store / licensing | Deferred | Revisit after the core runtime and service layers are stable. Launcher URI wrappers are in scope, but commerce REST and purchase APIs remain deferred. |
 | Save data | Yes | `XGameSaveFiles` root/container resolution for Godot file APIs |
 | Achievements | Yes | Achievements Manager-backed |
 | Stats | Yes | title-managed stats via `title_managed_statistics_c` plus `user_statistics_c` reads/tracking |
@@ -46,7 +46,7 @@ Wrapping native state in Godot objects such as `GDKUser` and `GDKSaveContainer`,
 
 Microsoft documents saves, stats/leaderboards, presence, and the social graph as distinct systems ([XGameSaveFiles overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-save/xgamesavefiles?view=gdk-2510), [Stats and Leaderboards](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/stats-leaderboards/live-stats-leaderboards-nav?view=gdk-2510), [Presence overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/presence/live-presence-overview?view=gdk-2604), [Social Manager overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/social-manager/live-social-manager-overview?view=gdk-2604)).
 
-Mirroring that separation in the public API makes partial initialization, documentation, testing, and feature flags clearer. The `GDK` root singleton still gives the convenience of one entry point, but the actual surface is partitioned into `GDK.save`, `GDK.achievements`, `GDK.stats`, `GDK.leaderboards`, `GDK.presence`, and `GDK.social`.
+Mirroring that separation in the public API makes partial initialization, documentation, testing, and feature flags clearer. The `GDK` root singleton still gives the convenience of one entry point, but the actual surface is partitioned into `GDK.save`, `GDK.achievements`, `GDK.stats`, `GDK.leaderboards`, `GDK.presence`, `GDK.social`, and `GDK.launcher`.
 
 ### Why main-thread dispatch is part of the public contract
 
@@ -312,6 +312,7 @@ GDK.stats: GDKStats
 GDK.leaderboards: GDKLeaderboards
 GDK.presence: GDKPresence
 GDK.social: GDKSocial
+GDK.launcher: GDKLauncher
 ```
 
 #### Root signals
@@ -336,6 +337,7 @@ availability_changed(available: bool)
 | `GDK.initialize()` | `XGameRuntimeInitialize`, `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. |
 | `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle`, `XGameRuntimeUninitialize` | Service and user cleanup should run first; queue/runtime teardown happens last. |
 | `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork` | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
+| `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
 | per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `GDKUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
 
 Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared queue and complete it only after the Godot-side cache and wrapper state are current.
@@ -343,6 +345,20 @@ Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared
 ### Service specifications
 
 Unless otherwise noted, the service sections below follow the global naming, type, and terminology rules defined in **Public API conventions**.
+
+#### `GDK.launcher` service
+
+##### Methods
+
+```gdscript
+launch_uri(uri: String, user: GDKUser = null) -> GDKResult
+```
+
+##### Validation contract
+
+- `launch_uri` rejects blank/malformed input with `invalid_uri`.
+- Unsupported URI destinations reject with `unsupported_launcher_destination`.
+- Optional `user` must be a signed-in `GDKUser` when provided (`invalid_user`).
 
 #### `GDK.users` service
 
