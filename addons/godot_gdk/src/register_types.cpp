@@ -9,6 +9,7 @@
 #include "gdk_achievement.h"
 #include "gdk_accessibility.h"
 #include "gdk.h"
+#include "gdk_launcher.h"
 #include "gdk_multiplayer_activity.h"
 #include "gdk_pending_signal.h"
 #include "gdk_presence.h"
@@ -99,6 +100,7 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKSocialGroup>();
         ClassDB::register_class<GDKSocialUser>();
         ClassDB::register_class<GDKSocial>();
+        ClassDB::register_class<GDKLauncher>();
         ClassDB::register_class<GDKMultiplayerActivityInfo>();
         ClassDB::register_class<GDKMultiplayerActivity>();
 

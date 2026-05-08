@@ -28,6 +28,7 @@ accessed as namespaces under this root.
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
+| `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
 
 ### Signals
@@ -153,9 +154,6 @@ Script-visible wrapper around the native `XClosedCaptionProperties` payload.
 | `font_style` | `GDKClosedCaptionProperties.FontStyle` | Caption font style |
 | `font_scale` | `float` | Caption font scale |
 | `enabled` | `bool` | Whether captions are enabled |
-| `is_guest()` | `bool` | Whether the user is a guest |
-| `is_signed_in()` | `bool` | Whether the user is signed in |
-| `is_store_user()` | `bool` | Whether the user is a store user |
 
 ## Achievements service: `GDK.achievements`
 
@@ -418,6 +416,35 @@ Script-visible wrapper around a cached multiplayer activity snapshot.
 | `get_current_players()` | `int` | Current player count |
 | `get_group_id()` | `String` | Optional group identifier |
 | `get_platform()` | `String` | Platform the activity was set from |
+
+## Launcher service: `GDK.launcher`
+
+`GDK.launcher` is a `RefCounted` service object returned by `GDK.get_launcher()`.
+It wraps PC-supported `XLaunchUri` flows.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `launch_uri(uri, user := null)` | `GDKResult` | Launch an absolute URI with `XLaunchUri` |
+
+### Validation notes
+
+- Blank or malformed URIs return `invalid_uri`.
+- `unsupported_launcher_destination` is returned for blocked destinations such as
+  `file:`, `javascript:`, `data:`, and `about:` URIs, and for `ms-*` URIs other
+  than `ms-settings:` and `ms-windows-store:`.
+- Unsigned/invalid optional users return `invalid_user`.
+
+### Manual smoke coverage
+
+Launcher success paths depend on host OS URI handlers and package context and are
+not deterministic for CI. Use a manual smoke pass on a PC GDK machine:
+
+```gdscript
+var result = GDK.launcher.launch_uri("ms-settings:privacy-microphone")
+print(result.ok, result.code, result.message)
+```
 
 ### `GDKResult`
 

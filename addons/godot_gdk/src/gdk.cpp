@@ -29,6 +29,8 @@ GDK::GDK() {
     m_presence->set_owner(this);
     m_social.instantiate();
     m_social->set_owner(this);
+    m_launcher.instantiate();
+    m_launcher->set_owner(this);
     m_multiplayer_activity.instantiate();
     m_multiplayer_activity->set_owner(this);
 }
@@ -51,6 +53,7 @@ GDK::~GDK() {
     m_achievements.unref();
     m_presence.unref();
     m_social.unref();
+    m_launcher.unref();
     m_multiplayer_activity.unref();
     singleton = nullptr;
 }
@@ -67,6 +70,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
     ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
     ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
+    ClassDB::bind_method(D_METHOD("get_launcher"), &GDK::get_launcher);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
@@ -74,6 +78,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAchievements"), "", "get_achievements");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPresence"), "", "get_presence");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSocial"), "", "get_social");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "launcher", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLauncher"), "", "get_launcher");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
 
     ADD_SIGNAL(MethodInfo("initialized"));
@@ -145,10 +150,24 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return social_result;
     }
 
+    Ref<GDKResult> launcher_result = m_launcher->on_runtime_initialized();
+    if (!launcher_result->is_ok()) {
+        emit_runtime_error(launcher_result);
+        m_launcher->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_achievements->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return launcher_result;
+    }
+
     Ref<GDKResult> multiplayer_activity_result = m_multiplayer_activity->on_runtime_initialized();
     if (!multiplayer_activity_result->is_ok()) {
         emit_runtime_error(multiplayer_activity_result);
         m_multiplayer_activity->shutdown();
+        m_launcher->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_achievements->shutdown();
@@ -169,6 +188,7 @@ void GDK::shutdown() {
 
     m_multiplayer_activity->shutdown();
     m_social->shutdown();
+    m_launcher->shutdown();
     m_presence->shutdown();
     m_achievements->shutdown();
     m_users->shutdown();
@@ -212,6 +232,10 @@ Ref<GDKPresence> GDK::get_presence() const {
 
 Ref<GDKSocial> GDK::get_social() const {
     return m_social;
+}
+
+Ref<GDKLauncher> GDK::get_launcher() const {
+    return m_launcher;
 }
 
 Ref<GDKMultiplayerActivity> GDK::get_multiplayer_activity() const {

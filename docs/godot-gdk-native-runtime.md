@@ -11,7 +11,7 @@ See also:
 
 ## Runtime structure
 
-The current native implementation is the runtime/users/accessibility/achievements/presence/social baseline:
+The current native implementation is the runtime/users/accessibility/achievements/presence/social/launcher baseline:
 
 - root singleton: `GDK`
 - service namespace: `GDK.users`
@@ -19,6 +19,7 @@ The current native implementation is the runtime/users/accessibility/achievement
 - service namespace: `GDK.achievements`
 - service namespace: `GDK.presence`
 - service namespace: `GDK.social`
+- service namespace: `GDK.launcher`
 - wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKAccessibility`, `GDKClosedCaptionProperties`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`
 - internal direct-await helpers: `GDKPendingSignal`, `GDKSignalXAsyncContext`
 - internal Xbox services scaffold: `GDKXboxServices`
@@ -35,6 +36,7 @@ It owns:
 - `GDKAchievements`
 - `GDKPresence`
 - `GDKSocial`
+- `GDKLauncher`
 - `GDKXboxServices`
 
 Its responsibilities are:
@@ -59,6 +61,7 @@ Current public shape:
 - `get_achievements() -> GDKAchievements`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
+- `get_launcher() -> GDKLauncher`
 
 ## Shared runtime: `GDKRuntime`
 
