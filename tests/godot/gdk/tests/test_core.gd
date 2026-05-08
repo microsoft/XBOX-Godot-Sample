@@ -28,6 +28,8 @@ func test_class_registration() -> void:
 		"GDK",
 		"GDKUsers",
 		"GDKUser",
+		"GDKAccessibility",
+		"GDKClosedCaptionProperties",
 		"GDKAchievements",
 		"GDKAchievement",
 		"GDKPresence",
@@ -43,6 +45,8 @@ func test_class_registration() -> void:
 	assert_true(ClassDB.is_parent_class("GDK", "Object"), "GDK extends Object")
 	assert_true(ClassDB.is_parent_class("GDKUsers", "RefCounted"), "GDKUsers extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKUser", "RefCounted"), "GDKUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKAccessibility", "RefCounted"), "GDKAccessibility extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKClosedCaptionProperties", "RefCounted"), "GDKClosedCaptionProperties extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKAchievements", "RefCounted"), "GDKAchievements extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKAchievement", "RefCounted"), "GDKAchievement extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKPresence", "RefCounted"), "GDKPresence extends RefCounted")
@@ -60,13 +64,14 @@ func test_gdk_root_api() -> void:
 
 	var gdk = get_gdk()
 
-	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_achievements", "get_presence", "get_social"]:
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_accessibility", "get_achievements", "get_presence", "get_social"]:
 		assert_has_method_named(gdk, method_name)
 
 	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
 		assert_has_signal_named(gdk, signal_name)
 
 	assert_true(gdk.get_users() != null, "GDK.users service available")
+	assert_true(gdk.get_accessibility() != null, "GDK.accessibility service available")
 	assert_true(gdk.get_achievements() != null, "GDK.achievements service available")
 	assert_true(gdk.get_presence() != null, "GDK.presence service available")
 	assert_true(gdk.get_social() != null, "GDK.social service available")

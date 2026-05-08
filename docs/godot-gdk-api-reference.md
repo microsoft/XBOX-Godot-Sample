@@ -24,6 +24,7 @@ accessed as namespaces under this root.
 | `dispatch()` | `int` | Pump async completions and manager state manually when `gdk/runtime/embed_dispatch` is disabled or when deterministic control is needed |
 | `get_last_error()` | `GDKResult` | Last error result |
 | `get_users()` | `GDKUsers` | Access the users service |
+| `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
@@ -118,6 +119,40 @@ Script-visible wrapper around a local Xbox user.
 |--------|---------|-------------|
 | `get_age_group_name()` | `String` | Age group as human-readable string |
 | `get_sign_in_state_name()` | `String` | Sign-in state as human-readable string |
+
+## Accessibility service: `GDK.accessibility`
+
+`GDK.accessibility` is a `RefCounted` service object returned by `GDK.get_accessibility()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `query_closed_caption_properties()` | `GDKResult` | Query closed-caption properties from `XClosedCaptionGetProperties`; on success `result.data` is `GDKClosedCaptionProperties` |
+| `set_closed_caption_enabled(enabled)` | `GDKResult` | Set caption-enabled state using `XClosedCaptionSetEnabled` |
+| `query_high_contrast_mode()` | `GDKResult` | Query current high-contrast mode from `XHighContrastGetMode`; on success `result.data` includes `mode` and `mode_name` |
+| `get_high_contrast_mode_name(mode)` | `String` | Convert `GDKAccessibility.HighContrastMode` to snake_case name |
+
+### Notes
+
+- These wrappers are scoped to concrete PC-supported APIs documented under `XAccessibility.h`.
+- Speech-to-text overlay APIs are intentionally excluded from this first deterministic accessibility surface.
+
+## `GDKClosedCaptionProperties`
+
+Script-visible wrapper around the native `XClosedCaptionProperties` payload.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `background_color` | `Color` | Caption background color |
+| `font_color` | `Color` | Caption font color |
+| `window_color` | `Color` | Caption window color |
+| `font_edge_attribute` | `GDKClosedCaptionProperties.FontEdgeAttribute` | Caption edge style |
+| `font_style` | `GDKClosedCaptionProperties.FontStyle` | Caption font style |
+| `font_scale` | `float` | Caption font scale |
+| `enabled` | `bool` | Whether captions are enabled |
 | `is_guest()` | `bool` | Whether the user is a guest |
 | `is_signed_in()` | `bool` | Whether the user is signed in |
 | `is_store_user()` | `bool` | Whether the user is a store user |

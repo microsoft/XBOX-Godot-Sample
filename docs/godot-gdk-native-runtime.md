@@ -11,14 +11,15 @@ See also:
 
 ## Runtime structure
 
-The current native implementation is the runtime/users/achievements/presence/social baseline:
+The current native implementation is the runtime/users/accessibility/achievements/presence/social baseline:
 
 - root singleton: `GDK`
 - service namespace: `GDK.users`
+- service namespace: `GDK.accessibility`
 - service namespace: `GDK.achievements`
 - service namespace: `GDK.presence`
 - service namespace: `GDK.social`
-- wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`
+- wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKAccessibility`, `GDKClosedCaptionProperties`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`
 - internal direct-await helpers: `GDKPendingSignal`, `GDKSignalXAsyncContext`
 - internal Xbox services scaffold: `GDKXboxServices`
 
@@ -30,6 +31,7 @@ It owns:
 
 - `GDKRuntime`
 - `GDKUsers`
+- `GDKAccessibility`
 - `GDKAchievements`
 - `GDKPresence`
 - `GDKSocial`
@@ -53,6 +55,7 @@ Current public shape:
 - `dispatch() -> int`
 - `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
+- `get_accessibility() -> GDKAccessibility`
 - `get_achievements() -> GDKAchievements`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
@@ -140,6 +143,24 @@ It emits:
 - guest flag
 - store-user flag
 - owned `XUserHandle`
+
+## Accessibility service
+
+`GDKAccessibility` is a synchronous service for concrete APIs from `XAccessibility.h`.
+
+It currently exposes:
+
+- `query_closed_caption_properties() -> GDKResult`
+- `set_closed_caption_enabled(enabled: bool) -> GDKResult`
+- `query_high_contrast_mode() -> GDKResult`
+
+`GDKClosedCaptionProperties` is the script-visible wrapper around native
+`XClosedCaptionProperties` data and exposes colors, font style/edge enums,
+font scale, and enabled state.
+
+These wrappers intentionally cover only the concrete PC-supported APIs used in
+this change (`XClosedCaptionGetProperties`, `XClosedCaptionSetEnabled`,
+`XHighContrastGetMode`). Speech-to-text and other families remain out of scope.
 
 ## Achievements service
 

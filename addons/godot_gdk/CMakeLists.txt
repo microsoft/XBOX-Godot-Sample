@@ -10,6 +10,7 @@ gdk_detect_dependencies(
 add_library(godot_gdk SHARED
     src/register_types.cpp
     src/gdk.cpp
+    src/gdk_accessibility.cpp
     src/gdk_runtime.cpp
     src/gdk_result.cpp
     src/gdk_result_codes_internal.cpp

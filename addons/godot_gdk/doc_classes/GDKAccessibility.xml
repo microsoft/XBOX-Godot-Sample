@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKAccessibility" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		GDK accessibility service exposed under [code]GDK.accessibility[/code].
+	</brief_description>
+	<description>
+		Provides wrappers for concrete PC GDK accessibility APIs from [code]XAccessibility.h[/code].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="query_closed_caption_properties">
+			<return type="GDKResult" />
+			<description>
+				Queries current closed-caption properties via [code]XClosedCaptionGetProperties[/code]. On success, [code]result.data[/code] is a [GDKClosedCaptionProperties] object.
+			</description>
+		</method>
+		<method name="set_closed_caption_enabled">
+			<return type="GDKResult" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				Sets whether closed captions are enabled via [code]XClosedCaptionSetEnabled[/code].
+			</description>
+		</method>
+		<method name="query_high_contrast_mode">
+			<return type="GDKResult" />
+			<description>
+				Queries the current high-contrast mode via [code]XHighContrastGetMode[/code]. On success, [code]result.data[/code] contains [code]mode[/code] and [code]mode_name[/code].
+			</description>
+		</method>
+		<method name="get_high_contrast_mode_name" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="mode" type="int" enum="GDKAccessibility.HighContrastMode" />
+			<description>
+				Returns a snake_case name for a [enum HighContrastMode] value.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="HIGH_CONTRAST_MODE_OFF" value="0" enum="HighContrastMode">
+			High contrast is off.
+		</constant>
+		<constant name="HIGH_CONTRAST_MODE_DARK" value="1" enum="HighContrastMode">
+			Dark high-contrast mode.
+		</constant>
+		<constant name="HIGH_CONTRAST_MODE_LIGHT" value="2" enum="HighContrastMode">
+			Light high-contrast mode.
+		</constant>
+		<constant name="HIGH_CONTRAST_MODE_OTHER" value="3" enum="HighContrastMode">
+			Another high-contrast style not represented by dark or light.
+		</constant>
+	</constants>
+</class>

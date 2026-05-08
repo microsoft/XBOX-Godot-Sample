@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, achievements, presence, social, and multiplayer activity. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, accessibility, achievements, presence, social, and multiplayer activity. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -57,6 +57,12 @@
 				Returns the [GDKAchievements] service for querying and updating Xbox achievements.
 			</description>
 		</method>
+		<method name="get_accessibility" qualifiers="const">
+			<return type="GDKAccessibility" />
+			<description>
+				Returns the [GDKAccessibility] service for concrete PC accessibility APIs.
+			</description>
+		</method>
 		<method name="get_presence" qualifiers="const">
 			<return type="GDKPresence" />
 			<description>
@@ -82,6 +88,9 @@
 		</member>
 		<member name="achievements" type="GDKAchievements" setter="" getter="get_achievements">
 			The [GDKAchievements] service instance for querying and updating Xbox achievements.
+		</member>
+		<member name="accessibility" type="GDKAccessibility" setter="" getter="get_accessibility">
+			The [GDKAccessibility] service instance for accessibility APIs.
 		</member>
 		<member name="presence" type="GDKPresence" setter="" getter="get_presence">
 			The GDKPresence service instance for managing rich presence.

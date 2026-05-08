@@ -7,6 +7,7 @@
 #include <godot_cpp/godot.hpp>
 
 #include "gdk_achievement.h"
+#include "gdk_accessibility.h"
 #include "gdk.h"
 #include "gdk_multiplayer_activity.h"
 #include "gdk_pending_signal.h"
@@ -88,6 +89,8 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_internal_class<GDKPendingSignal>();
         ClassDB::register_class<GDKUser>();
         ClassDB::register_class<GDKUsers>();
+        ClassDB::register_class<GDKClosedCaptionProperties>();
+        ClassDB::register_class<GDKAccessibility>();
         ClassDB::register_class<GDKAchievement>();
         ClassDB::register_class<GDKAchievements>();
         ClassDB::register_class<GDKPresenceRecord>();

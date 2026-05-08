@@ -21,6 +21,8 @@ GDK::GDK() {
     m_xbox_services = new GDKXboxServices();
     m_users.instantiate();
     m_users->set_owner(this);
+    m_accessibility.instantiate();
+    m_accessibility->set_owner(this);
     m_achievements.instantiate();
     m_achievements->set_owner(this);
     m_presence.instantiate();
@@ -45,6 +47,7 @@ GDK::~GDK() {
     }
 
     m_users.unref();
+    m_accessibility.unref();
     m_achievements.unref();
     m_presence.unref();
     m_social.unref();
@@ -60,12 +63,14 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("dispatch"), &GDK::dispatch);
     ClassDB::bind_method(D_METHOD("get_last_error"), &GDK::get_last_error);
     ClassDB::bind_method(D_METHOD("get_users"), &GDK::get_users);
+    ClassDB::bind_method(D_METHOD("get_accessibility"), &GDK::get_accessibility);
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
     ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
     ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accessibility", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAccessibility"), "", "get_accessibility");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAchievements"), "", "get_achievements");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPresence"), "", "get_presence");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSocial"), "", "get_social");
@@ -191,6 +196,10 @@ Ref<GDKResult> GDK::get_last_error() const {
 
 Ref<GDKUsers> GDK::get_users() const {
     return m_users;
+}
+
+Ref<GDKAccessibility> GDK::get_accessibility() const {
+    return m_accessibility;
 }
 
 Ref<GDKAchievements> GDK::get_achievements() const {

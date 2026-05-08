@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKClosedCaptionProperties" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Script-visible snapshot of native closed-caption settings.
+	</brief_description>
+	<description>
+		Represents values returned by [code]XClosedCaptionGetProperties[/code].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_background_color" qualifiers="const">
+			<return type="Color" />
+			<description>
+				Returns caption background color.
+			</description>
+		</method>
+		<method name="get_font_color" qualifiers="const">
+			<return type="Color" />
+			<description>
+				Returns caption font color.
+			</description>
+		</method>
+		<method name="get_window_color" qualifiers="const">
+			<return type="Color" />
+			<description>
+				Returns caption window color.
+			</description>
+		</method>
+		<method name="get_font_edge_attribute" qualifiers="const">
+			<return type="int" enum="GDKClosedCaptionProperties.FontEdgeAttribute" />
+			<description>
+				Returns the caption font edge style.
+			</description>
+		</method>
+		<method name="get_font_edge_attribute_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a snake_case name for [enum FontEdgeAttribute].
+			</description>
+		</method>
+		<method name="get_font_style" qualifiers="const">
+			<return type="int" enum="GDKClosedCaptionProperties.FontStyle" />
+			<description>
+				Returns the caption font style.
+			</description>
+		</method>
+		<method name="get_font_style_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a snake_case name for [enum FontStyle].
+			</description>
+		</method>
+		<method name="get_font_scale" qualifiers="const">
+			<return type="float" />
+			<description>
+				Returns caption font scale.
+			</description>
+		</method>
+		<method name="is_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns whether closed captions are currently enabled.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="background_color" type="Color" setter="" getter="get_background_color">
+			Caption background color.
+		</member>
+		<member name="font_color" type="Color" setter="" getter="get_font_color">
+			Caption font color.
+		</member>
+		<member name="window_color" type="Color" setter="" getter="get_window_color">
+			Caption window color.
+		</member>
+		<member name="font_edge_attribute" type="int" setter="" getter="get_font_edge_attribute" enum="GDKClosedCaptionProperties.FontEdgeAttribute">
+			Caption font edge style.
+		</member>
+		<member name="font_style" type="int" setter="" getter="get_font_style" enum="GDKClosedCaptionProperties.FontStyle">
+			Caption font style.
+		</member>
+		<member name="font_scale" type="float" setter="" getter="get_font_scale">
+			Caption font scale factor.
+		</member>
+		<member name="enabled" type="bool" setter="" getter="is_enabled">
+			Whether closed captions are enabled.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="FONT_EDGE_ATTRIBUTE_DEFAULT" value="0" enum="FontEdgeAttribute">
+			Default edge style.
+		</constant>
+		<constant name="FONT_EDGE_ATTRIBUTE_NONE" value="1" enum="FontEdgeAttribute">
+			No edge style.
+		</constant>
+		<constant name="FONT_EDGE_ATTRIBUTE_RAISED" value="2" enum="FontEdgeAttribute">
+			Raised edges.
+		</constant>
+		<constant name="FONT_EDGE_ATTRIBUTE_DEPRESSED" value="3" enum="FontEdgeAttribute">
+			Depressed edges.
+		</constant>
+		<constant name="FONT_EDGE_ATTRIBUTE_UNIFORM" value="4" enum="FontEdgeAttribute">
+			Uniform edges.
+		</constant>
+		<constant name="FONT_EDGE_ATTRIBUTE_DROP_SHADOW" value="5" enum="FontEdgeAttribute">
+			Drop shadow edges.
+		</constant>
+
+		<constant name="FONT_STYLE_DEFAULT" value="0" enum="FontStyle">
+			Default font style.
+		</constant>
+		<constant name="FONT_STYLE_MONOSPACED_SERIF" value="1" enum="FontStyle">
+			Monospaced font with serifs.
+		</constant>
+		<constant name="FONT_STYLE_PROPORTIONAL_SERIF" value="2" enum="FontStyle">
+			Proportional font with serifs.
+		</constant>
+		<constant name="FONT_STYLE_MONOSPACED_SANS_SERIF" value="3" enum="FontStyle">
+			Monospaced sans-serif font.
+		</constant>
+		<constant name="FONT_STYLE_PROPORTIONAL_SANS_SERIF" value="4" enum="FontStyle">
+			Proportional sans-serif font.
+		</constant>
+		<constant name="FONT_STYLE_CASUAL" value="5" enum="FontStyle">
+			Casual font style.
+		</constant>
+		<constant name="FONT_STYLE_CURSIVE" value="6" enum="FontStyle">
+			Cursive font style.
+		</constant>
+		<constant name="FONT_STYLE_SMALL_CAPITALS" value="7" enum="FontStyle">
+			Small capitals font style.
+		</constant>
+	</constants>
+</class>

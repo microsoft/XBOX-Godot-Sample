@@ -305,6 +305,7 @@ GDK.get_last_error() -> GDKResult
 
 ```gdscript
 GDK.users: GDKUsers
+GDK.accessibility: GDKAccessibility
 GDK.save: GDKSave
 GDK.achievements: GDKAchievements
 GDK.stats: GDKStats
@@ -395,6 +396,31 @@ is_store_user() -> bool
 | `GDKUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `GDKUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. |
 
 Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtime should own a single change-event registration token. Cleanup order should be: unregister runtime change notifications, remove the user from service-owned caches/managers, close the Xbox services context, then call `XUserCloseHandle`. The first successful user add establishes the session primary user; later adds should not promote a different cached user to primary.
+
+#### `GDK.accessibility` service
+
+##### Methods
+
+```gdscript
+query_closed_caption_properties() -> GDKResult
+set_closed_caption_enabled(enabled: bool) -> GDKResult
+query_high_contrast_mode() -> GDKResult
+```
+
+##### Notes
+
+- Scope is intentionally limited to concrete APIs verified in public PC GDK docs/headers for `_GAMING_DESKTOP`.
+- Do not add unrelated families in this service (`XGameStreaming`, `XPersistentLocalStorage`, `XNetworking`, console-only `XAppCapture`).
+- Speech-to-text overlay APIs are deferred for manual/UI-focused follow-up coverage.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `query_closed_caption_properties()` | `XClosedCaptionGetProperties` | Returns a `GDKClosedCaptionProperties` wrapper in `GDKResult.data`. |
+| `set_closed_caption_enabled()` | `XClosedCaptionSetEnabled` | Returns an ok/error `GDKResult`; success payload includes `enabled`. |
+| `query_high_contrast_mode()` | `XHighContrastGetMode` | Returns a `Dictionary` payload with `mode` and `mode_name`. |
+| `GDKClosedCaptionProperties` getters | `XClosedCaptionProperties` struct fields | Wrapper exposes Godot-native colors/enums/flags without exposing native handles. |
 
 #### `GDK.save` service
 
