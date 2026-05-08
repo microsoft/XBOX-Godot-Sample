@@ -55,14 +55,14 @@ can share one script while still choosing automatic or manual startup.
 
 These files are still shipped and synced, but the repo's active packaging UI now
 lives in the separate `godot_gdk_packaging` addon. The current
-`gdk_editor_plugin.gd` no longer registers the legacy custom export platform.
+`gdk_editor_plugin.gd` no longer registers the previous custom export platform.
 
 ### Sample project
 
 - `sample\gdk_demo\project.godot`
 - `addons\godot_gdk\runtime\gdk_bootstrap.gd`
 - `sample\gdk_demo\main.gd`
-- `sample\gdk_demo\tests\run_tests.gd`
+- `tests\godot\gdk\tests\`
 
 ## Build and packaging flow
 
@@ -139,6 +139,8 @@ projects exercise different slices of the addon surface.
 
 In practice:
 
-- `sample\gdk_demo\` is the canonical GDK regression sample and test harness
+- `sample\gdk_demo\` is the canonical GDK regression sample
+- `tests\godot\gdk\` is the canonical GDK test harness
 - `sample\gdk_launch_point\` and `sample\multiplayer_pong\` consume the same synced addon payload for broader scenario coverage
 - `sample\playfab_demo\` also receives synced `godot_gdk` files because the PlayFab sample depends on the GDK runtime/user flow
+- `tests\godot\playfab\` receives `godot_gdk` when `GODOT_PLAYFAB_TEST_HOST_WITH_GDK=ON` so optional Xbox-backed PlayFab compatibility tests can run; turn the option off to keep the PlayFab host custom-ID-only

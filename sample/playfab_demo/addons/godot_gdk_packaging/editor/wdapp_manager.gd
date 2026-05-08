@@ -16,7 +16,7 @@ func is_available() -> bool:
 
 
 func list_registered_apps() -> Dictionary:
-	var wdapp_path = _get_wdapp_path()
+	var wdapp_path: String = _get_wdapp_path()
 	if not FileAccess.file_exists(wdapp_path):
 		return {
 			"exit_code": -1,
@@ -25,7 +25,7 @@ func list_registered_apps() -> Dictionary:
 			"apps": [],
 		}
 
-	var result = _toolchain.execute_tool(wdapp_path, PackedStringArray(["list"]))
+	var result: Dictionary = _toolchain.execute_tool(wdapp_path, PackedStringArray(["list"]))
 	result["apps"] = parse_registered_apps(result["stdout"])
 	return result
 
@@ -39,18 +39,18 @@ func launch_app(aumid: String) -> Dictionary:
 
 
 func terminate_app(pfn: String, build_dir: String) -> Dictionary:
-	var result = _toolchain.execute_tool(_get_wdapp_path(), PackedStringArray(["terminate", pfn]))
+	var result: Dictionary = _toolchain.execute_tool(_get_wdapp_path(), PackedStringArray(["terminate", pfn]))
 	if result["exit_code"] == 0:
 		result["terminated_with"] = "wdapp"
 		return result
 
-	var exe_name = _find_primary_executable(build_dir)
+	var exe_name: String = _find_primary_executable(build_dir)
 	if exe_name == "":
 		result["terminated_with"] = "wdapp"
 		return result
 
 	var output: Array = []
-	var exit_code = OS.execute("taskkill", PackedStringArray(["/IM", exe_name, "/F"]), output, true, false)
+	var exit_code: int = OS.execute("taskkill", PackedStringArray(["/IM", exe_name, "/F"]), output, true, false)
 	return {
 		"exit_code": exit_code,
 		"stdout": str(output[0]) if output.size() > 0 else "",
@@ -69,9 +69,9 @@ func uninstall_package(package_full_name: String) -> Dictionary:
 
 static func parse_registered_apps(output: String) -> Array[Dictionary]:
 	var apps: Array[Dictionary] = []
-	var current_pfn := ""
-	for line in output.split("\n"):
-		var trimmed = line.strip_edges()
+	var current_pfn: String = ""
+	for line: String in output.split("\n"):
+		var trimmed: String = line.strip_edges()
 		if trimmed == "" or trimmed.begins_with("Run this") or trimmed.begins_with("The operation") or trimmed.begins_with("Registered"):
 			continue
 		if trimmed.contains("!"):
@@ -90,12 +90,12 @@ func _find_primary_executable(build_dir: String) -> String:
 	if not DirAccess.dir_exists_absolute(build_dir):
 		return ""
 
-	var dir = DirAccess.open(build_dir)
+	var dir: DirAccess = DirAccess.open(build_dir)
 	if dir == null:
 		return ""
 
 	dir.list_dir_begin()
-	var fname = dir.get_next()
+	var fname: String = dir.get_next()
 	while fname != "":
 		if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
 			dir.list_dir_end()

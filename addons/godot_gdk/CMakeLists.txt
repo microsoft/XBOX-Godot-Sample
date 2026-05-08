@@ -12,6 +12,7 @@ add_library(godot_gdk SHARED
     src/gdk.cpp
     src/gdk_runtime.cpp
     src/gdk_result.cpp
+    src/gdk_result_codes_internal.cpp
     src/gdk_pending_signal.cpp
     src/gdk_signal_xasync_context.cpp
     src/gdk_user.cpp
@@ -40,7 +41,11 @@ target_link_libraries(godot_gdk PRIVATE
 
 target_compile_definitions(godot_gdk PRIVATE _GAMING_DESKTOP)
 
-godot_addon_configure_target(TARGET godot_gdk ADDON_NAME godot_gdk)
+godot_addon_configure_target(
+    TARGET godot_gdk
+    ADDON_NAME godot_gdk
+    PROJECT_DIRS ${GODOT_GDK_PROJECT_DIRS}
+)
 
 if(GODOTCPP_TARGET MATCHES "editor|template_debug")
     file(GLOB_RECURSE DOC_XML LIST_DIRECTORIES NO CONFIGURE_DEPENDS
@@ -55,6 +60,7 @@ endif()
 godot_addon_copy_runtime_files(
     TARGET godot_gdk
     ADDON_NAME godot_gdk
+    PROJECT_DIRS ${GODOT_GDK_PROJECT_DIRS}
     FILES
         "${XSAPI_RUNTIME_DLL}"
         "${LIBHTTPCLIENT_RUNTIME_DLL}"
@@ -64,6 +70,7 @@ godot_addon_sync_files_to_sample(
     TARGET godot_gdk
     ADDON_NAME godot_gdk
     ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    PROJECT_DIRS ${GODOT_GDK_PROJECT_DIRS}
     FILES
         plugin.cfg
         godot_gdk.gdextension

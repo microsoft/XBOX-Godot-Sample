@@ -160,7 +160,7 @@ func _draw_divider_dashes(parent: Node2D) -> void:
 	var dashes := 22
 	var dx := VIEWPORT_SIZE.x * 0.5
 	var dash_height := VIEWPORT_SIZE.y / dashes - 8.0
-	for i in range(dashes):
+	for i: int in range(dashes):
 		var dash := ColorRect.new()
 		dash.color = color
 		dash.size = Vector2(2.0, dash_height)
@@ -220,7 +220,7 @@ func _spawn_paddles() -> void:
 	_player_paddle.set("left", true)
 	_player_paddle.modulate = Palette.PADDLE_PLAYER
 	add_child(_player_paddle)
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		mod.on_paddle_spawn(_player_paddle)
 
 	# AI paddle — set_script BEFORE add_child so ai_paddle._ready runs.
@@ -240,7 +240,7 @@ func _spawn_paddles() -> void:
 
 
 func _spawn_balls() -> void:
-	for ball in _balls:
+	for ball: Variant in _balls:
 		if is_instance_valid(ball):
 			ball.queue_free()
 	_balls.clear()
@@ -263,7 +263,7 @@ func _spawn_balls() -> void:
 		_balls.append(twin)
 
 	# Modifier-driven extra balls (Twin Threat). Spawn alternating offsets.
-	for i in range(extra_balls):
+	for i: int in range(extra_balls):
 		var extra := _make_ball("Ball_extra_%d" % i)
 		var sign_y := -1.0 if i % 2 == 0 else 1.0
 		extra.position = VIEWPORT_SIZE * 0.5 + Vector2(0.0, 60.0 * sign_y)
@@ -290,7 +290,7 @@ func _make_ball(node_name: String) -> Area2D:
 	# / extra balls).
 	if node_name == "Ball":
 		BallSkins.apply(ball, _selected_skin_id())
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		mod.on_ball_spawn(ball)
 	return ball
 
@@ -311,7 +311,7 @@ func _start_countdown() -> void:
 	_set_balls_stopped(true)
 	var label := str(current_config.get("label", "WAVE"))
 	_hud.set_status("◆  %s  ◆" % label)
-	for i in range(COUNTDOWN_FROM, 0, -1):
+	for i: int in range(COUNTDOWN_FROM, 0, -1):
 		_hud.show_countdown(str(i))
 		await get_tree().create_timer(COUNTDOWN_STEP).timeout
 		if not is_inside_tree() or state != State.COUNTDOWN:
@@ -327,7 +327,7 @@ func _start_countdown() -> void:
 
 
 func _set_balls_stopped(stop: bool) -> void:
-	for ball in _balls:
+	for ball: Variant in _balls:
 		if is_instance_valid(ball):
 			ball.stopped = stop
 
@@ -366,13 +366,13 @@ func on_paddle_hit(paddle: Area2D, ball: Area2D) -> void:
 		"ball_speed": ball_speed,
 		"combo_step": 1,
 	}
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		ctx["chips"] = int(ctx["chips"]) + int(mod.chip_bonus)
 		ctx["mult"] = float(ctx["mult"]) + float(mod.mult_bonus)
 		ctx["combo_step"] = int(ctx["combo_step"]) + int(mod.combo_step_bonus)
 	# Compute base score before behavioral hooks (so on_hit can multiply it).
 	ctx["score"] = int(round(float(ctx["chips"]) * float(ctx["mult"])))
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		mod.on_hit(ctx)
 
 	# Aim Shot — override the ball's direction to fire toward the AI's farthest
@@ -459,7 +459,7 @@ func _on_rally_won() -> void:
 
 func _on_rally_lost() -> void:
 	lives -= 1
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		mod.on_rally_lost(self)
 	combo = 0
 	_rally_refund_pending = false
@@ -475,7 +475,7 @@ func _on_rally_lost() -> void:
 func _life_pickups_owned() -> int:
 	# Used to cap Second Wind refunds at a reasonable ceiling.
 	var n := 0
-	for id in active_modifier_ids:
+	for id: String in active_modifier_ids:
 		if id == "steady_hand":
 			n += 1
 	return n + 2  # base headroom
@@ -500,7 +500,7 @@ func _on_wave_clear() -> void:
 
 	var base_bonus := WAVE_CLEAR_BONUS_BASE + current_wave * WAVE_CLEAR_BONUS_PER_WAVE
 	var clear_mult: float = 1.0
-	for mod in active_modifiers:
+	for mod: Variant in active_modifiers:
 		clear_mult += mod.on_wave_clear(self)
 	var bonus: int = int(round(float(base_bonus) * clear_mult))
 	score += bonus
@@ -508,7 +508,7 @@ func _on_wave_clear() -> void:
 		_hud.set_status("◆◆  BOSS DOWN  ◆◆  +%d" % bonus)
 		_shake_timer = SHAKE_DURATION
 		ParticleFx.burst_celebration(self, VIEWPORT_SIZE * 0.5, Color(1.0, 0.78, 0.31))
-		var boss = current_config.get("boss")
+		var boss: Variant = current_config.get("boss")
 		if boss != null:
 			var boss_id := ""
 			if boss is Dictionary:
@@ -517,7 +517,7 @@ func _on_wave_clear() -> void:
 				boss_id = String(boss.get("id"))
 			_award_boss_unlock(boss_id)
 		# Bosses guarantee a couple of consumable drops as a reward.
-		for _i in range(CONSUMABLE_BOSS_DROPS):
+		for _i: int in range(CONSUMABLE_BOSS_DROPS):
 			_roll_consumable_drop(true)
 	else:
 		_hud.set_status("◆  WAVE CLEAR  ◆  +%d" % bonus)
@@ -543,7 +543,7 @@ func _show_modifier_pick() -> void:
 
 
 func _on_modifier_chosen(id: String) -> void:
-	var mod = Modifiers.create(id)
+	var mod: Variant = Modifiers.create(id)
 	active_modifier_ids.append(id)
 	active_modifiers.append(mod)
 	mod.on_pick(self)
@@ -579,17 +579,17 @@ func _enter_game_over() -> void:
 func _award_boss_unlock(boss_id: String) -> void:
 	if boss_id == "":
 		return
-	for skin_id in BallSkins.skins_unlocked_by_boss(boss_id):
+	for skin_id: String in BallSkins.skins_unlocked_by_boss(boss_id):
 		_award_skin_unlock(skin_id)
 
 
 func _award_combo_unlock(current_combo: int) -> void:
-	for skin_id in BallSkins.skins_unlocked_by_combo(current_combo):
+	for skin_id: String in BallSkins.skins_unlocked_by_combo(current_combo):
 		_award_skin_unlock(skin_id)
 
 
 func _award_score_unlock(final_score: int) -> void:
-	for skin_id in BallSkins.skins_unlocked_by_score(final_score):
+	for skin_id: String in BallSkins.skins_unlocked_by_score(final_score):
 		_award_skin_unlock(skin_id)
 
 
@@ -637,11 +637,11 @@ func _use_consumable(slot_index: int) -> void:
 		return
 	consumable_slots[slot_index] = ""
 	_refresh_hud()
-	var consumable = Consumables.create(id)
+	var consumable: Variant = Consumables.create(id)
 	_apply_consumable_effect(consumable)
 
 
-func _apply_consumable_effect(consumable) -> void:
+func _apply_consumable_effect(consumable: Variant) -> void:
 	match consumable.effect:
 		"freeze":
 			_freeze_until_msec = Time.get_ticks_msec() + int(consumable.duration * 1000.0)
@@ -702,16 +702,16 @@ func pulse_rumble(low: float, high: float, duration: float) -> void:
 func _pulse_rumble(low: float, high: float, duration: float) -> void:
 	if not Engine.has_singleton("GameInput"):
 		return
-	var gi = Engine.get_singleton("GameInput")
+	var gi: Variant = Engine.get_singleton("GameInput")
 	if not gi.is_initialized():
 		return
 	gi.poll()
-	var device = gi.get_primary_device()
+	var device: Variant = gi.get_primary_device()
 	if device == null or not device.supports_vibration():
 		return
 	gi.set_vibration(device, low, high)
 	await get_tree().create_timer(duration).timeout
-	var still = gi.get_primary_device()
+	var still: Variant = gi.get_primary_device()
 	if still != null:
 		gi.stop_haptics(still)
 

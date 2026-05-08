@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dx6sdqk54ahtv"]
 
-[ext_resource type="Script" uid="uid://c2q732452p5ng" path="res://logic/pong.gd" id="1"]
+[ext_resource type="Script" uid="uid://ddhu0n2kdifcr" path="res://logic/pong.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://cmjooym2hfkd4" path="res://separator.png" id="2"]
 [ext_resource type="PackedScene" uid="uid://cq64rcghccg8y" path="res://paddle.tscn" id="3"]
 [ext_resource type="PackedScene" uid="uid://bv5io76sl5mgc" path="res://ball.tscn" id="4"]

@@ -5,7 +5,7 @@ const ENCRYPT_NONE := 0
 const ENCRYPT_LICENSE := 1
 const ENCRYPT_CUSTOM_KEY := 2
 
-var _coordinator
+var _coordinator: Variant
 
 var source_dir_edit: LineEdit
 var map_file_edit: LineEdit
@@ -28,21 +28,21 @@ var validate_btn: Button
 var pack_btn: Button
 
 
-func setup(coordinator) -> void:
+func setup(coordinator: Variant) -> void:
 	_coordinator = coordinator
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	size_flags_vertical = SIZE_EXPAND_FILL
 
-	var root := VBoxContainer.new()
+	var root: VBoxContainer = VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	add_child(root)
 
 	_coordinator._add_section_header(root, "Export Presets & Actions")
 
-	var preset_row := HBoxContainer.new()
+	var preset_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(preset_row)
 
-	var preset_label := Label.new()
+	var preset_label: Label = Label.new()
 	preset_label.text = "Export Preset"
 	preset_label.custom_minimum_size.x = 130
 	preset_row.add_child(preset_label)
@@ -57,7 +57,7 @@ func setup(coordinator) -> void:
 	clean_build_check.button_pressed = false
 	root.add_child(clean_build_check)
 
-	var export_btn_row := HBoxContainer.new()
+	var export_btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(export_btn_row)
 
 	export_btn = Button.new()
@@ -103,9 +103,9 @@ func setup(coordinator) -> void:
 
 	_coordinator._add_section_header(root, "Packaging Options")
 
-	var cid_row := HBoxContainer.new()
+	var cid_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(cid_row)
-	var cid_label := Label.new()
+	var cid_label: Label = Label.new()
 	cid_label.text = "Content ID"
 	cid_label.custom_minimum_size.x = 130
 	cid_row.add_child(cid_label)
@@ -114,9 +114,9 @@ func setup(coordinator) -> void:
 	content_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	cid_row.add_child(content_id_edit)
 
-	var pid_row := HBoxContainer.new()
+	var pid_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(pid_row)
-	var pid_label := Label.new()
+	var pid_label: Label = Label.new()
 	pid_label.text = "Product ID"
 	pid_label.custom_minimum_size.x = 130
 	pid_row.add_child(pid_label)
@@ -125,9 +125,9 @@ func setup(coordinator) -> void:
 	product_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	pid_row.add_child(product_id_edit)
 
-	var enc_row := HBoxContainer.new()
+	var enc_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(enc_row)
-	var enc_label := Label.new()
+	var enc_label: Label = Label.new()
 	enc_label.text = "Encryption"
 	enc_label.custom_minimum_size.x = 130
 	enc_row.add_child(enc_label)
@@ -141,9 +141,9 @@ func setup(coordinator) -> void:
 	encrypt_key_edit = _coordinator._add_path_field(root, "EKB Key File", "Path to encryption key bundle file", false)
 	encrypt_key_edit.get_parent().visible = false
 
-	var compat_row := HBoxContainer.new()
+	var compat_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(compat_row)
-	var compat_label := Label.new()
+	var compat_label: Label = Label.new()
 	compat_label.text = "Update Compat"
 	compat_label.custom_minimum_size.x = 130
 	compat_row.add_child(compat_label)
@@ -157,7 +157,7 @@ func setup(coordinator) -> void:
 
 	_coordinator._add_section_header(root, "Packaging Actions")
 
-	var action_row := HBoxContainer.new()
+	var action_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(action_row)
 
 	export_package_btn = Button.new()
@@ -199,8 +199,8 @@ func apply_state(state: Dictionary) -> void:
 	updcompat_option.selected = int(packaging_state.get("updcompat_option", 0))
 	clean_build_check.button_pressed = bool(export_state.get("clean_build", false))
 
-	var saved_preset = str(export_state.get("preset_name", ""))
-	for i in preset_selector.get_item_count():
+	var saved_preset: String = str(export_state.get("preset_name", ""))
+	for i: int in preset_selector.get_item_count():
 		if preset_selector.get_item_text(i) == saved_preset:
 			preset_selector.select(i)
 			break
@@ -210,7 +210,7 @@ func apply_state(state: Dictionary) -> void:
 
 
 func collect_state() -> Dictionary:
-	var preset_name := ""
+	var preset_name: String = ""
 	if preset_selector.selected >= 0 and not preset_selector.get_item_text(preset_selector.selected).begins_with("No "):
 		preset_name = preset_selector.get_item_text(preset_selector.selected)
 
@@ -234,15 +234,15 @@ func collect_state() -> Dictionary:
 
 
 func connect_autosave(save_callback: Callable) -> void:
-	for edit in [source_dir_edit, map_file_edit, output_dir_edit, content_id_edit, product_id_edit, encrypt_key_edit]:
-		edit.text_changed.connect(func(_value): save_callback.call())
+	for edit: LineEdit in [source_dir_edit, map_file_edit, output_dir_edit, content_id_edit, product_id_edit, encrypt_key_edit]:
+		edit.text_changed.connect(func(_value: String) -> void: save_callback.call())
 		edit.focus_exited.connect(save_callback)
 
-	auto_genmap_check.toggled.connect(func(_pressed): save_callback.call())
-	encrypt_option.item_selected.connect(func(_index): save_callback.call())
-	updcompat_option.item_selected.connect(func(_index): save_callback.call())
-	preset_selector.item_selected.connect(func(_index): save_callback.call())
-	clean_build_check.toggled.connect(func(_pressed): save_callback.call())
+	auto_genmap_check.toggled.connect(func(_pressed: bool) -> void: save_callback.call())
+	encrypt_option.item_selected.connect(func(_index: int) -> void: save_callback.call())
+	updcompat_option.item_selected.connect(func(_index: int) -> void: save_callback.call())
+	preset_selector.item_selected.connect(func(_index: int) -> void: save_callback.call())
+	clean_build_check.toggled.connect(func(_pressed: bool) -> void: save_callback.call())
 
 
 func set_actions_enabled(enabled: bool) -> void:
@@ -253,7 +253,7 @@ func set_actions_enabled(enabled: bool) -> void:
 
 func _populate_preset_selector() -> void:
 	preset_selector.clear()
-	var cfg_path = ProjectSettings.globalize_path("res://export_presets.cfg")
+	var cfg_path: String = ProjectSettings.globalize_path("res://export_presets.cfg")
 	if not FileAccess.file_exists(cfg_path):
 		preset_selector.add_item("No export presets — add one in Project → Export")
 		export_btn.disabled = true
@@ -261,8 +261,8 @@ func _populate_preset_selector() -> void:
 		export_package_btn.disabled = true
 		return
 
-	var presets = _coordinator.get_export_preset_catalog().list_windows_presets(cfg_path)
-	for preset in presets:
+	var presets: Array = _coordinator.get_export_preset_catalog().list_windows_presets(cfg_path)
+	for preset: Dictionary in presets:
 		preset_selector.add_item(str(preset["name"]), int(preset["preset_index"]))
 
 	if presets.is_empty():
@@ -289,24 +289,24 @@ func _on_auto_genmap_toggled(pressed: bool) -> void:
 
 
 func on_genmap() -> void:
-	var source := source_dir_edit.text.strip_edges()
+	var source: String = source_dir_edit.text.strip_edges()
 	if source == "":
 		_coordinator._log("❌ Content directory is required for genmap.")
 		return
 
-	var output := output_dir_edit.text.strip_edges()
+	var output: String = output_dir_edit.text.strip_edges()
 	if output == "":
 		output = source
-	var map_path := output.path_join("layout.xml")
+	var map_path: String = output.path_join("layout.xml")
 
 	if FileAccess.file_exists(map_path):
-		var confirm := ConfirmationDialog.new()
+		var confirm: ConfirmationDialog = ConfirmationDialog.new()
 		confirm.dialog_text = "layout.xml already exists at:\n%s\n\nOverwrite it?" % map_path
 		confirm.title = "Overwrite Mapping File?"
-		confirm.confirmed.connect(func():
+		confirm.confirmed.connect(func() -> void:
 			_do_genmap(source, map_path)
 			confirm.queue_free())
-		confirm.canceled.connect(func(): confirm.queue_free())
+		confirm.canceled.connect(func() -> void: confirm.queue_free())
 		add_child(confirm)
 		confirm.popup_centered()
 		return
@@ -317,16 +317,16 @@ func on_genmap() -> void:
 func _do_genmap(source: String, map_path: String) -> void:
 	DirAccess.make_dir_recursive_absolute(map_path.get_base_dir())
 	_coordinator._log("Generating mapping file...")
-	var result = _coordinator.get_makepkg().genmap(source, map_path)
+	var result: Dictionary = _coordinator.get_makepkg().genmap(source, map_path)
 	_coordinator._log_result(result)
 	if result["exit_code"] == 0:
 		map_file_edit.text = map_path
 
 
 func on_validate() -> void:
-	var source := source_dir_edit.text.strip_edges()
-	var map_file := map_file_edit.text.strip_edges()
-	var output := output_dir_edit.text.strip_edges()
+	var source: String = source_dir_edit.text.strip_edges()
+	var map_file: String = map_file_edit.text.strip_edges()
+	var output: String = output_dir_edit.text.strip_edges()
 	if source == "" or map_file == "":
 		_coordinator._log("❌ Content directory and mapping file are required for validation.")
 		return
@@ -335,7 +335,7 @@ func on_validate() -> void:
 	if not _coordinator.get_content_preparer().ensure_content_dir_ready(source, Callable(_coordinator, "_log")):
 		return
 
-	var progress := AcceptDialog.new()
+	var progress: AcceptDialog = AcceptDialog.new()
 	progress.exclusive = false
 	progress.title = "Validating Package"
 	progress.dialog_text = "Validating package, this may take a minute..."
@@ -347,7 +347,7 @@ func on_validate() -> void:
 	await get_tree().process_frame
 
 	_coordinator._log("Validating package layout...")
-	var result = _coordinator.get_makepkg().validate(map_file, source, output)
+	var result: Dictionary = _coordinator.get_makepkg().validate(map_file, source, output)
 	_coordinator._log_result(result)
 
 	progress.get_ok_button().visible = true
@@ -355,12 +355,12 @@ func on_validate() -> void:
 		progress.dialog_text = "✅ Package validation passed!"
 	else:
 		progress.dialog_text = "❌ Package validation failed.\nCheck the Output panel for details."
-	progress.confirmed.connect(func(): progress.queue_free())
+	progress.confirmed.connect(func() -> void: progress.queue_free())
 
 
 func on_pack() -> void:
-	var source := source_dir_edit.text.strip_edges()
-	var output := output_dir_edit.text.strip_edges()
+	var source: String = source_dir_edit.text.strip_edges()
+	var output: String = output_dir_edit.text.strip_edges()
 	if source == "":
 		_coordinator._log("❌ Content directory is required.")
 		return
@@ -370,7 +370,7 @@ func on_pack() -> void:
 	if not _coordinator.get_content_preparer().ensure_content_dir_ready(source, Callable(_coordinator, "_log")):
 		return
 
-	var progress := AcceptDialog.new()
+	var progress: AcceptDialog = AcceptDialog.new()
 	progress.exclusive = false
 	progress.title = "Creating Package"
 	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
@@ -380,9 +380,9 @@ func on_pack() -> void:
 
 	await get_tree().process_frame
 
-	var map_file := map_file_edit.text.strip_edges()
+	var map_file: String = map_file_edit.text.strip_edges()
 	if auto_genmap_check.button_pressed or map_file == "":
-		var map_path := output.path_join("layout.xml")
+		var map_path: String = output.path_join("layout.xml")
 		DirAccess.make_dir_recursive_absolute(output)
 
 		if FileAccess.file_exists(map_path):
@@ -391,13 +391,13 @@ func on_pack() -> void:
 		progress.dialog_text = "Generating mapping file..."
 		await get_tree().process_frame
 
-		var genmap_result = _coordinator.get_makepkg().genmap(source, map_path)
+		var genmap_result: Dictionary = _coordinator.get_makepkg().genmap(source, map_path)
 		_coordinator._log_result(genmap_result)
 		if genmap_result["exit_code"] != 0:
 			_coordinator._log("❌ Mapping file generation failed — aborting package.")
 			progress.dialog_text = "❌ Mapping file generation failed."
 			progress.get_ok_button().visible = true
-			progress.confirmed.connect(func(): progress.queue_free())
+			progress.confirmed.connect(func() -> void: progress.queue_free())
 			return
 		map_file = map_path
 		map_file_edit.text = map_file
@@ -405,7 +405,7 @@ func on_pack() -> void:
 	progress.dialog_text = "Creating MSIXVC package...\nThis may take a minute."
 	await get_tree().process_frame
 
-	var options := {}
+	var options: Dictionary = {}
 	if content_id_edit.text.strip_edges() != "":
 		options["content_id"] = content_id_edit.text.strip_edges()
 	if product_id_edit.text.strip_edges() != "":
@@ -417,11 +417,11 @@ func on_pack() -> void:
 		ENCRYPT_CUSTOM_KEY:
 			options["encrypt_key"] = encrypt_key_edit.text.strip_edges()
 
-	var updcompat_map := [3, 2, 1]
+	var updcompat_map: Array = [3, 2, 1]
 	options["updcompat"] = updcompat_map[updcompat_option.selected]
 
 	_coordinator._log("Creating MSIXVC package...")
-	var result = _coordinator.get_makepkg().pack(source, map_file, output, options)
+	var result: Dictionary = _coordinator.get_makepkg().pack(source, map_file, output, options)
 	_coordinator._log_result(result)
 
 	progress.get_ok_button().visible = true
@@ -429,26 +429,26 @@ func on_pack() -> void:
 		progress.dialog_text = "✅ Package created successfully!"
 	else:
 		progress.dialog_text = "❌ Package creation failed.\nCheck the Output panel for details."
-	progress.confirmed.connect(func(): progress.queue_free())
+	progress.confirmed.connect(func() -> void: progress.queue_free())
 
 
 func on_export() -> void:
-	var build_dir = _coordinator.get_build_dir()
+	var build_dir: String = _coordinator.get_build_dir()
 	DirAccess.make_dir_recursive_absolute(build_dir)
 
 	if clean_build_check.button_pressed:
 		_coordinator._clean_directory(build_dir)
 		_coordinator._log("Cleaned Build/ folder")
 
-	var preset_name = preset_selector.get_item_text(preset_selector.selected)
+	var preset_name: String = preset_selector.get_item_text(preset_selector.selected)
 	if preset_name == "" or preset_name.begins_with("No "):
 		export_status_label.text = "❌ No valid export preset selected"
 		return
 
-	var game_name = ProjectSettings.get_setting("application/config/name", "Game")
-	var exe_path = build_dir.path_join(game_name + ".exe")
+	var game_name: String = ProjectSettings.get_setting("application/config/name", "Game")
+	var exe_path: String = build_dir.path_join(game_name + ".exe")
 
-	var progress := AcceptDialog.new()
+	var progress: AcceptDialog = AcceptDialog.new()
 	progress.exclusive = false
 	progress.title = "Exporting"
 	progress.dialog_text = "Exporting project to Build/...\nThis may take a minute."
@@ -459,18 +459,18 @@ func on_export() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	var godot_path = OS.get_executable_path()
-	var project_path = ProjectSettings.globalize_path("res://")
+	var godot_path: String = OS.get_executable_path()
+	var project_path: String = ProjectSettings.globalize_path("res://")
 	_coordinator._log("Exporting '%s' preset to: %s" % [preset_name, exe_path])
 
 	var output: Array = []
-	var exit_code = OS.execute(godot_path, PackedStringArray([
+	var exit_code: int = OS.execute(godot_path, PackedStringArray([
 		"--headless",
 		"--path", project_path,
 		"--export-debug", preset_name, exe_path
 	]), output, true, false)
 
-	var stdout_text = str(output[0]) if output.size() > 0 else ""
+	var stdout_text: String = str(output[0]) if output.size() > 0 else ""
 
 	if exit_code == OK:
 		export_status_label.text = "✅ Exported to Build/"
@@ -489,7 +489,7 @@ func on_export() -> void:
 		progress.dialog_text = "✅ Export completed!\nBuild files are in the Build/ folder."
 	else:
 		progress.dialog_text = "❌ Export failed.\nCheck the Output panel for details."
-	progress.confirmed.connect(func(): progress.queue_free())
+	progress.confirmed.connect(func() -> void: progress.queue_free())
 
 
 func _post_export_prepare(build_dir: String) -> void:
@@ -524,17 +524,17 @@ func _post_export_prepare(build_dir: String) -> void:
 ## variant per import — whichever the GDExtension's IAT actually references
 ## — so this packaging-time copy preserves that behavior in exported builds.
 func _copy_addon_runtime_dlls(build_dir: String) -> void:
-	var addons_root := "res://addons"
-	var addons_dir := DirAccess.open(addons_root)
+	var addons_root: String = "res://addons"
+	var addons_dir: DirAccess = DirAccess.open(addons_root)
 	if addons_dir == null:
 		return
 
 	addons_dir.list_dir_begin()
-	var copied_total := 0
-	var addon_name := addons_dir.get_next()
+	var copied_total: int = 0
+	var addon_name: String = addons_dir.get_next()
 	while addon_name != "":
 		if addons_dir.current_is_dir() and not addon_name.begins_with("."):
-			var bin_dir_res := "%s/%s/bin" % [addons_root, addon_name]
+			var bin_dir_res: String = "%s/%s/bin" % [addons_root, addon_name]
 			copied_total += _copy_addon_bin_dlls(addon_name, bin_dir_res, build_dir)
 		addon_name = addons_dir.get_next()
 	addons_dir.list_dir_end()
@@ -548,22 +548,22 @@ func _copy_addon_runtime_dlls(build_dir: String) -> void:
 ## GDExtension library itself (Godot's exporter already places that next to
 ## the exe).
 func _copy_addon_bin_dlls(addon_name: String, bin_dir_res: String, build_dir: String) -> int:
-	var bin_dir := DirAccess.open(bin_dir_res)
+	var bin_dir: DirAccess = DirAccess.open(bin_dir_res)
 	if bin_dir == null:
 		return 0
 
-	var copied := 0
-	var gdext_prefix := "%s.windows." % addon_name
+	var copied: int = 0
+	var gdext_prefix: String = "%s.windows." % addon_name
 	bin_dir.list_dir_begin()
-	var fname := bin_dir.get_next()
+	var fname: String = bin_dir.get_next()
 	while fname != "":
 		if not bin_dir.current_is_dir() and fname.to_lower().ends_with(".dll"):
 			# Skip the GDExtension library itself — Godot's exporter handles it.
 			if not fname.begins_with(gdext_prefix):
-				var src := "%s/%s" % [bin_dir_res, fname]
-				var dst := build_dir.path_join(fname)
-				var src_abs := ProjectSettings.globalize_path(src)
-				var copy_err := DirAccess.copy_absolute(src_abs, dst)
+				var src: String = "%s/%s" % [bin_dir_res, fname]
+				var dst: String = build_dir.path_join(fname)
+				var src_abs: String = ProjectSettings.globalize_path(src)
+				var copy_err: Error = DirAccess.copy_absolute(src_abs, dst)
 				if copy_err == OK:
 					copied += 1
 				else:
@@ -575,7 +575,7 @@ func _copy_addon_bin_dlls(addon_name: String, bin_dir_res: String, build_dir: St
 
 
 func on_register_loose() -> void:
-	var build_dir = _coordinator.get_build_dir()
+	var build_dir: String = _coordinator.get_build_dir()
 	if not DirAccess.dir_exists_absolute(build_dir):
 		export_status_label.text = "❌ Build/ folder not found — export first"
 		return
@@ -585,7 +585,7 @@ func on_register_loose() -> void:
 		return
 
 	_coordinator._log("Registering loose build: %s" % build_dir)
-	var result = _coordinator.get_wdapp_manager().register_loose(build_dir)
+	var result: Dictionary = _coordinator.get_wdapp_manager().register_loose(build_dir)
 	if result["exit_code"] == 0:
 		export_status_label.text = "✅ Registered loose build"
 		_coordinator._log("wdapp register succeeded")

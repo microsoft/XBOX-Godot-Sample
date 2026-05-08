@@ -63,7 +63,7 @@ func _on_paddle_area_enter(area: Area2D) -> void:
 		else:
 			area.bounce.rpc(left, randf())
 		# Rumble the local player's controller on a paddle hit.
-		var pong = get_parent()
+		var pong: Variant = get_parent()
 		if pong != null and pong.has_method("pulse_rumble"):
 			pong.pulse_rumble(
 					pong.HIT_RUMBLE_LOW,

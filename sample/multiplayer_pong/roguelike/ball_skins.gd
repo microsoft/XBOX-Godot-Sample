@@ -194,7 +194,7 @@ static func unlock_progress_label(skin_id: String) -> String:
 
 static func skins_unlocked_by_boss(boss_id: String) -> Array[String]:
 	var out: Array[String] = []
-	for id in SKIN_ORDER:
+	for id: String in SKIN_ORDER:
 		var u: Dictionary = SKINS[id].get("unlock", {})
 		if u.get("type", "") == "boss" and String(u.get("value", "")) == boss_id:
 			out.append(id)
@@ -203,7 +203,7 @@ static func skins_unlocked_by_boss(boss_id: String) -> Array[String]:
 
 static func skins_unlocked_by_combo(combo: int) -> Array[String]:
 	var out: Array[String] = []
-	for id in SKIN_ORDER:
+	for id: String in SKIN_ORDER:
 		var u: Dictionary = SKINS[id].get("unlock", {})
 		if u.get("type", "") == "combo" and combo >= int(u.get("value", 0)):
 			out.append(id)
@@ -212,7 +212,7 @@ static func skins_unlocked_by_combo(combo: int) -> Array[String]:
 
 static func skins_unlocked_by_score(score: int) -> Array[String]:
 	var out: Array[String] = []
-	for id in SKIN_ORDER:
+	for id: String in SKIN_ORDER:
 		var u: Dictionary = SKINS[id].get("unlock", {})
 		if u.get("type", "") == "score" and score >= int(u.get("value", 0)):
 			out.append(id)
@@ -253,8 +253,8 @@ static func _build_procedural(skin: Dictionary) -> ImageTexture:
 	img.fill(Color(0, 0, 0, 0))
 	var center := Vector2(SKIN_SIZE * 0.5, SKIN_SIZE * 0.5)
 	var radius := SKIN_SIZE * 0.46
-	for y in range(SKIN_SIZE):
-		for x in range(SKIN_SIZE):
+	for y: int in range(SKIN_SIZE):
+		for x: int in range(SKIN_SIZE):
 			var p := Vector2(x + 0.5, y + 0.5)
 			var d := p.distance_to(center)
 			if d > radius:

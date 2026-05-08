@@ -26,10 +26,10 @@ const PLAYER_NAME_MAX_LEN := 16
 signal leaderboard_updated(mode: String)
 signal save_committed()
 
-var _playfab_extension = null
+var _playfab_extension: Variant = null
 var _save_cache: Dictionary = {}
 var _leaderboards: Dictionary = {}
-var _playfab_user = null
+var _playfab_user: Variant = null
 var _active_local_id: int = 0
 var _game_saves_folder: String = ""
 var _game_saves_synced: bool = false
@@ -84,11 +84,11 @@ func take_pending_run() -> Dictionary:
 	return run
 
 
-func submit_run_async(player_name: String, score: int, wave: int, max_combo: int):
+func submit_run_async(player_name: String, score: int, wave: int, max_combo: int) -> bool:
 	var leaderboard_name: String = await _resolve_leaderboard_player_name(player_name, true)
 	var save_name: String = _sanitize_name(leaderboard_name)
-	var latest_data = await _refresh_save_async(true)
-	var save = SaveData.new()
+	var latest_data: Variant = await _refresh_save_async(true)
+	var save := SaveData.new()
 	if latest_data is Dictionary:
 		save.load_from_dict(latest_data)
 	else:
@@ -97,14 +97,14 @@ func submit_run_async(player_name: String, score: int, wave: int, max_combo: int
 	save.record_run(score, wave)
 	save.record_combo(max_combo)
 
-	var save_ok = await _save_game_async(save.to_dict(), true)
+	var save_ok: bool = await _save_game_async(save.to_dict(), true)
 	var metadata: Dictionary = {
 		"max_combo": max_combo,
 		"name": leaderboard_name,
 		"ts": int(Time.get_unix_time_from_system()),
 		"wave": wave,
 	}
-	var leaderboard_ok = await _submit_score_async(MODE_ROGUELIKE, leaderboard_name, score, metadata, true)
+	var leaderboard_ok: bool = await _submit_score_async(MODE_ROGUELIKE, leaderboard_name, score, metadata, true)
 	return bool(save_ok) and bool(leaderboard_ok)
 
 
@@ -112,9 +112,9 @@ func submit_run_async(player_name: String, score: int, wave: int, max_combo: int
 ## falls back to a sanitized typed-in name. Used as the displayed leaderboard
 ## entry name so scores are tied to the player's Xbox identity.
 func get_local_player_display_name(fallback: String = "") -> String:
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk != null and gdk.is_initialized() and gdk.users != null:
-		var primary = gdk.users.get_primary_user()
+		var primary: Variant = gdk.users.get_primary_user()
 		if primary != null and bool(primary.signed_in):
 			var gamertag: String = String(primary.gamertag).strip_edges()
 			if not gamertag.is_empty():
@@ -125,7 +125,7 @@ func get_local_player_display_name(fallback: String = "") -> String:
 
 
 func _resolve_leaderboard_player_name(typed_name: String, prompt_for_user: bool) -> String:
-	var gdk_user = await _ensure_gdk_user(prompt_for_user)
+	var gdk_user: Variant = await _ensure_gdk_user(prompt_for_user)
 	if gdk_user != null and bool(gdk_user.signed_in):
 		var gamertag: String = String(gdk_user.gamertag).strip_edges()
 		if not gamertag.is_empty():
@@ -144,13 +144,13 @@ func _truncate_player_name(value: String) -> String:
 
 
 func get_selected_skin() -> String:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(_save_cache)
 	return save.selected_skin
 
 
 func set_selected_skin(skin_id: String) -> bool:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(_save_cache)
 	if not save.set_selected_skin(skin_id):
 		return false
@@ -159,13 +159,13 @@ func set_selected_skin(skin_id: String) -> bool:
 
 
 func is_skin_unlocked(skin_id: String) -> bool:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(_save_cache)
 	return save.is_skin_unlocked(skin_id)
 
 
 func unlock_skin(skin_id: String) -> bool:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(_save_cache)
 	if not save.unlock_skin(skin_id):
 		return false
@@ -174,7 +174,7 @@ func unlock_skin(skin_id: String) -> bool:
 
 
 func get_unlocked_skins() -> Array:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(_save_cache)
 	return save.unlocked_skins.duplicate()
 
@@ -183,7 +183,7 @@ func _connect_gdk_signals() -> void:
 	if _gdk_signals_connected:
 		return
 
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk == null:
 		return
 
@@ -191,10 +191,8 @@ func _connect_gdk_signals() -> void:
 		gdk.initialized.connect(_on_gdk_initialized)
 
 	if gdk.users != null:
-		if not gdk.users.primary_user_changed.is_connected(_on_primary_user_changed):
-			gdk.users.primary_user_changed.connect(_on_primary_user_changed)
-		if not gdk.users.user_removed.is_connected(_on_user_removed):
-			gdk.users.user_removed.connect(_on_user_removed)
+		if not gdk.users.user_changed.is_connected(_on_gdk_user_changed):
+			gdk.users.user_changed.connect(_on_gdk_user_changed)
 
 	_gdk_signals_connected = true
 
@@ -204,30 +202,37 @@ func _on_gdk_initialized() -> void:
 	request_leaderboard_refresh(MODE_ROGUELIKE, 10, false)
 
 
-func _on_primary_user_changed(user) -> void:
+func _on_gdk_user_changed(user: Variant, change_kind: String) -> void:
 	var local_id: int = _local_id_from_object(user)
-	if local_id == _active_local_id:
+	if change_kind == "removed":
+		if local_id != _active_local_id:
+			return
+
+		_reset_user_state()
+		save_committed.emit()
+		leaderboard_updated.emit(MODE_ROGUELIKE)
 		return
 
-	_reset_user_state()
-	save_committed.emit()
-	leaderboard_updated.emit(MODE_ROGUELIKE)
+	if change_kind != "added" and change_kind != "signed_in_again":
+		return
+
+	var gdk: Variant = _get_gdk()
+	var primary_user: Variant = gdk.users.get_primary_user() if gdk != null and gdk.users != null else null
+	if primary_user == null or _local_id_from_object(primary_user) != local_id:
+		return
+
+	if local_id != _active_local_id:
+		_reset_user_state()
+		save_committed.emit()
+		leaderboard_updated.emit(MODE_ROGUELIKE)
+		_active_local_id = local_id
 
 	if user != null:
 		request_save_refresh(false)
 		request_leaderboard_refresh(MODE_ROGUELIKE, 10, false)
 
 
-func _on_user_removed(local_id: int) -> void:
-	if local_id != _active_local_id:
-		return
-
-	_reset_user_state()
-	save_committed.emit()
-	leaderboard_updated.emit(MODE_ROGUELIKE)
-
-
-func _refresh_save_async(prompt_for_user: bool = false):
+func _refresh_save_async(prompt_for_user: bool = false) -> Dictionary:
 	var save_path: String = await _ensure_save_path(prompt_for_user)
 	if save_path.is_empty():
 		return _save_cache.duplicate(true)
@@ -237,7 +242,7 @@ func _refresh_save_async(prompt_for_user: bool = false):
 	return _save_cache.duplicate(true)
 
 
-func _save_game_async(data: Dictionary, prompt_for_user: bool = false):
+func _save_game_async(data: Dictionary, prompt_for_user: bool = false) -> bool:
 	var normalized: Dictionary = _normalize_save_data(data)
 	_save_cache = normalized
 	save_committed.emit()
@@ -248,22 +253,20 @@ func _save_game_async(data: Dictionary, prompt_for_user: bool = false):
 	if not _write_save_file(save_path, normalized):
 		return false
 
-	var pf = _get_playfab()
+	var pf: Variant = _get_playfab()
 	if pf == null:
 		return false
 
-	var user = await _ensure_playfab_user(prompt_for_user)
+	var user: Variant = await _ensure_playfab_user(prompt_for_user)
 	if user == null:
 		return false
 
 	var description: String = _build_save_description(normalized)
-	var description_result = await _await_async_result(
-		pf.game_saves.set_save_description_async(user, description)
-	)
+	var description_result: PlayFabResult = await pf.game_saves.set_save_description_async(user, description)
 	if description_result == null or not description_result.ok:
 		_warn(_result_message(description_result, "Failed to update the Game Saves description."))
 
-	var upload_result = await _await_async_result(pf.game_saves.upload_with_ui_async(user))
+	var upload_result: PlayFabResult = await pf.game_saves.upload_with_ui_async(user)
 	if upload_result == null or not upload_result.ok:
 		_warn(_result_message(upload_result, "Failed to upload the Pong Royale save."))
 		return false
@@ -271,23 +274,21 @@ func _save_game_async(data: Dictionary, prompt_for_user: bool = false):
 	return true
 
 
-func _refresh_leaderboard_async(mode: String, limit: int = 10, prompt_for_user: bool = false):
+func _refresh_leaderboard_async(mode: String, limit: int = 10, prompt_for_user: bool = false) -> Array:
 	var leaderboard_name: String = _leaderboard_name(mode)
 	if leaderboard_name.is_empty():
 		return get_leaderboard(mode, limit)
 
-	var pf = _get_playfab()
+	var pf: Variant = _get_playfab()
 	if pf == null:
 		return get_leaderboard(mode, limit)
 
-	var user = await _ensure_playfab_user(prompt_for_user)
+	var user: Variant = await _ensure_playfab_user(prompt_for_user)
 	if user == null:
 		return get_leaderboard(mode, limit)
 
 	var page_size: int = maxi(limit, 10)
-	var result = await _await_async_result(
-		pf.leaderboards.get_leaderboard_async(user, leaderboard_name, 1, page_size)
-	)
+	var result: PlayFabResult = await pf.leaderboards.get_leaderboard_async(user, leaderboard_name, 1, page_size)
 	if result == null or not result.ok:
 		_warn(_result_message(result, "Failed to refresh the Pong Royale leaderboard."))
 		return get_leaderboard(mode, limit)
@@ -295,7 +296,7 @@ func _refresh_leaderboard_async(mode: String, limit: int = 10, prompt_for_user: 
 	var response: Dictionary = result.data if result.data is Dictionary else {}
 	var rankings: Array = response.get("rankings", [])
 	var entries: Array = []
-	for ranking in rankings:
+	for ranking: Variant in rankings:
 		if ranking is Dictionary:
 			entries.append(_map_leaderboard_row(ranking))
 
@@ -304,16 +305,16 @@ func _refresh_leaderboard_async(mode: String, limit: int = 10, prompt_for_user: 
 	return get_leaderboard(mode, limit)
 
 
-func _submit_score_async(mode: String, player_name: String, score: int, metadata: Dictionary, prompt_for_user: bool):
+func _submit_score_async(mode: String, player_name: String, score: int, metadata: Dictionary, prompt_for_user: bool) -> bool:
 	var leaderboard_name: String = _leaderboard_name(mode)
 	if leaderboard_name.is_empty():
 		return false
 
-	var pf = _get_playfab()
+	var pf: Variant = _get_playfab()
 	if pf == null:
 		return false
 
-	var user = await _ensure_playfab_user(prompt_for_user)
+	var user: Variant = await _ensure_playfab_user(prompt_for_user)
 	if user == null:
 		return false
 
@@ -327,14 +328,12 @@ func _submit_score_async(mode: String, player_name: String, score: int, metadata
 	var _ignored_payload := metadata
 	var _ignored_player_name := player_name
 
-	var result = await _await_async_result(
-		pf.leaderboards.submit_score_async(
-			user,
-			leaderboard_name,
-			score,
-			[],
-			""
-		)
+	var result: PlayFabResult = await pf.leaderboards.submit_score_async(
+		user,
+		leaderboard_name,
+		score,
+		[],
+		""
 	)
 	if result == null or not result.ok:
 		_warn(_result_message(result, "Failed to submit the Pong Royale score."))
@@ -344,19 +343,19 @@ func _submit_score_async(mode: String, player_name: String, score: int, metadata
 	return true
 
 
-func _ensure_save_path(prompt_for_user: bool):
+func _ensure_save_path(prompt_for_user: bool) -> String:
 	var folder: String = await _ensure_game_saves_folder(prompt_for_user)
 	if folder.is_empty():
 		return ""
 	return folder.path_join(SAVE_FILE_NAME)
 
 
-func _ensure_game_saves_folder(prompt_for_user: bool):
-	var pf = _get_playfab()
+func _ensure_game_saves_folder(prompt_for_user: bool) -> String:
+	var pf: Variant = _get_playfab()
 	if pf == null:
 		return ""
 
-	var user = await _ensure_playfab_user(prompt_for_user)
+	var user: Variant = await _ensure_playfab_user(prompt_for_user)
 	if user == null:
 		return ""
 
@@ -370,7 +369,7 @@ func _ensure_game_saves_folder(prompt_for_user: bool):
 		_active_local_id = local_id
 		_playfab_user = user
 
-	var folder_result = pf.game_saves.get_folder(user)
+	var folder_result: PlayFabResult = pf.game_saves.get_folder(user)
 	if folder_result != null and folder_result.ok:
 		_game_saves_folder = String(folder_result.data)
 		if not _game_saves_folder.is_empty() and (not prompt_for_user or _game_saves_synced):
@@ -379,7 +378,7 @@ func _ensure_game_saves_folder(prompt_for_user: bool):
 	if not prompt_for_user:
 		return _game_saves_folder
 
-	var sync_result = await _await_async_result(pf.game_saves.add_user_with_ui_async(user))
+	var sync_result: PlayFabResult = await pf.game_saves.add_user_with_ui_async(user)
 	if sync_result == null or not sync_result.ok:
 		_warn(_result_message(sync_result, "Failed to sync the PlayFab Game Saves folder."))
 		return _game_saves_folder
@@ -390,14 +389,14 @@ func _ensure_game_saves_folder(prompt_for_user: bool):
 	return _game_saves_folder
 
 
-func _ensure_playfab_user(prompt_for_user: bool):
-	var pf = _get_playfab()
+func _ensure_playfab_user(prompt_for_user: bool) -> Variant:
+	var pf: Variant = _get_playfab()
 	if pf == null:
 		_warn_once("missing_playfab_singleton", "PlayFab is not available in this sample build.")
 		return null
 
 	if not pf.is_initialized():
-		var init_result = pf.initialize()
+		var init_result: PlayFabResult = pf.initialize()
 		if init_result == null or not init_result.ok:
 			_warn_once(
 				"playfab_initialize:%s" % str(init_result.code if init_result != null else "unknown"),
@@ -405,7 +404,7 @@ func _ensure_playfab_user(prompt_for_user: bool):
 			)
 			return null
 
-	var gdk_user = await _ensure_gdk_user(prompt_for_user)
+	var gdk_user: Variant = await _ensure_gdk_user(prompt_for_user)
 	if gdk_user == null:
 		return null
 
@@ -417,13 +416,13 @@ func _ensure_playfab_user(prompt_for_user: bool):
 	if _playfab_user != null and _local_id_from_object(_playfab_user) == local_id:
 		return _playfab_user
 
-	var existing_user = pf.users.get_user(local_id)
+	var existing_user: Variant = pf.users.get_user(local_id)
 	if existing_user != null:
 		_playfab_user = existing_user
 		_active_local_id = local_id
 		return existing_user
 
-	var sign_in_result = await _await_async_result(pf.sign_in_async(gdk_user))
+	var sign_in_result: PlayFabResult = await pf.sign_in_async(gdk_user)
 	if sign_in_result == null or not sign_in_result.ok:
 		_warn(_result_message(sign_in_result, "Failed to sign the current Xbox user into PlayFab."))
 		return null
@@ -433,8 +432,8 @@ func _ensure_playfab_user(prompt_for_user: bool):
 	return _playfab_user
 
 
-func _ensure_gdk_user(prompt_for_user: bool):
-	var gdk = _get_gdk()
+func _ensure_gdk_user(prompt_for_user: bool) -> Variant:
+	var gdk: Variant = _get_gdk()
 	if gdk == null:
 		_warn_once("missing_gdk_singleton", "GDK is not available, so PlayFab sign-in cannot start.")
 		return null
@@ -442,13 +441,13 @@ func _ensure_gdk_user(prompt_for_user: bool):
 		_warn_once("gdk_not_initialized", "GDK is still initializing; PlayFab requests will retry once a user is available.")
 		return null
 
-	var user = gdk.users.get_primary_user()
+	var user: Variant = gdk.users.get_primary_user()
 	if user != null and bool(user.signed_in):
 		return user
 	if not prompt_for_user:
 		return null
 
-	var add_user_result = await _await_async_result(gdk.users.add_user_with_ui_async())
+	var add_user_result: GDKResult = await gdk.users.add_user_with_ui_async()
 	if add_user_result == null or not add_user_result.ok:
 		_warn(_result_message(add_user_result, "Failed to choose an Xbox user for PlayFab."))
 		return null
@@ -456,8 +455,8 @@ func _ensure_gdk_user(prompt_for_user: bool):
 	return gdk.users.get_primary_user()
 
 
-func _get_gdk():
-	var bootstrap = get_node_or_null("/root/GDKBootstrap")
+func _get_gdk() -> Variant:
+	var bootstrap: Variant = get_node_or_null("/root/GDKBootstrap")
 	if bootstrap != null and bootstrap.has_method("get_gdk"):
 		return bootstrap.get_gdk()
 	if Engine.has_singleton("GDK"):
@@ -465,7 +464,7 @@ func _get_gdk():
 	return null
 
 
-func _get_playfab():
+func _get_playfab() -> Variant:
 	if Engine.has_singleton("PlayFab"):
 		return Engine.get_singleton("PlayFab")
 
@@ -478,31 +477,23 @@ func _get_playfab():
 	return null
 
 
-func _await_async_result(op):
-	if op == null:
-		return null
-	if op.is_done():
-		return op.get_result()
-	return await op.completed
-
-
 func _normalize_save_data(data: Dictionary) -> Dictionary:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(data)
 	return save.to_dict()
 
 
 func _load_save_file(path: String) -> Dictionary:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	if not FileAccess.file_exists(path):
 		return save.to_dict()
 
-	var file = FileAccess.open(path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		_warn("Failed to open the Game Saves file for reading: %s" % path)
 		return save.to_dict()
 
-	var parsed = JSON.parse_string(file.get_as_text())
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
 	if parsed is Dictionary:
 		save.load_from_dict(parsed)
@@ -517,7 +508,7 @@ func _write_save_file(path: String, data: Dictionary) -> bool:
 		_warn("Failed to create the Game Saves folder: %s" % path.get_base_dir())
 		return false
 
-	var file = FileAccess.open(path, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		_warn("Failed to open the Game Saves file for writing: %s" % path)
 		return false
@@ -528,7 +519,7 @@ func _write_save_file(path: String, data: Dictionary) -> bool:
 
 
 func _build_save_description(data: Dictionary) -> String:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	save.load_from_dict(data)
 	return "%s HS %06d W%02d" % [
 		_sanitize_name(save.player_name),
@@ -543,14 +534,14 @@ func _leaderboard_name(mode: String) -> String:
 
 func _map_leaderboard_row(ranking: Dictionary) -> Dictionary:
 	var metadata: Dictionary = _parse_leaderboard_metadata(String(ranking.get("metadata", "")))
-	var scores_variant = ranking.get("scores", [])
+	var scores_variant: Variant = ranking.get("scores", [])
 	var scores: Array = scores_variant if scores_variant is Array else []
 	var score_value: int = int(scores[0]) if scores.size() > 0 else 0
 	var name: String = String(metadata.get("name", ""))
 	if name.is_empty():
 		name = String(ranking.get("display_name", ""))
 	if name.is_empty():
-		var entity_variant = ranking.get("entity", {})
+		var entity_variant: Variant = ranking.get("entity", {})
 		var entity: Dictionary = entity_variant if entity_variant is Dictionary else {}
 		var entity_id: String = String(entity.get("id", ""))
 		# PlayFab entity ids are 16-char hex blobs; keep just the leading
@@ -570,7 +561,7 @@ func _map_leaderboard_row(ranking: Dictionary) -> Dictionary:
 func _parse_leaderboard_metadata(text: String) -> Dictionary:
 	if text.is_empty():
 		return {}
-	var parsed = JSON.parse_string(text)
+	var parsed: Variant = JSON.parse_string(text)
 	if parsed is Dictionary:
 		return parsed
 	return {}
@@ -583,16 +574,16 @@ func _sanitize_name(player_name: String) -> String:
 	return trimmed.substr(0, 8).to_upper()
 
 
-func _local_id_from_object(object) -> int:
+func _local_id_from_object(object: Variant) -> int:
 	if object == null:
 		return 0
 
-	var local_id_variant = object.get("local_id")
+	var local_id_variant: Variant = object.get("local_id")
 	if local_id_variant is int:
 		return int(local_id_variant)
 
 	if object.has_method("get_local_id"):
-		var method_value = object.call("get_local_id")
+		var method_value: Variant = object.call("get_local_id")
 		if method_value is int:
 			return int(method_value)
 
@@ -600,7 +591,7 @@ func _local_id_from_object(object) -> int:
 
 
 func _reset_caches() -> void:
-	var save = SaveData.new()
+	var save := SaveData.new()
 	_save_cache = save.to_dict()
 	_leaderboards = {
 		MODE_ROGUELIKE: [],
@@ -629,7 +620,7 @@ func _warn_once(key: String, message: String) -> void:
 	_warn(message)
 
 
-func _result_message(result, fallback: String) -> String:
+func _result_message(result: Variant, fallback: String) -> String:
 	if result != null and String(result.message) != "":
 		return String(result.message)
 	return fallback

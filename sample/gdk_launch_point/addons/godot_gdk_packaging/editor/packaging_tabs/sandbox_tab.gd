@@ -1,7 +1,7 @@
 @tool
 extends ScrollContainer
 
-var _coordinator
+var _coordinator: Variant
 
 var sandbox_label: Label
 var sandbox_id_edit: LineEdit
@@ -11,12 +11,12 @@ var dev_account_label: Label
 var test_account_edit: LineEdit
 
 
-func setup(coordinator) -> void:
+func setup(coordinator: Variant) -> void:
 	_coordinator = coordinator
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	size_flags_vertical = SIZE_EXPAND_FILL
 
-	var root := VBoxContainer.new()
+	var root: VBoxContainer = VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	add_child(root)
 
@@ -24,10 +24,10 @@ func setup(coordinator) -> void:
 	sandbox_label.text = "Current: checking..."
 	root.add_child(sandbox_label)
 
-	var sandbox_row := HBoxContainer.new()
+	var sandbox_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(sandbox_row)
 
-	var sandbox_id_label := Label.new()
+	var sandbox_id_label: Label = Label.new()
 	sandbox_id_label.text = "Sandbox ID"
 	sandbox_id_label.custom_minimum_size.x = 130
 	sandbox_row.add_child(sandbox_id_label)
@@ -37,7 +37,7 @@ func setup(coordinator) -> void:
 	sandbox_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	sandbox_row.add_child(sandbox_id_edit)
 
-	var sandbox_btn_row := HBoxContainer.new()
+	var sandbox_btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(sandbox_btn_row)
 
 	sandbox_set_btn = Button.new()
@@ -50,7 +50,7 @@ func setup(coordinator) -> void:
 	sandbox_retail_btn.pressed.connect(_on_sandbox_retail)
 	sandbox_btn_row.add_child(sandbox_retail_btn)
 
-	var sandbox_refresh_btn := Button.new()
+	var sandbox_refresh_btn: Button = Button.new()
 	sandbox_refresh_btn.text = "Refresh"
 	sandbox_refresh_btn.pressed.connect(refresh_status)
 	sandbox_btn_row.add_child(sandbox_refresh_btn)
@@ -63,20 +63,20 @@ func setup(coordinator) -> void:
 	dev_account_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(dev_account_label)
 
-	var dev_btn_row := HBoxContainer.new()
+	var dev_btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(dev_btn_row)
 
-	var signin_btn := Button.new()
+	var signin_btn: Button = Button.new()
 	signin_btn.text = "Sign In"
 	signin_btn.pressed.connect(_on_dev_account_signin)
 	dev_btn_row.add_child(signin_btn)
 
-	var signout_btn := Button.new()
+	var signout_btn: Button = Button.new()
 	signout_btn.text = "Sign Out"
 	signout_btn.pressed.connect(_on_dev_account_signout)
 	dev_btn_row.add_child(signout_btn)
 
-	var test_accounts_btn := Button.new()
+	var test_accounts_btn: Button = Button.new()
 	test_accounts_btn.text = "Test Accounts"
 	test_accounts_btn.tooltip_text = "Open the Xbox Live Test Account GUI"
 	test_accounts_btn.pressed.connect(_on_open_test_accounts)
@@ -86,10 +86,10 @@ func setup(coordinator) -> void:
 
 	_coordinator._add_section_header(root, "Active Test Account")
 
-	var test_row := HBoxContainer.new()
+	var test_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(test_row)
 
-	var test_label := Label.new()
+	var test_label: Label = Label.new()
 	test_label.text = "Gamertag / Email"
 	test_label.custom_minimum_size.x = 130
 	test_row.add_child(test_label)
@@ -99,7 +99,7 @@ func setup(coordinator) -> void:
 	test_account_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	test_row.add_child(test_account_edit)
 
-	var test_hint := Label.new()
+	var test_hint: Label = Label.new()
 	test_hint.text = "Sign into this account via the Xbox App before running your game."
 	test_hint.add_theme_font_size_override("font_size", 11)
 	test_hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
@@ -123,25 +123,25 @@ func collect_state() -> Dictionary:
 
 
 func connect_autosave(save_callback: Callable) -> void:
-	for edit in [sandbox_id_edit, test_account_edit]:
-		edit.text_changed.connect(func(_value): save_callback.call())
+	for edit: LineEdit in [sandbox_id_edit, test_account_edit]:
+		edit.text_changed.connect(func(_value: String) -> void: save_callback.call())
 		edit.focus_exited.connect(save_callback)
 
 
 func refresh_status() -> void:
-	var sandbox_exe = _coordinator.get_toolchain().get_sandbox_path()
+	var sandbox_exe: String = _coordinator.get_toolchain().get_sandbox_path()
 	if sandbox_exe == "":
 		sandbox_label.text = "Current: XblPCSandbox.exe not found"
 		sandbox_set_btn.disabled = true
 		sandbox_retail_btn.disabled = true
 		return
 
-	var result = _coordinator.get_toolchain().execute_tool(sandbox_exe, PackedStringArray(["/get"]))
+	var result: Dictionary = _coordinator.get_toolchain().execute_tool(sandbox_exe, PackedStringArray(["/get"]))
 	if result["exit_code"] == 0:
 		var output: String = result["stdout"].strip_edges()
-		var idx = output.find(":")
+		var idx: int = output.find(":")
 		if idx >= 0:
-			var sandbox_name = output.substr(idx + 1).strip_edges()
+			var sandbox_name: String = output.substr(idx + 1).strip_edges()
 			sandbox_label.text = "Current: %s" % sandbox_name
 			if sandbox_name != "" and sandbox_name != "RETAIL":
 				sandbox_id_edit.text = sandbox_name
@@ -156,19 +156,19 @@ func refresh_status() -> void:
 
 
 func _refresh_dev_account() -> void:
-	var dev_exe = _coordinator.get_toolchain().get_dev_account_path()
+	var dev_exe: String = _coordinator.get_toolchain().get_dev_account_path()
 	if dev_exe == "":
 		dev_account_label.text = "XblDevAccount.exe not found"
 		return
 
-	var result = _coordinator.get_toolchain().execute_tool(dev_exe, PackedStringArray(["show"]))
+	var result: Dictionary = _coordinator.get_toolchain().execute_tool(dev_exe, PackedStringArray(["show"]))
 	if result["exit_code"] == 0:
 		var output: String = result["stdout"].strip_edges()
 		if output.contains("is currently signed in"):
-			var email_start = output.find("account ") + 8
-			var email_end = output.find(" from")
+			var email_start: int = output.find("account ") + 8
+			var email_end: int = output.find(" from")
 			if email_start > 8 and email_end > email_start:
-				var email = output.substr(email_start, email_end - email_start)
+				var email: String = output.substr(email_start, email_end - email_start)
 				dev_account_label.text = "✅ Signed in: %s" % email
 			else:
 				dev_account_label.text = "✅ Signed in"
@@ -181,7 +181,7 @@ func _refresh_dev_account() -> void:
 
 
 func _on_sandbox_set() -> void:
-	var sandbox_id = sandbox_id_edit.text.strip_edges()
+	var sandbox_id: String = sandbox_id_edit.text.strip_edges()
 	if sandbox_id == "":
 		sandbox_label.text = "Enter a sandbox ID first"
 		return
@@ -191,8 +191,8 @@ func _on_sandbox_set() -> void:
 	sandbox_retail_btn.disabled = true
 	_coordinator._log("Setting sandbox to: %s" % sandbox_id)
 
-	var sandbox_exe = _coordinator.get_toolchain().get_sandbox_path()
-	var result = _coordinator.get_toolchain().execute_tool(
+	var sandbox_exe: String = _coordinator.get_toolchain().get_sandbox_path()
+	var result: Dictionary = _coordinator.get_toolchain().execute_tool(
 		sandbox_exe,
 		PackedStringArray(["/set", sandbox_id, "/noApps"])
 	)
@@ -210,8 +210,8 @@ func _on_sandbox_retail() -> void:
 	sandbox_retail_btn.disabled = true
 	_coordinator._log("Switching sandbox to RETAIL")
 
-	var sandbox_exe = _coordinator.get_toolchain().get_sandbox_path()
-	var result = _coordinator.get_toolchain().execute_tool(
+	var sandbox_exe: String = _coordinator.get_toolchain().get_sandbox_path()
+	var result: Dictionary = _coordinator.get_toolchain().execute_tool(
 		sandbox_exe,
 		PackedStringArray(["/retail", "/noApps"])
 	)
@@ -224,7 +224,7 @@ func _on_sandbox_retail() -> void:
 
 
 func _on_dev_account_signin() -> void:
-	var dev_exe = _coordinator.get_toolchain().get_dev_account_path()
+	var dev_exe: String = _coordinator.get_toolchain().get_dev_account_path()
 	if dev_exe == "":
 		return
 
@@ -235,12 +235,12 @@ func _on_dev_account_signin() -> void:
 
 
 func _on_dev_account_signout() -> void:
-	var dev_exe = _coordinator.get_toolchain().get_dev_account_path()
+	var dev_exe: String = _coordinator.get_toolchain().get_dev_account_path()
 	if dev_exe == "":
 		return
 
 	dev_account_label.text = "Signing out..."
-	var result = _coordinator.get_toolchain().execute_tool(dev_exe, PackedStringArray(["signout"]))
+	var result: Dictionary = _coordinator.get_toolchain().execute_tool(dev_exe, PackedStringArray(["signout"]))
 	if result["exit_code"] == 0:
 		_coordinator._log("Dev account signed out")
 	else:
@@ -249,7 +249,7 @@ func _on_dev_account_signout() -> void:
 
 
 func _on_open_test_accounts() -> void:
-	var test_gui = _coordinator.get_toolchain().get_bin_dir().path_join("XblTestAccountGui.exe")
+	var test_gui: String = _coordinator.get_toolchain().get_bin_dir().path_join("XblTestAccountGui.exe")
 	if FileAccess.file_exists(test_gui):
 		_coordinator.get_toolchain().launch_detached(test_gui, PackedStringArray([]))
 		_coordinator._log("Launched Xbox Live Test Account GUI")

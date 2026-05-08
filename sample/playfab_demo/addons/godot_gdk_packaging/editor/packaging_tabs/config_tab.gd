@@ -1,7 +1,7 @@
 @tool
 extends ScrollContainer
 
-var _coordinator
+var _coordinator: Variant
 
 var status_label: Label
 var identity_label: Label
@@ -10,12 +10,12 @@ var create_config_btn: Button
 var preview_container: VBoxContainer
 
 
-func setup(coordinator) -> void:
+func setup(coordinator: Variant) -> void:
 	_coordinator = coordinator
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	size_flags_vertical = SIZE_EXPAND_FILL
 
-	var root := VBoxContainer.new()
+	var root: VBoxContainer = VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	add_child(root)
 
@@ -29,7 +29,7 @@ func setup(coordinator) -> void:
 	identity_label.add_theme_font_size_override("font_size", 12)
 	root.add_child(identity_label)
 
-	var config_btns := HBoxContainer.new()
+	var config_btns: HBoxContainer = HBoxContainer.new()
 	root.add_child(config_btns)
 
 	create_config_btn = Button.new()
@@ -42,12 +42,12 @@ func setup(coordinator) -> void:
 	edit_config_btn.pressed.connect(_on_edit_config)
 	config_btns.add_child(edit_config_btn)
 
-	var refresh_btn := Button.new()
+	var refresh_btn: Button = Button.new()
 	refresh_btn.text = "Refresh"
 	refresh_btn.pressed.connect(refresh_status)
 	config_btns.add_child(refresh_btn)
 
-	var open_folder_btn := Button.new()
+	var open_folder_btn: Button = Button.new()
 	open_folder_btn.text = "Open Folder"
 	open_folder_btn.pressed.connect(_on_open_config_folder)
 	config_btns.add_child(open_folder_btn)
@@ -61,12 +61,12 @@ func setup(coordinator) -> void:
 
 
 func refresh_status() -> void:
-	var config_mgr = _coordinator.get_config_manager()
+	var config_mgr: Variant = _coordinator.get_config_manager()
 	if config_mgr.config_exists():
 		status_label.text = "✅ MicrosoftGame.config found"
 		create_config_btn.visible = false
 
-		var info = config_mgr.parse_config()
+		var info: Dictionary = config_mgr.parse_config()
 		if info.size() > 0 and info["name"] != "":
 			identity_label.text = "%s | %s | v%s" % [
 				info.get("display_name", info["name"]),
@@ -74,7 +74,7 @@ func refresh_status() -> void:
 				info.get("version", "?"),
 			]
 
-			var packaging_tab = _coordinator.get_packaging_tab()
+			var packaging_tab: Variant = _coordinator.get_packaging_tab()
 			if packaging_tab != null and packaging_tab.product_id_edit != null:
 				if packaging_tab.product_id_edit.text == "" and info.get("product_id", "") != "":
 					packaging_tab.product_id_edit.text = info["product_id"]
@@ -83,11 +83,11 @@ func refresh_status() -> void:
 
 		_refresh_preview(info)
 
-		var relocated = config_mgr.relocate_logos_to_storelogos()
+		var relocated: int = config_mgr.relocate_logos_to_storelogos()
 		if relocated > 0:
 			_coordinator._log("Relocated %d logo(s) to storelogos/" % relocated)
 
-		var synced = config_mgr.sync_store_logos()
+		var synced: int = config_mgr.sync_store_logos()
 		if synced > 0:
 			_coordinator._log("Synced %d store logo(s) from 480x480 source" % synced)
 	else:
@@ -98,17 +98,17 @@ func refresh_status() -> void:
 
 
 func _refresh_preview(info: Dictionary) -> void:
-	for child in preview_container.get_children():
+	for child: Node in preview_container.get_children():
 		child.queue_free()
 
 	if info.is_empty():
-		var empty_label := Label.new()
+		var empty_label: Label = Label.new()
 		empty_label.text = "No config loaded."
 		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		preview_container.add_child(empty_label)
 		return
 
-	var fields := [
+	var fields: Array = [
 		["Config Version", info.get("config_version", ""), "Game configVersion — must be '1' for GDK Oct 2023+. Controls schema validation rules."],
 		["Identity Name", info.get("name", ""), "Identity.Name — unique package name from Partner Center → Product Identity. Used during registration."],
 		["Publisher", info.get("publisher", ""), "Identity.Publisher — publisher CN string from Partner Center → Product Identity."],
@@ -127,7 +127,7 @@ func _refresh_preview(info: Dictionary) -> void:
 		["Splash Screen", info.get("splash_screen", ""), "ShellVisuals.SplashScreenImage — image shown during game launch."],
 	]
 
-	for field in fields:
+	for field: Array in fields:
 		var label_text: String = field[0]
 		var value: String = field[1]
 		var tooltip: String = field[2]
@@ -135,10 +135,10 @@ func _refresh_preview(info: Dictionary) -> void:
 		if value == "":
 			continue
 
-		var row := HBoxContainer.new()
+		var row: HBoxContainer = HBoxContainer.new()
 		preview_container.add_child(row)
 
-		var key_label := Label.new()
+		var key_label: Label = Label.new()
 		key_label.text = label_text
 		key_label.custom_minimum_size.x = 120
 		key_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
@@ -147,7 +147,7 @@ func _refresh_preview(info: Dictionary) -> void:
 		key_label.mouse_filter = Control.MOUSE_FILTER_PASS
 		row.add_child(key_label)
 
-		var val_label := Label.new()
+		var val_label: Label = Label.new()
 		val_label.text = value
 		val_label.add_theme_font_size_override("font_size", 14)
 		val_label.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -158,13 +158,13 @@ func _refresh_preview(info: Dictionary) -> void:
 
 
 func _on_edit_config() -> void:
-	var config_mgr = _coordinator.get_config_manager()
+	var config_mgr: Variant = _coordinator.get_config_manager()
 	if not config_mgr.config_exists():
 		_coordinator._log("MicrosoftGame.config not found — create one first.")
 		push_warning("[GDK Packaging] MicrosoftGame.config not found — create one first.")
 		return
 
-	var pid = config_mgr.launch_editor()
+	var pid: int = config_mgr.launch_editor()
 	if pid >= 0:
 		_coordinator._log("Launched GameConfigEditor (PID: %d)" % pid)
 	else:
@@ -173,11 +173,11 @@ func _on_edit_config() -> void:
 
 
 func _on_create_config() -> void:
-	var err = _coordinator.get_config_manager().create_template()
+	var err: Error = _coordinator.get_config_manager().create_template()
 	if err == OK:
 		_coordinator._log("Created template MicrosoftGame.config in project root")
 		refresh_status()
-		var fs = EditorInterface.get_resource_filesystem()
+		var fs: EditorFileSystem = EditorInterface.get_resource_filesystem()
 		if not fs.is_scanning():
 			fs.scan()
 	elif err == ERR_ALREADY_EXISTS:

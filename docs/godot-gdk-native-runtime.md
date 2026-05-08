@@ -128,10 +128,7 @@ It currently exposes:
 
 It emits:
 
-- `user_added`
-- `user_removed`
-- `user_changed(user, change_kind)` where `change_kind` is `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`
-- `primary_user_changed` when the session primary user is established or later cleared
+- `user_changed(user, change_kind)` for all user lifecycle and Xbox-facing state changes. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`.
 
 `GDKUser` is the script-visible wrapper around a local user. It stores:
 

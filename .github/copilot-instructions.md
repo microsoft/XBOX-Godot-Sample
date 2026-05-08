@@ -45,8 +45,8 @@ Output binaries land in each addon's `bin\` folder. Addon-local build logic may 
 ## Path-Scoped Instructions
 
 - `addons\godot_gdk\`, the GDK-owned sample files, `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` are covered by `.github\instructions\godot-gdk.instructions.md`.
-- `addons\godot_playfab\`, the PlayFab addon copies synced into samples, `sample\playfab_demo\`, `docs\godot-playfab*.md`, and `spec\gdext-playfab.md` are covered by `.github\instructions\godot-playfab.instructions.md`.
-- `addons\godot_gameinput\`, the GameInput-touching sample files (`sample\gdk_launch_point\tests\**`, the pong logic scripts that pulse rumble or wire hot-plug), `docs\godot-gameinput.md`, and `spec\gdext-gameinput.md` are covered by `.github\instructions\godot-gameinput.instructions.md`.
+- `addons\godot_playfab\`, `tests\godot\playfab\`, the PlayFab addon copies synced into samples, `sample\playfab_demo\`, `docs\godot-playfab*.md`, and `spec\gdext-playfab.md` are covered by `.github\instructions\godot-playfab.instructions.md`.
+- `addons\godot_gameinput\`, `tests\godot\gameinput\`, the GameInput-touching sample files (the pong logic scripts that pulse rumble or wire hot-plug), `docs\godot-gameinput*.md`, and `spec\gdext-gameinput.md` are covered by `.github\instructions\godot-gameinput.instructions.md`.
 - If future addon-specific guidance is needed, add another scoped instruction file instead of expanding this top-level file with rules that only apply to one addon.
 
 ## Workflow Quality Gates
@@ -62,5 +62,13 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 ```
 
 - Do not assume GitHub checks exercised the relevant local build, sample, or validation paths; run the matching local validation yourself.
-- Use the specific sample project root when invoking Godot commands (`sample\gdk_demo`, `sample\gdk_launch_point`, `sample\multiplayer_pong`, or `sample\playfab_demo`).
+- Use the specific Godot project root when invoking Godot commands (`sample\gdk_demo`, `sample\gdk_launch_point`, `sample\multiplayer_pong`, `sample\playfab_demo`, or a host under `tests\godot\`).
+- For end-to-end test coverage, run the repo-root orchestrator. It is the canonical way to validate "tests pass" across all addons:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+```
+
+  The orchestrator runs (in order): the parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), GUT for each coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput` — `multiplayer_pong` is intentionally **not** a test host), and the bootstrap mini-runners under each host's `tests\bootstrap\` directory. Per-stage results land in `build\test-results\run-summary.{json,md}`. Use `-Live` to opt in to live-service tests (`LIVE_TESTS=1`), including tests that write online state; use a dedicated sandbox PlayFab title for live write coverage.
+- New GUT suites live under each host's `tests\` directory as `test_*.gd` files (auto-discovered via `-gdir res://tests -ginclude_subdirs`) and should `extends` the appropriate shared base from `addons\godot_gdk_tests\` (`gdk_test_base.gd`, `playfab_test_base.gd`, or `gameinput_test_base.gd`). The bases live in `addons\godot_gdk\tests_support\bases\` and CMake mirrors them into each host. Vendored GUT under `tests_support\gut\` and the mirrored `addons\gut\` copies are intentionally untouched — never edit them; refresh from upstream instead.
 - When public addon behavior changes, keep the corresponding docs, samples, tests, and path-scoped instructions aligned in the same change.

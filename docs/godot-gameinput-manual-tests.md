@@ -1,6 +1,6 @@
 # GameInput Manual Hardware Test Checklist
 
-The headless test suite under `sample/gdk_launch_point/tests/` covers everything that
+The headless test suite under `tests/godot/gameinput/tests/` covers everything that
 can be verified without a real controller. This document covers the pieces
 that need a human + hardware in the loop.
 
@@ -106,7 +106,7 @@ The Mapper is exercised through pong; for a focused unit you can also drop a
 - [ ] With the pong sample running and a controller plugged in,
   `move_up` / `move_down` actions in the existing `[input]` map drive the
   paddle. (This works through Godot's standard joypad mapping; the Mapper
-  layer adds GameInput devices that aren't recognised by the legacy joypad
+  layer adds GameInput devices that aren't recognised by Godot's built-in joypad
   enum.)
 - [ ] When you create a custom `GameInputBinding` that targets an action
   **not** present in `InputMap`, the Mapper logs **one** warning per missing
@@ -131,10 +131,9 @@ After any change to the GameInput addon C++:
 
 - [ ] Headless tests still pass:
   ```powershell
-  cd sample\gdk_launch_point
-  .\Godot_v4.6.1-stable_win64_console.exe --headless --script res://tests/run_tests.gd
+  pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts @('tests\godot\gameinput')
   ```
-  Expected output ends with `Results: N passed, 0 failed, 0 skipped`.
+  Expected output ends with `Overall: pass`.
 - [ ] Both editors (`gdk_launch_point`, `multiplayer_pong`) launch without
   `ERROR:` lines mentioning `gameinput` in editor output.
 - [ ] `GameInput` singleton appears in **Project → Project Settings →

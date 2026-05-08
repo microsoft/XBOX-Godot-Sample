@@ -1,0 +1,6 @@
+tag: v2.5.2
+source_url: https://github.com/doctest/doctest/releases/tag/v2.5.2
+header_url: https://raw.githubusercontent.com/doctest/doctest/v2.5.2/doctest/doctest.h
+license_url: https://raw.githubusercontent.com/doctest/doctest/v2.5.2/LICENSE.txt
+date: 2026-05-05
+notes: Spike vendoring (Wave -1). Header-only single-file include.

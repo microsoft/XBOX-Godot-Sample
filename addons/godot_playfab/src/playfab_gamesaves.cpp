@@ -68,9 +68,32 @@ Ref<PlayFabResult> make_game_saves_hresult_error(
     return result;
 }
 
+Signal make_game_saves_user_error_signal(PlayFabRuntime *p_runtime, HRESULT p_hresult) {
+    const bool needs_xbox_user = p_hresult == E_HANDLE;
+    return make_game_saves_error_signal(
+            p_runtime,
+            p_hresult,
+            needs_xbox_user ? "xbox_user_required" : "invalid_user",
+            needs_xbox_user
+                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_async(). Custom-ID PlayFab users do not expose a local user handle."
+                    : "Game Saves operations require a valid signed-in PlayFabUser.");
+}
+
+Ref<PlayFabResult> make_game_saves_user_error_result(PlayFabRuntime *p_runtime, HRESULT p_hresult) {
+    const bool needs_xbox_user = p_hresult == E_HANDLE;
+    return make_game_saves_error_result(
+            p_runtime,
+            p_hresult,
+            needs_xbox_user ? "xbox_user_required" : "invalid_user",
+            needs_xbox_user
+                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_async(). Custom-ID PlayFab users do not expose a local user handle."
+                    : "Game Saves operations require a valid signed-in PlayFabUser.");
+}
+
 Dictionary make_user_identity_data(const Ref<PlayFabUser> &p_user) {
     Dictionary data;
     data["local_id"] = static_cast<int64_t>(p_user->get_local_id());
+    data["custom_id"] = p_user->get_custom_id();
     data["entity_key"] = p_user->get_entity_key();
     return data;
 }
@@ -356,7 +379,7 @@ Signal PlayFabGameSaves::add_user_with_ui_async(const Ref<PlayFabUser> &p_user, 
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_signal(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_signal(runtime, user_hr);
     }
 
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
@@ -392,7 +415,7 @@ Signal PlayFabGameSaves::upload_with_ui_async(const Ref<PlayFabUser> &p_user, bo
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_signal(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_signal(runtime, user_hr);
     }
 
     Dictionary success_data = make_user_identity_data(p_user);
@@ -439,7 +462,7 @@ Signal PlayFabGameSaves::set_save_description_async(const Ref<PlayFabUser> &p_us
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_signal(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_signal(runtime, user_hr);
     }
 
     Dictionary success_data = make_user_identity_data(p_user);
@@ -487,7 +510,7 @@ Signal PlayFabGameSaves::reset_cloud_async(const Ref<PlayFabUser> &p_user) {
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_signal(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_signal(runtime, user_hr);
     }
 
     Dictionary success_data = make_user_identity_data(p_user);
@@ -530,7 +553,7 @@ Ref<PlayFabResult> PlayFabGameSaves::get_folder(const Ref<PlayFabUser> &p_user) 
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_result(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_result(runtime, user_hr);
     }
 
     String folder;
@@ -556,7 +579,7 @@ Ref<PlayFabResult> PlayFabGameSaves::get_folder_size(const Ref<PlayFabUser> &p_u
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_result(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_result(runtime, user_hr);
     }
 
     size_t folder_size = 0;
@@ -582,7 +605,7 @@ Ref<PlayFabResult> PlayFabGameSaves::get_remaining_quota(const Ref<PlayFabUser> 
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_result(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_result(runtime, user_hr);
     }
 
     int64_t remaining_quota = 0;
@@ -608,7 +631,7 @@ Ref<PlayFabResult> PlayFabGameSaves::is_connected_to_cloud(const Ref<PlayFabUser
     PFLocalUserHandle local_user_handle = nullptr;
     HRESULT user_hr = duplicate_local_user_handle(p_user, &local_user_handle);
     if (FAILED(user_hr)) {
-        return make_game_saves_error_result(runtime, user_hr, "invalid_user", "Game Saves operations require a signed-in PlayFabUser created through PlayFab.sign_in_async().");
+        return make_game_saves_user_error_result(runtime, user_hr);
     }
 
     bool connected_to_cloud = false;

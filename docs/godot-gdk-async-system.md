@@ -65,10 +65,9 @@ Current public methods:
 
 Current public signals:
 
-- `user_added(user: GDKUser)`
-- `user_removed(local_id: int)`
 - `user_changed(user: GDKUser, change_kind: String)`
-- `primary_user_changed(user: GDKUser)`
+
+`user_changed` is the only public users-service event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()`.
 
 Current `GDKUser` getters:
 
@@ -356,9 +355,7 @@ On successful user add:
    - guest state
    - sign-in state
    - store-user state
-3. `GDKUsers::complete_add_user()` updates the cache and emits:
-   - `user_added` or `user_changed(user, "signed_in_again")`
-   - `primary_user_changed` only when the session primary user is first established
+3. `GDKUsers::complete_add_user()` updates the cache and emits `user_changed(user, "added")` for a newly cached user or `user_changed(user, "signed_in_again")` for a refreshed cached user.
 4. only after those updates does it complete the returned signal
 
 That ordering is important. Future services should follow the same rule: update cache first, then complete the returned request.

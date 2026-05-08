@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 		camera.offset = Vector2(320, 200)
 
 	# Speed indicator
-	var ball = $Ball
+	var ball: Variant = $Ball
 	if ball and not ball.stopped:
 		speed_label.text = "SPEED: %.0f" % ball._speed
 		var intensity := clampf((ball._speed - 100.0) / 200.0, 0.0, 1.0)
@@ -116,17 +116,17 @@ func pulse_rumble(low: float, high: float, duration: float) -> void:
 	# device doesn't support vibration. Pong stays fully playable in either case.
 	if not Engine.has_singleton("GameInput"):
 		return
-	var gi = Engine.get_singleton("GameInput")
+	var gi: Variant = Engine.get_singleton("GameInput")
 	if not gi.is_initialized():
 		return
 	gi.poll()
-	var device = gi.get_primary_device()
+	var device: Variant = gi.get_primary_device()
 	if device == null or not device.supports_vibration():
 		return
 	gi.set_vibration(device, low, high)
 	await get_tree().create_timer(duration).timeout
 	# Re-resolve in case the device hot-unplugged during the pulse.
-	var still = gi.get_primary_device()
+	var still: Variant = gi.get_primary_device()
 	if still != null:
 		gi.stop_haptics(still)
 
