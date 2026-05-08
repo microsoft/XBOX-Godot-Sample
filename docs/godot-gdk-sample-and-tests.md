@@ -76,7 +76,7 @@ Use this command as the standard path. Direct Godot `--script` or GUT invocation
 
 | Host | Covers |
 |------|--------|
-| `tests\godot\gdk\` | `godot_gdk` runtime, users, achievements, presence, social, launcher URI validation, multiplayer activity, result helpers, embed dispatch, bootstrap behavior, and `godot_gdk_packaging` editor-helper logic under `tests\godot\gdk\tests\packaging\`. |
+| `tests\godot\gdk\` | `godot_gdk` runtime, system metadata, accessibility, users, achievements, presence, social, launcher URI validation, multiplayer activity, result helpers, embed dispatch, bootstrap behavior, and `godot_gdk_packaging` editor-helper logic under `tests\godot\gdk\tests\packaging\`. |
 | `tests\godot\playfab\` | `godot_playfab` root singleton, users, custom-ID sign-in, Game Saves, leaderboards, validation paths, and live PlayFab flows. |
 | `tests\godot\gameinput\` | `godot_gameinput` singleton, device/readings wrappers, resources, mapper/action bridge, threading smoke, and bootstrap autoload behavior. |
 

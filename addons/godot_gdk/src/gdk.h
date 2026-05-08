@@ -17,6 +17,7 @@
 #include "gdk_multiplayer_activity.h"
 #include "gdk_presence.h"
 #include "gdk_social.h"
+#include "gdk_system.h"
 #include "gdk_user.h"
 
 namespace godot {
@@ -39,6 +40,7 @@ class GDK : public Object {
     Ref<GDKSocial> m_social;
     Ref<GDKLauncher> m_launcher;
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
+    Ref<GDKSystem> m_system;
 
 protected:
     static void _bind_methods();
@@ -62,6 +64,7 @@ public:
     Ref<GDKSocial> get_social() const;
     Ref<GDKLauncher> get_launcher() const;
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;
+    Ref<GDKSystem> get_system() const;
 
     GDKRuntime *get_runtime() const;
     GDKXboxServices *get_xbox_services() const;

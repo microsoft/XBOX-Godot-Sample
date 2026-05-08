@@ -31,6 +31,7 @@ contains:
 - `gdk_presence.cpp` / `gdk_presence.h` — presence service and wrapper types
 - `gdk_social.cpp` / `gdk_social.h` — social graph service and wrapper types
 - `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h` — multiplayer activity service and wrapper types
+- `gdk_system.cpp` / `gdk_system.h` — system/runtime metadata service
 - `register_types.cpp` / `register_types.h` — Godot class registration and singleton publication
 
 ### Addon metadata

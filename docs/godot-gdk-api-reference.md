@@ -30,6 +30,7 @@ accessed as namespaces under this root.
 | `get_social()` | `GDKSocial` | Access the social graph service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
+| `get_system()` | `GDKSystem` | Access title/runtime metadata and environment facts |
 
 ### Signals
 
@@ -58,6 +59,32 @@ If you disable that setting, call `dispatch()` manually:
 ```gdscript
 func _process(_delta):
     GDK.dispatch()
+```
+
+## System service: `GDK.system`
+
+`GDK.system` is a `RefCounted` service object returned by `GDK.get_system()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_title_id()` | `GDKResult` | Read the current Xbox title ID (`data` is `int`) |
+| `get_title_id_hex()` | `GDKResult` | Read the current Xbox title ID as uppercase `0x`-prefixed hex (`data` is `String`) |
+| `get_sandbox_id()` | `GDKResult` | Read the current sandbox ID (`data` is `String`) |
+| `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared Xbox services scaffold (`data` is `String`) |
+| `is_xbox_services_initialized()` | `bool` | Check whether the shared Xbox services scaffold is initialized |
+
+### Usage
+
+```gdscript
+var title_result: GDKResult = GDK.system.get_title_id()
+if title_result.ok:
+    print("Title ID:", title_result.data)
+
+var sandbox_result: GDKResult = GDK.system.get_sandbox_id()
+if sandbox_result.ok:
+    print("Sandbox:", sandbox_result.data)
 ```
 
 ## Users service: `GDK.users`

@@ -299,12 +299,14 @@ GDK.is_available() -> bool
 GDK.is_initialized() -> bool
 GDK.dispatch() -> int
 GDK.get_last_error() -> GDKResult
+GDK.get_system() -> GDKSystem
 ```
 
 #### Root properties
 
 ```gdscript
 GDK.users: GDKUsers
+GDK.system: GDKSystem
 GDK.accessibility: GDKAccessibility
 GDK.save: GDKSave
 GDK.achievements: GDKAchievements

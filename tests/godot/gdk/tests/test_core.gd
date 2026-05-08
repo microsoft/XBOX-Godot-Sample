@@ -38,6 +38,7 @@ func test_class_registration() -> void:
 		"GDKSocialFilter",
 		"GDKSocialGroup",
 		"GDKSocialUser",
+		"GDKSystem",
 		"GDKLauncher",
 		"GDKResult",
 	]:
@@ -56,6 +57,7 @@ func test_class_registration() -> void:
 	assert_true(ClassDB.is_parent_class("GDKSocialFilter", "RefCounted"), "GDKSocialFilter extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialGroup", "RefCounted"), "GDKSocialGroup extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialUser", "RefCounted"), "GDKSocialUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKSystem", "RefCounted"), "GDKSystem extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKLauncher", "RefCounted"), "GDKLauncher extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKResult", "RefCounted"), "GDKResult extends RefCounted")
 
@@ -66,7 +68,7 @@ func test_gdk_root_api() -> void:
 
 	var gdk = get_gdk()
 
-	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_accessibility", "get_achievements", "get_presence", "get_social", "get_launcher", "get_multiplayer_activity"]:
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_accessibility", "get_achievements", "get_presence", "get_social", "get_launcher", "get_multiplayer_activity", "get_system"]:
 		assert_has_method_named(gdk, method_name)
 
 	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
@@ -79,6 +81,7 @@ func test_gdk_root_api() -> void:
 	assert_true(gdk.get_social() != null, "GDK.social service available")
 	assert_true(gdk.get_launcher() != null, "GDK.launcher service available")
 	assert_true(gdk.get_multiplayer_activity() != null, "GDK.multiplayer_activity service available")
+	assert_true(gdk.get_system() != null, "GDK.system service available")
 	assert_true(gdk.is_available() is bool, "is_available() returns bool")
 	assert_eq(gdk.is_initialized(), false, "is_initialized() starts false")
 	assert_eq(gdk.dispatch(), 0, "dispatch() safe before init")

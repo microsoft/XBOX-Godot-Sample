@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSystem" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		System/runtime metadata service accessed via GDK.system.
+	</brief_description>
+	<description>
+		Exposes small synchronous wrappers for PC-relevant title/runtime facts from the GDK runtime. Methods return [GDKResult] so unavailable values can report structured error codes and messages.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_title_id" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the current Xbox title ID as [code]int[/code] in [code]GDKResult.data[/code]. Returns an error when the title identity is unavailable.
+			</description>
+		</method>
+		<method name="get_title_id_hex" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the current Xbox title ID as an uppercase [code]0x[/code]-prefixed hex string in [code]GDKResult.data[/code].
+			</description>
+		</method>
+		<method name="get_sandbox_id" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the current sandbox ID string in [code]GDKResult.data[/code]. Returns an error if the sandbox ID cannot be read.
+			</description>
+		</method>
+		<method name="get_service_configuration_id" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the current service configuration ID (SCID) string in [code]GDKResult.data[/code] when Xbox services are initialized.
+			</description>
+		</method>
+		<method name="is_xbox_services_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the shared Xbox services scaffold has been initialized.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

@@ -15,6 +15,7 @@
 #include "gdk_presence.h"
 #include "gdk_result.h"
 #include "gdk_social.h"
+#include "gdk_system.h"
 #include "gdk_user.h"
 
 using namespace godot;
@@ -103,6 +104,7 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKLauncher>();
         ClassDB::register_class<GDKMultiplayerActivityInfo>();
         ClassDB::register_class<GDKMultiplayerActivity>();
+        ClassDB::register_class<GDKSystem>();
 
         gdk_singleton = memnew(GDK);
         Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());

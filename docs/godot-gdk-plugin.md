@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_gdk` docs set.
 
-`godot_gdk` is the primary GDExtension addon in this repository. It currently implements the runtime/users/achievements/presence/social baseline and also ships editor-side setup and export tooling for the broader GDK workflow.
+`godot_gdk` is the primary GDExtension addon in this repository. It currently implements the runtime/users/achievements/presence/social baseline, multiplayer activity, and system/runtime metadata surfaces, and also ships editor-side setup and export tooling for the broader GDK workflow.
 
 ## Current implementation status
 
@@ -16,6 +16,7 @@ This is the landing page for the `godot_gdk` docs set.
 - achievements service
 - presence service
 - social service
+- system/runtime metadata service
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
 - sample demo for runtime/users/achievements/presence/social
@@ -30,7 +31,7 @@ This is the landing page for the `godot_gdk` docs set.
 
 ## Testing this addon
 
-`godot_gdk` is exercised by the `tests\godot\gdk\` host. Coverage lives under `tests\godot\gdk\tests\` and includes files such as `test_core.gd`, `test_users.gd`, `test_achievements.gd`, `test_presence.gd`, `test_social.gd`, `test_multiplayer_activity.gd`, `test_result_helpers.gd`, and `test_embed_dispatch.gd`. Startup-only behavior is covered by `tests\godot\gdk\tests\bootstrap\run_*.gd`, and packaging/editor-helper logic is covered under `tests\godot\gdk\tests\packaging\`.
+`godot_gdk` is exercised by the `tests\godot\gdk\` host. Coverage lives under `tests\godot\gdk\tests\` and includes files such as `test_core.gd`, `test_users.gd`, `test_achievements.gd`, `test_presence.gd`, `test_social.gd`, `test_multiplayer_activity.gd`, `test_system.gd`, `test_result_helpers.gd`, and `test_embed_dispatch.gd`. Startup-only behavior is covered by `tests\godot\gdk\tests\bootstrap\run_*.gd`, and packaging/editor-helper logic is covered under `tests\godot\gdk\tests\packaging\`.
 
 Most deterministic coverage runs in the default orchestrator pass. Live GDK flows are gated by `LIVE_TESTS=1` through `-Live`; any live write coverage should use a test sandbox. The addon registers `gdk/tests/live_required` as a project setting for sample-side test configuration, defaulting to `false`.
 
@@ -53,7 +54,7 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
 
 - [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
-  Public GDScript API surface for `GDK`, `GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`.
+  Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.multiplayer_activity`.
 
 ### Architecture
 

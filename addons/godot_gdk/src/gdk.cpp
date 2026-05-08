@@ -3,6 +3,7 @@
 #include "gdk_multiplayer_activity.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
+#include "gdk_system.h"
 #include "gdk_xbox_services.h"
 
 namespace godot {
@@ -33,6 +34,8 @@ GDK::GDK() {
     m_launcher->set_owner(this);
     m_multiplayer_activity.instantiate();
     m_multiplayer_activity->set_owner(this);
+    m_system.instantiate();
+    m_system->set_owner(this);
 }
 
 GDK::~GDK() {
@@ -55,6 +58,7 @@ GDK::~GDK() {
     m_social.unref();
     m_launcher.unref();
     m_multiplayer_activity.unref();
+    m_system.unref();
     singleton = nullptr;
 }
 
@@ -72,6 +76,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
     ClassDB::bind_method(D_METHOD("get_launcher"), &GDK::get_launcher);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
+    ClassDB::bind_method(D_METHOD("get_system"), &GDK::get_system);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accessibility", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAccessibility"), "", "get_accessibility");
@@ -80,6 +85,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSocial"), "", "get_social");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "launcher", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLauncher"), "", "get_launcher");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "system", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSystem"), "", "get_system");
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
@@ -240,6 +246,10 @@ Ref<GDKLauncher> GDK::get_launcher() const {
 
 Ref<GDKMultiplayerActivity> GDK::get_multiplayer_activity() const {
     return m_multiplayer_activity;
+}
+
+Ref<GDKSystem> GDK::get_system() const {
+    return m_system;
 }
 
 GDKRuntime *GDK::get_runtime() const {
