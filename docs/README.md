@@ -8,6 +8,8 @@ Microsoft public GDK.
 
 - [**Getting Started**](getting-started.md) — prerequisites, building,
   VS Code setup, and development workflow
+- [**Test Pipeline**](godot-gdk-sample-and-tests.md) — repo-wide orchestrator,
+  GUT hosts, C++ doctest, live switch, and test baselines
 
 ## Sample projects
 
@@ -15,10 +17,10 @@ Four sample projects live under `sample/`:
 
 | Sample | Description |
 |--------|-------------|
-| [`gdk_demo`](godot-gdk-sample-and-tests.md) | GDK addon demo + headless test suite |
+| [`gdk_demo`](godot-gdk-sample-and-tests.md) | GDK addon demo |
 | [`gdk_launch_point`](godot-gdk-sample-and-tests.md) | GDK Launch Point scenario shell |
-| `multiplayer_pong` | Multiplayer pong with Xbox identity and single player AI |
-| `playfab_demo` | PlayFab sign-in smoke-test sample wired to the `PlayFab` root singleton |
+| `multiplayer_pong` | Multiplayer pong with Xbox identity and GameInput rumble; not a test host |
+| [`playfab_demo`](godot-playfab-plugin.md) | PlayFab sign-in, Game Saves, and leaderboard sample |
 
 All samples share the same GDK setup. See [Sample Project Setup](godot-gdk-sample-setup.md)
 for Partner Center configuration.
@@ -44,13 +46,13 @@ for Partner Center configuration.
   helpers, XAsync bridge, and cancellation
 - [**Editor Tools**](godot-gdk-editor-tools.md) — editor plugin, setup panel,
   and export platform
-- [**Sample and Tests**](godot-gdk-sample-and-tests.md) — sample architecture
-  and headless test harness
+- [**Sample and Tests**](godot-gdk-sample-and-tests.md) — sample architecture,
+  coverage hosts, and the repo-wide test pipeline
 
 ## GameInput addon (`godot_gameinput`)
 
 - [**GameInput Addon**](godot-gameinput.md) — devices, polling, vibration,
-  action bridge, project settings, sample integration
+  action bridge, project settings, sample integration, and testing
 - [**GameInput Manual Tests**](godot-gameinput-manual-tests.md) — hardware
   checklist for things headless tests can't cover (real controllers, rumble,
   battery, hot-plug)
@@ -58,7 +60,7 @@ for Partner Center configuration.
 ## PlayFab addon (`godot_playfab`)
 
 - [**PlayFab Plugin Overview**](godot-playfab-plugin.md) — runtime configuration,
-  current implementation status, and sample usage
+  current implementation status, sample usage, and testing
 
 ## Design specs
 
@@ -68,7 +70,8 @@ API surface and are not guaranteed to match the current implementation.
 - [`gdext-gdk.md`](../spec/gdext-gdk.md) — GDK addon design spec
 - [`gdext-gameinput.md`](../spec/gdext-gameinput.md) — GameInput addon design spec
 - [`gdext-playfab.md`](../spec/gdext-playfab.md) — PlayFab addon design spec
+- [`testing-strategy.md`](../spec/testing-strategy.md) — durable test strategy spec
 
 ## Troubleshooting
 
-- [**Troubleshooting**](troubleshooting.md) — common build and runtime issues
+- [**Troubleshooting**](troubleshooting.md) — common build, runtime, and test issues

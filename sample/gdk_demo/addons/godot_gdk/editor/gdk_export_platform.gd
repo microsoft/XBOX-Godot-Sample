@@ -49,7 +49,7 @@ func _normalize_title_id(p_title_id: String) -> String:
 	if normalized == "" or normalized.length() > 8:
 		return ""
 
-	for i in range(normalized.length()):
+	for i: int in range(normalized.length()):
 		var digit: String = normalized.substr(i, 1)
 		if not "0123456789abcdef".contains(digit):
 			return ""
@@ -64,7 +64,7 @@ func _derive_scid_from_title_id(p_title_id: String) -> String:
 
 func _get_export_options() -> Array[Dictionary]:
 	# Load defaults from sample_config.cfg if it exists
-	var cfg = ConfigFile.new()
+	var cfg := ConfigFile.new()
 	var has_cfg: bool = cfg.load("res://sample_config.cfg") == OK
 
 	var def_title: String = str(cfg.get_value("xbox_live", "title_id", "")) if has_cfg else ""
@@ -124,22 +124,22 @@ func _get_export_option_visibility(p_preset: EditorExportPreset, p_option: Strin
 
 func _get_export_option_warning(p_preset: EditorExportPreset, p_option: StringName) -> String:
 	if p_option == "identity/game_name":
-		var name = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
+		var name: Variant = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
 		if name == "" or name == "My Godot Game":
 			return "Set a unique game name for your title"
 
 	if p_option == "identity/publisher_name":
-		var pub = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
+		var pub: Variant = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
 		if pub == "" or pub == "CN=Publisher":
 			return "Set your publisher identity (CN=YourName)"
 
 	if p_option == "identity/version":
-		var ver = p_preset.get("identity/version") if p_preset.has("identity/version") else ""
-		if ver != "" and ver.split(".").size() != 4:
+		var ver: Variant = p_preset.get("identity/version") if p_preset.has("identity/version") else ""
+		if ver != "" and str(ver).split(".").size() != 4:
 			return "Version must be in X.X.X.X format"
 
 	if p_option == "xbox_live/title_id":
-		var title_id = p_preset.get("xbox_live/title_id") if p_preset.has("xbox_live/title_id") else ""
+		var title_id: Variant = p_preset.get("xbox_live/title_id") if p_preset.has("xbox_live/title_id") else ""
 		if title_id != "" and _normalize_title_id(str(title_id)) == "":
 			return "Title ID must be 1-8 hex characters"
 
@@ -150,8 +150,8 @@ func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool
 		return false
 
 	# Check required fields
-	var name = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
-	var pub = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
+	var name: Variant = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
+	var pub: Variant = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
 	if name == "" or pub == "":
 		return false
 
@@ -176,7 +176,7 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	print("[GDK Export] Staging directory: ", staging_dir)
 
 	# ── Step 1: Create staging directory ──
-	var da = DirAccess.open(out_dir)
+	var da := DirAccess.open(out_dir)
 	if da == null:
 		push_error("GDK Export: Cannot access output directory: ", out_dir)
 		return ERR_FILE_BAD_PATH
@@ -222,7 +222,7 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	# ── Step 4: Generate MicrosoftGame.config ──
 	var config_path: String = staging_dir.path_join("MicrosoftGame.config")
 	var config_content: String = _generate_microsoft_game_config(p_preset, exe_name)
-	var config_file = FileAccess.open(config_path, FileAccess.WRITE)
+	var config_file := FileAccess.open(config_path, FileAccess.WRITE)
 	if config_file == null:
 		push_error("GDK Export: Cannot write MicrosoftGame.config")
 		return ERR_FILE_CANT_WRITE
@@ -231,7 +231,7 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	print("[GDK Export] MicrosoftGame.config generated")
 
 	# ── Step 5: Package or register ──
-	var use_loose = p_preset.get("dev/register_loose") if p_preset.has("dev/register_loose") else true
+	var use_loose: Variant = p_preset.get("dev/register_loose") if p_preset.has("dev/register_loose") else true
 
 	if use_loose:
 		return _wdapp_register(staging_dir)
@@ -311,7 +311,7 @@ func _wdapp_register(staging_dir: String) -> int:
 	var global_path: String = ProjectSettings.globalize_path(staging_dir)
 	var output: Array = []
 	var exit_code: int = OS.execute(_wdapp, ["register", global_path], output, true)
-	for line in output:
+	for line: Variant in output:
 		print("[wdapp] ", line)
 	if exit_code != 0:
 		push_error("GDK Export: wdapp register failed (exit code %d)" % exit_code)
@@ -330,7 +330,7 @@ func _makepkg_pack(staging_dir: String, output_path: String, p_preset: EditorExp
 	var exit1: int = OS.execute(_makepkg, [
 		"genmap", "/f", layout_path, "/d", global_staging
 	], output1, true)
-	for line in output1:
+	for line: Variant in output1:
 		print("[makepkg] ", line)
 	if exit1 != 0:
 		push_error("GDK Export: makepkg genmap failed")
@@ -344,12 +344,12 @@ func _makepkg_pack(staging_dir: String, output_path: String, p_preset: EditorExp
 	]
 
 	# Add EKB file if provided
-	var ekb = p_preset.get("packaging/ekb_file") if p_preset.has("packaging/ekb_file") else ""
+	var ekb: Variant = p_preset.get("packaging/ekb_file") if p_preset.has("packaging/ekb_file") else ""
 	if ekb != "":
 		pack_args.append_array(["/lk", ProjectSettings.globalize_path(ekb)])
 
 	var exit2 := OS.execute(_makepkg, pack_args, output2, true)
-	for line in output2:
+	for line: Variant in output2:
 		print("[makepkg] ", line)
 	if exit2 != 0:
 		push_error("GDK Export: makepkg pack failed")
@@ -365,7 +365,7 @@ func _detect_gdk() -> void:
 	var edition_roots: Array[String] = []
 
 	var env_roots: Array[String] = [OS.get_environment("GameDKCoreLatest"), OS.get_environment("GameDKLatest")]
-	for raw_root in env_roots:
+	for raw_root: String in env_roots:
 		if raw_root == "":
 			continue
 		var normalized_root: String = raw_root.trim_suffix("\\").trim_suffix("/")
@@ -373,7 +373,7 @@ func _detect_gdk() -> void:
 			edition_roots.append(normalized_root)
 
 	if DirAccess.dir_exists_absolute(base):
-		var da = DirAccess.open(base)
+		var da := DirAccess.open(base)
 		if da == null:
 			_gdk_found = false
 			return
@@ -398,7 +398,7 @@ func _detect_gdk() -> void:
 		_gdk_found = false
 		return
 
-	for root in edition_roots:
+	for root: String in edition_roots:
 		if DirAccess.dir_exists_absolute(root + "\\windows"):
 			_gdk_root = root
 			break
@@ -450,13 +450,13 @@ func _export_pck(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_
 	return export_pack(p_preset, p_debug, p_path, p_flags)
 
 func _rmdir_recursive(path: String) -> void:
-	var da = DirAccess.open(path)
+	var da := DirAccess.open(path)
 	if da == null:
 		return
 	da.list_dir_begin()
-	var entry: String = da.get_next()
+	var entry := da.get_next()
 	while entry != "":
-		var full: String = path.path_join(entry)
+		var full := path.path_join(entry)
 		if da.current_is_dir():
 			_rmdir_recursive(full)
 		else:
@@ -466,7 +466,7 @@ func _rmdir_recursive(path: String) -> void:
 	DirAccess.remove_absolute(path)
 
 # Export option builder helper — flat dict format for EditorExportPlatformExtension
-func _opt(p_name: String, type: int, default_value = null,
+func _opt(p_name: String, type: int, default_value: Variant = null,
 		hint: int = PROPERTY_HINT_NONE, hint_string: String = "",
 		required: bool = false) -> Dictionary:
 	var d := {

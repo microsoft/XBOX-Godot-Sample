@@ -88,7 +88,7 @@ func _build() -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row_wrap.add_child(row)
 
-	for i in range(_ids.size()):
+	for i: int in range(_ids.size()):
 		var btn := _build_card(_ids[i])
 		row.add_child(btn)
 		_buttons.append(btn)
@@ -106,7 +106,7 @@ func _build() -> void:
 
 	# Wire focus chain so left/right cycles between cards, then grab focus on the middle.
 	if _buttons.size() > 0:
-		for i in range(_buttons.size()):
+		for i: int in range(_buttons.size()):
 			var b: Button = _buttons[i]
 			var left_idx: int = (i - 1 + _buttons.size()) % _buttons.size()
 			var right_idx: int = (i + 1) % _buttons.size()
@@ -121,7 +121,7 @@ func _build() -> void:
 
 
 func _build_card(id: String) -> Button:
-	var mod = Modifiers.create(id)
+	var mod: Variant = Modifiers.create(id)
 
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(160, 200)

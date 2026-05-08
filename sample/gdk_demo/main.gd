@@ -55,10 +55,7 @@ func _ready() -> void:
 		gdk.initialized.connect(_on_runtime_initialized)
 		gdk.shutdown_completed.connect(_on_runtime_shutdown)
 		gdk.runtime_error.connect(_on_runtime_error)
-		gdk.users.user_added.connect(_on_user_added)
 		gdk.users.user_changed.connect(_on_user_changed)
-		gdk.users.user_removed.connect(_on_user_removed)
-		gdk.users.primary_user_changed.connect(_on_primary_user_changed)
 		gdk.achievements.achievements_updated.connect(_on_achievements_updated)
 		gdk.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
 		gdk.multiplayer_activity.activities_updated.connect(_on_mpa_activities_updated)
@@ -235,27 +232,18 @@ func _on_runtime_error(result) -> void:
 	_refresh_achievement_ui()
 	_refresh_mpa_ui()
 
-func _on_user_added(user) -> void:
-	if _is_primary_user(user):
-		_show_user(user)
-
 func _on_user_changed(user, change_kind: String) -> void:
+	if change_kind == "removed":
+		status_label.text = "GDK: User %d removed" % int(user.local_id)
+		var gdk = _get_gdk()
+		var primary_user = gdk.users.get_primary_user() if gdk != null else null
+		if primary_user == null:
+			_clear_user()
+		return
+
 	if _is_primary_user(user):
-		status_label.text = "GDK: Primary user updated (%s)" % change_kind
+		status_label.text = "GDK: Primary user added" if change_kind == "added" else "GDK: Primary user updated (%s)" % change_kind
 		_show_user(user)
-
-func _on_user_removed(local_id: int) -> void:
-	status_label.text = "GDK: User %d removed" % local_id
-	var gdk = _get_gdk()
-	var primary_user = gdk.users.get_primary_user() if gdk != null else null
-	if primary_user == null:
-		_clear_user()
-
-func _on_primary_user_changed(user) -> void:
-	if user:
-		_show_user(user)
-	else:
-		_clear_user()
 
 func _is_primary_user(user) -> bool:
 	var gdk = _get_gdk()

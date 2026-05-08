@@ -2,7 +2,9 @@
 extends Window
 ## GDK Tutorial Wizard — a slide-based walkthrough of the GDK editor tools.
 
-var _current_slide := 0
+const TutorialWizardState = preload("res://addons/godot_gdk_packaging/editor/tutorial_wizard_state.gd")
+
+var _current_slide: int = 0
 var _slides: Array[Dictionary] = []
 var _title_label: Label
 var _body_label: RichTextLabel
@@ -175,7 +177,7 @@ You can also set an optional endpoint override; leaving it blank uses the defaul
 
 [font_size=14][b]Runtime Usage[/b][/font_size]
 [code]var title_id = str(ProjectSettings.get_setting("playfab/titleid", ""))
-var endpoint = str(ProjectSettings.get_setting("playfab/endpoint", ""))[/code]
+var endpoint: String = str(ProjectSettings.get_setting("playfab/endpoint", ""))[/code]
 
 [font_size=14][b]Tools[/b][/font_size]
 [color=#107c10]▸[/color]  [b]Open Game Manager[/b] — Opens the PlayFab portal
@@ -215,11 +217,11 @@ var endpoint = str(ProjectSettings.get_setting("playfab/endpoint", ""))[/code]
 	]
 
 func _build_ui() -> void:
-	var panel := PanelContainer.new()
+	var panel: PanelContainer = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(panel)
 
-	var margin := MarginContainer.new()
+	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 24)
 	margin.add_theme_constant_override("margin_right", 24)
@@ -227,7 +229,7 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", 12)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox: VBoxContainer = VBoxContainer.new()
 	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(vbox)
 
@@ -235,7 +237,7 @@ func _build_ui() -> void:
 	_title_label.add_theme_font_size_override("font_size", 24)
 	vbox.add_child(_title_label)
 
-	var spacer := Control.new()
+	var spacer: Control = Control.new()
 	spacer.custom_minimum_size.y = 6
 	vbox.add_child(spacer)
 
@@ -248,10 +250,10 @@ func _build_ui() -> void:
 	_body_label.add_theme_font_size_override("bold_font_size", 14)
 	vbox.add_child(_body_label)
 
-	var nav_sep := HSeparator.new()
+	var nav_sep: HSeparator = HSeparator.new()
 	vbox.add_child(nav_sep)
 
-	var nav_row := HBoxContainer.new()
+	var nav_row: HBoxContainer = HBoxContainer.new()
 	nav_row.add_theme_constant_override("separation", 8)
 	vbox.add_child(nav_row)
 
@@ -280,25 +282,22 @@ func _build_ui() -> void:
 	close_requested.connect(_on_close)
 
 func _show_slide(index: int) -> void:
-	_current_slide = clampi(index, 0, _slides.size() - 1)
-	var slide = _slides[_current_slide]
+	_current_slide = TutorialWizardState.clamp_slide_index(index, _slides.size())
+	var slide: Dictionary = _slides[_current_slide]
 	_title_label.text = slide["title"]
 	_body_label.text = slide["body"]
-	_slide_counter.text = "%d / %d" % [_current_slide + 1, _slides.size()]
-	_prev_btn.disabled = (_current_slide == 0)
-	if _current_slide == _slides.size() - 1:
-		_next_btn.text = "  Finish ✓  "
-	else:
-		_next_btn.text = "  Next →  "
+	_slide_counter.text = TutorialWizardState.format_counter(_current_slide, _slides.size())
+	_prev_btn.disabled = TutorialWizardState.is_first(_current_slide, _slides.size())
+	_next_btn.text = TutorialWizardState.next_button_label(_current_slide, _slides.size())
 
 func _on_prev() -> void:
-	_show_slide(_current_slide - 1)
+	_show_slide(TutorialWizardState.prev_slide_index(_current_slide, _slides.size()))
 
 func _on_next() -> void:
-	if _current_slide == _slides.size() - 1:
+	if TutorialWizardState.is_last(_current_slide, _slides.size()):
 		_on_close()
 	else:
-		_show_slide(_current_slide + 1)
+		_show_slide(TutorialWizardState.next_slide_index(_current_slide, _slides.size()))
 
 func _on_close() -> void:
 	hide()

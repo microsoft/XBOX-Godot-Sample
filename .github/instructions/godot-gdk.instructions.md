@@ -1,6 +1,6 @@
 ---
 description: Godot GDK addon architecture, async model, script conventions, and sample workflow
-applyTo: "addons/godot_gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_demo/tests/**, sample/gdk_launch_point/project.godot, sample/multiplayer_pong/project.godot, sample/playfab_demo/project.godot, docs/godot-gdk-*.md, spec/gdext-gdk.md, tools/setup_sample.ps1"
+applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_launch_point/project.godot, sample/multiplayer_pong/project.godot, sample/playfab_demo/project.godot, docs/godot-gdk-*.md, spec/gdext-gdk.md, tools/setup_sample.ps1"
 ---
 
 # Godot GDK Addon Instructions
@@ -67,12 +67,22 @@ applyTo: "addons/godot_gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_d
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
 ```
 
-- The headless test entry point for this addon is:
+- The headless test entry point for this addon is the orchestrator at the repo root:
 
 ```powershell
-cd sample/gdk_demo
-godot --headless --script res://tests/run_tests.gd
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
+
+  The orchestrator runs (in order): `check_gd_scripts_headless.ps1` parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), one GUT run per coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput` — `multiplayer_pong` is intentionally **not** a test host), and the per-scenario bootstrap mini-runners under each host's `tests\bootstrap\` directory. Aggregate results land in `build\test-results\run-summary.{json,md}`.
+- For iterative work on a single host, you can also run GUT directly:
+
+```powershell
+cd tests\godot\gdk
+..\..\..\sample\Godot_v4.6.1-stable_win64_console.exe --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+```
+
+- New GDK suites under `tests\godot\gdk\tests\` should `extends "res://addons/godot_gdk_tests/gdk_test_base.gd"` and use the shared helpers (`pending_unless_runtime_available()`, `track_signal()`, `await_completion()`, `assert_result_*`). The base lives at `addons\godot_gdk\tests_support\bases\gdk_test_base.gd` and is mirrored into each host as `addons\godot_gdk_tests\` by CMake.
+- Tests that need to mutate `gdk/runtime/initialize_on_startup` or `auto_add_primary_user` belong under `tests\godot\gdk\tests\bootstrap\` as one-shot scripts the orchestrator launches in fresh Godot processes — those settings can't be flipped reliably inside an already-started process.
 
 - After changing synced addon files under `addons\godot_gdk\` (for example editor scripts or addon metadata), run:
 
@@ -80,5 +90,5 @@ godot --headless --script res://tests/run_tests.gd
 cmake --build build --preset debug
 ```
 
-  so the `sample\gdk_demo\addons\godot_gdk\` copy is refreshed.
+  so the sample and test-host addon copies are refreshed.
 - Keep `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` aligned with the current addon architecture and sample workflow when those surfaces change.

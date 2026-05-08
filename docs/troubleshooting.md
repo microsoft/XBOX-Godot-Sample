@@ -147,3 +147,29 @@ git submodule update --init --recursive
 
 See [Sample Project Setup](godot-gdk-sample-setup.md) for the full
 configuration guide.
+
+## Tests
+
+### Orchestrator says all green but my new test wasn't discovered
+
+Check that the host run includes `-ginclude_subdirs`. GUT v9.6.0's `-gdir` is non-recursive, so `-gdir=res://tests` only selects the directory tree when `-ginclude_subdirs` is also present. Also confirm the directory you pass to `-gdir` is the one that contains your test files.
+
+### GUT exits 0 but says `Nothing was run.`
+
+This is a discovery filter mismatch, usually the wrong `-gdir`, a missing `-ginclude_subdirs`, or files that do not match GUT's default `test_*.gd` pattern. `tools\run_all_tests.ps1` detects this by parsing GUT's summary and fails the host, but manual invocations may look green if you check only the exit code.
+
+### Pre-commit hook fails with UID warnings on test files
+
+Drop an empty `.gut_skip_validation` sentinel at the tests root that contains GUT-extending files. The headless validator treats a directory containing that sentinel, and its descendants, as not standalone-parseable.
+
+### C++ doctest crashes inside `godot::String`
+
+This is expected in a free-standing executable. `godot::String` and other Variant-family types require the GDExtension function table that Godot initializes when it loads an addon. Move that case into a GUT test, or extract a pure helper that does not instantiate Godot Variant-family types.
+
+### Leaderboard test marked pending after submit
+
+PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, raise `playfab/tests/leaderboard_settle_msec` so the test polls longer before marking the read-after-write check pending.
+
+### Bootstrap runner exit code is 0 but I never saw `BOOTSTRAP_OK:`
+
+Check that the script prints the literal success prefix before it exits and ends with `quit(0)`. `tools\run_all_tests.ps1` gates the bootstrap stage on process exit code, while the `BOOTSTRAP_OK:` and `BOOTSTRAP_FAIL:` prefixes are the log contract reviewers and manual runs use to understand what happened.

@@ -4,7 +4,7 @@ extends ScrollContainer
 const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
 const PLAYFAB_ENDPOINT_SETTING := "playfab/endpoint"
 
-var _coordinator
+var _coordinator: Variant
 
 var title_id_edit: LineEdit
 var endpoint_edit: LineEdit
@@ -12,16 +12,16 @@ var status_label: Label
 var version_label: Label
 
 
-func setup(coordinator) -> void:
+func setup(coordinator: Variant) -> void:
 	_coordinator = coordinator
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	size_flags_vertical = SIZE_EXPAND_FILL
 
-	var root := VBoxContainer.new()
+	var root: VBoxContainer = VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	add_child(root)
 
-	var desc := Label.new()
+	var desc: Label = Label.new()
 	desc.text = "Configure PlayFab project settings for runtime sign-in and leaderboard requests.\nLeave the endpoint blank to use the default endpoint derived from the Title ID."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.add_theme_font_size_override("font_size", 12)
@@ -30,10 +30,10 @@ func setup(coordinator) -> void:
 
 	root.add_child(HSeparator.new())
 
-	var title_row := HBoxContainer.new()
+	var title_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(title_row)
 
-	var title_label := Label.new()
+	var title_label: Label = Label.new()
 	title_label.text = "PlayFab Title ID"
 	title_label.custom_minimum_size.x = 130
 	title_label.tooltip_text = "Your PlayFab Title ID from Game Manager → Settings → API Keys. Used at runtime to initialize the PlayFab SDK."
@@ -44,10 +44,10 @@ func setup(coordinator) -> void:
 	title_id_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	title_row.add_child(title_id_edit)
 
-	var endpoint_row := HBoxContainer.new()
+	var endpoint_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(endpoint_row)
 
-	var endpoint_label := Label.new()
+	var endpoint_label: Label = Label.new()
 	endpoint_label.text = "PlayFab Endpoint"
 	endpoint_label.custom_minimum_size.x = 130
 	endpoint_label.tooltip_text = "Optional endpoint override. Leave blank to use https://<titleid>.playfabapi.com."
@@ -58,18 +58,18 @@ func setup(coordinator) -> void:
 	endpoint_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	endpoint_row.add_child(endpoint_edit)
 
-	var btn_row := HBoxContainer.new()
+	var btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(btn_row)
 
-	var save_btn := Button.new()
+	var save_btn: Button = Button.new()
 	save_btn.text = "Save"
 	save_btn.pressed.connect(_on_save)
 	btn_row.add_child(save_btn)
 
-	var manager_btn := Button.new()
+	var manager_btn: Button = Button.new()
 	manager_btn.text = "Open Game Manager"
 	manager_btn.tooltip_text = "Open the PlayFab Game Manager in your browser"
-	manager_btn.pressed.connect(func(): OS.shell_open("https://developer.playfab.com/en-us/r/sign-in"))
+	manager_btn.pressed.connect(func() -> void: OS.shell_open("https://developer.playfab.com/en-us/r/sign-in"))
 	btn_row.add_child(manager_btn)
 
 	status_label = Label.new()
@@ -99,11 +99,11 @@ func load_config() -> void:
 func _on_save() -> void:
 	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, title_id_edit.text.strip_edges())
 	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, endpoint_edit.text.strip_edges())
-	var err = ProjectSettings.save()
+	var err: Error = ProjectSettings.save()
 	if err == OK:
 		status_label.text = "✅ Saved to project.godot"
 		_coordinator._log("PlayFab settings saved")
-		var fs = EditorInterface.get_resource_filesystem()
+		var fs: EditorFileSystem = EditorInterface.get_resource_filesystem()
 		if not fs.is_scanning():
 			fs.scan()
 	else:
@@ -112,12 +112,12 @@ func _on_save() -> void:
 
 
 func _detect_version() -> void:
-	var search_paths := [
+	var search_paths: Array = [
 		"res://addons/godot_playfab/bin/PlayFabCore.dll",
 	]
-	var dll_path := ""
-	for path in search_paths:
-		var global_path = ProjectSettings.globalize_path(path)
+	var dll_path: String = ""
+	for path: String in search_paths:
+		var global_path: String = ProjectSettings.globalize_path(path)
 		if FileAccess.file_exists(global_path):
 			dll_path = global_path
 			break
@@ -127,8 +127,8 @@ func _detect_version() -> void:
 		return
 
 	var output: Array = []
-	var ps_cmd = "(Get-Item '%s').VersionInfo.ProductVersion" % dll_path.replace("'", "''")
-	var exit_code = OS.execute(
+	var ps_cmd: String = "(Get-Item '%s').VersionInfo.ProductVersion" % dll_path.replace("'", "''")
+	var exit_code: int = OS.execute(
 		"powershell",
 		PackedStringArray(["-NoProfile", "-Command", ps_cmd]),
 		output,
@@ -136,7 +136,7 @@ func _detect_version() -> void:
 		false
 	)
 	if exit_code == 0 and output.size() > 0:
-		var version = str(output[0]).strip_edges()
+		var version: String = str(output[0]).strip_edges()
 		if version != "":
 			version_label.text = "PlayFab SDK: %s" % version
 			return

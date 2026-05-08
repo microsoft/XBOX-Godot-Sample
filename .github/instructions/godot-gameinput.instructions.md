@@ -1,6 +1,6 @@
 ---
 description: Godot GameInput addon architecture, threading model, action-bridge conventions, and sample workflow
-applyTo: "addons/godot_gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/gdk_launch_point/tests/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/godot-gameinput.md, spec/gdext-gameinput.md"
+applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/godot-gameinput*.md, spec/gdext-gameinput.md"
 ---
 
 # Godot GameInput Addon Instructions
@@ -108,15 +108,20 @@ applyTo: "addons/godot_gameinput/**, sample/gdk_launch_point/addons/godot_gamein
 - Pong's `pulse_rumble()` helper is the canonical "raw API" usage pattern;
   gdk_launch_point's GameInput group is the canonical "explore the API surface"
   pattern.
-- The headless test entry point lives in gdk_launch_point:
+- The headless test entry point for GameInput is the repo-root orchestrator:
 
 ```powershell
-cd sample/gdk_launch_point
-.\Godot_v4.6.1-stable_win64_console.exe --headless --script res://tests/run_tests.gd
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-  Tests live in `sample/gdk_launch_point/tests/`. Add new suites under
-  `sample/gdk_launch_point/tests/suites/` and register them in `tests/run_tests.gd`.
+  GameInput suites run in the `gut:tests/godot/gameinput` stage; bootstrap-autoload coverage runs in the `bootstrap:tests/godot/gameinput:*` stages. To iterate on the GameInput host alone:
+
+```powershell
+cd tests\godot\gameinput
+..\..\..\sample\Godot_v4.6.1-stable_win64_console.exe --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+```
+
+  GameInput suites live in `tests/godot/gameinput/tests/` and `extends "res://addons/godot_gdk_tests/gameinput_test_base.gd"` (mirrored from `addons\godot_gdk\tests_support\bases\gameinput_test_base.gd`). Add new suites as `test_*.gd` files in that directory — GUT discovers them automatically via `-gdir` + `-ginclude_subdirs`; there is no central registration script. Bootstrap-autoload scenarios go under `tests\godot\gameinput\tests\bootstrap\` as one-shot scripts the orchestrator launches in fresh Godot processes.
 
 ## GDScript Conventions
 
@@ -124,9 +129,9 @@ cd sample/gdk_launch_point
 - Avoid `:=` when the right-hand side comes from a Variant-returning engine
   API (e.g. `gi.initialize()`) — the parser cannot infer the type. Use
   `var x: bool = gi.initialize()` instead.
-- For float comparisons in tests, use `assert_eq_approx` (defined in
-  `sample/gdk_launch_point/tests/test_context.gd`) — C++ float properties round-trip
-  through 32-bit storage and won't equal 64-bit double literals exactly.
+- For float comparisons in tests, use `assert_eq_approx` (a GUT built-in
+  assertion) — C++ float properties round-trip through 32-bit storage and
+  won't equal 64-bit double literals exactly.
 
 ## Documentation & Specs
 

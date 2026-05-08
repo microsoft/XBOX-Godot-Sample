@@ -35,7 +35,7 @@ func _ready() -> void:
 
 
 func _setup_visuals() -> void:
-	var bg = get_parent().get_node_or_null("Background")
+	var bg: Variant = get_parent().get_node_or_null("Background")
 	if bg == null:
 		bg = ColorRect.new()
 		bg.name = "Background"
@@ -48,25 +48,23 @@ func _setup_visuals() -> void:
 		# Also move behind existing siblings so it doesn't render on top of them.
 		get_parent().move_child(bg, 0)
 
-	var title_label = get_parent().get_node_or_null("Title")
+	var title_label: Variant = get_parent().get_node_or_null("Title")
 	if title_label:
 		title_label.add_theme_font_size_override("font_size", 40)
 
 
 func _setup_xbox() -> void:
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk != null:
-		gdk.users.user_added.connect(_on_user_added)
-		gdk.users.user_removed.connect(_on_user_removed)
-		gdk.users.primary_user_changed.connect(_on_primary_user_changed)
+		gdk.users.user_changed.connect(_on_user_changed)
 		gdk.initialized.connect(_refresh_xbox_state)
 
 	_refresh_xbox_state()
 
 
-func _get_gdk():
+func _get_gdk() -> Variant:
 	# Try the bootstrap's helper first (handles extension loading)
-	var bootstrap = get_node_or_null("/root/GDKBootstrap")
+	var bootstrap: Variant = get_node_or_null("/root/GDKBootstrap")
 	if bootstrap != null and bootstrap.has_method("get_gdk"):
 		return bootstrap.get_gdk()
 	# Fallback to direct singleton check
@@ -79,7 +77,7 @@ func _process(delta: float) -> void:
 	_title_hue += delta * 0.1
 	if _title_hue > 1.0:
 		_title_hue -= 1.0
-	var title_label = get_parent().get_node_or_null("Title")
+	var title_label: Variant = get_parent().get_node_or_null("Title")
 	if title_label:
 		title_label.add_theme_color_override("font_color",
 			Color.from_hsv(_title_hue, 0.7, 1.0))
@@ -87,7 +85,7 @@ func _process(delta: float) -> void:
 
 #region Xbox Identity
 func _refresh_xbox_state() -> void:
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk == null:
 		xbox_status_label.text = "Xbox: Extension not loaded"
 		xbox_status_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
@@ -105,7 +103,7 @@ func _refresh_xbox_state() -> void:
 		join_button.disabled = true
 		return
 
-	var user = gdk.users.get_primary_user()
+	var user: Variant = gdk.users.get_primary_user()
 	if user != null and user.signed_in:
 		_signed_in = true
 		xbox_status_label.text = "Xbox: %s" % user.gamertag
@@ -127,7 +125,7 @@ func _on_sign_in_pressed() -> void:
 	if _sign_in_in_progress:
 		return
 
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk == null or not gdk.is_initialized():
 		return
 
@@ -139,26 +137,18 @@ func _on_sign_in_pressed() -> void:
 	sign_in_signal.connect(_on_sign_in_completed, CONNECT_ONE_SHOT)
 
 
-func _on_sign_in_completed(result) -> void:
+func _on_sign_in_completed(result: GDKResult) -> void:
 	_sign_in_in_progress = false
 	if result != null and result.ok:
 		_set_status("Signed in!", true)
 	else:
-		var msg = result.message if result != null else "Sign-in failed"
+		var msg: String = result.message if result != null else "Sign-in failed"
 		_set_status(msg, false)
 	_refresh_xbox_state()
 	sign_in_button.text = "Sign In to Xbox"
 
 
-func _on_user_added(_user) -> void:
-	_refresh_xbox_state()
-
-
-func _on_user_removed(_local_id: int) -> void:
-	_refresh_xbox_state()
-
-
-func _on_primary_user_changed(_user) -> void:
+func _on_user_changed(_user: Variant, _change_kind: String) -> void:
 	_refresh_xbox_state()
 #endregion
 
@@ -243,7 +233,7 @@ func _on_host_pressed() -> void:
 		return
 
 	peer = ENetMultiplayerPeer.new()
-	var err = peer.create_server(DEFAULT_PORT, 1)
+	var err: Error = peer.create_server(DEFAULT_PORT, 1)
 	if err != OK:
 		_set_status("Can't host, address in use.", false)
 		return
@@ -263,7 +253,7 @@ func _on_join_pressed() -> void:
 		_set_status("Sign in to Xbox first.", false)
 		return
 
-	var ip = address.get_text()
+	var ip: String = address.get_text()
 	if not ip.is_valid_ip_address():
 		_set_status("IP address is invalid.", false)
 		return
@@ -285,14 +275,14 @@ func _on_find_public_ip_pressed() -> void:
 func _setup_gameinput() -> void:
 	if not Engine.has_singleton("GameInput"):
 		return
-	var gi = Engine.get_singleton("GameInput")
+	var gi: Variant = Engine.get_singleton("GameInput")
 	if not gi.device_connected.is_connected(_on_gameinput_device_connected):
 		gi.device_connected.connect(_on_gameinput_device_connected)
 	if not gi.device_disconnected.is_connected(_on_gameinput_device_disconnected):
 		gi.device_disconnected.connect(_on_gameinput_device_disconnected)
 
 
-func _on_gameinput_device_connected(device) -> void:
+func _on_gameinput_device_connected(device: Variant) -> void:
 	if device == null:
 		return
 	var name: String = ""

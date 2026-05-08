@@ -3,7 +3,7 @@
 > **Status: v1 shipped.** Devices, polling, vibration, action bridge, project
 > settings, EditorPlugin-installed bootstrap autoload, and sample integration
 > in `gdk_launch_point` and `multiplayer_pong` are all live. Headless tests pass under
-> `sample/gdk_launch_point/tests/`. Issue #23 (battery + device info) is satisfied via
+> `tests/godot/gameinput/tests/`. Issue #23 (battery + device info) is satisfied via
 > `GameInputDevice.get_battery_level()` / `GameInputDevice.get_device_info()`.
 >
 > Deviations from the original sketch are listed in

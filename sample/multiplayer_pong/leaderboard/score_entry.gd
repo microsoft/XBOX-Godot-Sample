@@ -149,7 +149,7 @@ func _on_confirm_pressed() -> void:
 	var fallback := _resolve_gamertag()
 	_confirm_button.disabled = true
 	_confirm_button.text = "SYNCING..."
-	var ok = await pf.submit_run_async(fallback, _score, _wave, _max_combo)
+	var ok: bool = await pf.submit_run_async(fallback, _score, _wave, _max_combo)
 	if not ok:
 		push_warning("[Pong PlayFab] Failed to sync the completed run.")
 

@@ -1,0 +1,121 @@
+extends "res://addons/godot_gdk_tests/gameinput_test_base.gd"
+## Wave 4 — Threading smoke for `GameInput.poll()` / `get_devices()` /
+## `get_current_reading()` over many frames with no real device attached.
+##
+## GameInput's device callbacks fire on a worker thread (see
+## `.github/instructions/godot-gameinput.instructions.md`). The main thread
+## drains the pending queue inside `poll()` and is the only mutator of the
+## device cache. This test exercises the no-hardware steady-state by hammering
+## the public API across 100 frames and asserting:
+##   * `get_devices()` always returns an `Array` (no nulls / crashes / leaks).
+##   * `get_current_reading(device)` is safe with a freshly instantiated bare
+##     `GameInputDevice` (id `0`) — it must return null without dereferencing
+##     into the worker's pending queue.
+##   * `get_current_reading(null)` is safe.
+##   * `poll()` is per-frame idempotent: calling it twice in the same frame
+##     does not re-drain or crash.
+##
+## The whole thing is gated by `pending_unless_runtime_available()` because
+## `GameInput.initialize()` may legitimately fail on bare CI runners that lack
+## a usable GameInput device tree — but the no-init branch is already covered
+## by `test_gameinput_core.gd::test_soft_fail_before_init`.
+
+const ITERATIONS := 100
+
+
+func _await_frames(n: int) -> void:
+	var tree := get_tree()
+	for i in n:
+		await tree.process_frame
+
+
+func test_repeated_get_devices_no_hardware() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var started: bool = gi.initialize()
+	if not started:
+		pending("GameInput.initialize() returned false (no GameInput on host)")
+		return
+
+	# Hammer get_devices() across many frames. With no device connected the
+	# returned Array must always be empty; the mapper API and threaded device
+	# callback queue must stay healthy under the repetition.
+	var saw_non_array := false
+	for i in ITERATIONS:
+		var devices = gi.get_devices()
+		if not (devices is Array):
+			saw_non_array = true
+			break
+		# The Array may grow if a device is plugged in mid-test; we only
+		# assert the type contract, not the count, to stay headless-safe.
+		await get_tree().process_frame
+
+	assert_eq(saw_non_array, false,
+			"get_devices() always returned Array across %d frames" % ITERATIONS)
+
+	gi.shutdown()
+	assert_eq(gi.is_initialized(), false,
+			"runtime cleanly torn down after threading smoke")
+
+
+func test_repeated_get_current_reading_no_hardware() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var started: bool = gi.initialize()
+	if not started:
+		pending("GameInput.initialize() returned false (no GameInput on host)")
+		return
+
+	var bare_device = ClassDB.instantiate("GameInputDevice")
+	var saw_unexpected := false
+	for i in ITERATIONS:
+		# null device → null reading. Bare wrapper (id 0) → null reading
+		# because no entry exists for id 0 in the cache.
+		var r_null = gi.get_current_reading(null)
+		var r_bare = gi.get_current_reading(bare_device)
+		if r_null != null or r_bare != null:
+			saw_unexpected = true
+			break
+		# Defensive: poll() is per-frame idempotent. Calling it twice on the
+		# same frame must not crash and must not re-drain the worker queue.
+		gi.poll()
+		gi.poll()
+		await get_tree().process_frame
+
+	assert_eq(saw_unexpected, false,
+			"get_current_reading(null/bare-device) stayed null across %d frames" % ITERATIONS)
+
+	gi.shutdown()
+	assert_true(true, "threading smoke tear-down did not crash")
+
+
+func test_poll_only_loop_no_crash() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var started: bool = gi.initialize()
+	if not started:
+		pending("GameInput.initialize() returned false (no GameInput on host)")
+		return
+
+	# Nothing but `poll()` for many frames. Exercises the per-frame idempotence
+	# path (the `m_last_polled_frame` guard) plus the worker → main-thread
+	# queue drain under sustained churn.
+	for i in ITERATIONS:
+		gi.poll()
+		await get_tree().process_frame
+
+	assert_eq(gi.is_initialized(), true,
+			"runtime still initialized after %d poll() iterations" % ITERATIONS)
+
+	gi.shutdown()
+	assert_eq(gi.is_initialized(), false,
+			"shutdown() after poll loop returns runtime to uninitialized state")

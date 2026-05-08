@@ -41,11 +41,11 @@ func load_from_dict(data: Dictionary) -> void:
 	# predate the cosmetic system.
 	var seen: Dictionary = {}
 	unlocked_skins = []
-	for s in FREE_SKINS:
+	for s: String in FREE_SKINS:
 		if not seen.has(s):
 			unlocked_skins.append(s)
 			seen[s] = true
-	for raw in data.get(KEY_UNLOCKED_SKINS, []):
+	for raw: Variant in data.get(KEY_UNLOCKED_SKINS, []):
 		var s := String(raw)
 		if not seen.has(s):
 			unlocked_skins.append(s)
@@ -55,7 +55,7 @@ func load_from_dict(data: Dictionary) -> void:
 		selected_skin = DEFAULT_SKIN
 	bosses_defeated = []
 	var boss_seen: Dictionary = {}
-	for raw in data.get(KEY_BOSSES_DEFEATED, []):
+	for raw: Variant in data.get(KEY_BOSSES_DEFEATED, []):
 		var s := String(raw)
 		if not boss_seen.has(s):
 			bosses_defeated.append(s)

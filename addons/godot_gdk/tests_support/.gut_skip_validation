@@ -1,0 +1,4 @@
+# Empty sentinel file. See tools/check_gd_scripts_headless.ps1 header.
+# Vendored GUT (upstream v9.6.0) cannot parse standalone — it relies on the
+# class_name registry being imported by Godot. Headless GUT runs from the
+# coverage host samples validate it indirectly.

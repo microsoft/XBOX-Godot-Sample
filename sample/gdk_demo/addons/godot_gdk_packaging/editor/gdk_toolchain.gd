@@ -52,9 +52,9 @@ func execute_tool(exe_path: String, args: PackedStringArray) -> Dictionary:
 
 	var output: Array = []
 	# read_stderr=false: Godot merges stderr into stdout in output[0]
-	var exit_code := OS.execute(exe_path, args, output, true, false)
+	var exit_code: int = OS.execute(exe_path, args, output, true, false)
 
-	var stdout_text := ""
+	var stdout_text: String = ""
 	if output.size() > 0:
 		stdout_text = str(output[0])
 
@@ -82,16 +82,16 @@ func launch_detached(exe_path: String, args: PackedStringArray) -> int:
 func _detect_gdk() -> void:
 	# GameDKCoreLatest is set by the GDK installer, e.g. "C:\...\Microsoft GDK\260400\"
 	# Extract the 6-digit edition number from the path segments
-	var gdk_core = OS.get_environment("GameDKCoreLatest")
+	var gdk_core: String = OS.get_environment("GameDKCoreLatest")
 	if gdk_core != "":
-		var parts = gdk_core.replace("\\", "/").split("/")
-		for part in parts:
+		var parts: PackedStringArray = gdk_core.replace("\\", "/").split("/")
+		for part: String in parts:
 			if part.length() == 6 and part.is_valid_int():
 				_gdk_version = part
 				break
 
 	# 1. Check GDK_BIN env var (user override)
-	var env_bin := OS.get_environment("GDK_BIN")
+	var env_bin: String = OS.get_environment("GDK_BIN")
 	if env_bin != "" and DirAccess.dir_exists_absolute(env_bin):
 		_try_bin_dir(env_bin)
 		if _is_available:
@@ -103,9 +103,9 @@ func _detect_gdk() -> void:
 ## Validates a bin directory by checking for required tools (makepkg, GameConfigEditor)
 ## and optional tools (XblPCSandbox, XblDevAccount). Sets paths and _is_available.
 func _try_bin_dir(dir: String) -> void:
-	var makepkg := dir.path_join("makepkg.exe")
-	var config_editor := dir.path_join("GameConfigEditor.exe")
-	var sandbox := dir.path_join("XblPCSandbox.exe")
+	var makepkg: String = dir.path_join("makepkg.exe")
+	var config_editor: String = dir.path_join("GameConfigEditor.exe")
+	var sandbox: String = dir.path_join("XblPCSandbox.exe")
 
 	if FileAccess.file_exists(makepkg) and FileAccess.file_exists(config_editor):
 		_bin_dir = dir
@@ -113,7 +113,7 @@ func _try_bin_dir(dir: String) -> void:
 		_game_config_editor_path = config_editor
 		if FileAccess.file_exists(sandbox):
 			_sandbox_path = sandbox
-		var dev_account := dir.path_join("XblDevAccount.exe")
+		var dev_account: String = dir.path_join("XblDevAccount.exe")
 		if FileAccess.file_exists(dev_account):
 			_dev_account_path = dev_account
 		_is_available = true

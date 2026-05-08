@@ -1,0 +1,7 @@
+# Empty sentinel file. See tools/check_gd_scripts_headless.ps1 header.
+# Every *_test_base.gd in this directory has `extends GutTest`. The vendored
+# GUT class_name registry is only available after a Godot import pass loads
+# the mirrored addon copy, which the headless validator does not do. These
+# bases are validated indirectly by the headless GUT runs that consume them
+# from their mirrored sample-host copies under
+# `sample/<host>/addons/godot_gdk_tests/`.

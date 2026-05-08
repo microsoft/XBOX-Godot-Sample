@@ -114,7 +114,7 @@ func _build_grid() -> void:
 		GRID_TOP + maxf(0.0, (VIEWPORT_SIZE.y - GRID_TOP - 70.0 - grid_h) * 0.5)
 	)
 
-	for i in range(ids.size()):
+	for i: int in range(ids.size()):
 		var col: int = i % total_cols
 		var row: int = i / total_cols
 		var pos := origin + Vector2(
@@ -126,7 +126,7 @@ func _build_grid() -> void:
 		_cards.append(card)
 
 	# Wire focus chain (grid).
-	for i in range(_cards.size()):
+	for i: int in range(_cards.size()):
 		var card: Button = _cards[i]
 		var col: int = i % total_cols
 		var row: int = i / total_cols
@@ -256,7 +256,7 @@ func _build_crt_overlay() -> void:
 
 func _focus_initial() -> void:
 	# Land on the currently selected card if present, else the first card.
-	for card in _cards:
+	for card: Button in _cards:
 		if String(card.get_meta("skin_id", "")) == _selected_id:
 			card.grab_focus()
 			_on_card_focused(_selected_id)
@@ -295,7 +295,7 @@ func _on_card_pressed(skin_id: String) -> void:
 
 func _flash_locked(skin_id: String) -> void:
 	# Shake the focused card briefly so the player sees the rejection.
-	for card in _cards:
+	for card: Button in _cards:
 		if String(card.get_meta("skin_id", "")) != skin_id:
 			continue
 		var t := create_tween()
@@ -329,7 +329,7 @@ func _current_selected() -> String:
 
 
 func _refresh_card_styles() -> void:
-	for card in _cards:
+	for card: Button in _cards:
 		var skin_id: String = String(card.get_meta("skin_id", ""))
 		var unlocked: bool = bool(card.get_meta("unlocked", false))
 		var border: Color

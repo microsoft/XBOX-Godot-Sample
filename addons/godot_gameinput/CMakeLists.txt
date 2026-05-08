@@ -33,7 +33,11 @@ target_link_libraries(godot_gameinput PRIVATE
 
 target_compile_definitions(godot_gameinput PRIVATE _GAMING_DESKTOP)
 
-godot_addon_configure_target(TARGET godot_gameinput ADDON_NAME godot_gameinput)
+godot_addon_configure_target(
+    TARGET godot_gameinput
+    ADDON_NAME godot_gameinput
+    PROJECT_DIRS ${GODOT_GAMEINPUT_PROJECT_DIRS}
+)
 
 if(GODOTCPP_TARGET MATCHES "editor|template_debug")
     file(GLOB_RECURSE DOC_XML LIST_DIRECTORIES NO CONFIGURE_DEPENDS
@@ -49,6 +53,7 @@ godot_addon_sync_files_to_sample(
     TARGET godot_gameinput
     ADDON_NAME godot_gameinput
     ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    PROJECT_DIRS ${GODOT_GAMEINPUT_PROJECT_DIRS}
     FILES
         godot_gameinput.gdextension
         plugin.cfg

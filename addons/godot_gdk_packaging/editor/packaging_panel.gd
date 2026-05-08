@@ -16,6 +16,7 @@ const ExportPackageTabScript = preload("res://addons/godot_gdk_packaging/editor/
 const InstallLaunchTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/install_launch_tab.gd")
 const AchievementsTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/achievements_tab.gd")
 const PlayFabTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/playfab_tab.gd")
+const PackagingPanelLogic = preload("res://addons/godot_gdk_packaging/editor/packaging_panel_logic.gd")
 
 const PACKAGING_SETTINGS_PATH := "res://.gdk_packaging.cfg"
 
@@ -30,22 +31,16 @@ var _wdapp_manager: RefCounted
 var _status_label: Label
 var _tab_pages: Array[Control] = []
 
-var _config_tab
-var _sandbox_tab
-var _packaging_tab
-var _install_launch_tab
-var _achievements_tab
-var _playfab_tab
+var _config_tab: Variant
+var _sandbox_tab: Variant
+var _packaging_tab: Variant
+var _install_launch_tab: Variant
+var _achievements_tab: Variant
+var _playfab_tab: Variant
 
-var _watch_timer := 0.0
+var _watch_timer: float = 0.0
 const WATCH_INTERVAL := 2.0
-const ROOT_LOGO_FILES := [
-	"StoreLogo.png",
-	"Square44x44Logo.png",
-	"Square150x150Logo.png",
-	"Square480x480Logo.png",
-	"SplashScreenImage.png",
-]
+const ROOT_LOGO_FILES := PackagingPanelLogic.ROOT_LOGO_FILES
 
 
 func _ready() -> void:
@@ -103,7 +98,7 @@ func get_wdapp_manager() -> RefCounted:
 	return _wdapp_manager
 
 
-func get_packaging_tab():
+func get_packaging_tab() -> Variant:
 	return _packaging_tab
 
 
@@ -116,22 +111,17 @@ func get_package_dir() -> String:
 
 
 func _build_ui() -> void:
-	var outer := VBoxContainer.new()
+	var outer: VBoxContainer = VBoxContainer.new()
 	outer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(outer)
 
 	_status_label = Label.new()
-	if _toolchain.is_gdk_available():
-		var version_text = _toolchain.get_gdk_version()
-		if version_text != "":
-			_status_label.text = "✅ GDK %s" % version_text
-		else:
-			_status_label.text = "✅ GDK tools found"
-	else:
-		_status_label.text = "❌ GDK not found — install Microsoft GDK"
+	_status_label.text = PackagingPanelLogic.format_status_text(
+		_toolchain.is_gdk_available(),
+		_toolchain.get_gdk_version() if _toolchain.is_gdk_available() else "")
 	outer.add_child(_status_label)
 
-	var tab_bar := TabBar.new()
+	var tab_bar: TabBar = TabBar.new()
 	tab_bar.add_tab("⚙️ Config")
 	tab_bar.add_tab("🔒 Sandbox")
 	tab_bar.add_tab("📦 Export & Package")
@@ -161,8 +151,8 @@ func _build_ui() -> void:
 	_playfab_tab = PlayFabTabScript.new()
 	_add_tab_page(outer, _playfab_tab, false)
 
-	tab_bar.tab_changed.connect(func(idx: int):
-		for i in _tab_pages.size():
+	tab_bar.tab_changed.connect(func(idx: int) -> void:
+		for i: int in _tab_pages.size():
 			_tab_pages[i].visible = (i == idx)
 	)
 
@@ -185,35 +175,33 @@ func _set_actions_enabled(enabled: bool) -> void:
 
 
 func _check_and_relocate_root_logos() -> void:
-	var project_dir = ProjectSettings.globalize_path("res://")
-	var logos_dir = project_dir.path_join("storelogos")
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var logos_dir: String = project_dir.path_join("storelogos")
 
-	var found_any := false
-	for filename in ROOT_LOGO_FILES:
-		if FileAccess.file_exists(project_dir.path_join(filename)):
-			found_any = true
-			break
-
-	if not found_any:
+	var found_logos: Array = PackagingPanelLogic.find_root_logos(
+		project_dir,
+		ROOT_LOGO_FILES,
+		Callable(FileAccess, "file_exists"))
+	if found_logos.is_empty():
 		return
 
 	DirAccess.make_dir_recursive_absolute(logos_dir)
 
-	var dir = DirAccess.open(project_dir)
+	var dir: DirAccess = DirAccess.open(project_dir)
 	if dir == null:
 		return
 
-	var moved := 0
-	for filename in ROOT_LOGO_FILES:
-		var src = project_dir.path_join(filename)
+	var moved: int = 0
+	for filename: String in ROOT_LOGO_FILES:
+		var src: String = project_dir.path_join(filename)
 		if not FileAccess.file_exists(src):
 			continue
-		var dest = logos_dir.path_join(filename)
-		var err = dir.rename(src, dest)
+		var dest: String = logos_dir.path_join(filename)
+		var err: Error = dir.rename(src, dest)
 		if err == OK:
 			moved += 1
 			print("[GDK Packaging] Auto-moved ", filename, " -> storelogos/")
-			var import_src = src + ".import"
+			var import_src: String = src + ".import"
 			if FileAccess.file_exists(import_src):
 				dir.remove(import_src)
 		else:
@@ -222,11 +210,11 @@ func _check_and_relocate_root_logos() -> void:
 	if moved > 0:
 		_log("Auto-relocated %d logo(s) to storelogos/" % moved)
 		_config_mgr.relocate_logos_to_storelogos()
-		for filename in ROOT_LOGO_FILES:
-			var import_file = logos_dir.path_join(filename + ".import")
+		for filename: String in ROOT_LOGO_FILES:
+			var import_file: String = logos_dir.path_join(filename + ".import")
 			if FileAccess.file_exists(import_file):
 				dir.remove(import_file)
-		var fs = EditorInterface.get_resource_filesystem()
+		var fs: EditorFileSystem = EditorInterface.get_resource_filesystem()
 		if not fs.is_scanning():
 			fs.scan()
 		_refresh_config_status()
@@ -251,7 +239,7 @@ func _save_packaging_settings() -> void:
 
 
 func _connect_autosave() -> void:
-	var save_callback := Callable(self, "_save_packaging_settings")
+	var save_callback: Callable = Callable(self, "_save_packaging_settings")
 	if _packaging_tab != null and _packaging_tab.has_method("connect_autosave"):
 		_packaging_tab.connect_autosave(save_callback)
 	if _sandbox_tab != null and _sandbox_tab.has_method("connect_autosave"):
@@ -259,12 +247,7 @@ func _connect_autosave() -> void:
 
 
 func _merge_settings_state(target: Dictionary, source: Dictionary) -> void:
-	for section_name in source:
-		var target_section: Dictionary = target.get(section_name, {})
-		var source_section: Dictionary = source[section_name]
-		for key in source_section:
-			target_section[key] = source_section[key]
-		target[section_name] = target_section
+	PackagingPanelLogic.merge_settings_state(target, source)
 
 
 func _refresh_sandbox_status() -> void:
@@ -303,27 +286,27 @@ func _on_validate() -> void:
 
 
 func _add_section_header(parent: Control, text: String) -> void:
-	var label := Label.new()
+	var label: Label = Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 14)
 	parent.add_child(label)
 
 
 func _add_path_field(parent: VBoxContainer, label_text: String, placeholder: String, is_dir: bool) -> LineEdit:
-	var row := HBoxContainer.new()
+	var row: HBoxContainer = HBoxContainer.new()
 	parent.add_child(row)
 
-	var label := Label.new()
+	var label: Label = Label.new()
 	label.text = label_text
 	label.custom_minimum_size.x = 130
 	row.add_child(label)
 
-	var edit := LineEdit.new()
+	var edit: LineEdit = LineEdit.new()
 	edit.placeholder_text = placeholder
 	edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(edit)
 
-	var browse := Button.new()
+	var browse: Button = Button.new()
 	browse.text = "..."
 	browse.pressed.connect(_make_browse_callback(edit, is_dir))
 	row.add_child(browse)
@@ -331,12 +314,12 @@ func _add_path_field(parent: VBoxContainer, label_text: String, placeholder: Str
 
 
 func _add_open_folder_btn(edit: LineEdit) -> void:
-	var row = edit.get_parent()
-	var open_btn := Button.new()
+	var row: Node = edit.get_parent()
+	var open_btn: Button = Button.new()
 	open_btn.text = "📂"
 	open_btn.tooltip_text = "Open folder in file manager"
-	open_btn.pressed.connect(func():
-		var path = edit.text.strip_edges()
+	open_btn.pressed.connect(func() -> void:
+		var path: String = edit.text.strip_edges()
 		if path != "" and DirAccess.dir_exists_absolute(path):
 			OS.shell_open(path)
 		elif path != "":
@@ -346,8 +329,8 @@ func _add_open_folder_btn(edit: LineEdit) -> void:
 
 
 func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
-	return func():
-		var dialog := FileDialog.new()
+	return func() -> void:
+		var dialog: FileDialog = FileDialog.new()
 		if is_dir:
 			dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
 		else:
@@ -357,17 +340,17 @@ func _make_browse_callback(edit: LineEdit, is_dir: bool) -> Callable:
 		dialog.popup_centered(Vector2i(700, 500))
 
 		if is_dir:
-			dialog.dir_selected.connect(func(dir: String):
+			dialog.dir_selected.connect(func(dir: String) -> void:
 				edit.text = dir
 				_save_packaging_settings()
 				dialog.queue_free())
 		else:
-			dialog.file_selected.connect(func(path: String):
+			dialog.file_selected.connect(func(path: String) -> void:
 				edit.text = path
 				_save_packaging_settings()
 				dialog.queue_free())
 
-		dialog.canceled.connect(func(): dialog.queue_free())
+		dialog.canceled.connect(func() -> void: dialog.queue_free())
 
 
 func _log(text: String) -> void:
@@ -388,11 +371,11 @@ func _log_result(result: Dictionary) -> void:
 
 
 func _clean_directory(dir_path: String) -> void:
-	var dir = DirAccess.open(dir_path)
+	var dir: DirAccess = DirAccess.open(dir_path)
 	if dir == null:
 		return
 	dir.list_dir_begin()
-	var fname = dir.get_next()
+	var fname: String = dir.get_next()
 	while fname != "":
 		if dir.current_is_dir():
 			_clean_directory(dir_path.path_join(fname))

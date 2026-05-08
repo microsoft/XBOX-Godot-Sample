@@ -1,6 +1,6 @@
 #include "gdk_result.h"
 
-#include <cstdio>
+#include "gdk_result_codes_internal.h"
 
 namespace godot {
 
@@ -61,16 +61,10 @@ Ref<GDKResult> GDKResult::error_result(HRESULT p_hresult, const String &p_code, 
 }
 
 Ref<GDKResult> GDKResult::hresult_error(HRESULT p_hresult, const String &p_action, const String &p_code, const Variant &p_data) {
-    String message = p_action;
-    if (!message.is_empty()) {
-        message += " ";
-    }
-    message += "(HRESULT " + format_hresult(p_hresult) + ")";
-
     return error_result(
         p_hresult,
-        p_code.is_empty() ? format_hresult(p_hresult) : p_code,
-        message,
+        gdk_internal::code_or_format_hresult(p_code, p_hresult),
+        gdk_internal::format_hresult_message(p_action, p_hresult),
         p_data);
 }
 
@@ -79,9 +73,7 @@ Ref<GDKResult> GDKResult::cancelled(const String &p_message) {
 }
 
 String GDKResult::format_hresult(HRESULT p_hresult) {
-    char buffer[16];
-    std::snprintf(buffer, sizeof(buffer), "0x%08X", static_cast<unsigned int>(p_hresult));
-    return String(buffer);
+    return gdk_internal::format_hresult_string(p_hresult);
 }
 
 } // namespace godot

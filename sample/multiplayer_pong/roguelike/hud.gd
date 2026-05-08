@@ -246,7 +246,7 @@ func _build() -> void:
 
 func set_lives(lives: int) -> void:
 	var hearts := ""
-	for i in range(maxi(lives, 0)):
+	for i: int in range(maxi(lives, 0)):
 		hearts += "♥"
 	lives_label.text = "LIVES %s" % hearts
 	lives_label.add_theme_color_override("font_color",
@@ -307,9 +307,9 @@ func pulse_combo(_value: int) -> void:
 func set_modifiers(modifiers: Array) -> void:
 	if modifier_strip == null:
 		return
-	for child in modifier_strip.get_children():
+	for child: Node in modifier_strip.get_children():
 		child.queue_free()
-	for mod in modifiers:
+	for mod: Variant in modifiers:
 		modifier_strip.add_child(_modifier_chip(mod))
 
 
@@ -318,11 +318,11 @@ func set_modifiers(modifiers: Array) -> void:
 func set_consumables(slots: Array) -> void:
 	if consumable_strip == null:
 		return
-	for child in consumable_strip.get_children():
+	for child: Node in consumable_strip.get_children():
 		child.queue_free()
 	const Consumables = preload("res://roguelike/consumables.gd")
 	const SLOT_BUTTONS := ["X", "Y", "RB"]
-	for i in range(3):
+	for i: int in range(3):
 		var id: String = ""
 		if i < slots.size():
 			id = String(slots[i])
@@ -376,7 +376,7 @@ func set_consumables(slots: Array) -> void:
 		consumable_strip.add_child(slot)
 
 
-func _modifier_chip(mod) -> Control:
+func _modifier_chip(mod: Variant) -> Control:
 	var chip := PanelContainer.new()
 	chip.custom_minimum_size = Vector2(28, 28)
 	chip.tooltip_text = "%s\n%s" % [mod.display_name, mod.description]

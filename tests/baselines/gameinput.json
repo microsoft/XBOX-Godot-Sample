@@ -1,0 +1,20 @@
+{
+  "host": "gameinput",
+  "pre": {
+    "asserts": 72,
+    "method": "pre_gut_runner_total"
+  },
+  "post": {
+    "asserts": 165,
+    "tests": 24,
+    "passing": 24,
+    "failing": 0,
+    "pending": 0,
+    "bootstrap_runners": {
+      "test_bootstrap_autoload_present": "pass",
+      "test_bootstrap_autoload_absent": "pass"
+    }
+  },
+  "captured_at": "2026-05-07T17:50:00Z",
+  "godot_version": "4.6.2.stable.official.71f334935"
+}

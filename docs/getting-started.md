@@ -46,25 +46,7 @@ The build:
 
 - Outputs addon DLLs to `addons/<addon>/bin/`
 - Copies built DLLs and runtime dependencies into each sample's `addons/<addon>/bin/`
-- Syncs addon metadata and editor scripts into the sample project
-
-## Clean ignored local artifacts
-
-Use the repo cleanup helper to preview or remove ignored local files such as
-`build\`, addon/sample `bin\`, sample `.godot\`, local sample configs or Godot
-editor copies under `sample\`, and generated packaging output.
-
-```powershell
-# Preview what would be removed
-.\tools\clean_repo.ps1
-
-# Remove ignored local artifacts
-.\tools\clean_repo.ps1 -Apply
-```
-
-The script wraps `git clean` in ignored-files-only mode, so tracked repository
-files stay intact. Preview first if you want to keep local sample configs or
-Godot executable copies in your worktree.
+- Syncs addon metadata, editor scripts, GUT, and shared test support into the sample projects
 
 ### Selective builds
 
@@ -92,6 +74,24 @@ To override manually:
 cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/260400/windows"
 ```
 
+## Clean ignored local artifacts
+
+Use the repo cleanup helper to preview or remove ignored local files such as
+`build\`, addon/sample `bin\`, sample `.godot\`, local sample configs or Godot
+editor copies under `sample\`, and generated packaging output.
+
+```powershell
+# Preview what would be removed
+.\tools\clean_repo.ps1
+
+# Remove ignored local artifacts
+.\tools\clean_repo.ps1 -Apply
+```
+
+The script wraps `git clean` in ignored-files-only mode, so tracked repository
+files stay intact. Preview first if you want to keep local sample configs or
+Godot executable copies in your worktree.
+
 ## Run the samples
 
 **You must build before launching any sample** — the build step syncs addon
@@ -107,6 +107,16 @@ cmake --build build --preset debug
 .\sample\gdk_launch_point\launch_editor.bat    # GDK Launch Point scenario shell
 .\sample\multiplayer_pong\launch_editor.bat    # Multiplayer pong
 ```
+
+## Run the tests
+
+Use the repo-wide orchestrator as the canonical local test command:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+```
+
+The orchestrator runs the GDScript parse gate, debug CMake build, C++ doctest executable, GUT host suites, bootstrap mini-runners, and aggregate summary. Results are written to `build\test-results\run-summary.json` and `build\test-results\run-summary.md`. See [Godot GDK sample and tests](godot-gdk-sample-and-tests.md) for the full pipeline, live switch, and troubleshooting links.
 
 ## VS Code setup
 
@@ -128,13 +138,20 @@ platform detection.
 ```
 addons/godot_gdk/         # GDK addon: metadata, editor scripts, native sources
 addons/godot_gameinput/   # GameInput addon: metadata, native sources
+addons/godot_playfab/     # PlayFab addon: metadata, native sources
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
 sample/                   # Sample projects
-  gdk_demo/              #   GDK addon demo and tests
-  multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
+  gdk_demo/               # GDK addon demo
+  gdk_launch_point/       # GDK Launch Point scenario shell
+  multiplayer_pong/       # Multiplayer pong demo, not a test host
+  playfab_demo/           # PlayFab demo
 spec/                     # Design spec documents
+tests/                    # Baselines, C++ doctest sources, and Godot test hosts
+  godot/gdk/              # GDK and GDK packaging test host
+  godot/playfab/          # PlayFab test host
+  godot/gameinput/        # GameInput test host
 tools/                    # CLI helper scripts
 ```
 
@@ -146,15 +163,7 @@ tools/                    # CLI helper scripts
 cmake --build build --preset debug
 ```
 
-This rebuilds the DLL and syncs it (plus addon metadata) into the sample
-project.
-
-### Running headless tests
-
-```powershell
-cd sample/gdk_demo
-.\Godot_v4.6.1-stable_win64.exe --headless --script res://tests/run_tests.gd
-```
+This rebuilds the DLL and syncs it, addon metadata, and generated test support into the sample projects.
 
 ### After changing editor scripts or addon metadata
 
@@ -166,10 +175,10 @@ cmake --build build --preset debug
 
 ### Validating changes
 
-1. Rebuild the addon
-2. Run the headless test suite
-3. Open the sample in the editor and verify the GDK Setup panel loads
-4. If Xbox Live features changed, test with a sandbox and test account
+1. Rebuild the addon or run the full orchestrator.
+2. Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1`.
+3. Open the relevant sample in the editor and verify the user-facing flow still loads.
+4. If Xbox Live or PlayFab live features changed, test with `-Live` against a sandbox title and test account.
 
 ### Optional pre-commit hook
 

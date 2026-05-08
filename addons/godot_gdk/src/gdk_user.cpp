@@ -773,13 +773,10 @@ void GDKUsers::_bind_methods() {
             DEFVAL(PackedByteArray()),
             DEFVAL(false));
 
-    ADD_SIGNAL(MethodInfo("user_added", PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUser")));
-    ADD_SIGNAL(MethodInfo("user_removed", PropertyInfo(Variant::INT, "local_id")));
     ADD_SIGNAL(MethodInfo(
             "user_changed",
             PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUser"),
             PropertyInfo(Variant::STRING, "change_kind")));
-    ADD_SIGNAL(MethodInfo("primary_user_changed", PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUser")));
 }
 
 void GDKUsers::set_owner(GDK *p_owner) {
@@ -1075,8 +1072,7 @@ void GDKUsers::on_user_change(XUserLocalId p_user_local_id, XUserChangeEvent p_e
 
     switch (p_event) {
         case XUserChangeEvent::SignedOut: {
-            const int64_t local_id = user->get_local_id();
-            const bool was_primary = m_primary_user.is_valid() && m_primary_user->get_local_id() == local_id;
+            const bool was_primary = m_primary_user.is_valid() && m_primary_user->get_local_id() == user->get_local_id();
 
             if (m_owner != nullptr) {
                 m_owner->notify_user_removed(user);
@@ -1085,10 +1081,9 @@ void GDKUsers::on_user_change(XUserLocalId p_user_local_id, XUserChangeEvent p_e
             _remove_user_by_local_id(p_user_local_id);
             if (was_primary) {
                 m_primary_user.unref();
-                emit_signal("primary_user_changed", m_primary_user);
             }
 
-            emit_signal("user_removed", local_id);
+            emit_signal("user_changed", user, "removed");
         } break;
         case XUserChangeEvent::SignedInAgain:
         case XUserChangeEvent::Gamertag:
@@ -1126,15 +1121,7 @@ void GDKUsers::complete_add_user(XUserHandle p_user_handle, const Ref<GDKPending
         m_primary_user = user;
     }
 
-    if (is_new_user) {
-        emit_signal("user_added", user);
-    } else {
-        emit_signal("user_changed", user, "signed_in_again");
-    }
-
-    if (establish_primary_user) {
-        emit_signal("primary_user_changed", user);
-    }
+    emit_signal("user_changed", user, is_new_user ? String("added") : String("signed_in_again"));
 
     _get_runtime()->clear_last_error();
     p_pending_signal->complete(GDKResult::ok_result(user));

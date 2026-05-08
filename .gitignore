@@ -31,6 +31,13 @@ sample*/addons/*/bin/*
 sample*/**/addons/*/bin/*
 sample*/addons/godot_playfab/godot_playfab.gdextension
 
+# ── Mirrored test-support trees (Wave -1 spike: GUT) ────────────
+# Configure-time copies of vendored third-party scripts. Source of
+# truth lives under addons/<addon>/tests_support/.
+sample/*/addons/gut/
+sample/*/addons/godot_gdk_tests/
+tests/godot/*/addons/
+
 # ── Godot ────────────────────────────────────────────────────────
 .godot/
 *.import
