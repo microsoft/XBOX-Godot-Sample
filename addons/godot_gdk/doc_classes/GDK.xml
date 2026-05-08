@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, presence, social, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, presence, social, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -81,6 +81,12 @@
 				Returns the GDKSocial service for social features.
 			</description>
 		</method>
+		<method name="get_error_reporting" qualifiers="const">
+			<return type="GDKErrorReporting" />
+			<description>
+				Returns the [GDKErrorReporting] service for [code]XError[/code] callback and option configuration.
+			</description>
+		</method>
 		<method name="get_launcher" qualifiers="const">
 			<return type="GDKLauncher" />
 			<description>
@@ -118,6 +124,9 @@
 		</member>
 		<member name="social" type="GDKSocial" setter="" getter="get_social">
 			The GDKSocial service instance for social features.
+		</member>
+		<member name="error_reporting" type="GDKErrorReporting" setter="" getter="get_error_reporting">
+			The [GDKErrorReporting] service instance for [code]XError[/code] callback and option configuration.
 		</member>
 		<member name="launcher" type="GDKLauncher" setter="" getter="get_launcher">
 			The [GDKLauncher] service instance for supported URI launch flows on PC GDK.

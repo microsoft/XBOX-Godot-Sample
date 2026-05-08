@@ -29,6 +29,7 @@ accessed as namespaces under this root.
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
+| `get_error_reporting()` | `GDKErrorReporting` | Access the PC GDK `XError` callback/options service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
 | `get_system()` | `GDKSystem` | Access title/runtime metadata and environment facts |
@@ -393,6 +394,41 @@ Namespace for social filter enums.
 |-------|-------------|
 | `FRIENDS` | Friends only |
 | `FAVORITE` | Favorite friends only |
+
+## Error reporting service: `GDK.error_reporting`
+
+`GDK.error_reporting` is a `RefCounted` service object returned by
+`GDK.get_error_reporting()`.
+
+This service wraps the public PC GDK `XError` callback/options APIs
+(`XErrorSetCallback`, `XErrorSetOptions`). It does not submit reports to
+external endpoints.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `configure_options(debugger_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE)` | `GDKResult` | Configure `XError` behavior using `GDKErrorReporting.ErrorOptions` enum flags (bitwise OR supported) |
+| `set_callback_enabled(enabled)` | `GDKResult` | Enable/disable forwarding from `XError` callback into Godot signals |
+| `is_callback_enabled()` | `bool` | Whether callback forwarding is currently enabled |
+
+### `ErrorOptions` enum
+
+| Value | Description |
+|--------|-------------|
+| `ERROR_OPTIONS_NONE` (`0`) | No special error behavior options |
+| `ERROR_OPTIONS_OUTPUT_DEBUG_STRING_ON_ERROR` (`1`) | Request `OutputDebugString` behavior when an error occurs |
+| `ERROR_OPTIONS_DEBUG_BREAK_ON_ERROR` (`2`) | Request debug-break behavior when an error occurs |
+| `ERROR_OPTIONS_FAIL_FAST_ON_ERROR` (`4`) | Request fail-fast behavior when an error occurs |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `error_reported(result: GDKResult)` | Emitted when `XError` callback reports an error; also mirrored through `GDK.runtime_error(result)` |
+
+**Privacy note:** if your title attaches metadata to downstream telemetry based
+on callback events, your title owns privacy/compliance review for that metadata.
 
 ## Multiplayer activity service: `GDK.multiplayer_activity`
 
