@@ -22,6 +22,8 @@ GDK::GDK() {
     m_xbox_services = new GDKXboxServices();
     m_users.instantiate();
     m_users->set_owner(this);
+    m_game_ui.instantiate();
+    m_game_ui->set_owner(this);
     m_accessibility.instantiate();
     m_accessibility->set_owner(this);
     m_achievements.instantiate();
@@ -52,6 +54,7 @@ GDK::~GDK() {
     }
 
     m_users.unref();
+    m_game_ui.unref();
     m_accessibility.unref();
     m_achievements.unref();
     m_presence.unref();
@@ -70,6 +73,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("dispatch"), &GDK::dispatch);
     ClassDB::bind_method(D_METHOD("get_last_error"), &GDK::get_last_error);
     ClassDB::bind_method(D_METHOD("get_users"), &GDK::get_users);
+    ClassDB::bind_method(D_METHOD("get_game_ui"), &GDK::get_game_ui);
     ClassDB::bind_method(D_METHOD("get_accessibility"), &GDK::get_accessibility);
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
     ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
@@ -79,6 +83,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_system"), &GDK::get_system);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accessibility", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAccessibility"), "", "get_accessibility");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAchievements"), "", "get_achievements");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPresence"), "", "get_presence");
@@ -123,10 +128,21 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return users_result;
     }
 
+    Ref<GDKResult> game_ui_result = m_game_ui->on_runtime_initialized();
+    if (!game_ui_result->is_ok()) {
+        emit_runtime_error(game_ui_result);
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return game_ui_result;
+    }
+
     Ref<GDKResult> achievements_result = m_achievements->on_runtime_initialized();
     if (!achievements_result->is_ok()) {
         emit_runtime_error(achievements_result);
         m_achievements->shutdown();
+        m_game_ui->shutdown();
         m_users->shutdown();
         m_xbox_services->shutdown();
         m_runtime->shutdown();
@@ -138,6 +154,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         emit_runtime_error(presence_result);
         m_presence->shutdown();
         m_achievements->shutdown();
+        m_game_ui->shutdown();
         m_users->shutdown();
         m_xbox_services->shutdown();
         m_runtime->shutdown();
@@ -150,6 +167,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_social->shutdown();
         m_presence->shutdown();
         m_achievements->shutdown();
+        m_game_ui->shutdown();
         m_users->shutdown();
         m_xbox_services->shutdown();
         m_runtime->shutdown();
@@ -177,6 +195,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_social->shutdown();
         m_presence->shutdown();
         m_achievements->shutdown();
+        m_game_ui->shutdown();
         m_users->shutdown();
         m_xbox_services->shutdown();
         m_runtime->shutdown();
@@ -197,6 +216,7 @@ void GDK::shutdown() {
     m_launcher->shutdown();
     m_presence->shutdown();
     m_achievements->shutdown();
+    m_game_ui->shutdown();
     m_users->shutdown();
     m_xbox_services->shutdown();
     m_runtime->shutdown();
@@ -222,6 +242,10 @@ Ref<GDKResult> GDK::get_last_error() const {
 
 Ref<GDKUsers> GDK::get_users() const {
     return m_users;
+}
+
+Ref<GDKGameUI> GDK::get_game_ui() const {
+    return m_game_ui;
 }
 
 Ref<GDKAccessibility> GDK::get_accessibility() const {

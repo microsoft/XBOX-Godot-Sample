@@ -24,6 +24,7 @@ accessed as namespaces under this root.
 | `dispatch()` | `int` | Pump async completions and manager state manually when `gdk/runtime/embed_dispatch` is disabled or when deterministic control is needed |
 | `get_last_error()` | `GDKResult` | Last error result |
 | `get_users()` | `GDKUsers` | Access the users service |
+| `get_game_ui()` | `GDKGameUI` | Access the system UI service |
 | `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
@@ -123,6 +124,20 @@ func _ready():
 func _on_user_changed(user: GDKUser, change_kind: String):
     print("User %s: %s" % [change_kind, user.gamertag])
 ```
+
+## Game UI service: `GDK.game_ui`
+
+`GDK.game_ui` is a `RefCounted` service object returned by `GDK.get_game_ui()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `show_message_dialog_async(title, message, first_button, second_button, third_button, default_button, cancel_button)` | `Signal` | Show a system message dialog; success data includes `selected_button` and `selected_button_index` |
+| `set_notification_position_hint(position)` | `GDKResult` | Set the notification position hint (`bottom_center`, `bottom_left`, `bottom_right`, `top_center`, `top_left`, `top_right`) |
+| `show_player_profile_card_async(requesting_user, target_xuid)` | `Signal` | Show the profile card UI for a target XUID |
+| `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids, min_selection_count, max_selection_count)` | `Signal` | Show player picker UI; success data includes `selected_xuids` and `selection_count` |
+| `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Forward to users-service privilege remediation UI flow |
 
 ## `GDKUser`
 

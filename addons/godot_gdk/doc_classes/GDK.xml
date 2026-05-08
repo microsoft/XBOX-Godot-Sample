@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, accessibility, achievements, presence, social, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, presence, social, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -49,6 +49,12 @@
 			<return type="GDKUsers" />
 			<description>
 				Returns the [GDKUsers] service for managing Xbox user sign-in and identity.
+			</description>
+		</method>
+		<method name="get_game_ui" qualifiers="const">
+			<return type="GDKGameUI" />
+			<description>
+				Returns the [GDKGameUI] service for PC-supported system UI flows.
 			</description>
 		</method>
 		<method name="get_achievements" qualifiers="const">
@@ -97,6 +103,9 @@
 	<members>
 		<member name="users" type="GDKUsers" setter="" getter="get_users">
 			The [GDKUsers] service instance for managing Xbox user sign-in and identity.
+		</member>
+		<member name="game_ui" type="GDKGameUI" setter="" getter="get_game_ui">
+			The [GDKGameUI] service instance for PC-supported system UI flows.
 		</member>
 		<member name="achievements" type="GDKAchievements" setter="" getter="get_achievements">
 			The [GDKAchievements] service instance for querying and updating Xbox achievements.

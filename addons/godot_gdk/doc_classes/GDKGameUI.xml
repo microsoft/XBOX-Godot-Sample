@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKGameUI" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		System UI service accessed via GDK.game_ui.
+	</brief_description>
+	<description>
+		Wraps PC-supported GDK system UI surfaces such as message dialogs, notification position hints, player profile card UI, and player picker UI. Async calls return one-shot completion [Signal] values that emit a [GDKResult].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="show_message_dialog_async">
+			<return type="Signal" />
+			<param index="0" name="title" type="String" />
+			<param index="1" name="message" type="String" />
+			<param index="2" name="first_button" type="String" default="&quot;OK&quot;" />
+			<param index="3" name="second_button" type="String" default="&quot;&quot;" />
+			<param index="4" name="third_button" type="String" default="&quot;&quot;" />
+			<param index="5" name="default_button" type="String" default="&quot;first&quot;" />
+			<param index="6" name="cancel_button" type="String" default="&quot;first&quot;" />
+			<description>
+				Shows a system message dialog. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] contains [code]selected_button[/code] and [code]selected_button_index[/code].
+			</description>
+		</method>
+		<method name="set_notification_position_hint">
+			<return type="GDKResult" />
+			<param index="0" name="position" type="String" />
+			<description>
+				Sets the preferred notification position hint. [param position] must be one of [code]bottom_center[/code], [code]bottom_left[/code], [code]bottom_right[/code], [code]top_center[/code], [code]top_left[/code], or [code]top_right[/code].
+			</description>
+		</method>
+		<method name="show_player_profile_card_async">
+			<return type="Signal" />
+			<param index="0" name="requesting_user" type="GDKUser" />
+			<param index="1" name="target_xuid" type="String" />
+			<description>
+				Shows the profile card UI for the [param target_xuid], requested by [param requesting_user].
+			</description>
+		</method>
+		<method name="show_player_picker_async">
+			<return type="Signal" />
+			<param index="0" name="requesting_user" type="GDKUser" />
+			<param index="1" name="prompt" type="String" />
+			<param index="2" name="selectable_xuids" type="PackedStringArray" />
+			<param index="3" name="preselected_xuids" type="PackedStringArray" default="PackedStringArray()" />
+			<param index="4" name="min_selection_count" type="int" default="1" />
+			<param index="5" name="max_selection_count" type="int" default="1" />
+			<description>
+				Shows player picker UI for [param requesting_user]. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] includes [code]selected_xuids[/code] and [code]selection_count[/code].
+			</description>
+		</method>
+		<method name="resolve_privilege_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="privilege" type="int" />
+			<description>
+				Shows privilege-resolution UI for [param user] and [param privilege]. This forwards to the existing users-service privilege-remediation flow.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

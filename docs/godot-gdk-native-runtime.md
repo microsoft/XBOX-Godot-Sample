@@ -147,6 +147,20 @@ It emits:
 - store-user flag
 - owned `XUserHandle`
 
+## Game UI service
+
+`GDKGameUI` is the runtime-level wrapper for PC-supported `XGameUI` surfaces.
+
+It currently exposes:
+
+- `show_message_dialog_async()`
+- `set_notification_position_hint()`
+- `show_player_profile_card_async()`
+- `show_player_picker_async()`
+- `resolve_privilege_with_ui_async()` (delegates to `GDKUsers`)
+
+The async UI methods use `GDKSignalXAsyncContext` and return completion `Signal` values. When native APIs report `E_ABORT`, the wrapper returns `GDKResult.code == "cancelled"` so scripts can distinguish user cancellation from native failures.
+
 ## Accessibility service
 
 `GDKAccessibility` is a synchronous service for concrete APIs from `XAccessibility.h`.

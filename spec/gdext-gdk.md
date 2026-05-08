@@ -306,6 +306,7 @@ GDK.get_system() -> GDKSystem
 
 ```gdscript
 GDK.users: GDKUsers
+GDK.game_ui: GDKGameUI
 GDK.system: GDKSystem
 GDK.accessibility: GDKAccessibility
 GDK.save: GDKSave
@@ -439,6 +440,35 @@ query_high_contrast_mode() -> GDKResult
 | `set_closed_caption_enabled()` | `XClosedCaptionSetEnabled` | Returns an ok/error `GDKResult`; success payload includes `enabled`. |
 | `query_high_contrast_mode()` | `XHighContrastGetMode` | Returns a `Dictionary` payload with `mode` and `mode_name`. |
 | `GDKClosedCaptionProperties` getters | `XClosedCaptionProperties` struct fields | Wrapper exposes Godot-native colors/enums/flags without exposing native handles. |
+
+#### `GDK.game_ui` service
+
+##### Methods
+
+```gdscript
+show_message_dialog_async(title: String, message: String, first_button := "OK", second_button := "", third_button := "", default_button := "first", cancel_button := "first") -> Signal
+set_notification_position_hint(position: String) -> GDKResult
+show_player_profile_card_async(requesting_user: GDKUser, target_xuid: String) -> Signal
+show_player_picker_async(requesting_user: GDKUser, prompt: String, selectable_xuids: PackedStringArray, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal
+resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
+```
+
+##### Notes
+
+- This service should expose only APIs verified as available in the public PC GDK (`_GAMING_DESKTOP`) headers/libs used by this repo.
+- Do not add wrappers for console-only or unavailable surfaces (for example `XGameStreaming`, `XPersistentLocalStorage`, `XNetworking`, or console-only `XAppCapture` flows).
+- `show_message_dialog_async()` and `show_player_picker_async()` should distinguish user-cancelled flows (`E_ABORT`) from other native failures.
+- Keep `GDK.multiplayer_activity.show_invite_ui_async()` compatible; that API remains callable through the multiplayer-activity service.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `show_message_dialog_async()` | `XGameUiShowMessageDialogAsync`, `XGameUiShowMessageDialogResult` | Validate title/message/button layout before invoking native UI. Return button selection in `GDKResult.data` on success. |
+| `set_notification_position_hint()` | `XGameUiSetNotificationPositionHint` | Accept snake_case positions (`bottom_center`, etc.). This is available on PC GDK even where the shell may ignore placement hints. |
+| `show_player_profile_card_async()` | `XGameUiShowPlayerProfileCardAsync`, `XGameUiShowPlayerProfileCardResult` | Requires a signed-in `GDKUser` requesting handle and numeric target XUID. |
+| `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `GDKResult.data`. |
+| `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Delegate to `GDK.users` privilege-remediation flow so existing users-service behavior remains authoritative. |
 
 #### `GDK.save` service
 

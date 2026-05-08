@@ -17,6 +17,7 @@ add_library(godot_gdk SHARED
     src/gdk_pending_signal.cpp
     src/gdk_signal_xasync_context.cpp
     src/gdk_user.cpp
+    src/gdk_game_ui.cpp
     src/gdk_achievement.cpp
     src/gdk_presence.cpp
     src/gdk_social.cpp

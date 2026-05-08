@@ -12,6 +12,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "gdk_achievement.h"
+#include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_accessibility.h"
 #include "gdk_multiplayer_activity.h"
@@ -34,6 +35,7 @@ class GDK : public Object {
     GDKRuntime *m_runtime = nullptr;
     GDKXboxServices *m_xbox_services = nullptr;
     Ref<GDKUsers> m_users;
+    Ref<GDKGameUI> m_game_ui;
     Ref<GDKAccessibility> m_accessibility;
     Ref<GDKAchievements> m_achievements;
     Ref<GDKPresence> m_presence;
@@ -58,6 +60,7 @@ public:
     int64_t dispatch();
     Ref<GDKResult> get_last_error() const;
     Ref<GDKUsers> get_users() const;
+    Ref<GDKGameUI> get_game_ui() const;
     Ref<GDKAccessibility> get_accessibility() const;
     Ref<GDKAchievements> get_achievements() const;
     Ref<GDKPresence> get_presence() const;

@@ -1,6 +1,6 @@
 # Godot GDK async system
 
-This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`).
+This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, and `GDK.social`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`godot-gdk-plugin.md`](godot-gdk-plugin.md).
 
@@ -19,7 +19,7 @@ The current baseline gives us:
 - one internal `XAsync` bridge base: `GDKSignalXAsyncContext`
 - one internal one-shot signal helper: `GDKPendingSignal`
 - one internal Xbox services scaffold: `GDKXboxServices`
-- four concrete services using the pattern: `GDK.users`, `GDK.achievements`, `GDK.presence`, and `GDK.social`
+- five concrete services using the pattern: `GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, and `GDK.social`
 
 ## Public surface
 
@@ -36,9 +36,12 @@ Current public methods:
 - `dispatch() -> int`
 - `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
+- `get_game_ui() -> GDKGameUI`
+- `get_accessibility() -> GDKAccessibility`
 - `get_achievements() -> GDKAchievements`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
+- `get_multiplayer_activity() -> GDKMultiplayerActivity`
 
 Current public signals:
 
@@ -81,6 +84,20 @@ Current `GDKUser` getters:
 - `is_guest() -> bool`
 - `is_signed_in() -> bool`
 - `is_store_user() -> bool`
+
+### `GDK.game_ui`
+
+`GDK.game_ui` is a `RefCounted` service object returned by `GDK.get_game_ui()`.
+
+Current public methods:
+
+- `show_message_dialog_async(title, message, first_button := "OK", second_button := "", third_button := "", default_button := "first", cancel_button := "first") -> Signal`
+- `set_notification_position_hint(position) -> GDKResult`
+- `show_player_profile_card_async(requesting_user, target_xuid) -> Signal`
+- `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal`
+- `resolve_privilege_with_ui_async(user, privilege) -> Signal`
+
+UI-facing requests report native cancellations as `GDKResult.code == "cancelled"` where the native API provides that distinction (for example message dialog and player picker flows).
 
 ### `GDK.achievements`
 
