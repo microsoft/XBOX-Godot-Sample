@@ -4,7 +4,7 @@
 		PlayFab Game Saves service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.game_saves[/code]. All Game Saves methods require a signed-in [PlayFabUser]. Asynchronous methods return completion [Signal] values awaited directly, while query helpers return a [PlayFabResult] whose [code]data[/code] field contains the requested Godot value.
+		Accessed through [code]PlayFab.game_saves[/code]. All Game Saves methods require an Xbox-backed signed-in [PlayFabUser] with [member PlayFabUser.has_local_user_handle] set. Custom-ID [PlayFabUser] sessions are rejected with [code]xbox_user_required[/code]. Asynchronous methods return completion [Signal] values awaited directly, while query helpers return a [PlayFabResult] whose [code]data[/code] field contains the requested Godot value.
 	</description>
 	<tutorials></tutorials>
 	<methods>

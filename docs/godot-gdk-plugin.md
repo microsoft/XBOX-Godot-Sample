@@ -19,7 +19,7 @@ This is the landing page for the `godot_gdk` docs set.
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
 - sample demo for runtime/users/achievements/presence/social
-- headless runtime/users/achievements/presence/social tests
+- GUT coverage under `tests\godot\gdk\tests\`
 - editor setup/export scripts shipped with the addon
 
 ### Not implemented yet in native runtime
@@ -27,6 +27,20 @@ This is the landing page for the `godot_gdk` docs set.
 - save service
 - stats service
 - leaderboards service
+
+## Testing this addon
+
+`godot_gdk` is exercised by the `tests\godot\gdk\` host. Coverage lives under `tests\godot\gdk\tests\` and includes files such as `test_core.gd`, `test_users.gd`, `test_achievements.gd`, `test_presence.gd`, `test_social.gd`, `test_multiplayer_activity.gd`, `test_result_helpers.gd`, and `test_embed_dispatch.gd`. Startup-only behavior is covered by `tests\godot\gdk\tests\bootstrap\run_*.gd`, and packaging/editor-helper logic is covered under `tests\godot\gdk\tests\packaging\`.
+
+Most deterministic coverage runs in the default orchestrator pass. Live GDK flows are gated by `LIVE_TESTS=1` through `-Live`; any live write coverage should use a test sandbox. The addon registers `gdk/tests/live_required` as a project setting for sample-side test configuration, defaulting to `false`.
+
+Run the standard pipeline from the repository root:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+```
+
+See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orchestrator stages, GUT layout, live switch, baselines, and troubleshooting pointers.
 
 ## Document map
 
@@ -53,7 +67,7 @@ This is the landing page for the `godot_gdk` docs set.
   The editor plugin, setup panel, and export platform.
 
 - [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md)  
-  How the sample project uses the plugin and what the headless test harness verifies.
+  Sample roles and the repo-wide test pipeline.
 
 ### Subsystem deep dive
 
@@ -63,7 +77,7 @@ This is the landing page for the `godot_gdk` docs set.
 ### Reference
 
 - [`troubleshooting.md`](troubleshooting.md)  
-  Common build and runtime issues.
+  Common build, runtime, and test issues.
 
 - [`../spec/gdext-gdk.md`](../spec/gdext-gdk.md)  
   Design spec (planned API, not necessarily current implementation).

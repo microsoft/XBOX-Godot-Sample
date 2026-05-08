@@ -55,10 +55,10 @@ and user sign-in are available before PlayFab sign-in.
 
 ## Headless tests
 
-Run the PlayFab contract suite from `sample\playfab_demo\`:
+Run the repo test pipeline from the repository root. PlayFab coverage now lives in the dedicated `tests\godot\playfab` host, not in this demo project:
 
 ```powershell
-godot --headless --script res://tests/run_tests.gd
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
 The suite checks:
@@ -66,13 +66,13 @@ The suite checks:
 - singleton and class registration
 - Project Settings registration and default values
 - deterministic `not_initialized` and invalid-config error surfaces
-- optional live init plus PlayFab sign-in smoke coverage when `playfab/titleid`
-  is configured and Xbox sign-in is available
+- optional live init plus custom-ID PlayFab sign-in smoke coverage when a title id
+  and custom id are provided, either in project settings or with
+  `-PlayFabTitleId` / `-PlayFabCustomId`
 
 ## Notes
 
 - The scene in this sample is still the manual PlayFab smoke test.
-- The repo now also includes the headless contract suite under
-  `sample\playfab_demo\tests\`.
+- The repo includes the headless contract suite under `tests\godot\playfab\tests\`.
 - If you change synced PlayFab addon files under `addons\godot_playfab\`, rebuild
   the repo so the sample copy stays current.

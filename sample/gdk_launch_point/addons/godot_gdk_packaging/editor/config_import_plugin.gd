@@ -54,5 +54,5 @@ func _get_priority() -> float:
 ## Imports the file by saving a dummy Resource. The original file stays untouched.
 func _import(source_file: String, save_path: String, _options: Dictionary,
 		_platform_variants: Array[String], _gen_files: Array[String]) -> Error:
-	var res = Resource.new()
+	var res: Resource = Resource.new()
 	return ResourceSaver.save(res, save_path + ".res")

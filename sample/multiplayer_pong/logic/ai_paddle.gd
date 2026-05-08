@@ -70,7 +70,7 @@ func _resolve_ball() -> Node2D:
 	var parent := get_parent()
 	if parent == null:
 		return null
-	for child in parent.get_children():
+	for child: Node in parent.get_children():
 		var script: Script = (child as Node).get_script() if child is Node else null
 		if child is Node2D and script != null and script.resource_path.ends_with("ball.gd"):
 			return child as Node2D
@@ -79,6 +79,6 @@ func _resolve_ball() -> Node2D:
 
 func _on_paddle_area_enter(area: Area2D) -> void:
 	area.bounce(false, randf())
-	var pong = get_parent()
+	var pong: Variant = get_parent()
 	if pong != null and pong.has_method("on_paddle_hit"):
 		pong.on_paddle_hit(self, area)

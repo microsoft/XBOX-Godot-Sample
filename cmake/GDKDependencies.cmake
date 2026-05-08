@@ -23,9 +23,9 @@ function(gdk_detect_dependencies)
     endif()
 
     if(NOT DEFINED _GDK_WINDOWS_DEFAULT AND DEFINED ENV{GameDKLatest})
-        file(TO_CMAKE_PATH "$ENV{GameDKLatest}" _GDK_ROOT_FROM_LEGACY_ENV)
-        if(EXISTS "${_GDK_ROOT_FROM_LEGACY_ENV}/windows/include/XGameRuntimeInit.h")
-            set(_GDK_WINDOWS_DEFAULT "${_GDK_ROOT_FROM_LEGACY_ENV}/windows")
+        file(TO_CMAKE_PATH "$ENV{GameDKLatest}" _GDK_ROOT_FROM_GAMEDK_ENV)
+        if(EXISTS "${_GDK_ROOT_FROM_GAMEDK_ENV}/windows/include/XGameRuntimeInit.h")
+            set(_GDK_WINDOWS_DEFAULT "${_GDK_ROOT_FROM_GAMEDK_ENV}/windows")
         endif()
     endif()
 

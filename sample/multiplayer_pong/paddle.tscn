@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cq64rcghccg8y"]
 
-[ext_resource type="Script" uid="uid://bqy8gbqq8p56q" path="res://logic/paddle.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://j1642rb1072y" path="res://paddle.png" id="2"]
+[ext_resource type="Script" uid="uid://bvu21ol7vgyji" path="res://logic/paddle.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://cw7kpmd0les7d" path="res://paddle.png" id="2"]
 
 [sub_resource type="CapsuleShape2D" id="1"]
 radius = 4.78568

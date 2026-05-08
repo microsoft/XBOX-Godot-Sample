@@ -125,11 +125,102 @@ protected:
     }
 };
 
+class SignInCustomIDAsyncContext final : public PlayFabSignalXAsyncContext {
+    PlayFabUsers *m_users = nullptr;
+    String m_custom_id;
+    std::string m_custom_id_utf8;
+
+public:
+    SignInCustomIDAsyncContext(
+            PlayFabUsers *p_users,
+            PlayFabRuntime *p_runtime,
+            const Ref<PlayFabPendingSignal> &p_pending_signal,
+            const String &p_custom_id) :
+            PlayFabSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_users(p_users),
+            m_custom_id(p_custom_id.strip_edges()),
+            m_custom_id_utf8(m_custom_id.utf8().get_data()) {}
+
+    const char *get_custom_id_cstr() const {
+        return m_custom_id_utf8.c_str();
+    }
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        Ref<PlayFabResult> result;
+
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            result = PlayFabResult::cancelled("PlayFab custom-ID sign-in cancelled.");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
+        if (status_hr == E_ABORT) {
+            result = PlayFabResult::cancelled("PlayFab custom-ID sign-in cancelled.");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+        if (FAILED(status_hr)) {
+            result = PlayFabResult::hresult_error(status_hr, "Failed to sign the custom ID into PlayFab.", "playfab_custom_id_sign_in_failed");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        size_t buffer_size = 0;
+        HRESULT size_hr = PFAuthenticationLoginWithCustomIDGetResultSize(p_async_block, &buffer_size);
+        if (FAILED(size_hr)) {
+            result = PlayFabResult::hresult_error(size_hr, "Failed to get the PlayFab custom-ID login result size.", "playfab_custom_id_sign_in_result_size_failed");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        std::vector<char> buffer(buffer_size);
+        PFAuthenticationLoginResult const *login_result = nullptr;
+        PFEntityHandle entity_handle = nullptr;
+        HRESULT result_hr = PFAuthenticationLoginWithCustomIDGetResult(
+                p_async_block,
+                &entity_handle,
+                buffer.size(),
+                buffer.data(),
+                &login_result,
+                nullptr);
+        if (FAILED(result_hr)) {
+            result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve the PlayFab custom-ID login result.", "playfab_custom_id_sign_in_result_failed");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        Ref<PlayFabUser> user;
+        user.instantiate();
+
+        HRESULT user_hr = user->adopt_custom_id_session(m_custom_id, entity_handle);
+        if (FAILED(user_hr)) {
+            result = PlayFabResult::hresult_error(user_hr, "Failed to translate the PlayFab custom-ID login result into a Godot user wrapper.", "playfab_custom_id_user_wrapper_create_failed");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        m_users->add_or_update_user_session(user);
+
+        get_runtime()->clear_last_error();
+        get_pending_signal()->complete(PlayFabResult::ok_result(user));
+    }
+};
+
 } // namespace
 
 void PlayFabUsers::_bind_methods() {
     ClassDB::bind_method(D_METHOD("sign_in_async", "user_or_local_id", "create_account"), &PlayFabUsers::sign_in_async, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("sign_in_with_custom_id_async", "custom_id", "create_account"), &PlayFabUsers::sign_in_with_custom_id_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("get_user_by_local_id", "local_id"), &PlayFabUsers::get_user_by_local_id);
+    ClassDB::bind_method(D_METHOD("get_user_by_custom_id", "custom_id"), &PlayFabUsers::get_user_by_custom_id);
     ClassDB::bind_method(D_METHOD("get_user", "user_or_local_id"), &PlayFabUsers::get_user);
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFabUsers::get_users);
 }
@@ -201,10 +292,50 @@ Signal PlayFabUsers::sign_in_async(const Variant &p_user_or_local_id, bool p_cre
     return pending_signal->get_completed_signal();
 }
 
+Signal PlayFabUsers::sign_in_with_custom_id_async(const String &p_custom_id, bool p_create_account) {
+    PlayFabRuntime *runtime = _get_runtime();
+    const String custom_id = p_custom_id.strip_edges();
+    if (custom_id.is_empty()) {
+        return make_users_error_signal(runtime, E_INVALIDARG, "invalid_custom_id", "PlayFab custom-ID sign-in requires a non-empty custom_id.");
+    }
+
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return make_users_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
+    }
+
+    Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new SignInCustomIDAsyncContext(this, runtime, pending_signal, custom_id);
+    context->bind_cancel_handler();
+
+    PFAuthenticationLoginWithCustomIDRequest request = {};
+    request.createAccount = p_create_account;
+    request.customId = context->get_custom_id_cstr();
+
+    HRESULT hr = PFAuthenticationLoginWithCustomIDAsync(
+            runtime->get_service_config_handle(),
+            &request,
+            context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab custom-ID login request.", "playfab_custom_id_sign_in_start_failed");
+        runtime->set_last_error(result);
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
 Ref<PlayFabUser> PlayFabUsers::get_user_by_local_id(int64_t p_local_id) const {
     XUserLocalId local_id = {};
     local_id.value = static_cast<uint64_t>(p_local_id);
     return _find_user_by_local_id(local_id);
+}
+
+Ref<PlayFabUser> PlayFabUsers::get_user_by_custom_id(const String &p_custom_id) const {
+    return _find_user_by_custom_id(p_custom_id);
 }
 
 Ref<PlayFabUser> PlayFabUsers::get_user(const Variant &p_user_or_local_id) const {
@@ -286,8 +417,27 @@ bool PlayFabUsers::_try_get_local_id_from_variant(const Variant &p_user_or_local
 }
 
 bool PlayFabUsers::_add_or_update_user(const Ref<PlayFabUser> &p_user) {
+    if (!p_user.is_valid()) {
+        return false;
+    }
+
+    const uint64_t local_id = p_user->get_local_id();
+    const String custom_id = p_user->get_custom_id();
+    if (local_id == 0 && custom_id.is_empty()) {
+        return false;
+    }
+    XUserLocalId user_local_id = {};
+    user_local_id.value = local_id;
+
     for (Ref<PlayFabUser> &existing : m_users) {
-        if (existing.is_valid() && existing->get_local_id() == p_user->get_local_id()) {
+        if (!existing.is_valid()) {
+            continue;
+        }
+        if (local_id != 0 && existing->matches_local_id(user_local_id)) {
+            existing = p_user;
+            return false;
+        }
+        if (!custom_id.is_empty() && existing->matches_custom_id(custom_id)) {
             existing = p_user;
             return false;
         }
@@ -298,8 +448,27 @@ bool PlayFabUsers::_add_or_update_user(const Ref<PlayFabUser> &p_user) {
 }
 
 Ref<PlayFabUser> PlayFabUsers::_find_user_by_local_id(XUserLocalId p_user_local_id) const {
+    if (p_user_local_id.value == 0) {
+        return Ref<PlayFabUser>();
+    }
+
     for (const Ref<PlayFabUser> &user : m_users) {
         if (user.is_valid() && user->matches_local_id(p_user_local_id)) {
+            return user;
+        }
+    }
+
+    return Ref<PlayFabUser>();
+}
+
+Ref<PlayFabUser> PlayFabUsers::_find_user_by_custom_id(const String &p_custom_id) const {
+    const String custom_id = p_custom_id.strip_edges();
+    if (custom_id.is_empty()) {
+        return Ref<PlayFabUser>();
+    }
+
+    for (const Ref<PlayFabUser> &user : m_users) {
+        if (user.is_valid() && user->matches_custom_id(custom_id)) {
             return user;
         }
     }

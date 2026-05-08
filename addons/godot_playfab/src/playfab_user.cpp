@@ -8,10 +8,14 @@ namespace godot {
 
 void PlayFabUser::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_local_id"), &PlayFabUser::get_local_id);
+    ClassDB::bind_method(D_METHOD("get_custom_id"), &PlayFabUser::get_custom_id);
     ClassDB::bind_method(D_METHOD("get_entity_key"), &PlayFabUser::get_entity_key);
+    ClassDB::bind_method(D_METHOD("has_local_user_handle"), &PlayFabUser::has_local_user_handle);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "local_id"), "", "get_local_id");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "custom_id"), "", "get_custom_id");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "entity_key"), "", "get_entity_key");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "has_local_user_handle"), "", "has_local_user_handle");
 }
 
 PlayFabUser::PlayFabUser() {}
@@ -24,11 +28,19 @@ uint64_t PlayFabUser::get_local_id() const {
     return m_local_id.value;
 }
 
+String PlayFabUser::get_custom_id() const {
+    return m_custom_id;
+}
+
 Dictionary PlayFabUser::get_entity_key() const {
     Dictionary key;
     key["id"] = m_entity_id;
     key["type"] = m_entity_type;
     return key;
+}
+
+bool PlayFabUser::has_local_user_handle() const {
+    return m_local_user_handle != nullptr;
 }
 
 HRESULT PlayFabUser::populate_from_user_handle(XUserHandle p_user_handle) {
@@ -100,8 +112,32 @@ HRESULT PlayFabUser::adopt_session(XUserHandle p_user_handle, PFEntityHandle p_e
     return S_OK;
 }
 
+HRESULT PlayFabUser::adopt_custom_id_session(const String &p_custom_id, PFEntityHandle p_entity_handle) {
+    clear();
+
+    const String custom_id = p_custom_id.strip_edges();
+    if (custom_id.is_empty() || p_entity_handle == nullptr) {
+        return E_INVALIDARG;
+    }
+
+    m_custom_id = custom_id;
+    m_entity_handle = p_entity_handle;
+
+    HRESULT hr = populate_from_entity_handle(m_entity_handle);
+    if (FAILED(hr)) {
+        clear();
+        return hr;
+    }
+
+    return S_OK;
+}
+
 bool PlayFabUser::matches_local_id(XUserLocalId p_local_id) const {
-    return m_local_id.value == p_local_id.value;
+    return m_local_id.value != 0 && m_local_id.value == p_local_id.value;
+}
+
+bool PlayFabUser::matches_custom_id(const String &p_custom_id) const {
+    return !m_custom_id.is_empty() && m_custom_id == p_custom_id.strip_edges();
 }
 
 PFEntityHandle PlayFabUser::get_entity_handle() const {
@@ -133,6 +169,7 @@ void PlayFabUser::clear() {
     }
 
     m_local_id = {};
+    m_custom_id = "";
     m_entity_id = "";
     m_entity_type = "";
 }

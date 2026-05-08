@@ -80,29 +80,11 @@
 	<members>
 	</members>
 	<signals>
-		<signal name="user_added">
-			<param index="0" name="user" type="GDKUser" />
-			<description>
-				Emitted when a new user has been added.
-			</description>
-		</signal>
-		<signal name="user_removed">
-			<param index="0" name="local_id" type="int" />
-			<description>
-				Emitted when a user has been removed. The [param local_id] identifies the removed user.
-			</description>
-		</signal>
 		<signal name="user_changed">
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="change_kind" type="String" />
 			<description>
-				Emitted when a cached user's Xbox-facing state changes. [param change_kind] is one of [code]signed_in_again[/code], [code]gamertag[/code], [code]gamer_picture[/code], or [code]privileges[/code].
-			</description>
-		</signal>
-		<signal name="primary_user_changed">
-			<param index="0" name="user" type="GDKUser" />
-			<description>
-				Emitted when the session primary user is first established or later cleared. Later user adds do not promote a different cached user to primary.
+				Emitted for every user lifecycle or Xbox-facing state change. [param change_kind] is one of [code]added[/code], [code]removed[/code], [code]signed_in_again[/code], [code]gamertag[/code], [code]gamer_picture[/code], or [code]privileges[/code]. For [code]removed[/code], [param user] identifies the user that was removed and is no longer present in [method get_users].
 			</description>
 		</signal>
 	</signals>

@@ -54,7 +54,7 @@ func _build_ui() -> void:
 
 	# Build fields grouped by section
 	var current_section := ""
-	for def in FIELD_DEFS:
+	for def: Array in FIELD_DEFS:
 		var section: String = def[0]
 		var key: String = def[1]
 		var label_text: String = def[2]
@@ -111,7 +111,7 @@ func _normalize_title_id(p_title_id: String) -> String:
 	if normalized == "" or normalized.length() > 8:
 		return ""
 
-	for i in range(normalized.length()):
+	for i: int in range(normalized.length()):
 		var digit: String = normalized.substr(i, 1)
 		if not "0123456789abcdef".contains(digit):
 			return ""
@@ -144,12 +144,12 @@ func _load_config() -> void:
 		err = cfg.load(global_path)
 
 	if err == OK:
-		for def in FIELD_DEFS:
+		for def: Array in FIELD_DEFS:
 			var section: String = def[0]
 			var key: String = def[1]
 			var field_key := section + "/" + key
 			if field_key in _fields:
-				var value = cfg.get_value(section, key, "")
+				var value: Variant = cfg.get_value(section, key, "")
 				_fields[field_key].text = str(value)
 		_status_label.text = "Loaded from " + CONFIG_PATH
 		return
@@ -162,7 +162,7 @@ func _load_config() -> void:
 		_status_label.text = "No config found — fill in values and save."
 		return
 
-	for field_key in ms_values:
+	for field_key: String in ms_values:
 		if field_key in _fields:
 			_fields[field_key].text = str(ms_values[field_key])
 	_status_label.text = "Prepopulated from %s — Save to mirror into %s." % [MICROSOFT_GAME_CONFIG_PATH, CONFIG_PATH]
@@ -212,7 +212,7 @@ func _load_from_microsoft_game_config() -> Dictionary:
 	return values
 
 func _xml_attr(p_parser: XMLParser, p_name: String) -> String:
-	for i in range(p_parser.get_attribute_count()):
+	for i: int in range(p_parser.get_attribute_count()):
 		if p_parser.get_attribute_name(i) == p_name:
 			return p_parser.get_attribute_value(i)
 	return ""
@@ -223,7 +223,7 @@ func _on_save_pressed() -> void:
 
 	var cfg := ConfigFile.new()
 
-	for def in FIELD_DEFS:
+	for def: Array in FIELD_DEFS:
 		var section: String = def[0]
 		var key: String = def[1]
 		var field_key := section + "/" + key
@@ -261,7 +261,7 @@ func _on_apply_to_export_pressed() -> void:
 
 	var content := FileAccess.get_file_as_string(preset_path)
 
-	for config_key in mapping:
+	for config_key: String in mapping:
 		var preset_key: String = mapping[config_key]
 		if config_key in _fields:
 			var value: String = _fields[config_key].text

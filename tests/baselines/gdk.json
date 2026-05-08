@@ -1,0 +1,8 @@
+{
+  "host": "gdk",
+  "pre": { "asserts": 241, "method": "pre_gut_runner_pass_plus_fail" },
+  "post": { "asserts": 632, "tests": 98, "passing": 91, "failing": 0, "pending": 7 },
+  "bootstrap": { "count": 5, "passed": 5, "failed": 0 },
+  "captured_at": "2026-05-07T18:33:18Z",
+  "godot_version": "4.6.2.stable.official.71f334935"
+}

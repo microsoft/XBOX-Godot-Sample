@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bv5io76sl5mgc"]
 
-[ext_resource type="Script" uid="uid://gavipk2e3gej" path="res://logic/ball.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://b8pubh3ddqqmd" path="res://ball.png" id="2"]
+[ext_resource type="Script" uid="uid://d1gkejk7ojiac" path="res://logic/ball.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dixop0ntk45rv" path="res://ball.png" id="2"]
 
 [sub_resource type="CircleShape2D" id="1"]
 radius = 5.11969

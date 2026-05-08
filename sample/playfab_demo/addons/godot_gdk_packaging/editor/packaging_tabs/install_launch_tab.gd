@@ -1,7 +1,7 @@
 @tool
 extends ScrollContainer
 
-var _coordinator
+var _coordinator: Variant
 var _registered_apps: Array[Dictionary] = []
 
 var install_status_label: Label
@@ -11,34 +11,34 @@ var terminate_btn: Button
 var launch_status_label: Label
 
 
-func setup(coordinator) -> void:
+func setup(coordinator: Variant) -> void:
 	_coordinator = coordinator
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	size_flags_vertical = SIZE_EXPAND_FILL
 
-	var root := VBoxContainer.new()
+	var root: VBoxContainer = VBoxContainer.new()
 	root.size_flags_horizontal = SIZE_EXPAND_FILL
 	add_child(root)
 
 	_coordinator._add_section_header(root, "Install")
 
-	var install_desc := Label.new()
+	var install_desc: Label = Label.new()
 	install_desc.text = "Install or uninstall the MSIXVC package from the Package/ folder."
 	install_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	install_desc.add_theme_font_size_override("font_size", 12)
 	install_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	root.add_child(install_desc)
 
-	var install_btn_row := HBoxContainer.new()
+	var install_btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(install_btn_row)
 
-	var install_btn := Button.new()
+	var install_btn: Button = Button.new()
 	install_btn.text = "Install"
 	install_btn.tooltip_text = "Install the MSIXVC package from the Package/ folder"
 	install_btn.pressed.connect(_on_pkg_install)
 	install_btn_row.add_child(install_btn)
 
-	var uninstall_btn := Button.new()
+	var uninstall_btn: Button = Button.new()
 	uninstall_btn.text = "Uninstall"
 	uninstall_btn.tooltip_text = "Uninstall the selected app"
 	uninstall_btn.pressed.connect(_on_pkg_uninstall)
@@ -52,16 +52,16 @@ func setup(coordinator) -> void:
 
 	_coordinator._add_section_header(root, "Launch")
 
-	var launch_desc := Label.new()
+	var launch_desc: Label = Label.new()
 	launch_desc.text = "Select a registered app to launch or terminate."
 	launch_desc.add_theme_font_size_override("font_size", 12)
 	launch_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	root.add_child(launch_desc)
 
-	var app_row := HBoxContainer.new()
+	var app_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(app_row)
 
-	var app_label := Label.new()
+	var app_label: Label = Label.new()
 	app_label.text = "Registered App"
 	app_label.custom_minimum_size.x = 130
 	app_row.add_child(app_label)
@@ -71,13 +71,13 @@ func setup(coordinator) -> void:
 	app_selector.tooltip_text = "Select a registered app to launch or terminate"
 	app_row.add_child(app_selector)
 
-	var refresh_btn := Button.new()
+	var refresh_btn: Button = Button.new()
 	refresh_btn.text = "Refresh"
 	refresh_btn.tooltip_text = "Refresh the list of registered apps"
 	refresh_btn.pressed.connect(refresh_registered_apps)
 	app_row.add_child(refresh_btn)
 
-	var launch_btn_row := HBoxContainer.new()
+	var launch_btn_row: HBoxContainer = HBoxContainer.new()
 	root.add_child(launch_btn_row)
 
 	launch_btn = Button.new()
@@ -109,7 +109,7 @@ func refresh_registered_apps() -> void:
 		terminate_btn.disabled = true
 		return
 
-	var result = _coordinator.get_wdapp_manager().list_registered_apps()
+	var result: Dictionary = _coordinator.get_wdapp_manager().list_registered_apps()
 	if result["exit_code"] != 0:
 		app_selector.add_item("Failed to list apps")
 		launch_btn.disabled = true
@@ -117,7 +117,7 @@ func refresh_registered_apps() -> void:
 		return
 
 	_registered_apps = result.get("apps", [])
-	for app in _registered_apps:
+	for app: Dictionary in _registered_apps:
 		app_selector.add_item(str(app["aumid"]))
 
 	if _registered_apps.is_empty():
@@ -130,27 +130,27 @@ func refresh_registered_apps() -> void:
 
 
 func _get_selected_aumid() -> String:
-	var idx = app_selector.selected
+	var idx: int = app_selector.selected
 	if idx < 0 or idx >= _registered_apps.size():
 		return ""
 	return _registered_apps[idx]["aumid"]
 
 
 func _get_selected_pfn() -> String:
-	var idx = app_selector.selected
+	var idx: int = app_selector.selected
 	if idx < 0 or idx >= _registered_apps.size():
 		return ""
 	return _registered_apps[idx]["pfn"]
 
 
 func _on_app_launch() -> void:
-	var aumid = _get_selected_aumid()
+	var aumid: String = _get_selected_aumid()
 	if aumid == "":
 		launch_status_label.text = "❌ No app selected"
 		return
 
 	_coordinator._log("Launching: %s" % aumid)
-	var result = _coordinator.get_wdapp_manager().launch_app(aumid)
+	var result: Dictionary = _coordinator.get_wdapp_manager().launch_app(aumid)
 	if result["exit_code"] == 0:
 		launch_status_label.text = "✅ Launched"
 		_coordinator._log("App launched successfully")
@@ -160,16 +160,16 @@ func _on_app_launch() -> void:
 
 
 func _on_app_terminate() -> void:
-	var aumid = _get_selected_aumid()
-	var pfn = _get_selected_pfn()
+	var aumid: String = _get_selected_aumid()
+	var pfn: String = _get_selected_pfn()
 	if aumid == "":
 		launch_status_label.text = "❌ No app selected"
 		return
 
 	_coordinator._log("Terminating: %s" % pfn)
-	var result = _coordinator.get_wdapp_manager().terminate_app(pfn, _coordinator.get_build_dir())
+	var result: Dictionary = _coordinator.get_wdapp_manager().terminate_app(pfn, _coordinator.get_build_dir())
 	if result["exit_code"] == 0:
-		var terminated_with = str(result.get("terminated_with", "wdapp"))
+		var terminated_with: String = str(result.get("terminated_with", "wdapp"))
 		launch_status_label.text = "✅ Terminated"
 		if terminated_with == "taskkill":
 			launch_status_label.text = "✅ Terminated (taskkill)"
@@ -181,16 +181,16 @@ func _on_app_terminate() -> void:
 
 
 func _find_msixvc_package() -> String:
-	var pkg_dir = _coordinator.get_package_dir()
+	var pkg_dir: String = _coordinator.get_package_dir()
 	if not DirAccess.dir_exists_absolute(pkg_dir):
 		return ""
 
-	var dir = DirAccess.open(pkg_dir)
+	var dir: DirAccess = DirAccess.open(pkg_dir)
 	if dir == null:
 		return ""
 
 	dir.list_dir_begin()
-	var fname = dir.get_next()
+	var fname: String = dir.get_next()
 	while fname != "":
 		if fname.ends_with(".msixvc") and not fname.begins_with("clear."):
 			dir.list_dir_end()
@@ -201,14 +201,14 @@ func _find_msixvc_package() -> String:
 
 
 func _on_pkg_install() -> void:
-	var msixvc = _find_msixvc_package()
+	var msixvc: String = _find_msixvc_package()
 	if msixvc == "":
 		install_status_label.text = "❌ No .msixvc package found in Package/"
 		return
 
 	_coordinator._log("Installing: %s" % msixvc)
 	install_status_label.text = "Installing package..."
-	var result = _coordinator.get_wdapp_manager().install_package(msixvc)
+	var result: Dictionary = _coordinator.get_wdapp_manager().install_package(msixvc)
 	if result["exit_code"] == 0:
 		install_status_label.text = "✅ Package installed"
 		_coordinator._log("Package installed successfully")
@@ -219,13 +219,13 @@ func _on_pkg_install() -> void:
 
 
 func _on_pkg_uninstall() -> void:
-	var pfn = _get_selected_pfn()
+	var pfn: String = _get_selected_pfn()
 	if pfn == "":
 		install_status_label.text = "❌ No app selected — select one from the Launch section"
 		return
 
 	_coordinator._log("Uninstalling: %s" % pfn)
-	var result = _coordinator.get_wdapp_manager().uninstall_package(pfn)
+	var result: Dictionary = _coordinator.get_wdapp_manager().uninstall_package(pfn)
 	if result["exit_code"] == 0:
 		install_status_label.text = "✅ Package uninstalled"
 		_coordinator._log("Package uninstalled")

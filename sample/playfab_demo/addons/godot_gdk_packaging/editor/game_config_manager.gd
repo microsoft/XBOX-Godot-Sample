@@ -34,17 +34,17 @@ func config_exists() -> bool:
 ##   { name, publisher, version, product_id, executable, display_name, description }
 ## Returns an empty dictionary on failure.
 func parse_config() -> Dictionary:
-	var path := get_config_path()
+	var path: String = get_config_path()
 	if not FileAccess.file_exists(path):
 		return {}
 
-	var parser := XMLParser.new()
-	var err := parser.open(path)
+	var parser: XMLParser = XMLParser.new()
+	var err: Error = parser.open(path)
 	if err != OK:
 		push_error("[GDK Packaging] Failed to open MicrosoftGame.config: " + error_string(err))
 		return {}
 
-	var result := {
+	var result: Dictionary = {
 		"name": "",
 		"publisher": "",
 		"version": "",
@@ -64,15 +64,15 @@ func parse_config() -> Dictionary:
 		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
 			continue
 
-		var node_name := parser.get_node_name()
+		var node_name: String = parser.get_node_name()
 
 		if node_name == "Game":
-			for i in parser.get_attribute_count():
+			for i: int in parser.get_attribute_count():
 				if parser.get_attribute_name(i) == "configVersion":
 					result["config_version"] = parser.get_attribute_value(i)
 
 		elif node_name == "Identity":
-			for i in parser.get_attribute_count():
+			for i: int in parser.get_attribute_count():
 				match parser.get_attribute_name(i):
 					"Name":
 						result["name"] = parser.get_attribute_value(i)
@@ -82,7 +82,7 @@ func parse_config() -> Dictionary:
 						result["version"] = parser.get_attribute_value(i)
 
 		elif node_name == "Executable":
-			for i in parser.get_attribute_count():
+			for i: int in parser.get_attribute_count():
 				if parser.get_attribute_name(i) == "Name":
 					result["executable"] = parser.get_attribute_value(i)
 
@@ -102,7 +102,7 @@ func parse_config() -> Dictionary:
 					result["store_id"] = parser.get_node_data().strip_edges()
 
 		elif node_name == "ShellVisuals":
-			for i in parser.get_attribute_count():
+			for i: int in parser.get_attribute_count():
 				match parser.get_attribute_name(i):
 					"DefaultDisplayName":
 						result["display_name"] = parser.get_attribute_value(i)
@@ -125,7 +125,7 @@ func parse_config() -> Dictionary:
 
 		# ProductId can appear as an attribute on the MSStore element
 		elif node_name == "MSStore":
-			for i in parser.get_attribute_count():
+			for i: int in parser.get_attribute_count():
 				if parser.get_attribute_name(i) == "ProductId":
 					result["product_id"] = parser.get_attribute_value(i)
 
@@ -139,15 +139,15 @@ func parse_config() -> Dictionary:
 func create_template(game_name: String = "MyGodotGame",
 		publisher: String = "CN=Publisher",
 		display_name: String = "My Godot Game") -> Error:
-	var res_path = get_config_res_path()
+	var res_path: String = get_config_res_path()
 
 	if FileAccess.file_exists(res_path):
 		push_warning("[GDK Packaging] MicrosoftGame.config already exists — not overwriting.")
 		return ERR_ALREADY_EXISTS
 
-	var exe_name := game_name + ".exe"
+	var exe_name: String = game_name + ".exe"
 
-	var xml := ""
+	var xml: String = ""
 	xml += '<?xml version="1.0" encoding="utf-8"?>\n'
 	xml += '<Game configVersion="1">\n'
 	xml += '  <Identity Name="%s"\n' % _escape_xml_attr(game_name)
@@ -169,7 +169,7 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '                ForegroundText="light" />\n'
 	xml += '</Game>\n'
 
-	var file = FileAccess.open(res_path, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(res_path, FileAccess.WRITE)
 	if file == null:
 		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(FileAccess.get_open_error()))
 		return FileAccess.get_open_error()
@@ -187,16 +187,16 @@ func create_template(game_name: String = "MyGodotGame",
 ## Copies the GDK default 480x480 PNG and resizes it to create all placeholder
 ## images referenced by the MicrosoftGame.config template.
 func _ensure_placeholder_images() -> void:
-	var project_dir = ProjectSettings.globalize_path("res://")
-	var logos_dir = project_dir.path_join("storelogos")
-	var default_png = _toolchain.get_bin_dir().path_join(
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var logos_dir: String = project_dir.path_join("storelogos")
+	var default_png: String = _toolchain.get_bin_dir().path_join(
 		"GameConfigEditorDependencies/default480x480.png")
 
 	if not FileAccess.file_exists(default_png):
 		push_warning("[GDK Packaging] Default PNG not found at: " + default_png)
 		return
 
-	var targets := {
+	var targets: Dictionary = {
 		"Square480x480Logo.png": Vector2i(480, 480),
 		"Square150x150Logo.png": Vector2i(150, 150),
 		"Square44x44Logo.png": Vector2i(44, 44),
@@ -205,8 +205,8 @@ func _ensure_placeholder_images() -> void:
 	}
 
 	# Check if any images need generating
-	var any_missing := false
-	for filename in targets:
+	var any_missing: bool = false
+	for filename: String in targets:
 		if not FileAccess.file_exists(logos_dir.path_join(filename)):
 			any_missing = true
 			break
@@ -217,17 +217,17 @@ func _ensure_placeholder_images() -> void:
 	# Ensure storelogos directory exists
 	DirAccess.make_dir_recursive_absolute(logos_dir)
 
-	var source_image = Image.new()
-	var err = source_image.load(default_png)
+	var source_image: Image = Image.new()
+	var err: Error = source_image.load(default_png)
 	if err != OK:
 		push_warning("[GDK Packaging] Failed to load default PNG: " + error_string(err))
 		return
 
-	for filename in targets:
-		var dest_path = logos_dir.path_join(filename)
+	for filename: String in targets:
+		var dest_path: String = logos_dir.path_join(filename)
 		if FileAccess.file_exists(dest_path):
 			continue
-		var img = source_image.duplicate()
+		var img: Image = source_image.duplicate()
 		var size: Vector2i = targets[filename]
 		img.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
 		err = img.save_png(dest_path)
@@ -244,8 +244,8 @@ func sync_store_logos() -> int:
 	if not config_exists():
 		return 0
 
-	var info = parse_config()
-	var project_dir = ProjectSettings.globalize_path("res://")
+	var info: Dictionary = parse_config()
+	var project_dir: String = ProjectSettings.globalize_path("res://")
 
 	# Find the 480x480 source logo — this is the primary logo to derive others from
 	var logo_480_rel: String = info.get("logo_480", "")
@@ -253,22 +253,22 @@ func sync_store_logos() -> int:
 		return 0
 
 	# Resolve relative path (config paths use backslashes)
-	var logo_480_path = project_dir.path_join(logo_480_rel.replace("\\", "/"))
+	var logo_480_path: String = project_dir.path_join(logo_480_rel.replace("\\", "/"))
 	if not FileAccess.file_exists(logo_480_path):
 		print("[GDK Packaging] 480x480 logo not found at: ", logo_480_path)
 		return 0
 
-	var source_image = Image.new()
-	var err = source_image.load(logo_480_path)
+	var source_image: Image = Image.new()
+	var err: Error = source_image.load(logo_480_path)
 	if err != OK:
 		push_warning("[GDK Packaging] Failed to load 480x480 logo: " + error_string(err))
 		return 0
 
-	var logos_dir = project_dir.path_join("storelogos")
+	var logos_dir: String = project_dir.path_join("storelogos")
 	DirAccess.make_dir_recursive_absolute(logos_dir)
 
 	# All logos including the 480x480 itself
-	var logo_map := {
+	var logo_map: Dictionary = {
 		"logo_480": Vector2i(480, 480),
 		"logo_150": Vector2i(150, 150),
 		"logo_44": Vector2i(44, 44),
@@ -277,7 +277,7 @@ func sync_store_logos() -> int:
 	}
 
 	# Standard filenames for each logo
-	var standard_names := {
+	var standard_names: Dictionary = {
 		"logo_480": "Square480x480Logo.png",
 		"logo_150": "Square150x150Logo.png",
 		"logo_44": "Square44x44Logo.png",
@@ -285,11 +285,11 @@ func sync_store_logos() -> int:
 		"splash_screen": "SplashScreenImage.png",
 	}
 
-	var updated := 0
-	for key in logo_map:
-		var dest_path = logos_dir.path_join(standard_names[key])
+	var updated: int = 0
+	for key: String in logo_map:
+		var dest_path: String = logos_dir.path_join(standard_names[key])
 
-		var img = source_image.duplicate()
+		var img: Image = source_image.duplicate()
 		var size: Vector2i = logo_map[key]
 		img.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
 		err = img.save_png(dest_path)
@@ -309,11 +309,11 @@ func relocate_logos_to_storelogos() -> int:
 	if not config_exists():
 		return 0
 
-	var project_dir = ProjectSettings.globalize_path("res://")
-	var logos_dir = project_dir.path_join("storelogos")
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var logos_dir: String = project_dir.path_join("storelogos")
 
 	# Known logo filenames that GameConfigEditor writes to the project root
-	var logo_files := {
+	var logo_files: Dictionary = {
 		"StoreLogo.png": "StoreLogo",
 		"Square44x44Logo.png": "Square44x44Logo",
 		"Square150x150Logo.png": "Square150x150Logo",
@@ -322,8 +322,8 @@ func relocate_logos_to_storelogos() -> int:
 	}
 
 	# Also detect the source image (e.g. fhl_logo.png) referenced in the config
-	var info = parse_config()
-	var config_logos := {
+	var info: Dictionary = parse_config()
+	var config_logos: Dictionary = {
 		"store_logo": "StoreLogo",
 		"logo_44": "Square44x44Logo",
 		"logo_150": "Square150x150Logo",
@@ -332,27 +332,27 @@ func relocate_logos_to_storelogos() -> int:
 	}
 
 	# Build a mapping of root files that need to move
-	var files_to_move := {}  # src_abs -> dest_filename
-	var path_replacements := {}  # old_config_value -> new_config_value
+	var files_to_move: Dictionary = {}  # src_abs -> dest_filename
+	var path_replacements: Dictionary = {}  # old_config_value -> new_config_value
 
-	for key in config_logos:
+	for key: String in config_logos:
 		var rel_path: String = info.get(key, "")
 		if rel_path == "":
 			continue
-		var normalized = rel_path.replace("\\", "/")
+		var normalized: String = rel_path.replace("\\", "/")
 		# Only relocate if the file is at the project root (no directory component)
 		if normalized.contains("/"):
 			continue
-		var src_abs = project_dir.path_join(normalized)
+		var src_abs: String = project_dir.path_join(normalized)
 		if not FileAccess.file_exists(src_abs):
 			continue
-		var dest_filename = normalized.get_file()
+		var dest_filename: String = normalized.get_file()
 		files_to_move[src_abs] = dest_filename
 		path_replacements[rel_path] = "storelogos\\" + dest_filename
 
 	# Also check for standard GameConfigEditor output names at root
-	for filename in logo_files:
-		var src_abs = project_dir.path_join(filename)
+	for filename: String in logo_files:
+		var src_abs: String = project_dir.path_join(filename)
 		if FileAccess.file_exists(src_abs) and not files_to_move.has(src_abs):
 			files_to_move[src_abs] = filename
 			path_replacements[filename] = "storelogos\\" + filename
@@ -364,12 +364,12 @@ func relocate_logos_to_storelogos() -> int:
 	DirAccess.make_dir_recursive_absolute(logos_dir)
 
 	# Move files
-	var moved := 0
-	var dir = DirAccess.open(project_dir)
-	for src_abs in files_to_move:
+	var moved: int = 0
+	var dir: DirAccess = DirAccess.open(project_dir)
+	for src_abs: String in files_to_move:
 		var dest_filename: String = files_to_move[src_abs]
-		var dest_abs = logos_dir.path_join(dest_filename)
-		var err = dir.rename(src_abs, dest_abs)
+		var dest_abs: String = logos_dir.path_join(dest_filename)
+		var err: Error = dir.rename(src_abs, dest_abs)
 		if err == OK:
 			moved += 1
 			print("[GDK Packaging] Moved ", src_abs.get_file(), " -> storelogos/", dest_filename)
@@ -378,12 +378,12 @@ func relocate_logos_to_storelogos() -> int:
 
 	# Update MicrosoftGame.config with new paths
 	if moved > 0 and not path_replacements.is_empty():
-		var config_path = get_config_path()
-		var file = FileAccess.open(config_path, FileAccess.READ)
+		var config_path: String = get_config_path()
+		var file: FileAccess = FileAccess.open(config_path, FileAccess.READ)
 		if file != null:
-			var content = file.get_as_text()
+			var content: String = file.get_as_text()
 			file.close()
-			for old_val in path_replacements:
+			for old_val: String in path_replacements:
 				var new_val: String = path_replacements[old_val]
 				content = content.replace('"' + old_val + '"', '"' + new_val + '"')
 			file = FileAccess.open(config_path, FileAccess.WRITE)
@@ -405,7 +405,7 @@ static func _escape_xml_attr(value: String) -> String:
 
 
 func launch_editor() -> int:
-	var config_path := get_config_path()
+	var config_path: String = get_config_path()
 	if not FileAccess.file_exists(config_path):
 		push_error("[GDK Packaging] MicrosoftGame.config not found — create one first.")
 		return -1
@@ -418,8 +418,8 @@ func launch_editor() -> int:
 	relocate_logos_to_storelogos()
 	_rewrite_config_paths_to_storelogos()
 
-	var args := PackedStringArray([config_path])
-	var pid = _toolchain.launch_detached(_toolchain.get_game_config_editor_path(), args)
+	var args: PackedStringArray = PackedStringArray([config_path])
+	var pid: int = _toolchain.launch_detached(_toolchain.get_game_config_editor_path(), args)
 	if pid >= 0:
 		print("[GDK Packaging] Launched GameConfigEditor (PID: ", pid, ")")
 	return pid
@@ -428,14 +428,14 @@ func launch_editor() -> int:
 ## Rewrites all logo paths in MicrosoftGame.config to use storelogos/ prefix.
 ## This ensures GameConfigEditor saves directly into the storelogos/ folder.
 func _rewrite_config_paths_to_storelogos() -> void:
-	var config_path = get_config_path()
-	var file = FileAccess.open(config_path, FileAccess.READ)
+	var config_path: String = get_config_path()
+	var file: FileAccess = FileAccess.open(config_path, FileAccess.READ)
 	if file == null:
 		return
-	var content = file.get_as_text()
+	var content: String = file.get_as_text()
 	file.close()
 
-	var logo_attrs := [
+	var logo_attrs: Array = [
 		"StoreLogo",
 		"Square44x44Logo",
 		"Square150x150Logo",
@@ -443,16 +443,16 @@ func _rewrite_config_paths_to_storelogos() -> void:
 		"SplashScreenImage",
 	]
 
-	var changed := false
-	for attr in logo_attrs:
+	var changed: bool = false
+	for attr: String in logo_attrs:
 		# Match attr="something.png" where something.png doesn't already start with storelogos
-		var regex = RegEx.new()
+		var regex: RegEx = RegEx.new()
 		regex.compile(attr + '="(?!storelogos[/\\\\])([^"]+)"')
-		var result = regex.search(content)
+		var result: RegExMatch = regex.search(content)
 		if result:
-			var old_path = result.get_string(1)
-			var filename = old_path.replace("\\", "/").get_file()
-			var new_path = "storelogos\\" + filename
+			var old_path: String = result.get_string(1)
+			var filename: String = old_path.replace("\\", "/").get_file()
+			var new_path: String = "storelogos\\" + filename
 			content = content.replace(
 				attr + '="' + old_path + '"',
 				attr + '="' + new_path + '"')

@@ -21,6 +21,49 @@ set(GODOT_SAMPLE_DIRS
     "${CMAKE_SOURCE_DIR}/sample/playfab_demo"
 )
 
+set(GODOT_TEST_HOST_DIRS
+    "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
+    "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
+    "${CMAKE_SOURCE_DIR}/tests/godot/gameinput"
+)
+
+set(GODOT_PROJECT_DIRS
+    ${GODOT_SAMPLE_DIRS}
+    ${GODOT_TEST_HOST_DIRS}
+)
+
+option(GODOT_PLAYFAB_TEST_HOST_WITH_GDK
+    "Mirror godot_gdk into the PlayFab test host for optional Xbox-backed compatibility tests"
+    ON)
+
+set(GODOT_GDK_PROJECT_DIRS
+    ${GODOT_SAMPLE_DIRS}
+    "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
+)
+
+if(GODOT_PLAYFAB_TEST_HOST_WITH_GDK)
+    list(APPEND GODOT_GDK_PROJECT_DIRS
+        "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
+    )
+endif()
+
+set(GODOT_PLAYFAB_PROJECT_DIRS
+    ${GODOT_SAMPLE_DIRS}
+    "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
+)
+
+set(GODOT_GAMEINPUT_PROJECT_DIRS
+    ${GODOT_SAMPLE_DIRS}
+    "${CMAKE_SOURCE_DIR}/tests/godot/gameinput"
+)
+
+set(GODOT_SAMPLE_GUT_HOST_DIRS)
+
+set(GODOT_GUT_HOST_DIRS
+    ${GODOT_SAMPLE_GUT_HOST_DIRS}
+    ${GODOT_TEST_HOST_DIRS}
+)
+
 include(GodotExtensionCommon)
 
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)
@@ -29,8 +72,12 @@ option(BUILD_GODOT_PLAYFAB "Build the godot_playfab addon" ON)
 option(BUILD_GODOT_GDK_PACKAGING "Sync the godot_gdk_packaging editor plugin into samples" ON)
 
 set(GODOT_GDK_PACKAGING_MIRROR_DIRS)
+set(GODOT_GDK_PACKAGING_PROJECT_DIRS
+    ${GODOT_SAMPLE_DIRS}
+    "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
+)
 
-foreach(sample_dir IN LISTS GODOT_SAMPLE_DIRS)
+foreach(sample_dir IN LISTS GODOT_GDK_PACKAGING_PROJECT_DIRS)
     list(APPEND GODOT_GDK_PACKAGING_MIRROR_DIRS
         "${sample_dir}/addons/godot_gdk_packaging"
     )
@@ -54,4 +101,36 @@ endif()
 
 if(BUILD_GODOT_PLAYFAB)
     add_subdirectory(addons/godot_playfab)
+endif()
+
+# ── Vendored GUT mirror ──────────────────────────────────────────
+# GUT is mirrored from the canonical vendored copy under
+# addons/godot_gdk/tests_support/gut/ into coverage hosts that run headless GUT
+# suites. Demo/sample projects are intentionally not coverage hosts.
+godot_addon_mirror_test_support(
+    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/addons/godot_gdk/tests_support/gut"
+    DEST_SUBDIR "gut"
+    HOST_DIRS
+        ${GODOT_GUT_HOST_DIRS}
+)
+
+# ── Shared GUT base classes mirror (Wave 2) ──────────────────────
+# `addons/godot_gdk/tests_support/bases/` is the single source of truth for
+# the shared test_env + GUT base classes (gdk / playfab / gameinput). Mirror
+# into the same coverage hosts as GUT itself so suites can do
+# `extends "res://addons/godot_gdk_tests/<base>.gd"`. Pong is intentionally
+# absent — it is not a coverage host.
+godot_addon_mirror_test_support(
+    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/addons/godot_gdk/tests_support/bases"
+    DEST_SUBDIR "godot_gdk_tests"
+    HOST_DIRS
+        ${GODOT_GUT_HOST_DIRS}
+)
+
+# ── C++ unit tests (doctest) ─────────────────────────────────────
+# Wired up by the parallel `infra-doctest-target` work; this option default
+# stays ON so once that branch lands, builds pick up the production exe.
+option(GDK_BUILD_TESTS "Build C++ unit tests (doctest)" ON)
+if(GDK_BUILD_TESTS)
+    add_subdirectory(tests/cpp)
 endif()

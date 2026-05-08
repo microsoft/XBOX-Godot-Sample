@@ -168,6 +168,20 @@ press F1 on any `GameInput*` symbol to see the full class reference.
   primary controller; the lobby surfaces controller hot-plug / disconnect as
   status messages.
 
+## Testing this addon
+
+`godot_gameinput` is exercised by the `tests\godot\gameinput\` host. Coverage lives under `tests\godot\gameinput\tests\` and includes files such as `test_gameinput_core.gd`, `test_gameinput_device.gd`, `test_gameinput_reading.gd`, `test_gameinput_resource.gd`, `test_gameinput_mapper.gd`, `test_gameinput_mapper_extensions.gd`, and `test_gameinput_threading_smoke.gd`. Bootstrap autoload checks live under `tests\godot\gameinput\tests\bootstrap\`.
+
+GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, battery, and hot-plug should still be checked with [`godot-gameinput-manual-tests.md`](godot-gameinput-manual-tests.md). `sample\multiplayer_pong\` demonstrates GameInput rumble but is not a test host.
+
+Run the standard pipeline from the repository root:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+```
+
+See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orchestrator stages, GUT layout, bootstrap mini-runners, baselines, and troubleshooting pointers.
+
 ## See also
 
 * `spec/gdext-gameinput.md` — design spec, deferred work, deviations from the

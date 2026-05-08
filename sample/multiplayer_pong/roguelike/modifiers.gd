@@ -32,12 +32,12 @@ class Modifier:
 	var combo_step_bonus: int = 0  # Combo King-style growth (extra steps per hit)
 
 	# Optional hooks. Default no-ops; override in subclass where needed.
-	func on_pick(_state) -> void: pass
-	func on_ball_spawn(_ball) -> void: pass
-	func on_paddle_spawn(_paddle) -> void: pass
+	func on_pick(_state: Variant) -> void: pass
+	func on_ball_spawn(_ball: Variant) -> void: pass
+	func on_paddle_spawn(_paddle: Variant) -> void: pass
 	func on_hit(_ctx: Dictionary) -> void: pass
-	func on_wave_clear(_state) -> float: return 0.0  # multiplier added to base 1.0
-	func on_rally_lost(_state) -> void: pass
+	func on_wave_clear(_state: Variant) -> float: return 0.0  # multiplier added to base 1.0
+	func on_rally_lost(_state: Variant) -> void: pass
 
 
 class _HeavyHitter extends Modifier: pass
@@ -50,17 +50,17 @@ class _ComboKing extends Modifier:
 
 
 class _SteadyHand extends Modifier:
-	func on_pick(state) -> void:
+	func on_pick(state: Variant) -> void:
 		state.lives += 1
 
 
 class _IronWall extends Modifier:
-	func on_paddle_spawn(paddle) -> void:
+	func on_paddle_spawn(paddle: Variant) -> void:
 		paddle.scale.y *= 1.4
 
 
 class _Bouncer extends Modifier:
-	func on_ball_spawn(ball) -> void:
+	func on_ball_spawn(ball: Variant) -> void:
 		ball.bounce_speed_multiplier *= 1.15
 
 
@@ -73,30 +73,30 @@ class _LuckyPunch extends Modifier:
 
 
 class _MiniBall extends Modifier:
-	func on_ball_spawn(ball) -> void:
+	func on_ball_spawn(ball: Variant) -> void:
 		ball.scale = Vector2(0.6, 0.6)
 
 
 class _TwinThreat extends Modifier:
-	func on_pick(state) -> void:
+	func on_pick(state: Variant) -> void:
 		state.extra_balls += 1
 
 
 class _GlassCannon extends Modifier:
 	# +1.5 mult is data-driven; the extra life loss on miss is the hook.
-	func on_rally_lost(state) -> void:
+	func on_rally_lost(state: Variant) -> void:
 		# Already ate one life from the miss; subtract one more for being glass.
 		state.lives -= 1
 
 
 class _TimeWarp extends Modifier:
-	func on_ball_spawn(ball) -> void:
+	func on_ball_spawn(ball: Variant) -> void:
 		ball._speed *= 0.75
 		ball.bounce_speed_multiplier *= 0.92
 
 
 class _GalaxyBrain extends Modifier:
-	func on_wave_clear(_state) -> float:
+	func on_wave_clear(_state: Variant) -> float:
 		return 2.0  # base 1.0 + this 2.0 = 3x wave clear bonus
 
 
@@ -259,12 +259,12 @@ const _RARITY_WEIGHTS := {
 
 static func draw_three(owned_ids: Array) -> Array:
 	var pool: Array = []
-	for id in all_ids():
+	for id: String in all_ids():
 		if owned_ids.has(id):
 			continue
 		var rarity: String = _rarity_for(id)
 		var w: int = int(_RARITY_WEIGHTS.get(rarity, 1))
-		for i in range(w):
+		for i: int in range(w):
 			pool.append(id)
 
 	var picked: Array = []
@@ -273,7 +273,7 @@ static func draw_three(owned_ids: Array) -> Array:
 		var chosen: String = pool[idx]
 		picked.append(chosen)
 		# Remove all entries of chosen id so duplicates don't show up.
-		pool = pool.filter(func(x): return x != chosen)
+		pool = pool.filter(func(x: String) -> bool: return x != chosen)
 
 	# If we ran out of modifiers (player owns most), fill from owned.
 	while picked.size() < 3:

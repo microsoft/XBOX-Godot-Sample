@@ -132,10 +132,7 @@ func _bind_gdk_signals() -> void:
 	gdk.initialized.connect(_on_runtime_initialized)
 	gdk.shutdown_completed.connect(_on_runtime_shutdown)
 	gdk.runtime_error.connect(_on_runtime_error)
-	gdk.users.user_added.connect(_on_user_added)
 	gdk.users.user_changed.connect(_on_user_changed)
-	gdk.users.user_removed.connect(_on_user_removed)
-	gdk.users.primary_user_changed.connect(_on_primary_user_changed)
 	gdk.achievements.achievements_updated.connect(_on_achievements_updated)
 	gdk.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
 	gdk.multiplayer_activity.activities_updated.connect(_on_mpa_activities_updated)
@@ -961,23 +958,13 @@ func _on_runtime_error(result) -> void:
 	_log_event("Runtime error: %s" % result.message)
 	_refresh_state_panel()
 
-func _on_user_added(user) -> void:
-	_log_event("User added: %s" % user.gamertag)
-	_refresh_state_panel()
-
 func _on_user_changed(user, change_kind: String) -> void:
-	_log_event("User changed (%s): %s" % [change_kind, user.gamertag])
-	_refresh_state_panel()
-
-func _on_user_removed(local_id: int) -> void:
-	_log_event("User removed: %d" % local_id)
-	_refresh_state_panel()
-
-func _on_primary_user_changed(user) -> void:
-	if user:
-		_log_event("Primary user changed: %s" % user.gamertag)
+	if change_kind == "added":
+		_log_event("User added: %s" % user.gamertag)
+	elif change_kind == "removed":
+		_log_event("User removed: %d" % int(user.local_id))
 	else:
-		_log_event("Primary user cleared.")
+		_log_event("User changed (%s): %s" % [change_kind, user.gamertag])
 	_refresh_state_panel()
 
 func _on_achievements_updated(user) -> void:

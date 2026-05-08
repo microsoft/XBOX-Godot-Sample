@@ -89,11 +89,11 @@ static func random_drop_id(rng: RandomNumberGenerator = null) -> String:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
 	var total := 0.0
-	for id in IDS:
+	for id: String in IDS:
 		total += create(id).weight
 	var roll: float = rng.randf() * total
 	var cursor := 0.0
-	for id in IDS:
+	for id: String in IDS:
 		cursor += create(id).weight
 		if roll <= cursor:
 			return id

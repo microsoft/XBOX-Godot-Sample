@@ -160,7 +160,7 @@ are wired up at a glance:
 | `GDK READY · SIGNED OUT` | Runtime is up but no Xbox user is bound. Sandbox/account mismatch. |
 | `GDK READY · SIGNED IN` + gamertag + avatar | Everything is configured correctly — leaderboards and Game Saves should work. |
 
-The HUD listens to `GDK.users.primary_user_changed`, so it updates live
+The HUD listens to `GDK.users.user_changed`, so it updates live
 when you sign a user in or out without restarting the sample.
 
 ## PlayFab service

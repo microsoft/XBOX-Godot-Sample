@@ -48,7 +48,7 @@ var _avatar_texture: ImageTexture = null
 var _gamertag_label: Label
 var _gdk_status_node: Control
 var _gdk_status_label: Label
-var _gamer_picture_op = null
+var _gamer_picture_request_id: int = 0
 var _loaded_gamer_picture_xuid: String = ""
 var _pending_gamer_picture_xuid: String = ""
 const _GDK_STATE_OFFLINE: int = 0
@@ -129,14 +129,14 @@ class MenuItem extends Button:
 		var orb_center := Vector2(20, s.y * 0.5)
 		var orb_radius: float = lerpf(8.0, 11.0, t) + sin(_pulse_t * 4.0) * 0.6 * t
 		# Halo.
-		for i in range(3):
+		for i: int in range(3):
 			var ring_t := float(i) / 3.0
 			var ring_color: Color = orb_inner.lerp(orb_yellow, t).darkened(0.2)
 			ring_color.a = 0.18 * (1.0 - ring_t) * (0.5 + 0.5 * t)
 			draw_circle(orb_center, orb_radius * (1.6 + ring_t * 0.8), ring_color)
 		# Filled orb (back to front, blends to white at the surface).
 		var orb_color: Color = orb_inner.lerp(orb_yellow, t)
-		for i in range(5, 0, -1):
+		for i: int in range(5, 0, -1):
 			var ratio := float(i) / 5.0
 			var c: Color = orb_color.lerp(Color(1, 1, 1, orb_color.a), 1.0 - ratio)
 			c.a = orb_color.a
@@ -264,7 +264,7 @@ func _draw_grid() -> void:
 		var ring_color: Color = Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b,
 				GRID_COLOR.a * alpha)
 		var pts := PackedVector2Array()
-		for i in range(seg_count + 1):
+		for i: int in range(seg_count + 1):
 			var theta: float = float(i) / float(seg_count) * TAU + rotation_offset
 			var x: float = center.x + cos(theta) * r * 1.10
 			var y: float = center.y + sin(theta) * r * 0.78
@@ -274,7 +274,7 @@ func _draw_grid() -> void:
 
 	# Radial spokes.
 	var spokes: int = 36
-	for i in range(spokes):
+	for i: int in range(spokes):
 		var theta: float = float(i) / float(spokes) * TAU + rotation_offset
 		var dx: float = cos(theta)
 		var dy: float = sin(theta) * 0.78
@@ -305,7 +305,7 @@ func _draw_orb() -> void:
 
 func _draw_orb_at(offset: Vector2, radius: float, alpha_mult: float, rot_t: float) -> void:
 	# Outer halo rings.
-	for i in range(4):
+	for i: int in range(4):
 		var ring_t: float = float(i) / 4.0
 		var ring_color: Color = ORB_GREEN_OUTER
 		ring_color.a = 0.15 * (1.0 - ring_t) * alpha_mult
@@ -313,7 +313,7 @@ func _draw_orb_at(offset: Vector2, radius: float, alpha_mult: float, rot_t: floa
 
 	# Concentric green→yellow gradient (back to front).
 	var layers: int = 16
-	for i in range(layers, 0, -1):
+	for i: int in range(layers, 0, -1):
 		var ratio: float = float(i) / float(layers)
 		var c: Color = ORB_GREEN_OUTER.lerp(ORB_YELLOW_HOT, 1.0 - ratio)
 		c.a *= alpha_mult
@@ -350,7 +350,7 @@ func _draw_orb_at(offset: Vector2, radius: float, alpha_mult: float, rot_t: floa
 	if alpha_mult > 0.5:
 		var ribbon_color: Color = ORB_GREEN_INNER
 		ribbon_color.a = 0.45
-		for i in range(3):
+		for i: int in range(3):
 			var theta: float = TAU * float(i) / 3.0 + _t * 0.7
 			var p_a: Vector2 = offset + Vector2(cos(theta), sin(theta)) * radius * 1.18
 			var p_b: Vector2 = offset + Vector2(cos(theta + 0.6), sin(theta + 0.6)) * radius * 1.05
@@ -415,14 +415,14 @@ func _build_menu() -> void:
 		_on_quit_pressed,
 	]
 	_menu_items.clear()
-	for i in range(labels.size()):
+	for i: int in range(labels.size()):
 		var item := MenuItem.new(labels[i])
 		item.position = Vector2(0, i * (MENU_ITEM_SIZE.y + MENU_ITEM_SEP))
 		item.activated_clean.connect(callbacks[i])
 		menu_root.add_child(item)
 		_menu_items.append(item)
 
-	for i in range(_menu_items.size()):
+	for i: int in range(_menu_items.size()):
 		var up_idx: int = (i - 1 + _menu_items.size()) % _menu_items.size()
 		var down_idx: int = (i + 1) % _menu_items.size()
 		_menu_items[i].focus_neighbor_top = _menu_items[up_idx].get_path()
@@ -572,7 +572,7 @@ func _draw_status_dot() -> void:
 
 
 func _connect_gdk_signals() -> void:
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk == null:
 		return
 	if gdk.has_signal("initialized") and not gdk.initialized.is_connected(_on_gdk_state_changed):
@@ -581,20 +581,14 @@ func _connect_gdk_signals() -> void:
 		gdk.shutdown_completed.connect(_on_gdk_state_changed)
 	if gdk.has_signal("availability_changed") and not gdk.availability_changed.is_connected(_on_gdk_availability_changed):
 		gdk.availability_changed.connect(_on_gdk_availability_changed)
-	var users = gdk.users
+	var users: Variant = gdk.users
 	if users == null:
 		return
-	if users.has_signal("user_added") and not users.user_added.is_connected(_on_gdk_user_signal):
-		users.user_added.connect(_on_gdk_user_signal)
 	if users.has_signal("user_changed") and not users.user_changed.is_connected(_on_gdk_user_signal):
 		users.user_changed.connect(_on_gdk_user_signal)
-	if users.has_signal("user_removed") and not users.user_removed.is_connected(_on_gdk_user_removed):
-		users.user_removed.connect(_on_gdk_user_removed)
-	if users.has_signal("primary_user_changed") and not users.primary_user_changed.is_connected(_on_gdk_primary_changed):
-		users.primary_user_changed.connect(_on_gdk_primary_changed)
 
 
-func _get_gdk():
+func _get_gdk() -> Variant:
 	var bootstrap := get_node_or_null("/root/GDKBootstrap")
 	if bootstrap != null and bootstrap.has_method("get_gdk"):
 		return bootstrap.get_gdk()
@@ -611,22 +605,14 @@ func _on_gdk_availability_changed(_available: bool) -> void:
 	_refresh_user_panel()
 
 
-func _on_gdk_user_signal(_user) -> void:
-	_refresh_user_panel()
-
-
-func _on_gdk_user_removed(_local_id: int) -> void:
-	_refresh_user_panel()
-
-
-func _on_gdk_primary_changed(_user) -> void:
+func _on_gdk_user_signal(_user: Variant, _change_kind: String) -> void:
 	_refresh_user_panel()
 
 
 func _refresh_user_panel() -> void:
 	if _user_panel == null:
 		return
-	var gdk = _get_gdk()
+	var gdk: Variant = _get_gdk()
 	if gdk == null:
 		_set_panel_state(_GDK_STATE_OFFLINE, "GDK OFFLINE", "—")
 		_clear_avatar()
@@ -635,7 +621,7 @@ func _refresh_user_panel() -> void:
 		_set_panel_state(_GDK_STATE_INIT, "GDK INIT…", "—")
 		_clear_avatar()
 		return
-	var user = gdk.users.get_primary_user() if gdk.users != null else null
+	var user: Variant = gdk.users.get_primary_user() if gdk.users != null else null
 	if user == null:
 		_set_panel_state(_GDK_STATE_READY, "GDK READY", "SIGNED OUT")
 		_clear_avatar()
@@ -660,9 +646,11 @@ func _set_panel_state(state: int, status_text: String, gamertag_text: String) ->
 
 
 func _clear_avatar() -> void:
-	if _gamer_picture_op != null and not _gamer_picture_op.is_done():
-		_gamer_picture_op.cancel()
-	_gamer_picture_op = null
+	# Bumping the request id invalidates any in-flight fetch's callback. The
+	# new GDK async API returns a `Signal`, so there is no per-op `cancel()`
+	# to call -- the in-flight request runs to completion and its result is
+	# discarded by the request-id check in `_on_gamer_picture_completed`.
+	_gamer_picture_request_id += 1
 	_avatar_texture = null
 	_loaded_gamer_picture_xuid = ""
 	_pending_gamer_picture_xuid = ""
@@ -670,7 +658,7 @@ func _clear_avatar() -> void:
 		_avatar_node.queue_redraw()
 
 
-func _load_gamer_picture(user) -> void:
+func _load_gamer_picture(user: Variant) -> void:
 	if user == null:
 		_clear_avatar()
 		return
@@ -679,32 +667,30 @@ func _load_gamer_picture(user) -> void:
 		return
 	if _loaded_gamer_picture_xuid == requested_xuid and _avatar_texture != null:
 		return
-	if _gamer_picture_op != null and not _gamer_picture_op.is_done():
-		if _pending_gamer_picture_xuid == requested_xuid:
-			return
-		_gamer_picture_op.cancel()
-	var gdk = _get_gdk()
+	if _pending_gamer_picture_xuid == requested_xuid:
+		return
+	var gdk: Variant = _get_gdk()
 	if gdk == null or gdk.users == null:
 		return
 	_pending_gamer_picture_xuid = requested_xuid
-	var op = gdk.users.get_gamer_picture_async(user)
-	_gamer_picture_op = op
-	if op == null:
+	_gamer_picture_request_id += 1
+	var request_id: int = _gamer_picture_request_id
+	var gamer_picture_signal: Signal = gdk.users.get_gamer_picture_async(user)
+	if typeof(gamer_picture_signal) != TYPE_SIGNAL:
 		_pending_gamer_picture_xuid = ""
 		return
-	if op.is_done():
-		_on_gamer_picture_completed(op.get_result(), op, requested_xuid)
-	else:
-		op.completed.connect(_on_gamer_picture_completed.bind(op, requested_xuid))
+	gamer_picture_signal.connect(
+			_on_gamer_picture_completed.bind(request_id, requested_xuid),
+			CONNECT_ONE_SHOT)
 
 
-func _on_gamer_picture_completed(result, op, requested_xuid: String) -> void:
-	# Stale callback (a newer fetch superseded this one) — ignore.
-	if op != _gamer_picture_op:
+func _on_gamer_picture_completed(result: GDKResult, request_id: int, requested_xuid: String) -> void:
+	# Stale callback (a newer fetch superseded this one) -- ignore.
+	if request_id != _gamer_picture_request_id:
 		return
 	_pending_gamer_picture_xuid = ""
-	var gdk = _get_gdk()
-	var primary = gdk.users.get_primary_user() if (gdk != null and gdk.users != null) else null
+	var gdk: Variant = _get_gdk()
+	var primary: Variant = gdk.users.get_primary_user() if (gdk != null and gdk.users != null) else null
 	if primary == null or String(primary.xuid) != requested_xuid:
 		return
 	if result == null or not result.ok or result.data == null:

@@ -22,6 +22,14 @@
     real project root is safe and avoids copying entire project trees.
 
 .NOTES
+    Skipping vendored / GUT-extending scripts:
+      Place an empty `.gut_skip_validation` file in any directory whose `.gd`
+      files cannot be parsed standalone (e.g. they `extends GutTest` and the
+      GUT class_name registry hasn't been imported, or they are vendored
+      upstream content). The validator skips all `.gd` files at or under such
+      a directory. New `tests_support/` additions and new GUT-based test
+      directories must add this sentinel file rather than editing this script.
+
     Requires a Godot 4.x console executable.  The script searches for one in
     the following order:
       1. GODOT_CONSOLE / GODOT_BIN / GODOT environment variables
@@ -82,9 +90,38 @@ function Get-GDScriptFiles {
         throw 'Failed to enumerate .gd files from git.'
     }
 
+    # Sentinel-marker exclusion: any directory containing a .gut_skip_validation
+    # file marks itself (and all descendants) as un-validatable. Used for
+    # vendored upstream trees (e.g. GUT) and for `extends GutTest` suites that
+    # rely on the GUT class_name registry being imported. See the script header
+    # for the convention.
+    $sentinelName = '.gut_skip_validation'
+    $sentinelDirs = @(
+        & git -C $script:RepoRoot ls-files --cached --others --exclude-standard -- "*$sentinelName" |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { Split-Path -Parent ($_ -replace '/', '\') } |
+            ForEach-Object { if ([string]::IsNullOrEmpty($_)) { '' } else { $_.TrimEnd('\') + '\' } } |
+            Sort-Object -Unique
+    )
+
     return @(
         $files |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Where-Object {
+                $relWin = ($_ -replace '/', '\')
+                $excluded = $false
+                foreach ($prefix in $sentinelDirs) {
+                    if ([string]::IsNullOrEmpty($prefix)) {
+                        # Sentinel at repo root: would skip everything, treat as misuse.
+                        continue
+                    }
+                    if ($relWin.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        $excluded = $true
+                        break
+                    }
+                }
+                -not $excluded
+            } |
             Sort-Object -Unique |
             ForEach-Object { [System.IO.Path]::GetFullPath((Join-Path $script:RepoRoot $_)) } |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }

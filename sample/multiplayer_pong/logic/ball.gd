@@ -49,7 +49,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	for i in range(_trail_points.size()):
+	for i: int in range(_trail_points.size()):
 		var alpha := 1.0 - float(i) / float(TRAIL_LENGTH)
 		var radius := 5.0 * (1.0 - float(i) / float(TRAIL_LENGTH)) + 1.0
 		var trail_color := Color(1.0, 0.9, 0.3, alpha * 0.6)

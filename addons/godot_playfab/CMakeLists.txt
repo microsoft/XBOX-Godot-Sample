@@ -15,6 +15,7 @@ add_library(godot_playfab SHARED
     src/playfab_gamesaves.cpp
     src/playfab_runtime.cpp
     src/playfab_result.cpp
+    src/playfab_result_codes_internal.cpp
     src/playfab_pending_signal.cpp
     src/playfab_signal_xasync_context.cpp
     src/playfab_user.cpp
@@ -46,7 +47,11 @@ target_link_libraries(godot_playfab PRIVATE
 
 target_compile_definitions(godot_playfab PRIVATE _GAMING_DESKTOP)
 
-godot_addon_configure_target(TARGET godot_playfab ADDON_NAME godot_playfab)
+godot_addon_configure_target(
+    TARGET godot_playfab
+    ADDON_NAME godot_playfab
+    PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
+)
 
 if(GODOTCPP_TARGET MATCHES "editor|template_debug")
     file(GLOB_RECURSE DOC_XML LIST_DIRECTORIES NO CONFIGURE_DEPENDS
@@ -61,6 +66,7 @@ endif()
 godot_addon_copy_runtime_files(
     TARGET godot_playfab
     ADDON_NAME godot_playfab
+    PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
         "${XSAPI_RUNTIME_DLL}"
         "${LIBHTTPCLIENT_RUNTIME_DLL}"
@@ -73,6 +79,7 @@ godot_addon_sync_files_to_sample(
     TARGET godot_playfab
     ADDON_NAME godot_playfab
     ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
         godot_playfab.gdextension
 )

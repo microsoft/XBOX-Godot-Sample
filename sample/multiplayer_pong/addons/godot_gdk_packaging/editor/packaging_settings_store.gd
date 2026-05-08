@@ -34,25 +34,25 @@ func get_default_state() -> Dictionary:
 
 
 func load_state(path: String) -> Dictionary:
-	var state := get_default_state()
-	var cfg := ConfigFile.new()
+	var state: Dictionary = get_default_state()
+	var cfg: ConfigFile = ConfigFile.new()
 	if cfg.load(path) != OK:
 		return state
 
-	for section_name in DEFAULT_STATE:
+	for section_name: String in DEFAULT_STATE:
 		var section_defaults: Dictionary = DEFAULT_STATE[section_name]
 		var section_state: Dictionary = state[section_name]
-		for key in section_defaults:
+		for key: String in section_defaults:
 			section_state[key] = cfg.get_value(section_name, key, section_defaults[key])
 
 	return state
 
 
 func save_state(path: String, state: Dictionary) -> Error:
-	var cfg := ConfigFile.new()
-	for section_name in DEFAULT_STATE:
+	var cfg: ConfigFile = ConfigFile.new()
+	for section_name: String in DEFAULT_STATE:
 		var section_defaults: Dictionary = DEFAULT_STATE[section_name]
 		var section_state: Dictionary = state.get(section_name, {})
-		for key in section_defaults:
+		for key: String in section_defaults:
 			cfg.set_value(section_name, key, section_state.get(key, section_defaults[key]))
 	return cfg.save(path)

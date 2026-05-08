@@ -108,7 +108,7 @@ func _build_crt_overlay() -> void:
 func _refresh() -> void:
     if _rows_container == null:
         return
-    for child in _rows_container.get_children():
+    for child: Node in _rows_container.get_children():
         child.queue_free()
 
     var pf := get_node_or_null("/root/PlayFabService")
@@ -127,7 +127,7 @@ func _refresh() -> void:
         _rows_container.add_child(empty)
         return
 
-    for i in range(entries.size()):
+    for i: int in range(entries.size()):
         var entry: Dictionary = entries[i]
         var row := HBoxContainer.new()
         row.add_theme_constant_override("separation", 16)

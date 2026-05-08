@@ -121,8 +121,8 @@ func _exit_tree() -> void:
 func _find_menu_bar(node: Node) -> MenuBar:
 	if node is MenuBar:
 		return node
-	for child in node.get_children():
-		var result := _find_menu_bar(child)
+	for child: Node in node.get_children():
+		var result: MenuBar = _find_menu_bar(child)
 		if result:
 			return result
 	return null
@@ -131,7 +131,7 @@ func _find_menu_bar(node: Node) -> MenuBar:
 func _on_menu_item_pressed(id: int) -> void:
 	match id:
 		MenuID.GETTING_STARTED:
-			var wizard = GDKTutorialWizard.new()
+			var wizard: Window = GDKTutorialWizard.new()
 			EditorInterface.get_base_control().add_child(wizard)
 			wizard.popup_centered()
 
@@ -158,14 +158,14 @@ func _on_menu_item_pressed(id: int) -> void:
 
 		MenuID.CREATE_CONFIG:
 			if _config_mgr.config_exists():
-				var dialog := AcceptDialog.new()
+				var dialog: AcceptDialog = AcceptDialog.new()
 				dialog.title = "MicrosoftGame.config"
 				dialog.dialog_text = "MicrosoftGame.config already exists.\nUse \"Edit MicrosoftGame.config\" from the GDK menu\nor the Config tab to modify it."
-				dialog.confirmed.connect(func(): dialog.queue_free())
+				dialog.confirmed.connect(func() -> void: dialog.queue_free())
 				EditorInterface.get_base_control().add_child(dialog)
 				dialog.popup_centered(Vector2i(450, 150))
 			else:
-				var err = _config_mgr.create_template()
+				var err: Error = _config_mgr.create_template()
 				if err == OK:
 					print("[GDK Packaging] Created template MicrosoftGame.config")
 

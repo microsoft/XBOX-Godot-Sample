@@ -27,7 +27,7 @@ The current `godot_gdk` editor plugin is intentionally narrow.
 Today it:
 
 - installs or updates the addon-owned `GDKBootstrap` autoload
-- does **not** register the legacy custom export platform
+- does **not** register the previous custom export platform
 - does **not** dock `gdk_setup_panel.gd`
 
 In other words, `gdk_editor_plugin.gd` owns startup wiring for the runtime

@@ -362,10 +362,7 @@ get_token_and_signature_async(user: GDKUser, method: String, url: String, header
 ##### Signals
 
 ```gdscript
-user_added(user: GDKUser)
-user_removed(local_id: int)
 user_changed(user: GDKUser, change_kind: String)
-primary_user_changed(user: GDKUser)
 ```
 
 ##### `GDKUser`
@@ -394,7 +391,7 @@ is_store_user() -> bool
 | `resolve_issue_with_ui_async()` | `XUserResolveIssueWithUiAsync`, `XUserResolveIssueWithUiResult` | This is the remediation path for `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED` from `XUser` getters such as age-group lookups and from privilege checks. Treat an empty `url` as the Xbox services/default flow and pass a URL only when the underlying issue is request-specific. |
 | `get_gamer_picture_async()` | `XUserGetGamerPictureAsync`, `XUserGetGamerPictureResultSize`, `XUserGetGamerPictureResult` | Accept `small`, `medium`, `large`, and `extra_large` size strings. Decode the returned PNG bytes into a Godot `Image` and place that `Image` in `GDKResult.data`. |
 | `get_token_and_signature_async()` | `XUserGetTokenAndSignatureAsync`, `XUserGetTokenAndSignatureResultSize`, `XUserGetTokenAndSignatureResult` | First-pass token support should expose explicit request parameters: HTTP method, full URL, headers `Dictionary`, optional `PackedByteArray` body, and `force_refresh`. Successful results carry a `Dictionary` with `token` and `signature`. |
-| `user_changed` / `user_removed` | `XUserRegisterForChangeEvent`, `XUserUnregisterForChangeEvent` | Register one runtime-wide change callback against the shared queue and reconcile affected `GDKUser` wrappers by local id. `user_changed` should emit the refreshed wrapper plus a snake_case `change_kind` string such as `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`. |
+| `user_changed` | `XUserRegisterForChangeEvent`, `XUserUnregisterForChangeEvent` | Register one runtime-wide change callback against the shared queue and reconcile affected `GDKUser` wrappers by local id. `user_changed` is the only public users-service event and should emit the affected wrapper plus a snake_case `change_kind` string: `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`. For `removed`, emit the removed wrapper after it has been removed from the users cache so handlers can read identity fields without seeing it in `get_users()`. |
 | `GDKUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `GDKUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. |
 
 Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtime should own a single change-event registration token. Cleanup order should be: unregister runtime change notifications, remove the user from service-owned caches/managers, close the Xbox services context, then call `XUserCloseHandle`. The first successful user add establishes the session primary user; later adds should not promote a different cached user to primary.
@@ -423,7 +420,7 @@ get_user() -> GDKUser
 - v1 intentionally does **not** wrap per-file read/write/delete operations in C++.
 - `open_container_async()` should ensure the logical container directory exists before returning it to script.
 - On PC, container resolution should be refreshed on startup and on user/context changes; PLM-style resume semantics should not be the public contract for this spec.
-- Do not expose legacy `XGameSave` concepts in script.
+- Do not expose raw `XGameSave` concepts in script.
 
 ##### Example
 

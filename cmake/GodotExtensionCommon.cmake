@@ -11,15 +11,34 @@ function(_godot_addon_get_paths addon_name addon_bin_out)
     set(${addon_bin_out} "${addon_bin}" PARENT_SCOPE)
 endfunction()
 
+function(_godot_addon_get_project_dirs project_dirs_out)
+    set(project_dirs ${ARGN})
+
+    if(NOT project_dirs)
+        if(DEFINED GODOT_PROJECT_DIRS)
+            set(project_dirs ${GODOT_PROJECT_DIRS})
+        elseif(DEFINED GODOT_SAMPLE_DIRS)
+            set(project_dirs ${GODOT_SAMPLE_DIRS})
+        else()
+            message(FATAL_ERROR
+                "The root superproject must define GODOT_PROJECT_DIRS or GODOT_SAMPLE_DIRS.")
+        endif()
+    endif()
+
+    set(${project_dirs_out} ${project_dirs} PARENT_SCOPE)
+endfunction()
+
 function(godot_addon_configure_target)
     set(one_value_args TARGET ADDON_NAME)
-    cmake_parse_arguments(ARG "" "${one_value_args}" "" ${ARGN})
+    set(multi_value_args PROJECT_DIRS)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT ARG_TARGET OR NOT ARG_ADDON_NAME)
         message(FATAL_ERROR "godot_addon_configure_target requires TARGET and ADDON_NAME.")
     endif()
 
     _godot_addon_get_paths("${ARG_ADDON_NAME}" addon_bin)
+    _godot_addon_get_project_dirs(project_dirs ${ARG_PROJECT_DIRS})
 
     set_target_properties(${ARG_TARGET} PROPERTIES
         OUTPUT_NAME                      "${ARG_ADDON_NAME}.windows.release.x86_64"
@@ -36,31 +55,31 @@ function(godot_addon_configure_target)
         SUFFIX ".dll"
     )
 
-    foreach(sample_dir IN LISTS GODOT_SAMPLE_DIRS)
-        set(sample_bin "${sample_dir}/addons/${ARG_ADDON_NAME}/bin")
+    foreach(project_dir IN LISTS project_dirs)
+        set(project_bin "${project_dir}/addons/${ARG_ADDON_NAME}/bin")
 
         add_custom_command(TARGET ${ARG_TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${sample_bin}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${project_bin}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "$<TARGET_FILE:${ARG_TARGET}>"
-                "${sample_bin}/$<TARGET_FILE_NAME:${ARG_TARGET}>"
-            COMMENT "Copying ${ARG_ADDON_NAME} DLL to ${sample_dir}"
+                "${project_bin}/$<TARGET_FILE_NAME:${ARG_TARGET}>"
+            COMMENT "Copying ${ARG_ADDON_NAME} DLL to ${project_dir}"
         )
 
         add_custom_command(TARGET ${ARG_TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${sample_bin}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${project_bin}"
             COMMAND ${CMAKE_COMMAND} -E
                 $<IF:$<CONFIG:Debug>,copy_if_different,true>
                 $<IF:$<CONFIG:Debug>,$<TARGET_FILE_DIR:${ARG_TARGET}>/$<TARGET_FILE_BASE_NAME:${ARG_TARGET}>.pdb,>
-                $<IF:$<CONFIG:Debug>,${sample_bin}/,>
-            COMMENT "Copying ${ARG_ADDON_NAME} PDB to ${sample_dir} (Debug only)"
+                $<IF:$<CONFIG:Debug>,${project_bin}/,>
+            COMMENT "Copying ${ARG_ADDON_NAME} PDB to ${project_dir} (Debug only)"
         )
     endforeach()
 endfunction()
 
 function(godot_addon_copy_runtime_files)
     set(one_value_args TARGET ADDON_NAME)
-    set(multi_value_args FILES)
+    set(multi_value_args FILES PROJECT_DIRS)
     cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT ARG_TARGET OR NOT ARG_ADDON_NAME)
@@ -72,6 +91,7 @@ function(godot_addon_copy_runtime_files)
     endif()
 
     _godot_addon_get_paths("${ARG_ADDON_NAME}" addon_bin)
+    _godot_addon_get_project_dirs(project_dirs ${ARG_PROJECT_DIRS})
 
     set(copy_commands
         COMMAND ${CMAKE_COMMAND} -E make_directory "${addon_bin}"
@@ -83,14 +103,14 @@ function(godot_addon_copy_runtime_files)
         )
     endforeach()
 
-    foreach(sample_dir IN LISTS GODOT_SAMPLE_DIRS)
-        set(sample_bin "${sample_dir}/addons/${ARG_ADDON_NAME}/bin")
+    foreach(project_dir IN LISTS project_dirs)
+        set(project_bin "${project_dir}/addons/${ARG_ADDON_NAME}/bin")
         list(APPEND copy_commands
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${sample_bin}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${project_bin}"
         )
         foreach(runtime_file IN LISTS ARG_FILES)
             list(APPEND copy_commands
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${runtime_file}" "${sample_bin}/"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${runtime_file}" "${project_bin}/"
             )
         endforeach()
     endforeach()
@@ -103,7 +123,7 @@ endfunction()
 
 function(godot_addon_sync_files_to_sample)
     set(one_value_args TARGET ADDON_NAME ADDON_ROOT)
-    set(multi_value_args FILES)
+    set(multi_value_args FILES PROJECT_DIRS)
     cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT ARG_TARGET OR NOT ARG_ADDON_NAME OR NOT ARG_ADDON_ROOT)
@@ -114,33 +134,108 @@ function(godot_addon_sync_files_to_sample)
         return()
     endif()
 
-    foreach(sample_dir IN LISTS GODOT_SAMPLE_DIRS)
-        set(sample_addon_dir "${sample_dir}/addons/${ARG_ADDON_NAME}")
+    _godot_addon_get_project_dirs(project_dirs ${ARG_PROJECT_DIRS})
+
+    foreach(project_dir IN LISTS project_dirs)
+        set(project_addon_dir "${project_dir}/addons/${ARG_ADDON_NAME}")
 
         set(sync_commands
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${sample_addon_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${project_addon_dir}"
         )
 
         foreach(sync_file IN LISTS ARG_FILES)
             get_filename_component(sync_dir "${sync_file}" DIRECTORY)
             if(sync_dir)
                 list(APPEND sync_commands
-                    COMMAND ${CMAKE_COMMAND} -E make_directory "${sample_addon_dir}/${sync_dir}"
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${project_addon_dir}/${sync_dir}"
                 )
             endif()
 
             list(APPEND sync_commands
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${ARG_ADDON_ROOT}/${sync_file}"
-                    "${sample_addon_dir}/${sync_file}"
+                    "${project_addon_dir}/${sync_file}"
             )
         endforeach()
 
         add_custom_command(TARGET ${ARG_TARGET} POST_BUILD
             ${sync_commands}
-            COMMENT "Syncing ${ARG_ADDON_NAME} addon files to ${sample_dir}"
+            COMMENT "Syncing ${ARG_ADDON_NAME} addon files to ${project_dir}"
         )
     endforeach()
+endfunction()
+
+#[[ godot_addon_mirror_test_support
+
+Mirrors a single test-support tree into N coverage hosts at build time.
+Source of truth is the SOURCE_DIR; mirrored copies under each host's
+`addons/<DEST_SUBDIR>/` are git-ignored and must not be edited — any
+change to them is wiped on the next build. Edit the canonical tree under
+`addons/<addon>/tests_support/<DEST_SUBDIR>/` instead.
+
+Implementation: configure-time `file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`
+collects the source manifest. Per coverage host, an `add_custom_command`
+nukes the destination and runs `cmake -E copy_directory` whenever any
+source file is newer than the per-host stamp. A single
+`add_custom_target(godot_mirror_test_support_<DEST_SUBDIR> ALL ...)`
+fans out to all stamps so `cmake --build build --preset debug` always
+refreshes mirrored copies. CONFIGURE_DEPENDS makes CMake re-glob (and
+re-run configure if the source manifest changes) on the next build.
+
+Usage:
+    godot_addon_mirror_test_support(
+        SOURCE_DIR  <abs path to vendored dir>
+        DEST_SUBDIR <addon subdir name under <host>/addons/>
+        HOST_DIRS   <one or more Godot project roots>
+    )
+]]
+function(godot_addon_mirror_test_support)
+    set(one_value_args SOURCE_DIR DEST_SUBDIR)
+    set(multi_value_args HOST_DIRS SAMPLE_DIRS)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    set(host_dirs ${ARG_HOST_DIRS})
+    if(ARG_SAMPLE_DIRS)
+        list(APPEND host_dirs ${ARG_SAMPLE_DIRS})
+    endif()
+
+    if(NOT ARG_SOURCE_DIR OR NOT ARG_DEST_SUBDIR OR NOT host_dirs)
+        message(FATAL_ERROR
+            "godot_addon_mirror_test_support requires SOURCE_DIR, DEST_SUBDIR and HOST_DIRS.")
+    endif()
+
+    if(NOT IS_DIRECTORY "${ARG_SOURCE_DIR}")
+        message(FATAL_ERROR
+            "godot_addon_mirror_test_support: SOURCE_DIR does not exist: ${ARG_SOURCE_DIR}")
+    endif()
+
+    file(GLOB_RECURSE _mirror_src_files LIST_DIRECTORIES false CONFIGURE_DEPENDS
+        "${ARG_SOURCE_DIR}/*")
+
+    set(_stamp_dir "${CMAKE_BINARY_DIR}/_mirror_stamps")
+    file(MAKE_DIRECTORY "${_stamp_dir}")
+
+    set(_mirror_stamps)
+    foreach(host_dir IN LISTS host_dirs)
+        set(dest "${host_dir}/addons/${ARG_DEST_SUBDIR}")
+        get_filename_component(_host_name "${host_dir}" NAME)
+        set(_stamp "${_stamp_dir}/${ARG_DEST_SUBDIR}__${_host_name}.stamp")
+
+        add_custom_command(
+            OUTPUT "${_stamp}"
+            COMMAND ${CMAKE_COMMAND} -E rm -rf "${dest}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${ARG_SOURCE_DIR}" "${dest}"
+            COMMAND ${CMAKE_COMMAND} -E touch "${_stamp}"
+            DEPENDS ${_mirror_src_files}
+            COMMENT "Mirroring test-support '${ARG_DEST_SUBDIR}' -> ${dest}"
+            VERBATIM
+        )
+
+        list(APPEND _mirror_stamps "${_stamp}")
+    endforeach()
+
+    set(_target_name "godot_mirror_test_support_${ARG_DEST_SUBDIR}")
+    add_custom_target(${_target_name} ALL DEPENDS ${_mirror_stamps})
 endfunction()
 
 function(godot_addon_sync_directory)
@@ -258,3 +353,78 @@ function(godot_addon_doc_sources)
     target_sources(${ARG_TARGET} PRIVATE "${doc_source_file}")
     add_dependencies(${ARG_TARGET} ${doc_target})
 endfunction()
+
+
+#[[ godot_addon_doctest_target
+
+Defines a doctest-based C++ unit-test executable for an addon. The executable
+links against optional helper libraries supplied by the caller (typically a
+static helper target that exposes only pure, Godot-free helpers) but does NOT
+link against any addon's GDExtension shared library. Pure helpers only — do
+not test Godot Object subclasses or signal-bearing types here. See
+`spec/testing-strategy.md` ("C++ test scope rules") for the durable contract.
+
+Arguments:
+    TARGET_NAME    The CMake target name to create (e.g. gdk_unit_tests).
+    IMPL_TU        Path to the single TU that defines DOCTEST_CONFIG_IMPLEMENT
+                   (kept separate from SOURCES so multiple test TUs can share
+                   one main).
+    SOURCES        List of test source files (each contains TEST_CASE(...)).
+    LINK_LIBS      Optional libraries to link (e.g. addon static helpers, or
+                   `godot::cpp` if a helper happens to use Variant/String).
+                   Most pure-helper test exes need nothing extra here.
+    INCLUDES       Extra include directories. The vendored doctest header
+                   directory is always added automatically.
+
+This function defines the target unconditionally. Callers are responsible
+for gating the call site on `GDK_BUILD_TESTS` (see `tests/cpp/CMakeLists.txt`
+for the canonical wiring).
+
+The vendored doctest header is required at
+`${CMAKE_SOURCE_DIR}/tests/cpp/third_party/doctest/doctest.h` — its absence
+is a fatal CMake error.
+
+The output binary lands at `${CMAKE_BINARY_DIR}/bin/<config>/<TARGET_NAME>.exe`
+(matching the spike's well-known path) so that contributors can run it via
+`& .\build\bin\Debug\<TARGET_NAME>.exe` after a debug build.
+]]
+function(godot_addon_doctest_target)
+    set(one_value_args TARGET_NAME IMPL_TU)
+    set(multi_value_args SOURCES LINK_LIBS INCLUDES)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT ARG_TARGET_NAME OR NOT ARG_IMPL_TU OR NOT ARG_SOURCES)
+        message(FATAL_ERROR
+            "godot_addon_doctest_target requires TARGET_NAME, IMPL_TU, and SOURCES.")
+    endif()
+
+    set(_doctest_dir "${CMAKE_SOURCE_DIR}/tests/cpp/third_party/doctest")
+    set(_doctest_header "${_doctest_dir}/doctest.h")
+    if(NOT EXISTS "${_doctest_header}")
+        message(FATAL_ERROR
+            "godot_addon_doctest_target: doctest header not found at ${_doctest_header}. "
+            "The vendored doctest single-header (pinned in tests/cpp/third_party/doctest/VERSION.txt) is required.")
+    endif()
+
+    add_executable(${ARG_TARGET_NAME}
+        "${ARG_IMPL_TU}"
+        ${ARG_SOURCES}
+    )
+
+    target_include_directories(${ARG_TARGET_NAME} PRIVATE
+        "${_doctest_dir}"
+        ${ARG_INCLUDES}
+    )
+
+    if(ARG_LINK_LIBS)
+        target_link_libraries(${ARG_TARGET_NAME} PRIVATE ${ARG_LINK_LIBS})
+    endif()
+
+    set_target_properties(${ARG_TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY         "${CMAKE_BINARY_DIR}/bin"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_BINARY_DIR}/bin/Debug"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release"
+        FOLDER                           "tests"
+    )
+endfunction()
+

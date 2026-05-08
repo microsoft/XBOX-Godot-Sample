@@ -74,11 +74,12 @@ cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
 sample/                   # Sample projects
-  gdk_demo/              #   GDK addon demo and tests
+  gdk_demo/              #   GDK addon demo
   multiplayer_pong/      #   Multiplayer pong (from godot-demo-projects)
   playfab_demo/          #   PlayFab init/sign-in smoke-test sample
   gdk_launch_point/      #   GDK Launch Point scenario shell sample
 spec/                     # Design spec documents
+tests/godot/              # Dedicated Godot GUT coverage hosts
 tools/                    # CLI helper scripts
 ```
 
@@ -87,7 +88,7 @@ tools/                    # CLI helper scripts
 - `sample\gdk_demo\` — baseline runtime/users/achievements demo
 - `sample\gdk_launch_point\` — scenario-driven launch point built around grouped runtime/users/achievements/multiplayer-activity actions and an event log
 - `sample\multiplayer_pong\` — multiplayer pong with Xbox identity and single player mode
-- `sample\playfab_demo\` — PlayFab root singleton smoke test with manual sign-in plus a headless contract suite
+- `sample\playfab_demo\` — PlayFab root singleton smoke test with manual sign-in
 
 ## Documentation
 

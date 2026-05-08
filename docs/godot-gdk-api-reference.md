@@ -80,22 +80,19 @@ func _process(_delta):
 
 | Signal | Description |
 |--------|-------------|
-| `user_added(user: GDKUser)` | A new user was added |
-| `user_removed(local_id: int)` | A user was removed |
-| `user_changed(user: GDKUser, change_kind: String)` | A cached user's Xbox-facing state changed; `change_kind` is `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges` |
-| `primary_user_changed(user: GDKUser)` | The session primary user was established or cleared; later user adds do not promote a different primary |
+| `user_changed(user: GDKUser, change_kind: String)` | The single user lifecycle/state event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()` |
 
 ### Usage
 
 ```gdscript
 func _ready():
-    GDK.users.user_added.connect(_on_user_added)
+    GDK.users.user_changed.connect(_on_user_changed)
     var result = await GDK.users.add_default_user_async()
     if result.ok:
         print("Signed in: ", result.data.gamertag)
 
-func _on_user_added(user: GDKUser):
-    print("User added: ", user.gamertag)
+func _on_user_changed(user: GDKUser, change_kind: String):
+    print("User %s: %s" % [change_kind, user.gamertag])
 ```
 
 ## `GDKUser`

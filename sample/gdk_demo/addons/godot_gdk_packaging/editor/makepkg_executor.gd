@@ -24,7 +24,7 @@ func _init(toolchain: RefCounted) -> void:
 ##   updcompat   : int     — /updcompat level (1, 2, or 3; default 3)
 func pack(source_dir: String, map_file: String, output_dir: String,
 		options: Dictionary = {}) -> Dictionary:
-	var args = build_pack_args(source_dir, map_file, output_dir, options)
+	var args: PackedStringArray = build_pack_args(source_dir, map_file, output_dir, options)
 	print("[GDK Packaging] makepkg ", " ".join(args))
 	return _toolchain.execute_tool(_toolchain.get_makepkg_path(), args)
 
@@ -33,7 +33,7 @@ func pack(source_dir: String, map_file: String, output_dir: String,
 
 ## Generates a mapping XML file from a content directory.
 func genmap(content_dir: String, output_file: String) -> Dictionary:
-	var args = build_genmap_args(content_dir, output_file)
+	var args: PackedStringArray = build_genmap_args(content_dir, output_file)
 	print("[GDK Packaging] makepkg ", " ".join(args))
 	return _toolchain.execute_tool(_toolchain.get_makepkg_path(), args)
 
@@ -42,7 +42,7 @@ func genmap(content_dir: String, output_file: String) -> Dictionary:
 
 ## Validates a package layout without creating it.
 func validate(map_file: String, source_dir: String, output_dir: String) -> Dictionary:
-	var args = build_validate_args(map_file, source_dir, output_dir)
+	var args: PackedStringArray = build_validate_args(map_file, source_dir, output_dir)
 	print("[GDK Packaging] makepkg ", " ".join(args))
 	return _toolchain.execute_tool(_toolchain.get_makepkg_path(), args)
 

@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PlayFabUser" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Cached PlayFab session wrapper for a local Xbox user.
+		Cached PlayFab session wrapper.
 	</brief_description>
 	<description>
-		Represents a signed-in PlayFab session associated with one local Xbox user. The public surface intentionally exposes only the local user id and the PlayFab entity key needed by higher-level services such as leaderboards.
+		Represents a signed-in PlayFab session associated with either one local Xbox user or one title-defined custom id. Custom-ID sessions have an entity key but no local Xbox user handle, so Game Saves APIs reject them with [code]xbox_user_required[/code].
 	</description>
 	<tutorials></tutorials>
 	<methods>
 		<method name="get_local_id" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the local Xbox user id associated with this PlayFab session.
+				Returns the local Xbox user id associated with this PlayFab session, or [code]0[/code] for custom-ID sessions.
+			</description>
+		</method>
+		<method name="get_custom_id" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the custom id associated with this PlayFab session, or an empty string for Xbox-backed sessions.
 			</description>
 		</method>
 		<method name="get_entity_key" qualifiers="const">
@@ -20,13 +26,25 @@
 				Returns the PlayFab entity key as a [Dictionary] with [code]id[/code] and [code]type[/code] entries.
 			</description>
 		</method>
+		<method name="has_local_user_handle" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when this session is backed by a local Xbox user handle required by Game Saves.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="local_id" type="int" setter="" getter="get_local_id">
-			The local Xbox user id associated with this PlayFab session.
+			The local Xbox user id associated with this PlayFab session, or [code]0[/code] for custom-ID sessions.
+		</member>
+		<member name="custom_id" type="String" setter="" getter="get_custom_id">
+			The custom id associated with this PlayFab session, or an empty string for Xbox-backed sessions.
 		</member>
 		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">
 			The PlayFab entity key as a dictionary containing [code]id[/code] and [code]type[/code].
+		</member>
+		<member name="has_local_user_handle" type="bool" setter="" getter="has_local_user_handle">
+			Whether this session has the local Xbox user handle required by Game Saves.
 		</member>
 	</members>
 	<signals>
