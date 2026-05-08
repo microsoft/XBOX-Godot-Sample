@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKErrorReporting" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Error-reporting configuration service accessed via GDK.error_reporting.
+	</brief_description>
+	<description>
+		Wraps the public PC GDK [code]XError[/code] surface exposed by [code]XErrorSetCallback[/code] and [code]XErrorSetOptions[/code]. This service does not submit reports to external endpoints; it only configures runtime error-callback behavior and option flags. If your game attaches custom metadata to errors in downstream telemetry, you own privacy/compliance review for that metadata.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="configure_options">
+			<return type="GDKResult" />
+			<param index="0" name="debugger_present_options" type="int" enum="GDKErrorReporting.ErrorOptions" default="0" />
+			<param index="1" name="debugger_not_present_options" type="int" enum="GDKErrorReporting.ErrorOptions" default="0" />
+			<description>
+				Configures [code]XError[/code] options for debugger-present and debugger-absent execution modes using [enum ErrorOptions] flags. Combine flags with bitwise OR to set multiple behaviors.
+			</description>
+		</method>
+		<method name="set_callback_enabled">
+			<return type="GDKResult" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				Registers or unregisters the [code]XError[/code] callback bridge. When enabled, callback events are surfaced as [signal error_reported] and mirrored into [signal GDK.runtime_error].
+			</description>
+		</method>
+		<method name="is_callback_enabled" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when [code]XError[/code] callback forwarding is currently enabled.
+			</description>
+		</method>
+	</methods>
+	<members></members>
+	<signals>
+		<signal name="error_reported">
+			<param index="0" name="result" type="GDKResult" />
+			<description>
+				Emitted on the main thread when the configured [code]XError[/code] callback reports an error.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="ERROR_OPTIONS_NONE" value="0" enum="ErrorOptions">
+			No special error behavior options.
+		</constant>
+		<constant name="ERROR_OPTIONS_OUTPUT_DEBUG_STRING_ON_ERROR" value="1" enum="ErrorOptions">
+			Request OutputDebugString behavior when an error occurs.
+		</constant>
+		<constant name="ERROR_OPTIONS_DEBUG_BREAK_ON_ERROR" value="2" enum="ErrorOptions">
+			Request debug break behavior when an error occurs.
+		</constant>
+		<constant name="ERROR_OPTIONS_FAIL_FAST_ON_ERROR" value="4" enum="ErrorOptions">
+			Request fail-fast behavior when an error occurs.
+		</constant>
+	</constants>
+</class>

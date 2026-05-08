@@ -315,6 +315,7 @@ GDK.stats: GDKStats
 GDK.leaderboards: GDKLeaderboards
 GDK.presence: GDKPresence
 GDK.social: GDKSocial
+GDK.error_reporting: GDKErrorReporting
 GDK.launcher: GDKLauncher
 ```
 
@@ -339,7 +340,7 @@ availability_changed(available: bool)
 | --- | --- | --- |
 | `GDK.initialize()` | `XGameRuntimeInitialize`, `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. |
 | `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle`, `XGameRuntimeUninitialize` | Service and user cleanup should run first; queue/runtime teardown happens last. |
-| `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork` | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
+| `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork`, `XErrorSetCallback` callback-drain bridge | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
 | `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
 | per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `GDKUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
 
@@ -701,6 +702,37 @@ social_user_changed(xuid: String, social_user: GDKSocialUser)
 | future mutable list groups | `XblSocialManagerUpdateSocialUserGroup` | Keep this internal until a public update-group API is justified. |
 | `get_group_users()` | `XblSocialManagerUserGroupGetUsers` | Reads the current user list from the native social group handle. |
 | social signals | `XblSocialManagerDoWork` | Group membership and user changes should be driven from Social Manager events and mirrored into Godot caches. |
+
+#### `GDK.error_reporting` service
+
+##### Methods
+
+```gdscript
+configure_options(debugger_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE) -> GDKResult
+set_callback_enabled(enabled: bool) -> GDKResult
+is_callback_enabled() -> bool
+```
+
+##### Signals
+
+```gdscript
+error_reported(result: GDKResult)
+```
+
+##### Notes
+
+- Scope is intentionally limited to the public PC GDK `XError` callback/options surface.
+- `GDKErrorReporting.ErrorOptions` mirrors the public `XErrorOptions` flag bits: `ERROR_OPTIONS_OUTPUT_DEBUG_STRING_ON_ERROR` (`0x1`), `ERROR_OPTIONS_DEBUG_BREAK_ON_ERROR` (`0x2`), and `ERROR_OPTIONS_FAIL_FAST_ON_ERROR` (`0x4`).
+- Do not invent report-submission wrappers when no public PC GDK submission API is available.
+- If callers attach custom metadata to downstream telemetry triggered by callback events, callers own privacy/compliance review for that metadata.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `configure_options()` | `XErrorSetOptions` | Uses `GDKErrorReporting.ErrorOptions` enum flags (including bitwise OR combinations) to configure debugger-present and debugger-absent option sets. |
+| `set_callback_enabled()` | `XErrorSetCallback`, `XErrorCallback` | Registers/unregisters the callback bridge and forwards events to main-thread Godot signals via `GDK.dispatch()`. |
+| `is_callback_enabled()` | wrapper state only | Reports whether callback forwarding is active. |
 
 ## Plugin settings
 

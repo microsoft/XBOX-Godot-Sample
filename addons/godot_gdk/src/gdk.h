@@ -12,6 +12,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "gdk_achievement.h"
+#include "gdk_error_reporting.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_accessibility.h"
@@ -40,6 +41,7 @@ class GDK : public Object {
     Ref<GDKAchievements> m_achievements;
     Ref<GDKPresence> m_presence;
     Ref<GDKSocial> m_social;
+    Ref<GDKErrorReporting> m_error_reporting;
     Ref<GDKLauncher> m_launcher;
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
     Ref<GDKSystem> m_system;
@@ -65,6 +67,7 @@ public:
     Ref<GDKAchievements> get_achievements() const;
     Ref<GDKPresence> get_presence() const;
     Ref<GDKSocial> get_social() const;
+    Ref<GDKErrorReporting> get_error_reporting() const;
     Ref<GDKLauncher> get_launcher() const;
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;
     Ref<GDKSystem> get_system() const;
