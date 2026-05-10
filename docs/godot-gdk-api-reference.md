@@ -39,6 +39,7 @@ accessed as namespaces under this root.
 | `get_error_reporting()` | `GDKErrorReporting` | Access the PC GDK `XError` callback/options service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
+| `get_capture()` | `GDKCapture` | Access the capture metadata and capture-state service |
 | `get_system()` | `GDKSystem` | Access title/runtime metadata and environment facts |
 
 ### Signals
@@ -824,6 +825,85 @@ Script-visible wrapper around a cached multiplayer activity snapshot.
 | `get_current_players()` | `int` | Current player count |
 | `get_group_id()` | `String` | Optional group identifier |
 | `get_platform()` | `String` | Platform the activity was set from |
+
+## Capture service: `GDK.capture`
+
+`GDK.capture` is a `RefCounted` service object returned by `GDK.get_capture()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `enable_capture()` | `GDKResult` | Re-enable Game Bar capture for this title after a previous `disable_capture()` call |
+| `disable_capture()` | `GDKResult` | Disable Game Bar capture for this title |
+| `record_diagnostic_clip_async(duration: float)` | `Signal` | Record a diagnostic video clip of the given duration in seconds and return a deferred completion signal. Requires Game Bar. |
+| `take_diagnostic_screenshot_async(path_hint: String)` | `Signal` | Take a diagnostic screenshot and return a deferred completion signal. Requires Game Bar. |
+| `create_metadata(reserved_bytes := 0)` | `GDKCaptureMetaData` | Create a script-side metadata write context, or `null` if the runtime is not initialized. `reserved_bytes` is retained for compatibility and ignored. |
+
+### PC GDK availability
+
+All wrapped APIs are available in `_GAMING_DESKTOP` builds via `XAppCapture.h` / `xgameruntime.lib`.
+
+| Native function | PC GDK |
+|---|---|
+| `XAppCaptureEnableRecord` | YES |
+| `XAppCaptureDisableRecord` | YES |
+| `XAppCaptureRecordDiagnosticClip` | YES (Game Bar) |
+| `XAppCaptureTakeDiagnosticScreenshot` | YES (Game Bar) |
+| `XAppCaptureMetadataAddStringEvent` | YES |
+| `XAppCaptureMetadataAddDoubleEvent` | YES |
+| `XAppCaptureMetadataAddInt32Event` | YES |
+| `XAppCaptureMetadataStartStringState` | YES |
+| `XAppCaptureMetadataStartDoubleState` | YES |
+| `XAppCaptureMetadataStartInt32State` | YES |
+| `XAppCaptureMetadataStopAllStates` | YES |
+| `XAppCaptureMetadataRemainingStorageBytesAvailable` | YES |
+
+Excluded (console-only): `XAppCaptureOpenLocalStorageFiles`, `XAppCaptureCloseLocalStorageFilesHandle`, `XAppCaptureDiagnosticClipLocalId` result extraction.
+
+### Usage
+
+```gdscript
+# Annotate capture with metadata
+var meta = GDK.capture.create_metadata()
+if meta:
+    meta.start_string_state("zone", "lobby")
+    meta.add_int32_event("score", 9001)
+    # ... gameplay ...
+    meta.stop_all_states()
+    meta.close()
+
+# Record a short clip (requires Game Bar active)
+var result = await GDK.capture.record_diagnostic_clip_async(10.0)
+if result.ok:
+    print("Clip recorded")
+```
+
+## `GDKCaptureMetaData`
+
+Script-side write context for the process-wide `XAppCaptureMetadata*` APIs. Created by `GDK.capture.create_metadata()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_valid()` | `bool` | Whether the script-side metadata context is open |
+| `close()` | `void` | Close the script-side context early (also closed automatically on free) |
+| `stop_all_states()` | `GDKResult` | Stop all active persistent metadata states |
+| `get_remaining_storage_bytes()` | `int` | Bytes remaining in the local metadata buffer (`-1` on error) |
+| `add_string_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot string event |
+| `add_double_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot double event |
+| `add_int32_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot int32 event |
+| `start_string_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent string state |
+| `start_double_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent double state |
+| `start_int32_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent int32 state |
+
+**`Priority` enum**
+
+| Value | Description |
+|-------|-------------|
+| `PRIORITY_GAMEPLAY` (`0`) | Standard gameplay-level priority (`XAppCaptureMetadataPriority::Informational`) |
+| `PRIORITY_IMPORTANT` (`1`) | Higher-importance priority (`XAppCaptureMetadataPriority::Important`) |
 
 ## Launcher service: `GDK.launcher`
 

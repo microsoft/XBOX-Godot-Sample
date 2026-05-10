@@ -35,6 +35,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Profile | Implemented | `GDK.profile` wraps `profile_c.h` profile lookup APIs |
 | String verification | Implemented | `GDK.string_verify` wraps `string_verify_c.h` text verification APIs |
 | Title Storage | Implemented | `GDK.title_storage` wraps `title_storage_c.h`; do not confuse with PlayFab Game Saves or `XGameSaveFiles` |
+| Capture | Implemented | `GDK.capture` wraps PC-supported `XAppCapture` metadata/state APIs; console-only paths excluded |
 | Events | Excluded | Do not wrap `events_c.h` telemetry/configuration APIs |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Out of scope here | XStore is not Xbox Services; do not include it in this Xbox Services wrapper plan |
@@ -125,6 +126,7 @@ Godot's observer model is signal-based ([Using Signals](https://docs.godotengine
 | Privacy check payloads | `Dictionary` |
 | Presence payloads | `GDKPresenceRecord` |
 | Social graph payloads | `GDKSocialUser`, `GDKSocialGroup` |
+| process-wide `XAppCaptureMetadata*` calls | `GDKCaptureMetaData` |
 | Profile payloads | `GDKUserProfile` |
 | Title Storage payloads | `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult` |
 
@@ -343,6 +345,7 @@ GDK.is_available() -> bool
 GDK.is_initialized() -> bool
 GDK.dispatch() -> int
 GDK.get_last_error() -> GDKResult
+GDK.get_capture() -> GDKCapture
 GDK.get_system() -> GDKSystem
 ```
 
@@ -365,6 +368,7 @@ GDK.string_verify: GDKStringVerify
 GDK.title_storage: GDKTitleStorage
 GDK.error_reporting: GDKErrorReporting
 GDK.launcher: GDKLauncher
+GDK.capture: GDKCapture
 GDK.multiplayer_activity: GDKMultiplayerActivity
 ```
 
@@ -785,6 +789,84 @@ social_user_changed(xuid: String, social_user: GDKSocialUser)
 | `submit_reputation_feedback_async()` | `XblSocialSubmitReputationFeedbackAsync` | Submit one feedback item without exposing native MPSD session-reference structs. |
 | `submit_batch_reputation_feedback_async()` | `XblSocialSubmitBatchReputationFeedbackAsync`, `XblReputationFeedbackItem` | Batch items are Godot dictionaries with `target_xuid`, `feedback_type`, optional `reason`, and optional `evidence_id`. |
 | social signals | `XblSocialManagerDoWork` | Group membership and user changes should be driven from Social Manager events and mirrored into Godot caches. |
+
+#### `GDK.capture` service
+
+PC-supported subset of `XAppCapture`. Metadata and capture-state APIs only.
+Console-only paths (`XAppCaptureOpenLocalStorageFiles`, `XAppCaptureDiagnosticClipLocalId`) are excluded.
+
+##### PC GDK availability inventory
+
+| Native function | Header | Import lib | Microsoft Learn | PC GDK (_GAMING_DESKTOP) |
+| --- | --- | --- | --- | --- |
+| `XAppCaptureEnableRecord` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureEnableRecord](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcaptureenablerecord) | YES |
+| `XAppCaptureDisableRecord` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureDisableRecord](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturedisablerecord) | YES |
+| `XAppCaptureRecordDiagnosticClip` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureRecordDiagnosticClip](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturerecorddiagnosticclip) | YES (Game Bar) |
+| `XAppCaptureTakeDiagnosticScreenshot` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureTakeDiagnosticScreenshot](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturetakediagnosticscreenshot) | YES (Game Bar) |
+| `XAppCaptureMetadataAddStringEvent` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureMetadataAddStringEvent](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturemetadataaddstringevent) | YES |
+| `XAppCaptureMetadataAddDoubleEvent` | `XAppCapture.h` | `xgameruntime.lib` | (same namespace) | YES |
+| `XAppCaptureMetadataAddInt32Event` | `XAppCapture.h` | `xgameruntime.lib` | (same namespace) | YES |
+| `XAppCaptureMetadataStartStringState` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureMetadataStartStringState](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturemetadatastartstringstate) | YES |
+| `XAppCaptureMetadataStartDoubleState` | `XAppCapture.h` | `xgameruntime.lib` | (same namespace) | YES |
+| `XAppCaptureMetadataStartInt32State` | `XAppCapture.h` | `xgameruntime.lib` | (same namespace) | YES |
+| `XAppCaptureMetadataStopAllStates` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureMetadataStopAllStates](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturemetadatastopallstates) | YES |
+| `XAppCaptureMetadataRemainingStorageBytesAvailable` | `XAppCapture.h` | `xgameruntime.lib` | [XAppCaptureMetadataRemainingStorageBytesAvailable](https://learn.microsoft.com/gaming/gdk/docs/reference/system/xappcapture/functions/xappcapturemetadataremainingstoragebytesavailable) | YES |
+
+Excluded (console-only):
+- `XAppCaptureOpenLocalStorageFiles` / `XAppCaptureCloseLocalStorageFilesHandle` — console clip-file access
+- `XAppCaptureDiagnosticClipLocalId` result extraction — console-specific clip identifier
+
+##### Methods
+
+```gdscript
+enable_capture() -> GDKResult
+disable_capture() -> GDKResult
+record_diagnostic_clip_async(duration: float) -> Signal
+take_diagnostic_screenshot_async(path_hint: String) -> Signal
+create_metadata(reserved_bytes := 0) -> GDKCaptureMetaData
+```
+
+##### `GDKCaptureMetaData`
+
+```gdscript
+is_valid() -> bool
+close() -> void
+stop_all_states() -> GDKResult
+get_remaining_storage_bytes() -> int
+add_string_event(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> GDKResult
+add_double_event(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> GDKResult
+add_int32_event(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GDKResult
+start_string_state(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> GDKResult
+start_double_state(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> GDKResult
+start_int32_state(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GDKResult
+```
+
+##### Notes
+
+- `create_metadata()` returns `null` when the runtime is not initialized.
+- PC GDK metadata APIs are process-wide/stateless; `GDKCaptureMetaData` is a script-side context that gates intentional writes rather than a native handle wrapper.
+- All event/state methods validate the context (`invalid_metadata_handle`) and the name (`invalid_metadata_name`) before calling native APIs.
+- `record_diagnostic_clip_async` and `take_diagnostic_screenshot_async` require Game Bar active on the device; they return `GDKResult` errors when unavailable.
+- `on_runtime_initialized()` for capture has no side-effects beyond setting `m_runtime_ready`; it cannot fail.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `enable_capture()` | `XAppCaptureEnableRecord` | Synchronous. |
+| `disable_capture()` | `XAppCaptureDisableRecord` | Synchronous. |
+| `record_diagnostic_clip_async()` | `XAppCaptureRecordDiagnosticClip` | Native API is synchronous; wrapper returns a deferred completion signal to match the public async contract. |
+| `take_diagnostic_screenshot_async()` | `XAppCaptureTakeDiagnosticScreenshot` | Native API is synchronous; wrapper returns a deferred completion signal to match the public async contract. |
+| `create_metadata()` | none | Opens a script-side context for stateless metadata calls; `reserved_bytes` is retained for compatibility and ignored. |
+| `GDKCaptureMetaData::close()` | none | Closes the script-side context. |
+| `add_string_event()` | `XAppCaptureMetadataAddStringEvent` | |
+| `add_double_event()` | `XAppCaptureMetadataAddDoubleEvent` | |
+| `add_int32_event()` | `XAppCaptureMetadataAddInt32Event` | Value clamped to `int32_t`. |
+| `start_string_state()` | `XAppCaptureMetadataStartStringState` | |
+| `start_double_state()` | `XAppCaptureMetadataStartDoubleState` | |
+| `start_int32_state()` | `XAppCaptureMetadataStartInt32State` | Value clamped to `int32_t`. |
+| `stop_all_states()` | `XAppCaptureMetadataStopAllStates` | |
+| `get_remaining_storage_bytes()` | `XAppCaptureMetadataRemainingStorageBytesAvailable` | Returns `-1` on failure. |
 
 #### `GDK.profile` service
 

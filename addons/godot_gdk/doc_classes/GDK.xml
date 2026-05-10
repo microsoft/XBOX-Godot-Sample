@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, capture, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -141,6 +141,12 @@
 				Returns the GDKMultiplayerActivity service for multiplayer activity management.
 			</description>
 		</method>
+		<method name="get_capture" qualifiers="const">
+			<return type="GDKCapture" />
+			<description>
+				Returns the [GDKCapture] service for capture metadata and capture-state management.
+			</description>
+		</method>
 		<method name="get_system" qualifiers="const">
 			<return type="GDKSystem" />
 			<description>
@@ -196,6 +202,9 @@
 		</member>
 		<member name="multiplayer_activity" type="GDKMultiplayerActivity" setter="" getter="get_multiplayer_activity">
 			The GDKMultiplayerActivity service instance for multiplayer activity management.
+		</member>
+		<member name="capture" type="GDKCapture" setter="" getter="get_capture">
+			The [GDKCapture] service instance for capture metadata and capture-state management.
 		</member>
 		<member name="system" type="GDKSystem" setter="" getter="get_system">
 			The GDKSystem service instance for title/runtime metadata and environment facts.

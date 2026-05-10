@@ -12,6 +12,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "gdk_achievement.h"
+#include "gdk_capture.h"
 #include "gdk_error_reporting.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
@@ -58,6 +59,7 @@ class GDK : public Object {
     Ref<GDKErrorReporting> m_error_reporting;
     Ref<GDKLauncher> m_launcher;
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
+    Ref<GDKCapture> m_capture;
     Ref<GDKSystem> m_system;
 
 protected:
@@ -91,6 +93,7 @@ public:
     Ref<GDKErrorReporting> get_error_reporting() const;
     Ref<GDKLauncher> get_launcher() const;
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;
+    Ref<GDKCapture> get_capture() const;
     Ref<GDKSystem> get_system() const;
 
     GDKRuntime *get_runtime() const;

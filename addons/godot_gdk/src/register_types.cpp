@@ -9,6 +9,7 @@
 #include "gdk_achievement.h"
 #include "gdk_accessibility.h"
 #include "gdk.h"
+#include "gdk_capture.h"
 #include "gdk_error_reporting.h"
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
@@ -129,6 +130,8 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKLauncher>();
         ClassDB::register_class<GDKMultiplayerActivityInfo>();
         ClassDB::register_class<GDKMultiplayerActivity>();
+        ClassDB::register_class<GDKCaptureMetaData>();
+        ClassDB::register_class<GDKCapture>();
         ClassDB::register_class<GDKSystem>();
 
         gdk_singleton = memnew(GDK);

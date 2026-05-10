@@ -31,6 +31,7 @@ add_library(godot_gdk SHARED
     src/gdk_error_reporting.cpp
     src/gdk_launcher.cpp
     src/gdk_multiplayer_activity.cpp
+    src/gdk_capture.cpp
     src/gdk_system.cpp
     src/gdk_xbox_services.cpp
 )
