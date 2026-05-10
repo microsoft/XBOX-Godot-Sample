@@ -10,6 +10,7 @@
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_stats.h"
+#include "gdk_store.h"
 #include "gdk_string_verify.h"
 #include "gdk_system.h"
 #include "gdk_title_storage.h"
@@ -49,6 +50,8 @@ GDK::GDK() {
     m_presence->set_owner(this);
     m_social.instantiate();
     m_social->set_owner(this);
+    m_store.instantiate();
+    m_store->set_owner(this);
     m_profile.instantiate();
     m_profile->set_owner(this);
     m_string_verify.instantiate();
@@ -90,6 +93,7 @@ GDK::~GDK() {
     m_privacy.unref();
     m_presence.unref();
     m_social.unref();
+    m_store.unref();
     m_profile.unref();
     m_string_verify.unref();
     m_title_storage.unref();
@@ -118,6 +122,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_privacy"), &GDK::get_privacy);
     ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
     ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
+    ClassDB::bind_method(D_METHOD("get_store"), &GDK::get_store);
     ClassDB::bind_method(D_METHOD("get_profile"), &GDK::get_profile);
     ClassDB::bind_method(D_METHOD("get_string_verify"), &GDK::get_string_verify);
     ClassDB::bind_method(D_METHOD("get_title_storage"), &GDK::get_title_storage);
@@ -137,6 +142,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "privacy", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPrivacy"), "", "get_privacy");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPresence"), "", "get_presence");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSocial"), "", "get_social");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "store", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKStore"), "", "get_store");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "profile", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKProfile"), "", "get_profile");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "string_verify", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKStringVerify"), "", "get_string_verify");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "title_storage", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKTitleStorage"), "", "get_title_storage");
@@ -290,10 +296,29 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return social_result;
     }
 
+    Ref<GDKResult> store_result = m_store->on_runtime_initialized();
+    if (!store_result->is_ok()) {
+        emit_runtime_error(store_result);
+        m_store->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_package->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return store_result;
+    }
+
     Ref<GDKResult> profile_result = m_profile->on_runtime_initialized();
     if (!profile_result->is_ok()) {
         emit_runtime_error(profile_result);
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -313,6 +338,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         emit_runtime_error(string_verify_result);
         m_string_verify->shutdown();
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -333,6 +359,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_title_storage->shutdown();
         m_string_verify->shutdown();
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -354,6 +381,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_title_storage->shutdown();
         m_string_verify->shutdown();
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -376,6 +404,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_title_storage->shutdown();
         m_string_verify->shutdown();
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -399,6 +428,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_title_storage->shutdown();
         m_string_verify->shutdown();
         m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
         m_privacy->shutdown();
@@ -419,8 +449,16 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_multiplayer_activity->shutdown();
         m_launcher->shutdown();
         m_error_reporting->shutdown();
+        m_title_storage->shutdown();
+        m_string_verify->shutdown();
+        m_profile->shutdown();
+        m_store->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -445,6 +483,7 @@ void GDK::shutdown() {
     m_title_storage->shutdown();
     m_string_verify->shutdown();
     m_profile->shutdown();
+    m_store->shutdown();
     m_social->shutdown();
     m_presence->shutdown();
     m_privacy->shutdown();
@@ -516,6 +555,10 @@ Ref<GDKSocial> GDK::get_social() const {
     return m_social;
 }
 
+Ref<GDKStore> GDK::get_store() const {
+    return m_store;
+}
+
 Ref<GDKProfile> GDK::get_profile() const {
     return m_profile;
 }
@@ -583,6 +626,9 @@ void GDK::notify_user_removed(const Ref<GDKUser> &p_user) {
     }
     if (m_social.is_valid()) {
         m_social->on_user_removed(p_user);
+    }
+    if (m_store.is_valid()) {
+        m_store->on_user_removed(p_user);
     }
     if (m_profile.is_valid()) {
         m_profile->on_user_removed(p_user);

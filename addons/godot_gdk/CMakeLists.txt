@@ -25,6 +25,7 @@ add_library(godot_gdk SHARED
     src/gdk_privacy.cpp
     src/gdk_presence.cpp
     src/gdk_social.cpp
+    src/gdk_store.cpp
     src/gdk_profile.cpp
     src/gdk_string_verify.cpp
     src/gdk_title_storage.cpp
