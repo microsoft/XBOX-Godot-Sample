@@ -25,6 +25,7 @@
 #include "gdk_privacy.h"
 #include "gdk_social.h"
 #include "gdk_stats.h"
+#include "gdk_store.h"
 #include "gdk_string_verify.h"
 #include "gdk_system.h"
 #include "gdk_title_storage.h"
@@ -53,6 +54,7 @@ class GDK : public Object {
     Ref<GDKPrivacy> m_privacy;
     Ref<GDKPresence> m_presence;
     Ref<GDKSocial> m_social;
+    Ref<GDKStore> m_store;
     Ref<GDKProfile> m_profile;
     Ref<GDKStringVerify> m_string_verify;
     Ref<GDKTitleStorage> m_title_storage;
@@ -87,6 +89,7 @@ public:
     Ref<GDKPrivacy> get_privacy() const;
     Ref<GDKPresence> get_presence() const;
     Ref<GDKSocial> get_social() const;
+    Ref<GDKStore> get_store() const;
     Ref<GDKProfile> get_profile() const;
     Ref<GDKStringVerify> get_string_verify() const;
     Ref<GDKTitleStorage> get_title_storage() const;

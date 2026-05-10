@@ -22,6 +22,7 @@
 #include "gdk_result.h"
 #include "gdk_social.h"
 #include "gdk_stats.h"
+#include "gdk_store.h"
 #include "gdk_string_verify.h"
 #include "gdk_system.h"
 #include "gdk_title_storage.h"
@@ -120,6 +121,8 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKSocialGroup>();
         ClassDB::register_class<GDKSocialUser>();
         ClassDB::register_class<GDKSocial>();
+        ClassDB::register_class<GDKStoreLicenseStatus>();
+        ClassDB::register_class<GDKStore>();
         ClassDB::register_class<GDKUserProfile>();
         ClassDB::register_class<GDKProfile>();
         ClassDB::register_class<GDKStringVerify>();

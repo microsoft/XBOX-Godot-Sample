@@ -54,7 +54,7 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
 
 - [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
-  Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.multiplayer_activity`.
+  Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`, `GDK.store`, and `GDK.multiplayer_activity`.
 
 ### Architecture
 

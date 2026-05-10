@@ -4,7 +4,7 @@
 
 This document defines a **GDScript-first** plan for the `godot_gdk` Godot GDExtension plugin.
 
-`godot_gdk` owns the GDK runtime, users, PC GDK helper services, and Xbox Services wrappers. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
+`godot_gdk` owns the GDK runtime, users, PC GDK helper services (including XStore commerce wrappers), and Xbox Services wrappers. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
 
 The core architectural rule is: **C++ is internal; GDScript is the primary public surface**. Xbox Services wrappers are scoped to the public `xsapi-c` headers and are exposed as service namespaces under the single `GDK` singleton.
 
@@ -38,7 +38,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Capture | Implemented | `GDK.capture` wraps PC-supported `XAppCapture` metadata/state APIs; console-only paths excluded |
 | Events | Excluded | Do not wrap `events_c.h` telemetry/configuration APIs |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
-| Store/commerce/licensing | Out of scope here | XStore is not Xbox Services; do not include it in this Xbox Services wrapper plan |
+| Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
 ### Xbox Services coverage matrix
 

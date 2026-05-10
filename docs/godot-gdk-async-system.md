@@ -1,6 +1,6 @@
 # Godot GDK async system
 
-This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, and `GDK.social`).
+This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.store`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`godot-gdk-plugin.md`](godot-gdk-plugin.md).
 
@@ -19,7 +19,7 @@ The current baseline gives us:
 - one internal `XAsync` bridge base: `GDKSignalXAsyncContext`
 - one internal one-shot signal helper: `GDKPendingSignal`
 - one internal Xbox services scaffold: `GDKXboxServices`
-- five concrete services using the pattern: `GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, and `GDK.social`
+- six concrete services using the pattern: `GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.store`
 
 ## Public surface
 
@@ -41,6 +41,7 @@ Current public methods:
 - `get_achievements() -> GDKAchievements`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
+- `get_store() -> GDKStore`
 - `get_multiplayer_activity() -> GDKMultiplayerActivity`
 
 Current public signals:
@@ -177,7 +178,7 @@ Fields:
 - `message: String`
 - `data: Variant`
 
-`data` carries the operation payload. In the current implementation, successful user-add calls complete with a `GDKUser` in `data`, privilege and token/signature calls complete with `Dictionary` payloads, gamer-picture requests complete with a Godot `Image`, successful achievement queries/updates complete with cached `GDKAchievement` data in `data`, successful presence queries complete with an `Array` of `GDKPresenceRecord`, and successful friends-group queries complete with a `GDKSocialGroup`.
+`data` carries the operation payload. In the current implementation, successful user-add calls complete with a `GDKUser` in `data`, privilege and token/signature calls complete with `Dictionary` payloads, gamer-picture requests complete with a Godot `Image`, successful achievement queries/updates complete with cached `GDKAchievement` data in `data`, successful presence queries complete with an `Array` of `GDKPresenceRecord`, successful friends-group queries complete with a `GDKSocialGroup`, and successful store-license queries complete with a `GDKStoreLicenseStatus`.
 
 ## File map
 

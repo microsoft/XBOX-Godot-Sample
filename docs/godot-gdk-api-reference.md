@@ -33,6 +33,7 @@ accessed as namespaces under this root.
 | `get_privacy()` | `GDKPrivacy` | Access the Xbox Services privacy service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
+| `get_store()` | `GDKStore` | Access the XStore commerce service |
 | `get_profile()` | `GDKProfile` | Access the Xbox Services profile service |
 | `get_string_verify()` | `GDKStringVerify` | Access the Xbox Services string verification service |
 | `get_title_storage()` | `GDKTitleStorage` | Access the Xbox Services Title Storage service |

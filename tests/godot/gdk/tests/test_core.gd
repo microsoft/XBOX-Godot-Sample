@@ -47,6 +47,8 @@ func test_class_registration() -> void:
 		"GDKSocialFilter",
 		"GDKSocialGroup",
 		"GDKSocialUser",
+		"GDKStore",
+		"GDKStoreLicenseStatus",
 		"GDKProfile",
 		"GDKUserProfile",
 		"GDKStringVerify",
@@ -84,6 +86,8 @@ func test_class_registration() -> void:
 	assert_true(ClassDB.is_parent_class("GDKSocialFilter", "RefCounted"), "GDKSocialFilter extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialGroup", "RefCounted"), "GDKSocialGroup extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialUser", "RefCounted"), "GDKSocialUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKStore", "RefCounted"), "GDKStore extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKStoreLicenseStatus", "RefCounted"), "GDKStoreLicenseStatus extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKProfile", "RefCounted"), "GDKProfile extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKUserProfile", "RefCounted"), "GDKUserProfile extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKStringVerify", "RefCounted"), "GDKStringVerify extends RefCounted")
@@ -104,7 +108,7 @@ func test_gdk_root_api() -> void:
 
 	var gdk = get_gdk()
 
-	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_game_ui", "get_accessibility", "get_achievements", "get_package", "get_stats", "get_leaderboards", "get_privacy", "get_presence", "get_social", "get_profile", "get_string_verify", "get_title_storage", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_capture", "get_system"]:
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_game_ui", "get_accessibility", "get_achievements", "get_package", "get_stats", "get_leaderboards", "get_privacy", "get_presence", "get_social", "get_store", "get_profile", "get_string_verify", "get_title_storage", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_capture", "get_system"]:
 		assert_has_method_named(gdk, method_name)
 
 	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
@@ -119,6 +123,7 @@ func test_gdk_root_api() -> void:
 	assert_true(gdk.get_privacy() != null, "GDK.privacy service available")
 	assert_true(gdk.get_presence() != null, "GDK.presence service available")
 	assert_true(gdk.get_social() != null, "GDK.social service available")
+	assert_true(gdk.get_store() != null, "GDK.store service available")
 	assert_true(gdk.get_profile() != null, "GDK.profile service available")
 	assert_true(gdk.get_string_verify() != null, "GDK.string_verify service available")
 	assert_true(gdk.get_title_storage() != null, "GDK.title_storage service available")

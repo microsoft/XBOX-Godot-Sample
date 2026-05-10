@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKStoreLicenseStatus" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Typed wrapper for XStore license-acquire status.
+	</brief_description>
+	<description>
+		Represents one license status record returned by [method GDKStore.query_license_status_async] or [method GDKStore.refresh_entitlements_async].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_store_id" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the queried Store product ID.
+			</description>
+		</method>
+		<method name="get_licensable_sku" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the SKU string reported by XStore for this result.
+			</description>
+		</method>
+		<method name="get_status" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the native XStore license status enum value as an integer.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="store_id" type="String" setter="" getter="get_store_id">
+			Store product ID used for the query.
+		</member>
+		<member name="licensable_sku" type="String" setter="" getter="get_licensable_sku">
+			SKU value returned by XStore.
+		</member>
+		<member name="status" type="int" setter="" getter="get_status">
+			Native XStore license status enum value.
+		</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

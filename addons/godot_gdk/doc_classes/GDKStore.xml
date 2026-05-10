@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKStore" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Commerce service accessed via GDK.store.
+	</brief_description>
+	<description>
+		Wraps XStore commerce APIs for [code]godot_gdk[/code] using completion [Signal] values and [GDKResult] payloads. All operations require a signed-in [GDKUser] and an initialized [GDK] runtime.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="query_license_status_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<description>
+				Queries whether the user can acquire a license for the specified Store product ID. The completion [Signal] emits a [GDKResult] whose [code]data[/code] is a [GDKStoreLicenseStatus] on success.
+			</description>
+		</method>
+		<method name="refresh_entitlements_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<description>
+				Refreshes entitlements for the specified Store product ID by querying license-acquire status again.
+			</description>
+		</method>
+		<method name="show_purchase_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<description>
+				Shows the system purchase UI for the specified Store product ID.
+			</description>
+		</method>
+		<method name="get_cached_license_status" qualifiers="const">
+			<return type="GDKStoreLicenseStatus" />
+			<param index="0" name="store_id" type="String" />
+			<description>
+				Returns cached license status for a Store product ID, or [code]null[/code] when no cached value exists.
+			</description>
+		</method>
+		<method name="check_cached_license_status" qualifiers="const">
+			<return type="GDKResult" />
+			<param index="0" name="store_id" type="String" />
+			<description>
+				Performs a synchronous cache-only license check. Returns [code]license_status_not_cached[/code] when no cached status exists.
+			</description>
+		</method>
+	</methods>
+	<members></members>
+	<signals></signals>
+	<constants></constants>
+</class>
