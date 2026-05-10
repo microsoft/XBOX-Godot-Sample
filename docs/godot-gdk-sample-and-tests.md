@@ -16,6 +16,7 @@ The `sample\` directory contains multiple sample projects:
 |--------|-------------|
 | `sample\gdk_demo\` | Baseline GDK runtime/users/achievements/presence/social demo. |
 | `sample\gdk_launch_point\` | GDK Launch Point scenario shell for manual runtime exploration. |
+| `sample\gdk_launch_point_dlc\` | Companion DLC content fixture for Launch Point package/resource-pack scenarios. |
 | `sample\multiplayer_pong\` | Gameplay demo with Xbox identity and GameInput rumble. It is not a test host. |
 | `sample\playfab_demo\` | PlayFab smoke sample. |
 
@@ -43,7 +44,18 @@ A minimal runtime/users/achievements/presence/social demo. It reflects runtime s
 
 ### GDK Launch Point (`sample\gdk_launch_point\main.gd`)
 
-`sample\gdk_launch_point\main.gd` builds a scenario catalog with grouped runtime, users, achievements, multiplayer activity, and GameInput actions. It provides nested navigation, a tile-style menu, a persistent event log, and a side panel that reflects the selected scenario and live state.
+`sample\gdk_launch_point\main.gd` builds a scenario catalog with grouped runtime, users, achievements, package/DLC, multiplayer activity, and GameInput actions. It provides nested navigation, a tile-style menu, a persistent event log, and a side panel that reflects the selected scenario and live state.
+
+The Package / DLC group demonstrates the Godot-native `GDK.package` flow:
+enumerate content packages, select a sample DLC by stable store ID or display
+name, load a `.pck`/`.zip` resource pack into `res://`, inspect retained
+resource-pack metadata, and mount the package temporarily for loose-file
+`FileAccess` reads. The companion `sample\gdk_launch_point_dlc\` folder contains
+the fixture content and `build_dlc_content.ps1`, which writes
+`content\launch_point_dlc.zip` from `resource_pack\`. Copy the `[packages]`
+values from the fixture template into Launch Point's `sample_config.cfg`, then
+register or install the DLC package with GDK tooling before running the live
+scenarios.
 
 ### Multiplayer Pong (`sample\multiplayer_pong\`)
 

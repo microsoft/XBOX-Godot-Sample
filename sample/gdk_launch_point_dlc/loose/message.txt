@@ -1,0 +1,4 @@
+Hello from the GDK Launch Point companion DLC loose-file fixture.
+
+This file is intentionally outside the Godot resource pack so the sample can
+demonstrate raw XPackage mounts and FileAccess-based loose-file reads.

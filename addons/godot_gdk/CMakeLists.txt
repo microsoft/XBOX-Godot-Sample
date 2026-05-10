@@ -19,6 +19,7 @@ add_library(godot_gdk SHARED
     src/gdk_user.cpp
     src/gdk_game_ui.cpp
     src/gdk_achievement.cpp
+    src/gdk_package.cpp
     src/gdk_stats.cpp
     src/gdk_leaderboards.cpp
     src/gdk_privacy.cpp

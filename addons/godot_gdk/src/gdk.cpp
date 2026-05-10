@@ -3,6 +3,7 @@
 #include "gdk_error_reporting.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_package.h"
 #include "gdk_profile.h"
 #include "gdk_privacy.h"
 #include "gdk_result.h"
@@ -35,6 +36,8 @@ GDK::GDK() {
     m_accessibility->set_owner(this);
     m_achievements.instantiate();
     m_achievements->set_owner(this);
+    m_package.instantiate();
+    m_package->set_owner(this);
     m_stats.instantiate();
     m_stats->set_owner(this);
     m_leaderboards.instantiate();
@@ -78,6 +81,7 @@ GDK::~GDK() {
     m_game_ui.unref();
     m_accessibility.unref();
     m_achievements.unref();
+    m_package.unref();
     m_stats.unref();
     m_leaderboards.unref();
     m_privacy.unref();
@@ -104,6 +108,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_game_ui"), &GDK::get_game_ui);
     ClassDB::bind_method(D_METHOD("get_accessibility"), &GDK::get_accessibility);
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
+    ClassDB::bind_method(D_METHOD("get_package"), &GDK::get_package);
     ClassDB::bind_method(D_METHOD("get_stats"), &GDK::get_stats);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &GDK::get_leaderboards);
     ClassDB::bind_method(D_METHOD("get_privacy"), &GDK::get_privacy);
@@ -121,6 +126,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accessibility", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAccessibility"), "", "get_accessibility");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAchievements"), "", "get_achievements");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "package", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPackage"), "", "get_package");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "stats", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKStats"), "", "get_stats");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "leaderboards", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLeaderboards"), "", "get_leaderboards");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "privacy", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPrivacy"), "", "get_privacy");
@@ -191,10 +197,23 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return achievements_result;
     }
 
+    Ref<GDKResult> package_result = m_package->on_runtime_initialized();
+    if (!package_result->is_ok()) {
+        emit_runtime_error(package_result);
+        m_package->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return package_result;
+    }
+
     Ref<GDKResult> stats_result = m_stats->on_runtime_initialized();
     if (!stats_result->is_ok()) {
         emit_runtime_error(stats_result);
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -208,6 +227,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         emit_runtime_error(leaderboards_result);
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -222,6 +242,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -237,6 +258,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -253,6 +275,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -270,6 +293,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -288,6 +312,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -307,6 +332,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -327,6 +353,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -348,6 +375,7 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_privacy->shutdown();
         m_leaderboards->shutdown();
         m_stats->shutdown();
+        m_package->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -398,6 +426,7 @@ void GDK::shutdown() {
     m_privacy->shutdown();
     m_leaderboards->shutdown();
     m_stats->shutdown();
+    m_package->shutdown();
     m_achievements->shutdown();
     m_game_ui->shutdown();
     m_users->shutdown();
@@ -437,6 +466,10 @@ Ref<GDKAccessibility> GDK::get_accessibility() const {
 
 Ref<GDKAchievements> GDK::get_achievements() const {
     return m_achievements;
+}
+
+Ref<GDKPackage> GDK::get_package() const {
+    return m_package;
 }
 
 Ref<GDKStats> GDK::get_stats() const {

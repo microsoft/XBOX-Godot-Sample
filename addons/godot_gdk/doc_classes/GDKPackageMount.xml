@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPackageMount" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Owns a raw XPackage content mount for loose-file access.
+	</brief_description>
+	<description>
+		A [GDKPackageMount] is returned by [method GDKPackage.mount_package_async]. It owns the native [code]XPackageMountHandle[/code], exposes the absolute mount root, and closes the handle when [method close] is called or the object is released. Paths resolved from this object are valid only while [member valid] is [code]true[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_package_identifier" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the current-session package identifier associated with this mount.
+			</description>
+		</method>
+		<method name="get_mount_path" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the absolute file-system root for this mounted content package.
+			</description>
+		</method>
+		<method name="get_package_details" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns a copy of the package metadata dictionary captured when the mount was created.
+			</description>
+		</method>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] while the native package mount handle remains open.
+			</description>
+		</method>
+		<method name="resolve_path" qualifiers="const">
+			<return type="GDKResult" />
+			<param index="0" name="relative_path" type="String" />
+			<description>
+				Validates [param relative_path] as a package-relative path and returns the absolute path in [code]GDKResult.data[/code]. Absolute paths, Godot [code]res://[/code] or [code]user://[/code] paths, and parent-directory traversal are rejected.
+			</description>
+		</method>
+		<method name="close">
+			<return type="GDKResult" />
+			<description>
+				Closes the native package mount handle. After this succeeds, paths previously resolved from this mount should no longer be used.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="package_identifier" type="String" setter="" getter="get_package_identifier">
+			The current-session package identifier associated with this mount.
+		</member>
+		<member name="mount_path" type="String" setter="" getter="get_mount_path">
+			The absolute file-system root for this mounted content package.
+		</member>
+		<member name="package_details" type="Dictionary" setter="" getter="get_package_details">
+			A copy of the package metadata dictionary captured when the mount was created.
+		</member>
+		<member name="valid" type="bool" setter="" getter="is_valid">
+			Whether the native package mount handle remains open.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

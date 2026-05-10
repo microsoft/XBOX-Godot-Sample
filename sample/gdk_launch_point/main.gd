@@ -9,6 +9,9 @@ const DEMO_MPA_CONNECTION_STRING = "godot-gdk-launch-point://sample-session"
 const DEMO_MPA_GROUP_ID = "gdk-launch-point-mpa-group"
 const DEMO_MPA_MAX_PLAYERS = 4
 const DEMO_MPA_CURRENT_PLAYERS = 1
+const DEFAULT_DLC_RESOURCE_PACK_PATH = "content/launch_point_dlc.zip"
+const DEFAULT_DLC_LOOSE_FILE_PATH = "loose/message.txt"
+const DEFAULT_DLC_EXPECTED_RESOURCE = "res://gdk_package_test/manifest.json"
 const MAX_LOG_LINES = 80
 const XBOX_BACKGROUND := Color(0.02, 0.03, 0.02)
 const XBOX_PANEL := Color(0.05, 0.08, 0.05, 0.94)
@@ -71,6 +74,13 @@ var _event_log_lines: Array[String] = []
 var _demo_achievement_id = DEFAULT_ACHIEVEMENT_ID
 var _last_selected_status = ""
 var _last_mpa_event_text = "No invite events yet."
+var _package_dlc_store_id = ""
+var _package_dlc_display_name = ""
+var _package_dlc_resource_pack_path = DEFAULT_DLC_RESOURCE_PACK_PATH
+var _package_dlc_loose_file_path = DEFAULT_DLC_LOOSE_FILE_PATH
+var _package_dlc_expected_resource = DEFAULT_DLC_EXPECTED_RESOURCE
+var _selected_dlc_package_identifier = ""
+var _selected_dlc_summary = "No DLC package selected."
 
 func _gdk():
 	if Engine.has_singleton("GDK"):
@@ -122,6 +132,11 @@ func _load_sample_config() -> void:
 
 	if load_error == OK:
 		_demo_achievement_id = str(cfg.get_value("achievements", "demo_achievement_id", DEFAULT_ACHIEVEMENT_ID))
+		_package_dlc_store_id = str(cfg.get_value("packages", "dlc_store_id", "")).strip_edges()
+		_package_dlc_display_name = str(cfg.get_value("packages", "dlc_display_name", "")).strip_edges()
+		_package_dlc_resource_pack_path = str(cfg.get_value("packages", "dlc_resource_pack_path", DEFAULT_DLC_RESOURCE_PACK_PATH)).strip_edges()
+		_package_dlc_loose_file_path = str(cfg.get_value("packages", "dlc_loose_file_path", DEFAULT_DLC_LOOSE_FILE_PATH)).strip_edges()
+		_package_dlc_expected_resource = str(cfg.get_value("packages", "dlc_expected_resource", DEFAULT_DLC_EXPECTED_RESOURCE)).strip_edges()
 
 func _bind_gdk_signals() -> void:
 	var gdk = _gdk()
@@ -174,6 +189,18 @@ func _build_scenario_catalog() -> Dictionary:
 					_scenario("achievements_query", "Query Player Achievements", "Fetch achievement state for the primary user and refresh the cached achievement summary.", Callable(self, "_scenario_query_achievements")),
 					_scenario("achievements_increment", "Increment Demo Achievement", "Advance the configured demo achievement in 25%% steps using update_achievement_async().", Callable(self, "_scenario_increment_achievement")),
 					_scenario("achievements_snapshot", "Log Achievement Snapshot", "Write the cached demo achievement state to the event log.", Callable(self, "_scenario_log_achievement_snapshot"))
+				]
+			),
+			_group(
+				"packages",
+				"Packages / DLC",
+				"Discover XPackage content, load Godot resource packs into res://, and read loose DLC files through FileAccess.",
+				[
+					_scenario("packages_enumerate", "Enumerate Content Packages", "List installed content packages and log metadata useful for DLC selection.", Callable(self, "_scenario_enumerate_packages")),
+					_scenario("packages_select_dlc", "Select Sample DLC", "Choose the configured sample DLC by store ID or display name, falling back to the first content package.", Callable(self, "_scenario_select_sample_dlc")),
+					_scenario("packages_load_pack", "Load DLC Resource Pack", "Load the configured .pck/.zip from the selected DLC package into res://.", Callable(self, "_scenario_load_dlc_resource_pack")),
+					_scenario("packages_read_loose", "Read Loose DLC File", "Mount the selected DLC package temporarily and read the configured loose file with FileAccess.", Callable(self, "_scenario_read_loose_dlc_file")),
+					_scenario("packages_loaded_packs", "Show Loaded Resource Packs", "Display the resource packs retained by GDK.package until shutdown.", Callable(self, "_scenario_show_loaded_resource_packs"))
 				]
 			),
 			_group(
@@ -545,6 +572,11 @@ func _refresh_state_panel() -> void:
 	lines.append("Invite Events: %s" % _last_mpa_event_text)
 
 	lines.append("")
+	lines.append("Packages / DLC")
+	for package_line in _get_package_snapshot_lines():
+		lines.append(package_line)
+
+	lines.append("")
 	lines.append("GameInput")
 	for gi_line in _get_gameinput_snapshot_lines():
 		lines.append(gi_line)
@@ -600,6 +632,116 @@ func _format_mpa_activity(activity) -> String:
 	var group_text = activity.group_id if activity.group_id != "" else "no-group"
 	var connection_text = activity.connection_string if activity.connection_string != "" else "no connection string"
 	return "%s • %s • %s • %s" % [player_text, restriction_text, group_text, connection_text]
+
+func _get_package_snapshot_lines() -> Array:
+	var lines: Array = []
+	var gdk = _gdk()
+	if gdk == null:
+		lines.append("Available: false (addon missing)")
+		return lines
+
+	lines.append("Selected DLC: %s" % _selected_dlc_summary)
+	lines.append("Resource Pack: %s" % _package_dlc_resource_pack_path)
+	lines.append("Loose File: %s" % _package_dlc_loose_file_path)
+
+	var loaded_count = 0
+	if gdk.package != null:
+		loaded_count = gdk.package.get_loaded_resource_packs().size()
+	lines.append("Loaded Resource Packs: %d" % loaded_count)
+
+	if not gdk.is_initialized():
+		lines.append("Initialize runtime before enumerating or mounting DLC packages.")
+
+	return lines
+
+func _format_package_summary(package: Dictionary) -> String:
+	var display_name = String(package.get("display_name", "")).strip_edges()
+	var store_id = String(package.get("store_id", "")).strip_edges()
+	var package_identifier = String(package.get("package_identifier", "")).strip_edges()
+	if display_name.is_empty():
+		display_name = "<unnamed>"
+	if store_id.is_empty():
+		store_id = "no-store-id"
+	if package_identifier.is_empty():
+		package_identifier = "no-package-id"
+	return "%s | store=%s | id=%s | installing=%s" % [
+		display_name,
+		store_id,
+		package_identifier,
+		str(bool(package.get("installing", false)))
+	]
+
+func _find_configured_dlc_package(packages: Array) -> Dictionary:
+	for package_value in packages:
+		if not (package_value is Dictionary):
+			continue
+		var package: Dictionary = package_value
+		var store_id = String(package.get("store_id", "")).strip_edges()
+		var display_name = String(package.get("display_name", "")).strip_edges()
+		if not _package_dlc_store_id.is_empty() and store_id.to_lower() == _package_dlc_store_id.to_lower():
+			return package
+		if not _package_dlc_display_name.is_empty() and display_name.to_lower() == _package_dlc_display_name.to_lower():
+			return package
+
+	if _package_dlc_store_id.is_empty() and _package_dlc_display_name.is_empty():
+		for package_value in packages:
+			if package_value is Dictionary:
+				var fallback_package: Dictionary = package_value
+				return fallback_package
+
+	return {}
+
+func _select_dlc_from_packages(packages: Array) -> bool:
+	var package: Dictionary = _find_configured_dlc_package(packages)
+	if package.is_empty():
+		_selected_dlc_package_identifier = ""
+		_selected_dlc_summary = "No matching DLC package selected."
+		return false
+
+	_selected_dlc_package_identifier = String(package.get("package_identifier", "")).strip_edges()
+	_selected_dlc_summary = _format_package_summary(package)
+	return not _selected_dlc_package_identifier.is_empty()
+
+func _package_service_or_status(entry: Dictionary):
+	var gdk = _gdk()
+	if gdk == null:
+		_set_selected_status(entry, "GDK singleton unavailable.")
+		return null
+	if not gdk.is_initialized():
+		var status = "Initialize the GDK runtime before using package scenarios."
+		_log_event("Packages / DLC -> %s" % status)
+		_set_selected_status(entry, status)
+		return null
+	if gdk.package == null:
+		_set_selected_status(entry, "GDK.package service unavailable.")
+		return null
+	return gdk.package
+
+func _ensure_selected_dlc_package(entry: Dictionary):
+	var package_service = _package_service_or_status(entry)
+	if package_service == null:
+		return null
+	if not _selected_dlc_package_identifier.is_empty():
+		return package_service
+
+	var packages_result = package_service.enumerate_packages()
+	if packages_result == null or not packages_result.ok or not (packages_result.data is Array):
+		var status = _describe_result(packages_result)
+		_log_event("Select Sample DLC -> %s" % status)
+		_set_selected_status(entry, status)
+		return null
+
+	if not _select_dlc_from_packages(packages_result.data):
+		var selector = "store_id='%s', display_name='%s'" % [_package_dlc_store_id, _package_dlc_display_name]
+		var status = "No DLC package matched %s. Register or install the companion Launch Point DLC sample, then run enumeration again." % selector
+		_log_event("Select Sample DLC -> %s" % status)
+		_set_selected_status(entry, status)
+		_refresh_state_panel()
+		return null
+
+	_log_event("Selected DLC package: %s" % _selected_dlc_summary)
+	_refresh_state_panel()
+	return package_service
 
 func _format_invite_event(invite) -> String:
 	if typeof(invite) != TYPE_DICTIONARY:
@@ -842,6 +984,153 @@ func _scenario_log_achievement_snapshot() -> void:
 	var user = gdk.users.get_primary_user()
 	var status = _get_achievement_snapshot_text(user)
 	_log_event("Log Achievement Snapshot -> %s" % status)
+	_set_selected_status(entry, status)
+	_refresh_state_panel()
+
+func _scenario_enumerate_packages() -> void:
+	var entry = _selected_entry
+	var package_service = _package_service_or_status(entry)
+	if package_service == null:
+		return
+
+	var result = package_service.enumerate_packages()
+	if result == null or not result.ok:
+		var failure_status = _describe_result(result)
+		_log_event("Enumerate Content Packages -> %s" % failure_status)
+		_set_selected_status(entry, failure_status)
+		return
+
+	var packages: Array = result.data if result.data is Array else []
+	var status = "Found %d content package(s)." % packages.size()
+	_log_event("Enumerate Content Packages -> %s" % status)
+	for package_value in packages:
+		if package_value is Dictionary:
+			_log_event("  %s" % _format_package_summary(package_value))
+	_set_selected_status(entry, status)
+	_refresh_state_panel()
+
+func _scenario_select_sample_dlc() -> void:
+	var entry = _selected_entry
+	var package_service = _package_service_or_status(entry)
+	if package_service == null:
+		return
+
+	var result = package_service.enumerate_packages()
+	if result == null or not result.ok or not (result.data is Array):
+		var failure_status = _describe_result(result)
+		_log_event("Select Sample DLC -> %s" % failure_status)
+		_set_selected_status(entry, failure_status)
+		return
+
+	if not _select_dlc_from_packages(result.data):
+		var selector = "store_id='%s', display_name='%s'" % [_package_dlc_store_id, _package_dlc_display_name]
+		var missing_status = "No DLC package matched %s. Register or install the companion Launch Point DLC sample first." % selector
+		_log_event("Select Sample DLC -> %s" % missing_status)
+		_set_selected_status(entry, missing_status)
+		_refresh_state_panel()
+		return
+
+	var status = "Selected %s" % _selected_dlc_summary
+	_log_event("Select Sample DLC -> %s" % status)
+	_set_selected_status(entry, status)
+	_refresh_state_panel()
+
+func _scenario_load_dlc_resource_pack() -> void:
+	var entry = _selected_entry
+	var package_service = _ensure_selected_dlc_package(entry)
+	if package_service == null:
+		return
+	if _package_dlc_resource_pack_path.is_empty():
+		var status = "Configure [packages] dlc_resource_pack_path before loading DLC assets."
+		_log_event("Load DLC Resource Pack -> %s" % status)
+		_set_selected_status(entry, status)
+		return
+
+	var op = package_service.load_resource_pack_async(_selected_dlc_package_identifier, _package_dlc_resource_pack_path)
+	_track_async_op(entry, op, "Load DLC Resource Pack", Callable(self, "_after_load_dlc_resource_pack"))
+
+func _after_load_dlc_resource_pack(result) -> void:
+	if result == null or not result.ok:
+		return
+
+	var data: Dictionary = result.data if result.data is Dictionary else {}
+	var resource_pack = data.get("resource_pack")
+	var already_loaded = bool(data.get("already_loaded", false))
+	if resource_pack != null:
+		_log_event("DLC resource pack ready: %s (already_loaded=%s)" % [
+			resource_pack.get_pack_relative_path(),
+			str(already_loaded)
+		])
+
+	if not _package_dlc_expected_resource.is_empty():
+		if FileAccess.file_exists(_package_dlc_expected_resource):
+			var expected_text = FileAccess.get_file_as_string(_package_dlc_expected_resource)
+			_log_event("DLC expected resource visible: %s (%d bytes)" % [
+				_package_dlc_expected_resource,
+				expected_text.length()
+			])
+		else:
+			_log_event("DLC expected resource not found after load: %s" % _package_dlc_expected_resource)
+
+	_refresh_state_panel()
+
+func _scenario_read_loose_dlc_file() -> void:
+	var entry = _selected_entry
+	var package_service = _ensure_selected_dlc_package(entry)
+	if package_service == null:
+		return
+	if _package_dlc_loose_file_path.is_empty():
+		var status = "Configure [packages] dlc_loose_file_path before reading loose DLC files."
+		_log_event("Read Loose DLC File -> %s" % status)
+		_set_selected_status(entry, status)
+		return
+
+	var op = package_service.mount_package_async(_selected_dlc_package_identifier)
+	_track_async_op(entry, op, "Read Loose DLC File", Callable(self, "_after_read_loose_dlc_file"))
+
+func _after_read_loose_dlc_file(result) -> void:
+	if result == null or not result.ok:
+		return
+
+	var mount = result.data
+	if mount == null:
+		_log_event("Read Loose DLC File -> mount result did not contain GDKPackageMount.")
+		return
+
+	var resolved_result = mount.resolve_path(_package_dlc_loose_file_path)
+	if resolved_result == null or not resolved_result.ok:
+		_log_event("Read Loose DLC File -> %s" % _describe_result(resolved_result))
+		mount.close()
+		_refresh_state_panel()
+		return
+
+	var absolute_path = String(resolved_result.data)
+	if FileAccess.file_exists(absolute_path):
+		var text = FileAccess.get_file_as_string(absolute_path)
+		_log_event("Loose DLC file: %s -> %s" % [
+			_package_dlc_loose_file_path,
+			text.substr(0, 160)
+		])
+	else:
+		_log_event("Loose DLC file not found under mount: %s" % _package_dlc_loose_file_path)
+
+	var close_result = mount.close()
+	_log_event("Closed loose DLC mount -> %s" % _describe_result(close_result))
+	_refresh_state_panel()
+
+func _scenario_show_loaded_resource_packs() -> void:
+	var entry = _selected_entry
+	var gdk = _gdk()
+	if gdk == null or gdk.package == null:
+		_set_selected_status(entry, "GDK.package service unavailable.")
+		return
+
+	var packs: Array = gdk.package.get_loaded_resource_packs()
+	var status = "Loaded resource packs: %d" % packs.size()
+	_log_event("Show Loaded Resource Packs -> %s" % status)
+	for pack in packs:
+		if pack != null:
+			_log_event("  %s from %s" % [pack.get_pack_relative_path(), pack.get_package_identifier()])
 	_set_selected_status(entry, status)
 	_refresh_state_panel()
 

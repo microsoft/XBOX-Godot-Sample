@@ -16,6 +16,11 @@
     own — are checked against a lightweight temporary project so that Godot can
     resolve res:// paths for them.
 
+    Use -Projects to validate only specific Godot project roots or synthetic
+    validator contexts. This is useful when a known-broken sample should not
+    block targeted validation for an unrelated PR. If -Projects is omitted, every
+    discovered validation context is checked.
+
     Godot's --check-only flag only parses the specified script (plus any
     transitive preload/extends dependencies).  It does NOT execute autoloads,
     load editor plugins, or modify the .godot/ cache, so checking against the
@@ -36,9 +41,19 @@
       2. Godot*_console.exe under sample/
       3. Godot*.exe under sample/
       4. 'godot' or 'godot4' on PATH
+
+.PARAMETER Projects
+    Optional repo-relative project/context paths to validate. Examples:
+    `addons`, `sample\gdk_launch_point`, `tests\godot\gdk`. Parent directories
+    such as `sample` match every discovered validation context under that path.
+    When calling through `pwsh -File`, pass multiple targets as a comma-separated
+    value such as `-Projects addons,sample\gdk_launch_point`.
 #>
 [CmdletBinding()]
-param()
+param(
+    [Alias('Project')]
+    [string[]]$Projects = @()
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -158,6 +173,59 @@ function Get-RepoRelativePath {
     )
 
     return Get-RelativePath -BasePath $script:RepoRoot -TargetPath $Path
+}
+
+function Get-NormalizedProjectFilters {
+    param(
+        [AllowEmptyCollection()]
+        [string[]]$ProjectFilters
+    )
+
+    return @(
+        $ProjectFilters |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_ -split ',' } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object {
+                $candidate = ($_ -replace '/', '\').Trim().TrimEnd('\')
+                if ($candidate.EndsWith('\project.godot', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $candidate = Split-Path -Parent $candidate
+                }
+
+                if ([System.IO.Path]::IsPathRooted($candidate)) {
+                    $candidate = Get-RelativePath -BasePath $script:RepoRoot -TargetPath ([System.IO.Path]::GetFullPath($candidate))
+                }
+
+                $candidate.TrimEnd('\')
+            } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-ContextMatchesProjectFilter {
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Context,
+        [AllowEmptyCollection()]
+        [string[]]$ProjectFilters
+    )
+
+    if ($ProjectFilters.Count -eq 0) {
+        return $true
+    }
+
+    $displayName = ($Context.DisplayName -replace '/', '\').TrimEnd('\')
+    foreach ($filter in $ProjectFilters) {
+        if ($displayName.Equals($filter, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+        if ($displayName.StartsWith($filter + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Get-ContainingProjectRoot {
@@ -430,6 +498,7 @@ try {
     $contexts = @{}
     $addonContext = $null
     $sampleAddonContext = $null
+    $projectFilters = Get-NormalizedProjectFilters -ProjectFilters $Projects
 
     foreach ($filePath in $gdFiles) {
         $context = Get-ValidationContext -FilePath $filePath -ProjectRoots $projectRoots -AddonContext ([ref]$addonContext) -SampleAddonContext ([ref]$sampleAddonContext)
@@ -443,6 +512,21 @@ try {
         }
 
         $contexts[$context.Key].ScriptPaths.Add($context.ScriptPath)
+    }
+
+    if ($projectFilters.Count -gt 0) {
+        $filteredContexts = @{}
+        foreach ($key in $contexts.Keys) {
+            $context = $contexts[$key]
+            if (Test-ContextMatchesProjectFilter -Context $context -ProjectFilters $projectFilters) {
+                $filteredContexts[$key] = $context
+            }
+        }
+
+        $contexts = $filteredContexts
+        if ($contexts.Count -eq 0) {
+            throw "No GDScript validation contexts matched -Projects: $($projectFilters -join ', ')"
+        }
     }
 
     $allFailures = [System.Collections.Generic.List[object]]::new()

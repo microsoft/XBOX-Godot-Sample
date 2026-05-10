@@ -17,3 +17,12 @@ version = "1.0.0.0"
 
 [achievements]
 demo_achievement_id = "1"
+
+[packages]
+; Use stable metadata to select the companion DLC package. Leave both blank to
+; fall back to the first installed content package when experimenting locally.
+dlc_store_id = ""
+dlc_display_name = ""
+dlc_resource_pack_path = "content/launch_point_dlc.zip"
+dlc_loose_file_path = "loose/message.txt"
+dlc_expected_resource = "res://gdk_package_test/manifest.json"

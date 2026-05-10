@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, stats, leaderboards, privacy, presence, social, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -61,6 +61,12 @@
 			<return type="GDKAchievements" />
 			<description>
 				Returns the [GDKAchievements] service for querying and updating Xbox achievements.
+			</description>
+		</method>
+		<method name="get_package" qualifiers="const">
+			<return type="GDKPackage" />
+			<description>
+				Returns the [GDKPackage] service for package enumeration, package mounts, and resource-pack loading helpers.
 			</description>
 		</method>
 		<method name="get_stats" qualifiers="const">
@@ -151,6 +157,9 @@
 		</member>
 		<member name="achievements" type="GDKAchievements" setter="" getter="get_achievements">
 			The [GDKAchievements] service instance for querying and updating Xbox achievements.
+		</member>
+		<member name="package" type="GDKPackage" setter="" getter="get_package">
+			The [GDKPackage] service instance for package enumeration, package mounts, and resource-pack loading helpers.
 		</member>
 		<member name="stats" type="GDKStats" setter="" getter="get_stats">
 			The [GDKStats] service instance for Xbox Services user statistics.

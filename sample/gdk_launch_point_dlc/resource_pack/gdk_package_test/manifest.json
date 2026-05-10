@@ -1,0 +1,5 @@
+{
+  "name": "GDK Launch Point DLC Fixture",
+  "resource_pack": "launch_point_dlc.zip",
+  "message": "This file is loaded through ProjectSettings.load_resource_pack from an XPackage content mount."
+}

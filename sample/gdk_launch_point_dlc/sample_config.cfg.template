@@ -1,0 +1,9 @@
+; Companion DLC fixture settings for sample/gdk_launch_point.
+; Copy these values into sample/gdk_launch_point/sample_config.cfg [packages].
+
+[packages]
+dlc_store_id = ""
+dlc_display_name = "GDK Launch Point DLC Fixture"
+dlc_resource_pack_path = "content/launch_point_dlc.zip"
+dlc_loose_file_path = "loose/message.txt"
+dlc_expected_resource = "res://gdk_package_test/manifest.json"

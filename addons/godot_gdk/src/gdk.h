@@ -18,6 +18,7 @@
 #include "gdk_accessibility.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_package.h"
 #include "gdk_presence.h"
 #include "gdk_profile.h"
 #include "gdk_privacy.h"
@@ -45,6 +46,7 @@ class GDK : public Object {
     Ref<GDKGameUI> m_game_ui;
     Ref<GDKAccessibility> m_accessibility;
     Ref<GDKAchievements> m_achievements;
+    Ref<GDKPackage> m_package;
     Ref<GDKStats> m_stats;
     Ref<GDKLeaderboards> m_leaderboards;
     Ref<GDKPrivacy> m_privacy;
@@ -77,6 +79,7 @@ public:
     Ref<GDKGameUI> get_game_ui() const;
     Ref<GDKAccessibility> get_accessibility() const;
     Ref<GDKAchievements> get_achievements() const;
+    Ref<GDKPackage> get_package() const;
     Ref<GDKStats> get_stats() const;
     Ref<GDKLeaderboards> get_leaderboards() const;
     Ref<GDKPrivacy> get_privacy() const;

@@ -28,6 +28,7 @@ contains:
 - `gdk_xbox_services.cpp` / `gdk_xbox_services.h` — shared Xbox services bootstrap and context cache
 - `gdk_user.cpp` / `gdk_user.h` — users service and user wrapper
 - `gdk_achievement.cpp` / `gdk_achievement.h` — achievements service and achievement wrapper
+- `gdk_package.cpp` / `gdk_package.h` — package metadata and install-state service wrappers
 - `gdk_presence.cpp` / `gdk_presence.h` — presence service and wrapper types
 - `gdk_social.cpp` / `gdk_social.h` — social graph service and wrapper types
 - `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h` — multiplayer activity service and wrapper types

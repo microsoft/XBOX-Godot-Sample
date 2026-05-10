@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPackageResourcePack" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Metadata for a service-owned package resource pack loaded into res://.
+	</brief_description>
+	<description>
+		A [GDKPackageResourcePack] is returned by [method GDKPackage.load_resource_pack_async] after a content package's [code].pck[/code] or [code].zip[/code] has been loaded through [method ProjectSettings.load_resource_pack]. It is read-only metadata; the backing package mount is owned by [GDKPackage] and remains mounted until [method GDK.shutdown].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_package_identifier" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the current-session package identifier that supplied the resource pack.
+			</description>
+		</method>
+		<method name="get_mount_path" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the absolute mount root retained by the package service.
+			</description>
+		</method>
+		<method name="get_pack_relative_path" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the normalized package-relative path passed to [method GDKPackage.load_resource_pack_async].
+			</description>
+		</method>
+		<method name="get_pack_path" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the absolute path to the loaded [code].pck[/code] or [code].zip[/code] file.
+			</description>
+		</method>
+		<method name="get_package_details" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns a copy of the package metadata dictionary captured when the resource pack was loaded.
+			</description>
+		</method>
+		<method name="get_replace_files" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns the [code]replace_files[/code] value used when the resource pack was loaded.
+			</description>
+		</method>
+		<method name="get_offset" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the byte offset passed to [method GDKPackage.load_resource_pack_async].
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="package_identifier" type="String" setter="" getter="get_package_identifier">
+			The current-session package identifier that supplied the resource pack.
+		</member>
+		<member name="mount_path" type="String" setter="" getter="get_mount_path">
+			The absolute mount root retained by the package service.
+		</member>
+		<member name="pack_relative_path" type="String" setter="" getter="get_pack_relative_path">
+			The normalized package-relative path loaded from the mount.
+		</member>
+		<member name="pack_path" type="String" setter="" getter="get_pack_path">
+			The absolute path to the loaded [code].pck[/code] or [code].zip[/code] file.
+		</member>
+		<member name="package_details" type="Dictionary" setter="" getter="get_package_details">
+			A copy of the package metadata dictionary captured when the resource pack was loaded.
+		</member>
+		<member name="replace_files" type="bool" setter="" getter="get_replace_files">
+			The [code]replace_files[/code] value used when the resource pack was loaded.
+		</member>
+		<member name="offset" type="int" setter="" getter="get_offset">
+			The byte offset passed to [method GDKPackage.load_resource_pack_async].
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

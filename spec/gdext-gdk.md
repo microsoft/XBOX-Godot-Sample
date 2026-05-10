@@ -24,6 +24,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Runtime init/shutdown | Implemented | `XGameRuntimeInitialize`, queue/bootstrap |
 | User identity/sign-in | Implemented | `XUser`-backed; not an Xbox Services `xsapi-c` surface |
 | PC GDK helpers | Implemented selectively | Includes launcher, game UI, accessibility, system metadata, and error reporting; these are outside the Xbox Services coverage matrix below |
+| Package metadata and DLC content access | Implemented | `GDK.package` wraps PC-supported `XPackage` enumeration, install progress, package mounts, and resource-pack loading |
 | Achievements | Implemented | Achievements Manager-backed |
 | Presence | Implemented | `GDK.presence` covers set/clear, single/multi-user queries, social-group query, tracking, non-deprecated change handlers, and cache access |
 | Social | Implemented | Social Manager graph/groups and reputation feedback are exposed; direct relationship paging remains intentionally excluded |
@@ -118,6 +119,8 @@ Godot's observer model is signal-based ([Using Signals](https://docs.godotengine
 | one-shot async request | `Signal` |
 | `HRESULT` + payload | `GDKResult` |
 | `XUserHandle` | `GDKUser` |
+| package mount lifetime | `GDKPackageMount` |
+| loaded resource-pack metadata | `GDKPackageResourcePack` |
 | Stats and leaderboard payloads | stats `Dictionary`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow` |
 | Privacy check payloads | `Dictionary` |
 | Presence payloads | `GDKPresenceRecord` |
@@ -351,6 +354,7 @@ GDK.game_ui: GDKGameUI
 GDK.system: GDKSystem
 GDK.accessibility: GDKAccessibility
 GDK.achievements: GDKAchievements
+GDK.package: GDKPackage
 GDK.stats: GDKStats
 GDK.leaderboards: GDKLeaderboards
 GDK.privacy: GDKPrivacy
@@ -552,6 +556,36 @@ achievements_updated(user: GDKUser)
 | `achievement_unlocked` / `achievements_updated` | `XblAchievementsManagerDoWork` | These signals come from manager update events, not from a separate polling or REST-style query path. |
 
 The manager result handles should be copied into extension-owned data immediately on dispatch, because they are cache views rather than long-lived script-safe objects.
+
+#### `GDK.package` service
+
+##### Methods
+
+```gdscript
+enumerate_packages(package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> GDKResult
+find_package_by_identifier(package_identifier: String, package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> GDKResult
+get_current_process_package_identifier() -> GDKResult
+mount_package_async(package_identifier: String) -> Signal
+load_resource_pack_async(package_identifier: String, pack_relative_path: String, replace_files := false, offset := 0) -> Signal
+get_loaded_resource_packs() -> Array
+get_install_progress(package_identifier: String) -> GDKResult
+```
+
+##### Notes
+
+- `mount_package_async()` returns a `GDKPackageMount` for temporary loose-file access under an open mount handle.
+- `load_resource_pack_async()` is the primary Godot-native DLC path; successful loads retain service-owned mounts because `ProjectSettings.load_resource_pack()` has no unload counterpart.
+- Missing package identifiers return `package_not_found`. Invalid package-relative paths and unsupported pack extensions return explicit validation errors.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `enumerate_packages()` / `find_package_by_identifier()` | `XPackageEnumeratePackages`, `XPackageDetails` | Enumerates game/content packages and maps stable package dictionaries. |
+| `get_current_process_package_identifier()` | `XPackageGetCurrentProcessPackageIdentifier` | Returns current process package identity for diagnostics and follow-up package operations. |
+| `mount_package_async()` | `XPackageMountWithUiAsync`, `XPackageMountWithUiResult`, `XPackageGetMountPathSize`, `XPackageGetMountPath`, `XPackageCloseMountHandle` | Async mount flow integrated with the existing runtime queue/pending-signal model. |
+| `load_resource_pack_async()` | same mount APIs + `ProjectSettings.load_resource_pack` | Mounts package content, resolves package-relative `.pck`/`.zip`, and loads it into `res://` with retained mount lifetime. |
+| `get_install_progress()` | `XPackageCreateInstallationMonitor`, `XPackageGetInstallationProgress`, `XPackageCloseInstallationMonitorHandle` | Snapshots install progress for one package identifier. |
 
 #### `GDK.stats` service
 

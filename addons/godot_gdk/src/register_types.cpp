@@ -13,6 +13,7 @@
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_package.h"
 #include "gdk_pending_signal.h"
 #include "gdk_presence.h"
 #include "gdk_profile.h"
@@ -103,6 +104,9 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKAccessibility>();
         ClassDB::register_class<GDKAchievement>();
         ClassDB::register_class<GDKAchievements>();
+        ClassDB::register_class<GDKPackageMount>();
+        ClassDB::register_class<GDKPackageResourcePack>();
+        ClassDB::register_class<GDKPackage>();
         ClassDB::register_class<GDKStats>();
         ClassDB::register_class<GDKLeaderboardColumn>();
         ClassDB::register_class<GDKLeaderboardRow>();

@@ -27,6 +27,7 @@ accessed as namespaces under this root.
 | `get_game_ui()` | `GDKGameUI` | Access the system UI service |
 | `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
+| `get_package()` | `GDKPackage` | Access package metadata and DLC content-loading helpers |
 | `get_stats()` | `GDKStats` | Access the Xbox Services statistics service |
 | `get_leaderboards()` | `GDKLeaderboards` | Access the Xbox Services leaderboard service |
 | `get_privacy()` | `GDKPrivacy` | Access the Xbox Services privacy service |
@@ -262,6 +263,27 @@ Script-visible wrapper around a cached achievement.
 |--------|---------|-------------|
 | `is_unlocked()` | `bool` | Whether the achievement is fully unlocked |
 | `is_secret()` | `bool` | Whether the achievement is hidden until unlocked |
+
+## Package service: `GDK.package`
+
+`GDK.package` is a `RefCounted` service object returned by `GDK.get_package()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `enumerate_packages(package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `GDKResult` | Enumerate installed packages; `data` is an `Array` of package dictionaries |
+| `find_package_by_identifier(package_identifier, package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `GDKResult` | Find one installed package by package identifier |
+| `get_current_process_package_identifier()` | `GDKResult` | Resolve package identity for the current process |
+| `mount_package_async(package_identifier)` | `Signal` | Mount package content and return `GDKPackageMount` in `GDKResult.data` |
+| `load_resource_pack_async(package_identifier, pack_relative_path, replace_files := false, offset := 0)` | `Signal` | Mount package content and load package-relative `.pck`/`.zip` into `res://` |
+| `get_loaded_resource_packs()` | `Array` | Return service-owned `GDKPackageResourcePack` metadata for loaded packs |
+| `get_install_progress(package_identifier)` | `GDKResult` | Snapshot install progress for a package identifier |
+
+### Notes
+
+- `mount_package_async()` is the loose-file path; callers are responsible for closing the returned mount.
+- `load_resource_pack_async()` is the Godot-native DLC path; mounts for loaded resource packs stay service-owned until `GDK.shutdown()`.
 
 ## Stats service: `GDK.stats`
 

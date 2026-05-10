@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPackage" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Package and DLC content service accessed via GDK.package.
+	</brief_description>
+	<description>
+		Wraps the PC GDK [code]XPackage[/code] package metadata, install-progress, and content-mounting flows. Use [method enumerate_packages] and [method find_package_by_identifier] to discover content packages. Use [method load_resource_pack_async] for Godot-native DLC packaged as [code].pck[/code] or [code].zip[/code] files; on success the resource pack is loaded into [code]res://[/code] and the backing package mount is retained by the service until [method GDK.shutdown]. Use [method mount_package_async] only for loose package files that must be accessed by absolute paths through [FileAccess], [DirAccess], image loading, or similar Godot runtime APIs.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="enumerate_packages">
+			<return type="GDKResult" />
+			<param index="0" name="package_kind" type="int" default="1" />
+			<param index="1" name="scope" type="int" default="1" />
+			<description>
+				Enumerates installed packages and returns them in [code]GDKResult.data[/code] as an [Array] of package [Dictionary] values. Package identifiers are current-session values and should not be persisted.
+			</description>
+		</method>
+		<method name="find_package_by_identifier">
+			<return type="GDKResult" />
+			<param index="0" name="package_identifier" type="String" />
+			<param index="1" name="package_kind" type="int" default="1" />
+			<param index="2" name="scope" type="int" default="1" />
+			<description>
+				Finds one installed package by package identifier. Returns [code]package_not_found[/code] when no package matches.
+			</description>
+		</method>
+		<method name="get_current_process_package_identifier">
+			<return type="GDKResult" />
+			<description>
+				Returns the current process package identifier in [code]GDKResult.data[/code]. Returns [code]package_identifier_unavailable[/code] when the title is not running from a registered package or loose layout.
+			</description>
+		</method>
+		<method name="mount_package_async">
+			<return type="Signal" />
+			<param index="0" name="package_identifier" type="String" />
+			<description>
+				Mounts a content package asynchronously using the GDK UI-capable mount flow. Await the returned completion [Signal] to receive a [GDKResult] whose [code]data[/code] contains a [GDKPackageMount]. The returned mount owns the native mount handle; close it or release the object when loose-file access is done.
+			</description>
+		</method>
+		<method name="load_resource_pack_async">
+			<return type="Signal" />
+			<param index="0" name="package_identifier" type="String" />
+			<param index="1" name="pack_relative_path" type="String" />
+			<param index="2" name="replace_files" type="bool" default="false" />
+			<param index="3" name="offset" type="int" default="0" />
+			<description>
+				Mounts a content package, resolves a package-relative [code].pck[/code] or [code].zip[/code] file, and calls [method ProjectSettings.load_resource_pack]. Await the returned completion [Signal] to receive a [GDKResult]. On success, [code]GDKResult.data[/code] is a [Dictionary] with [code]resource_pack[/code] ([GDKPackageResourcePack]) and [code]already_loaded[/code] ([bool]). The service retains the backing package mount until [method GDK.shutdown] because Godot exposes resource-pack loading but no matching unload API.
+			</description>
+		</method>
+		<method name="get_loaded_resource_packs" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns the service-owned [GDKPackageResourcePack] metadata objects for resource packs loaded by [method load_resource_pack_async]. These packs remain mounted until [method GDK.shutdown].
+			</description>
+		</method>
+		<method name="get_install_progress">
+			<return type="GDKResult" />
+			<param index="0" name="package_identifier" type="String" />
+			<description>
+				Returns installation progress in [code]GDKResult.data[/code] with [code]completed[/code], [code]installed_bytes[/code], [code]total_bytes[/code], [code]total_bytes_unknown[/code], and [code]progress_ratio[/code].
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="PACKAGE_KIND_GAME" value="0" enum="PackageKind">
+			Enumerate game packages.
+		</constant>
+		<constant name="PACKAGE_KIND_CONTENT" value="1" enum="PackageKind">
+			Enumerate content/DLC packages.
+		</constant>
+		<constant name="ENUMERATION_SCOPE_THIS_PUBLISHER" value="0" enum="EnumerationScope">
+			Enumerate packages from this publisher only.
+		</constant>
+		<constant name="ENUMERATION_SCOPE_THIS_AND_RELATED" value="1" enum="EnumerationScope">
+			Enumerate packages from this title and related products.
+		</constant>
+	</constants>
+</class>
