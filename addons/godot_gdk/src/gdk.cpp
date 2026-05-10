@@ -1,5 +1,6 @@
 #include "gdk.h"
 
+#include "gdk_capture.h"
 #include "gdk_error_reporting.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
@@ -60,6 +61,8 @@ GDK::GDK() {
     m_launcher->set_owner(this);
     m_multiplayer_activity.instantiate();
     m_multiplayer_activity->set_owner(this);
+    m_capture.instantiate();
+    m_capture->set_owner(this);
     m_system.instantiate();
     m_system->set_owner(this);
 }
@@ -93,6 +96,7 @@ GDK::~GDK() {
     m_error_reporting.unref();
     m_launcher.unref();
     m_multiplayer_activity.unref();
+    m_capture.unref();
     m_system.unref();
     singleton = nullptr;
 }
@@ -120,6 +124,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_error_reporting"), &GDK::get_error_reporting);
     ClassDB::bind_method(D_METHOD("get_launcher"), &GDK::get_launcher);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
+    ClassDB::bind_method(D_METHOD("get_capture"), &GDK::get_capture);
     ClassDB::bind_method(D_METHOD("get_system"), &GDK::get_system);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
@@ -138,6 +143,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "error_reporting", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKErrorReporting"), "", "get_error_reporting");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "launcher", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLauncher"), "", "get_launcher");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "capture", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKCapture"), "", "get_capture");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "system", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSystem"), "", "get_system");
 
     ADD_SIGNAL(MethodInfo("initialized"));
@@ -406,6 +412,23 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return multiplayer_activity_result;
     }
 
+    Ref<GDKResult> capture_result = m_capture->on_runtime_initialized();
+    if (!capture_result->is_ok()) {
+        emit_runtime_error(capture_result);
+        m_capture->shutdown();
+        m_multiplayer_activity->shutdown();
+        m_launcher->shutdown();
+        m_error_reporting->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return capture_result;
+    }
+
     emit_signal("initialized");
     return GDKResult::ok_result();
 }
@@ -415,6 +438,7 @@ void GDK::shutdown() {
         return;
     }
 
+    m_capture->shutdown();
     m_multiplayer_activity->shutdown();
     m_launcher->shutdown();
     m_error_reporting->shutdown();
@@ -514,6 +538,10 @@ Ref<GDKLauncher> GDK::get_launcher() const {
 
 Ref<GDKMultiplayerActivity> GDK::get_multiplayer_activity() const {
     return m_multiplayer_activity;
+}
+
+Ref<GDKCapture> GDK::get_capture() const {
+    return m_capture;
 }
 
 Ref<GDKSystem> GDK::get_system() const {

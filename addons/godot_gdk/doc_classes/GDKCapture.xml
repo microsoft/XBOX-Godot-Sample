@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKCapture" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Capture metadata and capture-state service accessed via GDK.capture.
+	</brief_description>
+	<description>
+		Manages the PC-supported subset of the GDK XAppCapture system. Access via [code]GDK.capture[/code] after calling [method GDK.initialize].
+
+		[b]Capture state[/b]: Use [method enable_capture] and [method disable_capture] to control whether the Game Bar capture pipeline is active for this title.
+
+		[b]Capture metadata[/b]: Call [method create_metadata] to obtain a [GDKCaptureMetaData] script-side write context, then use its [code]add_*_event[/code] and [code]start_*_state[/code] methods to annotate clips. PC GDK metadata calls are process-wide/stateless; call [method GDKCaptureMetaData.stop_all_states] before the context is closed to end any active states.
+
+		[b]Diagnostic capture[/b]: [method record_diagnostic_clip_async] and [method take_diagnostic_screenshot_async] trigger Game Bar-backed recordings. These require Game Bar to be active on the device and return [GDKResult] errors when unavailable.
+
+		[b]PC GDK availability[/b] (all wrapped APIs are in [code]XAppCapture.h[/code] / [code]xgameruntime.lib[/code], [code]_GAMING_DESKTOP[/code]):
+		- [code]XAppCaptureEnableRecord[/code] / [code]XAppCaptureDisableRecord[/code]
+		- [code]XAppCaptureRecordDiagnosticClip[/code]
+		- [code]XAppCaptureTakeDiagnosticScreenshot[/code]
+		- All wrapped [code]XAppCaptureMetadata*[/code] functions
+
+		[b]Excluded console-only paths[/b]:
+		- [code]XAppCaptureOpenLocalStorageFiles[/code] / [code]XAppCaptureCloseLocalStorageFilesHandle[/code]
+		- [code]XAppCaptureDiagnosticClipLocalId[/code] result extraction
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="enable_capture">
+			<return type="GDKResult" />
+			<description>
+				Enable the Game Bar recording and screenshot pipeline for this title. Call this to re-enable capture after a previous [method disable_capture] call. Wraps [code]XAppCaptureEnableRecord[/code]. Returns an error result if the GDK runtime is not initialized.
+			</description>
+		</method>
+		<method name="disable_capture">
+			<return type="GDKResult" />
+			<description>
+				Disable the Game Bar recording and screenshot pipeline for this title. Wraps [code]XAppCaptureDisableRecord[/code]. Returns an error result if the GDK runtime is not initialized.
+			</description>
+		</method>
+		<method name="record_diagnostic_clip_async">
+			<return type="Signal" />
+			<param index="0" name="duration" type="float" />
+			<description>
+				Asynchronously record a diagnostic video clip of the given [param duration] in seconds. Returns a completion [Signal] that emits a [GDKResult]. Requires Game Bar to be active; returns an error result when Game Bar is unavailable. [param duration] must be greater than zero. Wraps [code]XAppCaptureRecordDiagnosticClip[/code].
+			</description>
+		</method>
+		<method name="take_diagnostic_screenshot_async">
+			<return type="Signal" />
+			<param index="0" name="path_hint" type="String" />
+			<description>
+				Asynchronously take a diagnostic screenshot using the given [param path_hint] as a filename hint. Returns a completion [Signal] that emits a [GDKResult]. Requires Game Bar to be active; returns an error result when Game Bar is unavailable. [param path_hint] must not be empty. Wraps [code]XAppCaptureTakeDiagnosticScreenshot[/code].
+			</description>
+		</method>
+		<method name="create_metadata">
+			<return type="GDKCaptureMetaData" />
+			<param index="0" name="reserved_bytes" type="int" default="0" />
+			<description>
+				Create a script-side metadata write context. Returns a [GDKCaptureMetaData] wrapper or [code]null[/code] if the runtime is not initialized. [param reserved_bytes] is retained for compatibility and ignored because PC GDK metadata APIs are stateless and do not allocate a native metadata handle.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKCaptureMetaData" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Script-side context for writing capture metadata.
+	</brief_description>
+	<description>
+		Holds a metadata write context created by [method GDKCapture.create_metadata]. PC GDK exposes metadata as process-wide [code]XAppCaptureMetadata*[/code] calls with no native handle, so this object gates intentional script writes rather than owning native memory. Use the [code]add_*_event[/code] methods to write one-shot events and the [code]start_*_state[/code] methods to write persistent states. Call [method stop_all_states] to end all active states. The context is automatically closed when the [GDKCaptureMetaData] object is freed; call [method close] to close it early.
+
+		All operations validate the context and event/state names before calling into the GDK. Operations on a closed or null context return a [GDKResult] with code [code]invalid_metadata_handle[/code]. Operations with an empty name return [code]invalid_metadata_name[/code].
+
+		PC GDK availability: all wrapped [code]XAppCaptureMetadata*[/code] functions are available in [code]_GAMING_DESKTOP[/code] builds via [code]XAppCapture.h[/code] and [code]xgameruntime.lib[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when the script-side context is open and usable.
+			</description>
+		</method>
+		<method name="close">
+			<return type="void" />
+			<description>
+				Close this script-side context. After [method close], [method is_valid] returns [code]false[/code]. Calling [method close] on an already-closed context is safe (no-op). The context is also closed automatically when the object is freed.
+			</description>
+		</method>
+		<method name="stop_all_states">
+			<return type="GDKResult" />
+			<description>
+				Stop all active persistent states in the metadata write buffer. Wraps [code]XAppCaptureMetadataStopAllStates[/code]. Returns [GDKResult] with [code]invalid_metadata_handle[/code] if the context is not valid.
+			</description>
+		</method>
+		<method name="get_remaining_storage_bytes" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of bytes remaining in the local metadata write buffer. Wraps [code]XAppCaptureMetadataRemainingStorageBytesAvailable[/code]. Returns [code]-1[/code] when the context is invalid or the call fails.
+			</description>
+		</method>
+		<method name="add_string_event">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Write a one-shot string event to the metadata buffer. [param priority] is a [enum Priority] value ([constant PRIORITY_GAMEPLAY] or [constant PRIORITY_IMPORTANT]). Wraps [code]XAppCaptureMetadataAddStringEvent[/code].
+			</description>
+		</method>
+		<method name="add_double_event">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="float" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Write a one-shot double event to the metadata buffer. Wraps [code]XAppCaptureMetadataAddDoubleEvent[/code].
+			</description>
+		</method>
+		<method name="add_int32_event">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="int" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Write a one-shot int32 event to the metadata buffer. The [param value] is clamped to a 32-bit signed integer range. Wraps [code]XAppCaptureMetadataAddInt32Event[/code].
+			</description>
+		</method>
+		<method name="start_string_state">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Begin a persistent string state in the metadata buffer. The state remains active until [method stop_all_states] is called. Wraps [code]XAppCaptureMetadataStartStringState[/code].
+			</description>
+		</method>
+		<method name="start_double_state">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="float" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Begin a persistent double state in the metadata buffer. The state remains active until [method stop_all_states] is called. Wraps [code]XAppCaptureMetadataStartDoubleState[/code].
+			</description>
+		</method>
+		<method name="start_int32_state">
+			<return type="GDKResult" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="int" />
+			<param index="2" name="priority" type="int" default="0" />
+			<description>
+				Begin a persistent int32 state in the metadata buffer. The [param value] is clamped to a 32-bit signed integer range. The state remains active until [method stop_all_states] is called. Wraps [code]XAppCaptureMetadataStartInt32State[/code].
+			</description>
+		</method>
+	</methods>
+	<constants>
+		<constant name="PRIORITY_GAMEPLAY" value="0" enum="Priority">
+			Standard gameplay-level metadata priority. Maps to [code]XAppCaptureMetadataPriority::Informational[/code].
+		</constant>
+		<constant name="PRIORITY_IMPORTANT" value="1" enum="Priority">
+			Higher-importance metadata priority. Maps to [code]XAppCaptureMetadataPriority::Important[/code].
+		</constant>
+	</constants>
+</class>
