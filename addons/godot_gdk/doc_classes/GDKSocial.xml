@@ -4,7 +4,7 @@
 		Social graph service accessed via GDK.social.
 	</brief_description>
 	<description>
-		Wraps the Xbox Social Manager. Start tracking a user's social graph with [method start_social_graph], create filtered groups with [method create_social_group], and retrieve user data with [method get_group_users].
+		Wraps the Xbox Social Manager and reputation feedback APIs. Start tracking a user's social graph with [method start_social_graph], create filtered groups with [method create_social_group], retrieve user data with [method get_group_users], and submit feedback with [method submit_reputation_feedback_async].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -58,6 +58,25 @@
 			<param index="0" name="group" type="GDKSocialGroup" />
 			<description>
 				Returns an [Array] of [GDKSocialUser] objects for the users tracked by the given group.
+			</description>
+		</method>
+		<method name="submit_reputation_feedback_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="target_xuid" type="String" />
+			<param index="2" name="feedback_type" type="String" />
+			<param index="3" name="reason" type="String" default="&quot;&quot;" />
+			<param index="4" name="evidence_id" type="String" default="&quot;&quot;" />
+			<description>
+				Submits one Xbox Services reputation feedback item for [param target_xuid]. Await the returned completion [Signal] directly.
+			</description>
+		</method>
+		<method name="submit_batch_reputation_feedback_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="feedback_items" type="Array" />
+			<description>
+				Submits reputation feedback for multiple users. Each item is a [Dictionary] with [code]target_xuid[/code] and [code]feedback_type[/code], plus optional [code]reason[/code] and [code]evidence_id[/code].
 			</description>
 		</method>
 	</methods>

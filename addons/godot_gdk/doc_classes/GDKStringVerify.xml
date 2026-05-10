@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKStringVerify" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services string verification service accessed via GDK.string_verify.
+	</brief_description>
+	<description>
+		Wraps Xbox Services text verification APIs. Methods return one-shot completion [Signal] values that emit [GDKResult].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="verify_string_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="text" type="String" />
+			<description>
+				Verifies one string. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [Dictionary] with [code]result_code[/code], [code]acceptable[/code], and [code]first_offending_substring[/code].
+			</description>
+		</method>
+		<method name="verify_strings_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="strings" type="PackedStringArray" />
+			<description>
+				Verifies multiple strings. On success, [member GDKResult.data] is an [Array] of result dictionaries in service-returned order.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

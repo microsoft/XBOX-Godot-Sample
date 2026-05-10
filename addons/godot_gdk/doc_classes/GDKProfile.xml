@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKProfile" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services profile service accessed via GDK.profile.
+	</brief_description>
+	<description>
+		Wraps Xbox Services profile lookup APIs. Methods return one-shot completion [Signal] values that emit [GDKResult].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_profile_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuid" type="String" />
+			<description>
+				Queries one Xbox profile. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [GDKUserProfile].
+			</description>
+		</method>
+		<method name="get_profiles_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<description>
+				Queries Xbox profiles for the supplied XUID strings. On success, [member GDKResult.data] is an [Array] of [GDKUserProfile] objects.
+			</description>
+		</method>
+		<method name="get_profiles_for_social_group_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="social_group" type="String" />
+			<description>
+				Queries Xbox profiles for a social group such as [code]People[/code] or [code]Favorites[/code]. On success, [member GDKResult.data] is an [Array] of [GDKUserProfile] objects.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

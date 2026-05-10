@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKTitleStorage" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services Title Storage service accessed via GDK.title_storage.
+	</brief_description>
+	<description>
+		Wraps Xbox Services Title Storage quota, metadata listing, download, upload, and delete APIs. Methods return one-shot completion [Signal] values that emit [GDKResult].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_quota_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="storage_type" type="String" />
+			<description>
+				Queries quota for [param storage_type]. On success, [member GDKResult.data] is a [Dictionary] with [code]used_bytes[/code] and [code]quota_bytes[/code].
+			</description>
+		</method>
+		<method name="list_blob_metadata_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="storage_type" type="String" />
+			<param index="2" name="blob_path" type="String" default="&quot;&quot;" />
+			<param index="3" name="skip_items" type="int" default="0" />
+			<param index="4" name="max_items" type="int" default="25" />
+			<description>
+				Lists blob metadata. On success, [member GDKResult.data] is a [GDKTitleStorageBlobMetadataResult].
+			</description>
+		</method>
+		<method name="get_next_blob_metadata_async">
+			<return type="Signal" />
+			<param index="0" name="result" type="GDKTitleStorageBlobMetadataResult" />
+			<description>
+				Fetches the next page for a metadata result that has [method GDKTitleStorageBlobMetadataResult.has_next].
+			</description>
+		</method>
+		<method name="download_blob_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="storage_type" type="String" />
+			<param index="2" name="blob_path" type="String" />
+			<description>
+				Downloads a blob. The service first queries matching metadata so the native blob type and length are used. On success, [member GDKResult.data] is a [Dictionary] with [code]metadata[/code] and [code]data[/code].
+			</description>
+		</method>
+		<method name="upload_blob_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="storage_type" type="String" />
+			<param index="2" name="blob_path" type="String" />
+			<param index="3" name="data" type="PackedByteArray" />
+			<param index="4" name="display_name" type="String" default="&quot;&quot;" />
+			<param index="5" name="e_tag" type="String" default="&quot;&quot;" />
+			<param index="6" name="match_condition" type="String" default="&quot;not_used&quot;" />
+			<description>
+				Uploads bytes using binary blob metadata. On success, [member GDKResult.data] is the uploaded [GDKTitleStorageBlobMetadata].
+			</description>
+		</method>
+		<method name="delete_blob_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="storage_type" type="String" />
+			<param index="2" name="blob_path" type="String" />
+			<param index="3" name="e_tag" type="String" default="&quot;&quot;" />
+			<param index="4" name="match_condition" type="String" default="&quot;not_used&quot;" />
+			<description>
+				Deletes a binary blob. [param match_condition] supports [code]not_used[/code] and [code]if_match[/code].
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

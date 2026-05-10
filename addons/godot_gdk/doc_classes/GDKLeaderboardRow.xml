@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKLeaderboardRow" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Leaderboard row data.
+	</brief_description>
+	<description>
+		Contains copied player identity and column values from one Xbox Services leaderboard row.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_gamertag" qualifiers="const"><return type="String" /><description>Returns the classic gamertag.</description></method>
+		<method name="get_modern_gamertag" qualifiers="const"><return type="String" /><description>Returns the modern gamertag.</description></method>
+		<method name="get_modern_gamertag_suffix" qualifiers="const"><return type="String" /><description>Returns the modern gamertag suffix.</description></method>
+		<method name="get_unique_modern_gamertag" qualifiers="const"><return type="String" /><description>Returns the unique modern gamertag.</description></method>
+		<method name="get_xuid" qualifiers="const"><return type="String" /><description>Returns the row player's XUID.</description></method>
+		<method name="get_percentile" qualifiers="const"><return type="float" /><description>Returns the percentile rank.</description></method>
+		<method name="get_rank" qualifiers="const"><return type="int" /><description>Returns the rank in this result.</description></method>
+		<method name="get_global_rank" qualifiers="const"><return type="int" /><description>Returns the global rank, or 0 when unavailable.</description></method>
+		<method name="get_column_values" qualifiers="const"><return type="PackedStringArray" /><description>Returns JSON-encoded column values from Xbox Services.</description></method>
+	</methods>
+	<members>
+		<member name="gamertag" type="String" setter="" getter="get_gamertag">Classic gamertag.</member>
+		<member name="modern_gamertag" type="String" setter="" getter="get_modern_gamertag">Modern gamertag.</member>
+		<member name="modern_gamertag_suffix" type="String" setter="" getter="get_modern_gamertag_suffix">Modern gamertag suffix.</member>
+		<member name="unique_modern_gamertag" type="String" setter="" getter="get_unique_modern_gamertag">Unique modern gamertag.</member>
+		<member name="xuid" type="String" setter="" getter="get_xuid">Player XUID.</member>
+		<member name="percentile" type="float" setter="" getter="get_percentile">Percentile rank.</member>
+		<member name="rank" type="int" setter="" getter="get_rank">Row rank.</member>
+		<member name="global_rank" type="int" setter="" getter="get_global_rank">Global rank.</member>
+		<member name="column_values" type="PackedStringArray" setter="" getter="get_column_values">JSON-encoded column values.</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

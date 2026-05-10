@@ -27,8 +27,14 @@ accessed as namespaces under this root.
 | `get_game_ui()` | `GDKGameUI` | Access the system UI service |
 | `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
+| `get_stats()` | `GDKStats` | Access the Xbox Services statistics service |
+| `get_leaderboards()` | `GDKLeaderboards` | Access the Xbox Services leaderboard service |
+| `get_privacy()` | `GDKPrivacy` | Access the Xbox Services privacy service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
+| `get_profile()` | `GDKProfile` | Access the Xbox Services profile service |
+| `get_string_verify()` | `GDKStringVerify` | Access the Xbox Services string verification service |
+| `get_title_storage()` | `GDKTitleStorage` | Access the Xbox Services Title Storage service |
 | `get_error_reporting()` | `GDKErrorReporting` | Access the PC GDK `XError` callback/options service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
@@ -257,6 +263,153 @@ Script-visible wrapper around a cached achievement.
 | `is_unlocked()` | `bool` | Whether the achievement is fully unlocked |
 | `is_secret()` | `bool` | Whether the achievement is hidden until unlocked |
 
+## Stats service: `GDK.stats`
+
+`GDK.stats` is a `RefCounted` service object returned by `GDK.get_stats()`.
+It wraps Xbox Services user statistics reads, title-managed statistic updates,
+real-time statistic tracking, and a per-user in-memory cache.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `query_user_stats_async(user, stat_names := PackedStringArray())` | `Signal` | Query named stats for one local user; success data is a `Dictionary` keyed by stat name |
+| `query_users_stats_async(user, xuids, stat_names := PackedStringArray())` | `Signal` | Query named stats for multiple target XUIDs using the local user as caller context; success data is keyed by XUID |
+| `set_stat_integer(user, stat_name, value)` | `GDKResult` | Stage an integer title-managed statistic for the user |
+| `set_stat_number(user, stat_name, value)` | `GDKResult` | Stage a numeric title-managed statistic for the user |
+| `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user |
+| `track_stats(user, stat_names)` | `GDKResult` | Start tracking real-time changes for named stats |
+| `stop_tracking_stats(user, stat_names := PackedStringArray())` | `GDKResult` | Stop tracking named stats, or all tracked stats for the user when empty |
+| `get_cached_stats(user)` | `Dictionary` | Return cached stats for the user keyed by stat name |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `stats_updated(user: GDKUser, stats: Dictionary)` | Cached stats changed for a user |
+| `stat_changed(user: GDKUser, stat_name: String, value: Variant)` | A tracked statistic changed |
+| `stats_flushed(user: GDKUser, result: GDKResult)` | Staged statistics finished flushing |
+
+### Data shape
+
+Stat dictionaries are keyed by statistic name. Each value contains `name`,
+`type`, `value`, and `service_configuration_id`. Native statistic values are
+returned as strings because Xbox Services user-stat query results expose values
+as string payloads.
+
+### Usage
+
+```gdscript
+var query_result = await GDK.stats.query_user_stats_async(user, ["score"])
+if query_result.ok:
+    print(query_result.data["score"]["value"])
+
+GDK.stats.set_stat_number(user, "score", 123.0)
+var flush_result = await GDK.stats.flush_stats_async(user)
+if flush_result.ok:
+    print("Stats flushed")
+```
+
+## Leaderboards service: `GDK.leaderboards`
+
+`GDK.leaderboards` is a `RefCounted` service object returned by
+`GDK.get_leaderboards()`. It wraps read-only Xbox Services leaderboard queries
+backed by title-managed statistics.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_leaderboard_async(user, stat_name, max_items := 25)` | `Signal` | Query the global leaderboard for a stat |
+| `get_leaderboard_around_user_async(user, stat_name, max_items := 25)` | `Signal` | Query the global leaderboard around the local user's XUID |
+| `get_social_leaderboard_async(user, stat_name, max_items := 25)` | `Signal` | Query the followed-people social leaderboard for a stat |
+| `get_next_page_async(leaderboard)` | `Signal` | Fetch the next page for a returned `GDKLeaderboard` |
+| `get_cached_leaderboard(stat_name)` | `GDKLeaderboard` | Return the cached leaderboard for a stat, or `null` |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)` | A leaderboard query or next-page request updated the cache |
+
+### `GDKLeaderboard`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `stat_name` | `String` | Statistic backing the leaderboard |
+| `query_type` | `String` | `global`, `around_user`, or `social` |
+| `total_row_count` | `int` | Total rows reported by Xbox Services |
+| `has_next` | `bool` | Whether another page can be fetched |
+| `columns` | `Array[GDKLeaderboardColumn]` | Column metadata |
+| `rows` | `Array[GDKLeaderboardRow]` | Row data |
+
+`GDKLeaderboardRow.column_values` contains the JSON-encoded column values
+returned by Xbox Services.
+
+### Usage
+
+```gdscript
+var result = await GDK.leaderboards.get_leaderboard_async(user, "score", 25)
+if result.ok:
+    var leaderboard: GDKLeaderboard = result.data
+    for row in leaderboard.rows:
+        print("%s: %s" % [row.unique_modern_gamertag, row.column_values])
+
+    if leaderboard.has_next:
+        await GDK.leaderboards.get_next_page_async(leaderboard)
+```
+
+## Privacy service: `GDK.privacy`
+
+`GDK.privacy` is a `RefCounted` service object returned by
+`GDK.get_privacy()`. It wraps Xbox Services privacy permission checks plus
+avoid-list and mute-list reads.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `check_permission_async(user, permission, target_xuid)` | `Signal` | Check whether `user` has a permission with the target XUID |
+| `check_permission_for_anonymous_user_async(user, permission, anonymous_user_type)` | `Signal` | Check whether `user` has a permission with an anonymous user type |
+| `batch_check_permission_async(user, permission, target_xuids)` | `Signal` | Check one permission against multiple target XUIDs |
+| `get_avoid_list_async(user)` | `Signal` | Query the avoid list for `user`; success data is a `PackedStringArray` of XUID strings |
+| `get_mute_list_async(user)` | `Signal` | Query the mute list for `user`; success data is a `PackedStringArray` of XUID strings |
+
+### Data shape
+
+Permission check results are dictionaries with `allowed`, `target_xuid`,
+`target_user_type`, `permission`, and `reasons`. Each deny reason contains
+`reason`, `restricted_privilege`, and `restricted_privacy_setting`.
+
+Supported permission strings are normalized case-insensitively and include
+`communicate_using_text`, `communicate_using_video`,
+`communicate_using_voice`, `view_target_profile`,
+`view_target_game_history`, `view_target_video_history`,
+`view_target_music_history`, `view_target_exercise_info`,
+`view_target_presence`, `view_target_video_status`,
+`view_target_music_status`, `play_multiplayer`,
+`view_target_user_created_content`, `broadcast_with_twitch`,
+`write_comment`, `share_item`, and
+`share_target_content_to_external_networks`.
+
+Anonymous user type values are `cross_network_user` and
+`cross_network_friend`.
+
+### Usage
+
+```gdscript
+var permission_result = await GDK.privacy.check_permission_async(
+        user,
+        "communicate_using_voice",
+        "2814639012345678")
+if permission_result.ok and permission_result.data["allowed"]:
+    print("Voice chat is allowed")
+
+var mute_list_result = await GDK.privacy.get_mute_list_async(user)
+if mute_list_result.ok:
+    print("Muted users: ", mute_list_result.data)
+```
+
 ## Presence service: `GDK.presence`
 
 `GDK.presence` is a `RefCounted` service object returned by `GDK.get_presence()`.
@@ -268,18 +421,24 @@ Script-visible wrapper around a cached achievement.
 | `set_presence_async(user, state, rich_presence)` | `Signal` | Set rich presence for a local user |
 | `clear_presence_async(user)` | `Signal` | Clear presence for a local user |
 | `get_presence_async(xuids)` | `Signal` | Query presence records for a list of XUIDs |
+| `get_presence_for_social_group_async(user, social_group)` | `Signal` | Query presence records for a named social group |
+| `track_presence(user, xuids, title_ids := PackedInt64Array())` | `GDKResult` | Track device/title presence changes for XUIDs and optional title IDs |
+| `stop_tracking_presence(user, xuids := PackedStringArray(), title_ids := PackedInt64Array())` | `GDKResult` | Stop tracking specific XUIDs/title IDs, or all tracked values when arrays are empty |
 | `get_cached_presence(xuid)` | `GDKPresenceRecord` | Get a cached presence record by XUID |
 
 **Notes:**
 - `state` is the configured rich-presence string ID for the title's SCID in Partner Center. It is not arbitrary display text.
 - `get_presence_async(xuids)` uses the signed-in primary user as its Xbox services caller context, so `GDK.users.get_primary_user()` must be non-null.
+- `get_presence_for_social_group_async(user, social_group)` uses the supplied local user as its Xbox Services caller context.
 
 ### Signals
 
 | Signal | Description |
 |--------|-------------|
-| `presence_changed(record: GDKPresenceRecord)` | A cached presence record was updated |
+| `presence_changed(xuid: String, presence: GDKPresenceRecord)` | A cached presence record was updated |
 | `local_presence_set(user: GDKUser)` | Local user presence was set successfully |
+| `device_presence_changed(xuid: String)` | A tracked user's device presence changed |
+| `title_presence_changed(xuid: String, title_id: int)` | A tracked user's title presence changed |
 
 ### Usage
 
@@ -322,6 +481,15 @@ Script-visible wrapper around a cached Xbox presence record.
 | `create_social_group_from_xuids(user, xuids)` | `GDKSocialGroup` | Create a social group from explicit XUIDs |
 | `destroy_social_group(group)` | `void` | Destroy a social group |
 | `get_group_users(group)` | `Array` | Get the `GDKSocialUser` list for a group |
+| `submit_reputation_feedback_async(user, target_xuid, feedback_type, reason := "", evidence_id := "")` | `Signal` | Submit one reputation feedback item |
+| `submit_batch_reputation_feedback_async(user, feedback_items)` | `Signal` | Submit multiple reputation feedback items |
+
+Batch reputation feedback items are dictionaries with `target_xuid` and
+`feedback_type`, plus optional `reason` and `evidence_id`. Supported feedback
+types are the `XblReputationFeedbackType` names in snake_case, such as
+`fair_play_cheater`, `fair_play_quitter`, `communications_abusive_voice`,
+`comms_text_message`, `positive_skilled_player`, `positive_helpful_player`,
+and `user_content_gamerpic`.
 
 ### Signals
 
@@ -329,7 +497,7 @@ Script-visible wrapper around a cached Xbox presence record.
 |--------|-------------|
 | `social_graph_changed(user: GDKUser)` | The social graph loaded or changed for a user |
 | `social_group_updated(group: GDKSocialGroup)` | A social group's membership was updated |
-| `social_user_changed(social_user: GDKSocialUser)` | A tracked user's social/presence data changed |
+| `social_user_changed(xuid: String, social_user: GDKSocialUser)` | A tracked user's social/presence data changed |
 
 ### Usage
 
@@ -394,6 +562,146 @@ Namespace for social filter enums.
 |-------|-------------|
 | `FRIENDS` | Friends only |
 | `FAVORITE` | Favorite friends only |
+
+## Profile service: `GDK.profile`
+
+`GDK.profile` is a `RefCounted` service object returned by `GDK.get_profile()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_profile_async(user, xuid)` | `Signal` | Query one Xbox profile |
+| `get_profiles_async(user, xuids)` | `Signal` | Query Xbox profiles for a list of XUID strings |
+| `get_profiles_for_social_group_async(user, social_group)` | `Signal` | Query Xbox profiles for a social group such as `People` or `Favorites` |
+
+On success, `get_profile_async()` returns a `GDKResult` whose `data` is a
+`GDKUserProfile`. Batch and social-group queries return an `Array` of
+`GDKUserProfile` objects.
+
+### Usage
+
+```gdscript
+var result = await GDK.profile.get_profile_async(user, target_xuid)
+if result.ok:
+    var profile: GDKUserProfile = result.data
+    print(profile.unique_modern_gamertag)
+```
+
+## `GDKUserProfile`
+
+Script-visible wrapper around an Xbox Services profile record.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `xuid` | `String` | Xbox User ID |
+| `app_display_name` | `String` | Application display name |
+| `app_display_picture_resize_uri` | `String` | Application display picture resize URI |
+| `game_display_name` | `String` | Game display name |
+| `game_display_picture_resize_uri` | `String` | Game display picture resize URI |
+| `gamerscore` | `String` | Gamer score string |
+| `gamertag` | `String` | Classic gamertag |
+| `modern_gamertag` | `String` | Modern gamertag |
+| `modern_gamertag_suffix` | `String` | Modern gamertag suffix, if present |
+| `unique_modern_gamertag` | `String` | Unique modern gamertag and suffix |
+
+## String verification service: `GDK.string_verify`
+
+`GDK.string_verify` is a `RefCounted` service object returned by
+`GDK.get_string_verify()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `verify_string_async(user, text)` | `Signal` | Verify one string for Xbox Live acceptability |
+| `verify_strings_async(user, strings)` | `Signal` | Verify multiple strings for Xbox Live acceptability |
+
+On success, `verify_string_async()` returns a `GDKResult` whose `data` is a
+dictionary with:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `result_code` | `String` | `success`, `offensive`, `too_long`, or `unknown_error` |
+| `acceptable` | `bool` | Whether the service accepted the string |
+| `first_offending_substring` | `String` | First offending substring when available |
+
+`verify_strings_async()` returns an `Array` of the same dictionaries.
+
+### Usage
+
+```gdscript
+var result = await GDK.string_verify.verify_string_async(user, player_name)
+if result.ok and not result.data.acceptable:
+    push_warning("Rejected text: %s" % result.data.result_code)
+```
+
+## Title Storage service: `GDK.title_storage`
+
+`GDK.title_storage` is a `RefCounted` service object returned by
+`GDK.get_title_storage()`. This wraps Xbox Services Title Storage from
+`title_storage_c.h`; it is unrelated to PlayFab Game Saves or GDK
+`XGameSaveFiles`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_quota_async(user, storage_type)` | `Signal` | Query quota for `trusted_platform`, `global`, or `universal` storage |
+| `list_blob_metadata_async(user, storage_type, blob_path := "", skip_items := 0, max_items := 25)` | `Signal` | List blob metadata and return a paged result |
+| `get_next_blob_metadata_async(result)` | `Signal` | Fetch the next metadata page |
+| `download_blob_async(user, storage_type, blob_path)` | `Signal` | Download a blob by first querying its metadata |
+| `upload_blob_async(user, storage_type, blob_path, data, display_name := "", e_tag := "", match_condition := "not_used")` | `Signal` | Upload bytes using binary blob metadata |
+| `delete_blob_async(user, storage_type, blob_path, e_tag := "", match_condition := "not_used")` | `Signal` | Delete a binary blob; `match_condition` supports `not_used` and `if_match` |
+
+Quota results return a dictionary with `storage_type`, `used_bytes`, and
+`quota_bytes`. Download results return a dictionary with `metadata` and `data`.
+Upload results return a `GDKTitleStorageBlobMetadata`.
+
+### Usage
+
+```gdscript
+var list_result = await GDK.title_storage.list_blob_metadata_async(
+        user, "universal", "saves", 0, 25)
+if list_result.ok:
+    var page: GDKTitleStorageBlobMetadataResult = list_result.data
+    for metadata: GDKTitleStorageBlobMetadata in page.items:
+        print(metadata.blob_path, " -> ", metadata.length)
+```
+
+## `GDKTitleStorageBlobMetadata`
+
+Script-visible wrapper around Title Storage blob metadata.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `blob_path` | `String` | Blob path |
+| `blob_type` | `String` | `binary`, `json`, `config`, or `unknown` |
+| `storage_type` | `String` | `trusted_platform`, `global`, `universal`, or `unknown` |
+| `display_name` | `String` | Friendly display name |
+| `e_tag` | `String` | Service ETag |
+| `client_timestamp` | `int` | Client timestamp |
+| `length` | `int` | Blob length in bytes |
+| `service_configuration_id` | `String` | SCID |
+| `xuid` | `String` | Owning XUID when present |
+
+## `GDKTitleStorageBlobMetadataResult`
+
+Paged Title Storage metadata result. Keep the object alive while requesting
+additional pages.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `items` | `Array` | `GDKTitleStorageBlobMetadata` items |
+| `has_next` | `bool` | Whether another page can be fetched |
+| `storage_type` | `String` | Storage type for the query |
+| `blob_path` | `String` | Blob path prefix for the query |
 
 ## Error reporting service: `GDK.error_reporting`
 

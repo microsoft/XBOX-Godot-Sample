@@ -30,6 +30,8 @@ func test_social_full_flow() -> void:
 		"create_social_group_from_xuids",
 		"destroy_social_group",
 		"get_group_users",
+		"submit_reputation_feedback_async",
+		"submit_batch_reputation_feedback_async",
 	]:
 		assert_has_method_named(social, method_name)
 
@@ -115,6 +117,21 @@ func test_social_full_flow() -> void:
 
 	var runtime_errors: Array = []
 	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
+
+	var invalid_feedback_xuid_signal = social.submit_reputation_feedback_async(user, "not-a-number", "fair_play_cheater")
+	await assert_signal_result_error(invalid_feedback_xuid_signal, "invalid_xuid", "submit_reputation_feedback_async() rejects non-numeric XUID strings")
+
+	var invalid_feedback_type_signal = social.submit_reputation_feedback_async(user, "1", "not_a_feedback_type")
+	await assert_signal_result_error(invalid_feedback_type_signal, "invalid_feedback_type", "submit_reputation_feedback_async() rejects unknown feedback types")
+
+	var empty_batch_signal = social.submit_batch_reputation_feedback_async(user, [])
+	await assert_signal_result_error(empty_batch_signal, "invalid_feedback_items", "submit_batch_reputation_feedback_async() rejects empty batches")
+
+	var invalid_batch_item_signal = social.submit_batch_reputation_feedback_async(user, ["not a dictionary"])
+	await assert_signal_result_error(invalid_batch_item_signal, "invalid_feedback_item", "submit_batch_reputation_feedback_async() rejects non-dictionary items")
+
+	var missing_batch_keys_signal = social.submit_batch_reputation_feedback_async(user, [{"target_xuid": "1"}])
+	await assert_signal_result_error(missing_batch_keys_signal, "invalid_feedback_item", "submit_batch_reputation_feedback_async() rejects missing required keys")
 
 	var start_result = social.start_social_graph(user)
 	assert_not_null(start_result, "start_social_graph() returns GDKResult for a signed-in user")

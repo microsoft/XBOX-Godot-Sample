@@ -5,11 +5,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 
 #include "gdk.h"
 #include "gdk_pending_signal.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
+#include "gdk_signal_xasync_context.h"
 #include "gdk_user.h"
 #include "gdk_xbox_services.h"
 
@@ -23,6 +25,10 @@ String _utf8_or_empty(const char *p_value) {
     }
 
     return String::utf8(p_value);
+}
+
+String _normalize_token(const String &p_value) {
+    return p_value.strip_edges().to_lower().replace("-", "_").replace(" ", "_");
 }
 
 bool _try_parse_xuid(const String &p_xuid, uint64_t *r_xuid) {
@@ -44,6 +50,65 @@ bool _try_parse_xuid(const String &p_xuid, uint64_t *r_xuid) {
     }
 
     *r_xuid = static_cast<uint64_t>(parsed);
+    return true;
+}
+
+bool _try_parse_reputation_feedback_type(const String &p_feedback_type, XblReputationFeedbackType *r_feedback_type) {
+    if (r_feedback_type == nullptr) {
+        return false;
+    }
+
+    const String token = _normalize_token(p_feedback_type);
+    if (token == "fair_play_kills_teammates") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayKillsTeammates;
+    } else if (token == "fair_play_cheater") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayCheater;
+    } else if (token == "fair_play_tampering") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayTampering;
+    } else if (token == "fair_play_quitter") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayQuitter;
+    } else if (token == "fair_play_kicked") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayKicked;
+    } else if (token == "communications_inappropriate_video") {
+        *r_feedback_type = XblReputationFeedbackType::CommunicationsInappropriateVideo;
+    } else if (token == "communications_abusive_voice") {
+        *r_feedback_type = XblReputationFeedbackType::CommunicationsAbusiveVoice;
+    } else if (token == "inappropriate_user_generated_content") {
+        *r_feedback_type = XblReputationFeedbackType::InappropriateUserGeneratedContent;
+    } else if (token == "positive_skilled_player") {
+        *r_feedback_type = XblReputationFeedbackType::PositiveSkilledPlayer;
+    } else if (token == "positive_helpful_player") {
+        *r_feedback_type = XblReputationFeedbackType::PositiveHelpfulPlayer;
+    } else if (token == "positive_high_quality_user_generated_content") {
+        *r_feedback_type = XblReputationFeedbackType::PositiveHighQualityUserGeneratedContent;
+    } else if (token == "comms_phishing") {
+        *r_feedback_type = XblReputationFeedbackType::CommsPhishing;
+    } else if (token == "comms_picture_message") {
+        *r_feedback_type = XblReputationFeedbackType::CommsPictureMessage;
+    } else if (token == "comms_spam") {
+        *r_feedback_type = XblReputationFeedbackType::CommsSpam;
+    } else if (token == "comms_text_message") {
+        *r_feedback_type = XblReputationFeedbackType::CommsTextMessage;
+    } else if (token == "comms_voice_message") {
+        *r_feedback_type = XblReputationFeedbackType::CommsVoiceMessage;
+    } else if (token == "fair_play_console_ban_request") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayConsoleBanRequest;
+    } else if (token == "fair_play_idler") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayIdler;
+    } else if (token == "fair_play_user_ban_request") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayUserBanRequest;
+    } else if (token == "user_content_gamerpic") {
+        *r_feedback_type = XblReputationFeedbackType::UserContentGamerpic;
+    } else if (token == "user_content_personal_info") {
+        *r_feedback_type = XblReputationFeedbackType::UserContentPersonalInfo;
+    } else if (token == "fair_play_unsporting") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayUnsporting;
+    } else if (token == "fair_play_leaderboard_cheater") {
+        *r_feedback_type = XblReputationFeedbackType::FairPlayLeaderboardCheater;
+    } else {
+        return false;
+    }
+
     return true;
 }
 
@@ -154,6 +219,100 @@ void _append_unique_local_id(std::vector<uint64_t> *r_values, XUserLocalId p_loc
 Ref<GDKResult> _make_social_error_result(HRESULT p_hresult, const String &p_code, const String &p_message) {
     return GDKResult::error_result(p_hresult, p_code, p_message);
 }
+
+struct ParsedReputationFeedbackItem {
+    uint64_t xuid = 0;
+    XblReputationFeedbackType feedback_type = XblReputationFeedbackType::FairPlayCheater;
+    String reason;
+    String evidence_id;
+};
+
+class ReputationFeedbackAsyncContext final : public GDKSignalXAsyncContext {
+    XblContextHandle m_context = nullptr;
+    std::vector<ParsedReputationFeedbackItem> m_parsed_items;
+    std::vector<CharString> m_reason_values;
+    std::vector<CharString> m_evidence_values;
+    std::vector<XblReputationFeedbackItem> m_items;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        Ref<GDKResult> result;
+
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            result = GDKResult::cancelled("Reputation feedback submission cancelled.");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
+        if (result_hr == E_ABORT) {
+            result = GDKResult::cancelled("Reputation feedback submission cancelled.");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+        if (FAILED(result_hr)) {
+            result = GDKResult::hresult_error(result_hr, "Failed to submit reputation feedback.", "reputation_feedback_failed");
+            get_runtime()->set_last_error(result);
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        Dictionary data;
+        data["submitted_feedback_count"] = static_cast<int64_t>(m_items.size());
+        get_runtime()->clear_last_error();
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    ReputationFeedbackAsyncContext(
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            XblContextHandle p_context,
+            std::vector<ParsedReputationFeedbackItem> p_items) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_context(p_context),
+            m_parsed_items(std::move(p_items)) {
+        m_reason_values.reserve(m_parsed_items.size());
+        m_evidence_values.reserve(m_parsed_items.size());
+        m_items.reserve(m_parsed_items.size());
+
+        for (const ParsedReputationFeedbackItem &parsed_item : m_parsed_items) {
+            m_reason_values.push_back(parsed_item.reason.utf8());
+            m_evidence_values.push_back(parsed_item.evidence_id.utf8());
+        }
+
+        for (size_t i = 0; i < m_parsed_items.size(); ++i) {
+            XblReputationFeedbackItem item = {};
+            item.xboxUserId = m_parsed_items[i].xuid;
+            item.feedbackType = m_parsed_items[i].feedback_type;
+            item.sessionReference = nullptr;
+            item.reasonMessage = m_reason_values[i].get_data();
+            item.evidenceResourceId = m_parsed_items[i].evidence_id.is_empty() ? nullptr : m_evidence_values[i].get_data();
+            m_items.push_back(item);
+        }
+    }
+
+    ~ReputationFeedbackAsyncContext() override {
+        if (m_context != nullptr) {
+            XblContextCloseHandle(m_context);
+            m_context = nullptr;
+        }
+    }
+
+    XblContextHandle get_context() const {
+        return m_context;
+    }
+
+    const XblReputationFeedbackItem *get_items() const {
+        return m_items.data();
+    }
+
+    size_t get_item_count() const {
+        return m_items.size();
+    }
+};
 
 } // namespace
 
@@ -409,6 +568,8 @@ void GDKSocial::_bind_methods() {
     ClassDB::bind_method(D_METHOD("create_social_group_from_xuids", "user", "xuids"), &GDKSocial::create_social_group_from_xuids);
     ClassDB::bind_method(D_METHOD("destroy_social_group", "group"), &GDKSocial::destroy_social_group);
     ClassDB::bind_method(D_METHOD("get_group_users", "group"), &GDKSocial::get_group_users);
+    ClassDB::bind_method(D_METHOD("submit_reputation_feedback_async", "user", "target_xuid", "feedback_type", "reason", "evidence_id"), &GDKSocial::submit_reputation_feedback_async, DEFVAL(String()), DEFVAL(String()));
+    ClassDB::bind_method(D_METHOD("submit_batch_reputation_feedback_async", "user", "feedback_items"), &GDKSocial::submit_batch_reputation_feedback_async);
 
     ADD_SIGNAL(MethodInfo("social_graph_changed", PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUser")));
     ADD_SIGNAL(MethodInfo("social_group_updated", PropertyInfo(Variant::OBJECT, "group", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKSocialGroup")));
@@ -809,6 +970,133 @@ Array GDKSocial::get_group_users(const Ref<GDKSocialGroup> &p_group) {
     return _get_group_users_internal(p_group, false, false);
 }
 
+Signal GDKSocial::submit_reputation_feedback_async(const Ref<GDKUser> &p_user, const String &p_target_xuid, const String &p_feedback_type, const String &p_reason, const String &p_evidence_id) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+
+    ParsedReputationFeedbackItem parsed_item;
+    if (!_try_parse_xuid(p_target_xuid, &parsed_item.xuid)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_xuid", "target_xuid must be a non-empty decimal XUID string.");
+    }
+    if (!_try_parse_reputation_feedback_type(p_feedback_type, &parsed_item.feedback_type)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_feedback_type", "Unknown reputation feedback type.");
+    }
+    parsed_item.reason = p_reason;
+    parsed_item.evidence_id = p_evidence_id;
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_not_initialized", "Xbox services are unavailable. Ensure the title has a TitleId before using social.");
+    }
+
+    XblContextHandle context = nullptr;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "xbox_context_unavailable", "Failed to create an Xbox services context for the user.");
+    }
+
+    std::vector<ParsedReputationFeedbackItem> items;
+    items.push_back(parsed_item);
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *async_context = new ReputationFeedbackAsyncContext(runtime, pending_signal, context, std::move(items));
+    async_context->bind_cancel_handler();
+
+    const XblReputationFeedbackItem *native_item = async_context->get_items();
+    hr = XblSocialSubmitReputationFeedbackAsync(
+            async_context->get_context(),
+            native_item[0].xboxUserId,
+            native_item[0].feedbackType,
+            nullptr,
+            native_item[0].reasonMessage,
+            native_item[0].evidenceResourceId,
+            async_context->get_async_block());
+    if (FAILED(hr)) {
+        async_context->clear_cancel_handler();
+        delete async_context;
+        return _make_error_signal(hr, "reputation_feedback_start_failed", "Failed to start reputation feedback submission.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKSocial::submit_batch_reputation_feedback_async(const Ref<GDKUser> &p_user, const Array &p_feedback_items) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+    if (p_feedback_items.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_feedback_items", "At least one reputation feedback item is required.");
+    }
+
+    std::vector<ParsedReputationFeedbackItem> items;
+    items.reserve(static_cast<size_t>(p_feedback_items.size()));
+    for (int64_t i = 0; i < p_feedback_items.size(); ++i) {
+        if (p_feedback_items[i].get_type() != Variant::DICTIONARY) {
+            return _make_error_signal(E_INVALIDARG, "invalid_feedback_item", "Reputation feedback items must be dictionaries.");
+        }
+
+        Dictionary item = p_feedback_items[i];
+        if (!item.has("target_xuid") || !item.has("feedback_type")) {
+            return _make_error_signal(E_INVALIDARG, "invalid_feedback_item", "Reputation feedback items require target_xuid and feedback_type.");
+        }
+
+        ParsedReputationFeedbackItem parsed_item;
+        if (!_try_parse_xuid(String(item["target_xuid"]), &parsed_item.xuid)) {
+            return _make_error_signal(E_INVALIDARG, "invalid_xuid", "target_xuid values must be decimal XUID strings.");
+        }
+        if (!_try_parse_reputation_feedback_type(String(item["feedback_type"]), &parsed_item.feedback_type)) {
+            return _make_error_signal(E_INVALIDARG, "invalid_feedback_type", "Unknown reputation feedback type.");
+        }
+        if (item.has("reason")) {
+            parsed_item.reason = String(item["reason"]);
+        }
+        if (item.has("evidence_id")) {
+            parsed_item.evidence_id = String(item["evidence_id"]);
+        }
+        items.push_back(parsed_item);
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_not_initialized", "Xbox services are unavailable. Ensure the title has a TitleId before using social.");
+    }
+
+    XblContextHandle context = nullptr;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "xbox_context_unavailable", "Failed to create an Xbox services context for the user.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *async_context = new ReputationFeedbackAsyncContext(runtime, pending_signal, context, std::move(items));
+    async_context->bind_cancel_handler();
+
+    hr = XblSocialSubmitBatchReputationFeedbackAsync(
+            async_context->get_context(),
+            async_context->get_items(),
+            async_context->get_item_count(),
+            async_context->get_async_block());
+    if (FAILED(hr)) {
+        async_context->clear_cancel_handler();
+        delete async_context;
+        return _make_error_signal(hr, "reputation_feedback_start_failed", "Failed to start batch reputation feedback submission.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
 void GDKSocial::on_user_removed(const Ref<GDKUser> &p_user) {
     stop_social_graph(p_user);
 }
@@ -850,6 +1138,17 @@ Signal GDKSocial::_make_error_signal(HRESULT p_hresult, const String &p_code, co
     pending_signal.instantiate();
     pending_signal->complete_deferred(GDKResult::error_result(p_hresult, p_code, p_message));
     return pending_signal->get_completed_signal();
+}
+
+Ref<GDKResult> GDKSocial::_ensure_ready_user(const Ref<GDKUser> &p_user) const {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return GDKResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr || !p_user->is_signed_in()) {
+        return GDKResult::error_result(E_INVALIDARG, "invalid_user", "A signed-in GDKUser is required for social operations.");
+    }
+    return GDKResult::ok_result();
 }
 
 Ref<GDKResult> GDKSocial::_ensure_local_user_state(const Ref<GDKUser> &p_user, LocalUserState **r_state, bool p_auto_start) {

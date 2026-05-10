@@ -4,9 +4,9 @@
 
 This document defines a **GDScript-first** plan for the `godot_gdk` Godot GDExtension plugin.
 
-`godot_gdk` owns the GDK runtime, users, launcher URI flows, save-container resolution, and Xbox services wrappers for achievements, stats, leaderboards, presence, and social features. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
+`godot_gdk` owns the GDK runtime, users, PC GDK helper services, and Xbox Services wrappers. Input is intentionally out of scope for this document; the companion input design lives in `gdext-gameinput.md`.
 
-The core architectural rule is: **C++ is internal; GDScript is the primary public surface**. Commerce, store, and licensing are intentionally deferred until the core runtime and service model are stable.
+The core architectural rule is: **C++ is internal; GDScript is the primary public surface**. Xbox Services wrappers are scoped to the public `xsapi-c` headers and are exposed as service namespaces under the single `GDK` singleton.
 
 ## Design goals
 
@@ -19,18 +19,61 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 ## Scope
 
-| Domain | v1 | Notes |
+| Domain | Status | Notes |
 | --- | --- | --- |
-| Runtime init/shutdown | Yes | `XGameRuntimeInitialize`, queue/bootstrap |
-| User identity/sign-in | Yes | `XUser`-backed |
-| Commerce / store / licensing | Deferred | Revisit after the core runtime and service layers are stable. Launcher URI wrappers are in scope, but commerce REST and purchase APIs remain deferred. |
-| Save data | Yes | `XGameSaveFiles` root/container resolution for Godot file APIs |
-| Achievements | Yes | Achievements Manager-backed |
-| Stats | Yes | title-managed stats via `title_managed_statistics_c` plus `user_statistics_c` reads/tracking |
-| Leaderboards | Yes | leaderboard queries backed by published stats |
-| Presence | Yes | set/get presence for local and remote users |
-| Social | Yes | friends/social graph and relationship groups |
-| Multiplayer/session transport | No | defer; not a good v1 fit |
+| Runtime init/shutdown | Implemented | `XGameRuntimeInitialize`, queue/bootstrap |
+| User identity/sign-in | Implemented | `XUser`-backed; not an Xbox Services `xsapi-c` surface |
+| PC GDK helpers | Implemented selectively | Includes launcher, game UI, accessibility, system metadata, and error reporting; these are outside the Xbox Services coverage matrix below |
+| Achievements | Implemented | Achievements Manager-backed |
+| Presence | Implemented | `GDK.presence` covers set/clear, single/multi-user queries, social-group query, tracking, non-deprecated change handlers, and cache access |
+| Social | Implemented | Social Manager graph/groups and reputation feedback are exposed; direct relationship paging remains intentionally excluded |
+| Multiplayer activity | Implemented and capped | `GDK.multiplayer_activity` is the only multiplayer-related Xbox Services surface |
+| Stats | Implemented | `GDK.stats` wraps `title_managed_statistics_c.h` and `user_statistics_c.h` for reads, staged writes, tracking, and cache access |
+| Leaderboards | Implemented | `GDK.leaderboards` wraps read-only `leaderboard_c.h` queries and pagination |
+| Privacy | Implemented | `GDK.privacy` wraps `privacy_c.h` permission checks and avoid/mute list reads; list-change handlers are not exported by the public XSAPI thunk libraries used by the addon |
+| Profile | Implemented | `GDK.profile` wraps `profile_c.h` profile lookup APIs |
+| String verification | Implemented | `GDK.string_verify` wraps `string_verify_c.h` text verification APIs |
+| Title Storage | Implemented | `GDK.title_storage` wraps `title_storage_c.h`; do not confuse with PlayFab Game Saves or `XGameSaveFiles` |
+| Events | Excluded | Do not wrap `events_c.h` telemetry/configuration APIs |
+| Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
+| Store/commerce/licensing | Out of scope here | XStore is not Xbox Services; do not include it in this Xbox Services wrapper plan |
+
+### Xbox Services coverage matrix
+
+#### Already exposed
+
+| Public service | Native Xbox Services APIs | Notes |
+| --- | --- | --- |
+| `GDK.achievements` | Achievements Manager APIs | Query/update/cache are manager-backed. |
+| `GDK.stats` | `XblUserStatisticsGetSingleUserStatisticsAsync`, `XblUserStatisticsGetSingleUserStatisticsResultSize`, `XblUserStatisticsGetSingleUserStatisticsResult`, `XblUserStatisticsGetMultipleUserStatisticsAsync`, `XblUserStatisticsGetMultipleUserStatisticsResultSize`, `XblUserStatisticsGetMultipleUserStatisticsResult`, `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsRemoveStatisticChangedHandler`, `XblUserStatisticsTrackStatistics`, `XblUserStatisticsStopTrackingStatistics`, `XblUserStatisticsStopTrackingUsers`, `XblTitleManagedStatsUpdateStatsAsync` | Query one or more users' stats, stage integer/number writes, flush staged stats, track changes, and read cached stats. |
+| `GDK.leaderboards` | `XblLeaderboardGetLeaderboardAsync`, `XblLeaderboardGetLeaderboardResultSize`, `XblLeaderboardGetLeaderboardResult`, `XblLeaderboardResultGetNextAsync`, `XblLeaderboardResultGetNextResultSize`, `XblLeaderboardResultGetNextResult` | Read-only global, around-user, social leaderboard queries plus next-page pagination. |
+| `GDK.privacy` | `XblPrivacyCheckPermissionAsync`, `XblPrivacyCheckPermissionResultSize`, `XblPrivacyCheckPermissionResult`, `XblPrivacyCheckPermissionForAnonymousUserAsync`, `XblPrivacyCheckPermissionForAnonymousUserResultSize`, `XblPrivacyCheckPermissionForAnonymousUserResult`, `XblPrivacyBatchCheckPermissionAsync`, `XblPrivacyBatchCheckPermissionResultSize`, `XblPrivacyBatchCheckPermissionResult`, `XblPrivacyGetAvoidListAsync`, `XblPrivacyGetAvoidListResultCount`, `XblPrivacyGetAvoidListResult`, `XblPrivacyGetMuteListAsync`, `XblPrivacyGetMuteListResultCount`, `XblPrivacyGetMuteListResult` | Permission checks against XUIDs or anonymous user types, batch permission checks, and avoid/mute list reads. |
+| `GDK.presence` | `XblPresenceSetPresenceAsync`, `XblPresenceGetPresenceAsync`, `XblPresenceGetPresenceResult`, `XblPresenceGetPresenceForMultipleUsersAsync`, `XblPresenceGetPresenceForMultipleUsersResultCount`, `XblPresenceGetPresenceForMultipleUsersResult`, `XblPresenceGetPresenceForSocialGroupAsync`, `XblPresenceGetPresenceForSocialGroupResultCount`, `XblPresenceGetPresenceForSocialGroupResult`, `XblPresenceAddDevicePresenceChangedHandler`, `XblPresenceRemoveDevicePresenceChangedHandler`, `XblPresenceAddTitlePresenceChangedHandler`, `XblPresenceRemoveTitlePresenceChangedHandler`, `XblPresenceTrackUsers`, `XblPresenceStopTrackingUsers`, `XblPresenceTrackAdditionalTitles`, `XblPresenceStopTrackingAdditionalTitles`, `XblPresenceRecordGetXuid`, `XblPresenceRecordGetUserState`, `XblPresenceRecordGetDeviceRecords`, `XblPresenceRecordCloseHandle` | Set/clear local presence, query presence records, track change notifications, and cache translated records. |
+| `GDK.social` | Social Manager APIs including `XblSocialManagerAddLocalUser`, `XblSocialManagerRemoveLocalUser`, `XblSocialManagerDoWork`, `XblSocialManagerCreateSocialUserGroupFromFilters`, `XblSocialManagerCreateSocialUserGroupFromList`, `XblSocialManagerDestroySocialUserGroup`, and `XblSocialManagerUserGroupGetUsers`; reputation APIs `XblSocialSubmitReputationFeedbackAsync` and `XblSocialSubmitBatchReputationFeedbackAsync` | Direct relationship REST-style wrappers are intentionally not exposed. |
+| `GDK.profile` | `XblProfileGetUserProfileAsync`, `XblProfileGetUserProfileResult`, `XblProfileGetUserProfilesAsync`, `XblProfileGetUserProfilesResultCount`, `XblProfileGetUserProfilesResult`, `XblProfileGetUserProfilesForSocialGroupAsync`, `XblProfileGetUserProfilesForSocialGroupResultCount`, `XblProfileGetUserProfilesForSocialGroupResult` | Query one profile, multiple profiles by XUID list, or profiles for a named social group. |
+| `GDK.string_verify` | `XblStringVerifyStringAsync`, `XblStringVerifyStringResultSize`, `XblStringVerifyStringResult`, `XblStringVerifyStringsAsync`, `XblStringVerifyStringsResultSize`, `XblStringVerifyStringsResult` | Verify one string or a batch of strings and return per-string result dictionaries. |
+| `GDK.title_storage` | `XblTitleStorageGetQuotaAsync`, `XblTitleStorageGetQuotaResult`, `XblTitleStorageGetBlobMetadataAsync`, `XblTitleStorageGetBlobMetadataResult`, `XblTitleStorageBlobMetadataResultGetItems`, `XblTitleStorageBlobMetadataResultHasNext`, `XblTitleStorageBlobMetadataResultGetNextAsync`, `XblTitleStorageBlobMetadataResultGetNextResult`, `XblTitleStorageBlobMetadataResultDuplicateHandle`, `XblTitleStorageBlobMetadataResultCloseHandle`, `XblTitleStorageDownloadBlobAsync`, `XblTitleStorageDownloadBlobResult`, `XblTitleStorageUploadBlobAsync`, `XblTitleStorageUploadBlobResult`, `XblTitleStorageDeleteBlobAsync` | Query quota, list paged metadata, download blobs via metadata discovery, upload bytes, and delete blobs. |
+| `GDK.multiplayer_activity` | `XblMultiplayerActivityUpdateRecentPlayers`, `XblMultiplayerActivityFlushRecentPlayersAsync`, `XblMultiplayerActivitySetActivityAsync`, `XblMultiplayerActivityGetActivityAsync`, `XblMultiplayerActivityGetActivityResultSize`, `XblMultiplayerActivityGetActivityResult`, `XblMultiplayerActivityDeleteActivityAsync`, `XblMultiplayerActivitySendInvitesAsync`, `XblMultiplayerActivityAddInviteHandler`, `XblMultiplayerActivityRemoveInviteHandler` | This is the only multiplayer-related Xbox Services surface. |
+
+#### Accepted Xbox Services wrappers
+
+| Planned public service | Public wrapper scope | Native Xbox Services APIs to wrap |
+| --- | --- | --- |
+
+#### Explicit no-wrap Xbox Services APIs
+
+Do not expose wrappers for:
+
+- `matchmaking_c.h`
+- `multiplayer_c.h`
+- `multiplayer_manager_c.h`
+- MPSD, multiplayer sessions, lobby/session transport APIs
+- `game_invite_c.h` legacy/deprecated invite APIs
+- `events_c.h` telemetry/configuration APIs
+- generic public `notification_c.h` subscription wrappers; use notification/RTA plumbing internally only if a wrapped service requires it
+- `XblPrivacyAddMuteListChangedHandler`, `XblPrivacyRemoveMuteListChangedHandler`, `XblPrivacyAddBlockListChangedHandler`, and `XblPrivacyRemoveBlockListChangedHandler` while the addon links against `Microsoft.Xbox.Services.C.Thunks`; these header-declared APIs are not exported by the public thunk libraries
+- deprecated social, presence, and statistics subscription APIs
+- direct `XblSocialGetSocialRelationshipsAsync` relationship paging; the public social graph remains Social Manager-backed
 
 ## Rationale and prior art
 
@@ -40,13 +83,13 @@ This spec borrows the Godot-facing integration patterns that already work well i
 
 Godot's native async/event style is built around first-class [signals](https://docs.godotengine.org/en/stable/classes/class_signal.html), [`await`](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_basics.html#awaiting-signals-or-coroutines), and [`RefCounted`](https://docs.godotengine.org/en/stable/classes/class_refcounted.html) objects. Exposing raw native handles like `XUserHandle`, `XAsyncBlock`, or queue handles directly to GDScript would fight both Godot ergonomics and Godot lifetime rules.
 
-Wrapping native state in Godot objects such as `GDKUser` and `GDKSaveContainer`, plus exposing one-shot work through completion signals or op objects where handles are still needed, makes the API fit normal GDScript usage patterns like signal connections and `await GDK.users.add_default_user_async()`. The common Godot pattern `await get_tree().create_timer(...).timeout` ([SceneTreeTimer](https://docs.godotengine.org/en/stable/classes/class_scenetreetimer.html), [SceneTree.create_timer](https://docs.godotengine.org/en/stable/classes/class_scenetree.html#class-scenetree-method-create-timer)) is the bar this API should feel native next to.
+Wrapping native state in Godot objects such as `GDKUser`, `GDKLeaderboard`, and `GDKTitleStorageBlobMetadata`, plus exposing one-shot work through completion signals or op objects where handles are still needed, makes the API fit normal GDScript usage patterns like signal connections and `await GDK.users.add_default_user_async()`. The common Godot pattern `await get_tree().create_timer(...).timeout` ([SceneTreeTimer](https://docs.godotengine.org/en/stable/classes/class_scenetreetimer.html), [SceneTree.create_timer](https://docs.godotengine.org/en/stable/classes/class_scenetree.html#class-scenetree-method-create-timer)) is the bar this API should feel native next to.
 
 ### Why service namespaces instead of a flat root
 
-Microsoft documents saves, stats/leaderboards, presence, and the social graph as distinct systems ([XGameSaveFiles overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-save/xgamesavefiles?view=gdk-2510), [Stats and Leaderboards](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/stats-leaderboards/live-stats-leaderboards-nav?view=gdk-2510), [Presence overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/presence/live-presence-overview?view=gdk-2604), [Social Manager overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/social-manager/live-social-manager-overview?view=gdk-2604)).
+Microsoft documents stats/leaderboards, privacy, presence, social graph, profile, string verification, and Title Storage as distinct Xbox Services systems ([Stats and Leaderboards](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/stats-leaderboards/live-stats-leaderboards-nav?view=gdk-2510), [Presence overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/presence/live-presence-overview?view=gdk-2604), [Social Manager overview](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/community/social-manager/live-social-manager-overview?view=gdk-2604)).
 
-Mirroring that separation in the public API makes partial initialization, documentation, testing, and feature flags clearer. The `GDK` root singleton still gives the convenience of one entry point, but the actual surface is partitioned into `GDK.save`, `GDK.achievements`, `GDK.stats`, `GDK.leaderboards`, `GDK.presence`, `GDK.social`, and `GDK.launcher`.
+Mirroring that separation in the public API makes partial initialization, documentation, testing, and feature flags clearer. The `GDK` root singleton still gives the convenience of one entry point, but the Xbox Services surface is partitioned into `GDK.achievements`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, and `GDK.title_storage`.
 
 ### Why main-thread dispatch is part of the public contract
 
@@ -62,10 +105,6 @@ Not all Xbox-facing systems are one-shot request/response flows. Presence and th
 
 Godot's observer model is signal-based ([Using Signals](https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html)). So the spec uses direct-await completion signals for one-shot requests and service-owned caches and signals for long-lived state. That split matches both the platform behavior and Godot's scripting model.
 
-### Why saves are file-oriented
-
-Microsoft recommends [XGameSaveFiles](https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-save/xgamesavefiles?view=gdk-2510) for new titles and presents it as a container/file model with standard file I/O and cloud sync ([Implement cloud saves](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/tutorials/pc-e2e-guide/e2e-services/e2e-cloud-saves?view=gdk-2604)). For a Godot plugin, the GDK-specific part is resolving and caching the cloud-backed folder for a logical container. Once that path exists, ordinary file work should use Godot's native [FileAccess](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html) and [DirAccess](https://docs.godotengine.org/en/stable/classes/class_diraccess.html) APIs instead of re-wrapping basic read/write/delete calls in C++.
-
 ## Public API conventions
 
 ### Global singleton
@@ -79,10 +118,12 @@ Microsoft recommends [XGameSaveFiles](https://learn.microsoft.com/en-us/gaming/g
 | one-shot async request | `Signal` |
 | `HRESULT` + payload | `GDKResult` |
 | `XUserHandle` | `GDKUser` |
-| Save container metadata/path | `GDKSaveContainer` |
-| Stats and leaderboard payloads | `GDKStatistic`, `GDKLeaderboard`, `GDKLeaderboardEntry` |
+| Stats and leaderboard payloads | stats `Dictionary`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow` |
+| Privacy check payloads | `Dictionary` |
 | Presence payloads | `GDKPresenceRecord` |
 | Social graph payloads | `GDKSocialUser`, `GDKSocialGroup` |
+| Profile payloads | `GDKUserProfile` |
+| Title Storage payloads | `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult` |
 
 ### General rules
 
@@ -227,7 +268,7 @@ data: Variant
 
 | Pattern | Used for | Public surface |
 | --- | --- | --- |
-| one-shot request/response or manager-backed wait | sign-in, save container opens, achievement cache warm-up/updates, leaderboard queries | completion `Signal` |
+| one-shot request/response or manager-backed wait | sign-in, achievement cache warm-up/updates, leaderboard queries, privacy checks, profile lookups, title-storage blob operations | completion `Signal` |
 | Long-lived background state | social graph updates, presence changes, tracked stat change notifications | service signals + cached state |
 
 #### Examples
@@ -255,7 +296,7 @@ if result.ok:
     # Safe to read the cache here; service state should already be updated.
     print(GDK.stats.get_cached_stats(user))
 
-func _on_stats_updated(updated_user: GDKUser) -> void:
+func _on_stats_updated(updated_user: GDKUser, stats: Dictionary) -> void:
     print("Stats cache updated before op completion is observed")
 ```
 
@@ -270,7 +311,7 @@ func _process(_delta: float) -> void:
 #### Example: fire-and-forget async operation
 
 ```gdscript
-GDK.save.open_container_async(user, "profile").connect(func(result: GDKResult) -> void:
+GDK.stats.query_user_stats_async(user, PackedStringArray(["xp"])).connect(func(result: GDKResult) -> void:
     if not result.ok:
         push_error(result.message)
 )
@@ -309,14 +350,18 @@ GDK.users: GDKUsers
 GDK.game_ui: GDKGameUI
 GDK.system: GDKSystem
 GDK.accessibility: GDKAccessibility
-GDK.save: GDKSave
 GDK.achievements: GDKAchievements
 GDK.stats: GDKStats
 GDK.leaderboards: GDKLeaderboards
+GDK.privacy: GDKPrivacy
 GDK.presence: GDKPresence
 GDK.social: GDKSocial
+GDK.profile: GDKProfile
+GDK.string_verify: GDKStringVerify
+GDK.title_storage: GDKTitleStorage
 GDK.error_reporting: GDKErrorReporting
 GDK.launcher: GDKLauncher
+GDK.multiplayer_activity: GDKMultiplayerActivity
 ```
 
 #### Root signals
@@ -471,55 +516,6 @@ resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
 | `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `GDKResult.data`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Delegate to `GDK.users` privilege-remediation flow so existing users-service behavior remains authoritative. |
 
-#### `GDK.save` service
-
-##### Methods
-
-```gdscript
-open_container_async(user: GDKUser, container_name: String) -> Signal
-get_container(user: GDKUser, container_name: String) -> GDKSaveContainer
-```
-
-##### `GDKSaveContainer`
-
-```gdscript
-get_name() -> String
-get_path() -> String
-get_user() -> GDKUser
-```
-
-##### Notes
-
-- `open_container_async()` returns a `GDKSaveContainer` in `GDKResult.data`.
-- `GDKSaveContainer.get_path()` is an absolute container directory path intended for Godot `FileAccess` and `DirAccess`.
-- v1 intentionally does **not** wrap per-file read/write/delete operations in C++.
-- `open_container_async()` should ensure the logical container directory exists before returning it to script.
-- On PC, container resolution should be refreshed on startup and on user/context changes; PLM-style resume semantics should not be the public contract for this spec.
-- Do not expose raw `XGameSave` concepts in script.
-
-##### Example
-
-```gdscript
-var result: GDKResult = await GDK.save.open_container_async(user, "profile")
-if not result.ok:
-    push_error(result.message)
-    return
-
-var container: GDKSaveContainer = result.data
-var path := container.get_path().path_join("save01.json")
-var file := FileAccess.open(path, FileAccess.WRITE)
-file.store_string(JSON.stringify(save_data))
-```
-
-##### Native API mapping
-
-| Wrapper/API | Native API(s) | Notes |
-| --- | --- | --- |
-| `open_container_async()` | `XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetFolderWithUiResult` | Resolves the cloud-backed save root, derives the container subdirectory path, ensures the directory exists, caches it per user/container pair, and returns a `GDKSaveContainer`. |
-| `get_container()` | service cache only | Returns the cached container wrapper for script-side `FileAccess` / `DirAccess` usage. |
-| `GDKSaveContainer.get_path()` | cached absolute path | This is the value gameplay code passes to Godot's native file APIs. |
-| future quota helper | `XGameSaveFilesGetRemainingQuota` | Optional convenience for UI or diagnostics; not required for ordinary file I/O. |
-
 #### `GDK.achievements` service
 
 ##### Methods
@@ -563,24 +559,29 @@ The manager result handles should be copied into extension-owned data immediatel
 
 ```gdscript
 query_user_stats_async(user: GDKUser, stat_names := PackedStringArray()) -> Signal
+query_users_stats_async(user: GDKUser, xuids: PackedStringArray, stat_names := PackedStringArray()) -> Signal
 set_stat_number(user: GDKUser, stat_name: String, value: float) -> GDKResult
 set_stat_integer(user: GDKUser, stat_name: String, value: int) -> GDKResult
-flush_stats_async(user: GDKUser, immediate := false) -> Signal
+flush_stats_async(user: GDKUser) -> Signal
+track_stats(user: GDKUser, stat_names: PackedStringArray) -> GDKResult
+stop_tracking_stats(user: GDKUser, stat_names := PackedStringArray()) -> GDKResult
 get_cached_stats(user: GDKUser) -> Dictionary
 ```
 
 ##### Signals
 
 ```gdscript
-stats_updated(user: GDKUser)
+stats_updated(user: GDKUser, stats: Dictionary)
+stat_changed(user: GDKUser, stat_name: String, value: Variant)
 stats_flushed(user: GDKUser, result: GDKResult)
 ```
 
 ##### Notes
 
-- Use title-managed stats as the v1 write path. Do not build an event-based stat wrapper in this plugin.
+- Use title-managed stats as the v1 write path.
 - The `set_* + flush` shape is an extension-owned batching convenience, not a native GDK API shape.
 - Use `user_statistics_c` for explicit reads and optional real-time change tracking.
+- Statistic query methods require at least one statistic name because the wrapped XSAPI query families are explicit-name APIs.
 - Leaderboards should consume published stats rather than having a separate score-submission path.
 
 ##### Native API mapping
@@ -588,10 +589,13 @@ stats_flushed(user: GDKUser, result: GDKResult)
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
 | `query_user_stats_async()` | `XblUserStatisticsGetSingleUserStatisticsAsync`, `XblUserStatisticsGetSingleUserStatisticsResultSize`, `XblUserStatisticsGetSingleUserStatisticsResult` | Use explicit user-statistics reads for query-style fetches and cache refreshes. |
+| `query_users_stats_async()` | `XblUserStatisticsGetMultipleUserStatisticsAsync`, `XblUserStatisticsGetMultipleUserStatisticsResultSize`, `XblUserStatisticsGetMultipleUserStatisticsResult` | Use one local user context to read the requested stats for a target XUID list. |
 | `set_stat_number()` / `set_stat_integer()` | extension-local staging only | Convert staged values into `XblTitleManagedStatistic` payloads. No native call is made until `flush_stats_async()`. |
 | `flush_stats_async()` | `XblTitleManagedStatsUpdateStatsAsync`, `XblTitleManagedStatistic`, `XblTitleManagedStatType` | Flushes staged values through the documented title-managed stats write API. If the wrapper later needs full-document replacement semantics, add a separate path that uses `XblTitleManagedStatsWriteAsync`. |
+| `track_stats()` | `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsTrackStatistics` | Register one change handler per local user context, then track the requested stats for that user's XUID. |
+| `stop_tracking_stats()` | `XblUserStatisticsStopTrackingStatistics`, `XblUserStatisticsStopTrackingUsers`, `XblUserStatisticsRemoveStatisticChangedHandler` | Stop specific stat tracking or all tracked stat updates for the local user. |
 | `get_cached_stats()` | service cache only | Cache ownership stays in the extension; it is hydrated by explicit reads and tracked-stat change callbacks. |
-| `stats_updated` / `stats_flushed` | `XblUserStatisticsTrackStatistics`, `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsRemoveStatisticChangedHandler`, `XblUserStatisticsStopTrackingStatistics` | Tracked-stat callbacks drive `stats_updated`; title-managed write completion drives `stats_flushed`. |
+| `stats_updated` / `stat_changed` / `stats_flushed` | Service cache plus statistic-change handlers | Query and tracked-stat callbacks update the cache before completion/notification; title-managed write completion drives `stats_flushed`. |
 
 Earlier undocumented stats-family references were removed during audit. The documented write family is `title_managed_statistics_c`; the documented read and tracking family is `user_statistics_c`.
 
@@ -600,9 +604,10 @@ Earlier undocumented stats-family references were removed during audit. The docu
 ##### Methods
 
 ```gdscript
-get_leaderboard_async(user: GDKUser, stat_name: String, query: GDKLeaderboardQuery = null) -> Signal
+get_leaderboard_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
 get_leaderboard_around_user_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
 get_social_leaderboard_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
+get_next_page_async(leaderboard: GDKLeaderboard) -> Signal
 get_cached_leaderboard(stat_name: String) -> GDKLeaderboard
 ```
 
@@ -627,6 +632,36 @@ leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)
 | pagination inside `GDKLeaderboard` | `XblLeaderboardResultGetNextAsync`, `XblLeaderboardResultGetNextResultSize`, `XblLeaderboardResultGetNextResult` | Store continuation state in the wrapper so GDScript can request another page later without exposing native handles. |
 | `get_cached_leaderboard()` | service cache only | Return the most recent translated leaderboard snapshot. |
 
+#### `GDK.privacy` service
+
+##### Methods
+
+```gdscript
+check_permission_async(user: GDKUser, permission: String, target_xuid: String) -> Signal
+check_permission_for_anonymous_user_async(user: GDKUser, permission: String, anonymous_user_type: String) -> Signal
+batch_check_permission_async(user: GDKUser, permission: String, target_xuids: PackedStringArray) -> Signal
+get_avoid_list_async(user: GDKUser) -> Signal
+get_mute_list_async(user: GDKUser) -> Signal
+```
+
+##### Notes
+
+- Permission names are Godot-style strings that map to `XblPermission`.
+- Anonymous user type names are `cross_network_user` and `cross_network_friend`.
+- Permission results are returned as dictionaries. Batch results are returned as an array of those dictionaries.
+- Avoid/mute list query results are returned as `PackedStringArray` XUID values.
+- The `XblPrivacy*ListChangedHandler` APIs are intentionally not exposed while the addon uses the public XSAPI thunk libraries, because those handler symbols are header-declared but not exported by the thunk libs used for runtime deployment.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `check_permission_async()` | `XblPrivacyCheckPermissionAsync`, `XblPrivacyCheckPermissionResultSize`, `XblPrivacyCheckPermissionResult` | Checks one permission against one target XUID. |
+| `check_permission_for_anonymous_user_async()` | `XblPrivacyCheckPermissionForAnonymousUserAsync`, `XblPrivacyCheckPermissionForAnonymousUserResultSize`, `XblPrivacyCheckPermissionForAnonymousUserResult` | Checks one permission against a supported anonymous user type. |
+| `batch_check_permission_async()` | `XblPrivacyBatchCheckPermissionAsync`, `XblPrivacyBatchCheckPermissionResultSize`, `XblPrivacyBatchCheckPermissionResult` | Checks one permission against a list of target XUIDs. |
+| `get_avoid_list_async()` | `XblPrivacyGetAvoidListAsync`, `XblPrivacyGetAvoidListResultCount`, `XblPrivacyGetAvoidListResult` | Returns the avoid-list XUIDs for the local user context. |
+| `get_mute_list_async()` | `XblPrivacyGetMuteListAsync`, `XblPrivacyGetMuteListResultCount`, `XblPrivacyGetMuteListResult` | Returns the mute-list XUIDs for the local user context. |
+
 #### `GDK.presence` service
 
 ##### Methods
@@ -635,6 +670,9 @@ leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)
 set_presence_async(user: GDKUser, state: String, rich_presence := {}) -> Signal
 clear_presence_async(user: GDKUser) -> Signal
 get_presence_async(xuids: PackedStringArray) -> Signal
+get_presence_for_social_group_async(user: GDKUser, social_group: String) -> Signal
+track_presence(user: GDKUser, xuids: PackedStringArray, title_ids := PackedInt64Array()) -> GDKResult
+stop_tracking_presence(user: GDKUser, xuids := PackedStringArray(), title_ids := PackedInt64Array()) -> GDKResult
 get_cached_presence(xuid: String) -> GDKPresenceRecord
 ```
 
@@ -643,6 +681,8 @@ get_cached_presence(xuid: String) -> GDKPresenceRecord
 ```gdscript
 presence_changed(xuid: String, presence: GDKPresenceRecord)
 local_presence_set(user: GDKUser)
+device_presence_changed(xuid: String)
+title_presence_changed(xuid: String, title_id: int)
 ```
 
 ##### Notes
@@ -651,6 +691,7 @@ local_presence_set(user: GDKUser)
 - This service owns the local and remote presence cache.
 - For multi-user reads, prefer the documented multiple-user presence query instead of issuing one native request per XUID.
 - There is no separate documented `clear presence` function in `presence_c`; clearing should be modeled as setting the local user inactive with no rich presence payload.
+- Device/title presence change callbacks are emitted from `GDK.dispatch()` after `track_presence()` configures `XblPresenceTrackUsers` and optional additional title tracking.
 
 ##### Native API mapping
 
@@ -659,6 +700,9 @@ local_presence_set(user: GDKUser)
 | `set_presence_async()` | `XblPresenceSetPresenceAsync`, `XblPresenceRichPresenceIds` | Local presence write path. The wrapper should translate lightweight Godot presence input into the documented rich-presence id shape. |
 | `clear_presence_async()` | `XblPresenceSetPresenceAsync` | Wrapper convenience only. Implement by setting the local user inactive and omitting rich presence, since no dedicated clear API is documented. |
 | `get_presence_async()` | `XblPresenceGetPresenceAsync`, `XblPresenceGetPresenceResult`, `XblPresenceGetPresenceForMultipleUsersAsync`, `XblPresenceGetPresenceForMultipleUsersResultCount`, `XblPresenceGetPresenceForMultipleUsersResult` | Use the single-user or multiple-user path based on the XUID count, then update the cache before completing the returned signal. |
+| `get_presence_for_social_group_async()` | `XblPresenceGetPresenceForSocialGroupAsync`, `XblPresenceGetPresenceForSocialGroupResultCount`, `XblPresenceGetPresenceForSocialGroupResult` | Query a named social group using a supplied local-user context, then update the cache before completing the returned signal. |
+| `track_presence()` | `XblPresenceAddDevicePresenceChangedHandler`, `XblPresenceAddTitlePresenceChangedHandler`, `XblPresenceTrackUsers`, `XblPresenceTrackAdditionalTitles` | Registers one handler set per local user and starts device/title presence tracking. |
+| `stop_tracking_presence()` | `XblPresenceStopTrackingUsers`, `XblPresenceStopTrackingAdditionalTitles`, `XblPresenceRemoveDevicePresenceChangedHandler`, `XblPresenceRemoveTitlePresenceChangedHandler` | Stops requested tracked users/titles; empty arrays stop all values tracked by this service for the local user. |
 | `get_cached_presence()` | service cache only | Presence records are cached and owned by `GDK.presence`, even when the social layer is also active. |
 
 #### `GDK.social` service
@@ -673,6 +717,8 @@ create_social_group(user: GDKUser, filter: GDKSocialFilter = null) -> GDKSocialG
 create_social_group_from_xuids(user: GDKUser, xuids: PackedStringArray) -> GDKSocialGroup
 destroy_social_group(group: GDKSocialGroup) -> void
 get_group_users(group: GDKSocialGroup) -> Array[GDKSocialUser]
+submit_reputation_feedback_async(user: GDKUser, target_xuid: String, feedback_type: String, reason := "", evidence_id := "") -> Signal
+submit_batch_reputation_feedback_async(user: GDKUser, feedback_items: Array) -> Signal
 ```
 
 ##### Signals
@@ -688,6 +734,7 @@ social_user_changed(xuid: String, social_user: GDKSocialUser)
 - Mirrors Xbox social graph concepts, but exposes groups and users as Godot objects.
 - Presence-backed friend filtering belongs in the social layer; actual presence payloads remain owned by `GDK.presence`.
 - v1 social graph implementation should be Social Manager-backed rather than a separate friend-list fetch layer.
+- Reputation feedback accepts `XblReputationFeedbackType` names in snake_case and intentionally omits MPSD session references from the Godot surface.
 
 ##### Native API mapping
 
@@ -701,7 +748,103 @@ social_user_changed(xuid: String, social_user: GDKSocialUser)
 | `destroy_social_group()` | `XblSocialManagerDestroySocialUserGroup` | Releases the native social-group handle. |
 | future mutable list groups | `XblSocialManagerUpdateSocialUserGroup` | Keep this internal until a public update-group API is justified. |
 | `get_group_users()` | `XblSocialManagerUserGroupGetUsers` | Reads the current user list from the native social group handle. |
+| `submit_reputation_feedback_async()` | `XblSocialSubmitReputationFeedbackAsync` | Submit one feedback item without exposing native MPSD session-reference structs. |
+| `submit_batch_reputation_feedback_async()` | `XblSocialSubmitBatchReputationFeedbackAsync`, `XblReputationFeedbackItem` | Batch items are Godot dictionaries with `target_xuid`, `feedback_type`, optional `reason`, and optional `evidence_id`. |
 | social signals | `XblSocialManagerDoWork` | Group membership and user changes should be driven from Social Manager events and mirrored into Godot caches. |
+
+#### `GDK.profile` service
+
+##### Methods
+
+```gdscript
+get_profile_async(user: GDKUser, xuid: String) -> Signal
+get_profiles_async(user: GDKUser, xuids: PackedStringArray) -> Signal
+get_profiles_for_social_group_async(user: GDKUser, social_group: String) -> Signal
+```
+
+##### Wrapper types
+
+```gdscript
+GDKUserProfile
+```
+
+##### Notes
+
+- Methods require a signed-in local `GDKUser` to create the Xbox Services context.
+- XUID arguments are accepted as decimal strings to match other public Xbox identity surfaces.
+- Single-profile queries return a `GDKUserProfile` in `GDKResult.data`; list and social-group queries return an `Array[GDKUserProfile]`.
+- Supported profile fields mirror `XblUserProfile`: app/game display names and picture URIs, gamerscore, classic gamertag, modern gamertag, modern suffix, and unique modern gamertag.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `get_profile_async()` | `XblProfileGetUserProfileAsync`, `XblProfileGetUserProfileResult` | Queries a single XUID. |
+| `get_profiles_async()` | `XblProfileGetUserProfilesAsync`, `XblProfileGetUserProfilesResultCount`, `XblProfileGetUserProfilesResult` | Requires at least one target XUID. |
+| `get_profiles_for_social_group_async()` | `XblProfileGetUserProfilesForSocialGroupAsync`, `XblProfileGetUserProfilesForSocialGroupResultCount`, `XblProfileGetUserProfilesForSocialGroupResult` | Passes through named groups such as `People` or `Favorites`. |
+
+#### `GDK.string_verify` service
+
+##### Methods
+
+```gdscript
+verify_string_async(user: GDKUser, text: String) -> Signal
+verify_strings_async(user: GDKUser, strings: PackedStringArray) -> Signal
+```
+
+##### Notes
+
+- Methods require a signed-in local `GDKUser` to create the Xbox Services context.
+- `verify_string_async()` returns one dictionary in `GDKResult.data`.
+- `verify_strings_async()` requires at least one string and returns an `Array` of dictionaries.
+- Result dictionaries contain `result_code` (`success`, `offensive`, `too_long`, or `unknown_error`), `acceptable`, and `first_offending_substring`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `verify_string_async()` | `XblStringVerifyStringAsync`, `XblStringVerifyStringResultSize`, `XblStringVerifyStringResult` | Verifies one string. |
+| `verify_strings_async()` | `XblStringVerifyStringsAsync`, `XblStringVerifyStringsResultSize`, `XblStringVerifyStringsResult` | Verifies a non-empty string list. |
+
+#### `GDK.title_storage` service
+
+##### Methods
+
+```gdscript
+get_quota_async(user: GDKUser, storage_type: String) -> Signal
+list_blob_metadata_async(user: GDKUser, storage_type: String, blob_path := "", skip_items := 0, max_items := 25) -> Signal
+get_next_blob_metadata_async(result: GDKTitleStorageBlobMetadataResult) -> Signal
+download_blob_async(user: GDKUser, storage_type: String, blob_path: String) -> Signal
+upload_blob_async(user: GDKUser, storage_type: String, blob_path: String, data: PackedByteArray, display_name := "", e_tag := "", match_condition := "not_used") -> Signal
+delete_blob_async(user: GDKUser, storage_type: String, blob_path: String, e_tag := "", match_condition := "not_used") -> Signal
+```
+
+##### Wrapper types
+
+```gdscript
+GDKTitleStorageBlobMetadata
+GDKTitleStorageBlobMetadataResult
+```
+
+##### Notes
+
+- This wraps Xbox Services Title Storage from `title_storage_c.h`; it is not PlayFab Game Saves and not GDK `XGameSaveFiles`.
+- Storage type strings are `trusted_platform`, `global`, and `universal`.
+- Metadata results hold a native result handle and must stay alive while requesting additional pages.
+- `download_blob_async()` first queries exact-path metadata so the native blob type and length are used for the download.
+- `upload_blob_async()` creates binary blob metadata for new writes. Use `list_blob_metadata_async()` and `download_blob_async()` to inspect service-returned blob types.
+- `delete_blob_async()` maps the native delete API's boolean ETag check, so `match_condition` supports only `not_used` and `if_match`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `get_quota_async()` | `XblTitleStorageGetQuotaAsync`, `XblTitleStorageGetQuotaResult` | Returns used/quota bytes for one storage type. |
+| `list_blob_metadata_async()` | `XblTitleStorageGetBlobMetadataAsync`, `XblTitleStorageGetBlobMetadataResult`, `XblTitleStorageBlobMetadataResultGetItems`, `XblTitleStorageBlobMetadataResultHasNext` | Returns a paged metadata result wrapper. |
+| `get_next_blob_metadata_async()` | `XblTitleStorageBlobMetadataResultDuplicateHandle`, `XblTitleStorageBlobMetadataResultGetNextAsync`, `XblTitleStorageBlobMetadataResultGetNextResult`, `XblTitleStorageBlobMetadataResultCloseHandle` | Duplicates the source handle so the async next-page operation owns a stable handle. |
+| `download_blob_async()` | `XblTitleStorageGetBlobMetadataAsync`, `XblTitleStorageGetBlobMetadataResult`, `XblTitleStorageBlobMetadataResultGetItems`, `XblTitleStorageBlobMetadataResultCloseHandle`, `XblTitleStorageDownloadBlobAsync`, `XblTitleStorageDownloadBlobResult` | Discovers exact metadata before downloading. |
+| `upload_blob_async()` | `XblTitleStorageUploadBlobAsync`, `XblTitleStorageUploadBlobResult` | Uploads a Godot `PackedByteArray` as a binary blob. |
+| `delete_blob_async()` | `XblTitleStorageDeleteBlobAsync`, `XAsyncGetStatus` | Native completion is status-only. |
 
 #### `GDK.error_reporting` service
 
@@ -751,9 +894,12 @@ error_reported(result: GDKResult)
 | `gdk/services/enable_achievements` | `true` | Registers and initializes the achievements service. |
 | `gdk/services/enable_stats` | `true` | Registers and initializes the stats service. |
 | `gdk/services/enable_leaderboards` | `true` | Registers and initializes the leaderboards service. |
+| `gdk/services/enable_privacy` | `true` | Registers and initializes the privacy service. |
 | `gdk/services/enable_presence` | `true` | Registers and initializes the presence service. |
 | `gdk/services/enable_social` | `true` | Registers and initializes the social service. |
-| `gdk/services/enable_save` | `true` | Registers and initializes the save service. |
+| `gdk/services/enable_profile` | `true` | Registers and initializes the profile service. |
+| `gdk/services/enable_string_verify` | `true` | Registers and initializes the string verification service. |
+| `gdk/services/enable_title_storage` | `true` | Registers and initializes the Title Storage service. |
 
 ## Build and packaging rules
 
@@ -775,6 +921,6 @@ error_reported(result: GDKResult)
 | Step | Deliverable |
 | --- | --- |
 | 1 | shared core, `GDK` runtime, users |
-| 2 | save + achievements |
-| 3 | stats + leaderboards + presence + social |
-| 4 | optional session/multiplayer add-on |
+| 2 | achievements + current presence/social + MPA |
+| 3 | stats + leaderboards + privacy |
+| 4 | presence/social completion APIs + profile + string verification + Title Storage |

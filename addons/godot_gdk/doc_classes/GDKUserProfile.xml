@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKUserProfile" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Script-visible Xbox Services user profile record.
+	</brief_description>
+	<description>
+		Holds profile fields returned by [GDKProfile] lookups.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_xuid" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the Xbox User ID.
+			</description>
+		</method>
+		<method name="get_app_display_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the application display name.
+			</description>
+		</method>
+		<method name="get_app_display_picture_resize_uri" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the application display picture resize URI.
+			</description>
+		</method>
+		<method name="get_game_display_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the game display name.
+			</description>
+		</method>
+		<method name="get_game_display_picture_resize_uri" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the game display picture resize URI.
+			</description>
+		</method>
+		<method name="get_gamerscore" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's gamerscore string.
+			</description>
+		</method>
+		<method name="get_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the classic gamertag.
+			</description>
+		</method>
+		<method name="get_modern_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the modern gamertag.
+			</description>
+		</method>
+		<method name="get_modern_gamertag_suffix" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the modern gamertag suffix, if present.
+			</description>
+		</method>
+		<method name="get_unique_modern_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the unique modern gamertag and suffix.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="xuid" type="String" setter="" getter="get_xuid">
+			The Xbox User ID.
+		</member>
+		<member name="app_display_name" type="String" setter="" getter="get_app_display_name">
+			The application display name.
+		</member>
+		<member name="app_display_picture_resize_uri" type="String" setter="" getter="get_app_display_picture_resize_uri">
+			The application display picture resize URI.
+		</member>
+		<member name="game_display_name" type="String" setter="" getter="get_game_display_name">
+			The game display name.
+		</member>
+		<member name="game_display_picture_resize_uri" type="String" setter="" getter="get_game_display_picture_resize_uri">
+			The game display picture resize URI.
+		</member>
+		<member name="gamerscore" type="String" setter="" getter="get_gamerscore">
+			The user's gamerscore string.
+		</member>
+		<member name="gamertag" type="String" setter="" getter="get_gamertag">
+			The classic gamertag.
+		</member>
+		<member name="modern_gamertag" type="String" setter="" getter="get_modern_gamertag">
+			The modern gamertag.
+		</member>
+		<member name="modern_gamertag_suffix" type="String" setter="" getter="get_modern_gamertag_suffix">
+			The modern gamertag suffix, if present.
+		</member>
+		<member name="unique_modern_gamertag" type="String" setter="" getter="get_unique_modern_gamertag">
+			The unique modern gamertag and suffix.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

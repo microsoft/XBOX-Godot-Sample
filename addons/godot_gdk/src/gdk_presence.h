@@ -6,6 +6,7 @@
 #endif
 #include <windows.h>
 
+#include <mutex>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -14,6 +15,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int64_array.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
@@ -67,13 +69,58 @@ class GDKPresence : public RefCounted {
     bool m_runtime_ready = false;
     std::vector<Ref<GDKPresenceRecord>> m_cached_presence;
 
+    struct HandlerState {
+        struct CallbackContext {
+            GDKPresence *presence = nullptr;
+            XUserLocalId local_id = {};
+        };
+
+        Ref<GDKUser> user;
+        XUserLocalId local_id = {};
+        XblContextHandle context = nullptr;
+        XblFunctionContext device_token = {};
+        XblFunctionContext title_token = {};
+        bool device_registered = false;
+        bool title_registered = false;
+        CallbackContext *callback_context = nullptr;
+        std::vector<uint64_t> tracked_xuids;
+        std::vector<uint32_t> tracked_title_ids;
+    };
+
+    struct PendingPresenceEvent {
+        enum EventType {
+            EVENT_DEVICE,
+            EVENT_TITLE,
+        };
+
+        EventType type = EVENT_DEVICE;
+        XUserLocalId local_id = {};
+        uint64_t xuid = 0;
+        XblPresenceDeviceType device_type = XblPresenceDeviceType::Unknown;
+        bool device_logged_on = false;
+        uint32_t title_id = 0;
+        XblPresenceTitleState title_state = XblPresenceTitleState::Unknown;
+    };
+
+    std::vector<HandlerState> m_handler_states;
+    std::vector<PendingPresenceEvent> m_pending_presence_events;
+    mutable std::mutex m_pending_presence_events_mutex;
+
     GDKRuntime *_get_runtime() const;
     GDKXboxServices *_get_xbox_services() const;
     Signal _make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant()) const;
+    Ref<GDKResult> _ensure_ready_user(const Ref<GDKUser> &p_user) const;
     Ref<GDKUser> _get_presence_calling_user() const;
     Ref<GDKResult> _parse_query_xuids(const PackedStringArray &p_xuids, std::vector<uint64_t> *r_xuids) const;
+    Ref<GDKResult> _parse_xuids(const PackedStringArray &p_xuids, bool p_allow_empty, const String &p_missing_code, const String &p_invalid_code, std::vector<uint64_t> *r_xuids) const;
+    Ref<GDKResult> _parse_title_ids(const PackedInt64Array &p_title_ids, std::vector<uint32_t> *r_title_ids) const;
     Ref<GDKPresenceRecord> _find_cached_presence(const String &p_xuid) const;
     void _remove_cached_presence(const String &p_xuid);
+    HandlerState *_find_handler_state(XUserLocalId p_local_id);
+    Ref<GDKResult> _ensure_handler_state(const Ref<GDKUser> &p_user, HandlerState **r_state);
+    void _close_handler_state(HandlerState &p_state);
+    static void CALLBACK _device_presence_changed_handler(void *p_context, uint64_t p_xuid, XblPresenceDeviceType p_device_type, bool p_is_user_logged_on_device);
+    static void CALLBACK _title_presence_changed_handler(void *p_context, uint64_t p_xuid, uint32_t p_title_id, XblPresenceTitleState p_title_state);
 
 protected:
     static void _bind_methods();
@@ -83,10 +130,14 @@ public:
 
     Ref<GDKResult> on_runtime_initialized();
     void shutdown();
+    int dispatch();
 
     Signal set_presence_async(const Ref<GDKUser> &p_user, const String &p_state, const Dictionary &p_rich_presence = Dictionary());
     Signal clear_presence_async(const Ref<GDKUser> &p_user);
     Signal get_presence_async(const PackedStringArray &p_xuids);
+    Signal get_presence_for_social_group_async(const Ref<GDKUser> &p_user, const String &p_social_group);
+    Ref<GDKResult> track_presence(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, const PackedInt64Array &p_title_ids = PackedInt64Array());
+    Ref<GDKResult> stop_tracking_presence(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids = PackedStringArray(), const PackedInt64Array &p_title_ids = PackedInt64Array());
     Ref<GDKPresenceRecord> get_cached_presence(const String &p_xuid) const;
 
     void cache_presence_record(const Ref<GDKPresenceRecord> &p_record, bool p_emit_signal = true);

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKLeaderboardColumn" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Leaderboard column metadata.
+	</brief_description>
+	<description>
+		Describes one statistic column in a [GDKLeaderboard].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_stat_name" qualifiers="const">
+			<return type="String" />
+			<description>Returns the column statistic name.</description>
+		</method>
+		<method name="get_stat_type" qualifiers="const">
+			<return type="String" />
+			<description>Returns [code]uint64[/code], [code]boolean[/code], [code]double[/code], [code]string[/code], or [code]other[/code].</description>
+		</method>
+	</methods>
+	<members>
+		<member name="stat_name" type="String" setter="" getter="get_stat_name">Column statistic name.</member>
+		<member name="stat_type" type="String" setter="" getter="get_stat_type">Column statistic type.</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

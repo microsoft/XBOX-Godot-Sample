@@ -32,12 +32,24 @@ func test_class_registration() -> void:
 		"GDKClosedCaptionProperties",
 		"GDKAchievements",
 		"GDKAchievement",
+		"GDKStats",
+		"GDKLeaderboards",
+		"GDKLeaderboard",
+		"GDKLeaderboardColumn",
+		"GDKLeaderboardRow",
+		"GDKPrivacy",
 		"GDKPresence",
 		"GDKPresenceRecord",
 		"GDKSocial",
 		"GDKSocialFilter",
 		"GDKSocialGroup",
 		"GDKSocialUser",
+		"GDKProfile",
+		"GDKUserProfile",
+		"GDKStringVerify",
+		"GDKTitleStorage",
+		"GDKTitleStorageBlobMetadata",
+		"GDKTitleStorageBlobMetadataResult",
 		"GDKErrorReporting",
 		"GDKSystem",
 		"GDKLauncher",
@@ -52,12 +64,24 @@ func test_class_registration() -> void:
 	assert_true(ClassDB.is_parent_class("GDKClosedCaptionProperties", "RefCounted"), "GDKClosedCaptionProperties extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKAchievements", "RefCounted"), "GDKAchievements extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKAchievement", "RefCounted"), "GDKAchievement extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKStats", "RefCounted"), "GDKStats extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKLeaderboards", "RefCounted"), "GDKLeaderboards extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKLeaderboard", "RefCounted"), "GDKLeaderboard extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKLeaderboardColumn", "RefCounted"), "GDKLeaderboardColumn extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKLeaderboardRow", "RefCounted"), "GDKLeaderboardRow extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKPrivacy", "RefCounted"), "GDKPrivacy extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKPresence", "RefCounted"), "GDKPresence extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKPresenceRecord", "RefCounted"), "GDKPresenceRecord extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocial", "RefCounted"), "GDKSocial extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialFilter", "RefCounted"), "GDKSocialFilter extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialGroup", "RefCounted"), "GDKSocialGroup extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSocialUser", "RefCounted"), "GDKSocialUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKProfile", "RefCounted"), "GDKProfile extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKUserProfile", "RefCounted"), "GDKUserProfile extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKStringVerify", "RefCounted"), "GDKStringVerify extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKTitleStorage", "RefCounted"), "GDKTitleStorage extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKTitleStorageBlobMetadata", "RefCounted"), "GDKTitleStorageBlobMetadata extends RefCounted")
+	assert_true(ClassDB.is_parent_class("GDKTitleStorageBlobMetadataResult", "RefCounted"), "GDKTitleStorageBlobMetadataResult extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKErrorReporting", "RefCounted"), "GDKErrorReporting extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKSystem", "RefCounted"), "GDKSystem extends RefCounted")
 	assert_true(ClassDB.is_parent_class("GDKLauncher", "RefCounted"), "GDKLauncher extends RefCounted")
@@ -70,7 +94,7 @@ func test_gdk_root_api() -> void:
 
 	var gdk = get_gdk()
 
-	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_accessibility", "get_achievements", "get_presence", "get_social", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_system"]:
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_accessibility", "get_achievements", "get_stats", "get_leaderboards", "get_privacy", "get_presence", "get_social", "get_profile", "get_string_verify", "get_title_storage", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_system"]:
 		assert_has_method_named(gdk, method_name)
 
 	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
@@ -79,8 +103,14 @@ func test_gdk_root_api() -> void:
 	assert_true(gdk.get_users() != null, "GDK.users service available")
 	assert_true(gdk.get_accessibility() != null, "GDK.accessibility service available")
 	assert_true(gdk.get_achievements() != null, "GDK.achievements service available")
+	assert_true(gdk.get_stats() != null, "GDK.stats service available")
+	assert_true(gdk.get_leaderboards() != null, "GDK.leaderboards service available")
+	assert_true(gdk.get_privacy() != null, "GDK.privacy service available")
 	assert_true(gdk.get_presence() != null, "GDK.presence service available")
 	assert_true(gdk.get_social() != null, "GDK.social service available")
+	assert_true(gdk.get_profile() != null, "GDK.profile service available")
+	assert_true(gdk.get_string_verify() != null, "GDK.string_verify service available")
+	assert_true(gdk.get_title_storage() != null, "GDK.title_storage service available")
 	assert_true(gdk.get_error_reporting() != null, "GDK.error_reporting service available")
 	assert_true(gdk.get_launcher() != null, "GDK.launcher service available")
 	assert_true(gdk.get_multiplayer_activity() != null, "GDK.multiplayer_activity service available")

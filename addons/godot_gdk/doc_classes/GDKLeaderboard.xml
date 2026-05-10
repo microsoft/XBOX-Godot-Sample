@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKLeaderboard" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached Xbox Services leaderboard result.
+	</brief_description>
+	<description>
+		Contains copied leaderboard columns and rows plus the native result state required for [method GDKLeaderboards.get_next_page_async].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_stat_name" qualifiers="const">
+			<return type="String" />
+			<description>Returns the statistic backing this leaderboard.</description>
+		</method>
+		<method name="get_query_type" qualifiers="const">
+			<return type="String" />
+			<description>Returns [code]global[/code], [code]around_user[/code], or [code]social[/code].</description>
+		</method>
+		<method name="get_total_row_count" qualifiers="const">
+			<return type="int" />
+			<description>Returns the total number of rows reported by Xbox Services.</description>
+		</method>
+		<method name="has_next" qualifiers="const">
+			<return type="bool" />
+			<description>Returns [code]true[/code] when another page can be fetched.</description>
+		</method>
+		<method name="get_columns" qualifiers="const">
+			<return type="Array" />
+			<description>Returns [GDKLeaderboardColumn] entries.</description>
+		</method>
+		<method name="get_rows" qualifiers="const">
+			<return type="Array" />
+			<description>Returns [GDKLeaderboardRow] entries.</description>
+		</method>
+	</methods>
+	<members>
+		<member name="stat_name" type="String" setter="" getter="get_stat_name">Statistic backing this leaderboard.</member>
+		<member name="query_type" type="String" setter="" getter="get_query_type">Leaderboard query type.</member>
+		<member name="total_row_count" type="int" setter="" getter="get_total_row_count">Total rows reported by Xbox Services.</member>
+		<member name="has_next" type="bool" setter="" getter="has_next">Whether a next page is available.</member>
+		<member name="columns" type="Array" setter="" getter="get_columns">Copied column metadata.</member>
+		<member name="rows" type="Array" setter="" getter="get_rows">Copied row data.</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

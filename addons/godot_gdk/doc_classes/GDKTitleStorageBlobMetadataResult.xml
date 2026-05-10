@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKTitleStorageBlobMetadataResult" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Paged Xbox Services Title Storage metadata result.
+	</brief_description>
+	<description>
+		Holds a native Title Storage metadata result handle and exposes translated metadata items.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_items" qualifiers="const">
+			<return type="Array" />
+			<description>Returns an [Array] of [GDKTitleStorageBlobMetadata] objects.</description>
+		</method>
+		<method name="has_next" qualifiers="const">
+			<return type="bool" />
+			<description>Returns whether another page can be requested.</description>
+		</method>
+		<method name="get_storage_type" qualifiers="const">
+			<return type="String" />
+			<description>Returns the storage type used for this query.</description>
+		</method>
+		<method name="get_blob_path" qualifiers="const">
+			<return type="String" />
+			<description>Returns the blob path prefix used for this query.</description>
+		</method>
+	</methods>
+	<members>
+		<member name="items" type="Array" setter="" getter="get_items">Metadata items.</member>
+		<member name="has_next" type="bool" setter="" getter="has_next">Whether another page is available.</member>
+		<member name="storage_type" type="String" setter="" getter="get_storage_type">Storage type used for this query.</member>
+		<member name="blob_path" type="String" setter="" getter="get_blob_path">Blob path prefix used for this query.</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

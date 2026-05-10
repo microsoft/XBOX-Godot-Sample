@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKTitleStorageBlobMetadata" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Script-visible Xbox Services Title Storage blob metadata.
+	</brief_description>
+	<description>
+		Holds metadata returned by Title Storage metadata, download, and upload APIs.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_blob_path" qualifiers="const"><return type="String" /><description>Returns the blob path.</description></method>
+		<method name="get_blob_type" qualifiers="const"><return type="String" /><description>Returns [code]binary[/code], [code]json[/code], [code]config[/code], or [code]unknown[/code].</description></method>
+		<method name="get_storage_type" qualifiers="const"><return type="String" /><description>Returns [code]trusted_platform[/code], [code]global[/code], [code]universal[/code], or [code]unknown[/code].</description></method>
+		<method name="get_display_name" qualifiers="const"><return type="String" /><description>Returns the display name.</description></method>
+		<method name="get_e_tag" qualifiers="const"><return type="String" /><description>Returns the service ETag.</description></method>
+		<method name="get_client_timestamp" qualifiers="const"><return type="int" /><description>Returns the client timestamp.</description></method>
+		<method name="get_length" qualifiers="const"><return type="int" /><description>Returns the blob length in bytes.</description></method>
+		<method name="get_service_configuration_id" qualifiers="const"><return type="String" /><description>Returns the SCID.</description></method>
+		<method name="get_xuid" qualifiers="const"><return type="String" /><description>Returns the owning XUID when present.</description></method>
+	</methods>
+	<members>
+		<member name="blob_path" type="String" setter="" getter="get_blob_path">Blob path.</member>
+		<member name="blob_type" type="String" setter="" getter="get_blob_type">Blob type.</member>
+		<member name="storage_type" type="String" setter="" getter="get_storage_type">Storage type.</member>
+		<member name="display_name" type="String" setter="" getter="get_display_name">Display name.</member>
+		<member name="e_tag" type="String" setter="" getter="get_e_tag">Service ETag.</member>
+		<member name="client_timestamp" type="int" setter="" getter="get_client_timestamp">Client timestamp.</member>
+		<member name="length" type="int" setter="" getter="get_length">Blob length in bytes.</member>
+		<member name="service_configuration_id" type="String" setter="" getter="get_service_configuration_id">Service configuration ID.</member>
+		<member name="xuid" type="String" setter="" getter="get_xuid">Owning XUID when present.</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

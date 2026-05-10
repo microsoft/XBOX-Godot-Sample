@@ -16,10 +16,16 @@
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_accessibility.h"
+#include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
 #include "gdk_presence.h"
+#include "gdk_profile.h"
+#include "gdk_privacy.h"
 #include "gdk_social.h"
+#include "gdk_stats.h"
+#include "gdk_string_verify.h"
 #include "gdk_system.h"
+#include "gdk_title_storage.h"
 #include "gdk_user.h"
 
 namespace godot {
@@ -39,8 +45,14 @@ class GDK : public Object {
     Ref<GDKGameUI> m_game_ui;
     Ref<GDKAccessibility> m_accessibility;
     Ref<GDKAchievements> m_achievements;
+    Ref<GDKStats> m_stats;
+    Ref<GDKLeaderboards> m_leaderboards;
+    Ref<GDKPrivacy> m_privacy;
     Ref<GDKPresence> m_presence;
     Ref<GDKSocial> m_social;
+    Ref<GDKProfile> m_profile;
+    Ref<GDKStringVerify> m_string_verify;
+    Ref<GDKTitleStorage> m_title_storage;
     Ref<GDKErrorReporting> m_error_reporting;
     Ref<GDKLauncher> m_launcher;
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
@@ -65,8 +77,14 @@ public:
     Ref<GDKGameUI> get_game_ui() const;
     Ref<GDKAccessibility> get_accessibility() const;
     Ref<GDKAchievements> get_achievements() const;
+    Ref<GDKStats> get_stats() const;
+    Ref<GDKLeaderboards> get_leaderboards() const;
+    Ref<GDKPrivacy> get_privacy() const;
     Ref<GDKPresence> get_presence() const;
     Ref<GDKSocial> get_social() const;
+    Ref<GDKProfile> get_profile() const;
+    Ref<GDKStringVerify> get_string_verify() const;
+    Ref<GDKTitleStorage> get_title_storage() const;
     Ref<GDKErrorReporting> get_error_reporting() const;
     Ref<GDKLauncher> get_launcher() const;
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;

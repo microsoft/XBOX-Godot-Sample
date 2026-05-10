@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKStats" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services statistics service accessed via GDK.stats.
+	</brief_description>
+	<description>
+		Wraps Xbox Services user statistics queries, title-managed statistic updates, statistic tracking, and an in-memory stat cache. Query and flush methods return one-shot completion [Signal] values that emit [GDKResult].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="query_user_stats_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_names" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Queries the specified statistics for [param user]. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [Dictionary] keyed by statistic name.
+			</description>
+		</method>
+		<method name="query_users_stats_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<param index="2" name="stat_names" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Queries the specified statistics for multiple target XUIDs using [param user] as the local Xbox Services context. On success, [member GDKResult.data] is a [Dictionary] keyed by XUID, with each value a statistic-name dictionary.
+			</description>
+		</method>
+		<method name="set_stat_integer">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="value" type="int" />
+			<description>
+				Stages an integer title-managed statistic for [param user]. Call [method flush_stats_async] to submit staged values.
+			</description>
+		</method>
+		<method name="set_stat_number">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="value" type="float" />
+			<description>
+				Stages a numeric title-managed statistic for [param user]. Call [method flush_stats_async] to submit staged values.
+			</description>
+		</method>
+		<method name="flush_stats_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Submits the staged title-managed statistics for [param user]. Await the returned completion [Signal] directly.
+			</description>
+		</method>
+		<method name="track_stats">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_names" type="PackedStringArray" />
+			<description>
+				Starts tracking real-time changes for the specified statistics belonging to [param user]. Changes are surfaced through [signal stat_changed] and [signal stats_updated] after [method GDK.dispatch] pumps callbacks.
+			</description>
+		</method>
+		<method name="stop_tracking_stats">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_names" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Stops tracking the specified statistics for [param user]. Passing an empty array stops all tracked statistics for that user.
+			</description>
+		</method>
+		<method name="get_cached_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Returns the cached statistics for [param user], keyed by statistic name.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="stats_updated">
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stats" type="Dictionary" />
+			<description>
+				Emitted when cached statistics for [param user] are updated.
+			</description>
+		</signal>
+		<signal name="stat_changed">
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="value" type="Variant" />
+			<description>
+				Emitted when a tracked statistic changes.
+			</description>
+		</signal>
+		<signal name="stats_flushed">
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="result" type="GDKResult" />
+			<description>
+				Emitted after staged statistics have been submitted for [param user].
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

@@ -11,12 +11,18 @@
 #include "gdk.h"
 #include "gdk_error_reporting.h"
 #include "gdk_launcher.h"
+#include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
 #include "gdk_pending_signal.h"
 #include "gdk_presence.h"
+#include "gdk_profile.h"
+#include "gdk_privacy.h"
 #include "gdk_result.h"
 #include "gdk_social.h"
+#include "gdk_stats.h"
+#include "gdk_string_verify.h"
 #include "gdk_system.h"
+#include "gdk_title_storage.h"
 #include "gdk_user.h"
 
 using namespace godot;
@@ -97,12 +103,24 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GDKAccessibility>();
         ClassDB::register_class<GDKAchievement>();
         ClassDB::register_class<GDKAchievements>();
+        ClassDB::register_class<GDKStats>();
+        ClassDB::register_class<GDKLeaderboardColumn>();
+        ClassDB::register_class<GDKLeaderboardRow>();
+        ClassDB::register_class<GDKLeaderboard>();
+        ClassDB::register_class<GDKLeaderboards>();
+        ClassDB::register_class<GDKPrivacy>();
         ClassDB::register_class<GDKPresenceRecord>();
         ClassDB::register_class<GDKPresence>();
         ClassDB::register_class<GDKSocialFilter>();
         ClassDB::register_class<GDKSocialGroup>();
         ClassDB::register_class<GDKSocialUser>();
         ClassDB::register_class<GDKSocial>();
+        ClassDB::register_class<GDKUserProfile>();
+        ClassDB::register_class<GDKProfile>();
+        ClassDB::register_class<GDKStringVerify>();
+        ClassDB::register_class<GDKTitleStorageBlobMetadata>();
+        ClassDB::register_class<GDKTitleStorageBlobMetadataResult>();
+        ClassDB::register_class<GDKTitleStorage>();
         ClassDB::register_class<GDKErrorReporting>();
         ClassDB::register_class<GDKLauncher>();
         ClassDB::register_class<GDKMultiplayerActivityInfo>();

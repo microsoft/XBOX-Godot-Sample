@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKLeaderboards" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services leaderboard service accessed via GDK.leaderboards.
+	</brief_description>
+	<description>
+		Wraps read-only Xbox Services leaderboard queries backed by title-managed statistics. Query methods return one-shot completion [Signal] values that emit [GDKResult] with [GDKLeaderboard] data.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_leaderboard_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="max_items" type="int" default="25" />
+			<description>
+				Queries the global leaderboard for [param stat_name]. Await the returned completion [Signal] directly.
+			</description>
+		</method>
+		<method name="get_leaderboard_around_user_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="max_items" type="int" default="25" />
+			<description>
+				Queries the global leaderboard around [param user]'s XUID for [param stat_name].
+			</description>
+		</method>
+		<method name="get_social_leaderboard_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<param index="2" name="max_items" type="int" default="25" />
+			<description>
+				Queries the social leaderboard for people followed by [param user].
+			</description>
+		</method>
+		<method name="get_next_page_async">
+			<return type="Signal" />
+			<param index="0" name="leaderboard" type="GDKLeaderboard" />
+			<description>
+				Fetches the next page for a [GDKLeaderboard] returned by this service.
+			</description>
+		</method>
+		<method name="get_cached_leaderboard" qualifiers="const">
+			<return type="GDKLeaderboard" />
+			<param index="0" name="stat_name" type="String" />
+			<description>
+				Returns the cached leaderboard for [param stat_name], or [code]null[/code] if no query has populated it.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="leaderboard_updated">
+			<param index="0" name="stat_name" type="String" />
+			<param index="1" name="leaderboard" type="GDKLeaderboard" />
+			<description>
+				Emitted when a leaderboard query or next-page request updates the cache.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

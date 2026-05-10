@@ -22,10 +22,10 @@ func test_presence_full_flow() -> void:
 	if presence == null:
 		return
 
-	for method_name in ["set_presence_async", "clear_presence_async", "get_presence_async", "get_cached_presence"]:
+	for method_name in ["set_presence_async", "clear_presence_async", "get_presence_async", "get_presence_for_social_group_async", "track_presence", "stop_tracking_presence", "get_cached_presence"]:
 		assert_has_method_named(presence, method_name)
 
-	for signal_name in ["presence_changed", "local_presence_set"]:
+	for signal_name in ["presence_changed", "local_presence_set", "device_presence_changed", "title_presence_changed"]:
 		assert_has_signal_named(presence, signal_name)
 
 	var blank_record = instantiate_class("GDKPresenceRecord")
@@ -74,6 +74,21 @@ func test_presence_full_flow() -> void:
 
 	var invalid_state_signal = presence.set_presence_async(user, "   ")
 	await assert_signal_result_error(invalid_state_signal, "invalid_presence_state", "set_presence_async() rejects blank presence states")
+
+	var blank_group_signal = presence.get_presence_for_social_group_async(user, "   ")
+	await assert_signal_result_error(blank_group_signal, "invalid_social_group", "get_presence_for_social_group_async() rejects blank social group names")
+
+	var empty_track_result = presence.track_presence(user, PackedStringArray())
+	assert_result_error(empty_track_result, "missing_presence_xuids", "track_presence() rejects empty XUID lists")
+
+	var invalid_track_xuid_result = presence.track_presence(user, PackedStringArray(["not-a-number"]))
+	assert_result_error(invalid_track_xuid_result, "invalid_presence_xuid", "track_presence() rejects non-numeric XUID strings")
+
+	var invalid_track_title_result = presence.track_presence(user, PackedStringArray([user.get_xuid()]), PackedInt64Array([-1]))
+	assert_result_error(invalid_track_title_result, "invalid_title_id", "track_presence() rejects invalid title IDs")
+
+	var invalid_stop_xuid_result = presence.stop_tracking_presence(user, PackedStringArray(["not-a-number"]))
+	assert_result_error(invalid_stop_xuid_result, "invalid_presence_xuid", "stop_tracking_presence() rejects non-numeric XUID strings")
 
 	var query_signal = presence.get_presence_async(PackedStringArray([user.get_xuid()]))
 	assert_true(typeof(query_signal) == TYPE_SIGNAL, "get_presence_async() returns completion Signal for the signed-in user's XUID")

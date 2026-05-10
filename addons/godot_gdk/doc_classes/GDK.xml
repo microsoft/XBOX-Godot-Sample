@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, presence, social, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, stats, leaderboards, privacy, presence, social, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -63,6 +63,24 @@
 				Returns the [GDKAchievements] service for querying and updating Xbox achievements.
 			</description>
 		</method>
+		<method name="get_stats" qualifiers="const">
+			<return type="GDKStats" />
+			<description>
+				Returns the [GDKStats] service for querying, staging, flushing, tracking, and caching Xbox Services user statistics.
+			</description>
+		</method>
+		<method name="get_leaderboards" qualifiers="const">
+			<return type="GDKLeaderboards" />
+			<description>
+				Returns the [GDKLeaderboards] service for Xbox Services leaderboard queries and pagination.
+			</description>
+		</method>
+		<method name="get_privacy" qualifiers="const">
+			<return type="GDKPrivacy" />
+			<description>
+				Returns the [GDKPrivacy] service for Xbox Services privacy permission checks and avoid/mute list queries.
+			</description>
+		</method>
 		<method name="get_accessibility" qualifiers="const">
 			<return type="GDKAccessibility" />
 			<description>
@@ -79,6 +97,24 @@
 			<return type="GDKSocial" />
 			<description>
 				Returns the GDKSocial service for social features.
+			</description>
+		</method>
+		<method name="get_profile" qualifiers="const">
+			<return type="GDKProfile" />
+			<description>
+				Returns the [GDKProfile] service for Xbox Services profile lookups.
+			</description>
+		</method>
+		<method name="get_string_verify" qualifiers="const">
+			<return type="GDKStringVerify" />
+			<description>
+				Returns the [GDKStringVerify] service for Xbox Services text verification.
+			</description>
+		</method>
+		<method name="get_title_storage" qualifiers="const">
+			<return type="GDKTitleStorage" />
+			<description>
+				Returns the [GDKTitleStorage] service for Xbox Services Title Storage.
 			</description>
 		</method>
 		<method name="get_error_reporting" qualifiers="const">
@@ -116,6 +152,15 @@
 		<member name="achievements" type="GDKAchievements" setter="" getter="get_achievements">
 			The [GDKAchievements] service instance for querying and updating Xbox achievements.
 		</member>
+		<member name="stats" type="GDKStats" setter="" getter="get_stats">
+			The [GDKStats] service instance for Xbox Services user statistics.
+		</member>
+		<member name="leaderboards" type="GDKLeaderboards" setter="" getter="get_leaderboards">
+			The [GDKLeaderboards] service instance for Xbox Services leaderboard queries.
+		</member>
+		<member name="privacy" type="GDKPrivacy" setter="" getter="get_privacy">
+			The [GDKPrivacy] service instance for Xbox Services privacy checks and lists.
+		</member>
 		<member name="accessibility" type="GDKAccessibility" setter="" getter="get_accessibility">
 			The [GDKAccessibility] service instance for accessibility APIs.
 		</member>
@@ -124,6 +169,15 @@
 		</member>
 		<member name="social" type="GDKSocial" setter="" getter="get_social">
 			The GDKSocial service instance for social features.
+		</member>
+		<member name="profile" type="GDKProfile" setter="" getter="get_profile">
+			The [GDKProfile] service instance for Xbox Services profile lookups.
+		</member>
+		<member name="string_verify" type="GDKStringVerify" setter="" getter="get_string_verify">
+			The [GDKStringVerify] service instance for Xbox Services text verification.
+		</member>
+		<member name="title_storage" type="GDKTitleStorage" setter="" getter="get_title_storage">
+			The [GDKTitleStorage] service instance for Xbox Services Title Storage.
 		</member>
 		<member name="error_reporting" type="GDKErrorReporting" setter="" getter="get_error_reporting">
 			The [GDKErrorReporting] service instance for [code]XError[/code] callback and option configuration.

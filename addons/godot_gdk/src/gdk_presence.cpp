@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -307,9 +308,20 @@ public:
 };
 
 class GetPresenceAsyncContext final : public GDKSignalXAsyncContext {
+public:
+    enum QueryMode {
+        MODE_XUIDS,
+        MODE_SOCIAL_GROUP,
+    };
+
+private:
     GDKPresence *m_presence = nullptr;
     XblContextHandle m_context = nullptr;
     std::vector<uint64_t> m_xuids;
+    QueryMode m_mode = MODE_XUIDS;
+    String m_social_group;
+    CharString m_social_group_utf8;
+    XblPresenceQueryFilters m_filters = {};
 
 protected:
     void finalize(XAsyncBlock *p_async_block) override {
@@ -323,7 +335,7 @@ protected:
         }
 
         Array records;
-        if (m_xuids.size() == 1) {
+        if (m_mode == MODE_XUIDS && m_xuids.size() == 1) {
             XblPresenceRecordHandle record_handle = nullptr;
             HRESULT result_hr = XblPresenceGetPresenceResult(p_async_block, &record_handle);
             if (result_hr == E_ABORT) {
@@ -354,7 +366,9 @@ protected:
             records.push_back(record);
         } else {
             size_t result_count = 0;
-            HRESULT result_hr = XblPresenceGetPresenceForMultipleUsersResultCount(p_async_block, &result_count);
+            HRESULT result_hr = m_mode == MODE_SOCIAL_GROUP ?
+                    XblPresenceGetPresenceForSocialGroupResultCount(p_async_block, &result_count) :
+                    XblPresenceGetPresenceForMultipleUsersResultCount(p_async_block, &result_count);
             if (result_hr == E_ABORT) {
                 result = GDKResult::cancelled("Presence query cancelled.");
                 get_runtime()->set_last_error(result);
@@ -370,7 +384,9 @@ protected:
 
             std::vector<XblPresenceRecordHandle> handles(result_count, nullptr);
             if (result_count > 0) {
-                result_hr = XblPresenceGetPresenceForMultipleUsersResult(p_async_block, handles.data(), result_count);
+                result_hr = m_mode == MODE_SOCIAL_GROUP ?
+                        XblPresenceGetPresenceForSocialGroupResult(p_async_block, handles.data(), result_count) :
+                        XblPresenceGetPresenceForMultipleUsersResult(p_async_block, handles.data(), result_count);
                 if (result_hr == E_ABORT) {
                     result = GDKResult::cancelled("Presence query cancelled.");
                     get_runtime()->set_last_error(result);
@@ -429,7 +445,23 @@ public:
             GDKSignalXAsyncContext(p_runtime, p_pending_signal),
             m_presence(p_presence),
             m_context(p_context),
-            m_xuids(std::move(p_xuids)) {}
+            m_xuids(std::move(p_xuids)),
+            m_mode(MODE_XUIDS) {}
+
+    GetPresenceAsyncContext(
+            GDKPresence *p_presence,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            XblContextHandle p_context,
+            const String &p_social_group) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_presence(p_presence),
+            m_context(p_context),
+            m_mode(MODE_SOCIAL_GROUP),
+            m_social_group(p_social_group) {
+        m_social_group_utf8 = m_social_group.utf8();
+        m_filters.detailLevel = XblPresenceDetailLevel::All;
+    }
 
     ~GetPresenceAsyncContext() override {
         if (m_context != nullptr) {
@@ -444,6 +476,14 @@ public:
 
     const std::vector<uint64_t> &get_xuids() const {
         return m_xuids;
+    }
+
+    const char *get_social_group_name() const {
+        return m_social_group_utf8.get_data();
+    }
+
+    XblPresenceQueryFilters *get_filters() {
+        return &m_filters;
     }
 };
 
@@ -541,12 +581,17 @@ void GDKPresence::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_presence_async", "user", "state", "rich_presence"), &GDKPresence::set_presence_async, DEFVAL(Dictionary()));
     ClassDB::bind_method(D_METHOD("clear_presence_async", "user"), &GDKPresence::clear_presence_async);
     ClassDB::bind_method(D_METHOD("get_presence_async", "xuids"), &GDKPresence::get_presence_async);
+    ClassDB::bind_method(D_METHOD("get_presence_for_social_group_async", "user", "social_group"), &GDKPresence::get_presence_for_social_group_async);
+    ClassDB::bind_method(D_METHOD("track_presence", "user", "xuids", "title_ids"), &GDKPresence::track_presence, DEFVAL(PackedInt64Array()));
+    ClassDB::bind_method(D_METHOD("stop_tracking_presence", "user", "xuids", "title_ids"), &GDKPresence::stop_tracking_presence, DEFVAL(PackedStringArray()), DEFVAL(PackedInt64Array()));
     ClassDB::bind_method(D_METHOD("get_cached_presence", "xuid"), &GDKPresence::get_cached_presence);
 
     ADD_SIGNAL(MethodInfo("presence_changed",
             PropertyInfo(Variant::STRING, "xuid"),
             PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKPresenceRecord")));
     ADD_SIGNAL(MethodInfo("local_presence_set", PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKUser")));
+    ADD_SIGNAL(MethodInfo("device_presence_changed", PropertyInfo(Variant::STRING, "xuid")));
+    ADD_SIGNAL(MethodInfo("title_presence_changed", PropertyInfo(Variant::STRING, "xuid"), PropertyInfo(Variant::INT, "title_id")));
 }
 
 void GDKPresence::set_owner(GDK *p_owner) {
@@ -564,8 +609,36 @@ Ref<GDKResult> GDKPresence::on_runtime_initialized() {
 }
 
 void GDKPresence::shutdown() {
+    for (HandlerState &state : m_handler_states) {
+        _close_handler_state(state);
+    }
+    m_handler_states.clear();
+    {
+        std::lock_guard<std::mutex> lock(m_pending_presence_events_mutex);
+        m_pending_presence_events.clear();
+    }
     m_runtime_ready = false;
     m_cached_presence.clear();
+}
+
+int GDKPresence::dispatch() {
+    std::vector<PendingPresenceEvent> events;
+    {
+        std::lock_guard<std::mutex> lock(m_pending_presence_events_mutex);
+        events.swap(m_pending_presence_events);
+    }
+
+    int dispatched = 0;
+    for (const PendingPresenceEvent &event : events) {
+        const String xuid = String::num_uint64(event.xuid);
+        if (event.type == PendingPresenceEvent::EVENT_DEVICE) {
+            emit_signal("device_presence_changed", xuid);
+        } else {
+            emit_signal("title_presence_changed", xuid, static_cast<int64_t>(event.title_id));
+        }
+        ++dispatched;
+    }
+    return dispatched;
 }
 
 Signal GDKPresence::set_presence_async(const Ref<GDKUser> &p_user, const String &p_state, const Dictionary &p_rich_presence) {
@@ -765,6 +838,173 @@ Signal GDKPresence::get_presence_async(const PackedStringArray &p_xuids) {
     return pending_signal->get_completed_signal();
 }
 
+Signal GDKPresence::get_presence_for_social_group_async(const Ref<GDKUser> &p_user, const String &p_social_group) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+
+    const String social_group = p_social_group.strip_edges();
+    if (social_group.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_social_group", "Presence social-group queries require a non-empty social group name.");
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_not_initialized", "Xbox services are unavailable. Ensure the title has a TitleId before using presence.");
+    }
+
+    XblContextHandle context = nullptr;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "presence_context_failed", "Failed to resolve the Xbox services context for the social-group presence query.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context_state = new GetPresenceAsyncContext(this, runtime, pending_signal, context, social_group);
+    context_state->bind_cancel_handler();
+
+    hr = XblPresenceGetPresenceForSocialGroupAsync(
+            context_state->get_context(),
+            context_state->get_social_group_name(),
+            nullptr,
+            context_state->get_filters(),
+            context_state->get_async_block());
+    if (FAILED(hr)) {
+        context_state->clear_cancel_handler();
+        delete context_state;
+        return _make_error_signal(hr, "presence_social_group_query_start_failed", "Failed to start the social-group presence query.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Ref<GDKResult> GDKPresence::track_presence(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, const PackedInt64Array &p_title_ids) {
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return validation;
+    }
+
+    std::vector<uint64_t> xuids;
+    Ref<GDKResult> parse_result = _parse_xuids(p_xuids, false, "missing_presence_xuids", "invalid_presence_xuid", &xuids);
+    if (!parse_result->is_ok()) {
+        return parse_result;
+    }
+
+    std::vector<uint32_t> title_ids;
+    parse_result = _parse_title_ids(p_title_ids, &title_ids);
+    if (!parse_result->is_ok()) {
+        return parse_result;
+    }
+
+    HandlerState *state = nullptr;
+    Ref<GDKResult> handler_result = _ensure_handler_state(p_user, &state);
+    if (!handler_result->is_ok()) {
+        return handler_result;
+    }
+
+    HRESULT hr = XblPresenceTrackUsers(state->context, xuids.data(), xuids.size());
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to track Xbox Services presence users.", "presence_track_users_failed");
+    }
+
+    if (!title_ids.empty()) {
+        hr = XblPresenceTrackAdditionalTitles(state->context, title_ids.data(), title_ids.size());
+        if (FAILED(hr)) {
+            return GDKResult::hresult_error(hr, "Failed to track additional Xbox Services presence titles.", "presence_track_titles_failed");
+        }
+    }
+
+    for (uint64_t xuid : xuids) {
+        if (std::find(state->tracked_xuids.begin(), state->tracked_xuids.end(), xuid) == state->tracked_xuids.end()) {
+            state->tracked_xuids.push_back(xuid);
+        }
+    }
+    for (uint32_t title_id : title_ids) {
+        if (std::find(state->tracked_title_ids.begin(), state->tracked_title_ids.end(), title_id) == state->tracked_title_ids.end()) {
+            state->tracked_title_ids.push_back(title_id);
+        }
+    }
+
+    Dictionary data;
+    data["tracked_users"] = static_cast<int64_t>(state->tracked_xuids.size());
+    data["tracked_titles"] = static_cast<int64_t>(state->tracked_title_ids.size());
+    return GDKResult::ok_result(data);
+}
+
+Ref<GDKResult> GDKPresence::stop_tracking_presence(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, const PackedInt64Array &p_title_ids) {
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return validation;
+    }
+
+    std::vector<uint64_t> xuids;
+    Ref<GDKResult> parse_result = _parse_xuids(p_xuids, true, "missing_presence_xuids", "invalid_presence_xuid", &xuids);
+    if (!parse_result->is_ok()) {
+        return parse_result;
+    }
+
+    std::vector<uint32_t> title_ids;
+    parse_result = _parse_title_ids(p_title_ids, &title_ids);
+    if (!parse_result->is_ok()) {
+        return parse_result;
+    }
+
+    XUserLocalId local_id = {};
+    local_id.value = static_cast<uint64_t>(p_user->get_local_id());
+    HandlerState *state = _find_handler_state(local_id);
+    if (state == nullptr) {
+        return GDKResult::ok_result();
+    }
+
+    if (xuids.empty()) {
+        xuids = state->tracked_xuids;
+    }
+    if (title_ids.empty()) {
+        title_ids = state->tracked_title_ids;
+    }
+
+    if (!xuids.empty()) {
+        HRESULT hr = XblPresenceStopTrackingUsers(state->context, xuids.data(), xuids.size());
+        if (FAILED(hr)) {
+            return GDKResult::hresult_error(hr, "Failed to stop tracking Xbox Services presence users.", "presence_stop_tracking_users_failed");
+        }
+        state->tracked_xuids.erase(
+                std::remove_if(
+                        state->tracked_xuids.begin(),
+                        state->tracked_xuids.end(),
+                        [&xuids](uint64_t tracked_xuid) {
+                            return std::find(xuids.begin(), xuids.end(), tracked_xuid) != xuids.end();
+                        }),
+                state->tracked_xuids.end());
+    }
+
+    if (!title_ids.empty()) {
+        HRESULT hr = XblPresenceStopTrackingAdditionalTitles(state->context, title_ids.data(), title_ids.size());
+        if (FAILED(hr)) {
+            return GDKResult::hresult_error(hr, "Failed to stop tracking additional Xbox Services presence titles.", "presence_stop_tracking_titles_failed");
+        }
+        state->tracked_title_ids.erase(
+                std::remove_if(
+                        state->tracked_title_ids.begin(),
+                        state->tracked_title_ids.end(),
+                        [&title_ids](uint32_t tracked_title_id) {
+                            return std::find(title_ids.begin(), title_ids.end(), tracked_title_id) != title_ids.end();
+                        }),
+                state->tracked_title_ids.end());
+    }
+
+    Dictionary data;
+    data["tracked_users"] = static_cast<int64_t>(state->tracked_xuids.size());
+    data["tracked_titles"] = static_cast<int64_t>(state->tracked_title_ids.size());
+    return GDKResult::ok_result(data);
+}
+
 Ref<GDKPresenceRecord> GDKPresence::get_cached_presence(const String &p_xuid) const {
     return _find_cached_presence(p_xuid.strip_edges());
 }
@@ -800,6 +1040,21 @@ void GDKPresence::on_user_removed(const Ref<GDKUser> &p_user) {
         return;
     }
 
+    XUserLocalId local_id = {};
+    local_id.value = static_cast<uint64_t>(p_user->get_local_id());
+    m_handler_states.erase(
+            std::remove_if(
+                    m_handler_states.begin(),
+                    m_handler_states.end(),
+                    [this, local_id](HandlerState &state) {
+                        if (state.local_id.value != local_id.value) {
+                            return false;
+                        }
+                        _close_handler_state(state);
+                        return true;
+                    }),
+            m_handler_states.end());
+
     _remove_cached_presence(p_user->get_xuid());
 }
 
@@ -813,6 +1068,17 @@ GDKXboxServices *GDKPresence::_get_xbox_services() const {
 
 Signal GDKPresence::_make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data) const {
     return _make_presence_error_signal(_get_runtime(), p_hresult, p_code, p_message, p_data);
+}
+
+Ref<GDKResult> GDKPresence::_ensure_ready_user(const Ref<GDKUser> &p_user) const {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return GDKResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr || !p_user->is_signed_in()) {
+        return GDKResult::error_result(E_INVALIDARG, "invalid_user", "A signed-in GDKUser is required for presence.");
+    }
+    return GDKResult::ok_result();
 }
 
 Ref<GDKUser> GDKPresence::_get_presence_calling_user() const {
@@ -829,20 +1095,40 @@ Ref<GDKUser> GDKPresence::_get_presence_calling_user() const {
 }
 
 Ref<GDKResult> GDKPresence::_parse_query_xuids(const PackedStringArray &p_xuids, std::vector<uint64_t> *r_xuids) const {
+    return _parse_xuids(p_xuids, false, "missing_presence_xuids", "invalid_presence_xuid", r_xuids);
+}
+
+Ref<GDKResult> GDKPresence::_parse_xuids(const PackedStringArray &p_xuids, bool p_allow_empty, const String &p_missing_code, const String &p_invalid_code, std::vector<uint64_t> *r_xuids) const {
     ERR_FAIL_COND_V(r_xuids == nullptr, GDKResult::error_result(E_POINTER, "internal_error", "Missing presence query output vector."));
 
     r_xuids->clear();
     if (p_xuids.is_empty()) {
-        return GDKResult::error_result(E_INVALIDARG, "missing_presence_xuids", "Presence queries require at least one XUID.");
+        return p_allow_empty ? GDKResult::ok_result() : GDKResult::error_result(E_INVALIDARG, p_missing_code, "Presence operations require at least one XUID.");
     }
 
     r_xuids->reserve(static_cast<size_t>(p_xuids.size()));
     for (int64_t i = 0; i < p_xuids.size(); ++i) {
         uint64_t xuid = 0;
         if (!_try_parse_xuid(p_xuids[i], &xuid)) {
-            return GDKResult::error_result(E_INVALIDARG, "invalid_presence_xuid", "Presence queries require numeric XUID strings.");
+            return GDKResult::error_result(E_INVALIDARG, p_invalid_code, "Presence operations require numeric XUID strings.");
         }
         r_xuids->push_back(xuid);
+    }
+
+    return GDKResult::ok_result();
+}
+
+Ref<GDKResult> GDKPresence::_parse_title_ids(const PackedInt64Array &p_title_ids, std::vector<uint32_t> *r_title_ids) const {
+    ERR_FAIL_COND_V(r_title_ids == nullptr, GDKResult::error_result(E_POINTER, "internal_error", "Missing presence title-id output vector."));
+
+    r_title_ids->clear();
+    r_title_ids->reserve(static_cast<size_t>(p_title_ids.size()));
+    for (int64_t i = 0; i < p_title_ids.size(); ++i) {
+        const int64_t title_id = p_title_ids[i];
+        if (title_id < 0 || title_id > UINT32_MAX) {
+            return GDKResult::error_result(E_INVALIDARG, "invalid_title_id", "Presence title IDs must be unsigned 32-bit values.");
+        }
+        r_title_ids->push_back(static_cast<uint32_t>(title_id));
     }
 
     return GDKResult::ok_result();
@@ -867,6 +1153,106 @@ void GDKPresence::_remove_cached_presence(const String &p_xuid) {
                         return record.is_null() || record->get_xuid() == p_xuid;
                     }),
             m_cached_presence.end());
+}
+
+GDKPresence::HandlerState *GDKPresence::_find_handler_state(XUserLocalId p_local_id) {
+    for (HandlerState &state : m_handler_states) {
+        if (state.local_id.value == p_local_id.value) {
+            return &state;
+        }
+    }
+    return nullptr;
+}
+
+Ref<GDKResult> GDKPresence::_ensure_handler_state(const Ref<GDKUser> &p_user, HandlerState **r_state) {
+    ERR_FAIL_COND_V(r_state == nullptr, GDKResult::error_result(E_POINTER, "internal_error", "Missing presence handler-state output."));
+    *r_state = nullptr;
+
+    XUserLocalId local_id = {};
+    local_id.value = static_cast<uint64_t>(p_user->get_local_id());
+    HandlerState *existing_state = _find_handler_state(local_id);
+    if (existing_state != nullptr) {
+        *r_state = existing_state;
+        return GDKResult::ok_result();
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return GDKResult::error_result(E_FAIL, "xbox_services_not_initialized", "Xbox services are unavailable. Ensure the title has a TitleId before using presence.");
+    }
+
+    HandlerState state;
+    state.user = p_user;
+    state.local_id = local_id;
+
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &state.context);
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to resolve the Xbox services context for presence tracking.", "presence_context_failed");
+    }
+
+    state.callback_context = new HandlerState::CallbackContext();
+    state.callback_context->presence = this;
+    state.callback_context->local_id = local_id;
+    state.device_token = XblPresenceAddDevicePresenceChangedHandler(state.context, _device_presence_changed_handler, state.callback_context);
+    state.title_token = XblPresenceAddTitlePresenceChangedHandler(state.context, _title_presence_changed_handler, state.callback_context);
+    state.device_registered = true;
+    state.title_registered = true;
+
+    m_handler_states.push_back(state);
+    *r_state = &m_handler_states.back();
+    return GDKResult::ok_result();
+}
+
+void GDKPresence::_close_handler_state(HandlerState &p_state) {
+    if (p_state.context != nullptr) {
+        if (p_state.device_registered) {
+            XblPresenceRemoveDevicePresenceChangedHandler(p_state.context, p_state.device_token);
+            p_state.device_registered = false;
+        }
+        if (p_state.title_registered) {
+            XblPresenceRemoveTitlePresenceChangedHandler(p_state.context, p_state.title_token);
+            p_state.title_registered = false;
+        }
+        XblContextCloseHandle(p_state.context);
+        p_state.context = nullptr;
+    }
+
+    delete p_state.callback_context;
+    p_state.callback_context = nullptr;
+}
+
+void CALLBACK GDKPresence::_device_presence_changed_handler(void *p_context, uint64_t p_xuid, XblPresenceDeviceType p_device_type, bool p_is_user_logged_on_device) {
+    HandlerState::CallbackContext *callback_context = static_cast<HandlerState::CallbackContext *>(p_context);
+    if (callback_context == nullptr || callback_context->presence == nullptr) {
+        return;
+    }
+
+    PendingPresenceEvent event;
+    event.type = PendingPresenceEvent::EVENT_DEVICE;
+    event.local_id = callback_context->local_id;
+    event.xuid = p_xuid;
+    event.device_type = p_device_type;
+    event.device_logged_on = p_is_user_logged_on_device;
+
+    std::lock_guard<std::mutex> lock(callback_context->presence->m_pending_presence_events_mutex);
+    callback_context->presence->m_pending_presence_events.push_back(event);
+}
+
+void CALLBACK GDKPresence::_title_presence_changed_handler(void *p_context, uint64_t p_xuid, uint32_t p_title_id, XblPresenceTitleState p_title_state) {
+    HandlerState::CallbackContext *callback_context = static_cast<HandlerState::CallbackContext *>(p_context);
+    if (callback_context == nullptr || callback_context->presence == nullptr) {
+        return;
+    }
+
+    PendingPresenceEvent event;
+    event.type = PendingPresenceEvent::EVENT_TITLE;
+    event.local_id = callback_context->local_id;
+    event.xuid = p_xuid;
+    event.title_id = p_title_id;
+    event.title_state = p_title_state;
+
+    std::lock_guard<std::mutex> lock(callback_context->presence->m_pending_presence_events_mutex);
+    callback_context->presence->m_pending_presence_events.push_back(event);
 }
 
 } // namespace godot

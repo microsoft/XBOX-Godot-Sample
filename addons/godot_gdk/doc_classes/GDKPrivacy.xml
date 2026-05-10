@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPrivacy" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Xbox Services privacy service accessed via GDK.privacy.
+	</brief_description>
+	<description>
+		Wraps Xbox Services privacy permission checks and avoid/mute list queries. Methods return one-shot completion [Signal] values that emit [GDKResult].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="check_permission_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="permission" type="String" />
+			<param index="2" name="target_xuid" type="String" />
+			<description>
+				Checks whether [param user] has [param permission] with the target XUID. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [Dictionary] describing the allowed state and deny reasons.
+			</description>
+		</method>
+		<method name="check_permission_for_anonymous_user_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="permission" type="String" />
+			<param index="2" name="anonymous_user_type" type="String" />
+			<description>
+				Checks whether [param user] has [param permission] with an anonymous user type such as [code]cross_network_user[/code] or [code]cross_network_friend[/code].
+			</description>
+		</method>
+		<method name="batch_check_permission_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="permission" type="String" />
+			<param index="2" name="target_xuids" type="PackedStringArray" />
+			<description>
+				Checks one permission against multiple target XUIDs. On success, [member GDKResult.data] is an [Array] of result dictionaries.
+			</description>
+		</method>
+		<method name="get_avoid_list_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Queries the avoid list for [param user]. On success, [member GDKResult.data] is a [PackedStringArray] of XUID strings.
+			</description>
+		</method>
+		<method name="get_mute_list_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Queries the mute list for [param user]. On success, [member GDKResult.data] is a [PackedStringArray] of XUID strings.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

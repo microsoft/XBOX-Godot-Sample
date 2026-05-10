@@ -1,10 +1,16 @@
 #include "gdk.h"
 
 #include "gdk_error_reporting.h"
+#include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
+#include "gdk_profile.h"
+#include "gdk_privacy.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
+#include "gdk_stats.h"
+#include "gdk_string_verify.h"
 #include "gdk_system.h"
+#include "gdk_title_storage.h"
 #include "gdk_xbox_services.h"
 
 namespace godot {
@@ -29,10 +35,22 @@ GDK::GDK() {
     m_accessibility->set_owner(this);
     m_achievements.instantiate();
     m_achievements->set_owner(this);
+    m_stats.instantiate();
+    m_stats->set_owner(this);
+    m_leaderboards.instantiate();
+    m_leaderboards->set_owner(this);
+    m_privacy.instantiate();
+    m_privacy->set_owner(this);
     m_presence.instantiate();
     m_presence->set_owner(this);
     m_social.instantiate();
     m_social->set_owner(this);
+    m_profile.instantiate();
+    m_profile->set_owner(this);
+    m_string_verify.instantiate();
+    m_string_verify->set_owner(this);
+    m_title_storage.instantiate();
+    m_title_storage->set_owner(this);
     m_error_reporting.instantiate();
     m_error_reporting->set_owner(this);
     m_launcher.instantiate();
@@ -60,8 +78,14 @@ GDK::~GDK() {
     m_game_ui.unref();
     m_accessibility.unref();
     m_achievements.unref();
+    m_stats.unref();
+    m_leaderboards.unref();
+    m_privacy.unref();
     m_presence.unref();
     m_social.unref();
+    m_profile.unref();
+    m_string_verify.unref();
+    m_title_storage.unref();
     m_error_reporting.unref();
     m_launcher.unref();
     m_multiplayer_activity.unref();
@@ -80,8 +104,14 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_game_ui"), &GDK::get_game_ui);
     ClassDB::bind_method(D_METHOD("get_accessibility"), &GDK::get_accessibility);
     ClassDB::bind_method(D_METHOD("get_achievements"), &GDK::get_achievements);
+    ClassDB::bind_method(D_METHOD("get_stats"), &GDK::get_stats);
+    ClassDB::bind_method(D_METHOD("get_leaderboards"), &GDK::get_leaderboards);
+    ClassDB::bind_method(D_METHOD("get_privacy"), &GDK::get_privacy);
     ClassDB::bind_method(D_METHOD("get_presence"), &GDK::get_presence);
     ClassDB::bind_method(D_METHOD("get_social"), &GDK::get_social);
+    ClassDB::bind_method(D_METHOD("get_profile"), &GDK::get_profile);
+    ClassDB::bind_method(D_METHOD("get_string_verify"), &GDK::get_string_verify);
+    ClassDB::bind_method(D_METHOD("get_title_storage"), &GDK::get_title_storage);
     ClassDB::bind_method(D_METHOD("get_error_reporting"), &GDK::get_error_reporting);
     ClassDB::bind_method(D_METHOD("get_launcher"), &GDK::get_launcher);
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
@@ -91,8 +121,14 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accessibility", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAccessibility"), "", "get_accessibility");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "achievements", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKAchievements"), "", "get_achievements");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "stats", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKStats"), "", "get_stats");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "leaderboards", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLeaderboards"), "", "get_leaderboards");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "privacy", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPrivacy"), "", "get_privacy");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "presence", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKPresence"), "", "get_presence");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "social", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSocial"), "", "get_social");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "profile", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKProfile"), "", "get_profile");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "string_verify", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKStringVerify"), "", "get_string_verify");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "title_storage", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKTitleStorage"), "", "get_title_storage");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "error_reporting", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKErrorReporting"), "", "get_error_reporting");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "launcher", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKLauncher"), "", "get_launcher");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
@@ -155,10 +191,52 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return achievements_result;
     }
 
+    Ref<GDKResult> stats_result = m_stats->on_runtime_initialized();
+    if (!stats_result->is_ok()) {
+        emit_runtime_error(stats_result);
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return stats_result;
+    }
+
+    Ref<GDKResult> leaderboards_result = m_leaderboards->on_runtime_initialized();
+    if (!leaderboards_result->is_ok()) {
+        emit_runtime_error(leaderboards_result);
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return leaderboards_result;
+    }
+
+    Ref<GDKResult> privacy_result = m_privacy->on_runtime_initialized();
+    if (!privacy_result->is_ok()) {
+        emit_runtime_error(privacy_result);
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return privacy_result;
+    }
+
     Ref<GDKResult> presence_result = m_presence->on_runtime_initialized();
     if (!presence_result->is_ok()) {
         emit_runtime_error(presence_result);
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -172,6 +250,9 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         emit_runtime_error(social_result);
         m_social->shutdown();
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -180,12 +261,72 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         return social_result;
     }
 
+    Ref<GDKResult> profile_result = m_profile->on_runtime_initialized();
+    if (!profile_result->is_ok()) {
+        emit_runtime_error(profile_result);
+        m_profile->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return profile_result;
+    }
+
+    Ref<GDKResult> string_verify_result = m_string_verify->on_runtime_initialized();
+    if (!string_verify_result->is_ok()) {
+        emit_runtime_error(string_verify_result);
+        m_string_verify->shutdown();
+        m_profile->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return string_verify_result;
+    }
+
+    Ref<GDKResult> title_storage_result = m_title_storage->on_runtime_initialized();
+    if (!title_storage_result->is_ok()) {
+        emit_runtime_error(title_storage_result);
+        m_title_storage->shutdown();
+        m_string_verify->shutdown();
+        m_profile->shutdown();
+        m_social->shutdown();
+        m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
+        m_achievements->shutdown();
+        m_game_ui->shutdown();
+        m_users->shutdown();
+        m_xbox_services->shutdown();
+        m_runtime->shutdown();
+        return title_storage_result;
+    }
+
     Ref<GDKResult> error_reporting_result = m_error_reporting->on_runtime_initialized();
     if (!error_reporting_result->is_ok()) {
         emit_runtime_error(error_reporting_result);
         m_error_reporting->shutdown();
+        m_title_storage->shutdown();
+        m_string_verify->shutdown();
+        m_profile->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -199,8 +340,14 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         emit_runtime_error(launcher_result);
         m_launcher->shutdown();
         m_error_reporting->shutdown();
+        m_title_storage->shutdown();
+        m_string_verify->shutdown();
+        m_profile->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -215,8 +362,14 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
         m_multiplayer_activity->shutdown();
         m_launcher->shutdown();
         m_error_reporting->shutdown();
+        m_title_storage->shutdown();
+        m_string_verify->shutdown();
+        m_profile->shutdown();
         m_social->shutdown();
         m_presence->shutdown();
+        m_privacy->shutdown();
+        m_leaderboards->shutdown();
+        m_stats->shutdown();
         m_achievements->shutdown();
         m_game_ui->shutdown();
         m_users->shutdown();
@@ -237,8 +390,14 @@ void GDK::shutdown() {
     m_multiplayer_activity->shutdown();
     m_launcher->shutdown();
     m_error_reporting->shutdown();
+    m_title_storage->shutdown();
+    m_string_verify->shutdown();
+    m_profile->shutdown();
     m_social->shutdown();
     m_presence->shutdown();
+    m_privacy->shutdown();
+    m_leaderboards->shutdown();
+    m_stats->shutdown();
     m_achievements->shutdown();
     m_game_ui->shutdown();
     m_users->shutdown();
@@ -257,7 +416,7 @@ bool GDK::is_initialized() const {
 }
 
 int64_t GDK::dispatch() {
-    return static_cast<int64_t>(m_runtime->dispatch() + m_achievements->dispatch() + m_social->dispatch() + m_error_reporting->dispatch());
+    return static_cast<int64_t>(m_runtime->dispatch() + m_achievements->dispatch() + m_stats->dispatch() + m_privacy->dispatch() + m_presence->dispatch() + m_social->dispatch() + m_error_reporting->dispatch());
 }
 
 Ref<GDKResult> GDK::get_last_error() const {
@@ -280,12 +439,36 @@ Ref<GDKAchievements> GDK::get_achievements() const {
     return m_achievements;
 }
 
+Ref<GDKStats> GDK::get_stats() const {
+    return m_stats;
+}
+
+Ref<GDKLeaderboards> GDK::get_leaderboards() const {
+    return m_leaderboards;
+}
+
+Ref<GDKPrivacy> GDK::get_privacy() const {
+    return m_privacy;
+}
+
 Ref<GDKPresence> GDK::get_presence() const {
     return m_presence;
 }
 
 Ref<GDKSocial> GDK::get_social() const {
     return m_social;
+}
+
+Ref<GDKProfile> GDK::get_profile() const {
+    return m_profile;
+}
+
+Ref<GDKStringVerify> GDK::get_string_verify() const {
+    return m_string_verify;
+}
+
+Ref<GDKTitleStorage> GDK::get_title_storage() const {
+    return m_title_storage;
 }
 
 Ref<GDKErrorReporting> GDK::get_error_reporting() const {
@@ -325,11 +508,29 @@ void GDK::notify_user_removed(const Ref<GDKUser> &p_user) {
     if (m_achievements.is_valid()) {
         m_achievements->on_user_removed(p_user);
     }
+    if (m_stats.is_valid()) {
+        m_stats->on_user_removed(p_user);
+    }
+    if (m_leaderboards.is_valid()) {
+        m_leaderboards->on_user_removed(p_user);
+    }
+    if (m_privacy.is_valid()) {
+        m_privacy->on_user_removed(p_user);
+    }
     if (m_presence.is_valid()) {
         m_presence->on_user_removed(p_user);
     }
     if (m_social.is_valid()) {
         m_social->on_user_removed(p_user);
+    }
+    if (m_profile.is_valid()) {
+        m_profile->on_user_removed(p_user);
+    }
+    if (m_string_verify.is_valid()) {
+        m_string_verify->on_user_removed(p_user);
+    }
+    if (m_title_storage.is_valid()) {
+        m_title_storage->on_user_removed(p_user);
     }
     if (m_multiplayer_activity.is_valid()) {
         m_multiplayer_activity->on_user_removed(p_user);

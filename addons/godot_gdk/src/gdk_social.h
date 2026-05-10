@@ -181,6 +181,7 @@ class GDKSocial : public RefCounted {
     GDKPresence *_get_presence_service() const;
     Signal _make_completed_signal(const Ref<GDKResult> &p_result) const;
     Signal _make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message) const;
+    Ref<GDKResult> _ensure_ready_user(const Ref<GDKUser> &p_user) const;
     Ref<GDKResult> _ensure_local_user_state(const Ref<GDKUser> &p_user, LocalUserState **r_state, bool p_auto_start);
     LocalUserState *_find_local_user_state(XUserLocalId p_local_id);
     Ref<GDKSocialGroup> _find_group_by_handle(XblSocialManagerUserGroupHandle p_group_handle) const;
@@ -214,6 +215,8 @@ public:
     Ref<GDKSocialGroup> create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids);
     void destroy_social_group(const Ref<GDKSocialGroup> &p_group);
     Array get_group_users(const Ref<GDKSocialGroup> &p_group);
+    Signal submit_reputation_feedback_async(const Ref<GDKUser> &p_user, const String &p_target_xuid, const String &p_feedback_type, const String &p_reason = String(), const String &p_evidence_id = String());
+    Signal submit_batch_reputation_feedback_async(const Ref<GDKUser> &p_user, const Array &p_feedback_items);
 
     void on_user_removed(const Ref<GDKUser> &p_user);
 };
