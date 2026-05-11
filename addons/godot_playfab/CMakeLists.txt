@@ -86,13 +86,3 @@ godot_addon_sync_files_to_sample(
     FILES
         godot_playfab.gdextension
 )
-
-godot_addon_sync_files_to_sample(
-    TARGET godot_playfab
-    ADDON_NAME godot_playfab
-    ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
-    PROJECT_DIRS
-        "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
-    FILES
-        playfab_api_manifest.json
-)
