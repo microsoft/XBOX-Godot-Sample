@@ -4,7 +4,7 @@
 
 This document defines the current design direction for the `godot_playfab` addon.
 
-`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by local Xbox user id or title-defined custom id, Game Saves flows, and leaderboard flows built on top of the PlayFab C SDKs. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, and direct-await completion signals for one-shot services.
+`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by a `GDKUser` object or title-defined custom id, Game Saves flows, leaderboard flows, and generated client-safe PlayFab Services SDK wrappers. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich generated SDK payloads, and direct-await completion signals for one-shot services.
 
 ## Design goals
 
@@ -12,7 +12,7 @@ This document defines the current design direction for the `godot_playfab` addon
 2. **Manual sign-in** — PlayFab sign-in is an explicit gameplay action, even though the addon can resolve local Xbox users through `XUser`.
 3. **Project-settings-backed config** — runtime configuration comes from `playfab/titleid` and `playfab/endpoint`.
 4. **Godot-native async flow** — one-shot requests return completion `Signal` values that resolve with `PlayFabResult`.
-5. **Typed Game Saves and leaderboard calls** — higher-level services require an already-signed-in `PlayFabUser`.
+5. **Typed service entry points** — higher-level services require an already-signed-in `PlayFabUser`; generated rich payloads use `Dictionary` request/response data.
 6. **Idempotent loading** — multiple synced `.gdextension` files pointing at the same DLL must not duplicate class or singleton registration.
 
 ## Scope
@@ -20,11 +20,14 @@ This document defines the current design direction for the `godot_playfab` addon
 | Domain | Included | Notes |
 | --- | --- | --- |
 | Runtime init/shutdown | Yes | `XGameRuntimeInitialize`, PlayFab init, shared queue |
-| Manual sign-in | Yes | local-id / `GDKUser` and custom-ID entry points |
+| Manual sign-in | Yes | `GDKUser` object and custom-ID entry points |
 | Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id or custom id |
 | Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
 | Leaderboards | Yes | submit, global, around-user, friends/social |
+| Generated client services | Yes | accounts, catalog, CloudScript, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data |
+| Events/telemetry | Reserved | `PlayFab.events` exists, but no active client event operation is generated from the current GDK headers |
 | Multiplayer / Party | No | previous code exists, but it is out of scope for the new root API |
+| Server/admin/title-secret APIs | No | excluded from the client addon surface |
 
 ## Public API summary
 
@@ -45,6 +48,19 @@ This document defines the current design direction for the `godot_playfab` addon
 - `PlayFab.users`
 - `PlayFab.game_saves`
 - `PlayFab.leaderboards`
+- `PlayFab.accounts`
+- `PlayFab.catalog`
+- `PlayFab.cloud_script`
+- `PlayFab.entity_data`
+- `PlayFab.events`
+- `PlayFab.experimentation`
+- `PlayFab.friends`
+- `PlayFab.groups`
+- `PlayFab.inventory`
+- `PlayFab.localization`
+- `PlayFab.player_data`
+- `PlayFab.statistics`
+- `PlayFab.title_data`
 
 ## Runtime configuration
 
@@ -62,7 +78,7 @@ The addon uses one shared task queue owned by the PlayFab runtime. Native comple
 
 Rules:
 
-1. `PlayFab.sign_in_with_xuser_async()`, `PlayFab.sign_in_with_custom_id_async()`, the equivalent `PlayFab.users` methods, Game Saves calls, and leaderboard calls all return completion signals awaited directly.
+1. `PlayFab.sign_in_with_xuser_async()`, `PlayFab.sign_in_with_custom_id_async()`, the equivalent `PlayFab.users` methods, Game Saves calls, leaderboard calls, and generated service calls all return completion signals awaited directly.
 2. Completion data is delivered through `PlayFabResult`.
 3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
 4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
@@ -110,6 +126,36 @@ Supported calls:
 - `get_leaderboard_async(user, leaderboard_name, start_position := 1, page_size := 10, version := -1)`
 - `get_leaderboard_around_user_async(user, leaderboard_name, max_surrounding_entries := 10, version := -1)`
 - `get_friend_leaderboard_async(user, leaderboard_name, include_xbox_friends := true, version := -1)`
+
+## Generated PlayFab Services SDK wrappers
+
+Generated services cover the client-safe, non-Multiplayer, non-Party PlayFab Services SDK operations that are active in the GDK header set. Server/admin/title-secret APIs are excluded, as are Multiplayer and Party APIs owned by separate workstreams.
+
+Generated method shape:
+
+- `service.method_async(user: PlayFabUser, request := {}) -> Signal`
+- `request` uses snake_case versions of the PlayFab C SDK request field names
+- successful result payloads are converted to Godot `Dictionary` and `Array` values under `PlayFabResult.data`
+- void PlayFab operations complete with `PlayFabResult.data == null`
+- operations with GDK-only `XUserHandle` request fields require a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted
+
+Generated service buckets:
+
+| Root property | Class | Current generated operations |
+| --- | --- | --- |
+| `accounts` | `PlayFabAccounts` | 31 account, profile, contact-email, link/unlink, and identity lookup operations |
+| `catalog` | `PlayFabCatalog` | 26 catalog config, item, review, upload URL, search, and moderation operations |
+| `cloud_script` | `PlayFabCloudScript` | 3 CloudScript/function execution operations |
+| `entity_data` | `PlayFabEntityData` | 7 entity file and object operations |
+| `events` | `PlayFabEvents` | reserved namespace; no active client operation generated from the current GDK headers |
+| `experimentation` | `PlayFabExperimentation` | 1 treatment assignment operation |
+| `friends` | `PlayFabFriends` | 4 friends-list and friend-tag operations |
+| `groups` | `PlayFabGroups` | 25 group membership, role, invitation, application, and block operations |
+| `inventory` | `PlayFabInventory` | 17 inventory collection, item, purchase, transfer, redemption, and transaction operations |
+| `localization` | `PlayFabLocalization` | 1 language-list operation |
+| `player_data` | `PlayFabPlayerData` | 10 user data, publisher data, and custom-property operations |
+| `statistics` | `PlayFabStatistics` | 10 statistic definition and entity statistic operations |
+| `title_data` | `PlayFabTitleData` | 4 publisher data, title data, title news, and server-time operations |
 
 ## Samples
 

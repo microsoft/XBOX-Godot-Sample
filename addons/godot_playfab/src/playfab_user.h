@@ -15,6 +15,10 @@
 #include <playfab/core/PFEntity.h>
 #include <playfab/core/PFLocalUser.h>
 
+#ifdef CONNECT_DEFERRED
+#undef CONNECT_DEFERRED
+#endif
+
 namespace godot {
 
 class PlayFabUser : public RefCounted {

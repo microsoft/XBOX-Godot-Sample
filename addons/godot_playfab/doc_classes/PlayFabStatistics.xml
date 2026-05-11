@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabStatistics" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab statistics service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.statistics[/code]. This generated service wraps client-safe PlayFab statistic definition and entity statistic APIs from the GDK PlayFab Services SDK. Methods require a signed-in [PlayFabUser], accept an optional request [Dictionary] using snake_case PlayFab field names, and return a completion [Signal] that emits [PlayFabResult]. Result payloads are converted to Godot Dictionaries and Arrays.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="create_statistic_definition_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsCreateStatisticDefinition[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="delete_statistic_definition_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsDeleteStatisticDefinition[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="delete_statistics_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsDeleteStatistics[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_statistic_definition_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsGetStatisticDefinition[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_statistics_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsGetStatistics[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_statistics_for_entities_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsGetStatisticsForEntities[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="increment_statistic_version_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsIncrementStatisticVersion[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="list_statistic_definitions_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsListStatisticDefinitions[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="update_statistic_definition_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsUpdateStatisticDefinition[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="update_statistics_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFStatisticsUpdateStatistics[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

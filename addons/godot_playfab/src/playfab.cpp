@@ -6,6 +6,7 @@
 #include "playfab_runtime.h"
 #include "playfab_user.h"
 #include "playfab_users.h"
+#include "generated/playfab_generated_services.h"
 
 namespace godot {
 
@@ -29,6 +30,33 @@ PlayFab::PlayFab() {
 
     m_leaderboards.instantiate();
     m_leaderboards->set_owner(this);
+
+    m_accounts.instantiate();
+    m_accounts->set_owner(this);
+    m_catalog.instantiate();
+    m_catalog->set_owner(this);
+    m_cloud_script.instantiate();
+    m_cloud_script->set_owner(this);
+    m_entity_data.instantiate();
+    m_entity_data->set_owner(this);
+    m_events.instantiate();
+    m_events->set_owner(this);
+    m_experimentation.instantiate();
+    m_experimentation->set_owner(this);
+    m_friends.instantiate();
+    m_friends->set_owner(this);
+    m_groups.instantiate();
+    m_groups->set_owner(this);
+    m_inventory.instantiate();
+    m_inventory->set_owner(this);
+    m_localization.instantiate();
+    m_localization->set_owner(this);
+    m_player_data.instantiate();
+    m_player_data->set_owner(this);
+    m_statistics.instantiate();
+    m_statistics->set_owner(this);
+    m_title_data.instantiate();
+    m_title_data->set_owner(this);
 }
 
 PlayFab::~PlayFab() {
@@ -37,6 +65,19 @@ PlayFab::~PlayFab() {
     m_users.unref();
     m_game_saves.unref();
     m_leaderboards.unref();
+    m_accounts.unref();
+    m_catalog.unref();
+    m_cloud_script.unref();
+    m_entity_data.unref();
+    m_events.unref();
+    m_experimentation.unref();
+    m_friends.unref();
+    m_groups.unref();
+    m_inventory.unref();
+    m_localization.unref();
+    m_player_data.unref();
+    m_statistics.unref();
+    m_title_data.unref();
 
     if (m_runtime != nullptr) {
         delete m_runtime;
@@ -56,6 +97,19 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFab::get_users);
     ClassDB::bind_method(D_METHOD("get_game_saves"), &PlayFab::get_game_saves);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &PlayFab::get_leaderboards);
+    ClassDB::bind_method(D_METHOD("get_accounts"), &PlayFab::get_accounts);
+    ClassDB::bind_method(D_METHOD("get_catalog"), &PlayFab::get_catalog);
+    ClassDB::bind_method(D_METHOD("get_cloud_script"), &PlayFab::get_cloud_script);
+    ClassDB::bind_method(D_METHOD("get_entity_data"), &PlayFab::get_entity_data);
+    ClassDB::bind_method(D_METHOD("get_events"), &PlayFab::get_events);
+    ClassDB::bind_method(D_METHOD("get_experimentation"), &PlayFab::get_experimentation);
+    ClassDB::bind_method(D_METHOD("get_friends"), &PlayFab::get_friends);
+    ClassDB::bind_method(D_METHOD("get_groups"), &PlayFab::get_groups);
+    ClassDB::bind_method(D_METHOD("get_inventory"), &PlayFab::get_inventory);
+    ClassDB::bind_method(D_METHOD("get_localization"), &PlayFab::get_localization);
+    ClassDB::bind_method(D_METHOD("get_player_data"), &PlayFab::get_player_data);
+    ClassDB::bind_method(D_METHOD("get_statistics"), &PlayFab::get_statistics);
+    ClassDB::bind_method(D_METHOD("get_title_data"), &PlayFab::get_title_data);
     ClassDB::bind_method(D_METHOD("sign_in_with_xuser_async", "user", "create_account"), &PlayFab::sign_in_with_xuser_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("sign_in_with_custom_id_async", "custom_id", "create_account"), &PlayFab::sign_in_with_custom_id_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("get_user_by_local_id", "local_id"), &PlayFab::get_user_by_local_id);
@@ -66,6 +120,19 @@ void PlayFab::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_saves", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabGameSaves"), "", "get_game_saves");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "leaderboards", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabLeaderboards"), "", "get_leaderboards");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accounts", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabAccounts"), "", "get_accounts");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "catalog", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabCatalog"), "", "get_catalog");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "cloud_script", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabCloudScript"), "", "get_cloud_script");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "entity_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabEntityData"), "", "get_entity_data");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "events", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabEvents"), "", "get_events");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "experimentation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabExperimentation"), "", "get_experimentation");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "friends", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabFriends"), "", "get_friends");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "groups", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabGroups"), "", "get_groups");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "inventory", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabInventory"), "", "get_inventory");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "localization", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabLocalization"), "", "get_localization");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "player_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabPlayerData"), "", "get_player_data");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "statistics", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabStatistics"), "", "get_statistics");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "title_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabTitleData"), "", "get_title_data");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "title_id"), "", "get_title_id");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "endpoint"), "", "get_endpoint");
 
@@ -130,6 +197,58 @@ Ref<PlayFabGameSaves> PlayFab::get_game_saves() const {
 
 Ref<PlayFabLeaderboards> PlayFab::get_leaderboards() const {
     return m_leaderboards;
+}
+
+Ref<PlayFabAccounts> PlayFab::get_accounts() const {
+    return m_accounts;
+}
+
+Ref<PlayFabCatalog> PlayFab::get_catalog() const {
+    return m_catalog;
+}
+
+Ref<PlayFabCloudScript> PlayFab::get_cloud_script() const {
+    return m_cloud_script;
+}
+
+Ref<PlayFabEntityData> PlayFab::get_entity_data() const {
+    return m_entity_data;
+}
+
+Ref<PlayFabEvents> PlayFab::get_events() const {
+    return m_events;
+}
+
+Ref<PlayFabExperimentation> PlayFab::get_experimentation() const {
+    return m_experimentation;
+}
+
+Ref<PlayFabFriends> PlayFab::get_friends() const {
+    return m_friends;
+}
+
+Ref<PlayFabGroups> PlayFab::get_groups() const {
+    return m_groups;
+}
+
+Ref<PlayFabInventory> PlayFab::get_inventory() const {
+    return m_inventory;
+}
+
+Ref<PlayFabLocalization> PlayFab::get_localization() const {
+    return m_localization;
+}
+
+Ref<PlayFabPlayerData> PlayFab::get_player_data() const {
+    return m_player_data;
+}
+
+Ref<PlayFabStatistics> PlayFab::get_statistics() const {
+    return m_statistics;
+}
+
+Ref<PlayFabTitleData> PlayFab::get_title_data() const {
+    return m_title_data;
 }
 
 Signal PlayFab::sign_in_with_xuser_async(const Variant &p_user, bool p_create_account) {
