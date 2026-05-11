@@ -13,6 +13,7 @@
 #include "playfab_result.h"
 #include "playfab_user.h"
 #include "playfab_users.h"
+#include "generated/playfab_generated_services.h"
 
 using namespace godot;
 
@@ -125,6 +126,19 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<PlayFabUsers>();
     ClassDB::register_class<PlayFabGameSaves>();
     ClassDB::register_class<PlayFabLeaderboards>();
+    ClassDB::register_class<PlayFabAccounts>();
+    ClassDB::register_class<PlayFabCatalog>();
+    ClassDB::register_class<PlayFabCloudScript>();
+    ClassDB::register_class<PlayFabEntityData>();
+    ClassDB::register_class<PlayFabEvents>();
+    ClassDB::register_class<PlayFabExperimentation>();
+    ClassDB::register_class<PlayFabFriends>();
+    ClassDB::register_class<PlayFabGroups>();
+    ClassDB::register_class<PlayFabInventory>();
+    ClassDB::register_class<PlayFabLocalization>();
+    ClassDB::register_class<PlayFabPlayerData>();
+    ClassDB::register_class<PlayFabStatistics>();
+    ClassDB::register_class<PlayFabTitleData>();
 
     playfab_singleton = memnew(PlayFab);
     Engine::get_singleton()->register_singleton("PlayFab", PlayFab::get_singleton());

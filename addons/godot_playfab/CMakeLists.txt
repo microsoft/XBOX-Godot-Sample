@@ -17,10 +17,13 @@ add_library(godot_playfab SHARED
     src/playfab_result.cpp
     src/playfab_result_codes_internal.cpp
     src/playfab_pending_signal.cpp
+    src/playfab_generated_api_helpers.cpp
     src/playfab_signal_xasync_context.cpp
     src/playfab_user.cpp
     src/playfab_users.cpp
     src/playfab_leaderboards.cpp
+    src/generated/playfab_generated_models.cpp
+    src/generated/playfab_generated_services.cpp
 )
 
 target_include_directories(godot_playfab PRIVATE
@@ -82,4 +85,14 @@ godot_addon_sync_files_to_sample(
     PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
         godot_playfab.gdextension
+)
+
+godot_addon_sync_files_to_sample(
+    TARGET godot_playfab
+    ADDON_NAME godot_playfab
+    ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    PROJECT_DIRS
+        "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
+    FILES
+        playfab_api_manifest.json
 )

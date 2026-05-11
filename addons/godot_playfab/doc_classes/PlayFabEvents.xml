@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabEvents" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab event service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.events[/code]. The service is reserved for client-safe PlayFab event and telemetry APIs once the GDK PlayFab Services SDK exposes an active client-callable event surface for this addon configuration.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

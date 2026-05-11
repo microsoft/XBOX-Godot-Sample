@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabAccounts" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab account and profile service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.accounts[/code]. This generated service wraps client-safe PlayFab account management, profile, contact-email, account-link, and identity lookup APIs from the GDK PlayFab Services SDK. Methods require a signed-in [PlayFabUser], accept an optional request [Dictionary] using snake_case PlayFab field names, and return a completion [Signal] that emits [PlayFabResult]. Result payloads are converted to Godot Dictionaries and Arrays.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="add_or_update_contact_email_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientAddOrUpdateContactEmail[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="get_account_info_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetAccountInfo[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_player_combined_info_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayerCombinedInfo[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_player_profile_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayerProfile[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_battle_net_account_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIds[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_google_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromGoogleIDs[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_kongregate_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromKongregateIDs[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_steam_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromSteamIDs[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_steam_names_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromSteamNames[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_play_fab_ids_from_xbox_live_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDs[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="link_battle_net_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientLinkBattleNetAccount[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="link_custom_id_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientLinkCustomID[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="link_open_id_connect_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientLinkOpenIdConnect[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="link_steam_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientLinkSteamAccount[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="link_xbox_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientLinkXboxAccount[/code] for [param user]. For this operation, [param request] must include [code]user[/code] with a signed-in GDKUser object; raw local ids are not accepted. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="remove_contact_email_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientRemoveContactEmail[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="report_player_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientReportPlayer[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="unlink_battle_net_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUnlinkBattleNetAccount[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="unlink_custom_id_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUnlinkCustomID[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="unlink_open_id_connect_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUnlinkOpenIdConnect[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="unlink_steam_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUnlinkSteamAccount[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="unlink_xbox_account_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUnlinkXboxAccount[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="update_avatar_url_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUpdateAvatarUrl[/code] for [param user]. The completed result data is null on success.
+			</description>
+		</method>
+		<method name="update_user_title_display_name_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementClientUpdateUserTitleDisplayName[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_title_players_from_xbox_live_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementGetTitlePlayersFromXboxLiveIDs[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="set_display_name_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFAccountManagementSetDisplayName[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_profile_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFProfilesGetProfile[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_profiles_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFProfilesGetProfiles[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="get_title_players_from_master_player_account_ids_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFProfilesGetTitlePlayersFromMasterPlayerAccountIds[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="set_profile_language_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFProfilesSetProfileLanguage[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+		<method name="set_profile_policy_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="request" type="Dictionary" default="{}" />
+			<description>
+				Starts [code]PFProfilesSetProfilePolicy[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

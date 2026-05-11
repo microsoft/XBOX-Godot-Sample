@@ -15,6 +15,19 @@ const PLAYFAB_ROOT_METHODS := [
 	"get_users",
 	"get_game_saves",
 	"get_leaderboards",
+	"get_accounts",
+	"get_catalog",
+	"get_cloud_script",
+	"get_entity_data",
+	"get_events",
+	"get_experimentation",
+	"get_friends",
+	"get_groups",
+	"get_inventory",
+	"get_localization",
+	"get_player_data",
+	"get_statistics",
+	"get_title_data",
 	"sign_in_with_xuser_async",
 	"sign_in_with_custom_id_async",
 	"get_user_by_local_id",
@@ -31,6 +44,19 @@ const REGISTERED_CLASSES := [
 	"PlayFabUser",
 	"PlayFabGameSaves",
 	"PlayFabLeaderboards",
+	"PlayFabAccounts",
+	"PlayFabCatalog",
+	"PlayFabCloudScript",
+	"PlayFabEntityData",
+	"PlayFabEvents",
+	"PlayFabExperimentation",
+	"PlayFabFriends",
+	"PlayFabGroups",
+	"PlayFabInventory",
+	"PlayFabLocalization",
+	"PlayFabPlayerData",
+	"PlayFabStatistics",
+	"PlayFabTitleData",
 	"PlayFabResult",
 ]
 
@@ -48,6 +74,19 @@ func test_class_registration() -> void:
 	assert_true(ClassDB.is_parent_class("PlayFabUser", "RefCounted"), "PlayFabUser extends RefCounted")
 	assert_true(ClassDB.is_parent_class("PlayFabGameSaves", "RefCounted"), "PlayFabGameSaves extends RefCounted")
 	assert_true(ClassDB.is_parent_class("PlayFabLeaderboards", "RefCounted"), "PlayFabLeaderboards extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabAccounts", "RefCounted"), "PlayFabAccounts extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabCatalog", "RefCounted"), "PlayFabCatalog extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabCloudScript", "RefCounted"), "PlayFabCloudScript extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabEntityData", "RefCounted"), "PlayFabEntityData extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabEvents", "RefCounted"), "PlayFabEvents extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabExperimentation", "RefCounted"), "PlayFabExperimentation extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabFriends", "RefCounted"), "PlayFabFriends extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabGroups", "RefCounted"), "PlayFabGroups extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabInventory", "RefCounted"), "PlayFabInventory extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabLocalization", "RefCounted"), "PlayFabLocalization extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabPlayerData", "RefCounted"), "PlayFabPlayerData extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabStatistics", "RefCounted"), "PlayFabStatistics extends RefCounted")
+	assert_true(ClassDB.is_parent_class("PlayFabTitleData", "RefCounted"), "PlayFabTitleData extends RefCounted")
 	assert_true(ClassDB.is_parent_class("PlayFabResult", "RefCounted"), "PlayFabResult extends RefCounted")
 
 
@@ -73,6 +112,19 @@ func test_root_api_object_accessors() -> void:
 	assert_object_is(playfab.get_users(), "PlayFabUsers", "PlayFab.users returns PlayFabUsers")
 	assert_object_is(playfab.get_game_saves(), "PlayFabGameSaves", "PlayFab.game_saves returns PlayFabGameSaves")
 	assert_object_is(playfab.get_leaderboards(), "PlayFabLeaderboards", "PlayFab.leaderboards returns PlayFabLeaderboards")
+	assert_object_is(playfab.get_accounts(), "PlayFabAccounts", "PlayFab.accounts returns PlayFabAccounts")
+	assert_object_is(playfab.get_catalog(), "PlayFabCatalog", "PlayFab.catalog returns PlayFabCatalog")
+	assert_object_is(playfab.get_cloud_script(), "PlayFabCloudScript", "PlayFab.cloud_script returns PlayFabCloudScript")
+	assert_object_is(playfab.get_entity_data(), "PlayFabEntityData", "PlayFab.entity_data returns PlayFabEntityData")
+	assert_object_is(playfab.get_events(), "PlayFabEvents", "PlayFab.events returns PlayFabEvents")
+	assert_object_is(playfab.get_experimentation(), "PlayFabExperimentation", "PlayFab.experimentation returns PlayFabExperimentation")
+	assert_object_is(playfab.get_friends(), "PlayFabFriends", "PlayFab.friends returns PlayFabFriends")
+	assert_object_is(playfab.get_groups(), "PlayFabGroups", "PlayFab.groups returns PlayFabGroups")
+	assert_object_is(playfab.get_inventory(), "PlayFabInventory", "PlayFab.inventory returns PlayFabInventory")
+	assert_object_is(playfab.get_localization(), "PlayFabLocalization", "PlayFab.localization returns PlayFabLocalization")
+	assert_object_is(playfab.get_player_data(), "PlayFabPlayerData", "PlayFab.player_data returns PlayFabPlayerData")
+	assert_object_is(playfab.get_statistics(), "PlayFabStatistics", "PlayFab.statistics returns PlayFabStatistics")
+	assert_object_is(playfab.get_title_data(), "PlayFabTitleData", "PlayFab.title_data returns PlayFabTitleData")
 
 
 func test_root_api_initial_state() -> void:
