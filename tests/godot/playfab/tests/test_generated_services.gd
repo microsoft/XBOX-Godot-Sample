@@ -3,7 +3,6 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## root `PlayFab` singleton.
 
 
-const GENERATED_MANIFEST_PATH := "res://addons/godot_playfab/playfab_api_manifest.json"
 const EXPECTED_GENERATED_METHOD_COUNT := 139
 
 const GENERATED_SERVICE_SPECS := [
@@ -11,84 +10,213 @@ const GENERATED_SERVICE_SPECS := [
 		"property": "accounts",
 		"getter": "get_accounts",
 		"class": "PlayFabAccounts",
-		"method": "get_account_info_async",
 	},
 	{
 		"property": "catalog",
 		"getter": "get_catalog",
 		"class": "PlayFabCatalog",
-		"method": "get_catalog_config_async",
 	},
 	{
 		"property": "cloud_script",
 		"getter": "get_cloud_script",
 		"class": "PlayFabCloudScript",
-		"method": "execute_cloud_script_async",
 	},
 	{
 		"property": "entity_data",
 		"getter": "get_entity_data",
 		"class": "PlayFabEntityData",
-		"method": "get_objects_async",
 	},
 	{
 		"property": "events",
 		"getter": "get_events",
 		"class": "PlayFabEvents",
-		"method": "",
 	},
 	{
 		"property": "experimentation",
 		"getter": "get_experimentation",
 		"class": "PlayFabExperimentation",
-		"method": "get_treatment_assignment_async",
 	},
 	{
 		"property": "friends",
 		"getter": "get_friends",
 		"class": "PlayFabFriends",
-		"method": "add_friend_async",
 	},
 	{
 		"property": "groups",
 		"getter": "get_groups",
 		"class": "PlayFabGroups",
-		"method": "get_group_async",
 	},
 	{
 		"property": "inventory",
 		"getter": "get_inventory",
 		"class": "PlayFabInventory",
-		"method": "get_inventory_items_async",
 	},
 	{
 		"property": "localization",
 		"getter": "get_localization",
 		"class": "PlayFabLocalization",
-		"method": "get_language_list_async",
 	},
 	{
 		"property": "player_data",
 		"getter": "get_player_data",
 		"class": "PlayFabPlayerData",
-		"method": "get_user_data_async",
 	},
 	{
 		"property": "statistics",
 		"getter": "get_statistics",
 		"class": "PlayFabStatistics",
-		"method": "get_statistics_async",
 	},
 	{
 		"property": "title_data",
 		"getter": "get_title_data",
 		"class": "PlayFabTitleData",
-		"method": "get_title_data_async",
 	},
 ]
 
+const GENERATED_METHOD_SPECS := [
+	['accounts', 'PlayFabAccounts', 'add_or_update_contact_email_async', true],
+	['accounts', 'PlayFabAccounts', 'get_account_info_async', true],
+	['accounts', 'PlayFabAccounts', 'get_player_combined_info_async', true],
+	['accounts', 'PlayFabAccounts', 'get_player_profile_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_battle_net_account_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_google_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_kongregate_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_steam_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_steam_names_async', true],
+	['accounts', 'PlayFabAccounts', 'get_play_fab_ids_from_xbox_live_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'link_battle_net_account_async', true],
+	['accounts', 'PlayFabAccounts', 'link_custom_id_async', true],
+	['accounts', 'PlayFabAccounts', 'link_open_id_connect_async', true],
+	['accounts', 'PlayFabAccounts', 'link_steam_account_async', true],
+	['accounts', 'PlayFabAccounts', 'link_xbox_account_async', true],
+	['accounts', 'PlayFabAccounts', 'remove_contact_email_async', true],
+	['accounts', 'PlayFabAccounts', 'report_player_async', true],
+	['accounts', 'PlayFabAccounts', 'unlink_battle_net_account_async', true],
+	['accounts', 'PlayFabAccounts', 'unlink_custom_id_async', true],
+	['accounts', 'PlayFabAccounts', 'unlink_open_id_connect_async', true],
+	['accounts', 'PlayFabAccounts', 'unlink_steam_account_async', true],
+	['accounts', 'PlayFabAccounts', 'unlink_xbox_account_async', true],
+	['accounts', 'PlayFabAccounts', 'update_avatar_url_async', true],
+	['accounts', 'PlayFabAccounts', 'update_user_title_display_name_async', true],
+	['accounts', 'PlayFabAccounts', 'get_title_players_from_xbox_live_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'set_display_name_async', true],
+	['accounts', 'PlayFabAccounts', 'get_profile_async', true],
+	['accounts', 'PlayFabAccounts', 'get_profiles_async', true],
+	['accounts', 'PlayFabAccounts', 'get_title_players_from_master_player_account_ids_async', true],
+	['accounts', 'PlayFabAccounts', 'set_profile_language_async', true],
+	['accounts', 'PlayFabAccounts', 'set_profile_policy_async', true],
+	['catalog', 'PlayFabCatalog', 'create_draft_item_async', true],
+	['catalog', 'PlayFabCatalog', 'create_upload_urls_async', true],
+	['catalog', 'PlayFabCatalog', 'delete_entity_item_reviews_async', true],
+	['catalog', 'PlayFabCatalog', 'delete_item_async', true],
+	['catalog', 'PlayFabCatalog', 'get_catalog_config_async', true],
+	['catalog', 'PlayFabCatalog', 'get_draft_item_async', true],
+	['catalog', 'PlayFabCatalog', 'get_draft_items_async', true],
+	['catalog', 'PlayFabCatalog', 'get_entity_draft_items_async', true],
+	['catalog', 'PlayFabCatalog', 'get_entity_item_review_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_containers_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_moderation_state_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_publish_status_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_reviews_async', true],
+	['catalog', 'PlayFabCatalog', 'get_item_review_summary_async', true],
+	['catalog', 'PlayFabCatalog', 'get_items_async', true],
+	['catalog', 'PlayFabCatalog', 'publish_draft_item_async', true],
+	['catalog', 'PlayFabCatalog', 'report_item_async', true],
+	['catalog', 'PlayFabCatalog', 'report_item_review_async', true],
+	['catalog', 'PlayFabCatalog', 'review_item_async', true],
+	['catalog', 'PlayFabCatalog', 'search_items_async', true],
+	['catalog', 'PlayFabCatalog', 'set_item_moderation_state_async', true],
+	['catalog', 'PlayFabCatalog', 'submit_item_review_vote_async', true],
+	['catalog', 'PlayFabCatalog', 'takedown_item_reviews_async', true],
+	['catalog', 'PlayFabCatalog', 'update_catalog_config_async', true],
+	['catalog', 'PlayFabCatalog', 'update_draft_item_async', true],
+	['cloud_script', 'PlayFabCloudScript', 'execute_cloud_script_async', true],
+	['cloud_script', 'PlayFabCloudScript', 'execute_entity_cloud_script_async', true],
+	['cloud_script', 'PlayFabCloudScript', 'execute_function_async', true],
+	['entity_data', 'PlayFabEntityData', 'abort_file_uploads_async', true],
+	['entity_data', 'PlayFabEntityData', 'delete_files_async', true],
+	['entity_data', 'PlayFabEntityData', 'finalize_file_uploads_async', true],
+	['entity_data', 'PlayFabEntityData', 'get_files_async', true],
+	['entity_data', 'PlayFabEntityData', 'get_objects_async', true],
+	['entity_data', 'PlayFabEntityData', 'initiate_file_uploads_async', true],
+	['entity_data', 'PlayFabEntityData', 'set_objects_async', true],
+	['experimentation', 'PlayFabExperimentation', 'get_treatment_assignment_async', true],
+	['friends', 'PlayFabFriends', 'add_friend_async', true],
+	['friends', 'PlayFabFriends', 'get_friends_list_async', true],
+	['friends', 'PlayFabFriends', 'remove_friend_async', true],
+	['friends', 'PlayFabFriends', 'set_friend_tags_async', true],
+	['groups', 'PlayFabGroups', 'accept_group_application_async', true],
+	['groups', 'PlayFabGroups', 'accept_group_invitation_async', true],
+	['groups', 'PlayFabGroups', 'add_members_async', true],
+	['groups', 'PlayFabGroups', 'apply_to_group_async', true],
+	['groups', 'PlayFabGroups', 'block_entity_async', true],
+	['groups', 'PlayFabGroups', 'change_member_role_async', true],
+	['groups', 'PlayFabGroups', 'create_group_async', true],
+	['groups', 'PlayFabGroups', 'create_role_async', true],
+	['groups', 'PlayFabGroups', 'delete_group_async', true],
+	['groups', 'PlayFabGroups', 'delete_role_async', true],
+	['groups', 'PlayFabGroups', 'get_group_async', true],
+	['groups', 'PlayFabGroups', 'invite_to_group_async', true],
+	['groups', 'PlayFabGroups', 'is_member_async', true],
+	['groups', 'PlayFabGroups', 'list_group_applications_async', true],
+	['groups', 'PlayFabGroups', 'list_group_blocks_async', true],
+	['groups', 'PlayFabGroups', 'list_group_invitations_async', true],
+	['groups', 'PlayFabGroups', 'list_group_members_async', true],
+	['groups', 'PlayFabGroups', 'list_membership_async', true],
+	['groups', 'PlayFabGroups', 'list_membership_opportunities_async', true],
+	['groups', 'PlayFabGroups', 'remove_group_application_async', true],
+	['groups', 'PlayFabGroups', 'remove_group_invitation_async', true],
+	['groups', 'PlayFabGroups', 'remove_members_async', true],
+	['groups', 'PlayFabGroups', 'unblock_entity_async', true],
+	['groups', 'PlayFabGroups', 'update_group_async', true],
+	['groups', 'PlayFabGroups', 'update_role_async', true],
+	['inventory', 'PlayFabInventory', 'add_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'delete_inventory_collection_async', true],
+	['inventory', 'PlayFabInventory', 'delete_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'execute_inventory_operations_async', true],
+	['inventory', 'PlayFabInventory', 'execute_transfer_operations_async', true],
+	['inventory', 'PlayFabInventory', 'get_inventory_collection_ids_async', true],
+	['inventory', 'PlayFabInventory', 'get_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'get_inventory_operation_status_async', true],
+	['inventory', 'PlayFabInventory', 'get_transaction_history_async', true],
+	['inventory', 'PlayFabInventory', 'purchase_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'redeem_google_play_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'redeem_microsoft_store_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'redeem_play_station_store_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'redeem_steam_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'subtract_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'transfer_inventory_items_async', true],
+	['inventory', 'PlayFabInventory', 'update_inventory_items_async', true],
+	['localization', 'PlayFabLocalization', 'get_language_list_async', true],
+	['player_data', 'PlayFabPlayerData', 'delete_player_custom_properties_async', true],
+	['player_data', 'PlayFabPlayerData', 'get_player_custom_property_async', true],
+	['player_data', 'PlayFabPlayerData', 'get_user_data_async', true],
+	['player_data', 'PlayFabPlayerData', 'get_user_publisher_data_async', true],
+	['player_data', 'PlayFabPlayerData', 'get_user_publisher_read_only_data_async', true],
+	['player_data', 'PlayFabPlayerData', 'get_user_read_only_data_async', true],
+	['player_data', 'PlayFabPlayerData', 'list_player_custom_properties_async', false],
+	['player_data', 'PlayFabPlayerData', 'update_player_custom_properties_async', true],
+	['player_data', 'PlayFabPlayerData', 'update_user_data_async', true],
+	['player_data', 'PlayFabPlayerData', 'update_user_publisher_data_async', true],
+	['statistics', 'PlayFabStatistics', 'create_statistic_definition_async', true],
+	['statistics', 'PlayFabStatistics', 'delete_statistic_definition_async', true],
+	['statistics', 'PlayFabStatistics', 'delete_statistics_async', true],
+	['statistics', 'PlayFabStatistics', 'get_statistic_definition_async', true],
+	['statistics', 'PlayFabStatistics', 'get_statistics_async', true],
+	['statistics', 'PlayFabStatistics', 'get_statistics_for_entities_async', true],
+	['statistics', 'PlayFabStatistics', 'increment_statistic_version_async', true],
+	['statistics', 'PlayFabStatistics', 'list_statistic_definitions_async', true],
+	['statistics', 'PlayFabStatistics', 'update_statistic_definition_async', true],
+	['statistics', 'PlayFabStatistics', 'update_statistics_async', true],
+	['title_data', 'PlayFabTitleData', 'get_publisher_data_async', true],
+	['title_data', 'PlayFabTitleData', 'get_time_async', false],
+	['title_data', 'PlayFabTitleData', 'get_title_data_async', true],
+	['title_data', 'PlayFabTitleData', 'get_title_news_async', true],
+]
 
-func test_generated_service_accessors_and_manifest_method_contracts() -> void:
+
+func test_generated_service_accessors_and_method_contracts() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
@@ -101,51 +229,29 @@ func test_generated_service_accessors_and_manifest_method_contracts() -> void:
 		assert_object_is(service, spec["class"], "PlayFab.%s returns %s" % [spec["property"], spec["class"]])
 		assert_object_is(playfab.get(spec["property"]), spec["class"], "PlayFab.%s property returns %s" % [spec["property"], spec["class"]])
 
-	var manifest := _load_generated_api_manifest()
-	assert_eq(manifest.size(), EXPECTED_GENERATED_METHOD_COUNT, "generated PlayFab API manifest method count")
-	if manifest.is_empty():
-		return
-
-	for entry in manifest:
-		var property_name := str(entry.get("prop", ""))
-		var generated_class_name := str(entry.get("class", ""))
-		var method_name := str(entry.get("method", ""))
-		assert_false(property_name.is_empty(), "generated manifest entry has service property")
-		assert_false(generated_class_name.is_empty(), "generated manifest entry has class")
-		assert_false(method_name.is_empty(), "generated manifest entry has method")
-		if property_name.is_empty() or method_name.is_empty():
-			continue
-
+	assert_eq(GENERATED_METHOD_SPECS.size(), EXPECTED_GENERATED_METHOD_COUNT, "generated PlayFab API method count")
+	for spec in GENERATED_METHOD_SPECS:
+		var property_name := str(spec[0])
+		var generated_class_name := str(spec[1])
+		var method_name := str(spec[2])
+		var has_request := bool(spec[3])
 		var service = playfab.get(property_name)
 		assert_object_is(service, generated_class_name, "PlayFab.%s property returns %s" % [property_name, generated_class_name])
 		if service == null:
 			continue
 
 		assert_has_method_named(service, method_name)
-		var completion_signal = _call_generated_method(service, method_name, blank_user, entry)
+		var completion_signal = _call_generated_method(service, method_name, blank_user, has_request)
 		await _assert_playfab_signal_result_error(
 			completion_signal,
 			"not_initialized",
 			"PlayFab.%s.%s() before initialize()" % [property_name, method_name])
 
 
-func _load_generated_api_manifest() -> Array:
-	assert_true(FileAccess.file_exists(GENERATED_MANIFEST_PATH), "generated PlayFab API manifest is synced into the test host")
-	if not FileAccess.file_exists(GENERATED_MANIFEST_PATH):
-		return []
-
-	var manifest_text := FileAccess.get_file_as_string(GENERATED_MANIFEST_PATH)
-	var parsed = JSON.parse_string(manifest_text)
-	assert_true(parsed is Array, "generated PlayFab API manifest parses as Array")
-	if not (parsed is Array):
-		return []
-	return parsed
-
-
-func _call_generated_method(service: Object, method_name: String, user, manifest_entry: Dictionary):
-	if manifest_entry.has("request") and manifest_entry["request"] == null:
-		return service.call(method_name, user)
-	return service.call(method_name, user, {})
+func _call_generated_method(service: Object, method_name: String, user, has_request: bool):
+	if has_request:
+		return service.call(method_name, user, {})
+	return service.call(method_name, user)
 
 
 func _assert_playfab_signal_result_error(async_signal, expected_code: String, name: String) -> void:
