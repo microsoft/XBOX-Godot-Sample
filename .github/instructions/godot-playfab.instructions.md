@@ -22,8 +22,8 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/playfab_demo/*
 
 ## User and Service Model
 
-- PlayFab sign-in is an explicit gameplay action keyed by a local Xbox user id, a `GDKUser`, or a title-defined custom id.
-- `PlayFabUser` represents one signed-in PlayFab session associated with either one local Xbox user id or one custom id.
+- PlayFab sign-in is an explicit gameplay action keyed by a `GDKUser` object or a title-defined custom id; do not expose raw local Xbox user ids for XUser-backed sign-in.
+- `PlayFabUser` represents one signed-in PlayFab session associated with either one Xbox-backed user object flow or one custom id.
 - Game Saves requires an Xbox-backed `PlayFabUser` with a local user handle; custom-ID sessions must fail with `xbox_user_required` instead of surfacing a low-level handle error.
 - Higher-level service calls should require a `PlayFabUser` rather than raw ids or loosely typed user variants whenever the session is required.
 - Keep Xbox-facing identity details on the GDK side; the PlayFab wrapper should expose the PlayFab-facing session data higher-level services need.

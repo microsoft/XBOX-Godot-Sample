@@ -13,10 +13,10 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ##
 ## PlayFab (root):
 ##   - initialize()                                      → "title_id_required" when blank
-##   - sign_in_async(user_or_local_id, create_account)   → "not_initialized", "invalid_user_or_local_id"
+##   - sign_in_with_xuser_async(user, create_account)    → "not_initialized", "invalid_xuser"
 ##
 ## PlayFabUsers:
-##   - sign_in_async(user_or_local_id, create_account)   → "not_initialized", "invalid_user_or_local_id"
+##   - sign_in_with_xuser_async(user, create_account)    → "not_initialized", "invalid_xuser"
 ##
 ## PlayFabGameSaves (async):
 ##   - add_user_with_ui_async(user, options)             → "not_initialized", "invalid_options" (post-init)
@@ -39,31 +39,31 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 
 # ── PlayFab root: not_initialized ────────────────────────────────────────
 
-func test_root_sign_in_async_not_initialized() -> void:
+func test_root_sign_in_with_xuser_async_not_initialized() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
 	reset_playfab_runtime()
 
-	var sign_in_signal = playfab.sign_in_async(1)
+	var sign_in_signal = playfab.sign_in_with_xuser_async(null)
 	await _assert_signal_error(
 		sign_in_signal, "not_initialized",
-		"PlayFab.sign_in_async() before initialize()")
+		"PlayFab.sign_in_with_xuser_async() before initialize()")
 
 
 # ── PlayFabUsers: not_initialized + invalid ──────────────────────────────
 
-func test_users_sign_in_async_not_initialized() -> void:
+func test_users_sign_in_with_xuser_async_not_initialized() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
 	reset_playfab_runtime()
 
 	var users = playfab.get_users()
-	var sign_in_signal = users.sign_in_async(1)
+	var sign_in_signal = users.sign_in_with_xuser_async(null)
 	await _assert_signal_error(
 		sign_in_signal, "not_initialized",
-		"PlayFab.users.sign_in_async() before initialize()")
+		"PlayFab.users.sign_in_with_xuser_async() before initialize()")
 
 
 # ── PlayFabGameSaves async: not_initialized ──────────────────────────────
@@ -203,43 +203,43 @@ func test_leaderboards_get_friend_leaderboard_async_not_initialized() -> void:
 		"PlayFab.leaderboards.get_friend_leaderboard_async() before initialize()")
 
 
-# ── invalid_user_or_local_id (PlayFab + PlayFabUsers) ─────────────────────
+# ── invalid_xuser (PlayFab + PlayFabUsers) ────────────────────────────────
 #
 # These exercise the post-`not_initialized` validation paths. The runtime
-# stays in `not_initialized` here too, so the `invalid_user_or_local_id`
-# code is only emitted for ENV variants where users.sign_in_async runs the
+# stays in `not_initialized` here too, so the `invalid_xuser`
+# code is only emitted for ENV variants where users.sign_in_with_xuser_async runs the
 # user-decoding step before runtime check. In the current code the runtime
 # check fires first and surfaces "not_initialized" — leave a behavioural
 # guard so this test stays meaningful even after a refactor: assert the
 # code is one of the documented values for these inputs.
 
-func test_root_sign_in_invalid_user_or_local_id_zero_post_init() -> void:
+func test_root_sign_in_with_xuser_rejects_local_id_post_init() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
 	reset_playfab_runtime()
 	# Force the runtime into the "initialized=false" state. The current
-	# guard order is runtime-first, so passing a 0 local id here surfaces
+	# guard order is runtime-first, so passing a raw local id here surfaces
 	# "not_initialized" — kept as a behavioural assertion that the engine
 	# is consistently in one of the two documented branches.
-	var sign_in_signal = playfab.sign_in_async(0)
+	var sign_in_signal = playfab.sign_in_with_xuser_async(1)
 	await _assert_signal_one_of(
 		sign_in_signal,
-		PackedStringArray(["not_initialized", "invalid_user_or_local_id"]),
-		"PlayFab.sign_in_async(0) reports a documented validation code")
+		PackedStringArray(["not_initialized", "invalid_xuser"]),
+		"PlayFab.sign_in_with_xuser_async(1) reports a documented validation code")
 
 
-func test_root_sign_in_invalid_user_or_local_id_unsupported_type_post_init() -> void:
+func test_root_sign_in_with_xuser_invalid_type_post_init() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
 	reset_playfab_runtime()
 
-	var sign_in_signal = playfab.sign_in_async(Vector2(1, 2))
+	var sign_in_signal = playfab.sign_in_with_xuser_async(Vector2(1, 2))
 	await _assert_signal_one_of(
 		sign_in_signal,
-		PackedStringArray(["not_initialized", "invalid_user_or_local_id"]),
-		"PlayFab.sign_in_async(Vector2) reports a documented validation code")
+		PackedStringArray(["not_initialized", "invalid_xuser"]),
+		"PlayFab.sign_in_with_xuser_async(Vector2) reports a documented validation code")
 
 
 # ── invalid_options on game_saves.add_user_with_ui_async (post-init only)

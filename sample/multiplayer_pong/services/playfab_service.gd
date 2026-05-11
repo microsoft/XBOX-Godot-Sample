@@ -422,7 +422,7 @@ func _ensure_playfab_user(prompt_for_user: bool) -> Variant:
 		_active_local_id = local_id
 		return existing_user
 
-	var sign_in_result: PlayFabResult = await pf.sign_in_async(gdk_user)
+	var sign_in_result: PlayFabResult = await pf.sign_in_with_xuser_async(gdk_user)
 	if sign_in_result == null or not sign_in_result.ok:
 		_warn(_result_message(sign_in_result, "Failed to sign the current Xbox user into PlayFab."))
 		return null

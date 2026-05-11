@@ -62,7 +62,7 @@ The addon uses one shared task queue owned by the PlayFab runtime. Native comple
 
 Rules:
 
-1. `PlayFab.sign_in_async()`, `PlayFab.sign_in_with_custom_id_async()`, the equivalent `PlayFab.users` methods, Game Saves calls, and leaderboard calls all return completion signals awaited directly.
+1. `PlayFab.sign_in_with_xuser_async()`, `PlayFab.sign_in_with_custom_id_async()`, the equivalent `PlayFab.users` methods, Game Saves calls, and leaderboard calls all return completion signals awaited directly.
 2. Completion data is delivered through `PlayFabResult`.
 3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
 4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.

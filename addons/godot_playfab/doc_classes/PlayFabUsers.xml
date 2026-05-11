@@ -8,12 +8,12 @@
 	</description>
 	<tutorials></tutorials>
 	<methods>
-		<method name="sign_in_async">
+		<method name="sign_in_with_xuser_async">
 			<return type="Signal" />
-			<param index="0" name="user_or_local_id" type="Variant" />
+			<param index="0" name="user" type="Variant" />
 			<param index="1" name="create_account" type="bool" default="true" />
 			<description>
-				Starts PlayFab sign-in for the specified signed-in Xbox user. Pass a [code]GDKUser[/code]-like object or local id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
+				Starts PlayFab sign-in for the specified signed-in [code]GDKUser[/code]. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
 			</description>
 		</method>
 		<method name="sign_in_with_custom_id_async">
