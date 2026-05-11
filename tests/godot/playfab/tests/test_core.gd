@@ -15,7 +15,7 @@ const PLAYFAB_ROOT_METHODS := [
 	"get_users",
 	"get_game_saves",
 	"get_leaderboards",
-	"sign_in_async",
+	"sign_in_with_xuser_async",
 	"sign_in_with_custom_id_async",
 	"get_user_by_local_id",
 	"get_user_by_custom_id",

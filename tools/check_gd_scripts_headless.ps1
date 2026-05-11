@@ -17,9 +17,10 @@
     resolve res:// paths for them.
 
     Use -Projects to validate only specific Godot project roots or synthetic
-    validator contexts. This is useful when a known-broken sample should not
-    block targeted validation for an unrelated PR. If -Projects is omitted, every
-    discovered validation context is checked.
+    validator contexts, and -ExcludeProjects to skip specific contexts. This is
+    useful when a known-broken sample should not block targeted validation for an
+    unrelated PR. If both filters are omitted, every discovered validation
+    context is checked.
 
     Godot's --check-only flag only parses the specified script (plus any
     transitive preload/extends dependencies).  It does NOT execute autoloads,
@@ -48,11 +49,20 @@
     such as `sample` match every discovered validation context under that path.
     When calling through `pwsh -File`, pass multiple targets as a comma-separated
     value such as `-Projects addons,sample\gdk_launch_point`.
+
+.PARAMETER ExcludeProjects
+    Optional repo-relative project/context paths to skip after applying
+    -Projects. Uses the same matching rules as -Projects. For example,
+    `-ExcludeProjects sample\multiplayer_pong` keeps the rest of the parse gate
+    active while skipping the Pong sample project.
 #>
 [CmdletBinding()]
 param(
     [Alias('Project')]
-    [string[]]$Projects = @()
+    [string[]]$Projects = @(),
+
+    [Alias('ExcludeProject')]
+    [string[]]$ExcludeProjects = @()
 )
 
 Set-StrictMode -Version Latest
@@ -488,17 +498,18 @@ function Invoke-GodotScriptCheck {
 
 try {
     $godotExecutable = Get-GodotExecutable
-    $gdFiles = Get-GDScriptFiles
+    $gdFiles = @(Get-GDScriptFiles)
     if ($gdFiles.Count -eq 0) {
         Write-Host 'No .gd files found; skipping headless GDScript validation.'
         exit 0
     }
 
-    $projectRoots = Get-ProjectRoots
+    $projectRoots = @(Get-ProjectRoots)
     $contexts = @{}
     $addonContext = $null
     $sampleAddonContext = $null
-    $projectFilters = Get-NormalizedProjectFilters -ProjectFilters $Projects
+    $projectFilters = @(Get-NormalizedProjectFilters -ProjectFilters $Projects)
+    $excludeProjectFilters = @(Get-NormalizedProjectFilters -ProjectFilters $ExcludeProjects)
 
     foreach ($filePath in $gdFiles) {
         $context = Get-ValidationContext -FilePath $filePath -ProjectRoots $projectRoots -AddonContext ([ref]$addonContext) -SampleAddonContext ([ref]$sampleAddonContext)
@@ -526,6 +537,22 @@ try {
         $contexts = $filteredContexts
         if ($contexts.Count -eq 0) {
             throw "No GDScript validation contexts matched -Projects: $($projectFilters -join ', ')"
+        }
+    }
+
+    if ($excludeProjectFilters.Count -gt 0) {
+        $filteredContexts = @{}
+        foreach ($key in $contexts.Keys) {
+            $context = $contexts[$key]
+            if (-not (Test-ContextMatchesProjectFilter -Context $context -ProjectFilters $excludeProjectFilters)) {
+                $filteredContexts[$key] = $context
+            }
+        }
+
+        $contexts = $filteredContexts
+        if ($contexts.Count -eq 0) {
+            Write-Host "All GDScript validation contexts were excluded by -ExcludeProjects: $($excludeProjectFilters -join ', '); skipping headless GDScript validation."
+            exit 0
         }
     }
 

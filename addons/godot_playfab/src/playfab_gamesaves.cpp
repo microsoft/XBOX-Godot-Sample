@@ -75,7 +75,7 @@ Signal make_game_saves_user_error_signal(PlayFabRuntime *p_runtime, HRESULT p_hr
             p_hresult,
             needs_xbox_user ? "xbox_user_required" : "invalid_user",
             needs_xbox_user
-                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_async(). Custom-ID PlayFab users do not expose a local user handle."
+                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_with_xuser_async(). Custom-ID PlayFab users do not expose a local user handle."
                     : "Game Saves operations require a valid signed-in PlayFabUser.");
 }
 
@@ -86,7 +86,7 @@ Ref<PlayFabResult> make_game_saves_user_error_result(PlayFabRuntime *p_runtime, 
             p_hresult,
             needs_xbox_user ? "xbox_user_required" : "invalid_user",
             needs_xbox_user
-                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_async(). Custom-ID PlayFab users do not expose a local user handle."
+                    ? "Game Saves operations require an Xbox-backed PlayFabUser created through PlayFab.sign_in_with_xuser_async(). Custom-ID PlayFab users do not expose a local user handle."
                     : "Game Saves operations require a valid signed-in PlayFabUser.");
 }
 

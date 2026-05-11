@@ -16,7 +16,7 @@ func test_users_api() -> void:
 	if users == null:
 		return
 
-	for method_name in ["sign_in_async", "sign_in_with_custom_id_async", "get_user_by_local_id", "get_user_by_custom_id", "get_user", "get_users"]:
+	for method_name in ["sign_in_with_xuser_async", "sign_in_with_custom_id_async", "get_user_by_local_id", "get_user_by_custom_id", "get_user", "get_users"]:
 		assert_has_method_named(users, method_name)
 
 	for signal_name in ["user_signed_in", "user_signed_out", "user_changed"]:
@@ -53,13 +53,13 @@ func test_not_initialized_sign_in() -> void:
 
 	reset_playfab_runtime()
 
-	var root_signal = playfab.sign_in_async(1)
+	var root_signal = playfab.sign_in_with_xuser_async(null)
 	await _assert_playfab_signal_result_error(
-		root_signal, "not_initialized", "PlayFab.sign_in_async() before initialize()")
+		root_signal, "not_initialized", "PlayFab.sign_in_with_xuser_async() before initialize()")
 
-	var users_signal = playfab.get_users().sign_in_async(1)
+	var users_signal = playfab.get_users().sign_in_with_xuser_async(null)
 	await _assert_playfab_signal_result_error(
-		users_signal, "not_initialized", "PlayFab.users.sign_in_async() before initialize()")
+		users_signal, "not_initialized", "PlayFab.users.sign_in_with_xuser_async() before initialize()")
 
 	var last_error = playfab.get_last_error()
 	assert_playfab_result_error(last_error, "not_initialized", "PlayFab.get_last_error() tracks not_initialized sign-in")

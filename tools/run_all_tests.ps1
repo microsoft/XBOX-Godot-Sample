@@ -42,6 +42,15 @@
     is all three coverage hosts: tests\godot\gdk, tests\godot\playfab,
     tests\godot\gameinput.
 
+.PARAMETER ParseProjects
+    Optional project/context filter forwarded to the parse gate. Uses the same
+    matching rules as tools\check_gd_scripts_headless.ps1 -Projects.
+
+.PARAMETER ParseExcludeProjects
+    Optional project/context exclusion forwarded to the parse gate. For example,
+    pass `-ParseExcludeProjects sample\multiplayer_pong` to keep the parse gate
+    active while skipping the Pong sample project.
+
 .PARAMETER PlayFabTitleId
     Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
     The PlayFab test base applies it to ProjectSettings['playfab/titleid'].
@@ -66,6 +75,8 @@ param(
     [switch]$SkipBuild,
     [string]$OutDir = 'build/test-results',
     [string[]]$Hosts,
+    [string[]]$ParseProjects,
+    [string[]]$ParseExcludeProjects,
     [string]$PlayFabTitleId,
     [string]$PlayFabCustomId,
     [int]$GutTimeoutSec = 600,
@@ -370,10 +381,40 @@ function Resolve-CMakeExecutable {
     return $cmd.Source
 }
 
+function ConvertTo-ParseGateFilterList {
+    param(
+        [AllowEmptyCollection()]
+        [string[]]$Filters
+    )
+
+    return @(
+        $Filters |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_ -split ',' } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { ($_ -replace '/', '\').Trim().TrimEnd('\') } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
 function Invoke-ParseGate {
+    param(
+        [AllowEmptyCollection()]
+        [string[]]$Projects = @(),
+        [AllowEmptyCollection()]
+        [string[]]$ExcludeProjects = @()
+    )
+
     $rec = New-StageRecord 'parse-gate'
     $pwsh = Resolve-PwshExecutable
     $args = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:ParseGate)
+    if ($Projects.Count -gt 0) {
+        $args += @('-Projects', ($Projects -join ','))
+    }
+    if ($ExcludeProjects.Count -gt 0) {
+        $args += @('-ExcludeProjects', ($ExcludeProjects -join ','))
+    }
     $r = Invoke-ChildProcess -FileName $pwsh -Arguments $args -WorkingDirectory $script:RepoRoot `
         -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
     $rec.duration_ms = $r.DurationMs
@@ -729,6 +770,8 @@ function Main {
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
     # Normalize separators
     $hostList = @($hostList | ForEach-Object { ($_ -replace '/', '\').TrimEnd('\') })
+    $parseProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseProjects)
+    $parseExcludeProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseExcludeProjects)
 
     $outDirAbsolute = if ([System.IO.Path]::IsPathRooted($OutDir)) {
         $OutDir
@@ -740,6 +783,8 @@ function Main {
     Write-Host "                   Live  = $Live   SkipBuild = $SkipBuild" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
+    Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
+    Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
     Write-Host "                   OutDir= $outDirAbsolute" -ForegroundColor Cyan
     Write-Host ''
 
@@ -748,7 +793,7 @@ function Main {
 
     # 1. Parse gate
     Write-Host '== [1/6] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
-    $stage = Invoke-ParseGate
+    $stage = Invoke-ParseGate -Projects $parseProjectList -ExcludeProjects $parseExcludeProjectList
     [void]$stages.Add($stage)
     Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
     if ($stage.status -ne 'pass') { $abort = $true }

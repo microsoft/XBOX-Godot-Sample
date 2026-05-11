@@ -56,7 +56,7 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFab::get_users);
     ClassDB::bind_method(D_METHOD("get_game_saves"), &PlayFab::get_game_saves);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &PlayFab::get_leaderboards);
-    ClassDB::bind_method(D_METHOD("sign_in_async", "user_or_local_id", "create_account"), &PlayFab::sign_in_async, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("sign_in_with_xuser_async", "user", "create_account"), &PlayFab::sign_in_with_xuser_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("sign_in_with_custom_id_async", "custom_id", "create_account"), &PlayFab::sign_in_with_custom_id_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("get_user_by_local_id", "local_id"), &PlayFab::get_user_by_local_id);
     ClassDB::bind_method(D_METHOD("get_user_by_custom_id", "custom_id"), &PlayFab::get_user_by_custom_id);
@@ -132,8 +132,8 @@ Ref<PlayFabLeaderboards> PlayFab::get_leaderboards() const {
     return m_leaderboards;
 }
 
-Signal PlayFab::sign_in_async(const Variant &p_user_or_local_id, bool p_create_account) {
-    return m_users.is_valid() ? m_users->sign_in_async(p_user_or_local_id, p_create_account) : Signal();
+Signal PlayFab::sign_in_with_xuser_async(const Variant &p_user, bool p_create_account) {
+    return m_users.is_valid() ? m_users->sign_in_with_xuser_async(p_user, p_create_account) : Signal();
 }
 
 Signal PlayFab::sign_in_with_custom_id_async(const String &p_custom_id, bool p_create_account) {
