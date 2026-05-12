@@ -245,7 +245,7 @@ void PlayFabUsers::shutdown() {
     m_users.clear();
 }
 
-Signal PlayFabUsers::sign_in_with_xuser_async(const Variant &p_user, bool p_create_account) {
+Signal PlayFabUsers::sign_in_with_xuser_async(Object *p_user, bool p_create_account) {
     PlayFabRuntime *runtime = _get_runtime();
     if (runtime == nullptr || !runtime->is_initialized()) {
         return make_users_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
@@ -370,43 +370,35 @@ PlayFabRuntime *PlayFabUsers::_get_runtime() const {
     return m_owner != nullptr ? m_owner->get_runtime() : nullptr;
 }
 
-bool PlayFabUsers::_try_get_local_id_from_xuser_object(const Variant &p_user, XUserLocalId *r_local_id, String *r_error) {
+bool PlayFabUsers::_try_get_local_id_from_xuser_object(Object *p_user, XUserLocalId *r_local_id, String *r_error) {
     if (r_local_id == nullptr) {
         return false;
     }
 
     *r_local_id = {};
 
-    if (p_user.get_type() != Variant::OBJECT) {
+    if (p_user == nullptr) {
         if (r_error != nullptr) {
             *r_error = "PlayFab XUser sign-in requires a GDKUser object.";
         }
         return false;
     }
 
-    Object *object = Object::cast_to<Object>(p_user);
-    if (object == nullptr) {
-        if (r_error != nullptr) {
-            *r_error = "The provided GDK user object is null.";
-        }
-        return false;
-    }
-
-    if (Object::cast_to<PlayFabUser>(object) != nullptr) {
+    if (Object::cast_to<PlayFabUser>(p_user) != nullptr) {
         if (r_error != nullptr) {
             *r_error = "PlayFab XUser sign-in requires a GDKUser object, not a PlayFabUser.";
         }
         return false;
     }
 
-    if (!object->has_method("is_signed_in") || !object->has_method("get_local_id")) {
+    if (!p_user->has_method("is_signed_in") || !p_user->has_method("get_local_id")) {
         if (r_error != nullptr) {
             *r_error = "PlayFab XUser sign-in requires a GDKUser object.";
         }
         return false;
     }
 
-    Variant signed_in = object->call("is_signed_in");
+    Variant signed_in = p_user->call("is_signed_in");
     if (signed_in.get_type() != Variant::BOOL) {
         if (r_error != nullptr) {
             *r_error = "The provided GDK user does not expose a boolean signed-in state.";
@@ -421,7 +413,7 @@ bool PlayFabUsers::_try_get_local_id_from_xuser_object(const Variant &p_user, XU
         return false;
     }
 
-    Variant method_value = object->call("get_local_id");
+    Variant method_value = p_user->call("get_local_id");
     if (method_value.get_type() != Variant::INT) {
         if (r_error != nullptr) {
             *r_error = "The provided GDK user does not expose an integer local_id.";

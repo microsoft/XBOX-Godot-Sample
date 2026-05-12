@@ -53,10 +53,6 @@ func test_not_initialized_sign_in() -> void:
 
 	reset_playfab_runtime()
 
-	var root_signal = playfab.sign_in_with_xuser_async(null)
-	await _assert_playfab_signal_result_error(
-		root_signal, "not_initialized", "PlayFab.sign_in_with_xuser_async() before initialize()")
-
 	var users_signal = playfab.get_users().sign_in_with_xuser_async(null)
 	await _assert_playfab_signal_result_error(
 		users_signal, "not_initialized", "PlayFab.users.sign_in_with_xuser_async() before initialize()")
@@ -72,17 +68,9 @@ func test_custom_id_sign_in_validation() -> void:
 
 	reset_playfab_runtime()
 
-	var empty_root_signal = playfab.sign_in_with_custom_id_async("")
-	await _assert_playfab_signal_result_error(
-		empty_root_signal, "invalid_custom_id", "PlayFab.sign_in_with_custom_id_async() rejects empty custom_id")
-
 	var empty_users_signal = playfab.get_users().sign_in_with_custom_id_async("  ")
 	await _assert_playfab_signal_result_error(
 		empty_users_signal, "invalid_custom_id", "PlayFab.users.sign_in_with_custom_id_async() rejects blank custom_id")
-
-	var root_signal = playfab.sign_in_with_custom_id_async("gdkfleet-test-custom-id")
-	await _assert_playfab_signal_result_error(
-		root_signal, "not_initialized", "PlayFab.sign_in_with_custom_id_async() before initialize()")
 
 	var users_signal = playfab.get_users().sign_in_with_custom_id_async("gdkfleet-test-custom-id")
 	await _assert_playfab_signal_result_error(

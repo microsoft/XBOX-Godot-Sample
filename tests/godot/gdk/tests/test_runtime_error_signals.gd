@@ -1,17 +1,10 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
-## Wave 4 GUT coverage for the `runtime_error` and `availability_changed`
-## signals on the `GDK` singleton. Wave 3 already covers the
-## `users` / `core` (repeated `initialize()`) pathways in `test_core.gd`.
-## This suite broadens coverage to the achievements, presence, social, and
+## Wave 4 GUT coverage for the `runtime_error` signal on the `GDK`
+## singleton. Wave 3 already covers the `users` / `core` (repeated
+## `initialize()`) pathways in `test_core.gd`. This suite broadens
+## coverage to the achievements, presence, social, and
 ## multiplayer_activity services so a regression that drops their error-route
 ## into `GDK.runtime_error` is caught.
-##
-## `availability_changed` is a public signal on `GDK` whose runtime emit path
-## is currently outside any service's reach (no production site fires it).
-## We pin the public contract by asserting:
-##   * the signal is registered with the `(bool available)` argument shape;
-##   * the signal stays connectable / disconnectable across init + shutdown;
-##   * no spurious emits land during normal init or service-level errors.
 
 func before_each() -> void:
 	reset_runtime()
@@ -28,15 +21,13 @@ func _signal_arg_count(obj: Object, signal_name: String) -> int:
 	return -1
 
 
-func test_root_runtime_error_and_availability_signals_registered() -> void:
+func test_root_runtime_error_signal_registered() -> void:
 	if pending_unless_runtime_available():
 		return
 
 	var gdk = get_gdk()
 	assert_has_signal_named(gdk, "runtime_error")
-	assert_has_signal_named(gdk, "availability_changed")
 	assert_eq(_signal_arg_count(gdk, "runtime_error"), 1, "runtime_error has 1 arg (result)")
-	assert_eq(_signal_arg_count(gdk, "availability_changed"), 1, "availability_changed has 1 arg (available)")
 
 
 func test_social_validation_routes_through_runtime_error() -> void:
@@ -69,8 +60,6 @@ func test_social_validation_routes_through_runtime_error() -> void:
 
 	var runtime_errors: Array = []
 	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
-	var availability_changes: Array = []
-	gdk.connect("availability_changed", func(available): availability_changes.append(available))
 
 	# `create_social_group_from_xuids(user, [])` routes a validation failure
 	# through GDK::emit_runtime_error, not just the per-call return value.
@@ -84,10 +73,8 @@ func test_social_validation_routes_through_runtime_error() -> void:
 		if last_error != null:
 			assert_eq(last_error.code, "missing_social_group_xuids", "runtime_error code matches the validation failure")
 
-	assert_eq(availability_changes.size(), 0, "availability_changed does not fire from social validation")
-
 	social.stop_social_graph(user)
-	disconnect_signal_handlers(gdk, ["runtime_error", "availability_changed"])
+	disconnect_signal_handlers(gdk, ["runtime_error"])
 
 
 func test_no_spurious_runtime_error_during_clean_init_shutdown() -> void:
@@ -96,9 +83,7 @@ func test_no_spurious_runtime_error_during_clean_init_shutdown() -> void:
 
 	var gdk = get_gdk()
 	var runtime_errors: Array = []
-	var availability_changes: Array = []
 	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
-	gdk.connect("availability_changed", func(available): availability_changes.append(available))
 
 	var init_result = initialize_runtime()
 	if init_result == null or not init_result.ok:
@@ -107,15 +92,14 @@ func test_no_spurious_runtime_error_during_clean_init_shutdown() -> void:
 		# on environment-driven init failures.
 		pending("clean-init runtime_error coverage requires a successful init: %s" % (
 			"null result" if init_result == null else init_result.message))
-		disconnect_signal_handlers(gdk, ["runtime_error", "availability_changed"])
+		disconnect_signal_handlers(gdk, ["runtime_error"])
 		return
 
 	var pre_shutdown_errors = runtime_errors.size()
 	gdk.shutdown()
 	assert_eq(runtime_errors.size(), pre_shutdown_errors, "shutdown does not emit spurious runtime_error")
-	assert_eq(availability_changes.size(), 0, "availability_changed does not fire during clean init/shutdown")
 
-	disconnect_signal_handlers(gdk, ["runtime_error", "availability_changed"])
+	disconnect_signal_handlers(gdk, ["runtime_error"])
 
 
 func test_per_service_signal_surfaces_present() -> void:

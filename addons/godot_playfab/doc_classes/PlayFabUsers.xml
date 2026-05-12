@@ -10,7 +10,7 @@
 	<methods>
 		<method name="sign_in_with_xuser_async">
 			<return type="Signal" />
-			<param index="0" name="user" type="Variant" />
+			<param index="0" name="user" type="Object" />
 			<param index="1" name="create_account" type="bool" default="true" />
 			<description>
 				Starts PlayFab sign-in for the specified signed-in [code]GDKUser[/code]. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].

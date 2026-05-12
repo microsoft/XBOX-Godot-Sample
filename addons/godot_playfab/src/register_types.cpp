@@ -165,7 +165,7 @@ void uninitialize_playfab_extension(ModuleInitializationLevel p_level) {
 
 extern "C" {
 
-GDExtensionBool GDE_EXPORT godot_playfab_init(
+GDExtensionBool GDE_EXPORT playfab_addon_init(
         GDExtensionInterfaceGetProcAddress p_get_proc_address,
         GDExtensionClassLibraryPtr p_library,
         GDExtensionInitialization *r_initialization) {

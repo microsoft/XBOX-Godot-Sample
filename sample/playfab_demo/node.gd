@@ -43,7 +43,7 @@ func _run_playfab() -> void:
 			return
 
 	_set_status("Connecting PlayFab...", true)
-	var sign_in_result = await _await_async_result(playfab.sign_in_with_xuser_async(xbox_user))
+	var sign_in_result = await _await_async_result(playfab.users.sign_in_with_xuser_async(xbox_user))
 	if sign_in_result == null or not sign_in_result.ok:
 		_set_status(sign_in_result.message if sign_in_result != null else "PlayFab sign-in failed.", false)
 		return

@@ -236,12 +236,6 @@
 				Emitted when a runtime error occurs in the GDK.
 			</description>
 		</signal>
-		<signal name="availability_changed">
-			<param index="0" name="available" type="bool" />
-			<description>
-				Emitted when the GDK runtime availability changes.
-			</description>
-		</signal>
 	</signals>
 	<constants>
 	</constants>

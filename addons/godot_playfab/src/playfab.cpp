@@ -110,10 +110,6 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_player_data"), &PlayFab::get_player_data);
     ClassDB::bind_method(D_METHOD("get_statistics"), &PlayFab::get_statistics);
     ClassDB::bind_method(D_METHOD("get_title_data"), &PlayFab::get_title_data);
-    ClassDB::bind_method(D_METHOD("sign_in_with_xuser_async", "user", "create_account"), &PlayFab::sign_in_with_xuser_async, DEFVAL(true));
-    ClassDB::bind_method(D_METHOD("sign_in_with_custom_id_async", "custom_id", "create_account"), &PlayFab::sign_in_with_custom_id_async, DEFVAL(true));
-    ClassDB::bind_method(D_METHOD("get_user_by_local_id", "local_id"), &PlayFab::get_user_by_local_id);
-    ClassDB::bind_method(D_METHOD("get_user_by_custom_id", "custom_id"), &PlayFab::get_user_by_custom_id);
     ClassDB::bind_method(D_METHOD("get_title_id"), &PlayFab::get_title_id);
     ClassDB::bind_method(D_METHOD("get_endpoint"), &PlayFab::get_endpoint);
 
@@ -254,22 +250,6 @@ Ref<PlayFabStatistics> PlayFab::get_statistics() const {
 
 Ref<PlayFabTitleData> PlayFab::get_title_data() const {
     return m_title_data;
-}
-
-Signal PlayFab::sign_in_with_xuser_async(const Variant &p_user, bool p_create_account) {
-    return m_users.is_valid() ? m_users->sign_in_with_xuser_async(p_user, p_create_account) : Signal();
-}
-
-Signal PlayFab::sign_in_with_custom_id_async(const String &p_custom_id, bool p_create_account) {
-    return m_users.is_valid() ? m_users->sign_in_with_custom_id_async(p_custom_id, p_create_account) : Signal();
-}
-
-Ref<PlayFabUser> PlayFab::get_user_by_local_id(int64_t p_local_id) const {
-    return m_users.is_valid() ? m_users->get_user_by_local_id(p_local_id) : Ref<PlayFabUser>();
-}
-
-Ref<PlayFabUser> PlayFab::get_user_by_custom_id(const String &p_custom_id) const {
-    return m_users.is_valid() ? m_users->get_user_by_custom_id(p_custom_id) : Ref<PlayFabUser>();
 }
 
 String PlayFab::get_title_id() const {

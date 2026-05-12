@@ -93,9 +93,9 @@ func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_m
 		outcome["skip_reason"] = "custom_id_unconfigured"
 		return outcome
 
-	var sign_in_signal = playfab.sign_in_with_custom_id_async(custom_id, false)
+	var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, false)
 	if typeof(sign_in_signal) != TYPE_SIGNAL:
-		pending("%s skipped: PlayFab.sign_in_with_custom_id_async() did not start." % label)
+		pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
 		outcome["skip_reason"] = "sign_in_did_not_start"
 		return outcome
 

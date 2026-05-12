@@ -50,7 +50,6 @@ accessed as namespaces under this root.
 | `initialized()` | Runtime initialized successfully |
 | `shutdown_completed()` | Runtime shutdown complete |
 | `runtime_error(result: GDKResult)` | A runtime error occurred |
-| `availability_changed(available: bool)` | Runtime availability changed |
 
 ### Usage
 

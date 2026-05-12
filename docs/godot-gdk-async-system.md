@@ -49,7 +49,6 @@ Current public signals:
 - `initialized()`
 - `shutdown_completed()`
 - `runtime_error(result: GDKResult)`
-- `availability_changed(available: bool)`
 
 ### `GDK.users`
 

@@ -1,20 +1,30 @@
 #include "gdk.h"
 
+#include "gdk_accessibility.h"
+#include "gdk_achievement.h"
 #include "gdk_capture.h"
 #include "gdk_error_reporting.h"
+#include "gdk_game_ui.h"
+#include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
 #include "gdk_package.h"
+#include "gdk_presence.h"
 #include "gdk_profile.h"
 #include "gdk_privacy.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
+#include "gdk_social.h"
 #include "gdk_stats.h"
 #include "gdk_store.h"
 #include "gdk_string_verify.h"
 #include "gdk_system.h"
 #include "gdk_title_storage.h"
+#include "gdk_user.h"
 #include "gdk_xbox_services.h"
+
+#include <iterator>
+#include <vector>
 
 namespace godot {
 
@@ -155,318 +165,125 @@ void GDK::_bind_methods() {
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
     ADD_SIGNAL(MethodInfo("runtime_error", PropertyInfo(Variant::OBJECT, "result")));
-    ADD_SIGNAL(MethodInfo("availability_changed", PropertyInfo(Variant::BOOL, "available")));
 }
 
-Ref<GDKResult> GDK::initialize(const Variant &p_config) {
-    (void)p_config;
+namespace {
 
+struct GDKInitStep {
+    Ref<GDKResult> (*init)(GDK *);
+    void (*shutdown)(GDK *);
+};
+
+const GDKInitStep INIT_STEPS[] = {
+    { [](GDK *g) { return g->get_users()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_users()->shutdown(); } },
+    { [](GDK *g) { return g->get_game_ui()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_game_ui()->shutdown(); } },
+    { [](GDK *g) { return g->get_achievements()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_achievements()->shutdown(); } },
+    { [](GDK *g) { return g->get_package()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_package()->shutdown(); } },
+    { [](GDK *g) { return g->get_stats()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_stats()->shutdown(); } },
+    { [](GDK *g) { return g->get_leaderboards()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_leaderboards()->shutdown(); } },
+    { [](GDK *g) { return g->get_privacy()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_privacy()->shutdown(); } },
+    { [](GDK *g) { return g->get_presence()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_presence()->shutdown(); } },
+    { [](GDK *g) { return g->get_social()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_social()->shutdown(); } },
+    { [](GDK *g) { return g->get_store()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_store()->shutdown(); } },
+    { [](GDK *g) { return g->get_profile()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_profile()->shutdown(); } },
+    { [](GDK *g) { return g->get_string_verify()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_string_verify()->shutdown(); } },
+    { [](GDK *g) { return g->get_title_storage()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_title_storage()->shutdown(); } },
+    { [](GDK *g) { return g->get_error_reporting()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_error_reporting()->shutdown(); } },
+    { [](GDK *g) { return g->get_launcher()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_launcher()->shutdown(); } },
+    { [](GDK *g) { return g->get_multiplayer_activity()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_multiplayer_activity()->shutdown(); } },
+    { [](GDK *g) { return g->get_capture()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_capture()->shutdown(); } },
+};
+
+struct GDKDispatchStep {
+    int (*dispatch)(GDK *);
+};
+
+const GDKDispatchStep DISPATCH_STEPS[] = {
+    { [](GDK *g) { return g->get_runtime()->dispatch(); } },
+    { [](GDK *g) { return g->get_achievements()->dispatch(); } },
+    { [](GDK *g) { return g->get_stats()->dispatch(); } },
+    { [](GDK *g) { return g->get_privacy()->dispatch(); } },
+    { [](GDK *g) { return g->get_presence()->dispatch(); } },
+    { [](GDK *g) { return g->get_social()->dispatch(); } },
+    { [](GDK *g) { return g->get_error_reporting()->dispatch(); } },
+};
+
+class GDKShutdownGuard {
+public:
+    explicit GDKShutdownGuard(GDK *p_gdk) :
+            m_gdk(p_gdk) {}
+
+    ~GDKShutdownGuard() {
+        if (m_committed || m_gdk == nullptr) {
+            return;
+        }
+        for (auto it = m_shutdowns.rbegin(); it != m_shutdowns.rend(); ++it) {
+            (*it)(m_gdk);
+        }
+    }
+
+    void push(void (*p_shutdown)(GDK *)) {
+        m_shutdowns.push_back(p_shutdown);
+    }
+
+    void commit() {
+        m_committed = true;
+    }
+
+private:
+    GDK *m_gdk = nullptr;
+    std::vector<void (*)(GDK *)> m_shutdowns;
+    bool m_committed = false;
+};
+
+} // namespace
+
+Ref<GDKResult> GDK::initialize(const Variant &p_config) {
     Ref<GDKResult> runtime_result = m_runtime->initialize();
     if (!runtime_result->is_ok()) {
         emit_runtime_error(runtime_result);
         return runtime_result;
     }
 
+    GDKShutdownGuard guard(this);
+    guard.push([](GDK *g) { g->get_runtime()->shutdown(); });
+
     Ref<GDKResult> xbox_services_result = m_xbox_services->initialize(m_runtime->get_task_queue(), p_config);
     if (!xbox_services_result->is_ok()) {
-        if (xbox_services_result->get_code() == "xbox_title_id_unavailable") {
-            emit_runtime_error(xbox_services_result);
-        } else {
-            emit_runtime_error(xbox_services_result);
-            m_xbox_services->shutdown();
-            m_runtime->shutdown();
+        emit_runtime_error(xbox_services_result);
+        if (xbox_services_result->get_code() != "xbox_title_id_unavailable") {
             return xbox_services_result;
         }
     }
+    guard.push([](GDK *g) { g->get_xbox_services()->shutdown(); });
 
-    Ref<GDKResult> users_result = m_users->on_runtime_initialized();
-    if (!users_result->is_ok()) {
-        emit_runtime_error(users_result);
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return users_result;
+    for (const auto &step : INIT_STEPS) {
+        Ref<GDKResult> result = step.init(this);
+        if (!result->is_ok()) {
+            emit_runtime_error(result);
+            return result;
+        }
+        guard.push(step.shutdown);
     }
 
-    Ref<GDKResult> game_ui_result = m_game_ui->on_runtime_initialized();
-    if (!game_ui_result->is_ok()) {
-        emit_runtime_error(game_ui_result);
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return game_ui_result;
-    }
-
-    Ref<GDKResult> achievements_result = m_achievements->on_runtime_initialized();
-    if (!achievements_result->is_ok()) {
-        emit_runtime_error(achievements_result);
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return achievements_result;
-    }
-
-    Ref<GDKResult> package_result = m_package->on_runtime_initialized();
-    if (!package_result->is_ok()) {
-        emit_runtime_error(package_result);
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return package_result;
-    }
-
-    Ref<GDKResult> stats_result = m_stats->on_runtime_initialized();
-    if (!stats_result->is_ok()) {
-        emit_runtime_error(stats_result);
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return stats_result;
-    }
-
-    Ref<GDKResult> leaderboards_result = m_leaderboards->on_runtime_initialized();
-    if (!leaderboards_result->is_ok()) {
-        emit_runtime_error(leaderboards_result);
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return leaderboards_result;
-    }
-
-    Ref<GDKResult> privacy_result = m_privacy->on_runtime_initialized();
-    if (!privacy_result->is_ok()) {
-        emit_runtime_error(privacy_result);
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return privacy_result;
-    }
-
-    Ref<GDKResult> presence_result = m_presence->on_runtime_initialized();
-    if (!presence_result->is_ok()) {
-        emit_runtime_error(presence_result);
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return presence_result;
-    }
-
-    Ref<GDKResult> social_result = m_social->on_runtime_initialized();
-    if (!social_result->is_ok()) {
-        emit_runtime_error(social_result);
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return social_result;
-    }
-
-    Ref<GDKResult> store_result = m_store->on_runtime_initialized();
-    if (!store_result->is_ok()) {
-        emit_runtime_error(store_result);
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return store_result;
-    }
-
-    Ref<GDKResult> profile_result = m_profile->on_runtime_initialized();
-    if (!profile_result->is_ok()) {
-        emit_runtime_error(profile_result);
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return profile_result;
-    }
-
-    Ref<GDKResult> string_verify_result = m_string_verify->on_runtime_initialized();
-    if (!string_verify_result->is_ok()) {
-        emit_runtime_error(string_verify_result);
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return string_verify_result;
-    }
-
-    Ref<GDKResult> title_storage_result = m_title_storage->on_runtime_initialized();
-    if (!title_storage_result->is_ok()) {
-        emit_runtime_error(title_storage_result);
-        m_title_storage->shutdown();
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return title_storage_result;
-    }
-
-    Ref<GDKResult> error_reporting_result = m_error_reporting->on_runtime_initialized();
-    if (!error_reporting_result->is_ok()) {
-        emit_runtime_error(error_reporting_result);
-        m_error_reporting->shutdown();
-        m_title_storage->shutdown();
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return error_reporting_result;
-    }
-
-    Ref<GDKResult> launcher_result = m_launcher->on_runtime_initialized();
-    if (!launcher_result->is_ok()) {
-        emit_runtime_error(launcher_result);
-        m_launcher->shutdown();
-        m_error_reporting->shutdown();
-        m_title_storage->shutdown();
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return launcher_result;
-    }
-
-    Ref<GDKResult> multiplayer_activity_result = m_multiplayer_activity->on_runtime_initialized();
-    if (!multiplayer_activity_result->is_ok()) {
-        emit_runtime_error(multiplayer_activity_result);
-        m_multiplayer_activity->shutdown();
-        m_launcher->shutdown();
-        m_error_reporting->shutdown();
-        m_title_storage->shutdown();
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return multiplayer_activity_result;
-    }
-
-    Ref<GDKResult> capture_result = m_capture->on_runtime_initialized();
-    if (!capture_result->is_ok()) {
-        emit_runtime_error(capture_result);
-        m_capture->shutdown();
-        m_multiplayer_activity->shutdown();
-        m_launcher->shutdown();
-        m_error_reporting->shutdown();
-        m_title_storage->shutdown();
-        m_string_verify->shutdown();
-        m_profile->shutdown();
-        m_store->shutdown();
-        m_social->shutdown();
-        m_presence->shutdown();
-        m_privacy->shutdown();
-        m_leaderboards->shutdown();
-        m_stats->shutdown();
-        m_package->shutdown();
-        m_achievements->shutdown();
-        m_game_ui->shutdown();
-        m_users->shutdown();
-        m_xbox_services->shutdown();
-        m_runtime->shutdown();
-        return capture_result;
-    }
-
+    guard.commit();
     emit_signal("initialized");
     return GDKResult::ok_result();
 }
@@ -476,23 +293,9 @@ void GDK::shutdown() {
         return;
     }
 
-    m_capture->shutdown();
-    m_multiplayer_activity->shutdown();
-    m_launcher->shutdown();
-    m_error_reporting->shutdown();
-    m_title_storage->shutdown();
-    m_string_verify->shutdown();
-    m_profile->shutdown();
-    m_store->shutdown();
-    m_social->shutdown();
-    m_presence->shutdown();
-    m_privacy->shutdown();
-    m_leaderboards->shutdown();
-    m_stats->shutdown();
-    m_package->shutdown();
-    m_achievements->shutdown();
-    m_game_ui->shutdown();
-    m_users->shutdown();
+    for (auto it = std::rbegin(INIT_STEPS); it != std::rend(INIT_STEPS); ++it) {
+        it->shutdown(this);
+    }
     m_xbox_services->shutdown();
     m_runtime->shutdown();
 
@@ -508,7 +311,11 @@ bool GDK::is_initialized() const {
 }
 
 int64_t GDK::dispatch() {
-    return static_cast<int64_t>(m_runtime->dispatch() + m_achievements->dispatch() + m_stats->dispatch() + m_privacy->dispatch() + m_presence->dispatch() + m_social->dispatch() + m_error_reporting->dispatch());
+    int64_t total = 0;
+    for (const auto &step : DISPATCH_STEPS) {
+        total += static_cast<int64_t>(step.dispatch(this));
+    }
+    return total;
 }
 
 Ref<GDKResult> GDK::get_last_error() const {
