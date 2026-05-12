@@ -1,5 +1,5 @@
 [configuration]
-entry_symbol = "gdk_extension_init"
+entry_symbol = "gdk_addon_init"
 compatibility_minimum = "4.2"
 
 [libraries]

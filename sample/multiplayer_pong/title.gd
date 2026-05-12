@@ -579,8 +579,6 @@ func _connect_gdk_signals() -> void:
 		gdk.initialized.connect(_on_gdk_state_changed)
 	if gdk.has_signal("shutdown_completed") and not gdk.shutdown_completed.is_connected(_on_gdk_state_changed):
 		gdk.shutdown_completed.connect(_on_gdk_state_changed)
-	if gdk.has_signal("availability_changed") and not gdk.availability_changed.is_connected(_on_gdk_availability_changed):
-		gdk.availability_changed.connect(_on_gdk_availability_changed)
 	var users: Variant = gdk.users
 	if users == null:
 		return
@@ -598,10 +596,6 @@ func _get_gdk() -> Variant:
 
 
 func _on_gdk_state_changed() -> void:
-	_refresh_user_panel()
-
-
-func _on_gdk_availability_changed(_available: bool) -> void:
 	_refresh_user_panel()
 
 

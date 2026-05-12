@@ -66,8 +66,8 @@ func test_optional_live_sign_in() -> void:
 		var entity_key: Dictionary = playfab_user.entity_key
 		assert_true(not str(entity_key.get("id", "")).is_empty(), "PlayFabUser.entity_key.id is populated")
 		assert_true(not str(entity_key.get("type", "")).is_empty(), "PlayFabUser.entity_key.type is populated")
-		assert_eq(playfab.get_user_by_local_id(local_id), null, "PlayFab.get_user_by_local_id(0) does not return custom-ID sessions")
-		assert_not_null(playfab.get_user_by_custom_id(playfab_user.custom_id), "PlayFab.get_user_by_custom_id() returns the cached signed-in user")
+		assert_eq(playfab.get_users().get_user_by_local_id(local_id), null, "PlayFab.users.get_user_by_local_id(0) does not return custom-ID sessions")
+		assert_not_null(playfab.get_users().get_user_by_custom_id(playfab_user.custom_id), "PlayFab.users.get_user_by_custom_id() returns the cached signed-in user")
 		assert_true(playfab.get_users().get_users().size() >= 1, "PlayFab.users cache tracks the signed-in session")
 
 		var last_error = playfab.get_last_error()

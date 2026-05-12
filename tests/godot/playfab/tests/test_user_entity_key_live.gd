@@ -55,9 +55,10 @@ func test_entity_key_populated_and_consistent_after_sign_in() -> void:
 	assert_eq(str(second_key.get("type", "")), first_type, "entity_key.type is stable across repeated reads")
 
 	# Re-fetch from the custom-ID cache and confirm the same key surfaces.
-	assert_eq(playfab.get_user_by_local_id(0), null, "PlayFab.get_user_by_local_id(0) does not return custom-ID sessions")
-	var cached_user = playfab.get_user_by_custom_id(playfab_user.custom_id)
-	assert_not_null(cached_user, "PlayFab.get_user_by_custom_id() returns the cached signed-in user")
+	var users = playfab.get_users()
+	assert_eq(users.get_user_by_local_id(0), null, "PlayFab.users.get_user_by_local_id(0) does not return custom-ID sessions")
+	var cached_user = users.get_user_by_custom_id(playfab_user.custom_id)
+	assert_not_null(cached_user, "PlayFab.users.get_user_by_custom_id() returns the cached signed-in user")
 	if cached_user != null:
 		var cached_key: Dictionary = cached_user.entity_key
 		assert_eq(str(cached_key.get("id", "")), first_id, "cached PlayFabUser.entity_key.id matches original")

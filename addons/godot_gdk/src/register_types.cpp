@@ -11,6 +11,7 @@
 #include "gdk.h"
 #include "gdk_capture.h"
 #include "gdk_error_reporting.h"
+#include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
 #include "gdk_multiplayer_activity.h"
@@ -31,6 +32,7 @@
 using namespace godot;
 
 static GDK *gdk_singleton = nullptr;
+static int gdk_extension_ref_count = 0;
 
 namespace {
 
@@ -95,68 +97,82 @@ void gdk_frame_callback() {
 } // namespace
 
 void initialize_gdk_extension(ModuleInitializationLevel p_level) {
-    if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
-        ClassDB::register_abstract_class<GDK>();
-        ClassDB::register_class<GDKResult>();
-        ClassDB::register_internal_class<GDKPendingSignal>();
-        ClassDB::register_class<GDKUser>();
-        ClassDB::register_class<GDKUsers>();
-        ClassDB::register_class<GDKGameUI>();
-        ClassDB::register_class<GDKClosedCaptionProperties>();
-        ClassDB::register_class<GDKAccessibility>();
-        ClassDB::register_class<GDKAchievement>();
-        ClassDB::register_class<GDKAchievements>();
-        ClassDB::register_class<GDKPackageMount>();
-        ClassDB::register_class<GDKPackageResourcePack>();
-        ClassDB::register_class<GDKPackage>();
-        ClassDB::register_class<GDKStats>();
-        ClassDB::register_class<GDKLeaderboardColumn>();
-        ClassDB::register_class<GDKLeaderboardRow>();
-        ClassDB::register_class<GDKLeaderboard>();
-        ClassDB::register_class<GDKLeaderboards>();
-        ClassDB::register_class<GDKPrivacy>();
-        ClassDB::register_class<GDKPresenceRecord>();
-        ClassDB::register_class<GDKPresence>();
-        ClassDB::register_class<GDKSocialFilter>();
-        ClassDB::register_class<GDKSocialGroup>();
-        ClassDB::register_class<GDKSocialUser>();
-        ClassDB::register_class<GDKSocial>();
-        ClassDB::register_class<GDKStoreLicenseStatus>();
-        ClassDB::register_class<GDKStore>();
-        ClassDB::register_class<GDKUserProfile>();
-        ClassDB::register_class<GDKProfile>();
-        ClassDB::register_class<GDKStringVerify>();
-        ClassDB::register_class<GDKTitleStorageBlobMetadata>();
-        ClassDB::register_class<GDKTitleStorageBlobMetadataResult>();
-        ClassDB::register_class<GDKTitleStorage>();
-        ClassDB::register_class<GDKErrorReporting>();
-        ClassDB::register_class<GDKLauncher>();
-        ClassDB::register_class<GDKMultiplayerActivityInfo>();
-        ClassDB::register_class<GDKMultiplayerActivity>();
-        ClassDB::register_class<GDKCaptureMetaData>();
-        ClassDB::register_class<GDKCapture>();
-        ClassDB::register_class<GDKSystem>();
-
-        gdk_singleton = memnew(GDK);
-        Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());
-        register_gdk_project_settings();
+    if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+        return;
     }
+
+    ++gdk_extension_ref_count;
+    if (gdk_extension_ref_count > 1) {
+        return;
+    }
+
+    ClassDB::register_abstract_class<GDK>();
+    ClassDB::register_class<GDKResult>();
+    ClassDB::register_internal_class<GDKPendingSignal>();
+    ClassDB::register_class<GDKUser>();
+    ClassDB::register_class<GDKUsers>();
+    ClassDB::register_class<GDKGameUI>();
+    ClassDB::register_class<GDKClosedCaptionProperties>();
+    ClassDB::register_class<GDKAccessibility>();
+    ClassDB::register_class<GDKAchievement>();
+    ClassDB::register_class<GDKAchievements>();
+    ClassDB::register_class<GDKPackageMount>();
+    ClassDB::register_class<GDKPackageResourcePack>();
+    ClassDB::register_class<GDKPackage>();
+    ClassDB::register_class<GDKStats>();
+    ClassDB::register_class<GDKLeaderboardColumn>();
+    ClassDB::register_class<GDKLeaderboardRow>();
+    ClassDB::register_class<GDKLeaderboard>();
+    ClassDB::register_class<GDKLeaderboards>();
+    ClassDB::register_class<GDKPrivacy>();
+    ClassDB::register_class<GDKPresenceRecord>();
+    ClassDB::register_class<GDKPresence>();
+    ClassDB::register_class<GDKSocialFilter>();
+    ClassDB::register_class<GDKSocialGroup>();
+    ClassDB::register_class<GDKSocialUser>();
+    ClassDB::register_class<GDKSocial>();
+    ClassDB::register_class<GDKStoreLicenseStatus>();
+    ClassDB::register_class<GDKStore>();
+    ClassDB::register_class<GDKUserProfile>();
+    ClassDB::register_class<GDKProfile>();
+    ClassDB::register_class<GDKStringVerify>();
+    ClassDB::register_class<GDKTitleStorageBlobMetadata>();
+    ClassDB::register_class<GDKTitleStorageBlobMetadataResult>();
+    ClassDB::register_class<GDKTitleStorage>();
+    ClassDB::register_class<GDKErrorReporting>();
+    ClassDB::register_class<GDKLauncher>();
+    ClassDB::register_class<GDKMultiplayerActivityInfo>();
+    ClassDB::register_class<GDKMultiplayerActivity>();
+    ClassDB::register_class<GDKCaptureMetaData>();
+    ClassDB::register_class<GDKCapture>();
+    ClassDB::register_class<GDKSystem>();
+
+    gdk_singleton = memnew(GDK);
+    Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());
+    register_gdk_project_settings();
 }
 
 void uninitialize_gdk_extension(ModuleInitializationLevel p_level) {
-    if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
-        Engine::get_singleton()->unregister_singleton("GDK");
+    if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE || gdk_extension_ref_count == 0) {
+        return;
+    }
 
-        if (gdk_singleton) {
-            memdelete(gdk_singleton);
-            gdk_singleton = nullptr;
-        }
+    --gdk_extension_ref_count;
+    if (gdk_extension_ref_count > 0) {
+        return;
+    }
+
+    Engine::get_singleton()->unregister_singleton("GDK");
+
+    if (gdk_singleton) {
+        memdelete(gdk_singleton);
+        gdk_singleton = nullptr;
     }
 }
 
 extern "C" {
 
-GDExtensionBool GDE_EXPORT gdk_extension_init(
+GDExtensionBool GDE_EXPORT gdk_addon_init(
     GDExtensionInterfaceGetProcAddress p_get_proc_address,
     const GDExtensionClassLibraryPtr p_library,
     GDExtensionInitialization *r_initialization

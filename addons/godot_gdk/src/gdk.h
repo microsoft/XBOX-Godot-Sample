@@ -11,30 +11,30 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
-#include "gdk_achievement.h"
-#include "gdk_capture.h"
-#include "gdk_error_reporting.h"
-#include "gdk_game_ui.h"
-#include "gdk_launcher.h"
-#include "gdk_accessibility.h"
-#include "gdk_leaderboards.h"
-#include "gdk_multiplayer_activity.h"
-#include "gdk_package.h"
-#include "gdk_presence.h"
-#include "gdk_profile.h"
-#include "gdk_privacy.h"
-#include "gdk_social.h"
-#include "gdk_stats.h"
-#include "gdk_store.h"
-#include "gdk_string_verify.h"
-#include "gdk_system.h"
-#include "gdk_title_storage.h"
-#include "gdk_user.h"
-
 namespace godot {
 
+class GDKAccessibility;
+class GDKAchievements;
+class GDKCapture;
+class GDKErrorReporting;
+class GDKGameUI;
+class GDKLauncher;
+class GDKLeaderboards;
+class GDKMultiplayerActivity;
+class GDKPackage;
+class GDKPresence;
+class GDKPrivacy;
+class GDKProfile;
 class GDKResult;
 class GDKRuntime;
+class GDKSocial;
+class GDKStats;
+class GDKStore;
+class GDKStringVerify;
+class GDKSystem;
+class GDKTitleStorage;
+class GDKUser;
+class GDKUsers;
 class GDKXboxServices;
 
 class GDK : public Object {

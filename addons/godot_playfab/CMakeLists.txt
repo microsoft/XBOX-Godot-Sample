@@ -35,8 +35,7 @@ target_include_directories(godot_playfab PRIVATE
 )
 
 target_link_directories(godot_playfab PRIVATE
-    "${GDK_WINDOWS}/lib/x64/"
-    "${CMAKE_CURRENT_SOURCE_DIR}/lib"
+    "${GDK_WINDOWS}/lib/x64"
 )
 
 target_link_libraries(godot_playfab PRIVATE
@@ -71,7 +70,6 @@ godot_addon_copy_runtime_files(
     ADDON_NAME godot_playfab
     PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
-        "${XSAPI_RUNTIME_DLL}"
         "${LIBHTTPCLIENT_RUNTIME_DLL}"
         "${PLAYFAB_CORE_RUNTIME_DLL}"
         "${PLAYFAB_GAMESAVE_RUNTIME_DLL}"
@@ -84,5 +82,7 @@ godot_addon_sync_files_to_sample(
     ADDON_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
     PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
+        plugin.cfg
         godot_playfab.gdextension
+        editor/playfab_editor_plugin.gd
 )

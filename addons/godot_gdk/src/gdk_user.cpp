@@ -7,6 +7,8 @@
 
 #include <godot_cpp/classes/image.hpp>
 
+#include <XGameErr.h>
+
 #include "gdk.h"
 #include "gdk_pending_signal.h"
 #include "gdk_result.h"

@@ -13,8 +13,8 @@ This is the landing page for the `godot_playfab` docs set.
 - shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
 - project-settings-backed PlayFab config through `playfab/titleid` and `playfab/endpoint`
-- manual Xbox-backed PlayFab sign-in through `PlayFab.sign_in_with_xuser_async(...)` / `PlayFab.users.sign_in_with_xuser_async(...)`
-- custom-ID PlayFab sign-in through `PlayFab.sign_in_with_custom_id_async(...)` / `PlayFab.users.sign_in_with_custom_id_async(...)`
+- manual Xbox-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`
+- custom-ID PlayFab sign-in through `PlayFab.users.sign_in_with_custom_id_async(...)`
 - cached `PlayFabUser` wrappers keyed by local Xbox user id or custom id
 - Game Saves add/sync, upload, folder/quota queries, cloud connectivity queries, save description updates, and cloud reset through `PlayFab.game_saves`
 - leaderboard submit, global query, around-user query, and friends/social leaderboard query
@@ -76,7 +76,7 @@ if not PlayFab.is_initialized():
         push_warning(init_result.message)
         return
 
-var sign_in_result = await PlayFab.sign_in_with_custom_id_async("my-title-defined-id", false)
+var sign_in_result = await PlayFab.users.sign_in_with_custom_id_async("my-title-defined-id", false)
 if not sign_in_result.ok:
     push_warning(sign_in_result.message)
     return
@@ -91,7 +91,7 @@ if title_data_result.ok:
     print(title_data_result.data)
 ```
 
-Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Use `PlayFab.sign_in_with_xuser_async(GDK.users.get_primary_user())` before calling `PlayFab.game_saves`; custom-ID users return `xbox_user_required` from Game Saves methods.
+Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Use `PlayFab.users.sign_in_with_xuser_async(GDK.users.get_primary_user())` before calling `PlayFab.game_saves`; custom-ID users return `xbox_user_required` from Game Saves methods.
 
 ## Testing this addon
 

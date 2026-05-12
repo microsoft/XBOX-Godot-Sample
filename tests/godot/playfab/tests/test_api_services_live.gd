@@ -244,7 +244,7 @@ func _assert_friend_fixture(playfab: Object, playfab_user, api_fixtures: Diction
 	if friend_custom_id.is_empty():
 		return
 
-	var friend_sign_in_signal = playfab.sign_in_with_custom_id_async(friend_custom_id, false)
+	var friend_sign_in_signal = playfab.get_users().sign_in_with_custom_id_async(friend_custom_id, false)
 	assert_eq(typeof(friend_sign_in_signal), TYPE_SIGNAL, "friend fixture custom-ID sign-in returns Signal")
 	if typeof(friend_sign_in_signal) != TYPE_SIGNAL:
 		return

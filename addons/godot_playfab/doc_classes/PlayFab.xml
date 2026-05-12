@@ -140,36 +140,6 @@
 				Returns the [PlayFabTitleData] service for title data APIs.
 			</description>
 		</method>
-		<method name="sign_in_with_xuser_async">
-			<return type="Signal" />
-			<param index="0" name="user" type="Variant" />
-			<param index="1" name="create_account" type="bool" default="true" />
-			<description>
-				Starts manual PlayFab sign-in for a signed-in [code]GDKUser[/code]. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
-			</description>
-		</method>
-		<method name="sign_in_with_custom_id_async">
-			<return type="Signal" />
-			<param index="0" name="custom_id" type="String" />
-			<param index="1" name="create_account" type="bool" default="true" />
-			<description>
-				Starts PlayFab sign-in using a title-defined custom id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains a [PlayFabUser] with [member PlayFabUser.custom_id] populated and no local Xbox user handle.
-			</description>
-		</method>
-		<method name="get_user_by_local_id" qualifiers="const">
-			<return type="PlayFabUser" />
-			<param index="0" name="local_id" type="int" />
-			<description>
-				Returns the cached [PlayFabUser] for the given local Xbox user id, or [code]null[/code] if no PlayFab session is cached.
-			</description>
-		</method>
-		<method name="get_user_by_custom_id" qualifiers="const">
-			<return type="PlayFabUser" />
-			<param index="0" name="custom_id" type="String" />
-			<description>
-				Returns the cached [PlayFabUser] for the given custom id, or [code]null[/code] if no custom-ID PlayFab session is cached.
-			</description>
-		</method>
 		<method name="get_title_id" qualifiers="const">
 			<return type="String" />
 			<description>

@@ -7,6 +7,16 @@
 
 namespace godot {
 
+namespace {
+
+#if defined(_GAMING_DESKTOP)
+constexpr bool GDK_PLATFORM_AVAILABLE = true;
+#else
+constexpr bool GDK_PLATFORM_AVAILABLE = false;
+#endif
+
+} // namespace
+
 GDKRuntime::GDKRuntime() {
     clear_last_error();
 }
@@ -49,6 +59,7 @@ Ref<GDKResult> GDKRuntime::initialize() {
 
 void GDKRuntime::shutdown() {
     if (!m_initialized) {
+        clear_last_error();
         return;
     }
 
@@ -111,7 +122,7 @@ bool GDKRuntime::is_shutting_down() const {
 }
 
 bool GDKRuntime::is_available() const {
-    return true;
+    return GDK_PLATFORM_AVAILABLE;
 }
 
 XTaskQueueHandle GDKRuntime::get_task_queue() const {

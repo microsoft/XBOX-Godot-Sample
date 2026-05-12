@@ -58,9 +58,7 @@ During migration, current sample coverage hosts may temporarily continue receivi
 
 PlayFab must expose custom-ID login so tests can sign in without an Xbox local user:
 
-- `PlayFab.sign_in_with_custom_id_async(custom_id: String, create_account := true)`
 - `PlayFab.users.sign_in_with_custom_id_async(custom_id: String, create_account := true)`
-- `PlayFab.get_user_by_custom_id(custom_id)`
 - `PlayFab.users.get_user_by_custom_id(custom_id)`
 
 `PlayFabUser` must represent both Xbox-backed and custom-ID-backed sessions. Xbox-backed sessions have a local user id, entity key, entity handle, and `PFLocalUserHandle`. Custom-ID sessions have a custom id, entity key, and entity handle, but no `PFLocalUserHandle`.

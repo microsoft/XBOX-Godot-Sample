@@ -378,7 +378,6 @@ GDK.multiplayer_activity: GDKMultiplayerActivity
 initialized()
 shutdown_completed()
 runtime_error(result: GDKResult)
-availability_changed(available: bool)
 ```
 
 #### Runtime behavior

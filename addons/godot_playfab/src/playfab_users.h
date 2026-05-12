@@ -31,7 +31,7 @@ class PlayFabUsers : public RefCounted {
     std::vector<Ref<PlayFabUser>> m_users;
 
     PlayFabRuntime *_get_runtime() const;
-    static bool _try_get_local_id_from_xuser_object(const Variant &p_user, XUserLocalId *r_local_id, String *r_error = nullptr);
+    static bool _try_get_local_id_from_xuser_object(Object *p_user, XUserLocalId *r_local_id, String *r_error = nullptr);
     static bool _try_get_local_id_from_variant(const Variant &p_user_or_local_id, XUserLocalId *r_local_id, String *r_error = nullptr);
     bool _add_or_update_user(const Ref<PlayFabUser> &p_user);
     Ref<PlayFabUser> _find_user_by_local_id(XUserLocalId p_user_local_id) const;
@@ -46,7 +46,7 @@ public:
     Ref<PlayFabResult> on_runtime_initialized();
     void shutdown();
 
-    Signal sign_in_with_xuser_async(const Variant &p_user, bool p_create_account = true);
+    Signal sign_in_with_xuser_async(Object *p_user, bool p_create_account = true);
     Signal sign_in_with_custom_id_async(const String &p_custom_id, bool p_create_account = true);
     Ref<PlayFabUser> get_user_by_local_id(int64_t p_local_id) const;
     Ref<PlayFabUser> get_user_by_custom_id(const String &p_custom_id) const;

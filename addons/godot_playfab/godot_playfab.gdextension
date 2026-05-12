@@ -1,6 +1,6 @@
 [configuration]
 
-entry_symbol = "godot_playfab_init"
+entry_symbol = "playfab_addon_init"
 compatibility_minimum = "4.2"
 
 [libraries]
