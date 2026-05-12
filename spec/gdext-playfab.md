@@ -6,6 +6,8 @@ This document defines the current design direction for the `godot_playfab` addon
 
 `godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by a `GDKUser` object or title-defined custom id, Game Saves flows, leaderboard flows, and client-safe PlayFab Services SDK wrappers. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich SDK payloads, and direct-await completion signals for one-shot services.
 
+Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-playfab-lobby-matchmaking.md` and `spec\gdext-playfab-party.md`. Those planned surfaces add `PlayFab.multiplayer` and `PlayFab.party` while keeping lobby/matchmaking APIs separate from Party transport.
+
 ## Design goals
 
 1. **Single root singleton** — expose one `PlayFab` entry point instead of multiple global singletons.
@@ -26,7 +28,8 @@ This document defines the current design direction for the `godot_playfab` addon
 | Leaderboards | Yes | submit, global, around-user, friends/social |
 | Client services | Yes | accounts, catalog, CloudScript, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data |
 | Events/telemetry | Reserved | `PlayFab.events` exists, but no active client event operation is available from the current GDK headers |
-| Multiplayer / Party | No | previous code exists, but it is out of scope for the new root API |
+| Multiplayer lobbies / matchmaking | Planned | see `spec\gdext-playfab-lobby-matchmaking.md` |
+| Party transport | Planned | see `spec\gdext-playfab-party.md` |
 | Server/admin/title-secret APIs | No | excluded from the client addon surface |
 
 ## Public API summary
@@ -61,6 +64,8 @@ This document defines the current design direction for the `godot_playfab` addon
 - `PlayFab.player_data`
 - `PlayFab.statistics`
 - `PlayFab.title_data`
+- Planned: `PlayFab.multiplayer` for lobbies and matchmaking
+- Planned: `PlayFab.party` for Party transport and chat
 
 ## Runtime configuration
 
