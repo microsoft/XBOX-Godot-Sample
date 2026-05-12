@@ -1,11 +1,11 @@
 extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
-## Covers generated client-safe PlayFab service surfaces that hang off the
+## Covers client-safe PlayFab service surfaces that hang off the
 ## root `PlayFab` singleton.
 
 
-const EXPECTED_GENERATED_METHOD_COUNT := 139
+const EXPECTED_API_METHOD_COUNT := 139
 
-const GENERATED_SERVICE_SPECS := [
+const API_SERVICE_SPECS := [
 	{
 		"property": "accounts",
 		"getter": "get_accounts",
@@ -73,7 +73,7 @@ const GENERATED_SERVICE_SPECS := [
 	},
 ]
 
-const GENERATED_METHOD_SPECS := [
+const API_METHOD_SPECS := [
 	['accounts', 'PlayFabAccounts', 'add_or_update_contact_email_async', true],
 	['accounts', 'PlayFabAccounts', 'get_account_info_async', true],
 	['accounts', 'PlayFabAccounts', 'get_player_combined_info_async', true],
@@ -216,7 +216,7 @@ const GENERATED_METHOD_SPECS := [
 ]
 
 
-func test_generated_service_accessors_and_method_contracts() -> void:
+func test_api_service_accessors_and_method_contracts() -> void:
 	if pending_unless_playfab_available():
 		return
 	var playfab = get_playfab()
@@ -224,31 +224,31 @@ func test_generated_service_accessors_and_method_contracts() -> void:
 	reset_playfab_runtime()
 	var blank_user = instantiate_class("PlayFabUser")
 
-	for spec in GENERATED_SERVICE_SPECS:
+	for spec in API_SERVICE_SPECS:
 		var service = playfab.call(spec["getter"])
 		assert_object_is(service, spec["class"], "PlayFab.%s returns %s" % [spec["property"], spec["class"]])
 		assert_object_is(playfab.get(spec["property"]), spec["class"], "PlayFab.%s property returns %s" % [spec["property"], spec["class"]])
 
-	assert_eq(GENERATED_METHOD_SPECS.size(), EXPECTED_GENERATED_METHOD_COUNT, "generated PlayFab API method count")
-	for spec in GENERATED_METHOD_SPECS:
+	assert_eq(API_METHOD_SPECS.size(), EXPECTED_API_METHOD_COUNT, "PlayFab API method count")
+	for spec in API_METHOD_SPECS:
 		var property_name := str(spec[0])
-		var generated_class_name := str(spec[1])
+		var api_class_name := str(spec[1])
 		var method_name := str(spec[2])
 		var has_request := bool(spec[3])
 		var service = playfab.get(property_name)
-		assert_object_is(service, generated_class_name, "PlayFab.%s property returns %s" % [property_name, generated_class_name])
+		assert_object_is(service, api_class_name, "PlayFab.%s property returns %s" % [property_name, api_class_name])
 		if service == null:
 			continue
 
 		assert_has_method_named(service, method_name)
-		var completion_signal = _call_generated_method(service, method_name, blank_user, has_request)
+		var completion_signal = _call_api_method(service, method_name, blank_user, has_request)
 		await _assert_playfab_signal_result_error(
 			completion_signal,
 			"not_initialized",
 			"PlayFab.%s.%s() before initialize()" % [property_name, method_name])
 
 
-func _call_generated_method(service: Object, method_name: String, user, has_request: bool):
+func _call_api_method(service: Object, method_name: String, user, has_request: bool):
 	if has_request:
 		return service.call(method_name, user, {})
 	return service.call(method_name, user)

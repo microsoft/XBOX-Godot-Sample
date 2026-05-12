@@ -1,11 +1,11 @@
-// GENERATED FILE - DO NOT EDIT BY HAND.
-#ifndef GODOT_PLAYFAB_GENERATED_SERVICES_H
-#define GODOT_PLAYFAB_GENERATED_SERVICES_H
+// PlayFab API binding file.
+#ifndef GODOT_PLAYFAB_API_SERVICES_H
+#define GODOT_PLAYFAB_API_SERVICES_H
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/variant.hpp>
-#include "playfab_generated_api_helpers.h"
+#include "playfab_api_helpers.h"
 
 namespace godot {
 class PlayFab; class PlayFabRuntime; class PlayFabUser;

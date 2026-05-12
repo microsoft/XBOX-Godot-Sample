@@ -4,7 +4,7 @@
 		Root singleton for PlayFab services integration.
 	</brief_description>
 	<description>
-		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, and generated client-safe PlayFab service surfaces. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
+		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, and client-safe PlayFab service surfaces. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -65,79 +65,79 @@
 		<method name="get_accounts" qualifiers="const">
 			<return type="PlayFabAccounts" />
 			<description>
-				Returns the [PlayFabAccounts] service for generated account, profile, and identity APIs.
+				Returns the [PlayFabAccounts] service for account, profile, and identity APIs.
 			</description>
 		</method>
 		<method name="get_catalog" qualifiers="const">
 			<return type="PlayFabCatalog" />
 			<description>
-				Returns the [PlayFabCatalog] service for generated catalog APIs.
+				Returns the [PlayFabCatalog] service for catalog APIs.
 			</description>
 		</method>
 		<method name="get_cloud_script" qualifiers="const">
 			<return type="PlayFabCloudScript" />
 			<description>
-				Returns the [PlayFabCloudScript] service for generated CloudScript execution APIs.
+				Returns the [PlayFabCloudScript] service for CloudScript execution APIs.
 			</description>
 		</method>
 		<method name="get_entity_data" qualifiers="const">
 			<return type="PlayFabEntityData" />
 			<description>
-				Returns the [PlayFabEntityData] service for generated entity object and file APIs.
+				Returns the [PlayFabEntityData] service for entity object and file APIs.
 			</description>
 		</method>
 		<method name="get_events" qualifiers="const">
 			<return type="PlayFabEvents" />
 			<description>
-				Returns the [PlayFabEvents] service reserved for generated event and telemetry APIs.
+				Returns the [PlayFabEvents] service reserved for event and telemetry APIs.
 			</description>
 		</method>
 		<method name="get_experimentation" qualifiers="const">
 			<return type="PlayFabExperimentation" />
 			<description>
-				Returns the [PlayFabExperimentation] service for generated experimentation APIs.
+				Returns the [PlayFabExperimentation] service for experimentation APIs.
 			</description>
 		</method>
 		<method name="get_friends" qualifiers="const">
 			<return type="PlayFabFriends" />
 			<description>
-				Returns the [PlayFabFriends] service for generated friends-list APIs.
+				Returns the [PlayFabFriends] service for friends-list APIs.
 			</description>
 		</method>
 		<method name="get_groups" qualifiers="const">
 			<return type="PlayFabGroups" />
 			<description>
-				Returns the [PlayFabGroups] service for generated group membership and role APIs.
+				Returns the [PlayFabGroups] service for group membership and role APIs.
 			</description>
 		</method>
 		<method name="get_inventory" qualifiers="const">
 			<return type="PlayFabInventory" />
 			<description>
-				Returns the [PlayFabInventory] service for generated inventory APIs.
+				Returns the [PlayFabInventory] service for inventory APIs.
 			</description>
 		</method>
 		<method name="get_localization" qualifiers="const">
 			<return type="PlayFabLocalization" />
 			<description>
-				Returns the [PlayFabLocalization] service for generated localization APIs.
+				Returns the [PlayFabLocalization] service for localization APIs.
 			</description>
 		</method>
 		<method name="get_player_data" qualifiers="const">
 			<return type="PlayFabPlayerData" />
 			<description>
-				Returns the [PlayFabPlayerData] service for generated player data APIs.
+				Returns the [PlayFabPlayerData] service for player data APIs.
 			</description>
 		</method>
 		<method name="get_statistics" qualifiers="const">
 			<return type="PlayFabStatistics" />
 			<description>
-				Returns the [PlayFabStatistics] service for generated statistic APIs.
+				Returns the [PlayFabStatistics] service for statistic APIs.
 			</description>
 		</method>
 		<method name="get_title_data" qualifiers="const">
 			<return type="PlayFabTitleData" />
 			<description>
-				Returns the [PlayFabTitleData] service for generated title data APIs.
+				Returns the [PlayFabTitleData] service for title data APIs.
 			</description>
 		</method>
 		<method name="sign_in_with_xuser_async">
@@ -194,43 +194,43 @@
 			The [PlayFabLeaderboards] service instance for score submission and leaderboard queries.
 		</member>
 		<member name="accounts" type="PlayFabAccounts" setter="" getter="get_accounts">
-			The [PlayFabAccounts] service instance for generated account, profile, and identity APIs.
+			The [PlayFabAccounts] service instance for account, profile, and identity APIs.
 		</member>
 		<member name="catalog" type="PlayFabCatalog" setter="" getter="get_catalog">
-			The [PlayFabCatalog] service instance for generated catalog APIs.
+			The [PlayFabCatalog] service instance for catalog APIs.
 		</member>
 		<member name="cloud_script" type="PlayFabCloudScript" setter="" getter="get_cloud_script">
-			The [PlayFabCloudScript] service instance for generated CloudScript execution APIs.
+			The [PlayFabCloudScript] service instance for CloudScript execution APIs.
 		</member>
 		<member name="entity_data" type="PlayFabEntityData" setter="" getter="get_entity_data">
-			The [PlayFabEntityData] service instance for generated entity object and file APIs.
+			The [PlayFabEntityData] service instance for entity object and file APIs.
 		</member>
 		<member name="events" type="PlayFabEvents" setter="" getter="get_events">
-			The [PlayFabEvents] service instance reserved for generated event and telemetry APIs.
+			The [PlayFabEvents] service instance reserved for event and telemetry APIs.
 		</member>
 		<member name="experimentation" type="PlayFabExperimentation" setter="" getter="get_experimentation">
-			The [PlayFabExperimentation] service instance for generated experimentation APIs.
+			The [PlayFabExperimentation] service instance for experimentation APIs.
 		</member>
 		<member name="friends" type="PlayFabFriends" setter="" getter="get_friends">
-			The [PlayFabFriends] service instance for generated friends-list APIs.
+			The [PlayFabFriends] service instance for friends-list APIs.
 		</member>
 		<member name="groups" type="PlayFabGroups" setter="" getter="get_groups">
-			The [PlayFabGroups] service instance for generated group membership and role APIs.
+			The [PlayFabGroups] service instance for group membership and role APIs.
 		</member>
 		<member name="inventory" type="PlayFabInventory" setter="" getter="get_inventory">
-			The [PlayFabInventory] service instance for generated inventory APIs.
+			The [PlayFabInventory] service instance for inventory APIs.
 		</member>
 		<member name="localization" type="PlayFabLocalization" setter="" getter="get_localization">
-			The [PlayFabLocalization] service instance for generated localization APIs.
+			The [PlayFabLocalization] service instance for localization APIs.
 		</member>
 		<member name="player_data" type="PlayFabPlayerData" setter="" getter="get_player_data">
-			The [PlayFabPlayerData] service instance for generated player data APIs.
+			The [PlayFabPlayerData] service instance for player data APIs.
 		</member>
 		<member name="statistics" type="PlayFabStatistics" setter="" getter="get_statistics">
-			The [PlayFabStatistics] service instance for generated statistic APIs.
+			The [PlayFabStatistics] service instance for statistic APIs.
 		</member>
 		<member name="title_data" type="PlayFabTitleData" setter="" getter="get_title_data">
-			The [PlayFabTitleData] service instance for generated title data APIs.
+			The [PlayFabTitleData] service instance for title data APIs.
 		</member>
 		<member name="title_id" type="String" setter="" getter="get_title_id">
 			The PlayFab title id used by the runtime.

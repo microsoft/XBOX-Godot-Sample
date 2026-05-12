@@ -191,6 +191,7 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
 
 void PlayFabRuntime::shutdown() {
     if (!m_initialized) {
+        clear_last_error();
         return;
     }
 

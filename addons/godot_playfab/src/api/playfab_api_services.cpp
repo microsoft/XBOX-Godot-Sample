@@ -1,6 +1,6 @@
-// GENERATED FILE - DO NOT EDIT BY HAND.
-#include "generated/playfab_generated_services.h"
-#include "generated/playfab_generated_models.h"
+// PlayFab API binding file.
+#include "api/playfab_api_services.h"
+#include "api/playfab_api_models.h"
 #include "playfab.h"
 
 #include <memory>
@@ -21,10 +21,10 @@
 #include <playfab/services/PFTitleDataManagement.h>
 
 namespace godot {
-using namespace playfab_generated;
+using namespace playfab_api;
 namespace {
-Signal make_generated_call_error(PlayFabRuntime *runtime, HRESULT hr, const String &code, const String &message) { return playfab_generated::make_error_signal(runtime, hr, code, message); }
-bool validate_generated_user(const Ref<PlayFabUser> &user) { return user.is_valid() && user->get_entity_handle() != nullptr; }
+Signal make_api_call_error(PlayFabRuntime *runtime, HRESULT hr, const String &code, const String &message) { return playfab_api::make_error_signal(runtime, hr, code, message); }
+bool validate_api_user(const Ref<PlayFabUser> &user) { return user.is_valid() && user->get_entity_handle() != nullptr; }
 }
 
 void PlayFabAccounts::_bind_methods() {
@@ -65,11 +65,11 @@ PlayFabRuntime *PlayFabAccounts::_get_runtime() const { return m_owner != nullpt
 
 Signal PlayFabAccounts::add_or_update_contact_email_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementAddOrUpdateContactEmailRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementAddOrUpdateContactEmailRequest, PFAccountManagementAddOrUpdateContactEmailRequest, PFAccountManagementClientAddOrUpdateContactEmailAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientAddOrUpdateContactEmail");
     context->bind_cancel_handler();
@@ -86,11 +86,11 @@ Signal PlayFabAccounts::add_or_update_contact_email_async(const Ref<PlayFabUser>
 
 Signal PlayFabAccounts::get_account_info_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetAccountInfoRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetAccountInfoRequest, PFAccountManagementGetAccountInfoRequest, PFAccountManagementGetAccountInfoResult, PFAccountManagementClientGetAccountInfoAsync, PFAccountManagementClientGetAccountInfoGetResultSize, PFAccountManagementClientGetAccountInfoGetResult, to_variant_PFAccountManagementGetAccountInfoResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetAccountInfo");
     context->bind_cancel_handler();
@@ -107,11 +107,11 @@ Signal PlayFabAccounts::get_account_info_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabAccounts::get_player_combined_info_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayerCombinedInfoRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayerCombinedInfoRequest, PFAccountManagementGetPlayerCombinedInfoRequest, PFAccountManagementGetPlayerCombinedInfoResult, PFAccountManagementClientGetPlayerCombinedInfoAsync, PFAccountManagementClientGetPlayerCombinedInfoGetResultSize, PFAccountManagementClientGetPlayerCombinedInfoGetResult, to_variant_PFAccountManagementGetPlayerCombinedInfoResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayerCombinedInfo");
     context->bind_cancel_handler();
@@ -128,11 +128,11 @@ Signal PlayFabAccounts::get_player_combined_info_async(const Ref<PlayFabUser> &p
 
 Signal PlayFabAccounts::get_player_profile_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayerProfileRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayerProfileRequest, PFAccountManagementGetPlayerProfileRequest, PFAccountManagementGetPlayerProfileResult, PFAccountManagementClientGetPlayerProfileAsync, PFAccountManagementClientGetPlayerProfileGetResultSize, PFAccountManagementClientGetPlayerProfileGetResult, to_variant_PFAccountManagementGetPlayerProfileResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayerProfile");
     context->bind_cancel_handler();
@@ -149,11 +149,11 @@ Signal PlayFabAccounts::get_player_profile_async(const Ref<PlayFabUser> &p_user,
 
 Signal PlayFabAccounts::get_play_fab_ids_from_battle_net_account_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromBattleNetAccountIdsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromBattleNetAccountIdsRequest, PFAccountManagementGetPlayFabIDsFromBattleNetAccountIdsRequest, PFAccountManagementGetPlayFabIDsFromBattleNetAccountIdsResult, PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIdsAsync, PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIdsGetResultSize, PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIdsGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromBattleNetAccountIdsResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIds");
     context->bind_cancel_handler();
@@ -170,11 +170,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_battle_net_account_ids_async(const
 
 Signal PlayFabAccounts::get_play_fab_ids_from_google_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromGoogleIDsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromGoogleIDsRequest, PFAccountManagementGetPlayFabIDsFromGoogleIDsRequest, PFAccountManagementGetPlayFabIDsFromGoogleIDsResult, PFAccountManagementClientGetPlayFabIDsFromGoogleIDsAsync, PFAccountManagementClientGetPlayFabIDsFromGoogleIDsGetResultSize, PFAccountManagementClientGetPlayFabIDsFromGoogleIDsGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromGoogleIDsResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromGoogleIDs");
     context->bind_cancel_handler();
@@ -191,11 +191,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_google_ids_async(const Ref<PlayFab
 
 Signal PlayFabAccounts::get_play_fab_ids_from_kongregate_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromKongregateIDsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromKongregateIDsRequest, PFAccountManagementGetPlayFabIDsFromKongregateIDsRequest, PFAccountManagementGetPlayFabIDsFromKongregateIDsResult, PFAccountManagementClientGetPlayFabIDsFromKongregateIDsAsync, PFAccountManagementClientGetPlayFabIDsFromKongregateIDsGetResultSize, PFAccountManagementClientGetPlayFabIDsFromKongregateIDsGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromKongregateIDsResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromKongregateIDs");
     context->bind_cancel_handler();
@@ -212,11 +212,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_kongregate_ids_async(const Ref<Pla
 
 Signal PlayFabAccounts::get_play_fab_ids_from_steam_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromSteamIDsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromSteamIDsRequest, PFAccountManagementGetPlayFabIDsFromSteamIDsRequest, PFAccountManagementGetPlayFabIDsFromSteamIDsResult, PFAccountManagementClientGetPlayFabIDsFromSteamIDsAsync, PFAccountManagementClientGetPlayFabIDsFromSteamIDsGetResultSize, PFAccountManagementClientGetPlayFabIDsFromSteamIDsGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromSteamIDsResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromSteamIDs");
     context->bind_cancel_handler();
@@ -233,11 +233,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_steam_ids_async(const Ref<PlayFabU
 
 Signal PlayFabAccounts::get_play_fab_ids_from_steam_names_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromSteamNamesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromSteamNamesRequest, PFAccountManagementGetPlayFabIDsFromSteamNamesRequest, PFAccountManagementGetPlayFabIDsFromSteamNamesResult, PFAccountManagementClientGetPlayFabIDsFromSteamNamesAsync, PFAccountManagementClientGetPlayFabIDsFromSteamNamesGetResultSize, PFAccountManagementClientGetPlayFabIDsFromSteamNamesGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromSteamNamesResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromSteamNames");
     context->bind_cancel_handler();
@@ -254,11 +254,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_steam_names_async(const Ref<PlayFa
 
 Signal PlayFabAccounts::get_play_fab_ids_from_xbox_live_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetPlayFabIDsFromXboxLiveIDsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetPlayFabIDsFromXboxLiveIDsRequest, PFAccountManagementGetPlayFabIDsFromXboxLiveIDsRequest, PFAccountManagementGetPlayFabIDsFromXboxLiveIDsResult, PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDsAsync, PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDsGetResultSize, PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDsGetResult, to_variant_PFAccountManagementGetPlayFabIDsFromXboxLiveIDsResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDs");
     context->bind_cancel_handler();
@@ -275,11 +275,11 @@ Signal PlayFabAccounts::get_play_fab_ids_from_xbox_live_ids_async(const Ref<Play
 
 Signal PlayFabAccounts::link_battle_net_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementClientLinkBattleNetAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementClientLinkBattleNetAccountRequest, PFAccountManagementClientLinkBattleNetAccountRequest, PFAccountManagementClientLinkBattleNetAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientLinkBattleNetAccount");
     context->bind_cancel_handler();
@@ -296,11 +296,11 @@ Signal PlayFabAccounts::link_battle_net_account_async(const Ref<PlayFabUser> &p_
 
 Signal PlayFabAccounts::link_custom_id_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementLinkCustomIDRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementLinkCustomIDRequest, PFAccountManagementLinkCustomIDRequest, PFAccountManagementClientLinkCustomIDAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientLinkCustomID");
     context->bind_cancel_handler();
@@ -317,11 +317,11 @@ Signal PlayFabAccounts::link_custom_id_async(const Ref<PlayFabUser> &p_user, con
 
 Signal PlayFabAccounts::link_open_id_connect_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementLinkOpenIdConnectRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementLinkOpenIdConnectRequest, PFAccountManagementLinkOpenIdConnectRequest, PFAccountManagementClientLinkOpenIdConnectAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientLinkOpenIdConnect");
     context->bind_cancel_handler();
@@ -338,11 +338,11 @@ Signal PlayFabAccounts::link_open_id_connect_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabAccounts::link_steam_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementLinkSteamAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementLinkSteamAccountRequest, PFAccountManagementLinkSteamAccountRequest, PFAccountManagementClientLinkSteamAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientLinkSteamAccount");
     context->bind_cancel_handler();
@@ -359,11 +359,11 @@ Signal PlayFabAccounts::link_steam_account_async(const Ref<PlayFabUser> &p_user,
 
 Signal PlayFabAccounts::link_xbox_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementClientLinkXboxAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementClientLinkXboxAccountRequest, PFAccountManagementClientLinkXboxAccountRequest, PFAccountManagementClientLinkXboxAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientLinkXboxAccount");
     context->bind_cancel_handler();
@@ -380,11 +380,11 @@ Signal PlayFabAccounts::link_xbox_account_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabAccounts::remove_contact_email_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementRemoveContactEmailRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementRemoveContactEmailRequest, PFAccountManagementRemoveContactEmailRequest, PFAccountManagementClientRemoveContactEmailAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientRemoveContactEmail");
     context->bind_cancel_handler();
@@ -401,11 +401,11 @@ Signal PlayFabAccounts::remove_contact_email_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabAccounts::report_player_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementReportPlayerClientRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFAccountManagementReportPlayerClientRequest, PFAccountManagementReportPlayerClientRequest, PFAccountManagementReportPlayerClientResult, PFAccountManagementClientReportPlayerAsync, PFAccountManagementClientReportPlayerGetResult, to_variant_PFAccountManagementReportPlayerClientResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientReportPlayer");
     context->bind_cancel_handler();
@@ -422,11 +422,11 @@ Signal PlayFabAccounts::report_player_async(const Ref<PlayFabUser> &p_user, cons
 
 Signal PlayFabAccounts::unlink_battle_net_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementClientUnlinkBattleNetAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementClientUnlinkBattleNetAccountRequest, PFAccountManagementClientUnlinkBattleNetAccountRequest, PFAccountManagementClientUnlinkBattleNetAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUnlinkBattleNetAccount");
     context->bind_cancel_handler();
@@ -443,11 +443,11 @@ Signal PlayFabAccounts::unlink_battle_net_account_async(const Ref<PlayFabUser> &
 
 Signal PlayFabAccounts::unlink_custom_id_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementUnlinkCustomIDRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementUnlinkCustomIDRequest, PFAccountManagementUnlinkCustomIDRequest, PFAccountManagementClientUnlinkCustomIDAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUnlinkCustomID");
     context->bind_cancel_handler();
@@ -464,11 +464,11 @@ Signal PlayFabAccounts::unlink_custom_id_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabAccounts::unlink_open_id_connect_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementUnlinkOpenIdConnectRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementUnlinkOpenIdConnectRequest, PFAccountManagementUnlinkOpenIdConnectRequest, PFAccountManagementClientUnlinkOpenIdConnectAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUnlinkOpenIdConnect");
     context->bind_cancel_handler();
@@ -485,11 +485,11 @@ Signal PlayFabAccounts::unlink_open_id_connect_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabAccounts::unlink_steam_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementUnlinkSteamAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementUnlinkSteamAccountRequest, PFAccountManagementUnlinkSteamAccountRequest, PFAccountManagementClientUnlinkSteamAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUnlinkSteamAccount");
     context->bind_cancel_handler();
@@ -506,11 +506,11 @@ Signal PlayFabAccounts::unlink_steam_account_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabAccounts::unlink_xbox_account_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementClientUnlinkXboxAccountRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementClientUnlinkXboxAccountRequest, PFAccountManagementClientUnlinkXboxAccountRequest, PFAccountManagementClientUnlinkXboxAccountAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUnlinkXboxAccount");
     context->bind_cancel_handler();
@@ -527,11 +527,11 @@ Signal PlayFabAccounts::unlink_xbox_account_async(const Ref<PlayFabUser> &p_user
 
 Signal PlayFabAccounts::update_avatar_url_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementClientUpdateAvatarUrlRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFAccountManagementClientUpdateAvatarUrlRequest, PFAccountManagementClientUpdateAvatarUrlRequest, PFAccountManagementClientUpdateAvatarUrlAsync>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUpdateAvatarUrl");
     context->bind_cancel_handler();
@@ -548,11 +548,11 @@ Signal PlayFabAccounts::update_avatar_url_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabAccounts::update_user_title_display_name_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementUpdateUserTitleDisplayNameRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementUpdateUserTitleDisplayNameRequest, PFAccountManagementUpdateUserTitleDisplayNameRequest, PFAccountManagementUpdateUserTitleDisplayNameResult, PFAccountManagementClientUpdateUserTitleDisplayNameAsync, PFAccountManagementClientUpdateUserTitleDisplayNameGetResultSize, PFAccountManagementClientUpdateUserTitleDisplayNameGetResult, to_variant_PFAccountManagementUpdateUserTitleDisplayNameResult>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementClientUpdateUserTitleDisplayName");
     context->bind_cancel_handler();
@@ -569,11 +569,11 @@ Signal PlayFabAccounts::update_user_title_display_name_async(const Ref<PlayFabUs
 
 Signal PlayFabAccounts::get_title_players_from_xbox_live_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementGetTitlePlayersFromXboxLiveIDsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementGetTitlePlayersFromXboxLiveIDsRequest, PFAccountManagementGetTitlePlayersFromXboxLiveIDsRequest, PFAccountManagementGetTitlePlayersFromProviderIDsResponse, PFAccountManagementGetTitlePlayersFromXboxLiveIDsAsync, PFAccountManagementGetTitlePlayersFromXboxLiveIDsGetResultSize, PFAccountManagementGetTitlePlayersFromXboxLiveIDsGetResult, to_variant_PFAccountManagementGetTitlePlayersFromProviderIDsResponse>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementGetTitlePlayersFromXboxLiveIDs");
     context->bind_cancel_handler();
@@ -590,11 +590,11 @@ Signal PlayFabAccounts::get_title_players_from_xbox_live_ids_async(const Ref<Pla
 
 Signal PlayFabAccounts::set_display_name_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFAccountManagementSetDisplayNameRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFAccountManagementSetDisplayNameRequest, PFAccountManagementSetDisplayNameRequest, PFAccountManagementSetDisplayNameResponse, PFAccountManagementSetDisplayNameAsync, PFAccountManagementSetDisplayNameGetResultSize, PFAccountManagementSetDisplayNameGetResult, to_variant_PFAccountManagementSetDisplayNameResponse>(runtime, pending_signal, p_user, std::move(request), "PFAccountManagementSetDisplayName");
     context->bind_cancel_handler();
@@ -611,11 +611,11 @@ Signal PlayFabAccounts::set_display_name_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabAccounts::get_profile_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFProfilesGetEntityProfileRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFProfilesGetEntityProfileRequest, PFProfilesGetEntityProfileRequest, PFProfilesGetEntityProfileResponse, PFProfilesGetProfileAsync, PFProfilesGetProfileGetResultSize, PFProfilesGetProfileGetResult, to_variant_PFProfilesGetEntityProfileResponse>(runtime, pending_signal, p_user, std::move(request), "PFProfilesGetProfile");
     context->bind_cancel_handler();
@@ -632,11 +632,11 @@ Signal PlayFabAccounts::get_profile_async(const Ref<PlayFabUser> &p_user, const 
 
 Signal PlayFabAccounts::get_profiles_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFProfilesGetEntityProfilesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFProfilesGetEntityProfilesRequest, PFProfilesGetEntityProfilesRequest, PFProfilesGetEntityProfilesResponse, PFProfilesGetProfilesAsync, PFProfilesGetProfilesGetResultSize, PFProfilesGetProfilesGetResult, to_variant_PFProfilesGetEntityProfilesResponse>(runtime, pending_signal, p_user, std::move(request), "PFProfilesGetProfiles");
     context->bind_cancel_handler();
@@ -653,11 +653,11 @@ Signal PlayFabAccounts::get_profiles_async(const Ref<PlayFabUser> &p_user, const
 
 Signal PlayFabAccounts::get_title_players_from_master_player_account_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFProfilesGetTitlePlayersFromMasterPlayerAccountIdsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFProfilesGetTitlePlayersFromMasterPlayerAccountIdsRequest, PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsRequest, PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsResponse, PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsAsync, PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsGetResultSize, PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsGetResult, to_variant_PFProfilesGetTitlePlayersFromMasterPlayerAccountIdsResponse>(runtime, pending_signal, p_user, std::move(request), "PFProfilesGetTitlePlayersFromMasterPlayerAccountIds");
     context->bind_cancel_handler();
@@ -674,11 +674,11 @@ Signal PlayFabAccounts::get_title_players_from_master_player_account_ids_async(c
 
 Signal PlayFabAccounts::set_profile_language_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFProfilesSetProfileLanguageRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFProfilesSetProfileLanguageRequest, PFProfilesSetProfileLanguageRequest, PFProfilesSetProfileLanguageResponse, PFProfilesSetProfileLanguageAsync, PFProfilesSetProfileLanguageGetResultSize, PFProfilesSetProfileLanguageGetResult, to_variant_PFProfilesSetProfileLanguageResponse>(runtime, pending_signal, p_user, std::move(request), "PFProfilesSetProfileLanguage");
     context->bind_cancel_handler();
@@ -695,11 +695,11 @@ Signal PlayFabAccounts::set_profile_language_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabAccounts::set_profile_policy_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFProfilesSetEntityProfilePolicyRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFProfilesSetEntityProfilePolicyRequest, PFProfilesSetEntityProfilePolicyRequest, PFProfilesSetEntityProfilePolicyResponse, PFProfilesSetProfilePolicyAsync, PFProfilesSetProfilePolicyGetResultSize, PFProfilesSetProfilePolicyGetResult, to_variant_PFProfilesSetEntityProfilePolicyResponse>(runtime, pending_signal, p_user, std::move(request), "PFProfilesSetProfilePolicy");
     context->bind_cancel_handler();
@@ -747,11 +747,11 @@ PlayFabRuntime *PlayFabCatalog::_get_runtime() const { return m_owner != nullptr
 
 Signal PlayFabCatalog::create_draft_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogCreateDraftItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogCreateDraftItemRequest, PFCatalogCreateDraftItemRequest, PFCatalogCreateDraftItemResponse, PFCatalogCreateDraftItemAsync, PFCatalogCreateDraftItemGetResultSize, PFCatalogCreateDraftItemGetResult, to_variant_PFCatalogCreateDraftItemResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogCreateDraftItem");
     context->bind_cancel_handler();
@@ -768,11 +768,11 @@ Signal PlayFabCatalog::create_draft_item_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabCatalog::create_upload_urls_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogCreateUploadUrlsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogCreateUploadUrlsRequest, PFCatalogCreateUploadUrlsRequest, PFCatalogCreateUploadUrlsResponse, PFCatalogCreateUploadUrlsAsync, PFCatalogCreateUploadUrlsGetResultSize, PFCatalogCreateUploadUrlsGetResult, to_variant_PFCatalogCreateUploadUrlsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogCreateUploadUrls");
     context->bind_cancel_handler();
@@ -789,11 +789,11 @@ Signal PlayFabCatalog::create_upload_urls_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabCatalog::delete_entity_item_reviews_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogDeleteEntityItemReviewsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogDeleteEntityItemReviewsRequest, PFCatalogDeleteEntityItemReviewsRequest, PFCatalogDeleteEntityItemReviewsAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogDeleteEntityItemReviews");
     context->bind_cancel_handler();
@@ -810,11 +810,11 @@ Signal PlayFabCatalog::delete_entity_item_reviews_async(const Ref<PlayFabUser> &
 
 Signal PlayFabCatalog::delete_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogDeleteItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogDeleteItemRequest, PFCatalogDeleteItemRequest, PFCatalogDeleteItemAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogDeleteItem");
     context->bind_cancel_handler();
@@ -831,11 +831,11 @@ Signal PlayFabCatalog::delete_item_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabCatalog::get_catalog_config_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetCatalogConfigRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetCatalogConfigRequest, PFCatalogGetCatalogConfigRequest, PFCatalogGetCatalogConfigResponse, PFCatalogGetCatalogConfigAsync, PFCatalogGetCatalogConfigGetResultSize, PFCatalogGetCatalogConfigGetResult, to_variant_PFCatalogGetCatalogConfigResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetCatalogConfig");
     context->bind_cancel_handler();
@@ -852,11 +852,11 @@ Signal PlayFabCatalog::get_catalog_config_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabCatalog::get_draft_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetDraftItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetDraftItemRequest, PFCatalogGetDraftItemRequest, PFCatalogGetDraftItemResponse, PFCatalogGetDraftItemAsync, PFCatalogGetDraftItemGetResultSize, PFCatalogGetDraftItemGetResult, to_variant_PFCatalogGetDraftItemResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetDraftItem");
     context->bind_cancel_handler();
@@ -873,11 +873,11 @@ Signal PlayFabCatalog::get_draft_item_async(const Ref<PlayFabUser> &p_user, cons
 
 Signal PlayFabCatalog::get_draft_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetDraftItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetDraftItemsRequest, PFCatalogGetDraftItemsRequest, PFCatalogGetDraftItemsResponse, PFCatalogGetDraftItemsAsync, PFCatalogGetDraftItemsGetResultSize, PFCatalogGetDraftItemsGetResult, to_variant_PFCatalogGetDraftItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetDraftItems");
     context->bind_cancel_handler();
@@ -894,11 +894,11 @@ Signal PlayFabCatalog::get_draft_items_async(const Ref<PlayFabUser> &p_user, con
 
 Signal PlayFabCatalog::get_entity_draft_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetEntityDraftItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetEntityDraftItemsRequest, PFCatalogGetEntityDraftItemsRequest, PFCatalogGetEntityDraftItemsResponse, PFCatalogGetEntityDraftItemsAsync, PFCatalogGetEntityDraftItemsGetResultSize, PFCatalogGetEntityDraftItemsGetResult, to_variant_PFCatalogGetEntityDraftItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetEntityDraftItems");
     context->bind_cancel_handler();
@@ -915,11 +915,11 @@ Signal PlayFabCatalog::get_entity_draft_items_async(const Ref<PlayFabUser> &p_us
 
 Signal PlayFabCatalog::get_entity_item_review_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetEntityItemReviewRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetEntityItemReviewRequest, PFCatalogGetEntityItemReviewRequest, PFCatalogGetEntityItemReviewResponse, PFCatalogGetEntityItemReviewAsync, PFCatalogGetEntityItemReviewGetResultSize, PFCatalogGetEntityItemReviewGetResult, to_variant_PFCatalogGetEntityItemReviewResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetEntityItemReview");
     context->bind_cancel_handler();
@@ -936,11 +936,11 @@ Signal PlayFabCatalog::get_entity_item_review_async(const Ref<PlayFabUser> &p_us
 
 Signal PlayFabCatalog::get_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemRequest, PFCatalogGetItemRequest, PFCatalogGetItemResponse, PFCatalogGetItemAsync, PFCatalogGetItemGetResultSize, PFCatalogGetItemGetResult, to_variant_PFCatalogGetItemResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItem");
     context->bind_cancel_handler();
@@ -957,11 +957,11 @@ Signal PlayFabCatalog::get_item_async(const Ref<PlayFabUser> &p_user, const Dict
 
 Signal PlayFabCatalog::get_item_containers_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemContainersRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemContainersRequest, PFCatalogGetItemContainersRequest, PFCatalogGetItemContainersResponse, PFCatalogGetItemContainersAsync, PFCatalogGetItemContainersGetResultSize, PFCatalogGetItemContainersGetResult, to_variant_PFCatalogGetItemContainersResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItemContainers");
     context->bind_cancel_handler();
@@ -978,11 +978,11 @@ Signal PlayFabCatalog::get_item_containers_async(const Ref<PlayFabUser> &p_user,
 
 Signal PlayFabCatalog::get_item_moderation_state_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemModerationStateRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemModerationStateRequest, PFCatalogGetItemModerationStateRequest, PFCatalogGetItemModerationStateResponse, PFCatalogGetItemModerationStateAsync, PFCatalogGetItemModerationStateGetResultSize, PFCatalogGetItemModerationStateGetResult, to_variant_PFCatalogGetItemModerationStateResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItemModerationState");
     context->bind_cancel_handler();
@@ -999,11 +999,11 @@ Signal PlayFabCatalog::get_item_moderation_state_async(const Ref<PlayFabUser> &p
 
 Signal PlayFabCatalog::get_item_publish_status_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemPublishStatusRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemPublishStatusRequest, PFCatalogGetItemPublishStatusRequest, PFCatalogGetItemPublishStatusResponse, PFCatalogGetItemPublishStatusAsync, PFCatalogGetItemPublishStatusGetResultSize, PFCatalogGetItemPublishStatusGetResult, to_variant_PFCatalogGetItemPublishStatusResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItemPublishStatus");
     context->bind_cancel_handler();
@@ -1020,11 +1020,11 @@ Signal PlayFabCatalog::get_item_publish_status_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabCatalog::get_item_reviews_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemReviewsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemReviewsRequest, PFCatalogGetItemReviewsRequest, PFCatalogGetItemReviewsResponse, PFCatalogGetItemReviewsAsync, PFCatalogGetItemReviewsGetResultSize, PFCatalogGetItemReviewsGetResult, to_variant_PFCatalogGetItemReviewsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItemReviews");
     context->bind_cancel_handler();
@@ -1041,11 +1041,11 @@ Signal PlayFabCatalog::get_item_reviews_async(const Ref<PlayFabUser> &p_user, co
 
 Signal PlayFabCatalog::get_item_review_summary_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemReviewSummaryRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemReviewSummaryRequest, PFCatalogGetItemReviewSummaryRequest, PFCatalogGetItemReviewSummaryResponse, PFCatalogGetItemReviewSummaryAsync, PFCatalogGetItemReviewSummaryGetResultSize, PFCatalogGetItemReviewSummaryGetResult, to_variant_PFCatalogGetItemReviewSummaryResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItemReviewSummary");
     context->bind_cancel_handler();
@@ -1062,11 +1062,11 @@ Signal PlayFabCatalog::get_item_review_summary_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabCatalog::get_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogGetItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogGetItemsRequest, PFCatalogGetItemsRequest, PFCatalogGetItemsResponse, PFCatalogGetItemsAsync, PFCatalogGetItemsGetResultSize, PFCatalogGetItemsGetResult, to_variant_PFCatalogGetItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogGetItems");
     context->bind_cancel_handler();
@@ -1083,11 +1083,11 @@ Signal PlayFabCatalog::get_items_async(const Ref<PlayFabUser> &p_user, const Dic
 
 Signal PlayFabCatalog::publish_draft_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogPublishDraftItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogPublishDraftItemRequest, PFCatalogPublishDraftItemRequest, PFCatalogPublishDraftItemAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogPublishDraftItem");
     context->bind_cancel_handler();
@@ -1104,11 +1104,11 @@ Signal PlayFabCatalog::publish_draft_item_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabCatalog::report_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogReportItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogReportItemRequest, PFCatalogReportItemRequest, PFCatalogReportItemAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogReportItem");
     context->bind_cancel_handler();
@@ -1125,11 +1125,11 @@ Signal PlayFabCatalog::report_item_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabCatalog::report_item_review_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogReportItemReviewRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogReportItemReviewRequest, PFCatalogReportItemReviewRequest, PFCatalogReportItemReviewAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogReportItemReview");
     context->bind_cancel_handler();
@@ -1146,11 +1146,11 @@ Signal PlayFabCatalog::report_item_review_async(const Ref<PlayFabUser> &p_user, 
 
 Signal PlayFabCatalog::review_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogReviewItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogReviewItemRequest, PFCatalogReviewItemRequest, PFCatalogReviewItemAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogReviewItem");
     context->bind_cancel_handler();
@@ -1167,11 +1167,11 @@ Signal PlayFabCatalog::review_item_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabCatalog::search_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogSearchItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogSearchItemsRequest, PFCatalogSearchItemsRequest, PFCatalogSearchItemsResponse, PFCatalogSearchItemsAsync, PFCatalogSearchItemsGetResultSize, PFCatalogSearchItemsGetResult, to_variant_PFCatalogSearchItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogSearchItems");
     context->bind_cancel_handler();
@@ -1188,11 +1188,11 @@ Signal PlayFabCatalog::search_items_async(const Ref<PlayFabUser> &p_user, const 
 
 Signal PlayFabCatalog::set_item_moderation_state_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogSetItemModerationStateRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogSetItemModerationStateRequest, PFCatalogSetItemModerationStateRequest, PFCatalogSetItemModerationStateAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogSetItemModerationState");
     context->bind_cancel_handler();
@@ -1209,11 +1209,11 @@ Signal PlayFabCatalog::set_item_moderation_state_async(const Ref<PlayFabUser> &p
 
 Signal PlayFabCatalog::submit_item_review_vote_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogSubmitItemReviewVoteRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogSubmitItemReviewVoteRequest, PFCatalogSubmitItemReviewVoteRequest, PFCatalogSubmitItemReviewVoteAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogSubmitItemReviewVote");
     context->bind_cancel_handler();
@@ -1230,11 +1230,11 @@ Signal PlayFabCatalog::submit_item_review_vote_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabCatalog::takedown_item_reviews_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogTakedownItemReviewsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogTakedownItemReviewsRequest, PFCatalogTakedownItemReviewsRequest, PFCatalogTakedownItemReviewsAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogTakedownItemReviews");
     context->bind_cancel_handler();
@@ -1251,11 +1251,11 @@ Signal PlayFabCatalog::takedown_item_reviews_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabCatalog::update_catalog_config_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogUpdateCatalogConfigRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFCatalogUpdateCatalogConfigRequest, PFCatalogUpdateCatalogConfigRequest, PFCatalogUpdateCatalogConfigAsync>(runtime, pending_signal, p_user, std::move(request), "PFCatalogUpdateCatalogConfig");
     context->bind_cancel_handler();
@@ -1272,11 +1272,11 @@ Signal PlayFabCatalog::update_catalog_config_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabCatalog::update_draft_item_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCatalogUpdateDraftItemRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCatalogUpdateDraftItemRequest, PFCatalogUpdateDraftItemRequest, PFCatalogUpdateDraftItemResponse, PFCatalogUpdateDraftItemAsync, PFCatalogUpdateDraftItemGetResultSize, PFCatalogUpdateDraftItemGetResult, to_variant_PFCatalogUpdateDraftItemResponse>(runtime, pending_signal, p_user, std::move(request), "PFCatalogUpdateDraftItem");
     context->bind_cancel_handler();
@@ -1301,11 +1301,11 @@ PlayFabRuntime *PlayFabCloudScript::_get_runtime() const { return m_owner != nul
 
 Signal PlayFabCloudScript::execute_cloud_script_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCloudScriptExecuteCloudScriptRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCloudScriptExecuteCloudScriptRequest, PFCloudScriptExecuteCloudScriptRequest, PFCloudScriptExecuteCloudScriptResult, PFCloudScriptClientExecuteCloudScriptAsync, PFCloudScriptClientExecuteCloudScriptGetResultSize, PFCloudScriptClientExecuteCloudScriptGetResult, to_variant_PFCloudScriptExecuteCloudScriptResult>(runtime, pending_signal, p_user, std::move(request), "PFCloudScriptClientExecuteCloudScript");
     context->bind_cancel_handler();
@@ -1322,11 +1322,11 @@ Signal PlayFabCloudScript::execute_cloud_script_async(const Ref<PlayFabUser> &p_
 
 Signal PlayFabCloudScript::execute_entity_cloud_script_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCloudScriptExecuteEntityCloudScriptRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCloudScriptExecuteEntityCloudScriptRequest, PFCloudScriptExecuteEntityCloudScriptRequest, PFCloudScriptExecuteCloudScriptResult, PFCloudScriptExecuteEntityCloudScriptAsync, PFCloudScriptExecuteEntityCloudScriptGetResultSize, PFCloudScriptExecuteEntityCloudScriptGetResult, to_variant_PFCloudScriptExecuteCloudScriptResult>(runtime, pending_signal, p_user, std::move(request), "PFCloudScriptExecuteEntityCloudScript");
     context->bind_cancel_handler();
@@ -1343,11 +1343,11 @@ Signal PlayFabCloudScript::execute_entity_cloud_script_async(const Ref<PlayFabUs
 
 Signal PlayFabCloudScript::execute_function_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFCloudScriptExecuteFunctionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFCloudScriptExecuteFunctionRequest, PFCloudScriptExecuteFunctionRequest, PFCloudScriptExecuteFunctionResult, PFCloudScriptExecuteFunctionAsync, PFCloudScriptExecuteFunctionGetResultSize, PFCloudScriptExecuteFunctionGetResult, to_variant_PFCloudScriptExecuteFunctionResult>(runtime, pending_signal, p_user, std::move(request), "PFCloudScriptExecuteFunction");
     context->bind_cancel_handler();
@@ -1376,11 +1376,11 @@ PlayFabRuntime *PlayFabEntityData::_get_runtime() const { return m_owner != null
 
 Signal PlayFabEntityData::abort_file_uploads_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataAbortFileUploadsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataAbortFileUploadsRequest, PFDataAbortFileUploadsRequest, PFDataAbortFileUploadsResponse, PFDataAbortFileUploadsAsync, PFDataAbortFileUploadsGetResultSize, PFDataAbortFileUploadsGetResult, to_variant_PFDataAbortFileUploadsResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataAbortFileUploads");
     context->bind_cancel_handler();
@@ -1397,11 +1397,11 @@ Signal PlayFabEntityData::abort_file_uploads_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabEntityData::delete_files_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataDeleteFilesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataDeleteFilesRequest, PFDataDeleteFilesRequest, PFDataDeleteFilesResponse, PFDataDeleteFilesAsync, PFDataDeleteFilesGetResultSize, PFDataDeleteFilesGetResult, to_variant_PFDataDeleteFilesResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataDeleteFiles");
     context->bind_cancel_handler();
@@ -1418,11 +1418,11 @@ Signal PlayFabEntityData::delete_files_async(const Ref<PlayFabUser> &p_user, con
 
 Signal PlayFabEntityData::finalize_file_uploads_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataFinalizeFileUploadsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataFinalizeFileUploadsRequest, PFDataFinalizeFileUploadsRequest, PFDataFinalizeFileUploadsResponse, PFDataFinalizeFileUploadsAsync, PFDataFinalizeFileUploadsGetResultSize, PFDataFinalizeFileUploadsGetResult, to_variant_PFDataFinalizeFileUploadsResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataFinalizeFileUploads");
     context->bind_cancel_handler();
@@ -1439,11 +1439,11 @@ Signal PlayFabEntityData::finalize_file_uploads_async(const Ref<PlayFabUser> &p_
 
 Signal PlayFabEntityData::get_files_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataGetFilesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataGetFilesRequest, PFDataGetFilesRequest, PFDataGetFilesResponse, PFDataGetFilesAsync, PFDataGetFilesGetResultSize, PFDataGetFilesGetResult, to_variant_PFDataGetFilesResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataGetFiles");
     context->bind_cancel_handler();
@@ -1460,11 +1460,11 @@ Signal PlayFabEntityData::get_files_async(const Ref<PlayFabUser> &p_user, const 
 
 Signal PlayFabEntityData::get_objects_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataGetObjectsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataGetObjectsRequest, PFDataGetObjectsRequest, PFDataGetObjectsResponse, PFDataGetObjectsAsync, PFDataGetObjectsGetResultSize, PFDataGetObjectsGetResult, to_variant_PFDataGetObjectsResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataGetObjects");
     context->bind_cancel_handler();
@@ -1481,11 +1481,11 @@ Signal PlayFabEntityData::get_objects_async(const Ref<PlayFabUser> &p_user, cons
 
 Signal PlayFabEntityData::initiate_file_uploads_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataInitiateFileUploadsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataInitiateFileUploadsRequest, PFDataInitiateFileUploadsRequest, PFDataInitiateFileUploadsResponse, PFDataInitiateFileUploadsAsync, PFDataInitiateFileUploadsGetResultSize, PFDataInitiateFileUploadsGetResult, to_variant_PFDataInitiateFileUploadsResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataInitiateFileUploads");
     context->bind_cancel_handler();
@@ -1502,11 +1502,11 @@ Signal PlayFabEntityData::initiate_file_uploads_async(const Ref<PlayFabUser> &p_
 
 Signal PlayFabEntityData::set_objects_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFDataSetObjectsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFDataSetObjectsRequest, PFDataSetObjectsRequest, PFDataSetObjectsResponse, PFDataSetObjectsAsync, PFDataSetObjectsGetResultSize, PFDataSetObjectsGetResult, to_variant_PFDataSetObjectsResponse>(runtime, pending_signal, p_user, std::move(request), "PFDataSetObjects");
     context->bind_cancel_handler();
@@ -1534,11 +1534,11 @@ PlayFabRuntime *PlayFabExperimentation::_get_runtime() const { return m_owner !=
 
 Signal PlayFabExperimentation::get_treatment_assignment_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFExperimentationGetTreatmentAssignmentRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFExperimentationGetTreatmentAssignmentRequest, PFExperimentationGetTreatmentAssignmentRequest, PFExperimentationGetTreatmentAssignmentResult, PFExperimentationGetTreatmentAssignmentAsync, PFExperimentationGetTreatmentAssignmentGetResultSize, PFExperimentationGetTreatmentAssignmentGetResult, to_variant_PFExperimentationGetTreatmentAssignmentResult>(runtime, pending_signal, p_user, std::move(request), "PFExperimentationGetTreatmentAssignment");
     context->bind_cancel_handler();
@@ -1564,11 +1564,11 @@ PlayFabRuntime *PlayFabFriends::_get_runtime() const { return m_owner != nullptr
 
 Signal PlayFabFriends::add_friend_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFFriendsClientAddFriendRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFFriendsClientAddFriendRequest, PFFriendsClientAddFriendRequest, PFFriendsAddFriendResult, PFFriendsClientAddFriendAsync, PFFriendsClientAddFriendGetResult, to_variant_PFFriendsAddFriendResult>(runtime, pending_signal, p_user, std::move(request), "PFFriendsClientAddFriend");
     context->bind_cancel_handler();
@@ -1585,11 +1585,11 @@ Signal PlayFabFriends::add_friend_async(const Ref<PlayFabUser> &p_user, const Di
 
 Signal PlayFabFriends::get_friends_list_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFFriendsClientGetFriendsListRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFFriendsClientGetFriendsListRequest, PFFriendsClientGetFriendsListRequest, PFFriendsGetFriendsListResult, PFFriendsClientGetFriendsListAsync, PFFriendsClientGetFriendsListGetResultSize, PFFriendsClientGetFriendsListGetResult, to_variant_PFFriendsGetFriendsListResult>(runtime, pending_signal, p_user, std::move(request), "PFFriendsClientGetFriendsList");
     context->bind_cancel_handler();
@@ -1606,11 +1606,11 @@ Signal PlayFabFriends::get_friends_list_async(const Ref<PlayFabUser> &p_user, co
 
 Signal PlayFabFriends::remove_friend_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFFriendsClientRemoveFriendRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFFriendsClientRemoveFriendRequest, PFFriendsClientRemoveFriendRequest, PFFriendsClientRemoveFriendAsync>(runtime, pending_signal, p_user, std::move(request), "PFFriendsClientRemoveFriend");
     context->bind_cancel_handler();
@@ -1627,11 +1627,11 @@ Signal PlayFabFriends::remove_friend_async(const Ref<PlayFabUser> &p_user, const
 
 Signal PlayFabFriends::set_friend_tags_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFFriendsClientSetFriendTagsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFFriendsClientSetFriendTagsRequest, PFFriendsClientSetFriendTagsRequest, PFFriendsClientSetFriendTagsAsync>(runtime, pending_signal, p_user, std::move(request), "PFFriendsClientSetFriendTags");
     context->bind_cancel_handler();
@@ -1678,11 +1678,11 @@ PlayFabRuntime *PlayFabGroups::_get_runtime() const { return m_owner != nullptr 
 
 Signal PlayFabGroups::accept_group_application_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsAcceptGroupApplicationRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsAcceptGroupApplicationRequest, PFGroupsAcceptGroupApplicationRequest, PFGroupsAcceptGroupApplicationAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsAcceptGroupApplication");
     context->bind_cancel_handler();
@@ -1699,11 +1699,11 @@ Signal PlayFabGroups::accept_group_application_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabGroups::accept_group_invitation_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsAcceptGroupInvitationRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsAcceptGroupInvitationRequest, PFGroupsAcceptGroupInvitationRequest, PFGroupsAcceptGroupInvitationAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsAcceptGroupInvitation");
     context->bind_cancel_handler();
@@ -1720,11 +1720,11 @@ Signal PlayFabGroups::accept_group_invitation_async(const Ref<PlayFabUser> &p_us
 
 Signal PlayFabGroups::add_members_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsAddMembersRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsAddMembersRequest, PFGroupsAddMembersRequest, PFGroupsAddMembersAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsAddMembers");
     context->bind_cancel_handler();
@@ -1741,11 +1741,11 @@ Signal PlayFabGroups::add_members_async(const Ref<PlayFabUser> &p_user, const Di
 
 Signal PlayFabGroups::apply_to_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsApplyToGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsApplyToGroupRequest, PFGroupsApplyToGroupRequest, PFGroupsApplyToGroupResponse, PFGroupsApplyToGroupAsync, PFGroupsApplyToGroupGetResultSize, PFGroupsApplyToGroupGetResult, to_variant_PFGroupsApplyToGroupResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsApplyToGroup");
     context->bind_cancel_handler();
@@ -1762,11 +1762,11 @@ Signal PlayFabGroups::apply_to_group_async(const Ref<PlayFabUser> &p_user, const
 
 Signal PlayFabGroups::block_entity_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsBlockEntityRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsBlockEntityRequest, PFGroupsBlockEntityRequest, PFGroupsBlockEntityAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsBlockEntity");
     context->bind_cancel_handler();
@@ -1783,11 +1783,11 @@ Signal PlayFabGroups::block_entity_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabGroups::change_member_role_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsChangeMemberRoleRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsChangeMemberRoleRequest, PFGroupsChangeMemberRoleRequest, PFGroupsChangeMemberRoleAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsChangeMemberRole");
     context->bind_cancel_handler();
@@ -1804,11 +1804,11 @@ Signal PlayFabGroups::change_member_role_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabGroups::create_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsCreateGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsCreateGroupRequest, PFGroupsCreateGroupRequest, PFGroupsCreateGroupResponse, PFGroupsCreateGroupAsync, PFGroupsCreateGroupGetResultSize, PFGroupsCreateGroupGetResult, to_variant_PFGroupsCreateGroupResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsCreateGroup");
     context->bind_cancel_handler();
@@ -1825,11 +1825,11 @@ Signal PlayFabGroups::create_group_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabGroups::create_role_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsCreateGroupRoleRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsCreateGroupRoleRequest, PFGroupsCreateGroupRoleRequest, PFGroupsCreateGroupRoleResponse, PFGroupsCreateRoleAsync, PFGroupsCreateRoleGetResultSize, PFGroupsCreateRoleGetResult, to_variant_PFGroupsCreateGroupRoleResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsCreateRole");
     context->bind_cancel_handler();
@@ -1846,11 +1846,11 @@ Signal PlayFabGroups::create_role_async(const Ref<PlayFabUser> &p_user, const Di
 
 Signal PlayFabGroups::delete_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsDeleteGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsDeleteGroupRequest, PFGroupsDeleteGroupRequest, PFGroupsDeleteGroupAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsDeleteGroup");
     context->bind_cancel_handler();
@@ -1867,11 +1867,11 @@ Signal PlayFabGroups::delete_group_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabGroups::delete_role_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsDeleteRoleRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsDeleteRoleRequest, PFGroupsDeleteRoleRequest, PFGroupsDeleteRoleAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsDeleteRole");
     context->bind_cancel_handler();
@@ -1888,11 +1888,11 @@ Signal PlayFabGroups::delete_role_async(const Ref<PlayFabUser> &p_user, const Di
 
 Signal PlayFabGroups::get_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsGetGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsGetGroupRequest, PFGroupsGetGroupRequest, PFGroupsGetGroupResponse, PFGroupsGetGroupAsync, PFGroupsGetGroupGetResultSize, PFGroupsGetGroupGetResult, to_variant_PFGroupsGetGroupResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsGetGroup");
     context->bind_cancel_handler();
@@ -1909,11 +1909,11 @@ Signal PlayFabGroups::get_group_async(const Ref<PlayFabUser> &p_user, const Dict
 
 Signal PlayFabGroups::invite_to_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsInviteToGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsInviteToGroupRequest, PFGroupsInviteToGroupRequest, PFGroupsInviteToGroupResponse, PFGroupsInviteToGroupAsync, PFGroupsInviteToGroupGetResultSize, PFGroupsInviteToGroupGetResult, to_variant_PFGroupsInviteToGroupResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsInviteToGroup");
     context->bind_cancel_handler();
@@ -1930,11 +1930,11 @@ Signal PlayFabGroups::invite_to_group_async(const Ref<PlayFabUser> &p_user, cons
 
 Signal PlayFabGroups::is_member_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsIsMemberRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFGroupsIsMemberRequest, PFGroupsIsMemberRequest, PFGroupsIsMemberResponse, PFGroupsIsMemberAsync, PFGroupsIsMemberGetResult, to_variant_PFGroupsIsMemberResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsIsMember");
     context->bind_cancel_handler();
@@ -1951,11 +1951,11 @@ Signal PlayFabGroups::is_member_async(const Ref<PlayFabUser> &p_user, const Dict
 
 Signal PlayFabGroups::list_group_applications_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListGroupApplicationsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListGroupApplicationsRequest, PFGroupsListGroupApplicationsRequest, PFGroupsListGroupApplicationsResponse, PFGroupsListGroupApplicationsAsync, PFGroupsListGroupApplicationsGetResultSize, PFGroupsListGroupApplicationsGetResult, to_variant_PFGroupsListGroupApplicationsResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListGroupApplications");
     context->bind_cancel_handler();
@@ -1972,11 +1972,11 @@ Signal PlayFabGroups::list_group_applications_async(const Ref<PlayFabUser> &p_us
 
 Signal PlayFabGroups::list_group_blocks_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListGroupBlocksRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListGroupBlocksRequest, PFGroupsListGroupBlocksRequest, PFGroupsListGroupBlocksResponse, PFGroupsListGroupBlocksAsync, PFGroupsListGroupBlocksGetResultSize, PFGroupsListGroupBlocksGetResult, to_variant_PFGroupsListGroupBlocksResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListGroupBlocks");
     context->bind_cancel_handler();
@@ -1993,11 +1993,11 @@ Signal PlayFabGroups::list_group_blocks_async(const Ref<PlayFabUser> &p_user, co
 
 Signal PlayFabGroups::list_group_invitations_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListGroupInvitationsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListGroupInvitationsRequest, PFGroupsListGroupInvitationsRequest, PFGroupsListGroupInvitationsResponse, PFGroupsListGroupInvitationsAsync, PFGroupsListGroupInvitationsGetResultSize, PFGroupsListGroupInvitationsGetResult, to_variant_PFGroupsListGroupInvitationsResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListGroupInvitations");
     context->bind_cancel_handler();
@@ -2014,11 +2014,11 @@ Signal PlayFabGroups::list_group_invitations_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabGroups::list_group_members_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListGroupMembersRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListGroupMembersRequest, PFGroupsListGroupMembersRequest, PFGroupsListGroupMembersResponse, PFGroupsListGroupMembersAsync, PFGroupsListGroupMembersGetResultSize, PFGroupsListGroupMembersGetResult, to_variant_PFGroupsListGroupMembersResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListGroupMembers");
     context->bind_cancel_handler();
@@ -2035,11 +2035,11 @@ Signal PlayFabGroups::list_group_members_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabGroups::list_membership_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListMembershipRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListMembershipRequest, PFGroupsListMembershipRequest, PFGroupsListMembershipResponse, PFGroupsListMembershipAsync, PFGroupsListMembershipGetResultSize, PFGroupsListMembershipGetResult, to_variant_PFGroupsListMembershipResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListMembership");
     context->bind_cancel_handler();
@@ -2056,11 +2056,11 @@ Signal PlayFabGroups::list_membership_async(const Ref<PlayFabUser> &p_user, cons
 
 Signal PlayFabGroups::list_membership_opportunities_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsListMembershipOpportunitiesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsListMembershipOpportunitiesRequest, PFGroupsListMembershipOpportunitiesRequest, PFGroupsListMembershipOpportunitiesResponse, PFGroupsListMembershipOpportunitiesAsync, PFGroupsListMembershipOpportunitiesGetResultSize, PFGroupsListMembershipOpportunitiesGetResult, to_variant_PFGroupsListMembershipOpportunitiesResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsListMembershipOpportunities");
     context->bind_cancel_handler();
@@ -2077,11 +2077,11 @@ Signal PlayFabGroups::list_membership_opportunities_async(const Ref<PlayFabUser>
 
 Signal PlayFabGroups::remove_group_application_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsRemoveGroupApplicationRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsRemoveGroupApplicationRequest, PFGroupsRemoveGroupApplicationRequest, PFGroupsRemoveGroupApplicationAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsRemoveGroupApplication");
     context->bind_cancel_handler();
@@ -2098,11 +2098,11 @@ Signal PlayFabGroups::remove_group_application_async(const Ref<PlayFabUser> &p_u
 
 Signal PlayFabGroups::remove_group_invitation_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsRemoveGroupInvitationRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsRemoveGroupInvitationRequest, PFGroupsRemoveGroupInvitationRequest, PFGroupsRemoveGroupInvitationAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsRemoveGroupInvitation");
     context->bind_cancel_handler();
@@ -2119,11 +2119,11 @@ Signal PlayFabGroups::remove_group_invitation_async(const Ref<PlayFabUser> &p_us
 
 Signal PlayFabGroups::remove_members_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsRemoveMembersRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsRemoveMembersRequest, PFGroupsRemoveMembersRequest, PFGroupsRemoveMembersAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsRemoveMembers");
     context->bind_cancel_handler();
@@ -2140,11 +2140,11 @@ Signal PlayFabGroups::remove_members_async(const Ref<PlayFabUser> &p_user, const
 
 Signal PlayFabGroups::unblock_entity_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsUnblockEntityRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFGroupsUnblockEntityRequest, PFGroupsUnblockEntityRequest, PFGroupsUnblockEntityAsync>(runtime, pending_signal, p_user, std::move(request), "PFGroupsUnblockEntity");
     context->bind_cancel_handler();
@@ -2161,11 +2161,11 @@ Signal PlayFabGroups::unblock_entity_async(const Ref<PlayFabUser> &p_user, const
 
 Signal PlayFabGroups::update_group_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsUpdateGroupRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsUpdateGroupRequest, PFGroupsUpdateGroupRequest, PFGroupsUpdateGroupResponse, PFGroupsUpdateGroupAsync, PFGroupsUpdateGroupGetResultSize, PFGroupsUpdateGroupGetResult, to_variant_PFGroupsUpdateGroupResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsUpdateGroup");
     context->bind_cancel_handler();
@@ -2182,11 +2182,11 @@ Signal PlayFabGroups::update_group_async(const Ref<PlayFabUser> &p_user, const D
 
 Signal PlayFabGroups::update_role_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFGroupsUpdateGroupRoleRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFGroupsUpdateGroupRoleRequest, PFGroupsUpdateGroupRoleRequest, PFGroupsUpdateGroupRoleResponse, PFGroupsUpdateRoleAsync, PFGroupsUpdateRoleGetResultSize, PFGroupsUpdateRoleGetResult, to_variant_PFGroupsUpdateGroupRoleResponse>(runtime, pending_signal, p_user, std::move(request), "PFGroupsUpdateRole");
     context->bind_cancel_handler();
@@ -2225,11 +2225,11 @@ PlayFabRuntime *PlayFabInventory::_get_runtime() const { return m_owner != nullp
 
 Signal PlayFabInventory::add_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryAddInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryAddInventoryItemsRequest, PFInventoryAddInventoryItemsRequest, PFInventoryAddInventoryItemsResponse, PFInventoryAddInventoryItemsAsync, PFInventoryAddInventoryItemsGetResultSize, PFInventoryAddInventoryItemsGetResult, to_variant_PFInventoryAddInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryAddInventoryItems");
     context->bind_cancel_handler();
@@ -2246,11 +2246,11 @@ Signal PlayFabInventory::add_inventory_items_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabInventory::delete_inventory_collection_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryDeleteInventoryCollectionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFInventoryDeleteInventoryCollectionRequest, PFInventoryDeleteInventoryCollectionRequest, PFInventoryDeleteInventoryCollectionAsync>(runtime, pending_signal, p_user, std::move(request), "PFInventoryDeleteInventoryCollection");
     context->bind_cancel_handler();
@@ -2267,11 +2267,11 @@ Signal PlayFabInventory::delete_inventory_collection_async(const Ref<PlayFabUser
 
 Signal PlayFabInventory::delete_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryDeleteInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryDeleteInventoryItemsRequest, PFInventoryDeleteInventoryItemsRequest, PFInventoryDeleteInventoryItemsResponse, PFInventoryDeleteInventoryItemsAsync, PFInventoryDeleteInventoryItemsGetResultSize, PFInventoryDeleteInventoryItemsGetResult, to_variant_PFInventoryDeleteInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryDeleteInventoryItems");
     context->bind_cancel_handler();
@@ -2288,11 +2288,11 @@ Signal PlayFabInventory::delete_inventory_items_async(const Ref<PlayFabUser> &p_
 
 Signal PlayFabInventory::execute_inventory_operations_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryExecuteInventoryOperationsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryExecuteInventoryOperationsRequest, PFInventoryExecuteInventoryOperationsRequest, PFInventoryExecuteInventoryOperationsResponse, PFInventoryExecuteInventoryOperationsAsync, PFInventoryExecuteInventoryOperationsGetResultSize, PFInventoryExecuteInventoryOperationsGetResult, to_variant_PFInventoryExecuteInventoryOperationsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryExecuteInventoryOperations");
     context->bind_cancel_handler();
@@ -2309,11 +2309,11 @@ Signal PlayFabInventory::execute_inventory_operations_async(const Ref<PlayFabUse
 
 Signal PlayFabInventory::execute_transfer_operations_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryExecuteTransferOperationsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryExecuteTransferOperationsRequest, PFInventoryExecuteTransferOperationsRequest, PFInventoryExecuteTransferOperationsResponse, PFInventoryExecuteTransferOperationsAsync, PFInventoryExecuteTransferOperationsGetResultSize, PFInventoryExecuteTransferOperationsGetResult, to_variant_PFInventoryExecuteTransferOperationsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryExecuteTransferOperations");
     context->bind_cancel_handler();
@@ -2330,11 +2330,11 @@ Signal PlayFabInventory::execute_transfer_operations_async(const Ref<PlayFabUser
 
 Signal PlayFabInventory::get_inventory_collection_ids_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryGetInventoryCollectionIdsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryGetInventoryCollectionIdsRequest, PFInventoryGetInventoryCollectionIdsRequest, PFInventoryGetInventoryCollectionIdsResponse, PFInventoryGetInventoryCollectionIdsAsync, PFInventoryGetInventoryCollectionIdsGetResultSize, PFInventoryGetInventoryCollectionIdsGetResult, to_variant_PFInventoryGetInventoryCollectionIdsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryGetInventoryCollectionIds");
     context->bind_cancel_handler();
@@ -2351,11 +2351,11 @@ Signal PlayFabInventory::get_inventory_collection_ids_async(const Ref<PlayFabUse
 
 Signal PlayFabInventory::get_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryGetInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryGetInventoryItemsRequest, PFInventoryGetInventoryItemsRequest, PFInventoryGetInventoryItemsResponse, PFInventoryGetInventoryItemsAsync, PFInventoryGetInventoryItemsGetResultSize, PFInventoryGetInventoryItemsGetResult, to_variant_PFInventoryGetInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryGetInventoryItems");
     context->bind_cancel_handler();
@@ -2372,11 +2372,11 @@ Signal PlayFabInventory::get_inventory_items_async(const Ref<PlayFabUser> &p_use
 
 Signal PlayFabInventory::get_inventory_operation_status_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryGetInventoryOperationStatusRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryGetInventoryOperationStatusRequest, PFInventoryGetInventoryOperationStatusRequest, PFInventoryGetInventoryOperationStatusResponse, PFInventoryGetInventoryOperationStatusAsync, PFInventoryGetInventoryOperationStatusGetResultSize, PFInventoryGetInventoryOperationStatusGetResult, to_variant_PFInventoryGetInventoryOperationStatusResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryGetInventoryOperationStatus");
     context->bind_cancel_handler();
@@ -2393,11 +2393,11 @@ Signal PlayFabInventory::get_inventory_operation_status_async(const Ref<PlayFabU
 
 Signal PlayFabInventory::get_transaction_history_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryGetTransactionHistoryRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryGetTransactionHistoryRequest, PFInventoryGetTransactionHistoryRequest, PFInventoryGetTransactionHistoryResponse, PFInventoryGetTransactionHistoryAsync, PFInventoryGetTransactionHistoryGetResultSize, PFInventoryGetTransactionHistoryGetResult, to_variant_PFInventoryGetTransactionHistoryResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryGetTransactionHistory");
     context->bind_cancel_handler();
@@ -2414,11 +2414,11 @@ Signal PlayFabInventory::get_transaction_history_async(const Ref<PlayFabUser> &p
 
 Signal PlayFabInventory::purchase_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryPurchaseInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryPurchaseInventoryItemsRequest, PFInventoryPurchaseInventoryItemsRequest, PFInventoryPurchaseInventoryItemsResponse, PFInventoryPurchaseInventoryItemsAsync, PFInventoryPurchaseInventoryItemsGetResultSize, PFInventoryPurchaseInventoryItemsGetResult, to_variant_PFInventoryPurchaseInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryPurchaseInventoryItems");
     context->bind_cancel_handler();
@@ -2435,11 +2435,11 @@ Signal PlayFabInventory::purchase_inventory_items_async(const Ref<PlayFabUser> &
 
 Signal PlayFabInventory::redeem_google_play_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryRedeemGooglePlayInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryRedeemGooglePlayInventoryItemsRequest, PFInventoryRedeemGooglePlayInventoryItemsRequest, PFInventoryRedeemGooglePlayInventoryItemsResponse, PFInventoryRedeemGooglePlayInventoryItemsAsync, PFInventoryRedeemGooglePlayInventoryItemsGetResultSize, PFInventoryRedeemGooglePlayInventoryItemsGetResult, to_variant_PFInventoryRedeemGooglePlayInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryRedeemGooglePlayInventoryItems");
     context->bind_cancel_handler();
@@ -2456,11 +2456,11 @@ Signal PlayFabInventory::redeem_google_play_inventory_items_async(const Ref<Play
 
 Signal PlayFabInventory::redeem_microsoft_store_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryRedeemMicrosoftStoreInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryRedeemMicrosoftStoreInventoryItemsRequest, PFInventoryRedeemMicrosoftStoreInventoryItemsRequest, PFInventoryRedeemMicrosoftStoreInventoryItemsResponse, PFInventoryRedeemMicrosoftStoreInventoryItemsAsync, PFInventoryRedeemMicrosoftStoreInventoryItemsGetResultSize, PFInventoryRedeemMicrosoftStoreInventoryItemsGetResult, to_variant_PFInventoryRedeemMicrosoftStoreInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryRedeemMicrosoftStoreInventoryItems");
     context->bind_cancel_handler();
@@ -2477,11 +2477,11 @@ Signal PlayFabInventory::redeem_microsoft_store_inventory_items_async(const Ref<
 
 Signal PlayFabInventory::redeem_play_station_store_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryRedeemPlayStationStoreInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryRedeemPlayStationStoreInventoryItemsRequest, PFInventoryRedeemPlayStationStoreInventoryItemsRequest, PFInventoryRedeemPlayStationStoreInventoryItemsResponse, PFInventoryRedeemPlayStationStoreInventoryItemsAsync, PFInventoryRedeemPlayStationStoreInventoryItemsGetResultSize, PFInventoryRedeemPlayStationStoreInventoryItemsGetResult, to_variant_PFInventoryRedeemPlayStationStoreInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryRedeemPlayStationStoreInventoryItems");
     context->bind_cancel_handler();
@@ -2498,11 +2498,11 @@ Signal PlayFabInventory::redeem_play_station_store_inventory_items_async(const R
 
 Signal PlayFabInventory::redeem_steam_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryRedeemSteamInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryRedeemSteamInventoryItemsRequest, PFInventoryRedeemSteamInventoryItemsRequest, PFInventoryRedeemSteamInventoryItemsResponse, PFInventoryRedeemSteamInventoryItemsAsync, PFInventoryRedeemSteamInventoryItemsGetResultSize, PFInventoryRedeemSteamInventoryItemsGetResult, to_variant_PFInventoryRedeemSteamInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryRedeemSteamInventoryItems");
     context->bind_cancel_handler();
@@ -2519,11 +2519,11 @@ Signal PlayFabInventory::redeem_steam_inventory_items_async(const Ref<PlayFabUse
 
 Signal PlayFabInventory::subtract_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventorySubtractInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventorySubtractInventoryItemsRequest, PFInventorySubtractInventoryItemsRequest, PFInventorySubtractInventoryItemsResponse, PFInventorySubtractInventoryItemsAsync, PFInventorySubtractInventoryItemsGetResultSize, PFInventorySubtractInventoryItemsGetResult, to_variant_PFInventorySubtractInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventorySubtractInventoryItems");
     context->bind_cancel_handler();
@@ -2540,11 +2540,11 @@ Signal PlayFabInventory::subtract_inventory_items_async(const Ref<PlayFabUser> &
 
 Signal PlayFabInventory::transfer_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryTransferInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryTransferInventoryItemsRequest, PFInventoryTransferInventoryItemsRequest, PFInventoryTransferInventoryItemsResponse, PFInventoryTransferInventoryItemsAsync, PFInventoryTransferInventoryItemsGetResultSize, PFInventoryTransferInventoryItemsGetResult, to_variant_PFInventoryTransferInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryTransferInventoryItems");
     context->bind_cancel_handler();
@@ -2561,11 +2561,11 @@ Signal PlayFabInventory::transfer_inventory_items_async(const Ref<PlayFabUser> &
 
 Signal PlayFabInventory::update_inventory_items_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFInventoryUpdateInventoryItemsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFInventoryUpdateInventoryItemsRequest, PFInventoryUpdateInventoryItemsRequest, PFInventoryUpdateInventoryItemsResponse, PFInventoryUpdateInventoryItemsAsync, PFInventoryUpdateInventoryItemsGetResultSize, PFInventoryUpdateInventoryItemsGetResult, to_variant_PFInventoryUpdateInventoryItemsResponse>(runtime, pending_signal, p_user, std::move(request), "PFInventoryUpdateInventoryItems");
     context->bind_cancel_handler();
@@ -2588,11 +2588,11 @@ PlayFabRuntime *PlayFabLocalization::_get_runtime() const { return m_owner != nu
 
 Signal PlayFabLocalization::get_language_list_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFLocalizationGetLanguageListRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFLocalizationGetLanguageListRequest, PFLocalizationGetLanguageListRequest, PFLocalizationGetLanguageListResponse, PFLocalizationGetLanguageListAsync, PFLocalizationGetLanguageListGetResultSize, PFLocalizationGetLanguageListGetResult, to_variant_PFLocalizationGetLanguageListResponse>(runtime, pending_signal, p_user, std::move(request), "PFLocalizationGetLanguageList");
     context->bind_cancel_handler();
@@ -2624,11 +2624,11 @@ PlayFabRuntime *PlayFabPlayerData::_get_runtime() const { return m_owner != null
 
 Signal PlayFabPlayerData::delete_player_custom_properties_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementClientDeletePlayerCustomPropertiesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementClientDeletePlayerCustomPropertiesRequest, PFPlayerDataManagementClientDeletePlayerCustomPropertiesRequest, PFPlayerDataManagementClientDeletePlayerCustomPropertiesResult, PFPlayerDataManagementClientDeletePlayerCustomPropertiesAsync, PFPlayerDataManagementClientDeletePlayerCustomPropertiesGetResultSize, PFPlayerDataManagementClientDeletePlayerCustomPropertiesGetResult, to_variant_PFPlayerDataManagementClientDeletePlayerCustomPropertiesResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientDeletePlayerCustomProperties");
     context->bind_cancel_handler();
@@ -2645,11 +2645,11 @@ Signal PlayFabPlayerData::delete_player_custom_properties_async(const Ref<PlayFa
 
 Signal PlayFabPlayerData::get_player_custom_property_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementClientGetPlayerCustomPropertyRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementClientGetPlayerCustomPropertyRequest, PFPlayerDataManagementClientGetPlayerCustomPropertyRequest, PFPlayerDataManagementClientGetPlayerCustomPropertyResult, PFPlayerDataManagementClientGetPlayerCustomPropertyAsync, PFPlayerDataManagementClientGetPlayerCustomPropertyGetResultSize, PFPlayerDataManagementClientGetPlayerCustomPropertyGetResult, to_variant_PFPlayerDataManagementClientGetPlayerCustomPropertyResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientGetPlayerCustomProperty");
     context->bind_cancel_handler();
@@ -2666,11 +2666,11 @@ Signal PlayFabPlayerData::get_player_custom_property_async(const Ref<PlayFabUser
 
 Signal PlayFabPlayerData::get_user_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementGetUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementClientGetUserDataResult, PFPlayerDataManagementClientGetUserDataAsync, PFPlayerDataManagementClientGetUserDataGetResultSize, PFPlayerDataManagementClientGetUserDataGetResult, to_variant_PFPlayerDataManagementClientGetUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientGetUserData");
     context->bind_cancel_handler();
@@ -2687,11 +2687,11 @@ Signal PlayFabPlayerData::get_user_data_async(const Ref<PlayFabUser> &p_user, co
 
 Signal PlayFabPlayerData::get_user_publisher_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementGetUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementClientGetUserDataResult, PFPlayerDataManagementClientGetUserPublisherDataAsync, PFPlayerDataManagementClientGetUserPublisherDataGetResultSize, PFPlayerDataManagementClientGetUserPublisherDataGetResult, to_variant_PFPlayerDataManagementClientGetUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientGetUserPublisherData");
     context->bind_cancel_handler();
@@ -2708,11 +2708,11 @@ Signal PlayFabPlayerData::get_user_publisher_data_async(const Ref<PlayFabUser> &
 
 Signal PlayFabPlayerData::get_user_publisher_read_only_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementGetUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementClientGetUserDataResult, PFPlayerDataManagementClientGetUserPublisherReadOnlyDataAsync, PFPlayerDataManagementClientGetUserPublisherReadOnlyDataGetResultSize, PFPlayerDataManagementClientGetUserPublisherReadOnlyDataGetResult, to_variant_PFPlayerDataManagementClientGetUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientGetUserPublisherReadOnlyData");
     context->bind_cancel_handler();
@@ -2729,11 +2729,11 @@ Signal PlayFabPlayerData::get_user_publisher_read_only_data_async(const Ref<Play
 
 Signal PlayFabPlayerData::get_user_read_only_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementGetUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementGetUserDataRequest, PFPlayerDataManagementClientGetUserDataResult, PFPlayerDataManagementClientGetUserReadOnlyDataAsync, PFPlayerDataManagementClientGetUserReadOnlyDataGetResultSize, PFPlayerDataManagementClientGetUserReadOnlyDataGetResult, to_variant_PFPlayerDataManagementClientGetUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientGetUserReadOnlyData");
     context->bind_cancel_handler();
@@ -2750,8 +2750,8 @@ Signal PlayFabPlayerData::get_user_read_only_data_async(const Ref<PlayFabUser> &
 
 Signal PlayFabPlayerData::list_player_custom_properties_async(const Ref<PlayFabUser> &p_user) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityNoRequestVariableResultCallContext<PFPlayerDataManagementClientListPlayerCustomPropertiesResult, PFPlayerDataManagementClientListPlayerCustomPropertiesAsync, PFPlayerDataManagementClientListPlayerCustomPropertiesGetResultSize, PFPlayerDataManagementClientListPlayerCustomPropertiesGetResult, to_variant_PFPlayerDataManagementClientListPlayerCustomPropertiesResult>(runtime, pending_signal, p_user, "PFPlayerDataManagementClientListPlayerCustomProperties");
     context->bind_cancel_handler();
@@ -2768,11 +2768,11 @@ Signal PlayFabPlayerData::list_player_custom_properties_async(const Ref<PlayFabU
 
 Signal PlayFabPlayerData::update_player_custom_properties_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementClientUpdatePlayerCustomPropertiesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFPlayerDataManagementClientUpdatePlayerCustomPropertiesRequest, PFPlayerDataManagementClientUpdatePlayerCustomPropertiesRequest, PFPlayerDataManagementClientUpdatePlayerCustomPropertiesResult, PFPlayerDataManagementClientUpdatePlayerCustomPropertiesAsync, PFPlayerDataManagementClientUpdatePlayerCustomPropertiesGetResult, to_variant_PFPlayerDataManagementClientUpdatePlayerCustomPropertiesResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientUpdatePlayerCustomProperties");
     context->bind_cancel_handler();
@@ -2789,11 +2789,11 @@ Signal PlayFabPlayerData::update_player_custom_properties_async(const Ref<PlayFa
 
 Signal PlayFabPlayerData::update_user_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementClientUpdateUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFPlayerDataManagementClientUpdateUserDataRequest, PFPlayerDataManagementClientUpdateUserDataRequest, PFPlayerDataManagementUpdateUserDataResult, PFPlayerDataManagementClientUpdateUserDataAsync, PFPlayerDataManagementClientUpdateUserDataGetResult, to_variant_PFPlayerDataManagementUpdateUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientUpdateUserData");
     context->bind_cancel_handler();
@@ -2810,11 +2810,11 @@ Signal PlayFabPlayerData::update_user_data_async(const Ref<PlayFabUser> &p_user,
 
 Signal PlayFabPlayerData::update_user_publisher_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFPlayerDataManagementClientUpdateUserDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFPlayerDataManagementClientUpdateUserDataRequest, PFPlayerDataManagementClientUpdateUserDataRequest, PFPlayerDataManagementUpdateUserDataResult, PFPlayerDataManagementClientUpdateUserPublisherDataAsync, PFPlayerDataManagementClientUpdateUserPublisherDataGetResult, to_variant_PFPlayerDataManagementUpdateUserDataResult>(runtime, pending_signal, p_user, std::move(request), "PFPlayerDataManagementClientUpdateUserPublisherData");
     context->bind_cancel_handler();
@@ -2846,11 +2846,11 @@ PlayFabRuntime *PlayFabStatistics::_get_runtime() const { return m_owner != null
 
 Signal PlayFabStatistics::create_statistic_definition_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsCreateStatisticDefinitionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFStatisticsCreateStatisticDefinitionRequest, PFStatisticsCreateStatisticDefinitionRequest, PFStatisticsCreateStatisticDefinitionAsync>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsCreateStatisticDefinition");
     context->bind_cancel_handler();
@@ -2867,11 +2867,11 @@ Signal PlayFabStatistics::create_statistic_definition_async(const Ref<PlayFabUse
 
 Signal PlayFabStatistics::delete_statistic_definition_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsDeleteStatisticDefinitionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFStatisticsDeleteStatisticDefinitionRequest, PFStatisticsDeleteStatisticDefinitionRequest, PFStatisticsDeleteStatisticDefinitionAsync>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsDeleteStatisticDefinition");
     context->bind_cancel_handler();
@@ -2888,11 +2888,11 @@ Signal PlayFabStatistics::delete_statistic_definition_async(const Ref<PlayFabUse
 
 Signal PlayFabStatistics::delete_statistics_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsDeleteStatisticsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsDeleteStatisticsRequest, PFStatisticsDeleteStatisticsRequest, PFStatisticsDeleteStatisticsResponse, PFStatisticsDeleteStatisticsAsync, PFStatisticsDeleteStatisticsGetResultSize, PFStatisticsDeleteStatisticsGetResult, to_variant_PFStatisticsDeleteStatisticsResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsDeleteStatistics");
     context->bind_cancel_handler();
@@ -2909,11 +2909,11 @@ Signal PlayFabStatistics::delete_statistics_async(const Ref<PlayFabUser> &p_user
 
 Signal PlayFabStatistics::get_statistic_definition_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsGetStatisticDefinitionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsGetStatisticDefinitionRequest, PFStatisticsGetStatisticDefinitionRequest, PFStatisticsGetStatisticDefinitionResponse, PFStatisticsGetStatisticDefinitionAsync, PFStatisticsGetStatisticDefinitionGetResultSize, PFStatisticsGetStatisticDefinitionGetResult, to_variant_PFStatisticsGetStatisticDefinitionResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsGetStatisticDefinition");
     context->bind_cancel_handler();
@@ -2930,11 +2930,11 @@ Signal PlayFabStatistics::get_statistic_definition_async(const Ref<PlayFabUser> 
 
 Signal PlayFabStatistics::get_statistics_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsGetStatisticsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsGetStatisticsRequest, PFStatisticsGetStatisticsRequest, PFStatisticsGetStatisticsResponse, PFStatisticsGetStatisticsAsync, PFStatisticsGetStatisticsGetResultSize, PFStatisticsGetStatisticsGetResult, to_variant_PFStatisticsGetStatisticsResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsGetStatistics");
     context->bind_cancel_handler();
@@ -2951,11 +2951,11 @@ Signal PlayFabStatistics::get_statistics_async(const Ref<PlayFabUser> &p_user, c
 
 Signal PlayFabStatistics::get_statistics_for_entities_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsGetStatisticsForEntitiesRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsGetStatisticsForEntitiesRequest, PFStatisticsGetStatisticsForEntitiesRequest, PFStatisticsGetStatisticsForEntitiesResponse, PFStatisticsGetStatisticsForEntitiesAsync, PFStatisticsGetStatisticsForEntitiesGetResultSize, PFStatisticsGetStatisticsForEntitiesGetResult, to_variant_PFStatisticsGetStatisticsForEntitiesResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsGetStatisticsForEntities");
     context->bind_cancel_handler();
@@ -2972,11 +2972,11 @@ Signal PlayFabStatistics::get_statistics_for_entities_async(const Ref<PlayFabUse
 
 Signal PlayFabStatistics::increment_statistic_version_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsIncrementStatisticVersionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityFixedResultCallContext<OwnedPFStatisticsIncrementStatisticVersionRequest, PFStatisticsIncrementStatisticVersionRequest, PFStatisticsIncrementStatisticVersionResponse, PFStatisticsIncrementStatisticVersionAsync, PFStatisticsIncrementStatisticVersionGetResult, to_variant_PFStatisticsIncrementStatisticVersionResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsIncrementStatisticVersion");
     context->bind_cancel_handler();
@@ -2993,11 +2993,11 @@ Signal PlayFabStatistics::increment_statistic_version_async(const Ref<PlayFabUse
 
 Signal PlayFabStatistics::list_statistic_definitions_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsListStatisticDefinitionsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsListStatisticDefinitionsRequest, PFStatisticsListStatisticDefinitionsRequest, PFStatisticsListStatisticDefinitionsResponse, PFStatisticsListStatisticDefinitionsAsync, PFStatisticsListStatisticDefinitionsGetResultSize, PFStatisticsListStatisticDefinitionsGetResult, to_variant_PFStatisticsListStatisticDefinitionsResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsListStatisticDefinitions");
     context->bind_cancel_handler();
@@ -3014,11 +3014,11 @@ Signal PlayFabStatistics::list_statistic_definitions_async(const Ref<PlayFabUser
 
 Signal PlayFabStatistics::update_statistic_definition_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsUpdateStatisticDefinitionRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVoidCallContext<OwnedPFStatisticsUpdateStatisticDefinitionRequest, PFStatisticsUpdateStatisticDefinitionRequest, PFStatisticsUpdateStatisticDefinitionAsync>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsUpdateStatisticDefinition");
     context->bind_cancel_handler();
@@ -3035,11 +3035,11 @@ Signal PlayFabStatistics::update_statistic_definition_async(const Ref<PlayFabUse
 
 Signal PlayFabStatistics::update_statistics_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFStatisticsUpdateStatisticsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFStatisticsUpdateStatisticsRequest, PFStatisticsUpdateStatisticsRequest, PFStatisticsUpdateStatisticsResponse, PFStatisticsUpdateStatisticsAsync, PFStatisticsUpdateStatisticsGetResultSize, PFStatisticsUpdateStatisticsGetResult, to_variant_PFStatisticsUpdateStatisticsResponse>(runtime, pending_signal, p_user, std::move(request), "PFStatisticsUpdateStatistics");
     context->bind_cancel_handler();
@@ -3065,11 +3065,11 @@ PlayFabRuntime *PlayFabTitleData::_get_runtime() const { return m_owner != nullp
 
 Signal PlayFabTitleData::get_publisher_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFTitleDataManagementGetPublisherDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFTitleDataManagementGetPublisherDataRequest, PFTitleDataManagementGetPublisherDataRequest, PFTitleDataManagementGetPublisherDataResult, PFTitleDataManagementClientGetPublisherDataAsync, PFTitleDataManagementClientGetPublisherDataGetResultSize, PFTitleDataManagementClientGetPublisherDataGetResult, to_variant_PFTitleDataManagementGetPublisherDataResult>(runtime, pending_signal, p_user, std::move(request), "PFTitleDataManagementClientGetPublisherData");
     context->bind_cancel_handler();
@@ -3086,8 +3086,8 @@ Signal PlayFabTitleData::get_publisher_data_async(const Ref<PlayFabUser> &p_user
 
 Signal PlayFabTitleData::get_time_async(const Ref<PlayFabUser> &p_user) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityNoRequestFixedResultCallContext<PFTitleDataManagementGetTimeResult, PFTitleDataManagementClientGetTimeAsync, PFTitleDataManagementClientGetTimeGetResult, to_variant_PFTitleDataManagementGetTimeResult>(runtime, pending_signal, p_user, "PFTitleDataManagementClientGetTime");
     context->bind_cancel_handler();
@@ -3104,11 +3104,11 @@ Signal PlayFabTitleData::get_time_async(const Ref<PlayFabUser> &p_user) {
 
 Signal PlayFabTitleData::get_title_data_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFTitleDataManagementGetTitleDataRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFTitleDataManagementGetTitleDataRequest, PFTitleDataManagementGetTitleDataRequest, PFTitleDataManagementGetTitleDataResult, PFTitleDataManagementClientGetTitleDataAsync, PFTitleDataManagementClientGetTitleDataGetResultSize, PFTitleDataManagementClientGetTitleDataGetResult, to_variant_PFTitleDataManagementGetTitleDataResult>(runtime, pending_signal, p_user, std::move(request), "PFTitleDataManagementClientGetTitleData");
     context->bind_cancel_handler();
@@ -3125,11 +3125,11 @@ Signal PlayFabTitleData::get_title_data_async(const Ref<PlayFabUser> &p_user, co
 
 Signal PlayFabTitleData::get_title_news_async(const Ref<PlayFabUser> &p_user, const Dictionary &p_request) {
     PlayFabRuntime *runtime = _get_runtime();
-    if (runtime == nullptr || !runtime->is_initialized()) { return make_generated_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
-    if (!validate_generated_user(p_user)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
+    if (runtime == nullptr || !runtime->is_initialized()) { return make_api_call_error(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first."); }
+    if (!validate_api_user(p_user)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_user", "This PlayFab API requires a signed-in PlayFabUser."); }
     auto request = std::make_unique<OwnedPFTitleDataManagementGetTitleNewsRequest>();
     String request_error;
-    if (!request->from_dictionary(p_request, &request_error)) { return make_generated_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
+    if (!request->from_dictionary(p_request, &request_error)) { return make_api_call_error(runtime, E_INVALIDARG, "invalid_request", request_error.is_empty() ? "Invalid PlayFab API request." : request_error); }
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new EntityVariableResultCallContext<OwnedPFTitleDataManagementGetTitleNewsRequest, PFTitleDataManagementGetTitleNewsRequest, PFTitleDataManagementGetTitleNewsResult, PFTitleDataManagementClientGetTitleNewsAsync, PFTitleDataManagementClientGetTitleNewsGetResultSize, PFTitleDataManagementClientGetTitleNewsGetResult, to_variant_PFTitleDataManagementGetTitleNewsResult>(runtime, pending_signal, p_user, std::move(request), "PFTitleDataManagementClientGetTitleNews");
     context->bind_cancel_handler();

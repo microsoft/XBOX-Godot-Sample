@@ -1,11 +1,11 @@
 extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
-## Live smoke coverage for fixture-backed generated PlayFab service calls.
+## Live smoke coverage for fixture-backed PlayFab service calls.
 
 const LIVE_MARKER_KEY := "godot_public_gdk_ext_live_tests"
 const _DEFAULT_OP_TIMEOUT_MSEC := 60000
 
 
-func test_generated_services_live_fixture_smoke() -> void:
+func test_api_services_live_fixture_smoke() -> void:
 	var session = await _begin_live_session()
 	var playfab_user = session.get("playfab_user")
 	if playfab_user == null:
@@ -17,13 +17,13 @@ func test_generated_services_live_fixture_smoke() -> void:
 	assert_true(not str(entity_key.get("type", "")).is_empty(), "live PlayFabUser.entity_key.type is populated")
 
 	var marker := await _load_live_marker(playfab, playfab_user)
-	var generated: Dictionary = marker.get("generated_services", {})
-	if generated.is_empty():
-		pending("Run tools\\configure_playfab_test_title.ps1 so the live title marker includes generated_services fixtures.")
+	var api_fixtures: Dictionary = marker.get("api_services", {})
+	if api_fixtures.is_empty():
+		pending("Run tools\\configure_playfab_test_title.ps1 so the live title marker includes api_services fixtures.")
 		playfab.shutdown()
 		return
 
-	var accounts_data = await _assert_generated_ok(
+	var accounts_data = await _assert_api_ok(
 		playfab.get_accounts(),
 		"get_account_info_async",
 		playfab_user,
@@ -32,30 +32,30 @@ func test_generated_services_live_fixture_smoke() -> void:
 	if accounts_data is Dictionary:
 		assert_true(accounts_data.has("account_info"), "account info response includes account_info")
 
-	var title_data: Dictionary = generated.get("title_data", {})
+	var title_data: Dictionary = api_fixtures.get("title_data", {})
 	var title_key := str(title_data.get("key", ""))
 	var title_value := str(title_data.get("value", ""))
-	var title_data_result = await _assert_generated_ok(
+	var title_data_result = await _assert_api_ok(
 		playfab.get_title_data(),
 		"get_title_data_async",
 		playfab_user,
 		{"keys": [LIVE_MARKER_KEY, title_key]},
 		"PlayFab.title_data.get_title_data_async")
 	_assert_data_value(title_data_result, LIVE_MARKER_KEY, "PlayFab title-data marker")
-	_assert_data_value(title_data_result, title_key, "PlayFab generated title-data fixture", title_value)
+	_assert_data_value(title_data_result, title_key, "PlayFab API title-data fixture", title_value)
 
-	var publisher_data: Dictionary = generated.get("publisher_data", {})
+	var publisher_data: Dictionary = api_fixtures.get("publisher_data", {})
 	var publisher_key := str(publisher_data.get("key", ""))
 	var publisher_value := str(publisher_data.get("value", ""))
-	var publisher_data_result = await _assert_generated_ok(
+	var publisher_data_result = await _assert_api_ok(
 		playfab.get_title_data(),
 		"get_publisher_data_async",
 		playfab_user,
 		{"keys": [publisher_key]},
 		"PlayFab.title_data.get_publisher_data_async")
-	_assert_data_value(publisher_data_result, publisher_key, "PlayFab generated publisher-data fixture", publisher_value)
+	_assert_data_value(publisher_data_result, publisher_key, "PlayFab API publisher-data fixture", publisher_value)
 
-	var time_result = await _assert_generated_ok(
+	var time_result = await _assert_api_ok(
 		playfab.get_title_data(),
 		"get_time_async",
 		playfab_user,
@@ -64,10 +64,10 @@ func test_generated_services_live_fixture_smoke() -> void:
 	if time_result is Dictionary:
 		assert_true(int(time_result.get("time", 0)) > 0, "server time response includes a positive time")
 
-	await _assert_player_data_fixtures(playfab, playfab_user, generated)
-	await _assert_generated_read_services(playfab, playfab_user, generated, entity_key)
-	await _assert_friend_fixture(playfab, playfab_user, generated)
-	await _assert_cloud_script_reaches_service(playfab, playfab_user, generated)
+	await _assert_player_data_fixtures(playfab, playfab_user, api_fixtures)
+	await _assert_api_read_services(playfab, playfab_user, api_fixtures, entity_key)
+	await _assert_friend_fixture(playfab, playfab_user, api_fixtures)
+	await _assert_cloud_script_reaches_service(playfab, playfab_user, api_fixtures)
 
 	playfab.shutdown()
 
@@ -88,7 +88,7 @@ func _begin_live_session() -> Dictionary:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/titleid'] to exercise generated PlayFab service live coverage.")
+		pending("Set ProjectSettings['playfab/titleid'] to exercise PlayFab service live coverage.")
 		return outcome
 
 	reset_playfab_runtime()
@@ -97,7 +97,7 @@ func _begin_live_session() -> Dictionary:
 		pending("PlayFab.initialize() live setup skipped: %s" % (init_result.message if init_result != null else "null result"))
 		return outcome
 
-	var custom_id_session = await sign_in_with_configured_custom_id(playfab, "generated PlayFab services live test")
+	var custom_id_session = await sign_in_with_configured_custom_id(playfab, "PlayFab services live test")
 	if custom_id_session.get("playfab_user") == null:
 		return outcome
 
@@ -106,7 +106,7 @@ func _begin_live_session() -> Dictionary:
 
 
 func _load_live_marker(playfab: Object, playfab_user) -> Dictionary:
-	var marker_result = await _assert_generated_ok(
+	var marker_result = await _assert_api_ok(
 		playfab.get_title_data(),
 		"get_title_data_async",
 		playfab_user,
@@ -128,8 +128,8 @@ func _load_live_marker(playfab: Object, playfab_user) -> Dictionary:
 	return parsed
 
 
-func _assert_player_data_fixtures(playfab: Object, playfab_user, generated: Dictionary) -> void:
-	var player_data: Dictionary = generated.get("player_data", {})
+func _assert_player_data_fixtures(playfab: Object, playfab_user, api_fixtures: Dictionary) -> void:
+	var player_data: Dictionary = api_fixtures.get("player_data", {})
 	var data_key := str(player_data.get("key", ""))
 	var read_only_key := str(player_data.get("read_only_key", ""))
 	var publisher_key := str(player_data.get("publisher_data_key", ""))
@@ -138,31 +138,31 @@ func _assert_player_data_fixtures(playfab: Object, playfab_user, generated: Dict
 		str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges(),
 	]
 
-	var user_data = await _assert_generated_ok(
+	var user_data = await _assert_api_ok(
 		playfab.get_player_data(),
 		"get_user_data_async",
 		playfab_user,
 		{"keys": [data_key]},
 		"PlayFab.player_data.get_user_data_async")
-	_assert_data_record_value(user_data, data_key, "PlayFab generated player-data fixture", expected_value)
+	_assert_data_record_value(user_data, data_key, "PlayFab API player-data fixture", expected_value)
 
-	var read_only_data = await _assert_generated_ok(
+	var read_only_data = await _assert_api_ok(
 		playfab.get_player_data(),
 		"get_user_read_only_data_async",
 		playfab_user,
 		{"keys": [read_only_key]},
 		"PlayFab.player_data.get_user_read_only_data_async")
-	_assert_data_record_value(read_only_data, read_only_key, "PlayFab generated read-only player-data fixture", expected_value)
+	_assert_data_record_value(read_only_data, read_only_key, "PlayFab API read-only player-data fixture", expected_value)
 
-	var publisher_data = await _assert_generated_ok(
+	var publisher_data = await _assert_api_ok(
 		playfab.get_player_data(),
 		"get_user_publisher_data_async",
 		playfab_user,
 		{"keys": [publisher_key]},
 		"PlayFab.player_data.get_user_publisher_data_async")
-	_assert_data_record_value(publisher_data, publisher_key, "PlayFab generated publisher player-data fixture", expected_value)
+	_assert_data_record_value(publisher_data, publisher_key, "PlayFab API publisher player-data fixture", expected_value)
 
-	var properties_data = await _assert_generated_ok(
+	var properties_data = await _assert_api_ok(
 		playfab.get_player_data(),
 		"list_player_custom_properties_async",
 		playfab_user,
@@ -172,8 +172,8 @@ func _assert_player_data_fixtures(playfab: Object, playfab_user, generated: Dict
 		assert_true(properties_data.has("properties"), "player custom properties response includes properties")
 
 
-func _assert_generated_read_services(playfab: Object, playfab_user, generated: Dictionary, entity_key: Dictionary) -> void:
-	var catalog_data = await _assert_generated_ok(
+func _assert_api_read_services(playfab: Object, playfab_user, api_fixtures: Dictionary, entity_key: Dictionary) -> void:
+	var catalog_data = await _assert_api_ok(
 		playfab.get_catalog(),
 		"search_items_async",
 		playfab_user,
@@ -182,7 +182,7 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 	if catalog_data is Dictionary:
 		assert_true(catalog_data.has("items"), "catalog search response includes items")
 
-	var entity_data = await _assert_generated_ok(
+	var entity_data = await _assert_api_ok(
 		playfab.get_entity_data(),
 		"get_objects_async",
 		playfab_user,
@@ -191,7 +191,7 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 	if entity_data is Dictionary:
 		assert_true(entity_data.has("objects"), "entity data response includes objects")
 
-	var groups_data = await _assert_generated_ok(
+	var groups_data = await _assert_api_ok(
 		playfab.get_groups(),
 		"list_membership_async",
 		playfab_user,
@@ -200,8 +200,8 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 	if groups_data is Dictionary:
 		assert_true(groups_data.has("groups"), "group membership response includes groups")
 
-	var inventory: Dictionary = generated.get("inventory", {})
-	var inventory_data = await _assert_generated_ok(
+	var inventory: Dictionary = api_fixtures.get("inventory", {})
+	var inventory_data = await _assert_api_ok(
 		playfab.get_inventory(),
 		"get_inventory_items_async",
 		playfab_user,
@@ -214,7 +214,7 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 	if inventory_data is Dictionary:
 		assert_true(inventory_data.has("items"), "inventory response includes items")
 
-	var localization_result = await _assert_generated_service_response(
+	var localization_result = await _assert_service_response(
 		playfab.get_localization(),
 		"get_language_list_async",
 		playfab_user,
@@ -223,8 +223,8 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 	if localization_result != null and localization_result.ok and localization_result.data is Dictionary:
 		assert_true(localization_result.data.has("language_list"), "localization response includes language_list")
 
-	var statistic: Dictionary = generated.get("statistic", {})
-	var statistics_data = await _assert_generated_ok(
+	var statistic: Dictionary = api_fixtures.get("statistic", {})
+	var statistics_data = await _assert_api_ok(
 		playfab.get_statistics(),
 		"get_statistics_async",
 		playfab_user,
@@ -237,10 +237,10 @@ func _assert_generated_read_services(playfab: Object, playfab_user, generated: D
 		assert_true(statistics_data.has("statistics"), "statistics response includes statistics")
 
 
-func _assert_friend_fixture(playfab: Object, playfab_user, generated: Dictionary) -> void:
-	var accounts: Dictionary = generated.get("accounts", {})
+func _assert_friend_fixture(playfab: Object, playfab_user, api_fixtures: Dictionary) -> void:
+	var accounts: Dictionary = api_fixtures.get("accounts", {})
 	var friend_custom_id := str(accounts.get("friend_custom_id", ""))
-	assert_false(friend_custom_id.is_empty(), "generated friend custom ID is configured")
+	assert_false(friend_custom_id.is_empty(), "API friend custom ID is configured")
 	if friend_custom_id.is_empty():
 		return
 
@@ -255,7 +255,7 @@ func _assert_friend_fixture(playfab: Object, playfab_user, generated: Dictionary
 		return
 
 	var friend_user = friend_sign_in_result.data
-	var friend_account = await _assert_generated_ok(
+	var friend_account = await _assert_api_ok(
 		playfab.get_accounts(),
 		"get_account_info_async",
 		friend_user,
@@ -270,7 +270,7 @@ func _assert_friend_fixture(playfab: Object, playfab_user, generated: Dictionary
 	if friend_playfab_id.is_empty():
 		return
 
-	var add_friend_result = await _assert_generated_service_response(
+	var add_friend_result = await _assert_service_response(
 		playfab.get_friends(),
 		"add_friend_async",
 		playfab_user,
@@ -280,10 +280,10 @@ func _assert_friend_fixture(playfab: Object, playfab_user, generated: Dictionary
 		assert_true(add_friend_result.data.has("created"), "add friend response includes created")
 
 
-func _assert_cloud_script_reaches_service(playfab: Object, playfab_user, generated: Dictionary) -> void:
-	var cloud_script: Dictionary = generated.get("cloud_script", {})
+func _assert_cloud_script_reaches_service(playfab: Object, playfab_user, api_fixtures: Dictionary) -> void:
+	var cloud_script: Dictionary = api_fixtures.get("cloud_script", {})
 	var function_name := str(cloud_script.get("function_name", "godot_services_smoke"))
-	var result = await _assert_generated_service_response(
+	var result = await _assert_service_response(
 		playfab.get_cloud_script(),
 		"execute_cloud_script_async",
 		playfab_user,
@@ -293,8 +293,8 @@ func _assert_cloud_script_reaches_service(playfab: Object, playfab_user, generat
 		},
 		"PlayFab.cloud_script.execute_cloud_script_async")
 
-func _assert_generated_ok(service: Object, method_name: String, playfab_user, request, label: String):
-	var result = await _call_generated(service, method_name, playfab_user, request, label)
+func _assert_api_ok(service: Object, method_name: String, playfab_user, request, label: String):
+	var result = await _call_api(service, method_name, playfab_user, request, label)
 	if result == null:
 		return null
 	if not result.ok:
@@ -304,8 +304,8 @@ func _assert_generated_ok(service: Object, method_name: String, playfab_user, re
 	return result.data
 
 
-func _assert_generated_service_response(service: Object, method_name: String, playfab_user, request, label: String):
-	var result = await _call_generated(service, method_name, playfab_user, request, label)
+func _assert_service_response(service: Object, method_name: String, playfab_user, request, label: String):
+	var result = await _call_api(service, method_name, playfab_user, request, label)
 	if result == null:
 		return null
 	if not result.ok:
@@ -314,7 +314,7 @@ func _assert_generated_service_response(service: Object, method_name: String, pl
 	return result
 
 
-func _call_generated(service: Object, method_name: String, playfab_user, request, label: String):
+func _call_api(service: Object, method_name: String, playfab_user, request, label: String):
 	assert_not_null(service, "%s service is available" % label)
 	if service == null:
 		return null

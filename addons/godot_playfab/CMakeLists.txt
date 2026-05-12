@@ -17,13 +17,13 @@ add_library(godot_playfab SHARED
     src/playfab_result.cpp
     src/playfab_result_codes_internal.cpp
     src/playfab_pending_signal.cpp
-    src/playfab_generated_api_helpers.cpp
+    src/playfab_api_helpers.cpp
     src/playfab_signal_xasync_context.cpp
     src/playfab_user.cpp
     src/playfab_users.cpp
     src/playfab_leaderboards.cpp
-    src/generated/playfab_generated_models.cpp
-    src/generated/playfab_generated_services.cpp
+    src/api/playfab_api_models.cpp
+    src/api/playfab_api_services.cpp
 )
 
 target_include_directories(godot_playfab PRIVATE

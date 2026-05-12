@@ -10,7 +10,7 @@
       - a custom-ID account used by tests that sign in with create_account=false
       - three Multiplayer worker custom-ID accounts for host/client/observer
       - the wave4_settle_smoke leaderboard definition
-      - generated-service fixtures for accounts, friends, player data,
+      - service fixtures for accounts, friends, player data,
         title data, publisher data, statistics, and catalog draft-item tests
       - a small title-data marker describing the configured test resources
 
@@ -35,7 +35,7 @@ param(
     [int]$LeaderboardSizeLimit = 1000,
     [switch]$SkipCustomIdAccount,
     [switch]$SkipMultiplayerWorkerAccounts,
-    [switch]$SkipGeneratedServiceFixtures,
+    [switch]$SkipApiServiceFixtures,
     [switch]$SkipServiceAccounts,
     [switch]$SkipServicePlayerData,
     [switch]$SkipServiceTitleData,
@@ -77,26 +77,26 @@ if ([string]::IsNullOrWhiteSpace($ServiceFixturePrefix) -and -not [string]::IsNu
 if (-not $SkipMultiplayerWorkerAccounts -and [string]::IsNullOrWhiteSpace($MultiplayerCustomIdPrefix)) {
     throw 'MultiplayerCustomIdPrefix must not be empty unless -SkipMultiplayerWorkerAccounts is specified.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServiceAccounts -and [string]::IsNullOrWhiteSpace($ServiceFixturePrefix)) {
-    throw 'ServiceFixturePrefix must not be empty unless -SkipGeneratedServiceFixtures or -SkipServiceAccounts is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServiceAccounts -and [string]::IsNullOrWhiteSpace($ServiceFixturePrefix)) {
+    throw 'ServiceFixturePrefix must not be empty unless -SkipApiServiceFixtures or -SkipServiceAccounts is specified.'
 }
 if ([string]::IsNullOrWhiteSpace($LeaderboardName)) {
     throw 'LeaderboardName must not be empty.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServiceStatistic -and [string]::IsNullOrWhiteSpace($ServiceStatisticName)) {
-    throw 'ServiceStatisticName must not be empty unless -SkipGeneratedServiceFixtures or -SkipServiceStatistic is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServiceStatistic -and [string]::IsNullOrWhiteSpace($ServiceStatisticName)) {
+    throw 'ServiceStatisticName must not be empty unless -SkipApiServiceFixtures or -SkipServiceStatistic is specified.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServiceCatalogDraftItem -and [string]::IsNullOrWhiteSpace($ServiceCatalogItemId)) {
-    throw 'ServiceCatalogItemId must not be empty unless -SkipGeneratedServiceFixtures or -SkipServiceCatalogDraftItem is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServiceCatalogDraftItem -and [string]::IsNullOrWhiteSpace($ServiceCatalogItemId)) {
+    throw 'ServiceCatalogItemId must not be empty unless -SkipApiServiceFixtures or -SkipServiceCatalogDraftItem is specified.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServiceTitleData -and [string]::IsNullOrWhiteSpace($ServiceTitleDataKey)) {
-    throw 'ServiceTitleDataKey must not be empty unless -SkipGeneratedServiceFixtures or -SkipServiceTitleData is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServiceTitleData -and [string]::IsNullOrWhiteSpace($ServiceTitleDataKey)) {
+    throw 'ServiceTitleDataKey must not be empty unless -SkipApiServiceFixtures or -SkipServiceTitleData is specified.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServiceTitleData -and [string]::IsNullOrWhiteSpace($ServicePublisherDataKey)) {
-    throw 'ServicePublisherDataKey must not be empty unless -SkipGeneratedServiceFixtures or -SkipServiceTitleData is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServiceTitleData -and [string]::IsNullOrWhiteSpace($ServicePublisherDataKey)) {
+    throw 'ServicePublisherDataKey must not be empty unless -SkipApiServiceFixtures or -SkipServiceTitleData is specified.'
 }
-if (-not $SkipGeneratedServiceFixtures -and -not $SkipServicePlayerData -and [string]::IsNullOrWhiteSpace($ServicePlayerDataKey)) {
-    throw 'ServicePlayerDataKey must not be empty unless -SkipGeneratedServiceFixtures or -SkipServicePlayerData is specified.'
+if (-not $SkipApiServiceFixtures -and -not $SkipServicePlayerData -and [string]::IsNullOrWhiteSpace($ServicePlayerDataKey)) {
+    throw 'ServicePlayerDataKey must not be empty unless -SkipApiServiceFixtures or -SkipServicePlayerData is specified.'
 }
 if ($LeaderboardSizeLimit -lt 1) {
     throw 'LeaderboardSizeLimit must be greater than zero.'
@@ -623,7 +623,7 @@ function Assert-StatisticDefinition {
     }
 
     if ($errors.Count -gt 0) {
-        throw "Statistic '$Name' exists but does not match generated-service test requirements: $($errors -join '; '). Delete or rename the incompatible statistic in PlayFab Game Manager, then rerun this script."
+        throw "Statistic '$Name' exists but does not match service test requirements: $($errors -join '; '). Delete or rename the incompatible statistic in PlayFab Game Manager, then rerun this script."
     }
 }
 
@@ -710,7 +710,7 @@ function Ensure-CatalogConfigForDraftItem {
     }
 
     if (-not $changed) {
-        Write-Host "OK: catalog is enabled for generated-service fixture items."
+        Write-Host "OK: catalog is enabled for service fixture items."
         return
     }
 
@@ -723,7 +723,7 @@ function Ensure-CatalogConfigForDraftItem {
     }
     $response = Invoke-PlayFabRest -Route $route -Headers $EntityHeaders -Body $body
     [void](Assert-PlayFabRestResponse -Response $response -Route $route)
-    Write-Host "OK: enabled catalog for generated-service fixture items."
+    Write-Host "OK: enabled catalog for service fixture items."
 }
 
 function Get-CatalogDraftItem {
@@ -775,14 +775,14 @@ function Ensure-CatalogDraftItem {
                 }
             )
             Title             = @{
-                NEUTRAL = 'Godot generated service smoke item'
+                NEUTRAL = 'Godot API service smoke item'
             }
             Description       = @{
-                NEUTRAL = 'Fixture item for godot-public-gdk-ext generated PlayFab service live tests.'
+                NEUTRAL = 'Fixture item for godot-public-gdk-ext PlayFab service live tests.'
             }
             DisplayProperties = @{
                 source  = 'godot-public-gdk-ext-live-tests'
-                fixture = 'generated-services'
+                fixture = 'api-services'
             }
         }
         Publish    = $false
@@ -811,7 +811,7 @@ function Ensure-CatalogDraftItem {
     return $draftItem
 }
 
-function Ensure-GeneratedServiceFixtures {
+function Ensure-ApiServiceFixtures {
     param(
         [Parameter(Mandatory = $true)][hashtable]$SecretHeaders,
         [Parameter(Mandatory = $true)][hashtable]$EntityHeaders,
@@ -942,7 +942,7 @@ function Set-LiveTestTitleDataMarker {
         [Parameter(Mandatory = $true)][string]$MarkerCustomId,
         [Parameter(Mandatory = $true)][string]$MarkerMultiplayerCustomIdPrefix,
         [Parameter(Mandatory = $true)][string]$MarkerLeaderboardName,
-        [AllowNull()]$GeneratedServiceFixtures = $null
+        [AllowNull()]$ApiServiceFixtures = $null
     )
 
     $route = 'Admin/SetTitleData'
@@ -964,8 +964,8 @@ function Set-LiveTestTitleDataMarker {
         note                    = 'Lobby search properties use reserved PlayFab keys and do not require title setup.'
         updated_utc             = (Get-Date).ToUniversalTime().ToString('o')
     }
-    if ($null -ne $GeneratedServiceFixtures) {
-        $marker['generated_services'] = $GeneratedServiceFixtures
+    if ($null -ne $ApiServiceFixtures) {
+        $marker['api_services'] = $ApiServiceFixtures
     }
     $body = @{
         Key   = 'godot_public_gdk_ext_live_tests'
@@ -992,9 +992,9 @@ if (-not $SkipMultiplayerWorkerAccounts) {
 $entityToken = Get-TitleEntityToken -SecretHeaders $secretHeaders
 $entityHeaders = @{ 'X-EntityToken' = $entityToken }
 Ensure-LeaderboardDefinition -EntityHeaders $entityHeaders -Name $LeaderboardName -SizeLimit $LeaderboardSizeLimit
-$generatedServiceFixtures = $null
-if (-not $SkipGeneratedServiceFixtures) {
-    $generatedServiceFixtures = Ensure-GeneratedServiceFixtures `
+$APIServiceFixtures = $null
+if (-not $SkipApiServiceFixtures) {
+    $APIServiceFixtures = Ensure-ApiServiceFixtures `
         -SecretHeaders $secretHeaders `
         -EntityHeaders $entityHeaders `
         -PrimaryAccount $primaryAccount `
@@ -1007,7 +1007,7 @@ if (-not $SkipGeneratedServiceFixtures) {
 }
 
 if (-not $SkipTitleDataMarker) {
-    Set-LiveTestTitleDataMarker -SecretHeaders $secretHeaders -MarkerCustomId $CustomId -MarkerMultiplayerCustomIdPrefix $MultiplayerCustomIdPrefix -MarkerLeaderboardName $LeaderboardName -GeneratedServiceFixtures $generatedServiceFixtures
+    Set-LiveTestTitleDataMarker -SecretHeaders $secretHeaders -MarkerCustomId $CustomId -MarkerMultiplayerCustomIdPrefix $MultiplayerCustomIdPrefix -MarkerLeaderboardName $LeaderboardName -ApiServiceFixtures $APIServiceFixtures
 }
 
 Write-Host ''
@@ -1018,8 +1018,8 @@ if ($SkipCustomIdAccount) {
     Write-Host "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
 }
 Write-Host "The Multiplayer runner will derive worker custom IDs from PLAYFAB_CUSTOM_ID as '$MultiplayerCustomIdPrefix-<role>'."
-if (-not $SkipGeneratedServiceFixtures) {
-    Write-Host "Generated service fixtures use custom IDs '$ServiceFixturePrefix-friend' and '$ServiceFixturePrefix-peer'."
-    Write-Host "Generated service fixtures use title data '$ServiceTitleDataKey', publisher data '$ServicePublisherDataKey', statistic '$ServiceStatisticName', and catalog draft item '$ServiceCatalogItemId'."
+if (-not $SkipApiServiceFixtures) {
+    Write-Host "PlayFab service fixtures use custom IDs '$ServiceFixturePrefix-friend' and '$ServiceFixturePrefix-peer'."
+    Write-Host "PlayFab service fixtures use title data '$ServiceTitleDataKey', publisher data '$ServicePublisherDataKey', statistic '$ServiceStatisticName', and catalog draft item '$ServiceCatalogItemId'."
 }
 Write-Host 'Set PLAYFAB_MULTIPLAYER_MATCH_QUEUE separately only when optional matchmaking smoke should run.'

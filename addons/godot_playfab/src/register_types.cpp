@@ -13,7 +13,7 @@
 #include "playfab_result.h"
 #include "playfab_user.h"
 #include "playfab_users.h"
-#include "generated/playfab_generated_services.h"
+#include "api/playfab_api_services.h"
 
 using namespace godot;
 

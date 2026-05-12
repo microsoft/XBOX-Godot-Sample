@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_playfab` docs set.
 
-`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single `PlayFab` root singleton, manual user sign-in keyed by a `GDKUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, and generated client-safe PlayFab Services SDK wrappers.
+`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single `PlayFab` root singleton, manual user sign-in keyed by a `GDKUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, and client-safe PlayFab Services SDK wrappers.
 
 ## Current implementation status
 
@@ -18,8 +18,8 @@ This is the landing page for the `godot_playfab` docs set.
 - cached `PlayFabUser` wrappers keyed by local Xbox user id or custom id
 - Game Saves add/sync, upload, folder/quota queries, cloud connectivity queries, save description updates, and cloud reset through `PlayFab.game_saves`
 - leaderboard submit, global query, around-user query, and friends/social leaderboard query
-- generated client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
-- `PlayFab.events` as a reserved service namespace; the current GDK PlayFab headers do not expose an active client event/telemetry operation in the generated scope
+- client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
+- `PlayFab.events` as a reserved service namespace; the current GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
 - sample demos wired to the root singleton, including multiplayer_pong's
   sample-local service wrapper for Game Saves and leaderboard sync
 - GUT coverage under `tests\godot\playfab\tests\`
@@ -29,7 +29,7 @@ This is the landing page for the `godot_playfab` docs set.
 
 - broader PlayFab feature areas from the previous codebase such as multiplayer or party services are not part of the new public root API
 - custom non-Windows Game Saves UI callback/response wrappers are not yet exposed as a public Godot surface
-- server/admin/title-secret PlayFab APIs and Multiplayer/Party APIs are intentionally excluded from the generated client wrapper set
+- server/admin/title-secret PlayFab APIs and Multiplayer/Party APIs are intentionally excluded from the client wrapper set
 
 ## Runtime configuration
 
@@ -65,7 +65,7 @@ The PlayFab runtime reads these settings from Project Settings:
 
 All PlayFab one-shot async methods now return completion signals that you await directly. `PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals.
 
-Generated service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted. The generated service contract test in `tests\godot\playfab\tests\test_generated_services.gd` is the source of truth for the expected Godot-facing method matrix.
+Service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted. The service contract test in `tests\godot\playfab\tests\test_api_services.gd` is the source of truth for the expected Godot-facing method matrix.
 
 ## Sample usage
 
@@ -103,7 +103,7 @@ Default runs keep live prerequisites pending when a developer machine is not con
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId "<title-id>" -PlayFabCustomId "<existing-custom-id>"
 ```
 
-Use `tools\configure_playfab_test_title.ps1` with a PlayFab developer secret in `PLAYFAB_DEVELOPER_SECRET_KEY` to provision a sandbox title for live coverage. The script creates the custom-ID smoke account, Multiplayer worker accounts, leaderboard/statistic definitions, generated-service fixture accounts, title/publisher/player data keys, a catalog draft item, and a title-data marker describing those resources.
+Use `tools\configure_playfab_test_title.ps1` with a PlayFab developer secret in `PLAYFAB_DEVELOPER_SECRET_KEY` to provision a sandbox title for live coverage. The script creates the custom-ID smoke account, Multiplayer worker accounts, leaderboard/statistic definitions, service fixture accounts, title/publisher/player data keys, a catalog draft item, and a title-data marker describing those resources.
 
 The runner forwards those values only to Godot child processes as `PLAYFAB_TITLE_ID` and `PLAYFAB_CUSTOM_ID`; the PlayFab test base applies the title id to `playfab/titleid` and uses the custom id for `create_account=false` sign-in. Project settings (`playfab/titleid`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Some `-Live` tests write online state, such as leaderboard submissions, so run live PlayFab coverage only against a personal sandbox title. Leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and mark pending, not failed, when the service is eventually consistent beyond that budget.
 

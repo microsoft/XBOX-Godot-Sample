@@ -1,7 +1,7 @@
-// GENERATED FILE - DO NOT EDIT BY HAND.
-#include "generated/playfab_generated_models.h"
+// PlayFab API binding file.
+#include "api/playfab_api_models.h"
 
-namespace godot { namespace playfab_generated {
+namespace godot { namespace playfab_api {
 
 Variant to_variant_PFStringDictionaryEntry(const PFStringDictionaryEntry *p_value) {
     if (p_value == nullptr) { return Variant(); }
@@ -1809,26 +1809,6 @@ Variant to_variant_PFCatalogReviewConfig(const PFCatalogReviewConfig *p_value) {
     return dictionary;
 }
 
-Variant to_variant_PFCatalogUserGeneratedContentSpecificConfig(const PFCatalogUserGeneratedContentSpecificConfig *p_value) {
-    if (p_value == nullptr) { return Variant(); }
-    Dictionary dictionary;
-    {
-        Array values;
-        for (uint32_t i = 0; i < p_value->contentTypesCount; ++i) {
-            values.push_back(p_value->contentTypes != nullptr && p_value->contentTypes[i] != nullptr ? String::utf8(p_value->contentTypes[i]) : String());
-        }
-        dictionary["content_types"] = values;
-    }
-    {
-        Array values;
-        for (uint32_t i = 0; i < p_value->tagsCount; ++i) {
-            values.push_back(p_value->tags != nullptr && p_value->tags[i] != nullptr ? String::utf8(p_value->tags[i]) : String());
-        }
-        dictionary["tags"] = values;
-    }
-    return dictionary;
-}
-
 Variant to_variant_PFCatalogCatalogConfig(const PFCatalogCatalogConfig *p_value) {
     if (p_value == nullptr) { return Variant(); }
     Dictionary dictionary;
@@ -1872,7 +1852,6 @@ Variant to_variant_PFCatalogCatalogConfig(const PFCatalogCatalogConfig *p_value)
         }
         dictionary["reviewer_entities"] = values;
     }
-    dictionary["user_generated_content"] = to_variant_PFCatalogUserGeneratedContentSpecificConfig(p_value->userGeneratedContent);
     return dictionary;
 }
 

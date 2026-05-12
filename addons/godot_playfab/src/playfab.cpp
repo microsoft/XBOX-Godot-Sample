@@ -6,7 +6,7 @@
 #include "playfab_runtime.h"
 #include "playfab_user.h"
 #include "playfab_users.h"
-#include "generated/playfab_generated_services.h"
+#include "api/playfab_api_services.h"
 
 namespace godot {
 
@@ -161,14 +161,19 @@ Ref<PlayFabResult> PlayFab::initialize() {
 }
 
 void PlayFab::shutdown() {
-    if (m_runtime == nullptr || !m_runtime->is_initialized()) {
+    if (m_runtime == nullptr) {
         return;
     }
 
-    m_users->shutdown();
+    const bool was_initialized = m_runtime->is_initialized();
+    if (was_initialized) {
+        m_users->shutdown();
+    }
     m_runtime->shutdown();
 
-    emit_signal("shutdown_completed");
+    if (was_initialized) {
+        emit_signal("shutdown_completed");
+    }
 }
 
 bool PlayFab::is_available() const {
