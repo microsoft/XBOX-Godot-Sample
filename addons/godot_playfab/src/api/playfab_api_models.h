@@ -1,6 +1,6 @@
-// GENERATED FILE - DO NOT EDIT BY HAND.
-#ifndef GODOT_PLAYFAB_GENERATED_MODELS_H
-#define GODOT_PLAYFAB_GENERATED_MODELS_H
+// PlayFab API binding file.
+#ifndef GODOT_PLAYFAB_API_MODELS_H
+#define GODOT_PLAYFAB_API_MODELS_H
 #include <string>
 #include <vector>
 #include <godot_cpp/classes/object.hpp>
@@ -8,7 +8,7 @@
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
-#include "playfab_generated_api_helpers.h"
+#include "playfab_api_helpers.h"
 #include <playfab/core/PFAuthentication.h>
 #include <playfab/core/PFEvents.h>
 #include <playfab/core/PFTypes.h>
@@ -31,7 +31,7 @@
 #undef CONNECT_DEFERRED
 #endif
 
-namespace godot { namespace playfab_generated {
+namespace godot { namespace playfab_api {
 Variant to_variant_PFStringDictionaryEntry(const PFStringDictionaryEntry *p_value);
 Variant to_variant_PFAccountManagementAddOrUpdateContactEmailRequest(const PFAccountManagementAddOrUpdateContactEmailRequest *p_value);
 Variant to_variant_PFAccountManagementBattleNetAccountPlayFabIdPair(const PFAccountManagementBattleNetAccountPlayFabIdPair *p_value);
@@ -165,7 +165,6 @@ Variant to_variant_PFCatalogFileConfig(const PFCatalogFileConfig *p_value);
 Variant to_variant_PFCatalogImageConfig(const PFCatalogImageConfig *p_value);
 Variant to_variant_PFCatalogCategoryRatingConfig(const PFCatalogCategoryRatingConfig *p_value);
 Variant to_variant_PFCatalogReviewConfig(const PFCatalogReviewConfig *p_value);
-Variant to_variant_PFCatalogUserGeneratedContentSpecificConfig(const PFCatalogUserGeneratedContentSpecificConfig *p_value);
 Variant to_variant_PFCatalogCatalogConfig(const PFCatalogCatalogConfig *p_value);
 Variant to_variant_PFCatalogContent(const PFCatalogContent *p_value);
 Variant to_variant_PFCatalogDeepLink(const PFCatalogDeepLink *p_value);
@@ -4473,43 +4472,6 @@ struct OwnedPFCatalogReviewConfig {
     }
 };
 
-struct OwnedPFCatalogUserGeneratedContentSpecificConfig {
-    PFCatalogUserGeneratedContentSpecificConfig value = {};
-    std::vector<std::string> contentTypes_strings;
-    std::vector<const char *> contentTypes_ptrs;
-    std::vector<std::string> tags_strings;
-    std::vector<const char *> tags_ptrs;
-
-    bool from_dictionary(const Dictionary &p_request, String *r_error) {
-        Variant field_value;
-        if (get_request_value(p_request, "contentTypes", "content_types", &field_value)) {
-            if (field_value.get_type() != Variant::ARRAY) { if (r_error) *r_error = "Expected Array for field content_types."; return false; }
-            Array source_array = field_value;
-            contentTypes_strings.clear(); contentTypes_ptrs.clear();
-            contentTypes_strings.reserve(source_array.size()); contentTypes_ptrs.reserve(source_array.size());
-            for (int64_t i = 0; i < source_array.size(); ++i) {
-                contentTypes_strings.emplace_back(String(source_array[i]).utf8().get_data());
-                contentTypes_ptrs.push_back(contentTypes_strings.back().c_str());
-            }
-            value.contentTypes = contentTypes_ptrs.empty() ? nullptr : contentTypes_ptrs.data();
-            value.contentTypesCount = static_cast<uint32_t>(contentTypes_ptrs.size());
-        }
-        if (get_request_value(p_request, "tags", "tags", &field_value)) {
-            if (field_value.get_type() != Variant::ARRAY) { if (r_error) *r_error = "Expected Array for field tags."; return false; }
-            Array source_array = field_value;
-            tags_strings.clear(); tags_ptrs.clear();
-            tags_strings.reserve(source_array.size()); tags_ptrs.reserve(source_array.size());
-            for (int64_t i = 0; i < source_array.size(); ++i) {
-                tags_strings.emplace_back(String(source_array[i]).utf8().get_data());
-                tags_ptrs.push_back(tags_strings.back().c_str());
-            }
-            value.tags = tags_ptrs.empty() ? nullptr : tags_ptrs.data();
-            value.tagsCount = static_cast<uint32_t>(tags_ptrs.size());
-        }
-        return true;
-    }
-};
-
 struct OwnedPFCatalogCatalogConfig {
     PFCatalogCatalogConfig value = {};
     std::vector<OwnedPFEntityKey> adminEntities_items;
@@ -4530,9 +4492,6 @@ struct OwnedPFCatalogCatalogConfig {
     bool review_has_value = false;
     std::vector<OwnedPFEntityKey> reviewerEntities_items;
     std::vector<const PFEntityKey *> reviewerEntities_ptrs;
-    OwnedPFCatalogUserGeneratedContentSpecificConfig userGeneratedContent_owner;
-    bool userGeneratedContent_has_value = false;
-
     bool from_dictionary(const Dictionary &p_request, String *r_error) {
         Variant field_value;
         if (get_request_value(p_request, "adminEntities", "admin_entities", &field_value)) {
@@ -4625,12 +4584,6 @@ struct OwnedPFCatalogCatalogConfig {
             }
             value.reviewerEntities = reviewerEntities_ptrs.empty() ? nullptr : reviewerEntities_ptrs.data();
             value.reviewerEntitiesCount = static_cast<uint32_t>(reviewerEntities_ptrs.size());
-        }
-        if (get_request_value(p_request, "userGeneratedContent", "user_generated_content", &field_value)) {
-            if (field_value.get_type() != Variant::DICTIONARY) { if (r_error) *r_error = "Expected Dictionary for field user_generated_content."; return false; }
-            if (!userGeneratedContent_owner.from_dictionary(field_value, r_error)) return false;
-            userGeneratedContent_has_value = true;
-            value.userGeneratedContent = &userGeneratedContent_owner.value;
         }
         return true;
     }
@@ -15566,4 +15519,3 @@ struct OwnedPFTitleDataManagementGetTitleNewsResult {
 
 } }
 #endif
-

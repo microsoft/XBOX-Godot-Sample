@@ -1,9 +1,9 @@
-#include "playfab_generated_api_helpers.h"
+#include "playfab_api_helpers.h"
 
 #include <godot_cpp/classes/json.hpp>
 
 namespace godot {
-namespace playfab_generated {
+namespace playfab_api {
 
 Signal make_error_signal(
         PlayFabRuntime *p_runtime,
@@ -45,5 +45,5 @@ String variant_to_json_string(const Variant &p_value) {
     return JSON::stringify(p_value);
 }
 
-} // namespace playfab_generated
+} // namespace playfab_api
 } // namespace godot

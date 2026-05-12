@@ -1,5 +1,5 @@
-#ifndef GODOT_PLAYFAB_GENERATED_API_HELPERS_H
-#define GODOT_PLAYFAB_GENERATED_API_HELPERS_H
+#ifndef GODOT_PLAYFAB_API_HELPERS_H
+#define GODOT_PLAYFAB_API_HELPERS_H
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -29,7 +29,7 @@
 #endif
 
 namespace godot {
-namespace playfab_generated {
+namespace playfab_api {
 
 using VariantEncoder = Variant (*)(const void *);
 
@@ -356,7 +356,7 @@ protected:
     }
 };
 
-} // namespace playfab_generated
+} // namespace playfab_api
 } // namespace godot
 
-#endif // GODOT_PLAYFAB_GENERATED_API_HELPERS_H
+#endif // GODOT_PLAYFAB_API_HELPERS_H
