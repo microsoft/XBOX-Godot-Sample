@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMultiplayerStateChange" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Aggregate state-change payload emitted by [PlayFabMultiplayer].
+	</brief_description>
+	<description></description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="kind" type="int" setter="" getter="get_kind">Lobby or matchmaking change kind.</member>
+		<member name="lobby" type="PlayFabLobby" setter="" getter="get_lobby">Lobby payload when the change is lobby-scoped.</member>
+		<member name="ticket" type="PlayFabMatchTicket" setter="" getter="get_ticket">Ticket payload when the change is matchmaking-scoped.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result associated with the change.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Additional properties when available.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

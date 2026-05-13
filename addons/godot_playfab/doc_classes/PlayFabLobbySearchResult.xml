@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbySearchResult" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Result wrapper for lobby search.
+	</brief_description>
+	<description></description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="lobbies" type="Array" setter="" getter="get_lobbies">Array of [PlayFabLobbySummary] entries.</member>
+		<member name="continuation_token" type="String" setter="" getter="get_continuation_token">Reserved for future paged search support.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

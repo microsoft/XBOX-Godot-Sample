@@ -13,8 +13,9 @@
                                   a. one-time `--headless --import` (marker file)
                                   b. `--headless -s res://addons/gut/gut_cmdln.gd
                                       -gdir=res://tests -gexit`
-      5. Bootstrap runners   -- `<host>\tests\bootstrap\*.gd` if present
-      6. Aggregate           -- writes <OutDir>\run-summary.{json,md}
+      5. PlayFab Multiplayer live orchestration -- opt-in multi-client smoke
+      6. Bootstrap runners   -- `<host>\tests\bootstrap\*.gd` if present
+      7. Aggregate           -- writes <OutDir>\run-summary.{json,md}
 
     Environment propagation goes through [System.Diagnostics.ProcessStartInfo]
     with UseShellExecute = $false. The orchestrator NEVER mutates $env:* in the
@@ -59,6 +60,10 @@
     Optional pre-existing PlayFab custom id forwarded to Godot children as
     PLAYFAB_CUSTOM_ID. Live custom-ID tests sign in with create_account=false.
 
+.PARAMETER PlayFabMatchmakingQueue
+    Optional PlayFab matchmaking queue name forwarded to child processes as
+    PLAYFAB_MULTIPLAYER_MATCH_QUEUE for Multiplayer live smoke coverage.
+
 .PARAMETER GutTimeoutSec
     Per-host GUT and per-bootstrap-script timeout in seconds. Default: 600.
 
@@ -79,6 +84,7 @@ param(
     [string[]]$ParseExcludeProjects,
     [string]$PlayFabTitleId,
     [string]$PlayFabCustomId,
+    [string]$PlayFabMatchmakingQueue,
     [int]$GutTimeoutSec = 600,
     [switch]$VerboseOutput
 )
@@ -98,6 +104,7 @@ $script:DefaultHosts = @(
 )
 $script:DoctestExe = Join-Path $script:RepoRoot 'build\bin\Debug\gdk_unit_tests.exe'
 $script:ParseGate  = Join-Path $script:RepoRoot 'tools\check_gd_scripts_headless.ps1'
+$script:PlayFabMultiplayerLiveRunner = Join-Path $script:RepoRoot 'tools\run_playfab_multiplayer_live.ps1'
 
 # GUT summary line regex. GUT (`addons/gut/summary.gd::_total_fmt`) renders each
 # total as <label rpad 18><value lpad 5>. Values are integers, the literal
@@ -195,6 +202,7 @@ function Invoke-ChildProcess {
     foreach ($entry in [System.Environment]::GetEnvironmentVariables().GetEnumerator()) {
         $psi.EnvironmentVariables[[string]$entry.Key] = [string]$entry.Value
     }
+    $psi.EnvironmentVariables.Remove('PLAYFAB_DEVELOPER_SECRET_KEY')
     foreach ($k in $EnvOverrides.Keys) {
         $psi.EnvironmentVariables[[string]$k] = [string]$EnvOverrides[$k]
     }
@@ -640,6 +648,68 @@ function Invoke-BootstrapRunners {
     return ,$records
 }
 
+function Invoke-PlayFabMultiplayerLive {
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][hashtable]$ChildEnv,
+        [Parameter(Mandatory = $true)][string[]]$HostList,
+        [Parameter(Mandatory = $true)][bool]$LiveEnabled,
+        [Parameter(Mandatory = $true)][string]$OutDirAbsolute
+    )
+
+    $rec = New-StageRecord 'playfab-multiplayer-live'
+    if (-not $LiveEnabled) {
+        $rec.status = 'skip'
+        $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
+        return $rec
+    }
+    if (-not ($HostList -contains 'tests\godot\playfab')) {
+        $rec.status = 'skip'
+        $rec.message = 'Skipped (-Hosts filter excluded tests\godot\playfab).'
+        return $rec
+    }
+    if (-not (Test-Path $script:PlayFabMultiplayerLiveRunner)) {
+        $rec.status = 'fail'
+        $rec.message = "PlayFab Multiplayer live runner not found at $script:PlayFabMultiplayerLiveRunner."
+        return $rec
+    }
+
+    $pwsh = Resolve-PwshExecutable
+    $args = @(
+        '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', $script:PlayFabMultiplayerLiveRunner,
+        '-RepoRoot', $script:RepoRoot,
+        '-GodotExe', $GodotExe,
+        '-OutDir', $OutDirAbsolute,
+        '-TimeoutSec', ([string]$GutTimeoutSec)
+    )
+    if ($VerboseOutput) {
+        $args += '-VerboseOutput'
+    }
+
+    $r = Invoke-ChildProcess -FileName $pwsh -Arguments $args -WorkingDirectory $script:RepoRoot `
+        -EnvOverrides $ChildEnv -TimeoutSec ($GutTimeoutSec * 2) -Stream:$VerboseOutput
+    $rec.duration_ms = $r.DurationMs
+    $rec.exit_code = $r.ExitCode
+    $combined = ($r.Stdout + "`n" + $r.Stderr).Trim()
+    $rec.details = if ($r.ExitCode -eq 0) { $null } else { $combined }
+
+    if ($r.TimedOut) {
+        $rec.status = 'fail'
+        $rec.message = "PlayFab Multiplayer live orchestration timed out after $($GutTimeoutSec * 2) s."
+    } elseif ($r.ExitCode -ne 0) {
+        $rec.status = 'fail'
+        $rec.message = "PlayFab Multiplayer live orchestration failed (exit $($r.ExitCode))."
+    } elseif ($combined -match '(?m)^SKIP:\s*(?<message>.+)$') {
+        $rec.status = 'skip'
+        $rec.message = $Matches['message']
+    } else {
+        $rec.status = 'pass'
+        $rec.message = if ([string]::IsNullOrWhiteSpace($combined)) { 'OK' } else { ($combined -split "`r?`n" | Select-Object -Last 1) }
+    }
+    return $rec
+}
+
 # ------------------------------------------------------------------------
 # Aggregation / output
 # ------------------------------------------------------------------------
@@ -766,6 +836,9 @@ function Main {
     if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
         $childEnv['PLAYFAB_CUSTOM_ID'] = $PlayFabCustomId.Trim()
     }
+    if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) {
+        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $PlayFabMatchmakingQueue.Trim()
+    }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
     # Normalize separators
@@ -781,7 +854,7 @@ function Main {
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
     Write-Host "                   Live  = $Live   SkipBuild = $SkipBuild" -ForegroundColor Cyan
-    Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
+    Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
@@ -792,7 +865,7 @@ function Main {
     $abort = $false
 
     # 1. Parse gate
-    Write-Host '== [1/6] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
+    Write-Host '== [1/7] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
     $stage = Invoke-ParseGate -Projects $parseProjectList -ExcludeProjects $parseExcludeProjectList
     [void]$stages.Add($stage)
     Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -800,7 +873,7 @@ function Main {
 
     # 2. Build
     if (-not $abort) {
-        Write-Host '== [2/6] CMake build (debug) ==' -ForegroundColor Cyan
+        Write-Host '== [2/7] CMake build (debug) ==' -ForegroundColor Cyan
         $stage = Invoke-Build
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -811,7 +884,7 @@ function Main {
 
     # 3. C++ doctest
     if (-not $abort) {
-        Write-Host '== [3/6] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
+        Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
         $stage = Invoke-Doctest
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -822,7 +895,7 @@ function Main {
 
     # 4. GUT runs
     if (-not $abort) {
-        Write-Host '== [4/6] GUT host runs ==' -ForegroundColor Cyan
+        Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
         foreach ($h in $hostList) {
             Write-Host "  - host: $h"
             $stage = Invoke-GutHost -RelativeHost $h -GodotExe $godotExe -ChildEnv $childEnv
@@ -839,10 +912,23 @@ function Main {
         }
     }
 
-    # 5. Bootstrap mini-runners (run even if GUT failed? spec says abort on failure;
+    # 5. PlayFab Multiplayer live orchestration
+    if (-not $abort) {
+        Write-Host '== [5/7] PlayFab Multiplayer live orchestration ==' -ForegroundColor Cyan
+        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -OutDirAbsolute $outDirAbsolute
+        [void]$stages.Add($stage)
+        Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
+        if ($stage.status -eq 'fail') { $abort = $true }
+    } else {
+        $skip = New-StageRecord 'playfab-multiplayer-live'
+        $skip.message = 'Skipped (upstream stage failed).'
+        [void]$stages.Add($skip)
+    }
+
+    # 6. Bootstrap mini-runners (run even if GUT failed? spec says abort on failure;
     # we honor the abort to keep the pipeline simple.)
     if (-not $abort) {
-        Write-Host '== [5/6] Bootstrap mini-runners ==' -ForegroundColor Cyan
+        Write-Host '== [6/7] Bootstrap mini-runners ==' -ForegroundColor Cyan
         $bootstrapHosts = @(@('tests\godot\gdk', 'tests\godot\gameinput') |
             Where-Object { $hostList -contains $_ })
         if ($bootstrapHosts.Count -eq 0) {
@@ -868,8 +954,8 @@ function Main {
         [void]$stages.Add($skip)
     }
 
-    # 6. Aggregate
-    Write-Host '== [6/6] Aggregate run summary ==' -ForegroundColor Cyan
+    # 7. Aggregate
+    Write-Host '== [7/7] Aggregate run summary ==' -ForegroundColor Cyan
     $finishedAt = (Get-Date).ToUniversalTime()
     $overall = if ($stages | Where-Object { $_.status -eq 'fail' }) { 'fail' } else { 'pass' }
     $written = Write-RunSummary -Stages $stages -OutDirAbsolute $outDirAbsolute `

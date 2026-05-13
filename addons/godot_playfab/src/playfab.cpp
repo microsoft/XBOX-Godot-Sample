@@ -2,6 +2,7 @@
 
 #include "playfab_gamesaves.h"
 #include "playfab_leaderboards.h"
+#include "playfab_multiplayer.h"
 #include "playfab_result.h"
 #include "playfab_runtime.h"
 #include "playfab_user.h"
@@ -30,6 +31,9 @@ PlayFab::PlayFab() {
 
     m_leaderboards.instantiate();
     m_leaderboards->set_owner(this);
+
+    m_multiplayer.instantiate();
+    m_multiplayer->set_owner(this);
 
     m_accounts.instantiate();
     m_accounts->set_owner(this);
@@ -65,6 +69,7 @@ PlayFab::~PlayFab() {
     m_users.unref();
     m_game_saves.unref();
     m_leaderboards.unref();
+    m_multiplayer.unref();
     m_accounts.unref();
     m_catalog.unref();
     m_cloud_script.unref();
@@ -97,6 +102,7 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFab::get_users);
     ClassDB::bind_method(D_METHOD("get_game_saves"), &PlayFab::get_game_saves);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &PlayFab::get_leaderboards);
+    ClassDB::bind_method(D_METHOD("get_multiplayer"), &PlayFab::get_multiplayer);
     ClassDB::bind_method(D_METHOD("get_accounts"), &PlayFab::get_accounts);
     ClassDB::bind_method(D_METHOD("get_catalog"), &PlayFab::get_catalog);
     ClassDB::bind_method(D_METHOD("get_cloud_script"), &PlayFab::get_cloud_script);
@@ -116,6 +122,7 @@ void PlayFab::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_saves", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabGameSaves"), "", "get_game_saves");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "leaderboards", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabLeaderboards"), "", "get_leaderboards");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabMultiplayer"), "", "get_multiplayer");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "accounts", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabAccounts"), "", "get_accounts");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "catalog", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabCatalog"), "", "get_catalog");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "cloud_script", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "PlayFabCloudScript"), "", "get_cloud_script");
@@ -163,6 +170,7 @@ void PlayFab::shutdown() {
 
     const bool was_initialized = m_runtime->is_initialized();
     if (was_initialized) {
+        m_multiplayer->shutdown();
         m_users->shutdown();
     }
     m_runtime->shutdown();
@@ -181,7 +189,11 @@ bool PlayFab::is_initialized() const {
 }
 
 int64_t PlayFab::dispatch() {
-    return m_runtime != nullptr ? static_cast<int64_t>(m_runtime->dispatch()) : 0;
+    int64_t dispatched = m_runtime != nullptr ? static_cast<int64_t>(m_runtime->dispatch()) : 0;
+    if (m_multiplayer.is_valid()) {
+        dispatched += static_cast<int64_t>(m_multiplayer->dispatch());
+    }
+    return dispatched;
 }
 
 Ref<PlayFabResult> PlayFab::get_last_error() const {
@@ -198,6 +210,10 @@ Ref<PlayFabGameSaves> PlayFab::get_game_saves() const {
 
 Ref<PlayFabLeaderboards> PlayFab::get_leaderboards() const {
     return m_leaderboards;
+}
+
+Ref<PlayFabMultiplayer> PlayFab::get_multiplayer() const {
+    return m_multiplayer;
 }
 
 Ref<PlayFabAccounts> PlayFab::get_accounts() const {

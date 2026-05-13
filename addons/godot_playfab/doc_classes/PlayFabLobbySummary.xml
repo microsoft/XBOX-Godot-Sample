@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbySummary" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Search-result snapshot for a PlayFab lobby.
+	</brief_description>
+	<description></description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="lobby_id" type="String" setter="" getter="get_lobby_id">Lobby id.</member>
+		<member name="connection_string" type="String" setter="" getter="get_connection_string">Connection string to join this lobby.</member>
+		<member name="owner_entity_key" type="Dictionary" setter="" getter="get_owner_entity_key">Current lobby owner entity key.</member>
+		<member name="max_member_count" type="int" setter="" getter="get_max_member_count">Maximum members.</member>
+		<member name="member_count" type="int" setter="" getter="get_member_count">Current members.</member>
+		<member name="search_properties" type="Dictionary" setter="" getter="get_search_properties">Search properties returned by PlayFab.</member>
+		<member name="lobby_properties" type="Dictionary" setter="" getter="get_lobby_properties">Lobby properties when available.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

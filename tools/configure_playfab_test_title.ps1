@@ -9,8 +9,9 @@
 
       - a custom-ID account used by tests that sign in with create_account=false
       - three Multiplayer worker custom-ID accounts for host/client/observer
+      - a PlayFab Matchmaking queue for Multiplayer live smoke coverage
       - the wave4_settle_smoke leaderboard definition
-      - service fixtures for accounts, friends, player data,
+      - API-service fixtures for accounts, friends, player data,
         title data, publisher data, statistics, and catalog draft-item tests
       - a small title-data marker describing the configured test resources
 
@@ -25,6 +26,7 @@ param(
     [string]$SecretKeyEnvVar = 'PLAYFAB_DEVELOPER_SECRET_KEY',
     [string]$CustomId = 'godot-gdk-ext-live-smoke',
     [string]$MultiplayerCustomIdPrefix = '',
+    [string]$MatchmakingQueueName = 'godot_gdk_ext_live_smoke_queue',
     [string]$ServiceFixturePrefix = '',
     [string]$LeaderboardName = 'wave4_settle_smoke',
     [string]$ServiceStatisticName = 'godot_services_smoke_stat',
@@ -35,6 +37,7 @@ param(
     [int]$LeaderboardSizeLimit = 1000,
     [switch]$SkipCustomIdAccount,
     [switch]$SkipMultiplayerWorkerAccounts,
+    [switch]$SkipMultiplayerMatchmakingQueue,
     [switch]$SkipApiServiceFixtures,
     [switch]$SkipServiceAccounts,
     [switch]$SkipServicePlayerData,
@@ -51,6 +54,7 @@ $TitleId = $TitleId.Trim()
 $SecretKeyEnvVar = $SecretKeyEnvVar.Trim()
 $CustomId = $CustomId.Trim()
 $MultiplayerCustomIdPrefix = $MultiplayerCustomIdPrefix.Trim()
+$MatchmakingQueueName = $MatchmakingQueueName.Trim()
 $ServiceFixturePrefix = $ServiceFixturePrefix.Trim()
 $LeaderboardName = $LeaderboardName.Trim()
 $ServiceStatisticName = $ServiceStatisticName.Trim()
@@ -76,6 +80,14 @@ if ([string]::IsNullOrWhiteSpace($ServiceFixturePrefix) -and -not [string]::IsNu
 }
 if (-not $SkipMultiplayerWorkerAccounts -and [string]::IsNullOrWhiteSpace($MultiplayerCustomIdPrefix)) {
     throw 'MultiplayerCustomIdPrefix must not be empty unless -SkipMultiplayerWorkerAccounts is specified.'
+}
+if (-not $SkipMultiplayerMatchmakingQueue) {
+    if ([string]::IsNullOrWhiteSpace($MatchmakingQueueName)) {
+        throw 'MatchmakingQueueName must not be empty unless -SkipMultiplayerMatchmakingQueue is specified.'
+    }
+    if ($MatchmakingQueueName -notmatch '^[A-Za-z0-9_]{1,64}$') {
+        throw 'MatchmakingQueueName must contain only ASCII letters, digits, and underscores, with a maximum length of 64 characters.'
+    }
 }
 if (-not $SkipApiServiceFixtures -and -not $SkipServiceAccounts -and [string]::IsNullOrWhiteSpace($ServiceFixturePrefix)) {
     throw 'ServiceFixturePrefix must not be empty unless -SkipApiServiceFixtures or -SkipServiceAccounts is specified.'
@@ -372,6 +384,105 @@ function Ensure-MultiplayerWorkerAccounts {
     }
 }
 
+function Get-MatchmakingQueue {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$EntityHeaders,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $route = 'Match/GetMatchmakingQueue'
+    $response = Invoke-PlayFabRest -Route $route -Headers $EntityHeaders -Body @{ QueueName = $Name }
+    $data = Assert-PlayFabRestResponse -Response $response -Route $route
+    return (Get-ObjectProperty -Object $data -Name 'MatchmakingQueue')
+}
+
+function Assert-MatchmakingQueue {
+    param(
+        [Parameter(Mandatory = $true)]$Queue,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $Queue) {
+        throw "Matchmaking queue '$Name' was not returned by PlayFab after configuration."
+    }
+
+    $actualName = [string](Get-ObjectProperty -Object $Queue -Name 'Name')
+    $minMatchSize = [int](Get-ObjectProperty -Object $Queue -Name 'MinMatchSize')
+    $maxMatchSize = [int](Get-ObjectProperty -Object $Queue -Name 'MaxMatchSize')
+    $serverAllocationEnabled = [bool](Get-ObjectProperty -Object $Queue -Name 'ServerAllocationEnabled')
+    $errors = [System.Collections.Generic.List[string]]::new()
+
+    if ($actualName -ne $Name) {
+        [void]$errors.Add("Name='$actualName'")
+    }
+    if ($minMatchSize -ne 2) {
+        [void]$errors.Add("MinMatchSize=$minMatchSize")
+    }
+    if ($maxMatchSize -ne 2) {
+        [void]$errors.Add("MaxMatchSize=$maxMatchSize")
+    }
+    if ($serverAllocationEnabled) {
+        [void]$errors.Add("ServerAllocationEnabled=$serverAllocationEnabled")
+    }
+
+    if ($errors.Count -gt 0) {
+        throw "Matchmaking queue '$Name' exists but does not match live-test requirements: $($errors -join '; ')."
+    }
+}
+
+function Ensure-MatchmakingQueue {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$EntityHeaders,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $route = 'Match/SetMatchmakingQueue'
+    $queue = [ordered]@{
+        Name                    = $Name
+        MinMatchSize            = 2
+        MaxMatchSize            = 2
+        ServerAllocationEnabled = $false
+        Rules                   = @(
+            [ordered]@{
+                Type                          = 'StringEqualityRule'
+                Attribute                     = @{
+                    Path   = 'run_id'
+                    Source = 'User'
+                }
+                AttributeNotSpecifiedBehavior = 'UseDefault'
+                DefaultAttributeValue         = '__missing_run_id__'
+                Weight                        = 1
+                Name                          = 'RunIdRule'
+            }
+        )
+    }
+    $response = Invoke-PlayFabRest -Route $route -Headers $EntityHeaders -Body @{ MatchmakingQueue = $queue }
+    [void](Assert-PlayFabRestResponse -Response $response -Route $route)
+
+    $configuredQueue = $null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $configuredQueue = Get-MatchmakingQueue -EntityHeaders $EntityHeaders -Name $Name
+            break
+        } catch {
+            if ($attempt -eq 3) {
+                throw
+            }
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    Assert-MatchmakingQueue -Queue $configuredQueue -Name $Name
+    Write-Host "OK: matchmaking queue '$Name' is configured for 2-player live smoke tests."
+    return [pscustomobject]@{
+        name                      = $Name
+        min_match_size            = 2
+        max_match_size            = 2
+        server_allocation_enabled = $false
+        string_equality_rule      = 'run_id'
+    }
+}
+
 function Get-LeaderboardDefinition {
     param(
         [Parameter(Mandatory = $true)][hashtable]$EntityHeaders,
@@ -623,7 +734,7 @@ function Assert-StatisticDefinition {
     }
 
     if ($errors.Count -gt 0) {
-        throw "Statistic '$Name' exists but does not match service test requirements: $($errors -join '; '). Delete or rename the incompatible statistic in PlayFab Game Manager, then rerun this script."
+        throw "Statistic '$Name' exists but does not match API-service test requirements: $($errors -join '; '). Delete or rename the incompatible statistic in PlayFab Game Manager, then rerun this script."
     }
 }
 
@@ -710,7 +821,7 @@ function Ensure-CatalogConfigForDraftItem {
     }
 
     if (-not $changed) {
-        Write-Host "OK: catalog is enabled for service fixture items."
+        Write-Host "OK: catalog is enabled for API-service fixture items."
         return
     }
 
@@ -723,7 +834,7 @@ function Ensure-CatalogConfigForDraftItem {
     }
     $response = Invoke-PlayFabRest -Route $route -Headers $EntityHeaders -Body $body
     [void](Assert-PlayFabRestResponse -Response $response -Route $route)
-    Write-Host "OK: enabled catalog for service fixture items."
+    Write-Host "OK: enabled catalog for API-service fixture items."
 }
 
 function Get-CatalogDraftItem {
@@ -942,6 +1053,7 @@ function Set-LiveTestTitleDataMarker {
         [Parameter(Mandatory = $true)][string]$MarkerCustomId,
         [Parameter(Mandatory = $true)][string]$MarkerMultiplayerCustomIdPrefix,
         [Parameter(Mandatory = $true)][string]$MarkerLeaderboardName,
+        [AllowNull()]$MatchmakingQueue = $null,
         [AllowNull()]$ApiServiceFixtures = $null
     )
 
@@ -963,6 +1075,9 @@ function Set-LiveTestTitleDataMarker {
         lobby_search_properties = @('string_key1', 'number_key1')
         note                    = 'Lobby search properties use reserved PlayFab keys and do not require title setup.'
         updated_utc             = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    if ($null -ne $MatchmakingQueue) {
+        $marker['matchmaking_queue'] = $MatchmakingQueue
     }
     if ($null -ne $ApiServiceFixtures) {
         $marker['api_services'] = $ApiServiceFixtures
@@ -991,6 +1106,10 @@ if (-not $SkipMultiplayerWorkerAccounts) {
 
 $entityToken = Get-TitleEntityToken -SecretHeaders $secretHeaders
 $entityHeaders = @{ 'X-EntityToken' = $entityToken }
+$matchmakingQueue = $null
+if (-not $SkipMultiplayerMatchmakingQueue) {
+    $matchmakingQueue = Ensure-MatchmakingQueue -EntityHeaders $entityHeaders -Name $MatchmakingQueueName
+}
 Ensure-LeaderboardDefinition -EntityHeaders $entityHeaders -Name $LeaderboardName -SizeLimit $LeaderboardSizeLimit
 $APIServiceFixtures = $null
 if (-not $SkipApiServiceFixtures) {
@@ -1007,19 +1126,31 @@ if (-not $SkipApiServiceFixtures) {
 }
 
 if (-not $SkipTitleDataMarker) {
-    Set-LiveTestTitleDataMarker -SecretHeaders $secretHeaders -MarkerCustomId $CustomId -MarkerMultiplayerCustomIdPrefix $MultiplayerCustomIdPrefix -MarkerLeaderboardName $LeaderboardName -ApiServiceFixtures $APIServiceFixtures
+    Set-LiveTestTitleDataMarker -SecretHeaders $secretHeaders -MarkerCustomId $CustomId -MarkerMultiplayerCustomIdPrefix $MultiplayerCustomIdPrefix -MarkerLeaderboardName $LeaderboardName -MatchmakingQueue $matchmakingQueue -ApiServiceFixtures $APIServiceFixtures
 }
 
 Write-Host ''
 Write-Host 'Live test command:'
-if ($SkipCustomIdAccount) {
-    Write-Host "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`""
+$liveTestCommand = if ($SkipCustomIdAccount) {
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`""
 } else {
-    Write-Host "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
 }
-Write-Host "The Multiplayer runner will derive worker custom IDs from PLAYFAB_CUSTOM_ID as '$MultiplayerCustomIdPrefix-<role>'."
+if (-not $SkipMultiplayerMatchmakingQueue) {
+    $liveTestCommand = "$liveTestCommand -PlayFabMatchmakingQueue `"$MatchmakingQueueName`""
+}
+Write-Host $liveTestCommand
+if ($SkipCustomIdAccount) {
+    Write-Host 'Custom-ID live service tests remain pending unless PLAYFAB_CUSTOM_ID is set by the caller.'
+} else {
+    Write-Host "The Multiplayer runner will derive worker custom IDs from PLAYFAB_CUSTOM_ID as '$MultiplayerCustomIdPrefix-<role>'."
+}
+if (-not $SkipMultiplayerMatchmakingQueue) {
+    Write-Host "The Multiplayer runner will use matchmaking queue '$MatchmakingQueueName'."
+} else {
+    Write-Host 'Set PLAYFAB_MULTIPLAYER_MATCH_QUEUE separately only when optional matchmaking smoke should run.'
+}
 if (-not $SkipApiServiceFixtures) {
-    Write-Host "PlayFab service fixtures use custom IDs '$ServiceFixturePrefix-friend' and '$ServiceFixturePrefix-peer'."
-    Write-Host "PlayFab service fixtures use title data '$ServiceTitleDataKey', publisher data '$ServicePublisherDataKey', statistic '$ServiceStatisticName', and catalog draft item '$ServiceCatalogItemId'."
+    Write-Host "API-service fixtures use custom IDs '$ServiceFixturePrefix-friend' and '$ServiceFixturePrefix-peer'."
+    Write-Host "API-service fixtures use title data '$ServiceTitleDataKey', publisher data '$ServicePublisherDataKey', statistic '$ServiceStatisticName', and catalog draft item '$ServiceCatalogItemId'."
 }
-Write-Host 'Set PLAYFAB_MULTIPLAYER_MATCH_QUEUE separately only when optional matchmaking smoke should run.'

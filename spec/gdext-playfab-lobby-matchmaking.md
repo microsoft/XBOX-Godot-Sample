@@ -48,15 +48,11 @@ func initialize_async(config: PlayFabMultiplayerConfig = null) -> Signal
 func shutdown_async() -> Signal
 
 func create_lobby_async(user: PlayFabUser, config: PlayFabLobbyConfig = null) -> Signal
-func join_lobby_async(user: PlayFabUser, lobby_id: String, config: PlayFabLobbyJoinConfig = null) -> Signal
+func join_lobby_async(user: PlayFabUser, connection_string: String, config: PlayFabLobbyJoinConfig = null) -> Signal
 func join_arranged_lobby_async(user: PlayFabUser, connection_string: String, config: PlayFabLobbyJoinConfig = null) -> Signal
 func find_lobbies_async(user: PlayFabUser, search: PlayFabLobbySearchConfig = null) -> Signal
-func set_lobby_properties_async(lobby: PlayFabLobby, properties: Dictionary) -> Signal
-func set_member_properties_async(lobby: PlayFabLobby, properties: Dictionary) -> Signal
 
 func create_match_ticket_async(user: PlayFabUser, config: PlayFabMatchmakingTicketConfig) -> Signal
-func cancel_match_ticket_async(ticket: PlayFabMatchTicket) -> Signal
-func get_match_ticket_async(ticket: PlayFabMatchTicket) -> Signal
 
 func get_lobbies() -> Array[PlayFabLobby]
 func get_lobby(lobby_id: String) -> PlayFabLobby
@@ -70,9 +66,9 @@ func get_match_tickets() -> Array[PlayFabMatchTicket]
 | `initialize_async()` / `shutdown_async()` | `null` |
 | `create_lobby_async()` / `join_lobby_async()` / `join_arranged_lobby_async()` | `PlayFabLobby` |
 | `find_lobbies_async()` | `PlayFabLobbySearchResult` |
-| `set_lobby_properties_async()` / `set_member_properties_async()` | `null`, unless implementation chooses to return a refreshed `PlayFabLobby` |
-| `create_match_ticket_async()` / `get_match_ticket_async()` | `PlayFabMatchTicket` |
-| `cancel_match_ticket_async()` | `null` |
+| `PlayFabLobby.set_properties_async()` / `PlayFabLobby.set_member_properties_async()` | `null`, unless implementation chooses to return a refreshed `PlayFabLobby` |
+| `create_match_ticket_async()` / `PlayFabMatchTicket.refresh_async()` | `PlayFabMatchTicket` |
+| `PlayFabMatchTicket.cancel_async()` | `null` |
 
 Immediate validation failures still return an already-completed `Signal` containing a failed `PlayFabResult`.
 
@@ -85,14 +81,14 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `initialize_async(config)` | `PFMultiplayerInitialize(...)`; attach lobby/matchmaking state processing to PlayFab runtime dispatch | PlayFab Multiplayer initialized and ready to process state changes |
 | `shutdown_async()` | Cancel tracked tickets, leave tracked lobbies, release handles, `PFMultiplayerUninitialize(...)` | Tracked resources settle or shutdown generation closes |
 | `create_lobby_async(user, config)` | `PFMultiplayerCreateAndJoinLobby(...)` entity-handle overload | create/join completed state; `PlayFabLobby` snapshot populated |
-| `join_lobby_async(user, lobby_id, config)` | `PFMultiplayerJoinLobby(...)` or connection-string equivalent entity-handle overload | join completed state; `PlayFabLobby` snapshot populated |
+| `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
 | `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
 | `find_lobbies_async(user, search)` | `PFMultiplayerFindLobbies(...)` entity-handle overload | find completed state; stable search summaries populated |
-| `set_lobby_properties_async(lobby, properties)` | PFLobby update/post-update API for lobby properties | lobby update completed state; cached lobby snapshot refreshed |
-| `set_member_properties_async(lobby, properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
-| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicket(...)` entity-handle overload using local requester and configured members | create-ticket completed state; ticket tracked and initial status cached |
-| `get_match_ticket_async(ticket)` | PFMultiplayer matchmaking status/get API | diagnostic refresh only; normal progress is push-driven |
-| `cancel_match_ticket_async(ticket)` | `PFMultiplayerCancelMatchmakingTicket(...)` | cancel completed state; ticket transitions cancelled |
+| `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | lobby update completed state; cached lobby snapshot refreshed |
+| `PlayFabLobby.set_member_properties_async(properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
+| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester and configured members | native handle returned and tracked; subsequent progress is pushed by matchmaking state changes |
+| `PlayFabMatchTicket.refresh_async()` | `PFMatchmakingTicketGetStatus(...)` / `PFMatchmakingTicketGetMatch(...)` snapshot refresh | diagnostic refresh only; normal progress is push-driven |
+| `PlayFabMatchTicket.cancel_async()` | `PFMatchmakingTicketCancel(...)` | completion signal settles when the ticket reaches a cancelled or failed terminal state |
 
 Native handles returned synchronously by create/join/find/ticket calls are provisional implementation details. Public wrappers may be allocated for bookkeeping, but externally visible state remains creating, joining, searching, matching, or equivalent until the corresponding completed state change succeeds.
 
@@ -122,10 +118,12 @@ func get_members() -> Array[PlayFabLobbyMember]
 func get_properties() -> Dictionary
 func get_search_properties() -> Dictionary
 func is_owner(user: PlayFabUser) -> bool
+func set_properties_async(properties: Dictionary) -> Signal
+func set_member_properties_async(properties: Dictionary) -> Signal
 func leave_async() -> Signal
 ```
 
-Lobby updates are object-scoped. When a lobby state change arrives, the addon updates the cached snapshot before emitting `PlayFabLobby.state_changed(change)`. The service-level `PlayFab.multiplayer.state_changed` is reserved for service-wide notifications and newly discovered or not-yet-wrapped resources; it should not duplicate every per-lobby state change unless a documented aggregate signal is intentionally added.
+Lobby updates are object-scoped. When a lobby state change arrives, the addon updates the cached snapshot before emitting `PlayFabLobby.state_changed(change)`. The MLP also emits `PlayFab.multiplayer.state_changed(change)` as an aggregate signal for titles that prefer one service-level subscription.
 
 ### Lobby configs
 
@@ -242,12 +240,12 @@ var properties: Dictionary
 Recommended stable constants:
 
 ```gdscript
-PlayFabMultiplayer.LOBBY_MEMBER_ADDED
-PlayFabMultiplayer.LOBBY_MEMBER_REMOVED
-PlayFabMultiplayer.LOBBY_MEMBER_UPDATED
-PlayFabMultiplayer.LOBBY_PROPERTIES_UPDATED
-PlayFabMultiplayer.LOBBY_OWNER_CHANGED
-PlayFabMultiplayer.LOBBY_DISCONNECTED
+PlayFabLobby.MEMBER_ADDED
+PlayFabLobby.MEMBER_REMOVED
+PlayFabLobby.MEMBER_UPDATED
+PlayFabLobby.PROPERTIES_UPDATED
+PlayFabLobby.OWNER_CHANGED
+PlayFabLobby.DISCONNECTED
 ```
 
 ## Matchmaking model
@@ -277,6 +275,7 @@ func get_arranged_lobby_connection_string() -> String
 func get_properties() -> Dictionary
 func is_complete() -> bool
 func is_cancelled() -> bool
+func refresh_async() -> Signal
 func cancel_async() -> Signal
 ```
 
@@ -320,11 +319,11 @@ var arranged_lobby_connection_string: String
 Recommended stable constants:
 
 ```gdscript
-PlayFabMultiplayer.MATCH_TICKET_CREATED
-PlayFabMultiplayer.MATCH_TICKET_STATUS_CHANGED
-PlayFabMultiplayer.MATCH_TICKET_COMPLETED
-PlayFabMultiplayer.MATCH_TICKET_CANCELLED
-PlayFabMultiplayer.MATCH_TICKET_FAILED
+PlayFabMatchTicket.CREATED
+PlayFabMatchTicket.STATUS_CHANGED
+PlayFabMatchTicket.COMPLETED
+PlayFabMatchTicket.CANCELLED
+PlayFabMatchTicket.FAILED
 ```
 
 ## Example usage and Party composition
@@ -339,7 +338,7 @@ func create_lobby(playfab_user: PlayFabUser) -> PlayFabLobby:
     config.max_players = 4
     config.access_policy = PlayFabLobbyConfig.ACCESS_POLICY_PUBLIC
     config.search_properties = {
-        "mode": "duos"
+        "string_key1": "duos"
     }
     config.lobby_properties = {
         "map": "arena"
@@ -359,13 +358,13 @@ func create_lobby(playfab_user: PlayFabUser) -> PlayFabLobby:
 
 func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
     match change.kind:
-        PlayFabMultiplayer.LOBBY_MEMBER_ADDED:
+        PlayFabLobby.MEMBER_ADDED:
             print("Member joined: ", change.member.get_entity_key().get_id())
-        PlayFabMultiplayer.LOBBY_MEMBER_REMOVED:
+        PlayFabLobby.MEMBER_REMOVED:
             print("Member left: ", change.member.get_entity_key().get_id())
-        PlayFabMultiplayer.LOBBY_PROPERTIES_UPDATED:
+        PlayFabLobby.PROPERTIES_UPDATED:
             print("Lobby properties: ", change.lobby.get_properties())
-        PlayFabMultiplayer.LOBBY_DISCONNECTED:
+        PlayFabLobby.DISCONNECTED:
             push_warning(change.result.message)
 ```
 
@@ -374,7 +373,7 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
 ```gdscript
 func find_and_join_lobby(playfab_user: PlayFabUser) -> PlayFabLobby:
     var search := PlayFabLobbySearchConfig.new()
-    search.filter = "mode eq 'duos'"
+    search.filter = "string_key1 eq 'duos'"
     search.max_results = 10
 
     var search_result = await PlayFab.multiplayer.find_lobbies_async(playfab_user, search)
@@ -389,7 +388,7 @@ func find_and_join_lobby(playfab_user: PlayFabUser) -> PlayFabLobby:
 
     var join_result = await PlayFab.multiplayer.join_lobby_async(
         playfab_user,
-        summaries[0].get_lobby_id()
+        summaries[0].get_connection_string()
     )
     if not join_result.ok:
         push_warning(join_result.message)
@@ -458,8 +457,8 @@ func create_party_lobby(playfab_user: PlayFabUser, session: PlayFabPartySession)
 ### Join lobby, then explicitly join Party
 
 ```gdscript
-func join_lobby_party(playfab_user: PlayFabUser, lobby_id: String) -> void:
-    var lobby_result = await PlayFab.multiplayer.join_lobby_async(playfab_user, lobby_id)
+func join_lobby_party(playfab_user: PlayFabUser, connection_string: String) -> void:
+    var lobby_result = await PlayFab.multiplayer.join_lobby_async(playfab_user, connection_string)
     if not lobby_result.ok:
         push_warning(lobby_result.message)
         return
@@ -480,13 +479,13 @@ func join_lobby_party(playfab_user: PlayFabUser, lobby_id: String) -> void:
 ```gdscript
 func _on_match_ticket_state_changed(change: PlayFabMatchTicketStateChange) -> void:
     match change.kind:
-        PlayFabMultiplayer.MATCH_TICKET_COMPLETED:
+        PlayFabMatchTicket.COMPLETED:
             print("Matched: ", change.match_id)
             print("Arranged lobby connection: ", change.arranged_lobby_connection_string)
             _show_match_ready_ui(change.ticket, change.arranged_lobby_connection_string)
-        PlayFabMultiplayer.MATCH_TICKET_CANCELLED:
+        PlayFabMatchTicket.CANCELLED:
             print("Matchmaking cancelled.")
-        PlayFabMultiplayer.MATCH_TICKET_FAILED:
+        PlayFabMatchTicket.FAILED:
             push_warning(change.result.message)
 ```
 
@@ -515,20 +514,23 @@ func join_arranged_match_when_title_decides(playfab_user: PlayFabUser, ticket: P
 Use stable error codes so GDScript callers can branch:
 
 ```gdscript
-"multiplayer_not_initialized"
-"multiplayer_resource_not_ready"
-"multiplayer_invalid_user"
-"multiplayer_invalid_options"
+"not_initialized"
+"invalid_user"
+"invalid_connection_string"
+"invalid_arranged_lobby_connection_string"
+"invalid_properties"
+"invalid_search"
+"invalid_lobby"
+"invalid_match_ticket_config"
+"invalid_match_ticket_member"
+"invalid_match_ticket"
 "lobby_create_failed"
 "lobby_join_failed"
 "arranged_lobby_join_failed"
-"lobby_leave_failed"
 "lobby_search_failed"
-"lobby_property_update_failed"
-"match_ticket_create_failed"
-"match_ticket_cancel_failed"
-"match_ticket_status_failed"
-"match_ticket_not_found"
+"lobby_update_failed"
+"match_ticket_failed"
+"match_ticket_completed_failed"
 ```
 
 All validation failures must update `PlayFab.last_error` consistently with existing PlayFab services and return a completed `Signal` with a failed `PlayFabResult`.
@@ -547,4 +549,4 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - completed tickets reporting `arranged_lobby_connection_string` without automatically joining an arranged lobby;
 - shutdown cleanup for tracked lobbies and tickets.
 
-Live PlayFab Multiplayer tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title.
+Live PlayFab Multiplayer tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner covers multi-client lobby flows and, when a configured matchmaking queue is supplied, match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.

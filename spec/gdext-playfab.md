@@ -4,9 +4,9 @@
 
 This document defines the current design direction for the `godot_playfab` addon.
 
-`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by a `GDKUser` object or title-defined custom id, Game Saves flows, leaderboard flows, and client-safe PlayFab Services SDK wrappers. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich SDK payloads, and direct-await completion signals for one-shot services.
+`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by a `GDKUser` object or title-defined custom id, Game Saves flows, leaderboard flows, client-safe PlayFab Services SDK wrappers, and the MLP lobby/matchmaking surface built on top of the PlayFab C SDKs. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich SDK payloads, and direct-await completion signals for one-shot services.
 
-Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-playfab-lobby-matchmaking.md` and `spec\gdext-playfab-party.md`. Those planned surfaces add `PlayFab.multiplayer` and `PlayFab.party` while keeping lobby/matchmaking APIs separate from Party transport.
+Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-playfab-lobby-matchmaking.md` and `spec\gdext-playfab-party.md`. The MLP adds `PlayFab.multiplayer` for lobbies and matchmaking while keeping Party transport deferred to `PlayFab.party`.
 
 ## Design goals
 
@@ -28,7 +28,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 | Leaderboards | Yes | submit, global, around-user, friends/social |
 | Client services | Yes | accounts, catalog, CloudScript, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data |
 | Events/telemetry | Reserved | `PlayFab.events` exists, but no active client event operation is available from the current GDK headers |
-| Multiplayer lobbies / matchmaking | Planned | see `spec\gdext-playfab-lobby-matchmaking.md` |
+| Multiplayer lobbies / matchmaking | Yes | MLP implemented; see `spec\gdext-playfab-lobby-matchmaking.md` |
 | Party transport | Planned | see `spec\gdext-playfab-party.md` |
 | Server/admin/title-secret APIs | No | excluded from the client addon surface |
 
@@ -51,6 +51,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 - `PlayFab.users`
 - `PlayFab.game_saves`
 - `PlayFab.leaderboards`
+- `PlayFab.multiplayer` for lobbies and matchmaking
 - `PlayFab.accounts`
 - `PlayFab.catalog`
 - `PlayFab.cloud_script`
@@ -64,7 +65,6 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 - `PlayFab.player_data`
 - `PlayFab.statistics`
 - `PlayFab.title_data`
-- Planned: `PlayFab.multiplayer` for lobbies and matchmaking
 - Planned: `PlayFab.party` for Party transport and chat
 
 ## Runtime configuration
@@ -88,6 +88,7 @@ Rules:
 3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
 4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
 5. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
+6. `PlayFab.dispatch()` also pumps PlayFab Multiplayer lobby and matchmaking state changes after `PlayFab.multiplayer.initialize_async()`.
 
 ## User/session model
 
@@ -134,7 +135,7 @@ Supported calls:
 
 ## PlayFab Services SDK wrappers
 
-PlayFab services cover the client-safe, non-Multiplayer, non-Party PlayFab Services SDK operations that are active in the GDK header set. Server/admin/title-secret APIs are excluded, as are Multiplayer and Party APIs owned by separate workstreams.
+PlayFab services cover the client-safe, non-Multiplayer, non-Party PlayFab Services SDK operations that are active in the GDK header set. Server/admin/title-secret APIs are excluded. Multiplayer and Party APIs are owned by dedicated surfaces.
 
 Method shape:
 
@@ -162,6 +163,12 @@ Service buckets:
 | `statistics` | `PlayFabStatistics` | 10 statistic definition and entity statistic operations |
 | `title_data` | `PlayFabTitleData` | 4 publisher data, title data, title news, and server-time operations |
 
+## Multiplayer lobbies and matchmaking
+
+The MLP `PlayFab.multiplayer` service supports PlayFab Multiplayer initialization, lobby create/join/search, matchmaking ticket create, ticket enumeration, and explicit arranged-lobby joins. `PlayFabLobby` owns lobby leave and lobby/member property updates. `PlayFabMatchTicket` owns ticket cancellation and status refresh. User-owned native calls use the signed-in `PlayFabUser`'s internal `PFEntityHandle` overloads.
+
+Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
+
 ## Samples
 
 - `sample\playfab_demo` demonstrates settings-backed init plus manual PlayFab sign-in
@@ -173,5 +180,7 @@ Service buckets:
 
 - `tests\godot\playfab\tests\` is the PlayFab contract suite.
 - It should keep the root singleton, settings registration, deterministic
-  validation errors, custom-ID sign-in, and optional live smoke flows aligned
+  validation errors, API service contracts, Multiplayer class contracts, custom-ID sign-in, and optional live smoke flows aligned
   with the shipped addon behavior.
+- `tools\configure_playfab_test_title.ps1` prepares the current sandbox title (`10D176` by default) for live coverage by ensuring the custom-ID account, Multiplayer worker accounts, a two-player matchmaking queue with a `run_id` equality rule, leaderboard/statistic definitions, and API-service fixtures used by the tests exist. It reads the developer secret from `PLAYFAB_DEVELOPER_SECRET_KEY` and never forwards the secret to Godot child processes.
+- `tools\run_all_tests.ps1 -Live -Hosts tests\godot\playfab -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"` also runs the opt-in PlayFab Multiplayer multi-client lobby orchestration plus matchmaking create/cancel, two-player match completion, explicit arranged-lobby join, and arranged-lobby cleanup coverage.

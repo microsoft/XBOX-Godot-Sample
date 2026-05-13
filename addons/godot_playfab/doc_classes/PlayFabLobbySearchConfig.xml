@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbySearchConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Configuration for searching PlayFab lobbies.
+	</brief_description>
+	<description>
+		Passed to [method PlayFabMultiplayer.find_lobbies_async].
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="filter" type="String" setter="set_filter" getter="get_filter">PlayFab lobby search filter string.</member>
+		<member name="order_by" type="String" setter="set_order_by" getter="get_order_by">PlayFab lobby search sort string.</member>
+		<member name="max_results" type="int" setter="set_max_results" getter="get_max_results">Requested result count, from 1 to 50.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

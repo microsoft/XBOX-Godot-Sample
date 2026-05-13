@@ -50,6 +50,7 @@ endif()
 set(GODOT_PLAYFAB_PROJECT_DIRS
     ${GODOT_SAMPLE_DIRS}
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
+    "${CMAKE_SOURCE_DIR}/tests/godot/playfab_multiplayer_worker"
 )
 
 set(GODOT_GAMEINPUT_PROJECT_DIRS

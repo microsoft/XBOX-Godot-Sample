@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobby" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Tracked PlayFab lobby wrapper.
+	</brief_description>
+	<description>
+		Returned by lobby create/join APIs. Getters expose cached snapshots that are refreshed before lobby state-change signals are emitted.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="set_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this lobby's string properties and returns a completion [Signal].</description></method>
+		<method name="set_member_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this local member's string properties in the lobby and returns a completion [Signal].</description></method>
+		<method name="leave_async"><return type="Signal" /><description>Leaves this lobby and returns a completion [Signal].</description></method>
+		<method name="is_owner" qualifiers="const"><return type="bool" /><param index="0" name="user" type="PlayFabUser" /><description>Returns whether [param user] is the current owner snapshot.</description></method>
+	</methods>
+	<members>
+		<member name="lobby_id" type="String" setter="" getter="get_lobby_id">Lobby id.</member>
+		<member name="connection_string" type="String" setter="" getter="get_connection_string">Connection string for explicit joins.</member>
+		<member name="owner_entity_key" type="Dictionary" setter="" getter="get_owner_entity_key">Owner entity key.</member>
+		<member name="max_member_count" type="int" setter="" getter="get_max_member_count">Maximum members.</member>
+		<member name="member_count" type="int" setter="" getter="get_member_count">Current members.</member>
+		<member name="members" type="Array" setter="" getter="get_members">Array of [PlayFabLobbyMember].</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Lobby string properties.</member>
+		<member name="search_properties" type="Dictionary" setter="" getter="get_search_properties">Search string properties.</member>
+	</members>
+	<signals>
+		<signal name="state_changed"><param index="0" name="change" type="PlayFabLobbyStateChange" /><description>Emitted after the lobby snapshot refreshes.</description></signal>
+	</signals>
+	<constants>
+		<constant name="MEMBER_ADDED" value="1">A lobby member was added.</constant>
+		<constant name="MEMBER_REMOVED" value="2">A lobby member was removed.</constant>
+		<constant name="MEMBER_UPDATED" value="3">A lobby member snapshot changed.</constant>
+		<constant name="PROPERTIES_UPDATED" value="4">Lobby properties changed.</constant>
+		<constant name="OWNER_CHANGED" value="5">Lobby ownership changed.</constant>
+		<constant name="DISCONNECTED" value="6">Lobby disconnected.</constant>
+	</constants>
+</class>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMatchTicket" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Tracked PlayFab matchmaking ticket wrapper.
+	</brief_description>
+	<description>
+		Returned by [method PlayFabMultiplayer.create_match_ticket_async]. Ticket progress is pushed through [signal state_changed].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="refresh_async"><return type="Signal" /><description>Refreshes this tracked ticket snapshot and returns a completion [Signal]. Normal ticket progress is also pushed through [signal state_changed].</description></method>
+		<method name="cancel_async"><return type="Signal" /><description>Requests cancellation and completes when the ticket reaches a cancelled or failed terminal state.</description></method>
+		<method name="is_complete" qualifiers="const"><return type="bool" /><description>Returns whether the ticket is matched, cancelled, or failed.</description></method>
+		<method name="is_cancelled" qualifiers="const"><return type="bool" /><description>Returns whether the ticket is cancelled.</description></method>
+	</methods>
+	<members>
+		<member name="ticket_id" type="String" setter="" getter="get_ticket_id">PlayFab ticket id.</member>
+		<member name="queue_name" type="String" setter="" getter="get_queue_name">Queue used by this ticket.</member>
+		<member name="status" type="int" setter="" getter="get_status">Native ticket status value.</member>
+		<member name="members" type="Array" setter="" getter="get_members">Ticket member users.</member>
+		<member name="match_id" type="String" setter="" getter="get_match_id">Matched PlayFab match id.</member>
+		<member name="arranged_lobby_connection_string" type="String" setter="" getter="get_arranged_lobby_connection_string">Arranged lobby connection string reported to title code.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Diagnostic ticket properties.</member>
+	</members>
+	<signals>
+		<signal name="state_changed"><param index="0" name="change" type="PlayFabMatchTicketStateChange" /><description>Emitted when ticket status or completion state changes.</description></signal>
+	</signals>
+	<constants>
+		<constant name="CREATED" value="100">A matchmaking ticket wrapper was created.</constant>
+		<constant name="STATUS_CHANGED" value="101">A ticket status changed.</constant>
+		<constant name="COMPLETED" value="102">A ticket matched and completed.</constant>
+		<constant name="CANCELLED" value="103">A ticket was cancelled.</constant>
+		<constant name="FAILED" value="104">A ticket failed.</constant>
+	</constants>
+</class>

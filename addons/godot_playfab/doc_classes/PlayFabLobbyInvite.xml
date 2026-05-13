@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbyInvite" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab lobby invite snapshot.
+	</brief_description>
+	<description>
+		Emitted by [signal PlayFabMultiplayer.invite_received].
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="lobby_id" type="String" setter="" getter="get_lobby_id">Invited lobby id.</member>
+		<member name="connection_string" type="String" setter="" getter="get_connection_string">Connection string to join the lobby.</member>
+		<member name="sender_user_id" type="String" setter="" getter="get_sender_user_id">Entity id of the inviting user.</member>
+		<member name="sender_entity_key" type="Dictionary" setter="" getter="get_sender_entity_key">Entity key of the inviting user.</member>
+		<member name="invite_uri" type="String" setter="" getter="get_invite_uri">Invite URI when provided by the platform.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Invite properties.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

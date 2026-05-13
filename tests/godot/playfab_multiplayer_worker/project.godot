@@ -1,0 +1,20 @@
+; Engine configuration file.
+; Minimal headless worker project for PlayFab Multiplayer live orchestration.
+
+config_version=5
+
+[application]
+
+config/name="Godot PlayFab Multiplayer Worker"
+config/features=PackedStringArray("4.6")
+
+[playfab]
+
+titleid=""
+endpoint=""
+runtime/embed_dispatch=true
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"

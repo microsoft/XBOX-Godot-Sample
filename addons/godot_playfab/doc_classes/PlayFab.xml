@@ -4,7 +4,7 @@
 		Root singleton for PlayFab services integration.
 	</brief_description>
 	<description>
-		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, and client-safe PlayFab service surfaces. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
+		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, Multiplayer lobby/matchmaking, and client-safe PlayFab service surfaces. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -60,6 +60,12 @@
 			<return type="PlayFabLeaderboards" />
 			<description>
 				Returns the [PlayFabLeaderboards] service for score submission and leaderboard queries.
+			</description>
+		</method>
+		<method name="get_multiplayer" qualifiers="const">
+			<return type="PlayFabMultiplayer" />
+			<description>
+				Returns the [PlayFabMultiplayer] service for lobby and matchmaking flows.
 			</description>
 		</method>
 		<method name="get_accounts" qualifiers="const">
@@ -162,6 +168,9 @@
 		</member>
 		<member name="leaderboards" type="PlayFabLeaderboards" setter="" getter="get_leaderboards">
 			The [PlayFabLeaderboards] service instance for score submission and leaderboard queries.
+		</member>
+		<member name="multiplayer" type="PlayFabMultiplayer" setter="" getter="get_multiplayer">
+			The [PlayFabMultiplayer] service instance for lobby and matchmaking flows.
 		</member>
 		<member name="accounts" type="PlayFabAccounts" setter="" getter="get_accounts">
 			The [PlayFabAccounts] service instance for account, profile, and identity APIs.

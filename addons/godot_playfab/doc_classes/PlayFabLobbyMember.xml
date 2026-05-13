@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbyMember" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached PlayFab lobby member snapshot.
+	</brief_description>
+	<description></description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="user_id" type="String" setter="" getter="get_user_id">Entity id for this member.</member>
+		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">Entity key dictionary with [code]id[/code] and [code]type[/code].</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Member string properties.</member>
+		<member name="is_local" type="bool" setter="" getter="is_local_member">Whether this is the local user for the lobby handle.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>
