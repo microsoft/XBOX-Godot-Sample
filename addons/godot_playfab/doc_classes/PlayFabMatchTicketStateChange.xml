@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMatchTicketStateChange" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		State-change payload emitted by [PlayFabMatchTicket].
+	</brief_description>
+	<description>
+		Completed tickets expose [member match_id] and [member arranged_lobby_connection_string]. The addon does not auto-join arranged lobbies.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabMultiplayer]'s matchmaking constants.</member>
+		<member name="ticket" type="PlayFabMatchTicket" setter="" getter="get_ticket">Ticket that changed.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for terminal ticket changes.</member>
+		<member name="status" type="int" setter="" getter="get_status">Native ticket status value.</member>
+		<member name="match_id" type="String" setter="" getter="get_match_id">Matched PlayFab match id when available.</member>
+		<member name="arranged_lobby_connection_string" type="String" setter="" getter="get_arranged_lobby_connection_string">Connection string title code may pass to [method PlayFabMultiplayer.join_arranged_lobby_async].</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

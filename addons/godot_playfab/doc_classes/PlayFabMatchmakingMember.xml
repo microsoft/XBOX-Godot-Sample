@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMatchmakingMember" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		One local member in a matchmaking ticket.
+	</brief_description>
+	<description>
+		Wraps the [PlayFabUser] and optional JSON-serializable attributes used by [method PlayFabMultiplayer.create_match_ticket_async].
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="user" type="PlayFabUser" setter="set_user" getter="get_user">Signed-in PlayFab user whose entity handle is added to the ticket.</member>
+		<member name="attributes" type="Dictionary" setter="set_attributes" getter="get_attributes">Per-member matchmaking attributes serialized to JSON.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

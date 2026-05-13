@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMatchmakingTicketConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Configuration for creating a matchmaking ticket.
+	</brief_description>
+	<description>
+		Passed to [method PlayFabMultiplayer.create_match_ticket_async]. If [member members] is empty, the requesting [PlayFabUser] is used as the single member.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="queue_name" type="String" setter="set_queue_name" getter="get_queue_name">PlayFab matchmaking queue name.</member>
+		<member name="timeout_seconds" type="int" setter="set_timeout_seconds" getter="get_timeout_seconds">Ticket timeout in seconds.</member>
+		<member name="members" type="Array" setter="set_members" getter="get_members">Array of [PlayFabMatchmakingMember] or [PlayFabUser] entries.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

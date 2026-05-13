@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabMultiplayerConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab Multiplayer initialization options.
+	</brief_description>
+	<description>
+		Reserved configuration object for [method PlayFabMultiplayer.initialize_async]. The current implementation uses the PlayFab title id and dispatch queue from the root [PlayFab] runtime.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members></members>
+	<signals></signals>
+	<constants></constants>
+</class>

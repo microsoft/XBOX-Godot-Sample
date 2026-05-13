@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbyConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Configuration for creating a PlayFab lobby.
+	</brief_description>
+	<description>
+		Passed to [method PlayFabMultiplayer.create_lobby_async]. Property dictionaries must use [String] keys and [String] values because they map directly to PlayFab Multiplayer lobby properties.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="max_players" type="int" setter="set_max_players" getter="get_max_players">Maximum lobby member count.</member>
+		<member name="access_policy" type="int" setter="set_access_policy" getter="get_access_policy">Lobby visibility; use [code]ACCESS_POLICY_*[/code] constants.</member>
+		<member name="owner_migration_policy" type="int" setter="set_owner_migration_policy" getter="get_owner_migration_policy">Owner migration behavior; use [code]OWNER_MIGRATION_*[/code] constants.</member>
+		<member name="search_properties" type="Dictionary" setter="set_search_properties" getter="get_search_properties">String properties indexed for lobby search. PlayFab search keys must use names like [code]string_key1[/code] or [code]number_key1[/code].</member>
+		<member name="lobby_properties" type="Dictionary" setter="set_lobby_properties" getter="get_lobby_properties">String properties visible to lobby members.</member>
+		<member name="member_properties" type="Dictionary" setter="set_member_properties" getter="get_member_properties">Initial string properties for the creating member.</member>
+		<member name="restrict_invites_to_lobby_owner" type="bool" setter="set_restrict_invites_to_lobby_owner" getter="get_restrict_invites_to_lobby_owner">When true, only the lobby owner can invite.</member>
+	</members>
+	<signals></signals>
+	<constants>
+		<constant name="ACCESS_POLICY_PUBLIC" value="0">Publicly searchable lobby.</constant>
+		<constant name="ACCESS_POLICY_FRIENDS" value="1">Friends-visible lobby.</constant>
+		<constant name="ACCESS_POLICY_PRIVATE" value="2">Private lobby.</constant>
+		<constant name="OWNER_MIGRATION_AUTOMATIC" value="0">PlayFab automatically migrates ownership.</constant>
+		<constant name="OWNER_MIGRATION_MANUAL" value="1">Title code manages ownership migration.</constant>
+		<constant name="OWNER_MIGRATION_NONE" value="2">No owner migration.</constant>
+	</constants>
+</class>

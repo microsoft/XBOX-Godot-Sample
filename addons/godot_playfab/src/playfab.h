@@ -16,6 +16,7 @@ namespace godot {
 
 class PlayFabGameSaves;
 class PlayFabLeaderboards;
+class PlayFabMultiplayer;
 class PlayFabResult;
 class PlayFabRuntime;
 class PlayFabUser;
@@ -43,6 +44,7 @@ class PlayFab : public Object {
     Ref<PlayFabUsers> m_users;
     Ref<PlayFabGameSaves> m_game_saves;
     Ref<PlayFabLeaderboards> m_leaderboards;
+    Ref<PlayFabMultiplayer> m_multiplayer;
     Ref<PlayFabAccounts> m_accounts;
     Ref<PlayFabCatalog> m_catalog;
     Ref<PlayFabCloudScript> m_cloud_script;
@@ -75,6 +77,7 @@ public:
     Ref<PlayFabUsers> get_users() const;
     Ref<PlayFabGameSaves> get_game_saves() const;
     Ref<PlayFabLeaderboards> get_leaderboards() const;
+    Ref<PlayFabMultiplayer> get_multiplayer() const;
     Ref<PlayFabAccounts> get_accounts() const;
     Ref<PlayFabCatalog> get_catalog() const;
     Ref<PlayFabCloudScript> get_cloud_script() const;

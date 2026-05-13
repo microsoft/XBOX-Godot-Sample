@@ -111,8 +111,10 @@ A local run is green when all of the following are true:
 | `LIVE_TESTS=1` | Enables tests that need a live GDK or PlayFab session, including tests that write online state. | unset |
 | `PLAYFAB_TITLE_ID` | Overrides `playfab/titleid` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
 | `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. | unset |
+| `PLAYFAB_DEVELOPER_SECRET_KEY` | Supplies the PlayFab title developer secret key to `tools\configure_playfab_test_title.ps1` only. The script reads it from the process, user, or machine environment. Never forwarded to Godot child processes. | unset |
+| `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` | Optional prefix for pre-created Multiplayer worker custom IDs. If unset, the runner derives `<PLAYFAB_CUSTOM_ID>-multiplayer`. | unset |
 
-The orchestrator forwards these variables only to child Godot processes. Prefer the script switches instead of mutating `$env:*` yourself:
+The orchestrator forwards the live/test variables to child Godot processes and scrubs `PLAYFAB_DEVELOPER_SECRET_KEY` from child environments. Prefer the script switches instead of mutating `$env:*` yourself:
 
 | Switch | Effect |
 |--------|--------|
@@ -121,6 +123,23 @@ The orchestrator forwards these variables only to child Godot processes. Prefer 
 | `-PlayFabCustomId <id>` | Sets `PLAYFAB_CUSTOM_ID` for Godot child processes; PlayFab live tests use it with `create_account=false`. |
 | `-SkipBuild` | Skips the CMake build stage. Use only when the debug build and mirrored GUT support are already current. |
 | `-OutDir <dir>` | Writes `run-summary.json` and `run-summary.md` to another directory. The default is `build\test-results`. |
+
+## PlayFab live title setup
+
+The current sandbox title for PlayFab live validation is `10D176`. Before the first live run against that title, configure it with the repo setup script:
+
+```powershell
+$env:PLAYFAB_DEVELOPER_SECRET_KEY = "<developer-secret-key>"
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\configure_playfab_test_title.ps1
+```
+
+The script reads the secret from the process, user, or machine environment without printing it, ensures the `godot-gdk-ext-live-smoke` custom-ID account exists for `create_account=false` live tests, creates the `godot-gdk-ext-live-smoke-multiplayer-host/client/observer` worker accounts for multi-client Lobby and Matchmaking tests, creates or validates the `godot_gdk_ext_live_smoke_queue` two-player matchmaking queue with a `run_id` equality rule, creates or validates the `wave4_settle_smoke` leaderboard definition, and writes a title-data marker. PlayFab Lobby search keys do not require title configuration; the Multiplayer live runner uses reserved keys such as `string_key1`.
+
+After setup, run the PlayFab live suite with:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
+```
 
 ## Live test settings
 

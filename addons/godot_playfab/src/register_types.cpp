@@ -9,6 +9,7 @@
 #include "playfab.h"
 #include "playfab_gamesaves.h"
 #include "playfab_leaderboards.h"
+#include "playfab_multiplayer.h"
 #include "playfab_pending_signal.h"
 #include "playfab_result.h"
 #include "playfab_user.h"
@@ -139,6 +140,22 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<PlayFabPlayerData>();
     ClassDB::register_class<PlayFabStatistics>();
     ClassDB::register_class<PlayFabTitleData>();
+    ClassDB::register_class<PlayFabMultiplayerConfig>();
+    ClassDB::register_class<PlayFabLobbyConfig>();
+    ClassDB::register_class<PlayFabLobbyJoinConfig>();
+    ClassDB::register_class<PlayFabLobbySearchConfig>();
+    ClassDB::register_class<PlayFabLobbyMember>();
+    ClassDB::register_class<PlayFabLobbyInvite>();
+    ClassDB::register_class<PlayFabLobbySummary>();
+    ClassDB::register_class<PlayFabLobbySearchResult>();
+    ClassDB::register_class<PlayFabLobbyStateChange>();
+    ClassDB::register_class<PlayFabLobby>();
+    ClassDB::register_class<PlayFabMatchmakingMember>();
+    ClassDB::register_class<PlayFabMatchmakingTicketConfig>();
+    ClassDB::register_class<PlayFabMatchTicket>();
+    ClassDB::register_class<PlayFabMatchTicketStateChange>();
+    ClassDB::register_class<PlayFabMultiplayerStateChange>();
+    ClassDB::register_class<PlayFabMultiplayer>();
 
     playfab_singleton = memnew(PlayFab);
     Engine::get_singleton()->register_singleton("PlayFab", PlayFab::get_singleton());

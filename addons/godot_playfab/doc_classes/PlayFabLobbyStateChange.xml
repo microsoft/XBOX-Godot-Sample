@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbyStateChange" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		State-change payload emitted by [PlayFabLobby].
+	</brief_description>
+	<description>
+		The lobby snapshot is refreshed before this payload is emitted.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabMultiplayer]'s lobby constants.</member>
+		<member name="lobby" type="PlayFabLobby" setter="" getter="get_lobby">Lobby that changed.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for completed operations.</member>
+		<member name="member" type="PlayFabLobbyMember" setter="" getter="get_member">Affected member when available.</member>
+		<member name="invite" type="PlayFabLobbyInvite" setter="" getter="get_invite">Invite payload when available.</member>
+		<member name="user" type="PlayFabUser" setter="" getter="get_user">Affected user when available.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Changed properties when available.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>
