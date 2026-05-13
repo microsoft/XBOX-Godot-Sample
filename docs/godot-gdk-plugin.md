@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_gdk` docs set.
 
-`godot_gdk` is the primary GDExtension addon in this repository. It currently implements the runtime/users/achievements/presence/social baseline, multiplayer activity, and system/runtime metadata surfaces, and also ships editor-side setup and export tooling for the broader GDK workflow.
+`godot_gdk` is the primary GDExtension addon in this repository. It implements a public-PC GDK service surface — runtime, users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC content access, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, and system metadata — and also ships editor-side setup and export tooling for the broader GDK workflow.
 
 ## Current implementation status
 
@@ -12,22 +12,38 @@ This is the landing page for the `godot_gdk` docs set.
 - shared GDK runtime lifecycle
 - shared async bridge
 - shared Xbox services scaffold
-- users service
-- achievements service
-- presence service
-- social service
-- system/runtime metadata service
+- users service (`GDK.users`)
+- system / runtime metadata service (`GDK.system`)
+- game UI service (`GDK.game_ui`)
+- accessibility service (`GDK.accessibility`)
+- achievements service (`GDK.achievements`)
+- package metadata + DLC content service (`GDK.package`)
+- stats service (`GDK.stats`)
+- leaderboards service (`GDK.leaderboards`)
+- privacy service (`GDK.privacy`)
+- presence service (`GDK.presence`)
+- social graph service (`GDK.social`)
+- profile service (`GDK.profile`)
+- string verification service (`GDK.string_verify`)
+- title storage service (`GDK.title_storage`)
+- error reporting service (`GDK.error_reporting`)
+- multiplayer activity service (`GDK.multiplayer_activity`)
+- capture metadata + capture-state service (`GDK.capture`)
+- launcher service (`GDK.launcher`) — `XLaunchUri` only
+- XStore commerce service (`GDK.store`)
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
-- sample demo for runtime/users/achievements/presence/social
+- sample demo for runtime/users/achievements/presence/social and the launch-point scenario shell
 - GUT coverage under `tests\godot\gdk\tests\`
 - editor setup/export scripts shipped with the addon
 
 ### Not implemented yet in native runtime
 
-- save service
-- stats service
-- leaderboards service
+- Game Saves are intentionally not part of `godot_gdk`; they live in
+  `godot_playfab` under `PlayFab.game_saves` because the PlayFab Game Saves
+  C API drives the Xbox-backed save flow.
+- Server / admin / private GDK surfaces remain out of scope for the public
+  PC client wrappers (see [`spec/gdext-gdk.md`](../spec/gdext-gdk.md)).
 
 ## Testing this addon
 
@@ -54,7 +70,12 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
 
 - [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
-  Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`, `GDK.store`, and `GDK.multiplayer_activity`.
+  Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`,
+  `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`,
+  `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`,
+  `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`,
+  `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`,
+  `GDK.launcher`, and `GDK.store`.
 
 ### Architecture
 
@@ -73,7 +94,8 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
 ### Subsystem deep dive
 
 - [`godot-gdk-async-system.md`](godot-gdk-async-system.md)  
-  Lower-level explanation of the shared async bridge and its current runtime/users/achievements/presence/social implementation.
+  Lower-level explanation of the shared async bridge and how the GDK service
+  wrappers participate in it.
 
 ### Reference
 

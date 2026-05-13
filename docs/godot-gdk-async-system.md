@@ -1,6 +1,6 @@
 # Godot GDK async system
 
-This document explains how the new `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.store`).
+This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`godot-gdk-plugin.md`](godot-gdk-plugin.md).
 
@@ -19,7 +19,10 @@ The current baseline gives us:
 - one internal `XAsync` bridge base: `GDKSignalXAsyncContext`
 - one internal one-shot signal helper: `GDKPendingSignal`
 - one internal Xbox services scaffold: `GDKXboxServices`
-- six concrete services using the pattern: `GDK.users`, `GDK.game_ui`, `GDK.achievements`, `GDK.presence`, `GDK.social`, and `GDK.store`
+- the concrete services that use this pattern across Xbox identity, services,
+  package metadata, commerce, capture, launcher, error reporting, and
+  system metadata (see [API reference](godot-gdk-api-reference.md) for the
+  full list)
 
 ## Public surface
 
@@ -36,13 +39,24 @@ Current public methods:
 - `dispatch() -> int`
 - `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
+- `get_system() -> GDKSystem`
 - `get_game_ui() -> GDKGameUI`
 - `get_accessibility() -> GDKAccessibility`
 - `get_achievements() -> GDKAchievements`
+- `get_package() -> GDKPackage`
+- `get_stats() -> GDKStats`
+- `get_leaderboards() -> GDKLeaderboards`
+- `get_privacy() -> GDKPrivacy`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
 - `get_store() -> GDKStore`
+- `get_profile() -> GDKProfile`
+- `get_string_verify() -> GDKStringVerify`
+- `get_title_storage() -> GDKTitleStorage`
+- `get_error_reporting() -> GDKErrorReporting`
+- `get_launcher() -> GDKLauncher`
 - `get_multiplayer_activity() -> GDKMultiplayerActivity`
+- `get_capture() -> GDKCapture`
 
 Current public signals:
 
@@ -184,7 +198,12 @@ Fields:
 ### Root/runtime
 
 - `gdk.cpp` / `gdk.h`  
-  Root singleton. Owns `GDKRuntime`, `GDKXboxServices`, `GDKUsers`, `GDKAchievements`, `GDKPresence`, and `GDKSocial`.
+  Root singleton. Owns `GDKRuntime`, `GDKXboxServices`, and every concrete
+  service (`GDKUsers`, `GDKSystem`, `GDKGameUI`, `GDKAccessibility`,
+  `GDKAchievements`, `GDKPackage`, `GDKStats`, `GDKLeaderboards`,
+  `GDKPrivacy`, `GDKPresence`, `GDKSocial`, `GDKStore`, `GDKProfile`,
+  `GDKStringVerify`, `GDKTitleStorage`, `GDKErrorReporting`, `GDKLauncher`,
+  `GDKMultiplayerActivity`, and `GDKCapture`).
 
 - `gdk_runtime.cpp` / `gdk_runtime.h`  
   Shared GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely.
@@ -208,17 +227,63 @@ Fields:
 - `gdk_user.cpp` / `gdk_user.h`  
   `GDKUser`, `GDKUsers`, and the first concrete `XAsync` bridge context (`AddUserAsyncContext`).
 
-- `gdk_achievement.cpp` / `gdk_achievement.h`
+- `gdk_system.cpp` / `gdk_system.h`  
+  `GDKSystem` synchronous title/runtime metadata reads.
+
+- `gdk_game_ui.cpp` / `gdk_game_ui.h`  
+  `GDKGameUI` `XGameUI`-backed dialog, picker, and notification flows.
+
+- `gdk_accessibility.cpp` / `gdk_accessibility.h`  
+  `GDKAccessibility`, `GDKClosedCaptionProperties`, and synchronous `XAccessibility` reads.
+
+- `gdk_achievement.cpp` / `gdk_achievement.h`  
   `GDKAchievement`, `GDKAchievements`, the Achievements Manager cache, and manager-driven completion signals.
 
-- `gdk_presence.cpp` / `gdk_presence.h`
+- `gdk_package.cpp` / `gdk_package.h`  
+  `GDKPackage`, `GDKPackageMount`, `GDKPackageResourcePack`, and `XPackage` enumeration / mount / DLC resource-pack flows.
+
+- `gdk_stats.cpp` / `gdk_stats.h`  
+  `GDKStats` Xbox Services user statistics with cache + tracking signals.
+
+- `gdk_leaderboards.cpp` / `gdk_leaderboards.h`  
+  `GDKLeaderboards`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow`, and read-only Xbox Services leaderboard queries.
+
+- `gdk_privacy.cpp` / `gdk_privacy.h`  
+  `GDKPrivacy` permission/avoid-list/mute-list reads.
+
+- `gdk_presence.cpp` / `gdk_presence.h`  
   `GDKPresence`, `GDKPresenceRecord`, the presence cache, and XAsync-backed presence set/clear/query flows.
 
-- `gdk_social.cpp` / `gdk_social.h`
+- `gdk_social.cpp` / `gdk_social.h`  
   `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, and Social Manager-backed completion signals.
 
+- `gdk_store.cpp` / `gdk_store.h`  
+  `GDKStore`, `GDKStoreLicenseStatus`, the per-product license cache, and `XStore` license/refresh/purchase flows.
+
+- `gdk_profile.cpp` / `gdk_profile.h`  
+  `GDKProfile`, `GDKUserProfile`, and Xbox Services profile reads.
+
+- `gdk_string_verify.cpp` / `gdk_string_verify.h`  
+  `GDKStringVerify` Xbox Live string verification.
+
+- `gdk_title_storage.cpp` / `gdk_title_storage.h`  
+  `GDKTitleStorage`, `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult`, and Xbox Services Title Storage blob/quota flows.
+
+- `gdk_error_reporting.cpp` / `gdk_error_reporting.h`  
+  `GDKErrorReporting` `XError` callback/options wrapper with `error_reported` mirrored through `GDK.runtime_error`.
+
+- `gdk_launcher.cpp` / `gdk_launcher.h`  
+  `GDKLauncher` `XLaunchUri`-only launcher with destination validation.
+
+- `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h`  
+  `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, MPA cache, recent-players staging, and pending-invite queue.
+
+- `gdk_capture.cpp` / `gdk_capture.h`  
+  `GDKCapture`, `GDKCaptureMetaData`, and the PC-supported `XAppCapture` capture-state and metadata flows.
+
 - `register_types.cpp`  
-  Registers `GDK`, `GDKUsers`, `GDKUser`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, and `GDKResult`, then publishes the `GDK` singleton.
+  Registers every public class listed above plus `GDKResult` and the
+  internal `GDKPendingSignal`, then publishes the `GDK` singleton.
 
 ## Core model
 
@@ -460,14 +525,17 @@ For manager/event-driven waits like achievements and social friends queries, sto
 
 ## Current scope
 
-This is still the first implementation slice.
-
 Today the system covers:
 
 - runtime bootstrap and shutdown
 - shared queue ownership
 - retained pending-signal/result wrappers
 - one reusable `XAsync` context base
-- the users, achievements, presence, social, and multiplayer-activity services
+- the full Xbox identity, Xbox services, package/DLC, commerce, capture,
+  launcher, error-reporting, and system-metadata service set listed in
+  [Public surface](#public-surface)
 
-It does **not** yet implement every service namespace from the spec (`save`, `stats`, and `leaderboards` are still missing), but the current services now share the same completion-signal pattern end to end.
+All shipped services share the same completion-signal pattern end to end.
+Game Saves are intentionally not part of this addon; they live in
+`godot_playfab` under `PlayFab.game_saves`. Server / admin / private GDK
+surfaces remain out of scope for the public PC client wrappers.

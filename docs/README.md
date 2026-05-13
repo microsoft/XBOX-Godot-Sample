@@ -32,7 +32,12 @@ for Partner Center configuration.
 - [**Sample Project Setup**](godot-gdk-sample-setup.md) — Partner Center
   configuration, sandbox setup, test accounts, and the config flow
 - [**GDScript API Reference**](godot-gdk-api-reference.md) — public API
-  surface for `GDK`, `GDK.users`, and `GDK.achievements`
+  surface for `GDK`, `GDK.system`, `GDK.users`, `GDK.game_ui`,
+  `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`,
+  `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`,
+  `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`,
+  `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`,
+  `GDK.launcher`, and `GDK.store`
 
 ### Architecture
 
@@ -59,8 +64,14 @@ for Partner Center configuration.
 
 ## PlayFab addon (`godot_playfab`)
 
-- [**PlayFab Plugin Overview**](godot-playfab-plugin.md) — runtime configuration,
-  current implementation status, sample usage, and testing
+- [**PlayFab Plugin Overview**](godot-playfab-plugin.md) — runtime
+  configuration, public surface (`PlayFab`, `PlayFab.users`,
+  `PlayFab.game_saves`, `PlayFab.leaderboards`, and the client-safe service
+  wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`,
+  `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`,
+  `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`,
+  `PlayFab.player_data`, `PlayFab.statistics`, `PlayFab.title_data`), sample
+  usage, and testing
 
 ## Design specs
 

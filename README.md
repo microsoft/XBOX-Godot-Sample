@@ -7,8 +7,8 @@ A repository of Godot 4.x GDExtension addons for the Microsoft public GDK
 
 | Addon | Description | Status |
 |-------|-------------|--------|
-| [`godot_gdk`](addons/godot_gdk/) | GDK runtime, Xbox user identity, Xbox achievements, Xbox presence, Xbox social graph, Xbox multiplayer activity | Runtime/users/achievements/presence/social/multiplayer-activity baseline |
-| [`godot_playfab`](addons/godot_playfab/) | PlayFab runtime bootstrap, manual PlayFab sign-in, PlayFab Game Saves, and PlayFab leaderboards | Root runtime/users/game-saves/leaderboards baseline |
+| [`godot_gdk`](addons/godot_gdk/) | GDK runtime + PC-supported Xbox services: users, achievements, presence, social graph, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, system metadata | Runtime + PC Xbox services baseline |
+| [`godot_playfab`](addons/godot_playfab/) | PlayFab runtime bootstrap, Xbox- and custom-ID sign-in, Game Saves, leaderboards, and client-safe service wrappers (accounts, catalog, cloud script, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data) | Root runtime/users/game-saves/leaderboards + client services baseline |
 | [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput controller support — devices, polling, vibration, action bridge | v1: Devices, Polling, Vibration, Action Bridge |
 | [`godot_gdk_packaging`](addons/godot_gdk_packaging/) | GDScript editor plugin for PC MSIXVC packaging via `makepkg.exe` | Editor plugin (no C++ build) |
 
@@ -68,6 +68,7 @@ The script removes ignored files only, so tracked repository files stay intact.
 
 ```
 addons/godot_gdk/         # GDK addon: metadata, editor scripts, native sources
+addons/godot_playfab/     # PlayFab addon: metadata, native sources
 addons/godot_gameinput/   # GameInput addon: metadata, native sources
 addons/godot_gdk_packaging/ # Pure GDScript editor plugin for PC packaging
 cmake/                    # Shared CMake helpers
@@ -96,14 +97,23 @@ Full documentation lives in [`docs/`](docs/README.md):
 
 - [**Getting Started**](docs/getting-started.md) — prerequisites, building,
   VS Code setup, development workflow
-- [**GDScript API Reference**](docs/godot-gdk-api-reference.md) — `GDK`,
-  `GDK.users`, `GDK.achievements`, `GDK.presence`, `GDK.social`
+- [**GDScript API Reference**](docs/godot-gdk-api-reference.md) — public surface
+  for `GDK`, `GDK.system`, `GDK.users`, `GDK.game_ui`, `GDK.accessibility`,
+  `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`,
+  `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`,
+  `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`,
+  `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`
 - [**Sample Project Setup**](docs/godot-gdk-sample-setup.md) — Partner Center
   config, sandbox, test accounts
 - [**GameInput Addon**](docs/godot-gameinput.md) — devices, polling,
   vibration, action bridge, sample integration
 - [**PlayFab Plugin Overview**](docs/godot-playfab-plugin.md) — PlayFab
-  runtime, project settings, user sessions, Game Saves, and leaderboards
+  runtime, project settings, user sessions, Game Saves, leaderboards, and
+  client-safe service wrappers (`PlayFab.accounts`, `PlayFab.catalog`,
+  `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`,
+  `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`,
+  `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`,
+  `PlayFab.title_data`)
 - [**Troubleshooting**](docs/troubleshooting.md) — common build and runtime
   issues
 

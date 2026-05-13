@@ -586,6 +586,42 @@ Namespace for social filter enums.
 | `FRIENDS` | Friends only |
 | `FAVORITE` | Favorite friends only |
 
+## Store service: `GDK.store`
+
+`GDK.store` is a `RefCounted` service object returned by `GDK.get_store()`.
+It wraps PC-supported `XStore` commerce APIs and caches the latest
+license-acquire result per Store product ID. All operations require a
+signed-in [`GDKUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-singleton-gdk) runtime.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `query_license_status_async(user, store_id)` | `Signal` | Query whether `user` can acquire a license for `store_id`. Completion `GDKResult.data` is a `GDKStoreLicenseStatus` on success. |
+| `refresh_entitlements_async(user, store_id)` | `Signal` | Refresh entitlements for `store_id` by re-querying license-acquire status. |
+| `show_purchase_ui_async(user, store_id)` | `Signal` | Show the system purchase UI for `store_id`. |
+| `get_cached_license_status(store_id)` | `GDKStoreLicenseStatus` | Returns the cached license status for `store_id`, or `null` when no cached value exists. |
+| `check_cached_license_status(store_id)` | `GDKResult` | Synchronous cache-only check; returns `license_status_not_cached` when no cached status exists. |
+
+### Usage
+
+```gdscript
+var result = await GDK.store.query_license_status_async(user, "9NBLGGH4R315")
+if result.ok:
+    var status: GDKStoreLicenseStatus = result.data
+    print(status.store_id, status.licensable_sku, status.status)
+```
+
+### `GDKStoreLicenseStatus`
+
+Typed wrapper around an `XStore` license-acquire result.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `store_id` | `String` | Store product ID used for the query |
+| `licensable_sku` | `String` | SKU value returned by `XStore` |
+| `status` | `int` | Native `XStore` license status enum value |
+
 ## Profile service: `GDK.profile`
 
 `GDK.profile` is a `RefCounted` service object returned by `GDK.get_profile()`.

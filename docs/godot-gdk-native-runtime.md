@@ -267,6 +267,251 @@ Its main wrapper types are:
 - `GDKSocialGroup` for tracked Social Manager groups
 - `GDKSocialUser` for copied social-graph user snapshots
 
+## Profile service
+
+`GDKProfile` is the XSAPI-backed profile layer for Xbox Services profile reads.
+
+It currently exposes:
+
+- `get_profile_async(user, xuid)`
+- `get_profiles_async(user, xuids)`
+- `get_profiles_for_social_group_async(user, social_group)`
+
+`GDKUserProfile` is the script-visible wrapper around one Xbox Services profile
+record. Calls duplicate from the shared cached Xbox services context via
+`GDKXboxServices::duplicate_context_for_user` (which calls
+`XblContextDuplicateHandle(...)`); methods return typed errors when the
+scaffold isn't initialized.
+
+## Privacy service
+
+`GDKPrivacy` is the XSAPI-backed privacy layer for permission, avoid-list, and
+mute-list reads.
+
+It currently exposes:
+
+- `check_permission_async(user, permission, target_xuid)`
+- `check_permission_for_anonymous_user_async(user, permission, anonymous_user_type)`
+- `batch_check_permission_async(user, permission, target_xuids)`
+- `get_avoid_list_async(user)`
+- `get_mute_list_async(user)`
+
+Permission strings and anonymous user types are normalized case-insensitively
+before being mapped to native enums. Mute/block list-change handlers are
+intentionally not exposed because the XSAPI symbols are not exported by the
+linked thunk libs.
+
+## Stats service
+
+`GDKStats` is the XSAPI-backed user statistics layer wired through the Xbox
+services scaffold.
+
+It currently exposes:
+
+- `query_user_stats_async(user, stat_names)`
+- `query_users_stats_async(user, xuids, stat_names)`
+- `set_stat_integer(user, stat_name, value)`
+- `set_stat_number(user, stat_name, value)`
+- `flush_stats_async(user)`
+- `track_stats(user, stat_names)`
+- `stop_tracking_stats(user, stat_names)`
+- `get_cached_stats(user)`
+
+It emits:
+
+- `stats_updated`
+- `stat_changed`
+- `stats_flushed`
+
+The service maintains a per-user cache keyed by stat name. Title-managed
+statistic updates are staged locally and submitted by `flush_stats_async()`.
+
+## Leaderboards service
+
+`GDKLeaderboards` is the XSAPI-backed read-only leaderboards layer backed by
+title-managed statistics.
+
+It currently exposes:
+
+- `get_leaderboard_async(user, stat_name, max_items)`
+- `get_leaderboard_around_user_async(user, stat_name, max_items)`
+- `get_social_leaderboard_async(user, stat_name, max_items)`
+- `get_next_page_async(leaderboard)`
+- `get_cached_leaderboard(stat_name)`
+
+It emits:
+
+- `leaderboard_updated`
+
+`GDKLeaderboard` carries `query_type`, `total_row_count`, `has_next`, columns,
+and rows. `GDKLeaderboardRow.column_values` carries JSON-encoded column values
+returned by Xbox Services.
+
+## String verification service
+
+`GDKStringVerify` is the XSAPI-backed wrapper around Xbox Live string
+verification.
+
+It currently exposes:
+
+- `verify_string_async(user, text)`
+- `verify_strings_async(user, strings)`
+
+Result dictionaries normalize the native verification result code into
+`success`, `offensive`, `too_long`, or `unknown_error`, plus an `acceptable`
+boolean and the first offending substring when available.
+
+## Title Storage service
+
+`GDKTitleStorage` is the XSAPI-backed Xbox Services Title Storage layer
+wrapping `title_storage_c.h`. It is unrelated to PlayFab Game Saves and the
+GDK `XGameSaveFiles` API.
+
+It currently exposes:
+
+- `get_quota_async(user, storage_type)`
+- `list_blob_metadata_async(user, storage_type, blob_path, skip_items, max_items)`
+- `get_next_blob_metadata_async(result)`
+- `download_blob_async(user, storage_type, blob_path)`
+- `upload_blob_async(user, storage_type, blob_path, data, display_name, e_tag, match_condition)`
+- `delete_blob_async(user, storage_type, blob_path, e_tag, match_condition)`
+
+`GDKTitleStorageBlobMetadata` and `GDKTitleStorageBlobMetadataResult` are the
+script-visible wrappers around blob metadata records and paged metadata
+results. Storage types accepted are `trusted_platform`, `global`, and
+`universal`.
+
+## Multiplayer activity service
+
+`GDKMultiplayerActivity` is the XSAPI-backed Multiplayer Activity (MPA) layer
+plus a pending-invite queue and recent-players staging.
+
+It currently exposes:
+
+- `set_activity_async(user, connection_string, join_restriction, max_players, current_players, group_id, allow_cross_platform_join)`
+- `get_activities_async(user, xuids)`
+- `get_cached_activity(xuid)`
+- `delete_activity_async(user)`
+- `send_invites_async(user, xuids, allow_cross_platform_join, connection_string)`
+- `show_invite_ui_async(user)`
+- `update_recent_players(user, xuids, encounter_type)`
+- `flush_recent_players_async(user)`
+- `accept_pending_invite(invite_uri)`
+
+It emits:
+
+- `activities_updated`
+- `pending_invite_received`
+- `invite_accepted`
+
+`GDKMultiplayerActivityInfo` is the script-visible wrapper around one cached
+activity snapshot. Pending invites are surfaced when an invite URI is detected
+on launch.
+
+## Package service
+
+`GDKPackage` is the `XPackage`-backed package metadata and DLC content service.
+
+It currently exposes:
+
+- `enumerate_packages(package_kind, scope)`
+- `find_package_by_identifier(package_identifier, package_kind, scope)`
+- `get_current_process_package_identifier()`
+- `mount_package_async(package_identifier)`
+- `load_resource_pack_async(package_identifier, pack_relative_path, replace_files, offset)`
+- `get_loaded_resource_packs()`
+- `get_install_progress(package_identifier)`
+
+`GDKPackageMount` is the RAII wrapper around one mount handle returned by
+`mount_package_async()`. `GDKPackageResourcePack` records resource packs
+loaded through `load_resource_pack_async()`; service-owned mounts stay alive
+until `GDK.shutdown()`. Async early failures propagate through the runtime's
+`get_last_error()` even when surfaced via the completion signal.
+
+## Store service
+
+`GDKStore` is the `XStore` commerce layer with a per-product license cache.
+
+It currently exposes:
+
+- `query_license_status_async(user, store_id)`
+- `refresh_entitlements_async(user, store_id)`
+- `show_purchase_ui_async(user, store_id)`
+- `get_cached_license_status(store_id)`
+- `check_cached_license_status(store_id)`
+
+`GDKStoreLicenseStatus` is the script-visible wrapper around an `XStore`
+license-acquire result. The service owns one `XStoreContextHandle` per
+process; handles are recreated lazily and dropped on `shutdown()`.
+
+## Capture service
+
+`GDKCapture` is the `XAppCapture`-backed capture-state and capture-metadata
+service. It exposes only the PC-supported subset of `XAppCapture.h`.
+
+It currently exposes:
+
+- `enable_capture()` / `disable_capture()`
+- `record_diagnostic_clip_async(duration)`
+- `take_diagnostic_screenshot_async(path_hint)`
+- `create_metadata(reserved_bytes)`
+
+`GDKCaptureMetaData` is the script-side write context around the process-wide
+`XAppCaptureMetadata*` APIs. It is a validity gate — there is no native
+metadata handle; methods are dispatched directly against the global capture
+metadata state and refuse calls after `close()`.
+
+## Launcher service
+
+`GDKLauncher` is the `XLaunchUri`-only launcher service. The public surface is
+intentionally limited to URI launches.
+
+It currently exposes:
+
+- `launch_uri(uri, user)`
+
+The wrapper validates URIs before forwarding to `XLaunchUri`. Blank or
+malformed URIs return `invalid_uri`; blocked destinations such as `file:`,
+`javascript:`, `data:`, `about:`, and `ms-*` URIs other than `ms-settings:` /
+`ms-windows-store:` return `unsupported_launcher_destination`.
+
+## Error reporting service
+
+`GDKErrorReporting` wraps the public PC GDK `XError` callback and options
+APIs (`XErrorSetCallback`, `XErrorSetOptions`). It does not submit reports to
+external endpoints.
+
+It currently exposes:
+
+- `configure_options(debugger_present_options, debugger_not_present_options)`
+- `set_callback_enabled(enabled)`
+- `is_callback_enabled()`
+
+It emits:
+
+- `error_reported`
+
+The same payload is mirrored through `GDK.runtime_error(result)` so callers
+can listen at the runtime level. `ErrorOptions` flags can be combined with
+bitwise OR.
+
+## System service
+
+`GDKSystem` is the synchronous title/runtime metadata service. It exposes
+PC-supported XGameRuntime metadata reads plus a passthrough to the shared
+Xbox services scaffold.
+
+It currently exposes:
+
+- `get_title_id()` / `get_title_id_hex()`
+- `get_sandbox_id()`
+- `get_service_configuration_id()`
+- `is_xbox_services_initialized()`
+
+The service has no native handle of its own; reads are direct calls to
+`XGameGetXboxTitleId`, `XSystemGetXboxLiveSandboxId`, and the Xbox services
+scaffold's cached SCID.
+
 ## Request flow
 
 The current `add_default_user_async()` flow is the best end-to-end example of the runtime behavior:
