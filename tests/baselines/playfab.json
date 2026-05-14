@@ -5,12 +5,12 @@
     "method": "pre_gut_runner_total"
   },
   "post": {
-    "asserts": 229,
-    "tests": 39,
-    "passing": 28,
+    "asserts": 1570,
+    "tests": 52,
+    "passing": 40,
     "failing": 0,
-    "pending": 11
+    "pending": 12
   },
-  "captured_at": "2026-05-07T17:50:00Z",
+  "captured_at": "2026-05-13T21:18:00Z",
   "godot_version": "4.6.2.stable.official.71f334935"
 }

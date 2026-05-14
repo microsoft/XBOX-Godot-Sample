@@ -8,6 +8,7 @@ gdk_detect_dependencies(
     PLAYFAB_GAMESAVE_RUNTIME_DLL_OUT PLAYFAB_GAMESAVE_RUNTIME_DLL
     PLAYFAB_SERVICES_RUNTIME_DLL_OUT PLAYFAB_SERVICES_RUNTIME_DLL
     PLAYFAB_MULTIPLAYER_RUNTIME_DLL_OUT PLAYFAB_MULTIPLAYER_RUNTIME_DLL
+    PLAYFAB_PARTY_RUNTIME_DLL_OUT PLAYFAB_PARTY_RUNTIME_DLL
 )
 
 add_library(godot_playfab SHARED
@@ -26,6 +27,7 @@ add_library(godot_playfab SHARED
     src/api/playfab_api_models.cpp
     src/api/playfab_api_services.cpp
     src/playfab_multiplayer.cpp
+    src/playfab_party.cpp
 )
 
 target_include_directories(godot_playfab PRIVATE
@@ -34,6 +36,7 @@ target_include_directories(godot_playfab PRIVATE
     "${GDK_WINDOWS}/include/httpClient"
     "${GDK_WINDOWS}/include/playfab/core"
     "${GDK_WINDOWS}/include/playfab/multiplayer"
+    "${GDK_WINDOWS}/include/playfab/party"
     "${GDK_WINDOWS}/include/playfab/services"
 )
 
@@ -47,6 +50,7 @@ target_link_libraries(godot_playfab PRIVATE
     PlayFabGameSave
     PlayFabMultiplayer
     PlayFabServices
+    Party
     xgameruntime
     libHttpClient
 )
@@ -78,6 +82,7 @@ godot_addon_copy_runtime_files(
         "${PLAYFAB_CORE_RUNTIME_DLL}"
         "${PLAYFAB_GAMESAVE_RUNTIME_DLL}"
         "${PLAYFAB_MULTIPLAYER_RUNTIME_DLL}"
+        "${PLAYFAB_PARTY_RUNTIME_DLL}"
         "${PLAYFAB_SERVICES_RUNTIME_DLL}"
 )
 

@@ -29,7 +29,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 | Client services | Yes | accounts, catalog, CloudScript, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data |
 | Events/telemetry | Reserved | `PlayFab.events` exists, but no active client event operation is available from the current GDK headers |
 | Multiplayer lobbies / matchmaking | Yes | MLP implemented; see `spec\gdext-playfab-lobby-matchmaking.md` |
-| Party transport | Planned | see `spec\gdext-playfab-party.md` |
+| Party transport | Yes | Full Party transport, host/join, chat/mute/permissions, and `MultiplayerPeerExtension` exposed under `PlayFab.party`. See `spec\gdext-playfab-party.md`. |
 | Server/admin/title-secret APIs | No | excluded from the client addon surface |
 
 ## Public API summary
@@ -65,7 +65,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 - `PlayFab.player_data`
 - `PlayFab.statistics`
 - `PlayFab.title_data`
-- Planned: `PlayFab.party` for Party transport and chat
+- `PlayFab.party` for Party network host/join, peer transport (a Godot `MultiplayerPeerExtension`), chat controls, mute, and permissions. See `spec\gdext-playfab-party.md`.
 
 ## Runtime configuration
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyNetworkStateChange" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Aggregate state-change record emitted by [PlayFabPartyNetwork].
+	</brief_description>
+	<description>
+		Surfaced by [signal PlayFabPartyNetwork.state_changed]. Wraps the change kind, the affected network, an optional [PlayFabResult], the participating [PlayFabUser], the related Godot peer id, the new network state (see [enum PlayFabParty.NetworkState]), and a human-readable reason.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_kind" qualifiers="const"><return type="int" /><description>Returns the change kind code.</description></method>
+		<method name="get_network" qualifiers="const"><return type="PlayFabPartyNetwork" /><description>Returns the network associated with the change.</description></method>
+		<method name="get_result" qualifiers="const"><return type="PlayFabResult" /><description>Returns the optional [PlayFabResult] for the change.</description></method>
+		<method name="get_user" qualifiers="const"><return type="PlayFabUser" /><description>Returns the participating [PlayFabUser], if any.</description></method>
+		<method name="get_peer_id" qualifiers="const"><return type="int" /><description>Returns the Godot peer id associated with the change, or [code]0[/code] if not applicable.</description></method>
+		<method name="get_state" qualifiers="const"><return type="int" /><description>Returns the new network state. See [enum PlayFabParty.NetworkState].</description></method>
+		<method name="get_reason" qualifiers="const"><return type="String" /><description>Returns the human-readable reason for the change.</description></method>
+	</methods>
+	<members>
+		<member name="kind" type="int" setter="" getter="get_kind">Kind code for the change.</member>
+		<member name="network" type="PlayFabPartyNetwork" setter="" getter="get_network">Network associated with the change.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Optional result for the change.</member>
+		<member name="user" type="PlayFabUser" setter="" getter="get_user">Participating local [PlayFabUser], if any.</member>
+		<member name="peer_id" type="int" setter="" getter="get_peer_id">Godot peer id associated with the change.</member>
+		<member name="state" type="int" setter="" getter="get_state">New network state. See [enum PlayFabParty.NetworkState].</member>
+		<member name="reason" type="String" setter="" getter="get_reason">Human-readable reason for the change.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

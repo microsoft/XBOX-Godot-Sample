@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyMember" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Snapshot of a peer in a [PlayFabPartyNetwork].
+	</brief_description>
+	<description>
+		Returned by [method PlayFabPartyPeer.get_peer_member]. Records the peer id, PlayFab entity key, optional cached [PlayFabUser], and whether the snapshot describes the local participant.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_peer_id" qualifiers="const"><return type="int" /><description>Returns the Godot peer id assigned by the host.</description></method>
+		<method name="get_entity_key" qualifiers="const"><return type="Dictionary" /><description>Returns the PlayFab entity key dictionary describing the peer.</description></method>
+		<method name="get_user" qualifiers="const"><return type="PlayFabUser" /><description>Returns the local [PlayFabUser], if known, otherwise [code]null[/code].</description></method>
+		<method name="is_local_member" qualifiers="const"><return type="bool" /><description>Returns whether the snapshot describes the local participant.</description></method>
+	</methods>
+	<members>
+		<member name="peer_id" type="int" setter="" getter="get_peer_id">Godot peer id assigned by the host.</member>
+		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">PlayFab entity key dictionary for the peer.</member>
+		<member name="user" type="PlayFabUser" setter="" getter="get_user">Local [PlayFabUser], if known.</member>
+		<member name="is_local" type="bool" setter="" getter="is_local_member">Whether this snapshot describes the local participant.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

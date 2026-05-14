@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyChat" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Diagnostic chat-control surface for [PlayFabParty].
+	</brief_description>
+	<description>
+		Returned by [method PlayFabParty.get_chat]. Most titles should rely on the peer-id helpers on [PlayFabPartyPeer]; this surface remains available for diagnostic and advanced flows that need direct access to the [PlayFabPartyChatControl] objects.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="user" type="PlayFabUser" /><description>Returns the local chat control bound to [param user], if any.</description></method>
+		<method name="get_chat_controls" qualifiers="const"><return type="Array" /><description>Returns all known [PlayFabPartyChatControl] instances.</description></method>
+	</methods>
+	<members></members>
+	<signals>
+		<signal name="state_changed"><param index="0" name="change" type="PlayFabPartyChatStateChange" /><description>Aggregate signal for chat-control state changes.</description></signal>
+	</signals>
+	<constants></constants>
+</class>
