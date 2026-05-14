@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Configuration for [PlayFabParty] initialization and network create/join.
+	</brief_description>
+	<description>
+		Optional configuration for [method PlayFabParty.initialize_async], [method PlayFabParty.create_and_join_network_async], and [method PlayFabParty.join_network_async]. Chat-related fields are addon policy flags; they decide whether and how the addon creates and connects Party chat controls and are not native Party network settings.
+	</description>
+	<tutorials></tutorials>
+	<methods></methods>
+	<members>
+		<member name="max_players" type="int" setter="set_max_players" getter="get_max_players" default="8">Maximum number of players permitted in the Party network.</member>
+		<member name="direct_peer_connectivity" type="int" setter="set_direct_peer_connectivity" getter="get_direct_peer_connectivity" default="0">Direct peer connectivity policy. See [enum PlayFabParty.DirectPeerConnectivity].</member>
+		<member name="invitation_id" type="String" setter="set_invitation_id" getter="get_invitation_id" default="&quot;&quot;">Optional invitation id; the addon generates one if empty.</member>
+		<member name="enable_voice_chat" type="bool" setter="set_voice_chat_enabled" getter="is_voice_chat_enabled" default="true">Whether the addon should create and connect a voice chat control.</member>
+		<member name="enable_text_chat" type="bool" setter="set_text_chat_enabled" getter="is_text_chat_enabled" default="true">Whether the addon should enable text chat on the chat control.</member>
+		<member name="enable_transcription" type="bool" setter="set_transcription_enabled" getter="is_transcription_enabled" default="false">Whether the addon should enable speech-to-text transcription on the chat control.</member>
+		<member name="enable_translation" type="bool" setter="set_translation_enabled" getter="is_translation_enabled" default="false">Whether the addon should enable text translation on the chat control.</member>
+		<member name="audio_input" type="String" setter="set_audio_input" getter="get_audio_input" default="&quot;&quot;">Audio input device id; uses the platform default when empty.</member>
+		<member name="audio_output" type="String" setter="set_audio_output" getter="get_audio_output" default="&quot;&quot;">Audio output device id; uses the platform default when empty.</member>
+		<member name="metadata" type="Dictionary" setter="set_metadata" getter="get_metadata">Title-supplied metadata stored alongside the Party network.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

@@ -21,6 +21,7 @@ This is the landing page for the `godot_playfab` docs set.
 - client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
 - `PlayFab.events` as a reserved service namespace; the current GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
 - PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
+- PlayFab Party network host (`create_and_join_network_async`) and join (`join_network_async`) flows over the PartyManager runtime, with peer-id handshake, descriptor publishing, chat controls (voice/text/transcription), mute, and permission management; the per-network peer object is a Godot `MultiplayerPeerExtension`
 - sample demos wired to the root singleton, including multiplayer_pong's
   sample-local service wrapper for Game Saves and leaderboard sync
 - GUT coverage under `tests\godot\playfab\tests\`
@@ -28,9 +29,8 @@ This is the landing page for the `godot_playfab` docs set.
 
 ### Not implemented yet
 
-- PlayFab Party transport/chat surfaces are specified but not implemented yet
 - custom non-Windows Game Saves UI callback/response wrappers are not yet exposed as a public Godot surface
-- server/admin/title-secret PlayFab APIs are intentionally excluded from the client wrapper set; Party APIs are specified but not implemented yet
+- server/admin/title-secret PlayFab APIs are intentionally excluded from the client wrapper set
 
 ## Runtime configuration
 
@@ -48,6 +48,7 @@ The PlayFab runtime reads these settings from Project Settings:
 - `PlayFab.game_saves`
 - `PlayFab.leaderboards`
 - `PlayFab.multiplayer`
+- `PlayFab.party`
 - `PlayFab.accounts`
 - `PlayFab.catalog`
 - `PlayFab.cloud_script`
@@ -65,6 +66,9 @@ The PlayFab runtime reads these settings from Project Settings:
 - `PlayFabMultiplayer`
 - `PlayFabLobby`
 - `PlayFabMatchTicket`
+- `PlayFabParty`
+- `PlayFabPartyNetwork`
+- `PlayFabPartyPeer`
 - `PlayFabUser`
 - `PlayFabResult`
 
@@ -120,7 +124,7 @@ Use `tools\configure_playfab_test_title.ps1` with a PlayFab developer secret in 
 
 ## Testing this addon
 
-`godot_playfab` is exercised by the `tests\godot\playfab\` host. The host covers the root singleton, class registration, runtime initialization, PlayFab user wrappers, Game Saves services, leaderboard services, API service contracts, Multiplayer service contracts, validation/error paths, and live custom-ID/Game Saves/leaderboard flows through files such as `tests\godot\playfab\tests\test_game_saves_live.gd`, `tests\godot\playfab\tests\test_leaderboards_live.gd`, `tests\godot\playfab\tests\test_api_services.gd`, `tests\godot\playfab\tests\test_multiplayer_contract.gd`, and `tests\godot\playfab\tests\test_validation_walk.gd`.
+`godot_playfab` is exercised by the `tests\godot\playfab\` host. The host covers the root singleton, class registration, runtime initialization, PlayFab user wrappers, Game Saves services, leaderboard services, API service contracts, Multiplayer service contracts, Party public-surface contract, validation/error paths, and live custom-ID/Game Saves/leaderboard flows through files such as `tests\godot\playfab\tests\test_game_saves_live.gd`, `tests\godot\playfab\tests\test_leaderboards_live.gd`, `tests\godot\playfab\tests\test_api_services.gd`, `tests\godot\playfab\tests\test_multiplayer_contract.gd`, `tests\godot\playfab\tests\test_party.gd`, and `tests\godot\playfab\tests\test_validation_walk.gd`.
 
 Default runs keep live prerequisites pending when a developer machine is not configured for PlayFab sign-in. The sandbox title currently used for repo live validation is `10D176`. Before the first live run against a title, configure the title with a developer secret key stored in an environment variable:
 

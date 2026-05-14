@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyChatControl" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Diagnostic wrapper around a PlayFab Party chat control.
+	</brief_description>
+	<description>
+		Provides advanced access to a PlayFab Party chat control. Most title code should prefer the peer-id helpers on [PlayFabPartyPeer] (such as [method PlayFabPartyPeer.send_text_async] and [method PlayFabPartyPeer.set_peer_chat_permissions_async]) which do not require maintaining chat-control identity.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_id" qualifiers="const"><return type="String" /><description>Returns the chat control id.</description></method>
+		<method name="get_user" qualifiers="const"><return type="PlayFabUser" /><description>Returns the [PlayFabUser] bound to the chat control, if local.</description></method>
+		<method name="is_voice_enabled" qualifiers="const"><return type="bool" /><description>Returns whether voice chat is enabled on the control.</description></method>
+		<method name="is_text_enabled" qualifiers="const"><return type="bool" /><description>Returns whether text chat is enabled on the control.</description></method>
+		<method name="is_transcription_enabled" qualifiers="const"><return type="bool" /><description>Returns whether transcription is enabled on the control.</description></method>
+		<method name="is_local" qualifiers="const"><return type="bool" /><description>Returns whether the chat control is local.</description></method>
+		<method name="send_text_async"><return type="Signal" /><param index="0" name="targets" type="Array" /><param index="1" name="message" type="String" /><param index="2" name="config" type="PlayFabPartyTextMessageConfig" default="null" /><description>Sends [param message] to the listed target chat controls.</description></method>
+		<method name="set_permissions_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="permissions" type="int" /><description>Updates the local chat-control relationship permissions for [param target]. See [enum PlayFabParty.ChatPermission].</description></method>
+		<method name="set_muted_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes [param target] on the local chat control.</description></method>
+		<method name="destroy_async"><return type="Signal" /><description>Destroys the chat control. The owning network may recreate it on demand.</description></method>
+	</methods>
+	<members>
+		<member name="id" type="String" setter="" getter="get_id">Chat control id.</member>
+		<member name="user" type="PlayFabUser" setter="" getter="get_user">Local [PlayFabUser] bound to the chat control.</member>
+		<member name="is_voice_enabled" type="bool" setter="" getter="is_voice_enabled">Whether voice chat is enabled.</member>
+		<member name="is_text_enabled" type="bool" setter="" getter="is_text_enabled">Whether text chat is enabled.</member>
+		<member name="is_transcription_enabled" type="bool" setter="" getter="is_transcription_enabled">Whether transcription is enabled.</member>
+		<member name="is_local" type="bool" setter="" getter="is_local">Whether the chat control is local.</member>
+	</members>
+	<signals>
+		<signal name="state_changed"><param index="0" name="change" type="PlayFabPartyChatStateChange" /><description>Emitted on chat-control state changes.</description></signal>
+		<signal name="message_received"><param index="0" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a text chat message is received on this control.</description></signal>
+		<signal name="transcription_received"><param index="0" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a transcription is received on this control.</description></signal>
+	</signals>
+	<constants></constants>
+</class>

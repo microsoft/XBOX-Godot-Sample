@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyNetwork" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A live PlayFab Party network and its lifecycle owner.
+	</brief_description>
+	<description>
+		Returned by [method PlayFabParty.create_and_join_network_async] and [method PlayFabParty.join_network_async]. The owning [PlayFabParty] keeps a strong reference until [method leave_async], [method PlayFabParty.leave_network_async], [method PlayFabPartyPeer.close_with_reason], or shutdown settles. Dropping a GDScript reference does not silently destroy the network.
+		[method get_descriptor] returns an empty string until the finalized base64 [code]PartyNetworkDescriptor[/code] is available; the provisional immediate descriptor from network creation is never exposed.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_network_id" qualifiers="const"><return type="String" /><description>Returns the Party network identifier.</description></method>
+		<method name="get_descriptor" qualifiers="const"><return type="String" /><description>Returns the finalized base64 network descriptor, or an empty string while the descriptor is still pending.</description></method>
+		<method name="get_state" qualifiers="const"><return type="int" /><description>Returns the current network state. See [enum PlayFabParty.NetworkState].</description></method>
+		<method name="get_local_user" qualifiers="const"><return type="PlayFabUser" /><description>Returns the local [PlayFabUser] participating in the network.</description></method>
+		<method name="get_local_peer" qualifiers="const"><return type="PlayFabPartyPeer" /><description>Returns the local [PlayFabPartyPeer] for the network.</description></method>
+		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><description>Returns the local [PlayFabPartyChatControl], if chat is enabled.</description></method>
+		<method name="is_host_network" qualifiers="const"><return type="bool" /><description>Returns whether the local participant created the Party network.</description></method>
+		<method name="leave_async"><return type="Signal" /><description>Convenience helper that calls [method PlayFabParty.leave_network_async] for this network.</description></method>
+	</methods>
+	<members>
+		<member name="network_id" type="String" setter="" getter="get_network_id">Party network identifier.</member>
+		<member name="descriptor" type="String" setter="" getter="get_descriptor">Finalized base64 network descriptor (empty while pending).</member>
+		<member name="state" type="int" setter="" getter="get_state">Current network state. See [enum PlayFabParty.NetworkState].</member>
+		<member name="local_user" type="PlayFabUser" setter="" getter="get_local_user">Local [PlayFabUser] participating in the network.</member>
+		<member name="local_peer" type="PlayFabPartyPeer" setter="" getter="get_local_peer">Local [PlayFabPartyPeer] for the network.</member>
+		<member name="local_chat_control" type="PlayFabPartyChatControl" setter="" getter="get_local_chat_control">Local [PlayFabPartyChatControl], if chat is enabled.</member>
+		<member name="is_host" type="bool" setter="" getter="is_host_network">Whether the local participant created the Party network.</member>
+	</members>
+	<signals>
+		<signal name="state_changed"><param index="0" name="change" type="PlayFabPartyNetworkStateChange" /><description>Aggregate signal for network state changes.</description></signal>
+	</signals>
+	<constants></constants>
+</class>
