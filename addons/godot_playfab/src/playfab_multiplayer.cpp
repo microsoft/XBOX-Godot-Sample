@@ -834,9 +834,6 @@ void PlayFabMultiplayer::_complete_pending_operation(PendingOperation *p_operati
         if (p_operation->pending_signal->was_cancel_requested()) {
             final_result = PlayFabResult::cancelled("PlayFab Multiplayer operation cancelled.");
         }
-        if (_get_runtime() != nullptr && final_result.is_valid() && !final_result->is_ok()) {
-            _get_runtime()->set_last_error(final_result);
-        }
         p_operation->pending_signal->complete(final_result);
     }
 
@@ -911,7 +908,6 @@ Signal PlayFabMultiplayer::initialize_async(const Ref<PlayFabMultiplayerConfig> 
     HRESULT hr = XTaskQueueCreate(XTaskQueueDispatchMode::ThreadPool, XTaskQueueDispatchMode::Manual, &m_multiplayer_queue);
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to create the PlayFab Multiplayer task queue.", "multiplayer_queue_create_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -926,14 +922,12 @@ Signal PlayFabMultiplayer::initialize_async(const Ref<PlayFabMultiplayerConfig> 
         XTaskQueueCloseHandle(m_multiplayer_queue);
         m_multiplayer_queue = nullptr;
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to initialize PlayFab Multiplayer.", "multiplayer_initialize_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
 
     m_initialized = true;
     m_shutting_down = false;
-    runtime->clear_last_error();
     pending_signal->complete_deferred(PlayFabResult::ok_result());
     return pending_signal->get_completed_signal();
 }
@@ -1111,7 +1105,6 @@ Signal PlayFabMultiplayer::create_lobby_async(const Ref<PlayFabUser> &p_user, co
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start creating the PlayFab lobby.", "lobby_create_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -1173,7 +1166,6 @@ Signal PlayFabMultiplayer::join_lobby_async(const Ref<PlayFabUser> &p_user, cons
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start joining the PlayFab lobby.", "lobby_join_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -1239,7 +1231,6 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start joining the arranged PlayFab lobby.", "arranged_lobby_join_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -1291,7 +1282,6 @@ Signal PlayFabMultiplayer::find_lobbies_async(const Ref<PlayFabUser> &p_user, co
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start finding PlayFab lobbies.", "lobby_search_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1330,7 +1320,6 @@ Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start updating PlayFab lobby properties.", "lobby_update_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1369,7 +1358,6 @@ Signal PlayFabMultiplayer::_set_member_properties_async(const Ref<PlayFabLobby> 
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start updating PlayFab lobby member properties.", "member_update_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1393,7 +1381,6 @@ Signal PlayFabMultiplayer::_leave_lobby_async(const Ref<PlayFabLobby> &p_lobby) 
     if (FAILED(hr)) {
         _release_pending_operation(operation);
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start leaving the PlayFab lobby.", "lobby_leave_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1489,7 +1476,6 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
             &ticket_handle);
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start creating the PlayFab matchmaking ticket.", "match_ticket_create_start_failed");
-        _get_runtime()->set_last_error(result);
         Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
@@ -1520,7 +1506,6 @@ Signal PlayFabMultiplayer::_cancel_match_ticket_async(const Ref<PlayFabMatchTick
     HRESULT hr = PFMatchmakingTicketCancel(p_ticket->get_native_handle());
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start cancelling the PlayFab matchmaking ticket.", "match_ticket_cancel_start_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     } else {
         PendingOperation *operation = _create_pending_operation(PlayFabMatchTicket::CANCELLED, pending_signal);
@@ -1541,7 +1526,6 @@ Signal PlayFabMultiplayer::_refresh_match_ticket_async(const Ref<PlayFabMatchTic
     HRESULT hr = p_ticket->refresh_snapshot();
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to refresh the PlayFab matchmaking ticket.", "match_ticket_refresh_failed");
-        _get_runtime()->set_last_error(result);
         pending_signal->complete_deferred(result);
     } else {
         pending_signal->complete_deferred(PlayFabResult::ok_result(p_ticket));
@@ -1621,7 +1605,6 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to process PlayFab lobby state changes.", "lobby_state_processing_failed");
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(result);
         }
         emit_signal("multiplayer_error", result);
         return 0;
@@ -1787,7 +1770,6 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
     if (FAILED(finish_hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(finish_hr, "Failed to finish PlayFab lobby state changes.", "lobby_state_finish_failed");
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(result);
         }
         emit_signal("multiplayer_error", result);
     }
@@ -1801,7 +1783,6 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to process PlayFab matchmaking state changes.", "matchmaking_state_processing_failed");
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(result);
         }
         emit_signal("multiplayer_error", result);
         return 0;
@@ -1830,7 +1811,6 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                             PlayFabResult::error_result(E_FAIL, "match_ticket_failed", "PlayFab matchmaking ticket failed.", ticket) :
                             PlayFabResult::ok_result(ticket);
                     if (kind == PlayFabMatchTicket::FAILED && _get_runtime() != nullptr) {
-                        _get_runtime()->set_last_error(result);
                     }
                     if (kind == PlayFabMatchTicket::CANCELLED || kind == PlayFabMatchTicket::FAILED) {
                         PendingOperation *cancel_operation = _find_pending_ticket_operation(ticket, PlayFabMatchTicket::CANCELLED);
@@ -1869,7 +1849,6 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
     if (FAILED(finish_hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(finish_hr, "Failed to finish PlayFab matchmaking state changes.", "matchmaking_state_finish_failed");
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(result);
         }
         emit_signal("multiplayer_error", result);
     }

@@ -22,7 +22,6 @@ accessed as namespaces under this root.
 | `is_available()` | `bool` | Whether the GDK runtime is available on this platform |
 | `is_initialized()` | `bool` | Whether the runtime has been initialized |
 | `dispatch()` | `int` | Pump async completions and manager state manually when `gdk/runtime/embed_dispatch` is disabled or when deterministic control is needed |
-| `get_last_error()` | `GDKResult` | Last error result |
 | `get_users()` | `GDKUsers` | Access the users service |
 | `get_game_ui()` | `GDKGameUI` | Access the system UI service |
 | `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
@@ -51,7 +50,7 @@ accessed as namespaces under this root.
 |--------|-------------|
 | `initialized()` | Runtime initialized successfully |
 | `shutdown_completed()` | Runtime shutdown complete |
-| `runtime_error(result: GDKResult)` | A runtime error occurred |
+| `runtime_error(result: GDKResult)` | An `XError` callback reported a runtime-wide error. Reserved for the global X-error bridge — caller-driven failures are returned as the per-call `GDKResult` and per-service unsolicited errors are emitted on `GDK.<service>.runtime_error` (e.g. `GDK.social.runtime_error`, `GDK.achievements.runtime_error`). |
 
 ### Usage
 
@@ -228,6 +227,7 @@ with direct-await completion signals.
 |--------|-------------|
 | `achievement_unlocked(user: GDKUser, achievement_id: String)` | An achievement was unlocked |
 | `achievements_updated(user: GDKUser)` | Achievement cache was updated |
+| `runtime_error(result: GDKResult)` | An unsolicited achievement-service error occurred (background failure with no per-call response). Caller-driven errors are returned as the per-call `GDKResult` from each method. |
 
 ### Usage
 
@@ -502,10 +502,10 @@ Script-visible wrapper around a cached Xbox presence record.
 | `start_social_graph(user)` | `GDKResult` | Start tracking the social graph for a user |
 | `stop_social_graph(user)` | `void` | Stop tracking the social graph for a user |
 | `get_friends_async(user)` | `Signal` | Query the default friends group |
-| `create_social_group(user, filter)` | `GDKSocialGroup` | Create a filtered social group |
-| `create_social_group_from_xuids(user, xuids)` | `GDKSocialGroup` | Create a social group from explicit XUIDs |
+| `create_social_group(user, filter)` | `GDKResult` | Create a filtered social group. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
+| `create_social_group_from_xuids(user, xuids)` | `GDKResult` | Create a social group from explicit XUIDs. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
 | `destroy_social_group(group)` | `void` | Destroy a social group |
-| `get_group_users(group)` | `Array` | Get the `GDKSocialUser` list for a group |
+| `get_group_users(group)` | `GDKResult` | Get the `GDKSocialUser` list for a group. `result.data` is always an `Array` (possibly empty); `result.ok` is false when the underlying lookup fails. |
 | `submit_reputation_feedback_async(user, target_xuid, feedback_type, reason := "", evidence_id := "")` | `Signal` | Submit one reputation feedback item |
 | `submit_batch_reputation_feedback_async(user, feedback_items)` | `Signal` | Submit multiple reputation feedback items |
 
@@ -523,6 +523,7 @@ and `user_content_gamerpic`.
 | `social_graph_changed(user: GDKUser)` | The social graph loaded or changed for a user |
 | `social_group_updated(group: GDKSocialGroup)` | A social group's membership was updated |
 | `social_user_changed(xuid: String, social_user: GDKSocialUser)` | A tracked user's social/presence data changed |
+| `runtime_error(result: GDKResult)` | An unsolicited social-service error occurred (background failure with no per-call response). Caller-driven errors from the public `create_social_group*` and `get_group_users` methods are also mirrored here in addition to being returned. |
 
 ### Usage
 
@@ -532,8 +533,10 @@ var result = GDK.social.start_social_graph(user)
 if result.ok:
     var friends_result = await GDK.social.get_friends_async(user)
     if friends_result.ok:
-        for friend in GDK.social.get_group_users(friends_result.data):
-            print(friend.gamertag)
+        var users_result = GDK.social.get_group_users(friends_result.data)
+        if users_result.ok:
+            for friend in users_result.data:
+                print(friend.gamertag)
 ```
 
 ## `GDKSocialUser`

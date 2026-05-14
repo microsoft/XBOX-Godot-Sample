@@ -18,7 +18,6 @@ constexpr bool GDK_PLATFORM_AVAILABLE = false;
 } // namespace
 
 GDKRuntime::GDKRuntime() {
-    clear_last_error();
 }
 
 GDKRuntime::~GDKRuntime() {
@@ -28,14 +27,12 @@ GDKRuntime::~GDKRuntime() {
 Ref<GDKResult> GDKRuntime::initialize() {
     if (m_initialized) {
         Ref<GDKResult> result = GDKResult::error_result(E_FAIL, "already_initialized", "GDK runtime is already initialized.");
-        set_last_error(result);
         return result;
     }
 
     HRESULT hr = XGameRuntimeInitialize();
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to initialize GDK runtime.", "runtime_initialize_failed");
-        set_last_error(result);
         return result;
     }
 
@@ -47,19 +44,16 @@ Ref<GDKResult> GDKRuntime::initialize() {
         XGameRuntimeUninitialize();
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to create the shared XTaskQueue.", "task_queue_create_failed");
-        set_last_error(result);
         return result;
     }
 
     m_initialized = true;
     m_shutting_down = false;
-    clear_last_error();
     return GDKResult::ok_result();
 }
 
 void GDKRuntime::shutdown() {
     if (!m_initialized) {
-        clear_last_error();
         return;
     }
 
@@ -97,7 +91,6 @@ void GDKRuntime::shutdown() {
 
     m_initialized = false;
     m_shutting_down = false;
-    clear_last_error();
 }
 
 int GDKRuntime::dispatch() {
@@ -161,21 +154,8 @@ Ref<GDKPendingSignal> GDKRuntime::make_pending_signal() {
 Signal GDKRuntime::make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data) {
     Ref<GDKPendingSignal> pending_signal = make_pending_signal();
     Ref<GDKResult> result = GDKResult::error_result(p_hresult, p_code, p_message, p_data);
-    set_last_error(result);
     pending_signal->complete_deferred(result);
     return pending_signal->get_completed_signal();
-}
-
-Ref<GDKResult> GDKRuntime::get_last_error() const {
-    return m_last_error;
-}
-
-void GDKRuntime::set_last_error(const Ref<GDKResult> &p_result) {
-    m_last_error = p_result;
-}
-
-void GDKRuntime::clear_last_error() {
-    m_last_error = GDKResult::ok_result();
 }
 
 void CALLBACK GDKRuntime::_queue_terminated(void *p_context) {

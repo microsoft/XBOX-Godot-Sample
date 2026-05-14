@@ -62,7 +62,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled("PlayFab sign-in cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -70,13 +69,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled("PlayFab sign-in cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "Failed to sign the Xbox user into PlayFab.", "playfab_sign_in_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -85,7 +82,6 @@ protected:
         HRESULT size_hr = PFAuthenticationLoginWithXUserGetResultSize(p_async_block, &buffer_size);
         if (FAILED(size_hr)) {
             result = PlayFabResult::hresult_error(size_hr, "Failed to get the PlayFab login result size.", "playfab_sign_in_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -102,7 +98,6 @@ protected:
                 nullptr);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve the PlayFab login result.", "playfab_sign_in_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -113,14 +108,12 @@ protected:
         HRESULT user_hr = user->adopt_session(m_user_handle, entity_handle, get_runtime()->get_service_config_handle());
         if (FAILED(user_hr)) {
             result = PlayFabResult::hresult_error(user_hr, "Failed to translate the PlayFab login result into a Godot user wrapper.", "playfab_user_wrapper_create_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         m_users->add_or_update_user_session(user);
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(user));
     }
 };
@@ -151,7 +144,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled("PlayFab custom-ID sign-in cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -159,13 +151,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled("PlayFab custom-ID sign-in cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "Failed to sign the custom ID into PlayFab.", "playfab_custom_id_sign_in_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -174,7 +164,6 @@ protected:
         HRESULT size_hr = PFAuthenticationLoginWithCustomIDGetResultSize(p_async_block, &buffer_size);
         if (FAILED(size_hr)) {
             result = PlayFabResult::hresult_error(size_hr, "Failed to get the PlayFab custom-ID login result size.", "playfab_custom_id_sign_in_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -191,7 +180,6 @@ protected:
                 nullptr);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve the PlayFab custom-ID login result.", "playfab_custom_id_sign_in_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -202,14 +190,12 @@ protected:
         HRESULT user_hr = user->adopt_custom_id_session(m_custom_id, entity_handle);
         if (FAILED(user_hr)) {
             result = PlayFabResult::hresult_error(user_hr, "Failed to translate the PlayFab custom-ID login result into a Godot user wrapper.", "playfab_custom_id_user_wrapper_create_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         m_users->add_or_update_user_session(user);
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(user));
     }
 };
@@ -285,7 +271,6 @@ Signal PlayFabUsers::sign_in_with_xuser_async(Object *p_user, bool p_create_acco
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab XUser login request.", "playfab_sign_in_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -321,7 +306,6 @@ Signal PlayFabUsers::sign_in_with_custom_id_async(const String &p_custom_id, boo
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab custom-ID login request.", "playfab_custom_id_sign_in_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

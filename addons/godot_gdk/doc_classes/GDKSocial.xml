@@ -31,19 +31,19 @@
 			</description>
 		</method>
 		<method name="create_social_group">
-			<return type="GDKSocialGroup" />
+			<return type="GDKResult" />
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="filter" type="GDKSocialFilter" default="null" />
 			<description>
-				Creates a social group for the given user with an optional filter. If no filter is provided, a default filter is used.
+				Creates a social group for the given user with an optional filter. If no filter is provided, a default filter is used. Returns a [GDKResult]; on success the [code]data[/code] field contains the created [GDKSocialGroup]. On failure the result describes the error and a [code]runtime_error[/code] signal is emitted.
 			</description>
 		</method>
 		<method name="create_social_group_from_xuids">
-			<return type="GDKSocialGroup" />
+			<return type="GDKResult" />
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="xuids" type="PackedStringArray" />
 			<description>
-				Creates a social group that tracks the specified XUIDs.
+				Creates a social group that tracks the specified XUIDs. Returns a [GDKResult]; on success the [code]data[/code] field contains the created [GDKSocialGroup]. On failure the result describes the error and a [code]runtime_error[/code] signal is emitted.
 			</description>
 		</method>
 		<method name="destroy_social_group">
@@ -54,10 +54,10 @@
 			</description>
 		</method>
 		<method name="get_group_users">
-			<return type="Array" />
+			<return type="GDKResult" />
 			<param index="0" name="group" type="GDKSocialGroup" />
 			<description>
-				Returns an [Array] of [GDKSocialUser] objects for the users tracked by the given group.
+				Returns a [GDKResult] whose [code]data[/code] field contains an [Array] of [GDKSocialUser] objects for the users tracked by the given group. On native failure the result describes the error and a [code]runtime_error[/code] signal is emitted.
 			</description>
 		</method>
 		<method name="submit_reputation_feedback_async">
@@ -100,6 +100,12 @@
 			<param index="1" name="social_user" type="GDKSocialUser" />
 			<description>
 				Emitted when a tracked social user's data has changed.
+			</description>
+		</signal>
+		<signal name="runtime_error">
+			<param index="0" name="result" type="GDKResult" />
+			<description>
+				Emitted when an unsolicited social subsystem error occurs (for example a failure inside [code]XblSocialManagerDoWork[/code], a per-event failure delivered by Social Manager, or a native failure raised while creating a group or reading group users). Caller-driven failures are also returned as the [GDKResult] from [method create_social_group], [method create_social_group_from_xuids], and [method get_group_users].
 			</description>
 		</signal>
 	</signals>

@@ -38,12 +38,6 @@
 				Manually pumps the PlayFab async task queue. Use this when [code]playfab/runtime/embed_dispatch[/code] is disabled or when deterministic completion timing is required.
 			</description>
 		</method>
-		<method name="get_last_error" qualifiers="const">
-			<return type="PlayFabResult" />
-			<description>
-				Returns the most recent PlayFab runtime error.
-			</description>
-		</method>
 		<method name="get_users" qualifiers="const">
 			<return type="PlayFabUsers" />
 			<description>
@@ -236,12 +230,6 @@
 		<signal name="shutdown_completed">
 			<description>
 				Emitted when the PlayFab runtime has completed shutdown.
-			</description>
-		</signal>
-		<signal name="runtime_error">
-			<param index="0" name="result" type="PlayFabResult" />
-			<description>
-				Emitted when a runtime error occurs in PlayFab.
 			</description>
 		</signal>
 	</signals>

@@ -29,7 +29,6 @@ constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/endpoint";
 } // namespace
 
 PlayFabRuntime::PlayFabRuntime() {
-    clear_last_error();
 }
 
 PlayFabRuntime::~PlayFabRuntime() {
@@ -39,20 +38,17 @@ PlayFabRuntime::~PlayFabRuntime() {
 Ref<PlayFabResult> PlayFabRuntime::initialize() {
     if (m_initialized) {
         Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "already_initialized", "PlayFab runtime is already initialized.");
-        set_last_error(result);
         return result;
     }
 
     if (!PLAYFAB_GDK_PLATFORM) {
         Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "platform_unsupported", "The refactored PlayFab runtime currently supports GDK platforms only.");
-        set_last_error(result);
         return result;
     }
 
     ProjectSettings *project_settings = ProjectSettings::get_singleton();
     if (project_settings == nullptr) {
         Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "project_settings_unavailable", "ProjectSettings is unavailable.");
-        set_last_error(result);
         return result;
     }
 
@@ -60,7 +56,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     String endpoint = String(project_settings->get_setting(PLAYFAB_ENDPOINT_SETTING, "")).strip_edges();
     if (title_id.is_empty()) {
         Ref<PlayFabResult> result = PlayFabResult::error_result(E_INVALIDARG, "title_id_required", "PlayFab initialization requires ProjectSettings['playfab/titleid'] to be set.");
-        set_last_error(result);
         return result;
     }
 
@@ -76,7 +71,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     HRESULT hr = XGameRuntimeInitialize();
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize the Gaming Runtime.", "runtime_initialize_failed");
-        set_last_error(result);
         return result;
     }
     xgame_runtime_initialized = true;
@@ -89,7 +83,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to create the shared XTaskQueue.", "task_queue_create_failed");
-        set_last_error(result);
         return result;
     }
 
@@ -100,7 +93,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Core.", "playfab_core_initialize_failed");
-        set_last_error(result);
         return result;
     }
     playfab_core_initialized = true;
@@ -115,7 +107,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Services.", "playfab_services_initialize_failed");
-        set_last_error(result);
         return result;
     }
     playfab_services_initialized = true;
@@ -141,7 +132,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Game Save Files.", "playfab_gamesave_initialize_failed");
-        set_last_error(result);
         return result;
     }
     game_save_files_initialized = true;
@@ -178,20 +168,17 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         }
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to create the PlayFab service configuration.", "service_config_create_failed");
-        set_last_error(result);
         return result;
     }
 
     m_initialized = true;
     m_shutting_down = false;
     m_game_save_files_initialized = true;
-    clear_last_error();
     return PlayFabResult::ok_result();
 }
 
 void PlayFabRuntime::shutdown() {
     if (!m_initialized) {
-        clear_last_error();
         return;
     }
 
@@ -249,7 +236,6 @@ void PlayFabRuntime::shutdown() {
     m_game_save_files_initialized = false;
     m_title_id = "";
     m_endpoint = "";
-    clear_last_error();
 }
 
 int PlayFabRuntime::dispatch() {
@@ -325,21 +311,8 @@ Ref<PlayFabPendingSignal> PlayFabRuntime::make_pending_signal() {
 Signal PlayFabRuntime::make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data) {
     Ref<PlayFabPendingSignal> pending_signal = make_pending_signal();
     Ref<PlayFabResult> result = PlayFabResult::error_result(p_hresult, p_code, p_message, p_data);
-    set_last_error(result);
     pending_signal->complete_deferred(result);
     return pending_signal->get_completed_signal();
-}
-
-Ref<PlayFabResult> PlayFabRuntime::get_last_error() const {
-    return m_last_error;
-}
-
-void PlayFabRuntime::set_last_error(const Ref<PlayFabResult> &p_result) {
-    m_last_error = p_result;
-}
-
-void PlayFabRuntime::clear_last_error() {
-    m_last_error = PlayFabResult::ok_result();
 }
 
 void CALLBACK PlayFabRuntime::_queue_terminated(void *p_context) {

@@ -57,7 +57,6 @@ Current public shape:
 - `is_available() -> bool`
 - `is_initialized() -> bool`
 - `dispatch() -> int`
-- `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
 - `get_accessibility() -> GDKAccessibility`
 - `get_achievements() -> GDKAchievements`
@@ -425,8 +424,9 @@ It currently exposes:
 `GDKPackageMount` is the RAII wrapper around one mount handle returned by
 `mount_package_async()`. `GDKPackageResourcePack` records resource packs
 loaded through `load_resource_pack_async()`; service-owned mounts stay alive
-until `GDK.shutdown()`. Async early failures propagate through the runtime's
-`get_last_error()` even when surfaced via the completion signal.
+until `GDK.shutdown()`. Async early failures are surfaced through the
+completion signal payload (`GDKResult`); there is no global `last_error`
+mirror to poll.
 
 ## Store service
 

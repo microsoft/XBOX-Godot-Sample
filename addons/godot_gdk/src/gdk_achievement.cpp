@@ -166,6 +166,7 @@ void GDKAchievements::_bind_methods() {
         PropertyInfo(Variant::OBJECT, "user"),
         PropertyInfo(Variant::STRING, "achievement_id")));
     ADD_SIGNAL(MethodInfo("achievements_updated", PropertyInfo(Variant::OBJECT, "user")));
+    ADD_SIGNAL(MethodInfo("runtime_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKResult")));
 }
 
 GDKRuntime *GDKAchievements::_get_runtime() const {
@@ -380,7 +381,6 @@ void GDKAchievements::_complete_pending_queries(UserState &p_state) {
     Ref<GDKResult> result = GDKResult::ok_result(_get_cached_achievements_array(p_state));
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
 
     m_pending_query_ops.erase(
@@ -403,7 +403,6 @@ void GDKAchievements::_complete_pending_queries(UserState &p_state) {
 void GDKAchievements::_fail_pending_queries(uint64_t p_xbox_user_id, const Ref<GDKResult> &p_result) {
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
-        runtime->set_last_error(p_result);
     }
 
     m_pending_query_ops.erase(
@@ -432,7 +431,6 @@ void GDKAchievements::_complete_pending_updates(UserState &p_state, const String
     Ref<GDKResult> result = GDKResult::ok_result(achievement);
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
 
     m_pending_update_ops.erase(
@@ -462,7 +460,6 @@ void GDKAchievements::_complete_pending_updates(UserState &p_state, const String
 void GDKAchievements::_fail_pending_updates(uint64_t p_xbox_user_id, const Ref<GDKResult> &p_result) {
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
-        runtime->set_last_error(p_result);
     }
 
     m_pending_update_ops.erase(
@@ -533,7 +530,6 @@ void GDKAchievements::_submit_waiting_updates(UserState &p_state) {
         Ref<GDKResult> submit_result = _submit_update(pending_update);
         if (!submit_result->is_ok()) {
             if (runtime != nullptr) {
-                runtime->set_last_error(submit_result);
             }
             pending_update.request->complete(submit_result);
         }
@@ -605,12 +601,10 @@ int GDKAchievements::dispatch() {
     size_t event_count = 0;
     HRESULT hr = XblAchievementsManagerDoWork(&events, &event_count);
     if (FAILED(hr)) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::hresult_error(
+        emit_signal("runtime_error", GDKResult::hresult_error(
                 hr,
                 "Failed to dispatch Achievements Manager state.",
                 "achievement_manager_dispatch_failed"));
-        }
         return 0;
     }
 

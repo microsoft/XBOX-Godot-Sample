@@ -64,7 +64,6 @@ protected:
         Ref<PlayFabResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -72,18 +71,15 @@ protected:
         const HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "PlayFab API call failed: " + m_operation_name + ".", "playfab_api_call_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result());
     }
 };
@@ -118,7 +114,6 @@ protected:
         Ref<PlayFabResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -126,13 +121,11 @@ protected:
         const HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "PlayFab API call failed: " + m_operation_name + ".", "playfab_api_call_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -141,12 +134,10 @@ protected:
         const HRESULT result_hr = GetResultFn(p_async_block, &service_result);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve PlayFab API result for " + m_operation_name + ".", "playfab_api_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(EncodeFn(&service_result)));
     }
 };
@@ -182,7 +173,6 @@ protected:
         Ref<PlayFabResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -190,13 +180,11 @@ protected:
         const HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "PlayFab API call failed: " + m_operation_name + ".", "playfab_api_call_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -205,7 +193,6 @@ protected:
         const HRESULT size_hr = GetResultSizeFn(p_async_block, &buffer_size);
         if (FAILED(size_hr)) {
             result = PlayFabResult::hresult_error(size_hr, "Failed to retrieve PlayFab API result size for " + m_operation_name + ".", "playfab_api_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -215,12 +202,10 @@ protected:
         const HRESULT result_hr = GetResultFn(p_async_block, buffer.size(), buffer.data(), &service_result, nullptr);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve PlayFab API result for " + m_operation_name + ".", "playfab_api_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(EncodeFn(service_result)));
     }
 };
@@ -252,7 +237,6 @@ protected:
         Ref<PlayFabResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -260,13 +244,11 @@ protected:
         const HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "PlayFab API call failed: " + m_operation_name + ".", "playfab_api_call_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -275,12 +257,10 @@ protected:
         const HRESULT result_hr = GetResultFn(p_async_block, &service_result);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve PlayFab API result for " + m_operation_name + ".", "playfab_api_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(EncodeFn(&service_result)));
     }
 };
@@ -313,7 +293,6 @@ protected:
         Ref<PlayFabResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -321,13 +300,11 @@ protected:
         const HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled(m_operation_name + " cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "PlayFab API call failed: " + m_operation_name + ".", "playfab_api_call_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -336,7 +313,6 @@ protected:
         const HRESULT size_hr = GetResultSizeFn(p_async_block, &buffer_size);
         if (FAILED(size_hr)) {
             result = PlayFabResult::hresult_error(size_hr, "Failed to retrieve PlayFab API result size for " + m_operation_name + ".", "playfab_api_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -346,12 +322,10 @@ protected:
         const HRESULT result_hr = GetResultFn(p_async_block, buffer.size(), buffer.data(), &service_result, nullptr);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve PlayFab API result for " + m_operation_name + ".", "playfab_api_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(EncodeFn(service_result)));
     }
 };

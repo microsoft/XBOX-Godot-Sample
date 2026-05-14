@@ -11,7 +11,6 @@ const PLAYFAB_ROOT_METHODS := [
 	"is_available",
 	"is_initialized",
 	"dispatch",
-	"get_last_error",
 	"get_users",
 	"get_game_saves",
 	"get_leaderboards",
@@ -34,7 +33,7 @@ const PLAYFAB_ROOT_METHODS := [
 	"get_endpoint",
 ]
 
-const PLAYFAB_ROOT_SIGNALS := ["initialized", "shutdown_completed", "runtime_error"]
+const PLAYFAB_ROOT_SIGNALS := ["initialized", "shutdown_completed"]
 
 const REGISTERED_CLASSES := [
 	"PlayFab",
@@ -172,11 +171,6 @@ func test_root_api_initial_state() -> void:
 	assert_eq(playfab.get_title_id(), "", "PlayFab.get_title_id() is empty before init")
 	assert_eq(playfab.get_endpoint(), "", "PlayFab.get_endpoint() is empty before init")
 
-	var last_error = playfab.get_last_error()
-	assert_not_null(last_error, "PlayFab.get_last_error() returns PlayFabResult")
-	if last_error != null:
-		assert_eq(last_error.ok, true, "PlayFab.get_last_error() starts clear")
-
 
 func test_project_settings_registration() -> void:
 	assert_true(ProjectSettings.has_setting(PLAYFAB_TITLE_ID_SETTING), "playfab/titleid project setting registered")
@@ -195,14 +189,10 @@ func test_initialize_rejects_blank_title_id() -> void:
 	reset_playfab_runtime()
 
 	var initialized_events: Array = []
-	var runtime_errors: Array = []
 	var initialized_handler := func() -> void:
 		initialized_events.append(true)
-	var runtime_error_handler := func(result) -> void:
-		runtime_errors.append(result)
 
 	playfab.initialized.connect(initialized_handler)
-	playfab.runtime_error.connect(runtime_error_handler)
 
 	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
 	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
@@ -215,13 +205,7 @@ func test_initialize_rejects_blank_title_id() -> void:
 	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
 
 	assert_playfab_result_error(init_result, "title_id_required", "PlayFab.initialize() rejects blank playfab/titleid")
-
-	var current_last_error = playfab.get_last_error()
-	assert_playfab_result_error(current_last_error, "title_id_required", "PlayFab.get_last_error() tracks blank title id failures")
 	assert_eq(initialized_events.size(), 0, "PlayFab.initialized is not emitted for blank title id")
-	assert_eq(runtime_errors.size(), 1, "PlayFab.runtime_error is emitted for blank title id")
 
 	if playfab.initialized.is_connected(initialized_handler):
 		playfab.initialized.disconnect(initialized_handler)
-	if playfab.runtime_error.is_connected(runtime_error_handler):
-		playfab.runtime_error.disconnect(runtime_error_handler)

@@ -129,7 +129,6 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_available"), &GDK::is_available);
     ClassDB::bind_method(D_METHOD("is_initialized"), &GDK::is_initialized);
     ClassDB::bind_method(D_METHOD("dispatch"), &GDK::dispatch);
-    ClassDB::bind_method(D_METHOD("get_last_error"), &GDK::get_last_error);
     ClassDB::bind_method(D_METHOD("get_users"), &GDK::get_users);
     ClassDB::bind_method(D_METHOD("get_game_ui"), &GDK::get_game_ui);
     ClassDB::bind_method(D_METHOD("get_accessibility"), &GDK::get_accessibility);
@@ -274,7 +273,6 @@ private:
 Ref<GDKResult> GDK::initialize(const Variant &p_config) {
     Ref<GDKResult> runtime_result = m_runtime->initialize();
     if (!runtime_result->is_ok()) {
-        emit_runtime_error(runtime_result);
         return runtime_result;
     }
 
@@ -283,7 +281,6 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
 
     Ref<GDKResult> xbox_services_result = m_xbox_services->initialize(m_runtime->get_task_queue(), p_config);
     if (!xbox_services_result->is_ok()) {
-        emit_runtime_error(xbox_services_result);
         if (xbox_services_result->get_code() != "xbox_title_id_unavailable") {
             return xbox_services_result;
         }
@@ -293,7 +290,6 @@ Ref<GDKResult> GDK::initialize(const Variant &p_config) {
     for (const auto &step : INIT_STEPS) {
         Ref<GDKResult> result = step.init(this);
         if (!result->is_ok()) {
-            emit_runtime_error(result);
             return result;
         }
         guard.push(step.shutdown);
@@ -332,10 +328,6 @@ int64_t GDK::dispatch() {
         total += static_cast<int64_t>(step.dispatch(this));
     }
     return total;
-}
-
-Ref<GDKResult> GDK::get_last_error() const {
-    return m_runtime->get_last_error();
 }
 
 Ref<GDKUsers> GDK::get_users() const {
@@ -431,7 +423,6 @@ GDKXboxServices *GDK::get_xbox_services() const {
 }
 
 void GDK::emit_runtime_error(const Ref<GDKResult> &p_result) {
-    m_runtime->set_last_error(p_result);
     emit_signal("runtime_error", p_result);
 }
 

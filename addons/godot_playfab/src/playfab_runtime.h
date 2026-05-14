@@ -32,7 +32,6 @@ class PlayFabRuntime {
     String m_title_id;
     String m_endpoint;
     std::vector<Ref<PlayFabPendingSignal>> m_active_pending_signals;
-    Ref<PlayFabResult> m_last_error;
 
     static void CALLBACK _queue_terminated(void *p_context);
 
@@ -56,10 +55,6 @@ public:
     void release_pending_signal(PlayFabPendingSignal *p_pending_signal);
     Ref<PlayFabPendingSignal> make_pending_signal();
     Signal make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant());
-
-    Ref<PlayFabResult> get_last_error() const;
-    void set_last_error(const Ref<PlayFabResult> &p_result);
-    void clear_last_error();
 };
 
 } // namespace godot

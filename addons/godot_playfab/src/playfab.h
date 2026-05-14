@@ -75,7 +75,6 @@ public:
     bool is_available() const;
     bool is_initialized() const;
     int64_t dispatch();
-    Ref<PlayFabResult> get_last_error() const;
     Ref<PlayFabUsers> get_users() const;
     Ref<PlayFabGameSaves> get_game_saves() const;
     Ref<PlayFabLeaderboards> get_leaderboards() const;
@@ -98,7 +97,6 @@ public:
     String get_endpoint() const;
 
     PlayFabRuntime *get_runtime() const;
-    void emit_runtime_error(const Ref<PlayFabResult> &p_result);
 };
 
 } // namespace godot

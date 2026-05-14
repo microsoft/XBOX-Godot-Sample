@@ -240,7 +240,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Reputation feedback submission cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -248,20 +247,17 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Reputation feedback submission cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to submit reputation feedback.", "reputation_feedback_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         Dictionary data;
         data["submitted_feedback_count"] = static_cast<int64_t>(m_items.size());
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -576,6 +572,7 @@ void GDKSocial::_bind_methods() {
     ADD_SIGNAL(MethodInfo("social_user_changed",
             PropertyInfo(Variant::STRING, "xuid"),
             PropertyInfo(Variant::OBJECT, "social_user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKSocialUser")));
+    ADD_SIGNAL(MethodInfo("runtime_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "GDKResult")));
 }
 
 void GDKSocial::set_owner(GDK *p_owner) {
@@ -631,12 +628,10 @@ int GDKSocial::dispatch() {
     size_t event_count = 0;
     HRESULT hr = XblSocialManagerDoWork(&events, &event_count);
     if (FAILED(hr)) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::hresult_error(
-                    hr,
-                    "Failed to dispatch Social Manager state.",
-                    "social_manager_dispatch_failed"));
-        }
+        emit_signal("runtime_error", GDKResult::hresult_error(
+                hr,
+                "Failed to dispatch Social Manager state.",
+                "social_manager_dispatch_failed"));
         return 0;
     }
 
@@ -656,9 +651,7 @@ int GDKSocial::dispatch() {
 
         if (FAILED(event.hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(event.hr, "A Social Manager event failed.", "social_event_failed");
-            if (m_owner != nullptr) {
-                m_owner->emit_runtime_error(result);
-            }
+            emit_signal("runtime_error", result);
             if (event.eventType == XblSocialManagerEventType::LocalUserAdded) {
                 _fail_pending_friend_ops(local_id, result);
             }
@@ -683,9 +676,7 @@ int GDKSocial::dispatch() {
                 Ref<GDKResult> refresh_result = _refresh_group_metadata(group);
                 if (!refresh_result->is_ok()) {
                     _fail_pending_friend_ops(local_id, refresh_result);
-                    if (m_owner != nullptr) {
-                        m_owner->emit_runtime_error(refresh_result);
-                    }
+                    emit_signal("runtime_error", refresh_result);
                     continue;
                 }
 
@@ -835,8 +826,16 @@ Signal GDKSocial::get_friends_async(const Ref<GDKUser> &p_user) {
         filter.instantiate();
         filter->set_presence_filter(GDKSocialFilter::PRESENCE_FILTER_ALL);
         filter->set_relationship_filter(GDKSocialFilter::RELATIONSHIP_FILTER_FRIENDS);
-        state->friends_group = create_social_group(state->user, filter);
+        Ref<GDKResult> create_error;
+        state->friends_group = _create_social_group_internal(state->user, filter, &create_error);
         if (!state->friends_group.is_valid()) {
+            if (create_error.is_valid() && !create_error->is_ok()) {
+                emit_signal("runtime_error", create_error);
+                return _make_error_signal(
+                        static_cast<HRESULT>(create_error->get_hresult()),
+                        create_error->get_code(),
+                        create_error->get_message());
+            }
             return _make_error_signal(E_FAIL, "friends_group_create_failed", "Failed to create the default friends social group.");
         }
     }
@@ -863,12 +862,12 @@ Signal GDKSocial::get_friends_async(const Ref<GDKUser> &p_user) {
     return pending_signal->get_completed_signal();
 }
 
-Ref<GDKSocialGroup> GDKSocial::create_social_group(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter) {
+Ref<GDKSocialGroup> GDKSocial::_create_social_group_internal(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter, Ref<GDKResult> *r_error) {
     LocalUserState *state = nullptr;
     Ref<GDKResult> ensure_result = _ensure_local_user_state(p_user, &state, true);
     if (!ensure_result->is_ok()) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(ensure_result);
+        if (r_error != nullptr) {
+            *r_error = ensure_result;
         }
         return Ref<GDKSocialGroup>();
     }
@@ -883,11 +882,11 @@ Ref<GDKSocialGroup> GDKSocial::create_social_group(const Ref<GDKUser> &p_user, c
             _relationship_filter_to_native(relationship_filter),
             &group_handle);
     if (FAILED(hr)) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::hresult_error(
+        if (r_error != nullptr) {
+            *r_error = GDKResult::hresult_error(
                     hr,
                     "Failed to create a filter-based social group.",
-                    "social_group_create_failed"));
+                    "social_group_create_failed");
         }
         return Ref<GDKSocialGroup>();
     }
@@ -898,28 +897,44 @@ Ref<GDKSocialGroup> GDKSocial::create_social_group(const Ref<GDKUser> &p_user, c
     group->set_group_type(GDKSocialGroup::GROUP_TYPE_FILTER);
     group->set_filters(presence_filter, relationship_filter);
     m_groups.push_back(group);
+    if (r_error != nullptr) {
+        *r_error = GDKResult::ok_result();
+    }
     return group;
 }
 
-Ref<GDKSocialGroup> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids) {
+Ref<GDKResult> GDKSocial::create_social_group(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter) {
+    Ref<GDKResult> error_result;
+    Ref<GDKSocialGroup> group = _create_social_group_internal(p_user, p_filter, &error_result);
+    if (!group.is_valid()) {
+        if (!error_result.is_valid() || error_result->is_ok()) {
+            error_result = GDKResult::error_result(E_FAIL, "social_group_create_failed", "Failed to create the social group.");
+        }
+        emit_signal("runtime_error", error_result);
+        return error_result;
+    }
+    return GDKResult::ok_result(group);
+}
+
+Ref<GDKSocialGroup> GDKSocial::_create_social_group_from_xuids_internal(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, Ref<GDKResult> *r_error) {
     LocalUserState *state = nullptr;
     Ref<GDKResult> ensure_result = _ensure_local_user_state(p_user, &state, true);
     if (!ensure_result->is_ok()) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(ensure_result);
+        if (r_error != nullptr) {
+            *r_error = ensure_result;
         }
         return Ref<GDKSocialGroup>();
     }
 
     if (p_xuids.is_empty()) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::error_result(E_INVALIDARG, "missing_social_group_xuids", "Social list groups require at least one XUID."));
+        if (r_error != nullptr) {
+            *r_error = GDKResult::error_result(E_INVALIDARG, "missing_social_group_xuids", "Social list groups require at least one XUID.");
         }
         return Ref<GDKSocialGroup>();
     }
     if (p_xuids.size() > XBL_SOCIAL_MANAGER_MAX_USERS_FROM_LIST) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::error_result(E_INVALIDARG, "too_many_social_group_xuids", "Social list groups cannot exceed the XSAPI maximum tracked user count."));
+        if (r_error != nullptr) {
+            *r_error = GDKResult::error_result(E_INVALIDARG, "too_many_social_group_xuids", "Social list groups cannot exceed the XSAPI maximum tracked user count.");
         }
         return Ref<GDKSocialGroup>();
     }
@@ -929,8 +944,8 @@ Ref<GDKSocialGroup> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser>
     for (int64_t i = 0; i < p_xuids.size(); ++i) {
         uint64_t xuid = 0;
         if (!_try_parse_xuid(p_xuids[i], &xuid)) {
-            if (m_owner != nullptr) {
-                m_owner->emit_runtime_error(GDKResult::error_result(E_INVALIDARG, "invalid_social_group_xuid", "Social list groups require numeric XUID strings."));
+            if (r_error != nullptr) {
+                *r_error = GDKResult::error_result(E_INVALIDARG, "invalid_social_group_xuid", "Social list groups require numeric XUID strings.");
             }
             return Ref<GDKSocialGroup>();
         }
@@ -944,11 +959,11 @@ Ref<GDKSocialGroup> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser>
             native_xuids.size(),
             &group_handle);
     if (FAILED(hr)) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::hresult_error(
+        if (r_error != nullptr) {
+            *r_error = GDKResult::hresult_error(
                     hr,
                     "Failed to create a list-based social group.",
-                    "social_group_list_create_failed"));
+                    "social_group_list_create_failed");
         }
         return Ref<GDKSocialGroup>();
     }
@@ -959,15 +974,37 @@ Ref<GDKSocialGroup> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser>
     group->set_group_type(GDKSocialGroup::GROUP_TYPE_USER_LIST);
     group->set_tracked_xuids(p_xuids);
     m_groups.push_back(group);
+    if (r_error != nullptr) {
+        *r_error = GDKResult::ok_result();
+    }
     return group;
+}
+
+Ref<GDKResult> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids) {
+    Ref<GDKResult> error_result;
+    Ref<GDKSocialGroup> group = _create_social_group_from_xuids_internal(p_user, p_xuids, &error_result);
+    if (!group.is_valid()) {
+        if (!error_result.is_valid() || error_result->is_ok()) {
+            error_result = GDKResult::error_result(E_FAIL, "social_group_list_create_failed", "Failed to create the social group from XUIDs.");
+        }
+        emit_signal("runtime_error", error_result);
+        return error_result;
+    }
+    return GDKResult::ok_result(group);
 }
 
 void GDKSocial::destroy_social_group(const Ref<GDKSocialGroup> &p_group) {
     _destroy_group_internal(p_group, true);
 }
 
-Array GDKSocial::get_group_users(const Ref<GDKSocialGroup> &p_group) {
-    return _get_group_users_internal(p_group, false, false);
+Ref<GDKResult> GDKSocial::get_group_users(const Ref<GDKSocialGroup> &p_group) {
+    Ref<GDKResult> error_result;
+    Array users = _get_group_users_internal(p_group, false, false, &error_result);
+    if (error_result.is_valid() && !error_result->is_ok()) {
+        emit_signal("runtime_error", error_result);
+        return error_result;
+    }
+    return GDKResult::ok_result(users);
 }
 
 Signal GDKSocial::submit_reputation_feedback_async(const Ref<GDKUser> &p_user, const String &p_target_xuid, const String &p_feedback_type, const String &p_reason, const String &p_evidence_id) {
@@ -1239,8 +1276,11 @@ Ref<GDKSocialUser> GDKSocial::_cache_social_user(const XblSocialManagerUser &p_s
     return social_user;
 }
 
-Array GDKSocial::_get_group_users_internal(const Ref<GDKSocialGroup> &p_group, bool p_emit_social_signal, bool p_emit_presence_signal) {
+Array GDKSocial::_get_group_users_internal(const Ref<GDKSocialGroup> &p_group, bool p_emit_social_signal, bool p_emit_presence_signal, Ref<GDKResult> *r_error) {
     Array users;
+    if (r_error != nullptr) {
+        *r_error = GDKResult::ok_result();
+    }
     if (!p_group.is_valid() || p_group->get_handle() == nullptr || !p_group->is_loaded()) {
         return users;
     }
@@ -1249,11 +1289,14 @@ Array GDKSocial::_get_group_users_internal(const Ref<GDKSocialGroup> &p_group, b
     size_t native_user_count = 0;
     HRESULT hr = XblSocialManagerUserGroupGetUsers(p_group->get_handle(), &native_users, &native_user_count);
     if (FAILED(hr)) {
-        if (m_owner != nullptr) {
-            m_owner->emit_runtime_error(GDKResult::hresult_error(
-                    hr,
-                    "Failed to read the users for a social group.",
-                    "social_group_users_failed"));
+        Ref<GDKResult> error = GDKResult::hresult_error(
+                hr,
+                "Failed to read the users for a social group.",
+                "social_group_users_failed");
+        if (r_error != nullptr) {
+            *r_error = error;
+        } else {
+            emit_signal("runtime_error", error);
         }
         return users;
     }
@@ -1440,9 +1483,7 @@ void GDKSocial::_emit_filter_group_updates(XUserLocalId p_local_id) {
 
         Ref<GDKResult> refresh_result = _refresh_group_metadata(group);
         if (!refresh_result->is_ok()) {
-            if (m_owner != nullptr) {
-                m_owner->emit_runtime_error(refresh_result);
-            }
+            emit_signal("runtime_error", refresh_result);
             continue;
         }
 

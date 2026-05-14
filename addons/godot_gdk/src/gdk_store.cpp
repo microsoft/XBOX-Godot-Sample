@@ -49,7 +49,6 @@ protected:
         Ref<GDKResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Store license status request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -58,7 +57,6 @@ protected:
         HRESULT result_hr = XStoreCanAcquireLicenseForStoreIdResult(p_async_block, &native_result);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Store license status request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -67,14 +65,12 @@ protected:
                     result_hr,
                     m_is_refresh ? "Failed to refresh store entitlements." : "Failed to query store license status.",
                     m_is_refresh ? "store_entitlements_refresh_result_failed" : "store_license_status_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         if (!m_service.is_valid() || !m_service->is_runtime_ready()) {
             result = GDKResult::cancelled("GDKStore is shutting down.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -83,7 +79,6 @@ protected:
         status.instantiate();
         status->set_values(get_store_id(), String::utf8(native_result.licensableSku), static_cast<int64_t>(native_result.status));
         Ref<GDKStoreLicenseStatus> cached_status = m_service->_cache_license_status(status);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(cached_status));
     }
 
@@ -104,7 +99,6 @@ protected:
         Ref<GDKResult> result;
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Store purchase UI request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -112,7 +106,6 @@ protected:
         HRESULT result_hr = XStoreShowPurchaseUIResult(p_async_block);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Store purchase UI was dismissed.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -121,14 +114,12 @@ protected:
                     result_hr,
                     "Failed to complete the store purchase UI flow.",
                     "store_purchase_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         Dictionary data;
         data["store_id"] = get_store_id();
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -255,7 +246,6 @@ Signal GDKStore::show_purchase_ui_async(const Ref<GDKUser> &p_user, const String
                 start_hr,
                 "Failed to start the store purchase UI flow.",
                 "store_purchase_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -362,7 +352,6 @@ Signal GDKStore::_start_license_status_async(const Ref<GDKUser> &p_user, const S
                 start_hr,
                 p_is_refresh ? "Failed to start entitlements refresh." : "Failed to start store license status query.",
                 p_is_refresh ? "store_entitlements_refresh_start_failed" : "store_license_status_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

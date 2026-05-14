@@ -104,7 +104,6 @@ Ref<GDKResult> GDKErrorReporting::configure_options(
     XErrorSetOptions(debugger_present_options, debugger_not_present_options);
     GDKRuntime *runtime = get_runtime_internal();
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
 
     return GDKResult::ok_result();
@@ -129,7 +128,6 @@ Ref<GDKResult> GDKErrorReporting::_set_callback(XErrorCallback *p_callback, void
 
     GDKRuntime *runtime = get_runtime_internal();
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
 
     return GDKResult::ok_result();

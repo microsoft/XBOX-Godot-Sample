@@ -1268,7 +1268,6 @@ Signal PlayFabParty::_make_error_signal(HRESULT p_hresult, const String &p_code,
     PlayFabRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
         Ref<PlayFabResult> error = PlayFabResult::error_result(p_hresult, p_code, p_message, p_data);
-        runtime->set_last_error(error);
         return runtime->make_error_signal(p_hresult, p_code, p_message, p_data);
     }
     return detached_error_signal(p_hresult, p_code, p_message, p_data);
@@ -1527,9 +1526,6 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
         if (p_operation->pending_signal->was_cancel_requested()) {
             final_result = PlayFabResult::cancelled("PlayFab Party operation cancelled.");
         }
-        if (_get_runtime() != nullptr && final_result.is_valid() && !final_result->is_ok()) {
-            _get_runtime()->set_last_error(final_result);
-        }
         p_operation->pending_signal->complete(final_result);
     }
     _release_pending(p_operation);
@@ -1586,7 +1582,6 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
     Ref<PlayFabResult> validation = _validate_user(p_user);
     if (validation.is_valid() && !validation->is_ok()) {
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(validation);
         }
         Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
         pending_signal->complete_deferred(validation);
@@ -1679,7 +1674,6 @@ Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const St
     Ref<PlayFabResult> validation = _validate_user(p_user);
     if (validation.is_valid() && !validation->is_ok()) {
         if (_get_runtime() != nullptr) {
-            _get_runtime()->set_last_error(validation);
         }
         Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
         pending_signal->complete_deferred(validation);

@@ -82,7 +82,6 @@ public:
     bool is_available() const;
     bool is_initialized() const;
     int64_t dispatch();
-    Ref<GDKResult> get_last_error() const;
     Ref<GDKUsers> get_users() const;
     Ref<GDKGameUI> get_game_ui() const;
     Ref<GDKAccessibility> get_accessibility() const;

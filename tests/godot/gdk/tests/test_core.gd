@@ -114,7 +114,7 @@ func test_gdk_root_api() -> void:
 
 	var gdk = get_gdk()
 
-	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_last_error", "get_users", "get_game_ui", "get_accessibility", "get_achievements", "get_package", "get_stats", "get_leaderboards", "get_privacy", "get_presence", "get_social", "get_store", "get_profile", "get_string_verify", "get_title_storage", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_capture", "get_system", "get_display", "get_activation"]:
+	for method_name in ["initialize", "shutdown", "is_available", "is_initialized", "dispatch", "get_users", "get_game_ui", "get_accessibility", "get_achievements", "get_package", "get_stats", "get_leaderboards", "get_privacy", "get_presence", "get_social", "get_store", "get_profile", "get_string_verify", "get_title_storage", "get_error_reporting", "get_launcher", "get_multiplayer_activity", "get_capture", "get_system", "get_display", "get_activation"]:
 		assert_has_method_named(gdk, method_name)
 
 	for signal_name in ["initialized", "shutdown_completed", "runtime_error"]:
@@ -159,11 +159,6 @@ func test_gdk_root_api() -> void:
 	gdk.connect("shutdown_completed", func(): shutdown_events.append(true))
 	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
 
-	var last_error = gdk.get_last_error()
-	assert_not_null(last_error, "get_last_error() returns GDKResult")
-	if last_error != null:
-		assert_true(last_error.has_method("is_ok"), "last error exposes result API")
-
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "initialize() returns GDKResult")
 	if init_result == null:
@@ -182,18 +177,16 @@ func test_gdk_root_api() -> void:
 			assert_eq(repeat_init_result.ok, false, "second initialize() fails while already initialized")
 			assert_eq(repeat_init_result.code, "already_initialized", "second initialize() reports already_initialized")
 
-			var repeat_last_error = gdk.get_last_error()
-			assert_not_null(repeat_last_error, "get_last_error() tracks repeated initialize failure")
-			if repeat_last_error != null:
-				assert_eq(repeat_last_error.code, repeat_init_result.code, "last error matches repeated initialize() failure")
-
-			assert_eq(runtime_errors.size(), runtime_error_count_before_repeat + 1, "runtime_error emitted for repeated initialize()")
+			# After the result-only refactor the root GDK.runtime_error is reserved
+			# for XError callback events, so repeated initialize() failures only
+			# surface via the returned GDKResult and must NOT emit runtime_error.
+			assert_eq(runtime_errors.size(), runtime_error_count_before_repeat, "repeated initialize() does not emit root runtime_error")
 
 		gdk.shutdown()
 		assert_eq(shutdown_events.size(), 1, "shutdown_completed signal emitted once")
 		assert_eq(gdk.is_initialized(), false, "is_initialized() false after shutdown")
 	else:
-		assert_true(runtime_errors.size() >= 1, "runtime_error emitted for initialize() failure")
+		assert_eq(runtime_errors.size(), 0, "initialize() failure does not emit root runtime_error (result returned instead)")
 		pending("GDK.initialize(): %s" % init_result.message)
 		assert_eq(gdk.is_initialized(), false, "is_initialized() remains false after failed init")
 

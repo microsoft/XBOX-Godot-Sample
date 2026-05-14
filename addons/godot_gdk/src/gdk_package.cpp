@@ -677,7 +677,6 @@ Ref<GDKResult> GDKPackage::_ensure_runtime_ready() const {
 Signal GDKPackage::_make_completed_signal(const Ref<GDKResult> &p_result) const {
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr && p_result.is_valid() && !p_result->is_ok()) {
-        runtime->set_last_error(p_result);
     }
     Ref<GDKPendingSignal> pending_signal = runtime != nullptr ? runtime->make_pending_signal() : Ref<GDKPendingSignal>();
     if (pending_signal.is_null()) {
@@ -691,7 +690,6 @@ Signal GDKPackage::_make_error_signal(HRESULT p_hresult, const String &p_code, c
     Ref<GDKResult> result = GDKResult::error_result(p_hresult, p_code, p_message, p_data);
     GDKRuntime *runtime = _get_runtime();
     if (runtime != nullptr) {
-        runtime->set_last_error(result);
     }
     return _make_completed_signal(result);
 }

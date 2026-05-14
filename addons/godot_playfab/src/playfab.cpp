@@ -103,7 +103,6 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_available"), &PlayFab::is_available);
     ClassDB::bind_method(D_METHOD("is_initialized"), &PlayFab::is_initialized);
     ClassDB::bind_method(D_METHOD("dispatch"), &PlayFab::dispatch);
-    ClassDB::bind_method(D_METHOD("get_last_error"), &PlayFab::get_last_error);
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFab::get_users);
     ClassDB::bind_method(D_METHOD("get_game_saves"), &PlayFab::get_game_saves);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &PlayFab::get_leaderboards);
@@ -148,19 +147,16 @@ void PlayFab::_bind_methods() {
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
-    ADD_SIGNAL(MethodInfo("runtime_error", PropertyInfo(Variant::OBJECT, "result")));
 }
 
 Ref<PlayFabResult> PlayFab::initialize() {
     Ref<PlayFabResult> runtime_result = m_runtime->initialize();
     if (!runtime_result->is_ok()) {
-        emit_runtime_error(runtime_result);
         return runtime_result;
     }
 
     Ref<PlayFabResult> users_result = m_users->on_runtime_initialized();
     if (!users_result->is_ok()) {
-        emit_runtime_error(users_result);
         m_users->shutdown();
         m_runtime->shutdown();
         return users_result;
@@ -207,10 +203,6 @@ int64_t PlayFab::dispatch() {
         dispatched += static_cast<int64_t>(m_party->dispatch());
     }
     return dispatched;
-}
-
-Ref<PlayFabResult> PlayFab::get_last_error() const {
-    return m_runtime != nullptr ? m_runtime->get_last_error() : PlayFabResult::error_result(E_FAIL, "runtime_unavailable", "PlayFab runtime is unavailable.");
 }
 
 Ref<PlayFabUsers> PlayFab::get_users() const {
@@ -295,13 +287,6 @@ String PlayFab::get_endpoint() const {
 
 PlayFabRuntime *PlayFab::get_runtime() const {
     return m_runtime;
-}
-
-void PlayFab::emit_runtime_error(const Ref<PlayFabResult> &p_result) {
-    if (m_runtime != nullptr) {
-        m_runtime->set_last_error(p_result);
-    }
-    emit_signal("runtime_error", p_result);
 }
 
 } // namespace godot

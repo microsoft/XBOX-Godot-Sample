@@ -34,6 +34,11 @@ func _finish() -> void:
 		printerr("BOOTSTRAP_FAIL: %s -- Engine.get_singleton('GDK') returned null" % SCENARIO)
 		quit(3)
 		return
+	var bootstrap = root.get_node_or_null("GDKBootstrap")
+	if bootstrap == null:
+		printerr("BOOTSTRAP_FAIL: %s -- GDKBootstrap autoload not registered under root" % SCENARIO)
+		quit(8)
+		return
 
 	var live = OS.get_environment(LIVE_TESTS_ENV) == "1"
 	var users = gdk.get_users() if gdk.has_method("get_users") else null
@@ -41,12 +46,14 @@ func _finish() -> void:
 	if not live:
 		# Without LIVE_TESTS we can't require a real primary user. Just
 		# verify the autoload produced *some* observable startup state: it
-		# either initialized GDK, recorded a last_error, or surfaced a
-		# primary user.
-		var last_error = gdk.get_last_error()
+		# either initialized GDK, recorded an init/default-user result, or
+		# surfaced a primary user.
+		var init_result = bootstrap.get_last_initialize_result()
+		var default_user_result = bootstrap.get_last_default_user_result()
+		var attempted_default_user = bootstrap.has_attempted_default_user()
 		var primary = users.get_primary_user() if users != null else null
-		if last_error == null and primary == null and not gdk.is_initialized():
-			printerr("BOOTSTRAP_FAIL: %s -- autoload did not attempt init/auto-add (no last_error, no primary, not initialized)" % SCENARIO)
+		if init_result == null and default_user_result == null and not attempted_default_user and primary == null and not gdk.is_initialized():
+			printerr("BOOTSTRAP_FAIL: %s -- autoload did not attempt init/auto-add (no result, no primary, not initialized)" % SCENARIO)
 			quit(4)
 			return
 		print("BOOTSTRAP_OK: %s (pending live: initialized=%s, has_primary=%s)" % [SCENARIO, str(gdk.is_initialized()), str(primary != null)])
@@ -63,9 +70,9 @@ func _finish() -> void:
 		return
 	var primary = users.get_primary_user()
 	if primary == null:
-		var last_error = gdk.get_last_error()
-		if last_error != null and not last_error.ok:
-			print("BOOTSTRAP_OK: %s (live: auto-add attempted; sign-in returned %s)" % [SCENARIO, last_error.code])
+		var default_user_result = bootstrap.get_last_default_user_result()
+		if default_user_result != null and not default_user_result.ok:
+			print("BOOTSTRAP_OK: %s (live: auto-add attempted; sign-in returned %s)" % [SCENARIO, default_user_result.code])
 			quit(0)
 			return
 		printerr("BOOTSTRAP_FAIL: %s -- live mode but no primary user after %d ms (no error)" % [SCENARIO, STARTUP_BUDGET_MSEC])

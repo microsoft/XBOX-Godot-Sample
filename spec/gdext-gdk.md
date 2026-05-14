@@ -340,8 +340,9 @@ if start_result.ok:
     GDK.social.social_group_updated.connect(_on_social_group_updated)
 
 func _on_social_group_updated(group: GDKSocialGroup) -> void:
-    var users := GDK.social.get_group_users(group)
-    print("Group now has %d users" % users.size())
+    var users_result := GDK.social.get_group_users(group)
+    if users_result.ok:
+        print("Group now has %d users" % users_result.data.size())
 ```
 
 ### Root singleton
@@ -354,7 +355,6 @@ GDK.shutdown() -> void
 GDK.is_available() -> bool
 GDK.is_initialized() -> bool
 GDK.dispatch() -> int
-GDK.get_last_error() -> GDKResult
 GDK.get_capture() -> GDKCapture
 GDK.get_system() -> GDKSystem
 ```
@@ -387,8 +387,16 @@ GDK.multiplayer_activity: GDKMultiplayerActivity
 ```gdscript
 initialized()
 shutdown_completed()
-runtime_error(result: GDKResult)
+runtime_error(result: GDKResult)  # XError-only: see Error reporting
 ```
+
+`runtime_error` on the root singleton is reserved for `XError` callback events
+sourced from `GDKErrorReporting::dispatch()`. Caller-driven failures are
+delivered as the per-call `GDKResult` (return value or async signal payload),
+not via this signal. Per-service unsolicited errors (e.g. background social
+graph or achievement dispatch failures) are emitted as
+`GDK.<service>.runtime_error(result)` (currently `GDK.social.runtime_error`
+and `GDK.achievements.runtime_error`).
 
 #### Runtime behavior
 
@@ -548,6 +556,7 @@ get_cached_achievements(user: GDKUser) -> Array
 ```gdscript
 achievement_unlocked(user: GDKUser, achievement_id: String)
 achievements_updated(user: GDKUser)
+runtime_error(result: GDKResult)  # unsolicited achievement-service errors
 ```
 
 ##### Notes
@@ -760,10 +769,10 @@ title_presence_changed(xuid: String, title_id: int)
 start_social_graph(user: GDKUser) -> GDKResult
 stop_social_graph(user: GDKUser) -> void
 get_friends_async(user: GDKUser) -> Signal
-create_social_group(user: GDKUser, filter: GDKSocialFilter = null) -> GDKSocialGroup
-create_social_group_from_xuids(user: GDKUser, xuids: PackedStringArray) -> GDKSocialGroup
+create_social_group(user: GDKUser, filter: GDKSocialFilter = null) -> GDKResult  # data: GDKSocialGroup
+create_social_group_from_xuids(user: GDKUser, xuids: PackedStringArray) -> GDKResult  # data: GDKSocialGroup
 destroy_social_group(group: GDKSocialGroup) -> void
-get_group_users(group: GDKSocialGroup) -> Array[GDKSocialUser]
+get_group_users(group: GDKSocialGroup) -> GDKResult  # data: Array[GDKSocialUser]
 submit_reputation_feedback_async(user: GDKUser, target_xuid: String, feedback_type: String, reason := "", evidence_id := "") -> Signal
 submit_batch_reputation_feedback_async(user: GDKUser, feedback_items: Array) -> Signal
 ```
@@ -774,6 +783,7 @@ submit_batch_reputation_feedback_async(user: GDKUser, feedback_items: Array) -> 
 social_graph_changed(user: GDKUser)
 social_group_updated(group: GDKSocialGroup)
 social_user_changed(xuid: String, social_user: GDKSocialUser)
+runtime_error(result: GDKResult)  # unsolicited social-service errors
 ```
 
 ##### Notes

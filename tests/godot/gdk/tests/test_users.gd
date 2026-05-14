@@ -101,11 +101,6 @@ func test_users_full_flow() -> void:
 		assert_true(user == null, "failed default-user add leaves primary user unavailable")
 		assert_eq(users.get_users().size(), 0, "failed default-user add keeps the user cache empty")
 
-		var failed_add_last_error = gdk.get_last_error()
-		assert_not_null(failed_add_last_error, "default-user add failure updates the root last error")
-		if failed_add_last_error != null:
-			assert_eq(failed_add_last_error.code, add_result.code, "root last error matches the failed default-user add")
-
 		pending("Signed-in user behavior: %s" % add_result.message)
 		disconnect_signal_handlers(users, ["user_changed"])
 		return

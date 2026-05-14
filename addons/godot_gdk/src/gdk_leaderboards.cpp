@@ -93,7 +93,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Leaderboard query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -104,13 +103,11 @@ protected:
                 XblLeaderboardGetLeaderboardResultSize(p_async_block, &result_size);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Leaderboard query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve leaderboard result size.", "leaderboard_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -134,13 +131,11 @@ protected:
 
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Leaderboard query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve leaderboard results.", "leaderboard_results_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -150,7 +145,6 @@ protected:
         leaderboard->populate_from_native(m_stat_name, m_query_type, m_user, std::move(buffer), native_result);
         m_leaderboards->cache_leaderboard_internal(leaderboard);
 
-        get_runtime()->clear_last_error();
         m_leaderboards->emit_signal("leaderboard_updated", m_stat_name, leaderboard);
         get_pending_signal()->complete(GDKResult::ok_result(leaderboard));
     }

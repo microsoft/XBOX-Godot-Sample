@@ -87,9 +87,23 @@ func test_social_full_flow() -> void:
 		assert_true(social_user.get_preferred_color() is Dictionary, "blank GDKSocialUser preferred_color returns Dictionary")
 
 	var blank_user = instantiate_class("GDKUser")
-	assert_true(social.create_social_group(blank_user) == null, "create_social_group() returns null when the graph cannot start")
-	assert_true(social.create_social_group_from_xuids(blank_user, PackedStringArray(["1"])) == null, "create_social_group_from_xuids() returns null when the graph cannot start")
-	assert_true(social.get_group_users(null) is Array, "get_group_users() returns Array")
+	var blank_create_result = social.create_social_group(blank_user)
+	assert_not_null(blank_create_result, "create_social_group() returns GDKResult even when the graph cannot start")
+	if blank_create_result != null:
+		assert_eq(blank_create_result.ok, false, "create_social_group() reports failure for blank user")
+		assert_true(blank_create_result.data == null, "create_social_group() failure carries no data payload")
+	var blank_xuid_result = social.create_social_group_from_xuids(blank_user, PackedStringArray(["1"]))
+	assert_not_null(blank_xuid_result, "create_social_group_from_xuids() returns GDKResult even when the graph cannot start")
+	if blank_xuid_result != null:
+		assert_eq(blank_xuid_result.ok, false, "create_social_group_from_xuids() reports failure for blank user")
+		assert_true(blank_xuid_result.data == null, "create_social_group_from_xuids() failure carries no data payload")
+	var blank_users_result = social.get_group_users(null)
+	assert_not_null(blank_users_result, "get_group_users(null) returns GDKResult")
+	if blank_users_result != null:
+		assert_eq(blank_users_result.ok, true, "get_group_users(null) reports ok with empty data")
+		assert_true(blank_users_result.data is Array, "get_group_users() data is an Array")
+		if blank_users_result.data is Array:
+			assert_eq(blank_users_result.data.size(), 0, "get_group_users(null) returns empty Array data")
 
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "GDK.initialize() for social behavior returns GDKResult")
@@ -115,8 +129,10 @@ func test_social_full_flow() -> void:
 			pending("Social runtime behavior: No signed-in user is available on this machine.")
 		return
 
-	var runtime_errors: Array = []
-	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
+	var root_runtime_errors: Array = []
+	var social_runtime_errors: Array = []
+	gdk.connect("runtime_error", func(result): root_runtime_errors.append(result))
+	social.connect("runtime_error", func(result): social_runtime_errors.append(result))
 
 	var invalid_feedback_xuid_signal = social.submit_reputation_feedback_async(user, "not-a-number", "fair_play_cheater")
 	await assert_signal_result_error(invalid_feedback_xuid_signal, "invalid_xuid", "submit_reputation_feedback_async() rejects non-numeric XUID strings")
@@ -137,6 +153,7 @@ func test_social_full_flow() -> void:
 	assert_not_null(start_result, "start_social_graph() returns GDKResult for a signed-in user")
 	if start_result == null:
 		disconnect_signal_handlers(gdk, ["runtime_error"])
+		disconnect_signal_handlers(social, ["runtime_error"])
 		return
 
 	if start_result.ok:
@@ -160,21 +177,26 @@ func test_social_full_flow() -> void:
 					if local_user != null:
 						assert_eq(local_user.get_local_id(), user.get_local_id(), "friends group local user matches the signed-in user")
 
-					var group_users = social.get_group_users(friends_group)
-					assert_true(group_users is Array, "get_group_users() returns Array for a loaded group")
-					if group_users.size() > 0:
-						assert_object_is(group_users[0], "GDKSocialUser", "loaded social groups return GDKSocialUser wrappers")
+					var group_users_result = social.get_group_users(friends_group)
+					assert_not_null(group_users_result, "get_group_users() returns GDKResult")
+					if group_users_result != null:
+						assert_eq(group_users_result.ok, true, "get_group_users() succeeds for a loaded group")
+						if group_users_result.ok:
+							var group_users = group_users_result.data
+							assert_true(group_users is Array, "GDKResult.data carries the Array of social users")
+							if group_users is Array and group_users.size() > 0:
+								assert_object_is(group_users[0], "GDKSocialUser", "loaded social groups return GDKSocialUser wrappers")
 
-				var runtime_error_count = runtime_errors.size()
-				var invalid_group = social.create_social_group_from_xuids(user, PackedStringArray())
-				assert_true(invalid_group == null, "create_social_group_from_xuids() rejects empty XUID lists")
+				var social_error_count = social_runtime_errors.size()
+				var root_error_count = root_runtime_errors.size()
+				var invalid_result = social.create_social_group_from_xuids(user, PackedStringArray())
+				assert_not_null(invalid_result, "create_social_group_from_xuids() returns GDKResult")
+				if invalid_result != null:
+					assert_eq(invalid_result.ok, false, "empty XUID list returns failed GDKResult")
+					assert_eq(invalid_result.code, "missing_social_group_xuids", "empty social groups report missing_social_group_xuids")
 
-				var social_last_error = gdk.get_last_error()
-				assert_not_null(social_last_error, "social validation failures update the root last error")
-				if social_last_error != null:
-					assert_eq(social_last_error.code, "missing_social_group_xuids", "empty social groups report missing_social_group_xuids")
-
-				assert_eq(runtime_errors.size(), runtime_error_count + 1, "empty social groups emit runtime_error")
+				assert_eq(social_runtime_errors.size(), social_error_count + 1, "empty social groups emit GDK.social.runtime_error")
+				assert_eq(root_runtime_errors.size(), root_error_count, "empty social groups do NOT emit root GDK.runtime_error (XError-only)")
 			else:
 				assert_true(friends_result.code.length() > 0, "friends query failure exposes an error code")
 				assert_true(friends_result.message.length() > 0, "friends query failure exposes an error message")
@@ -187,3 +209,4 @@ func test_social_full_flow() -> void:
 		pending("Social graph behavior: %s" % start_result.message)
 
 	disconnect_signal_handlers(gdk, ["runtime_error"])
+	disconnect_signal_handlers(social, ["runtime_error"])

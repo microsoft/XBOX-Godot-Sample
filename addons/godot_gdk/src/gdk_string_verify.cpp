@@ -70,7 +70,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("String verification cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -81,13 +80,11 @@ protected:
                 XblStringVerifyStringResultSize(p_async_block, &result_size);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("String verification cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve string verification result size.", "string_verify_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -106,12 +103,10 @@ protected:
                     &buffer_used);
             if (FAILED(result_hr)) {
                 result = result_hr == E_ABORT ? GDKResult::cancelled("String verification cancelled.") : GDKResult::hresult_error(result_hr, "Failed to retrieve string verification results.", "string_verify_results_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
 
-            get_runtime()->clear_last_error();
             get_pending_signal()->complete(GDKResult::ok_result(_make_verify_result_array(native_results, result_count)));
             return;
         }
@@ -125,13 +120,11 @@ protected:
                 &buffer_used);
         if (FAILED(result_hr)) {
             result = result_hr == E_ABORT ? GDKResult::cancelled("String verification cancelled.") : GDKResult::hresult_error(result_hr, "Failed to retrieve string verification result.", "string_verify_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         Dictionary payload = native_result == nullptr ? Dictionary() : _make_verify_result_dictionary(*native_result);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(payload));
     }
 

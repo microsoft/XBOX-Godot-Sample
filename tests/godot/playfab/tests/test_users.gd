@@ -57,9 +57,6 @@ func test_not_initialized_sign_in() -> void:
 	await _assert_playfab_signal_result_error(
 		users_signal, "not_initialized", "PlayFab.users.sign_in_with_xuser_async() before initialize()")
 
-	var last_error = playfab.get_last_error()
-	assert_playfab_result_error(last_error, "not_initialized", "PlayFab.get_last_error() tracks not_initialized sign-in")
-
 
 func test_custom_id_sign_in_validation() -> void:
 	if pending_unless_playfab_available():

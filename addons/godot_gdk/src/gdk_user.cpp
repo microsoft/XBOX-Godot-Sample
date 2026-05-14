@@ -171,7 +171,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("User add operation cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -180,14 +179,12 @@ protected:
         HRESULT result_hr = XUserAddResult(p_async_block, &user_handle);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("User add operation cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, m_action, "user_add_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -213,7 +210,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Privilege resolution cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -221,7 +217,6 @@ protected:
         HRESULT result_hr = XUserResolvePrivilegeWithUiResult(p_async_block);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Privilege resolution cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -232,7 +227,6 @@ protected:
                     "Failed to resolve the requested privilege with UI.",
                     "privilege_resolve_result_failed",
                     _make_privilege_resolution_result(m_privilege));
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -244,7 +238,6 @@ protected:
                         refresh_hr,
                         "Resolved the privilege UI flow but failed to refresh the cached user state.",
                         "user_refresh_after_privilege_resolution_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -254,7 +247,6 @@ protected:
             }
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(_make_privilege_resolution_result(m_privilege)));
     }
 
@@ -278,7 +270,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("User issue resolution cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -286,7 +277,6 @@ protected:
         HRESULT result_hr = XUserResolveIssueWithUiResult(p_async_block);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("User issue resolution cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -297,7 +287,6 @@ protected:
                     "Failed to resolve the user issue with system UI.",
                     "user_issue_resolve_result_failed",
                     _make_issue_resolution_result(m_url));
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -309,7 +298,6 @@ protected:
                         refresh_hr,
                         "Resolved the user issue but failed to refresh the cached user state.",
                         "user_refresh_after_issue_resolution_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -319,7 +307,6 @@ protected:
             }
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(_make_issue_resolution_result(m_url)));
     }
 
@@ -349,7 +336,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Gamer picture request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -358,7 +344,6 @@ protected:
         HRESULT size_hr = XUserGetGamerPictureResultSize(p_async_block, &buffer_size);
         if (size_hr == E_ABORT) {
             result = GDKResult::cancelled("Gamer picture request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -368,7 +353,6 @@ protected:
                     size_hr,
                     "Failed to get the gamer picture buffer size.",
                     "gamer_picture_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -382,7 +366,6 @@ protected:
                 &buffer_used);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Gamer picture request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -392,7 +375,6 @@ protected:
                     result_hr,
                     "Failed to retrieve the gamer picture bytes.",
                     "gamer_picture_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -400,7 +382,6 @@ protected:
         PackedByteArray png_bytes;
         if (png_bytes.resize(static_cast<int64_t>(buffer_used)) != 0) {
             result = GDKResult::error_result(E_OUTOFMEMORY, "gamer_picture_buffer_alloc_failed", "Failed to allocate a buffer for the gamer picture.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -412,12 +393,10 @@ protected:
         image.instantiate();
         if (image->load_png_from_buffer(png_bytes) != 0) {
             result = GDKResult::error_result(E_FAIL, "gamer_picture_decode_failed", "Failed to decode the gamer picture PNG into a Godot Image.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(image));
     }
 
@@ -443,7 +422,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Token and signature request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -452,7 +430,6 @@ protected:
         HRESULT size_hr = XUserGetTokenAndSignatureResultSize(p_async_block, &buffer_size);
         if (size_hr == E_ABORT) {
             result = GDKResult::cancelled("Token and signature request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -462,7 +439,6 @@ protected:
                     size_hr,
                     "Failed to get the token/signature result size.",
                     "token_signature_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -477,7 +453,6 @@ protected:
                 nullptr);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Token and signature request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -487,7 +462,6 @@ protected:
                     result_hr,
                     "Failed to retrieve the token/signature payload.",
                     "token_signature_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -496,7 +470,6 @@ protected:
         data["token"] = token_data != nullptr && token_data->token != nullptr ? String::utf8(token_data->token) : String();
         data["signature"] = token_data != nullptr && token_data->signature != nullptr ? String::utf8(token_data->signature) : String();
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -883,7 +856,6 @@ Signal GDKUsers::check_privilege_async(const Ref<GDKUser> &p_user, int64_t p_pri
     Dictionary data = _make_privilege_result(p_privilege, has_privilege, deny_reason);
     data["needs_user_issue_resolution"] = false;
     Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
-    runtime->clear_last_error();
     pending_signal->complete_deferred(GDKResult::ok_result(data));
     return pending_signal->get_completed_signal();
 }
@@ -916,7 +888,6 @@ Signal GDKUsers::resolve_privilege_with_ui_async(const Ref<GDKUser> &p_user, int
                 "Failed to start the privilege resolution UI.",
                 "privilege_resolve_start_failed",
                 _make_privilege_resolution_result(p_privilege));
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -950,7 +921,6 @@ Signal GDKUsers::resolve_issue_with_ui_async(const Ref<GDKUser> &p_user, const S
                 "Failed to start the user issue resolution UI.",
                 "user_issue_resolve_start_failed",
                 _make_issue_resolution_result(p_url.strip_edges()));
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -992,7 +962,6 @@ Signal GDKUsers::get_gamer_picture_async(const Ref<GDKUser> &p_user, const Strin
                 hr,
                 "Failed to start the gamer picture request.",
                 "gamer_picture_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1054,7 +1023,6 @@ Signal GDKUsers::get_token_and_signature_async(
                 hr,
                 "Failed to start the token/signature request.",
                 "token_signature_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1112,7 +1080,6 @@ void GDKUsers::complete_add_user(XUserHandle p_user_handle, const Ref<GDKPending
         }
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to translate the native XUser into a Godot wrapper.", "user_wrapper_create_failed");
-        _get_runtime()->set_last_error(result);
         p_pending_signal->complete(result);
         return;
     }
@@ -1125,7 +1092,6 @@ void GDKUsers::complete_add_user(XUserHandle p_user_handle, const Ref<GDKPending
 
     emit_signal("user_changed", user, is_new_user ? String("added") : String("signed_in_again"));
 
-    _get_runtime()->clear_last_error();
     p_pending_signal->complete(GDKResult::ok_result(user));
 }
 
@@ -1155,7 +1121,6 @@ Signal GDKUsers::_start_add_user_async(XUserAddOptions p_options, const String &
         delete context;
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, p_action, "user_add_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
