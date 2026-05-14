@@ -15,7 +15,9 @@ namespace godot {
 
 class GDKAccessibility;
 class GDKAchievements;
+class GDKActivation;
 class GDKCapture;
+class GDKDisplay;
 class GDKErrorReporting;
 class GDKGameUI;
 class GDKLauncher;
@@ -63,6 +65,8 @@ class GDK : public Object {
     Ref<GDKMultiplayerActivity> m_multiplayer_activity;
     Ref<GDKCapture> m_capture;
     Ref<GDKSystem> m_system;
+    Ref<GDKDisplay> m_display;
+    Ref<GDKActivation> m_activation;
 
 protected:
     static void _bind_methods();
@@ -98,6 +102,8 @@ public:
     Ref<GDKMultiplayerActivity> get_multiplayer_activity() const;
     Ref<GDKCapture> get_capture() const;
     Ref<GDKSystem> get_system() const;
+    Ref<GDKDisplay> get_display() const;
+    Ref<GDKActivation> get_activation() const;
 
     GDKRuntime *get_runtime() const;
     GDKXboxServices *get_xbox_services() const;

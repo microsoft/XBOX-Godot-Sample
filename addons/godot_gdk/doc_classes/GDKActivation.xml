@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKActivation" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Game activation event service accessed via GDK.activation.
+	</brief_description>
+	<description>
+		Wraps the [code]XGameActivation[/code] APIs so titles can react to URI/protocol launches, file-association launches, and pending/accepted invites. The deprecated [code]XGameProtocol[/code] APIs are not wrapped; use [signal protocol_activated] instead.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="accept_pending_invite">
+			<return type="GDKResult" />
+			<param index="0" name="invite_uri" type="String" />
+			<description>
+				Accepts a pending multiplayer invite by its URI. Wraps [code]XGameActivationAcceptPendingInvite[/code]. Returns [code]invalid_invite_uri[/code] for blank URIs and [code]accept_pending_invite_failed[/code] for HRESULT failures.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="protocol_activated">
+			<param index="0" name="uri" type="String" />
+			<description>
+				Emitted when the title is activated via a registered URI/protocol scheme.
+			</description>
+		</signal>
+		<signal name="file_activated">
+			<param index="0" name="file" type="String" />
+			<description>
+				Emitted when the title is activated via a file association.
+			</description>
+		</signal>
+		<signal name="pending_invite_received">
+			<param index="0" name="invite_uri" type="String" />
+			<description>
+				Emitted when an invite is pending acceptance for this title. Pass the URI to [method accept_pending_invite] to accept.
+			</description>
+		</signal>
+		<signal name="invite_accepted">
+			<param index="0" name="invite_uri" type="String" />
+			<description>
+				Emitted when an invite has been accepted (the title was launched or resumed via an accepted invite URI).
+			</description>
+		</signal>
+		<signal name="activated">
+			<param index="0" name="info" type="Dictionary" />
+			<description>
+				Generic catch-all emitted in addition to the typed signal above. [code]info[/code] is a [Dictionary] with [code]type: int[/code] (one of [enum ActivationType]) and one of [code]uri[/code]/[code]file[/code]/[code]invite_uri[/code] depending on the type.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="ACTIVATION_TYPE_PROTOCOL" value="0" enum="ActivationType">
+			Maps to [code]XGameActivationType::Protocol[/code].
+		</constant>
+		<constant name="ACTIVATION_TYPE_FILE" value="1" enum="ActivationType">
+			Maps to [code]XGameActivationType::File[/code].
+		</constant>
+		<constant name="ACTIVATION_TYPE_PENDING_GAME_INVITE" value="2" enum="ActivationType">
+			Maps to [code]XGameActivationType::PendingGameInvite[/code].
+		</constant>
+		<constant name="ACTIVATION_TYPE_ACCEPTED_GAME_INVITE" value="3" enum="ActivationType">
+			Maps to [code]XGameActivationType::AcceptedGameInvite[/code].
+		</constant>
+	</constants>
+</class>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKDisplayTimeoutDeferral" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Owner of a single PC GDK display timeout deferral handle.
+	</brief_description>
+	<description>
+		Returned by [method GDKDisplay.acquire_timeout_deferral]. Holding a [GDKDisplayTimeoutDeferral] prevents the system from idling the display until [method release] is called or the wrapper is freed. The handle is closed via [code]XDisplayCloseTimeoutDeferralHandle[/code], which is independent of the GDK runtime lifecycle so [method release] is always safe even after [method GDK.shutdown].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] while this wrapper still owns an open deferral handle.
+			</description>
+		</method>
+		<method name="release">
+			<return type="void" />
+			<description>
+				Closes the deferral handle. Idempotent; calling [method release] more than once is safe.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

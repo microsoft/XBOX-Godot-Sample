@@ -4,7 +4,7 @@
 		Root singleton for Microsoft GDK integration.
 	</brief_description>
 	<description>
-		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, store commerce, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, capture, and system/runtime metadata. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, store commerce, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, capture, system/runtime metadata, display (HDR/timeout deferral), and game activation events. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -159,6 +159,18 @@
 				Returns the GDKSystem service for title/runtime metadata and environment facts.
 			</description>
 		</method>
+		<method name="get_display" qualifiers="const">
+			<return type="GDKDisplay" />
+			<description>
+				Returns the [GDKDisplay] service for HDR mode probing/enable and idle display-timeout deferrals.
+			</description>
+		</method>
+		<method name="get_activation" qualifiers="const">
+			<return type="GDKActivation" />
+			<description>
+				Returns the [GDKActivation] service for game activation events (protocol/file/invite launches).
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="users" type="GDKUsers" setter="" getter="get_users">
@@ -217,6 +229,12 @@
 		</member>
 		<member name="system" type="GDKSystem" setter="" getter="get_system">
 			The GDKSystem service instance for title/runtime metadata and environment facts.
+		</member>
+		<member name="display" type="GDKDisplay" setter="" getter="get_display">
+			The [GDKDisplay] service instance for HDR mode probing/enable and idle display-timeout deferrals.
+		</member>
+		<member name="activation" type="GDKActivation" setter="" getter="get_activation">
+			The [GDKActivation] service instance for game activation events (protocol/file/invite launches).
 		</member>
 	</members>
 	<signals>

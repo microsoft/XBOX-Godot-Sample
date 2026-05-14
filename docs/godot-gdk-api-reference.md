@@ -42,6 +42,8 @@ accessed as namespaces under this root.
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
 | `get_capture()` | `GDKCapture` | Access the capture metadata and capture-state service |
 | `get_system()` | `GDKSystem` | Access title/runtime metadata and environment facts |
+| `get_display()` | `GDKDisplay` | Access HDR mode probing and display timeout deferrals |
+| `get_activation()` | `GDKActivation` | Access game activation events (protocol/file/invite launches) |
 
 ### Signals
 
@@ -981,3 +983,101 @@ Normalized result payload returned by all async operations.
 | `code` | `String` | Error code string |
 | `message` | `String` | Human-readable error message |
 | `data` | `Variant` | Operation payload (e.g., `GDKUser`, `Dictionary`, `Image`) |
+
+## Display service: `GDK.display`
+
+`GDK.display` is a `RefCounted` service object returned by `GDK.get_display()`. It
+wraps the PC GDK `XDisplay.h` family: HDR mode probe/enable and idle display
+timeout deferrals.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `try_enable_hdr_mode(preference := HDR_MODE_PREFERENCE_PREFER_HDR)` | `GDKResult` | Probe and best-effort enable HDR via `XDisplayTryEnableHdrMode` |
+| `acquire_timeout_deferral()` | `GDKResult` | Acquire a `GDKDisplayTimeoutDeferral` that suppresses idle display blanking |
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `HDR_MODE_UNKNOWN` (`0`) | Mode could not be determined |
+| `HDR_MODE_ENABLED` (`1`) | Display reports HDR enabled |
+| `HDR_MODE_DISABLED` (`2`) | Display reports HDR disabled |
+| `HDR_MODE_PREFERENCE_PREFER_HDR` (`0`) | Prefer HDR even if it lowers refresh rate |
+| `HDR_MODE_PREFERENCE_PREFER_REFRESH_RATE` (`1`) | Prefer high refresh rate over HDR |
+
+### Result data
+
+`try_enable_hdr_mode` success payload (`GDKResult.data`) is a `Dictionary`:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `mode` | `int` | One of the `HDR_MODE_*` constants above |
+| `info` | `Dictionary` | Present when `mode == HDR_MODE_ENABLED`. Contains `min_tone_map_luminance`, `max_tone_map_luminance`, and `max_full_frame_tone_map_luminance` (all `float`). |
+
+`acquire_timeout_deferral` success payload is a `GDKDisplayTimeoutDeferral`
+ref-counted handle wrapper. Call `release()` (or drop all references) to release
+the deferral and re-enable system idle behavior.
+
+### Validation notes
+
+- All methods return `not_initialized` when called before `GDK.initialize()`.
+- `try_enable_hdr_mode` returns `invalid_preference` for unknown preference values.
+- Native failures surface as `hdr_mode_failed` / `acquire_timeout_deferral_failed`
+  with the underlying HRESULT formatted into `message`.
+
+### `GDKDisplayTimeoutDeferral`
+
+Ref-counted wrapper around an `XDisplayTimeoutDeferralHandle`.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_valid()` | `bool` | `true` while the underlying handle is open |
+| `release()` | `void` | Closes the handle (idempotent); also runs in the destructor |
+
+Construction is internal — instances are produced by
+`GDK.display.acquire_timeout_deferral()`.
+
+## Activation service: `GDK.activation`
+
+`GDK.activation` is a `RefCounted` service object returned by
+`GDK.get_activation()`. It wraps `XGameActivation.h`, the modern replacement for
+the deprecated `XGameProtocol.h` registration. Subscribe to the typed signals to
+react to protocol launches, file launches, pending invites, and accepted
+invites.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `accept_pending_invite(invite_uri)` | `GDKResult` | Accept a pending invite URI via `XGameActivationAcceptPendingInvite` |
+
+### Signals
+
+| Signal | Arguments | Description |
+|--------|-----------|-------------|
+| `protocol_activated` | `uri: String` | The title was launched via a protocol URI |
+| `file_activated` | `file: String` | The title was launched with a file association |
+| `pending_invite_received` | `invite_uri: String` | A multiplayer invite is pending; pair with `accept_pending_invite` |
+| `invite_accepted` | `invite_uri: String` | An invite was accepted (typically by the system) |
+| `activated` | `info: Dictionary` | Catch-all event; `info.type` is one of `ACTIVATION_TYPE_*` and includes `uri`/`file`/`invite_uri` matching the typed signal |
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `ACTIVATION_TYPE_PROTOCOL` (`0`) | Protocol activation |
+| `ACTIVATION_TYPE_FILE` (`1`) | File activation |
+| `ACTIVATION_TYPE_PENDING_GAME_INVITE` (`2`) | Pending game invite |
+| `ACTIVATION_TYPE_ACCEPTED_GAME_INVITE` (`3`) | Accepted game invite |
+
+### Validation notes
+
+- `accept_pending_invite` returns `not_initialized` before `GDK.initialize()`.
+- Empty or whitespace-only URIs return `invalid_invite_uri`.
+- Native failures surface as `accept_pending_invite_failed` with the underlying
+  HRESULT formatted into `message`.
+- If activation registration fails on this host (e.g., a partially registered
+  package), the synchronous `accept_pending_invite` API still works; the
+  signal-driven flow simply emits no events. A `push_warning` is logged once.

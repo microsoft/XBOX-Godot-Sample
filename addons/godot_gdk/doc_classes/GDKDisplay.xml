@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKDisplay" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Display service accessed via GDK.display.
+	</brief_description>
+	<description>
+		Wraps the small [code]XDisplay[/code] surface from the PC GDK. Provides HDR mode probing/enable and idle display-timeout deferrals. All methods return [GDKResult] with the success payload in [code]GDKResult.data[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="try_enable_hdr_mode">
+			<return type="GDKResult" />
+			<param index="0" name="preference" type="int" enum="GDKDisplay.HdrModePreference" default="0" />
+			<description>
+				Tries to put the connected display into HDR mode. Wraps [code]XDisplayTryEnableHdrMode[/code]. On success [code]data[/code] is a [Dictionary] with [code]mode: int[/code] (one of [enum HdrMode]). When [code]mode == HDR_MODE_ENABLED[/code], [code]data[/code] also contains an [code]info[/code] [Dictionary] with [code]min_tone_map_luminance[/code], [code]max_tone_map_luminance[/code], and [code]max_full_frame_tone_map_luminance[/code] floats. Returns [code]invalid_preference[/code] for unknown preference values, [code]not_initialized[/code] before [method GDK.initialize].
+			</description>
+		</method>
+		<method name="acquire_timeout_deferral">
+			<return type="GDKResult" />
+			<description>
+				Acquires a display timeout deferral so the system will not idle out the display while the returned [GDKDisplayTimeoutDeferral] is held. Wraps [code]XDisplayAcquireTimeoutDeferral[/code]. On success [code]data[/code] is a [GDKDisplayTimeoutDeferral]; release it via [method GDKDisplayTimeoutDeferral.release] or let it free naturally. Returns [code]not_initialized[/code] before [method GDK.initialize] or [code]acquire_timeout_deferral_failed[/code] on HRESULT failure.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="HDR_MODE_UNKNOWN" value="0" enum="HdrMode">
+			HDR mode could not be determined ([code]XDisplayHdrModeResult::Unknown[/code]).
+		</constant>
+		<constant name="HDR_MODE_ENABLED" value="1" enum="HdrMode">
+			HDR mode is enabled on the connected display ([code]XDisplayHdrModeResult::Enabled[/code]).
+		</constant>
+		<constant name="HDR_MODE_DISABLED" value="2" enum="HdrMode">
+			HDR mode is disabled or unavailable ([code]XDisplayHdrModeResult::Disabled[/code]).
+		</constant>
+		<constant name="HDR_MODE_PREFERENCE_PREFER_HDR" value="0" enum="HdrModePreference">
+			Prefer enabling HDR even if the display refresh rate must drop ([code]XDisplayHdrModePreference::PreferHdr[/code]).
+		</constant>
+		<constant name="HDR_MODE_PREFERENCE_PREFER_REFRESH_RATE" value="1" enum="HdrModePreference">
+			Prefer keeping the current refresh rate, only enable HDR when it does not require a refresh-rate change ([code]XDisplayHdrModePreference::PreferRefreshRate[/code]).
+		</constant>
+	</constants>
+</class>
