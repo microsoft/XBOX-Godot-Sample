@@ -70,10 +70,6 @@ func test_optional_live_sign_in() -> void:
 		assert_not_null(playfab.get_users().get_user_by_custom_id(playfab_user.custom_id), "PlayFab.users.get_user_by_custom_id() returns the cached signed-in user")
 		assert_true(playfab.get_users().get_users().size() >= 1, "PlayFab.users cache tracks the signed-in session")
 
-		var last_error = playfab.get_last_error()
-		if last_error != null:
-			assert_eq(last_error.ok, true, "PlayFab.get_last_error() clears after successful sign-in")
-
 	playfab.shutdown()
 	assert_eq(playfab.is_initialized(), false, "PlayFab.shutdown() returns the runtime to the uninitialized state")
 	assert_eq(shutdown_events.size(), 1, "PlayFab.shutdown_completed emits once after live smoke")

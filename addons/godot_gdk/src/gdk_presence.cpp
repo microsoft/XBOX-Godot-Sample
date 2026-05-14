@@ -211,7 +211,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Presence update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -219,13 +218,11 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Presence update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to update presence.", "presence_update_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -240,7 +237,6 @@ protected:
         m_presence->emit_signal("local_presence_set", m_user);
         m_presence->emit_signal("presence_changed", record->get_xuid(), record);
 
-        get_runtime()->clear_last_error();
         Dictionary data;
         data["xuid"] = record->get_xuid();
         data["active"] = m_is_active;
@@ -329,7 +325,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Presence query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -340,13 +335,11 @@ protected:
             HRESULT result_hr = XblPresenceGetPresenceResult(p_async_block, &record_handle);
             if (result_hr == E_ABORT) {
                 result = GDKResult::cancelled("Presence query cancelled.");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
             if (FAILED(result_hr)) {
                 result = GDKResult::hresult_error(result_hr, "Failed to retrieve the presence query result.", "presence_result_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -357,7 +350,6 @@ protected:
             XblPresenceRecordCloseHandle(record_handle);
             if (FAILED(result_hr)) {
                 result = GDKResult::hresult_error(result_hr, "Failed to translate a presence record.", "presence_record_translate_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -371,13 +363,11 @@ protected:
                     XblPresenceGetPresenceForMultipleUsersResultCount(p_async_block, &result_count);
             if (result_hr == E_ABORT) {
                 result = GDKResult::cancelled("Presence query cancelled.");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
             if (FAILED(result_hr)) {
                 result = GDKResult::hresult_error(result_hr, "Failed to retrieve the presence query result count.", "presence_result_count_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -389,13 +379,11 @@ protected:
                         XblPresenceGetPresenceForMultipleUsersResult(p_async_block, handles.data(), result_count);
                 if (result_hr == E_ABORT) {
                     result = GDKResult::cancelled("Presence query cancelled.");
-                    get_runtime()->set_last_error(result);
                     get_pending_signal()->complete(result);
                     return;
                 }
                 if (FAILED(result_hr)) {
                     result = GDKResult::hresult_error(result_hr, "Failed to retrieve presence records.", "presence_results_failed");
-                    get_runtime()->set_last_error(result);
                     get_pending_signal()->complete(result);
                     return;
                 }
@@ -421,7 +409,6 @@ protected:
                     }
 
                     result = GDKResult::hresult_error(result_hr, "Failed to translate a presence record.", "presence_record_translate_failed");
-                    get_runtime()->set_last_error(result);
                     get_pending_signal()->complete(result);
                     return;
                 }
@@ -431,7 +418,6 @@ protected:
             }
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(records));
     }
 
@@ -701,7 +687,6 @@ Signal GDKPresence::set_presence_async(const Ref<GDKUser> &p_user, const String 
     HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to resolve the Xbox services context for the presence update.", "presence_context_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -719,7 +704,6 @@ Signal GDKPresence::set_presence_async(const Ref<GDKUser> &p_user, const String 
         delete context_state;
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to start the presence update request.", "presence_update_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -746,7 +730,6 @@ Signal GDKPresence::clear_presence_async(const Ref<GDKUser> &p_user) {
     HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to resolve the Xbox services context for the presence update.", "presence_context_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -764,7 +747,6 @@ Signal GDKPresence::clear_presence_async(const Ref<GDKUser> &p_user) {
         delete context_state;
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to start the presence clear request.", "presence_clear_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -802,7 +784,6 @@ Signal GDKPresence::get_presence_async(const PackedStringArray &p_xuids) {
     HRESULT hr = xbox_services->duplicate_context_for_user(calling_user, &context);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to resolve the Xbox services context for the presence query.", "presence_context_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -831,7 +812,6 @@ Signal GDKPresence::get_presence_async(const PackedStringArray &p_xuids) {
         delete context_state;
 
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to start the presence query.", "presence_query_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

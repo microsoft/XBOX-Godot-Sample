@@ -186,7 +186,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Message dialog cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -195,7 +194,6 @@ protected:
         HRESULT result_hr = XGameUiShowMessageDialogResult(p_async_block, &selected_button);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Message dialog cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -205,7 +203,6 @@ protected:
                     result_hr,
                     "Failed to complete the message dialog flow.",
                     "game_ui_message_dialog_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -214,7 +211,6 @@ protected:
         data["selected_button"] = _message_dialog_button_to_string(selected_button);
         data["selected_button_index"] = static_cast<int64_t>(selected_button);
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -230,7 +226,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Player profile card UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -238,7 +233,6 @@ protected:
         HRESULT result_hr = XGameUiShowPlayerProfileCardResult(p_async_block);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Player profile card UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -248,12 +242,10 @@ protected:
                     result_hr,
                     "Failed to complete the player profile card UI flow.",
                     "game_ui_player_profile_card_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result());
     }
 
@@ -269,7 +261,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Player picker UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -278,7 +269,6 @@ protected:
         HRESULT count_hr = XGameUiShowPlayerPickerResultCount(p_async_block, &selected_count);
         if (count_hr == E_ABORT) {
             result = GDKResult::cancelled("Player picker UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -287,7 +277,6 @@ protected:
                     count_hr,
                     "Failed to get the player picker result count.",
                     "game_ui_player_picker_count_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -301,7 +290,6 @@ protected:
                 &selected_used);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Player picker UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -310,7 +298,6 @@ protected:
                     result_hr,
                     "Failed to complete the player picker UI flow.",
                     "game_ui_player_picker_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -324,7 +311,6 @@ protected:
         data["selected_xuids"] = selected_xuids;
         data["selection_count"] = static_cast<int64_t>(selected_xuids.size());
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -454,7 +440,6 @@ Signal GDKGameUI::show_message_dialog_async(
                 hr,
                 "Failed to start the message dialog flow.",
                 "game_ui_message_dialog_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -482,14 +467,12 @@ Ref<GDKResult> GDKGameUI::set_notification_position_hint(const String &p_positio
                 hr,
                 "Failed to set the notification position hint.",
                 "game_ui_notification_position_failed");
-        runtime->set_last_error(result);
         return result;
     }
 
     Dictionary data;
     data["position"] = normalized_position;
 
-    runtime->clear_last_error();
     return GDKResult::ok_result(data);
 }
 
@@ -524,7 +507,6 @@ Signal GDKGameUI::show_player_profile_card_async(const Ref<GDKUser> &p_requestin
                 hr,
                 "Failed to start the player profile card UI flow.",
                 "game_ui_player_profile_card_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -631,7 +613,6 @@ Signal GDKGameUI::show_player_picker_async(
                 hr,
                 "Failed to start the player picker UI flow.",
                 "game_ui_player_picker_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

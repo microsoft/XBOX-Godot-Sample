@@ -234,7 +234,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage quota query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -244,13 +243,11 @@ protected:
         HRESULT result_hr = XblTitleStorageGetQuotaResult(p_async_block, &used_bytes, &quota_bytes);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage quota query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to retrieve Title Storage quota.", "title_storage_quota_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -259,7 +256,6 @@ protected:
         payload["storage_type"] = m_storage_type;
         payload["used_bytes"] = static_cast<int64_t>(used_bytes);
         payload["quota_bytes"] = static_cast<int64_t>(quota_bytes);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(payload));
     }
 
@@ -294,7 +290,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage metadata query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -305,13 +300,11 @@ protected:
                 XblTitleStorageGetBlobMetadataResult(p_async_block, &handle);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage metadata query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to retrieve Title Storage metadata.", "title_storage_metadata_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -324,12 +317,10 @@ protected:
                 XblTitleStorageBlobMetadataResultCloseHandle(handle);
             }
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to translate Title Storage metadata.", "title_storage_metadata_translate_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(metadata_result));
     }
 
@@ -382,7 +373,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage upload cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -391,18 +381,15 @@ protected:
         HRESULT result_hr = XblTitleStorageUploadBlobResult(p_async_block, &metadata);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage upload cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to upload Title Storage blob.", "title_storage_upload_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(_make_metadata_ref(metadata)));
     }
 
@@ -444,7 +431,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage delete cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -452,18 +438,15 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage delete cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to delete Title Storage blob.", "title_storage_delete_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result());
     }
 
@@ -493,7 +476,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage download cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -502,13 +484,11 @@ protected:
         HRESULT result_hr = XblTitleStorageDownloadBlobResult(p_async_block, &metadata);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage download cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to download Title Storage blob.", "title_storage_download_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -516,7 +496,6 @@ protected:
         Dictionary payload;
         payload["metadata"] = _make_metadata_ref(metadata);
         payload["data"] = _make_packed_byte_array(m_buffer);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(payload));
     }
 
@@ -560,7 +539,6 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override {
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage download cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -569,13 +547,11 @@ protected:
         HRESULT result_hr = XblTitleStorageGetBlobMetadataResult(p_async_block, &handle);
         if (result_hr == E_ABORT) {
             Ref<GDKResult> result = GDKResult::cancelled("Title Storage download cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to retrieve Title Storage blob metadata for download.", "title_storage_download_metadata_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -586,7 +562,6 @@ protected:
         if (FAILED(result_hr)) {
             XblTitleStorageBlobMetadataResultCloseHandle(handle);
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to read Title Storage blob metadata for download.", "title_storage_download_metadata_items_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -595,7 +570,6 @@ protected:
         if (metadata == nullptr) {
             XblTitleStorageBlobMetadataResultCloseHandle(handle);
             Ref<GDKResult> result = GDKResult::error_result(E_BOUNDS, "blob_not_found", "No Title Storage blob metadata matched blob_path.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -620,7 +594,6 @@ protected:
             download_context->clear_cancel_handler();
             delete download_context;
             Ref<GDKResult> result = GDKResult::hresult_error(result_hr, "Failed to start Title Storage blob download.", "title_storage_download_start_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
         }
     }

@@ -136,7 +136,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Statistic query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -147,13 +146,11 @@ protected:
                 XblUserStatisticsGetSingleUserStatisticsResultSize(p_async_block, &result_size);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Statistic query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve statistic query result size.", "stats_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -182,13 +179,11 @@ protected:
 
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Statistic query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve statistic query results.", "stats_results_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -197,7 +192,6 @@ protected:
         if (m_single_user_payload) {
             m_stats->emit_signal("stats_updated", m_user, m_stats->get_cached_stats(m_user));
         }
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(payload));
     }
 
@@ -283,7 +277,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Statistic flush cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -291,13 +284,11 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Statistic flush cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to flush title-managed statistics.", "stats_flush_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -310,7 +301,6 @@ protected:
         data["xuid"] = xuid;
         data["count"] = static_cast<int64_t>(m_staged_stats.size());
         result = GDKResult::ok_result(data);
-        get_runtime()->clear_last_error();
         m_stats->emit_signal("stats_flushed", m_user, result);
         get_pending_signal()->complete(result);
     }

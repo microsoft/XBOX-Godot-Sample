@@ -138,20 +138,12 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		mount_result,
 		"invalid_package_identifier",
 		"mount_package_async() rejects blank identifiers")
-	assert_result_error(
-		gdk.get_last_error(),
-		"invalid_package_identifier",
-		"GDK.get_last_error() tracks mount_package_async() validation failures")
 
 	var load_result = await await_completion(package_service.load_resource_pack_async(" ", "content/dlc.pck"))
 	assert_result_error(
 		load_result,
 		"invalid_package_identifier",
 		"load_resource_pack_async() rejects blank identifiers")
-	assert_result_error(
-		gdk.get_last_error(),
-		"invalid_package_identifier",
-		"GDK.get_last_error() tracks load_resource_pack_async() validation failures")
 
 	const MISSING_ID := "gdk.tests.missing.id"
 	assert_result_error(

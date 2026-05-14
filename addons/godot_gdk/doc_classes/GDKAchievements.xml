@@ -48,6 +48,12 @@
 				Emitted when the achievement cache has been updated for the [param user].
 			</description>
 		</signal>
+		<signal name="runtime_error">
+			<param index="0" name="result" type="GDKResult" />
+			<description>
+				Emitted when an unsolicited Achievements Manager subsystem error occurs (for example a failure inside [code]XblAchievementsManagerDoWork[/code]). Caller-driven failures are returned via the awaited completion [Signal] of the relevant [code]_async[/code] method.
+			</description>
+		</signal>
 	</signals>
 	<constants>
 	</constants>

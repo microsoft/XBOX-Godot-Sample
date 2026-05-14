@@ -37,7 +37,6 @@ Current public methods:
 - `is_available() -> bool`
 - `is_initialized() -> bool`
 - `dispatch() -> int`
-- `get_last_error() -> GDKResult`
 - `get_users() -> GDKUsers`
 - `get_system() -> GDKSystem`
 - `get_game_ui() -> GDKGameUI`
@@ -62,7 +61,7 @@ Current public signals:
 
 - `initialized()`
 - `shutdown_completed()`
-- `runtime_error(result: GDKResult)`
+- `runtime_error(result: GDKResult)` — reserved for `XError` callback events. Caller-driven failures are returned as the per-call `GDKResult`; per-service unsolicited errors are emitted on `GDK.<service>.runtime_error` (e.g. `GDK.social.runtime_error`, `GDK.achievements.runtime_error`).
 
 ### `GDK.users`
 

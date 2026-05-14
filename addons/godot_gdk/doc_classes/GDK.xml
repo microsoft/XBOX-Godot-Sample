@@ -39,12 +39,6 @@
 				Manually pumps the GDK async task queue and manager-driven state. Use this when [code]gdk/runtime/embed_dispatch[/code] is disabled or when you want deterministic control over completion timing. Returns the number of tasks dispatched.
 			</description>
 		</method>
-		<method name="get_last_error" qualifiers="const">
-			<return type="GDKResult" />
-			<description>
-				Returns the [GDKResult] from the most recent GDK operation that failed.
-			</description>
-		</method>
 		<method name="get_users" qualifiers="const">
 			<return type="GDKUsers" />
 			<description>
@@ -251,7 +245,7 @@
 		<signal name="runtime_error">
 			<param index="0" name="result" type="GDKResult" />
 			<description>
-				Emitted when a runtime error occurs in the GDK.
+				Emitted when an [code]XError[/code] runtime error is reported by the GDK error-reporting bridge. After the result-only refactor, this root signal is reserved for unsolicited X-error events; per-service async failures are surfaced on the service's own [code]runtime_error[/code] signal (for example [code]GDK.social.runtime_error[/code], [code]GDK.achievements.runtime_error[/code]).
 			</description>
 		</signal>
 	</signals>

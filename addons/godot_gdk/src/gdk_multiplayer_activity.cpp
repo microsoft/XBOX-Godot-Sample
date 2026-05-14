@@ -135,7 +135,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Multiplayer activity update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -143,7 +142,6 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Multiplayer activity update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -153,7 +151,6 @@ protected:
                     result_hr,
                     "Failed to set the multiplayer activity.",
                     "multiplayer_activity_set_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -171,7 +168,6 @@ protected:
         m_service->cache_activity_internal(activity);
         m_service->emit_activities_updated_internal({ m_local_xuid });
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(activity));
     }
 
@@ -203,7 +199,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Multiplayer activity query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -212,7 +207,6 @@ protected:
         HRESULT size_hr = XblMultiplayerActivityGetActivityResultSize(p_async_block, &buffer_size);
         if (size_hr == E_ABORT) {
             result = GDKResult::cancelled("Multiplayer activity query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -222,7 +216,6 @@ protected:
                     size_hr,
                     "Failed to get the multiplayer activity result size.",
                     "multiplayer_activity_get_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -239,7 +232,6 @@ protected:
                 nullptr);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Multiplayer activity query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -249,7 +241,6 @@ protected:
                     result_hr,
                     "Failed to translate the multiplayer activity result.",
                     "multiplayer_activity_get_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -267,7 +258,6 @@ protected:
         }
 
         m_service->emit_activities_updated_internal(updated_xuids);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(godot_activities));
     }
 
@@ -289,7 +279,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Multiplayer activity delete cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -297,7 +286,6 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Multiplayer activity delete cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -307,14 +295,12 @@ protected:
                     result_hr,
                     "Failed to delete the multiplayer activity.",
                     "multiplayer_activity_delete_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         m_service->remove_cached_activity_internal(m_local_xuid);
         m_service->emit_activities_updated_internal({ m_local_xuid });
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(m_local_xuid));
     }
 
@@ -340,7 +326,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Multiplayer invite send cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -348,7 +333,6 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Multiplayer invite send cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -358,7 +342,6 @@ protected:
                     result_hr,
                     "Failed to send multiplayer invites.",
                     "multiplayer_activity_send_invites_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -368,7 +351,6 @@ protected:
         data["allow_cross_platform_join"] = m_allow_cross_platform_join;
         data["connection_string"] = m_connection_string;
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(data));
     }
 
@@ -394,7 +376,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Invite UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -402,7 +383,6 @@ protected:
         HRESULT result_hr = XGameUiShowMultiplayerActivityGameInviteResult(p_async_block);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Invite UI cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -412,12 +392,10 @@ protected:
                     result_hr,
                     "Failed to complete the multiplayer invite UI flow.",
                     "multiplayer_activity_invite_ui_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result());
     }
 
@@ -433,7 +411,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Recent-player flush cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -441,7 +418,6 @@ protected:
         HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Recent-player flush cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -451,12 +427,10 @@ protected:
                     result_hr,
                     "Failed to flush recent-player updates.",
                     "multiplayer_activity_flush_recent_players_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result());
     }
 
@@ -728,7 +702,6 @@ Signal GDKMultiplayerActivity::set_activity_async(
                 hr,
                 "Failed to start the multiplayer activity update.",
                 "multiplayer_activity_set_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -783,7 +756,6 @@ Signal GDKMultiplayerActivity::get_activities_async(const Ref<GDKUser> &p_user, 
                 hr,
                 "Failed to start the multiplayer activity query.",
                 "multiplayer_activity_get_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -837,7 +809,6 @@ Signal GDKMultiplayerActivity::delete_activity_async(const Ref<GDKUser> &p_user)
                 hr,
                 "Failed to start the multiplayer activity delete.",
                 "multiplayer_activity_delete_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -922,7 +893,6 @@ Signal GDKMultiplayerActivity::send_invites_async(
                 hr,
                 "Failed to start the multiplayer invite request.",
                 "multiplayer_activity_send_invites_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -960,7 +930,6 @@ Signal GDKMultiplayerActivity::show_invite_ui_async(const Ref<GDKUser> &p_user) 
                 hr,
                 "Failed to start the multiplayer invite UI flow.",
                 "multiplayer_activity_invite_ui_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -1057,7 +1026,6 @@ Signal GDKMultiplayerActivity::flush_recent_players_async(const Ref<GDKUser> &p_
                 hr,
                 "Failed to start the recent-player flush.",
                 "multiplayer_activity_flush_recent_players_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

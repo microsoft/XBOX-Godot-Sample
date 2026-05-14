@@ -59,15 +59,16 @@ func test_gdk_result_ok_shape() -> void:
 		if gdk == null:
 			pending("GDKResult.ok shape requires either a script-visible static or a runtime call.")
 			return
-		# Drive a successful initialize() so `get_last_error()` returns the
-		# canonical ok GDKResult (init-failure leaves last_error in the
-		# runtime_initialize_failed shape).
+		# Drive a successful initialize() so we can capture its returned ok
+		# GDKResult directly (the result-only refactor removed the
+		# get_last_error() poll, so we use the return value as the canonical
+		# ok shape).
 		var init_result: Variant = gdk.initialize()
 		if init_result == null or not init_result.ok:
 			pending("GDKResult.ok shape requires a successful runtime init: %s" % (
 				init_result.message if init_result != null else "GDK.initialize() returned null"))
 			return
-		ok_result = gdk.get_last_error()
+		ok_result = init_result
 
 	assert_not_null(ok_result, "constructed GDKResult is non-null")
 	if ok_result == null:

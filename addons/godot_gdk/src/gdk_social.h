@@ -187,7 +187,9 @@ class GDKSocial : public RefCounted {
     Ref<GDKSocialGroup> _find_group_by_handle(XblSocialManagerUserGroupHandle p_group_handle) const;
     Ref<GDKSocialUser> _find_cached_user(const String &p_xuid) const;
     Ref<GDKSocialUser> _cache_social_user(const XblSocialManagerUser &p_social_user, bool p_emit_social_signal, bool p_emit_presence_signal);
-    Array _get_group_users_internal(const Ref<GDKSocialGroup> &p_group, bool p_emit_social_signal, bool p_emit_presence_signal);
+    Ref<GDKSocialGroup> _create_social_group_internal(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter, Ref<GDKResult> *r_error);
+    Ref<GDKSocialGroup> _create_social_group_from_xuids_internal(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, Ref<GDKResult> *r_error);
+    Array _get_group_users_internal(const Ref<GDKSocialGroup> &p_group, bool p_emit_social_signal, bool p_emit_presence_signal, Ref<GDKResult> *r_error = nullptr);
     Ref<GDKResult> _refresh_group_metadata(const Ref<GDKSocialGroup> &p_group);
     void _complete_pending_friend_ops(XblSocialManagerUserGroupHandle p_group_handle);
     void _fail_pending_friend_ops(XUserLocalId p_local_id, const Ref<GDKResult> &p_result);
@@ -211,10 +213,10 @@ public:
     Ref<GDKResult> start_social_graph(const Ref<GDKUser> &p_user);
     void stop_social_graph(const Ref<GDKUser> &p_user);
     Signal get_friends_async(const Ref<GDKUser> &p_user);
-    Ref<GDKSocialGroup> create_social_group(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter = Ref<GDKSocialFilter>());
-    Ref<GDKSocialGroup> create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids);
+    Ref<GDKResult> create_social_group(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter = Ref<GDKSocialFilter>());
+    Ref<GDKResult> create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids);
     void destroy_social_group(const Ref<GDKSocialGroup> &p_group);
-    Array get_group_users(const Ref<GDKSocialGroup> &p_group);
+    Ref<GDKResult> get_group_users(const Ref<GDKSocialGroup> &p_group);
     Signal submit_reputation_feedback_async(const Ref<GDKUser> &p_user, const String &p_target_xuid, const String &p_feedback_type, const String &p_reason = String(), const String &p_evidence_id = String());
     Signal submit_batch_reputation_feedback_async(const Ref<GDKUser> &p_user, const Array &p_feedback_items);
 

@@ -78,7 +78,6 @@ Signal PlayFabAccounts::add_or_update_contact_email_async(const Ref<PlayFabUser>
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientAddOrUpdateContactEmail.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -99,7 +98,6 @@ Signal PlayFabAccounts::get_account_info_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetAccountInfo.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -120,7 +118,6 @@ Signal PlayFabAccounts::get_player_combined_info_async(const Ref<PlayFabUser> &p
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayerCombinedInfo.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -141,7 +138,6 @@ Signal PlayFabAccounts::get_player_profile_async(const Ref<PlayFabUser> &p_user,
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayerProfile.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -162,7 +158,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_battle_net_account_ids_async(const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromBattleNetAccountIds.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -183,7 +178,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_google_ids_async(const Ref<PlayFab
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromGoogleIDs.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -204,7 +198,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_kongregate_ids_async(const Ref<Pla
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromKongregateIDs.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -225,7 +218,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_steam_ids_async(const Ref<PlayFabU
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromSteamIDs.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -246,7 +238,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_steam_names_async(const Ref<PlayFa
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromSteamNames.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -267,7 +258,6 @@ Signal PlayFabAccounts::get_play_fab_ids_from_xbox_live_ids_async(const Ref<Play
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientGetPlayFabIDsFromXboxLiveIDs.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -288,7 +278,6 @@ Signal PlayFabAccounts::link_battle_net_account_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientLinkBattleNetAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -309,7 +298,6 @@ Signal PlayFabAccounts::link_custom_id_async(const Ref<PlayFabUser> &p_user, con
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientLinkCustomID.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -330,7 +318,6 @@ Signal PlayFabAccounts::link_open_id_connect_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientLinkOpenIdConnect.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -351,7 +338,6 @@ Signal PlayFabAccounts::link_steam_account_async(const Ref<PlayFabUser> &p_user,
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientLinkSteamAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -372,7 +358,6 @@ Signal PlayFabAccounts::link_xbox_account_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientLinkXboxAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -393,7 +378,6 @@ Signal PlayFabAccounts::remove_contact_email_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientRemoveContactEmail.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -414,7 +398,6 @@ Signal PlayFabAccounts::report_player_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientReportPlayer.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -435,7 +418,6 @@ Signal PlayFabAccounts::unlink_battle_net_account_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUnlinkBattleNetAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -456,7 +438,6 @@ Signal PlayFabAccounts::unlink_custom_id_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUnlinkCustomID.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -477,7 +458,6 @@ Signal PlayFabAccounts::unlink_open_id_connect_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUnlinkOpenIdConnect.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -498,7 +478,6 @@ Signal PlayFabAccounts::unlink_steam_account_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUnlinkSteamAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -519,7 +498,6 @@ Signal PlayFabAccounts::unlink_xbox_account_async(const Ref<PlayFabUser> &p_user
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUnlinkXboxAccount.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -540,7 +518,6 @@ Signal PlayFabAccounts::update_avatar_url_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUpdateAvatarUrl.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -561,7 +538,6 @@ Signal PlayFabAccounts::update_user_title_display_name_async(const Ref<PlayFabUs
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementClientUpdateUserTitleDisplayName.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -582,7 +558,6 @@ Signal PlayFabAccounts::get_title_players_from_xbox_live_ids_async(const Ref<Pla
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementGetTitlePlayersFromXboxLiveIDs.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -603,7 +578,6 @@ Signal PlayFabAccounts::set_display_name_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFAccountManagementSetDisplayName.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -624,7 +598,6 @@ Signal PlayFabAccounts::get_profile_async(const Ref<PlayFabUser> &p_user, const 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFProfilesGetProfile.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -645,7 +618,6 @@ Signal PlayFabAccounts::get_profiles_async(const Ref<PlayFabUser> &p_user, const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFProfilesGetProfiles.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -666,7 +638,6 @@ Signal PlayFabAccounts::get_title_players_from_master_player_account_ids_async(c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFProfilesGetTitlePlayersFromMasterPlayerAccountIds.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -687,7 +658,6 @@ Signal PlayFabAccounts::set_profile_language_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFProfilesSetProfileLanguage.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -708,7 +678,6 @@ Signal PlayFabAccounts::set_profile_policy_async(const Ref<PlayFabUser> &p_user,
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFProfilesSetProfilePolicy.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -760,7 +729,6 @@ Signal PlayFabCatalog::create_draft_item_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogCreateDraftItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -781,7 +749,6 @@ Signal PlayFabCatalog::create_upload_urls_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogCreateUploadUrls.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -802,7 +769,6 @@ Signal PlayFabCatalog::delete_entity_item_reviews_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogDeleteEntityItemReviews.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -823,7 +789,6 @@ Signal PlayFabCatalog::delete_item_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogDeleteItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -844,7 +809,6 @@ Signal PlayFabCatalog::get_catalog_config_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetCatalogConfig.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -865,7 +829,6 @@ Signal PlayFabCatalog::get_draft_item_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetDraftItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -886,7 +849,6 @@ Signal PlayFabCatalog::get_draft_items_async(const Ref<PlayFabUser> &p_user, con
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetDraftItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -907,7 +869,6 @@ Signal PlayFabCatalog::get_entity_draft_items_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetEntityDraftItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -928,7 +889,6 @@ Signal PlayFabCatalog::get_entity_item_review_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetEntityItemReview.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -949,7 +909,6 @@ Signal PlayFabCatalog::get_item_async(const Ref<PlayFabUser> &p_user, const Dict
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -970,7 +929,6 @@ Signal PlayFabCatalog::get_item_containers_async(const Ref<PlayFabUser> &p_user,
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItemContainers.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -991,7 +949,6 @@ Signal PlayFabCatalog::get_item_moderation_state_async(const Ref<PlayFabUser> &p
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItemModerationState.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1012,7 +969,6 @@ Signal PlayFabCatalog::get_item_publish_status_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItemPublishStatus.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1033,7 +989,6 @@ Signal PlayFabCatalog::get_item_reviews_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItemReviews.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1054,7 +1009,6 @@ Signal PlayFabCatalog::get_item_review_summary_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItemReviewSummary.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1075,7 +1029,6 @@ Signal PlayFabCatalog::get_items_async(const Ref<PlayFabUser> &p_user, const Dic
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogGetItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1096,7 +1049,6 @@ Signal PlayFabCatalog::publish_draft_item_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogPublishDraftItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1117,7 +1069,6 @@ Signal PlayFabCatalog::report_item_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogReportItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1138,7 +1089,6 @@ Signal PlayFabCatalog::report_item_review_async(const Ref<PlayFabUser> &p_user, 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogReportItemReview.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1159,7 +1109,6 @@ Signal PlayFabCatalog::review_item_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogReviewItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1180,7 +1129,6 @@ Signal PlayFabCatalog::search_items_async(const Ref<PlayFabUser> &p_user, const 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogSearchItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1201,7 +1149,6 @@ Signal PlayFabCatalog::set_item_moderation_state_async(const Ref<PlayFabUser> &p
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogSetItemModerationState.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1222,7 +1169,6 @@ Signal PlayFabCatalog::submit_item_review_vote_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogSubmitItemReviewVote.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1243,7 +1189,6 @@ Signal PlayFabCatalog::takedown_item_reviews_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogTakedownItemReviews.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1264,7 +1209,6 @@ Signal PlayFabCatalog::update_catalog_config_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogUpdateCatalogConfig.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1285,7 +1229,6 @@ Signal PlayFabCatalog::update_draft_item_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCatalogUpdateDraftItem.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1314,7 +1257,6 @@ Signal PlayFabCloudScript::execute_cloud_script_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCloudScriptClientExecuteCloudScript.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1335,7 +1277,6 @@ Signal PlayFabCloudScript::execute_entity_cloud_script_async(const Ref<PlayFabUs
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCloudScriptExecuteEntityCloudScript.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1356,7 +1297,6 @@ Signal PlayFabCloudScript::execute_function_async(const Ref<PlayFabUser> &p_user
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFCloudScriptExecuteFunction.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1389,7 +1329,6 @@ Signal PlayFabEntityData::abort_file_uploads_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataAbortFileUploads.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1410,7 +1349,6 @@ Signal PlayFabEntityData::delete_files_async(const Ref<PlayFabUser> &p_user, con
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataDeleteFiles.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1431,7 +1369,6 @@ Signal PlayFabEntityData::finalize_file_uploads_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataFinalizeFileUploads.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1452,7 +1389,6 @@ Signal PlayFabEntityData::get_files_async(const Ref<PlayFabUser> &p_user, const 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataGetFiles.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1473,7 +1409,6 @@ Signal PlayFabEntityData::get_objects_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataGetObjects.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1494,7 +1429,6 @@ Signal PlayFabEntityData::initiate_file_uploads_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataInitiateFileUploads.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1515,7 +1449,6 @@ Signal PlayFabEntityData::set_objects_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFDataSetObjects.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1547,7 +1480,6 @@ Signal PlayFabExperimentation::get_treatment_assignment_async(const Ref<PlayFabU
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFExperimentationGetTreatmentAssignment.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1577,7 +1509,6 @@ Signal PlayFabFriends::add_friend_async(const Ref<PlayFabUser> &p_user, const Di
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFFriendsClientAddFriend.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1598,7 +1529,6 @@ Signal PlayFabFriends::get_friends_list_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFFriendsClientGetFriendsList.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1619,7 +1549,6 @@ Signal PlayFabFriends::remove_friend_async(const Ref<PlayFabUser> &p_user, const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFFriendsClientRemoveFriend.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1640,7 +1569,6 @@ Signal PlayFabFriends::set_friend_tags_async(const Ref<PlayFabUser> &p_user, con
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFFriendsClientSetFriendTags.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1691,7 +1619,6 @@ Signal PlayFabGroups::accept_group_application_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsAcceptGroupApplication.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1712,7 +1639,6 @@ Signal PlayFabGroups::accept_group_invitation_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsAcceptGroupInvitation.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1733,7 +1659,6 @@ Signal PlayFabGroups::add_members_async(const Ref<PlayFabUser> &p_user, const Di
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsAddMembers.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1754,7 +1679,6 @@ Signal PlayFabGroups::apply_to_group_async(const Ref<PlayFabUser> &p_user, const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsApplyToGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1775,7 +1699,6 @@ Signal PlayFabGroups::block_entity_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsBlockEntity.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1796,7 +1719,6 @@ Signal PlayFabGroups::change_member_role_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsChangeMemberRole.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1817,7 +1739,6 @@ Signal PlayFabGroups::create_group_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsCreateGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1838,7 +1759,6 @@ Signal PlayFabGroups::create_role_async(const Ref<PlayFabUser> &p_user, const Di
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsCreateRole.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1859,7 +1779,6 @@ Signal PlayFabGroups::delete_group_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsDeleteGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1880,7 +1799,6 @@ Signal PlayFabGroups::delete_role_async(const Ref<PlayFabUser> &p_user, const Di
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsDeleteRole.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1901,7 +1819,6 @@ Signal PlayFabGroups::get_group_async(const Ref<PlayFabUser> &p_user, const Dict
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsGetGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1922,7 +1839,6 @@ Signal PlayFabGroups::invite_to_group_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsInviteToGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1943,7 +1859,6 @@ Signal PlayFabGroups::is_member_async(const Ref<PlayFabUser> &p_user, const Dict
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsIsMember.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1964,7 +1879,6 @@ Signal PlayFabGroups::list_group_applications_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListGroupApplications.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -1985,7 +1899,6 @@ Signal PlayFabGroups::list_group_blocks_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListGroupBlocks.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2006,7 +1919,6 @@ Signal PlayFabGroups::list_group_invitations_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListGroupInvitations.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2027,7 +1939,6 @@ Signal PlayFabGroups::list_group_members_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListGroupMembers.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2048,7 +1959,6 @@ Signal PlayFabGroups::list_membership_async(const Ref<PlayFabUser> &p_user, cons
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListMembership.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2069,7 +1979,6 @@ Signal PlayFabGroups::list_membership_opportunities_async(const Ref<PlayFabUser>
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsListMembershipOpportunities.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2090,7 +1999,6 @@ Signal PlayFabGroups::remove_group_application_async(const Ref<PlayFabUser> &p_u
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsRemoveGroupApplication.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2111,7 +2019,6 @@ Signal PlayFabGroups::remove_group_invitation_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsRemoveGroupInvitation.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2132,7 +2039,6 @@ Signal PlayFabGroups::remove_members_async(const Ref<PlayFabUser> &p_user, const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsRemoveMembers.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2153,7 +2059,6 @@ Signal PlayFabGroups::unblock_entity_async(const Ref<PlayFabUser> &p_user, const
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsUnblockEntity.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2174,7 +2079,6 @@ Signal PlayFabGroups::update_group_async(const Ref<PlayFabUser> &p_user, const D
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsUpdateGroup.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2195,7 +2099,6 @@ Signal PlayFabGroups::update_role_async(const Ref<PlayFabUser> &p_user, const Di
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFGroupsUpdateRole.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2238,7 +2141,6 @@ Signal PlayFabInventory::add_inventory_items_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryAddInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2259,7 +2161,6 @@ Signal PlayFabInventory::delete_inventory_collection_async(const Ref<PlayFabUser
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryDeleteInventoryCollection.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2280,7 +2181,6 @@ Signal PlayFabInventory::delete_inventory_items_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryDeleteInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2301,7 +2201,6 @@ Signal PlayFabInventory::execute_inventory_operations_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryExecuteInventoryOperations.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2322,7 +2221,6 @@ Signal PlayFabInventory::execute_transfer_operations_async(const Ref<PlayFabUser
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryExecuteTransferOperations.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2343,7 +2241,6 @@ Signal PlayFabInventory::get_inventory_collection_ids_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryGetInventoryCollectionIds.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2364,7 +2261,6 @@ Signal PlayFabInventory::get_inventory_items_async(const Ref<PlayFabUser> &p_use
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryGetInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2385,7 +2281,6 @@ Signal PlayFabInventory::get_inventory_operation_status_async(const Ref<PlayFabU
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryGetInventoryOperationStatus.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2406,7 +2301,6 @@ Signal PlayFabInventory::get_transaction_history_async(const Ref<PlayFabUser> &p
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryGetTransactionHistory.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2427,7 +2321,6 @@ Signal PlayFabInventory::purchase_inventory_items_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryPurchaseInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2448,7 +2341,6 @@ Signal PlayFabInventory::redeem_google_play_inventory_items_async(const Ref<Play
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryRedeemGooglePlayInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2469,7 +2361,6 @@ Signal PlayFabInventory::redeem_microsoft_store_inventory_items_async(const Ref<
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryRedeemMicrosoftStoreInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2490,7 +2381,6 @@ Signal PlayFabInventory::redeem_play_station_store_inventory_items_async(const R
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryRedeemPlayStationStoreInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2511,7 +2401,6 @@ Signal PlayFabInventory::redeem_steam_inventory_items_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryRedeemSteamInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2532,7 +2421,6 @@ Signal PlayFabInventory::subtract_inventory_items_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventorySubtractInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2553,7 +2441,6 @@ Signal PlayFabInventory::transfer_inventory_items_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryTransferInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2574,7 +2461,6 @@ Signal PlayFabInventory::update_inventory_items_async(const Ref<PlayFabUser> &p_
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFInventoryUpdateInventoryItems.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2601,7 +2487,6 @@ Signal PlayFabLocalization::get_language_list_async(const Ref<PlayFabUser> &p_us
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFLocalizationGetLanguageList.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2637,7 +2522,6 @@ Signal PlayFabPlayerData::delete_player_custom_properties_async(const Ref<PlayFa
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientDeletePlayerCustomProperties.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2658,7 +2542,6 @@ Signal PlayFabPlayerData::get_player_custom_property_async(const Ref<PlayFabUser
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientGetPlayerCustomProperty.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2679,7 +2562,6 @@ Signal PlayFabPlayerData::get_user_data_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientGetUserData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2700,7 +2582,6 @@ Signal PlayFabPlayerData::get_user_publisher_data_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientGetUserPublisherData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2721,7 +2602,6 @@ Signal PlayFabPlayerData::get_user_publisher_read_only_data_async(const Ref<Play
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientGetUserPublisherReadOnlyData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2742,7 +2622,6 @@ Signal PlayFabPlayerData::get_user_read_only_data_async(const Ref<PlayFabUser> &
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientGetUserReadOnlyData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2760,7 +2639,6 @@ Signal PlayFabPlayerData::list_player_custom_properties_async(const Ref<PlayFabU
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientListPlayerCustomProperties.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2781,7 +2659,6 @@ Signal PlayFabPlayerData::update_player_custom_properties_async(const Ref<PlayFa
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientUpdatePlayerCustomProperties.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2802,7 +2679,6 @@ Signal PlayFabPlayerData::update_user_data_async(const Ref<PlayFabUser> &p_user,
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientUpdateUserData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2823,7 +2699,6 @@ Signal PlayFabPlayerData::update_user_publisher_data_async(const Ref<PlayFabUser
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFPlayerDataManagementClientUpdateUserPublisherData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2859,7 +2734,6 @@ Signal PlayFabStatistics::create_statistic_definition_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsCreateStatisticDefinition.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2880,7 +2754,6 @@ Signal PlayFabStatistics::delete_statistic_definition_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsDeleteStatisticDefinition.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2901,7 +2774,6 @@ Signal PlayFabStatistics::delete_statistics_async(const Ref<PlayFabUser> &p_user
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsDeleteStatistics.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2922,7 +2794,6 @@ Signal PlayFabStatistics::get_statistic_definition_async(const Ref<PlayFabUser> 
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsGetStatisticDefinition.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2943,7 +2814,6 @@ Signal PlayFabStatistics::get_statistics_async(const Ref<PlayFabUser> &p_user, c
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsGetStatistics.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2964,7 +2834,6 @@ Signal PlayFabStatistics::get_statistics_for_entities_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsGetStatisticsForEntities.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -2985,7 +2854,6 @@ Signal PlayFabStatistics::increment_statistic_version_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsIncrementStatisticVersion.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3006,7 +2874,6 @@ Signal PlayFabStatistics::list_statistic_definitions_async(const Ref<PlayFabUser
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsListStatisticDefinitions.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3027,7 +2894,6 @@ Signal PlayFabStatistics::update_statistic_definition_async(const Ref<PlayFabUse
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsUpdateStatisticDefinition.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3048,7 +2914,6 @@ Signal PlayFabStatistics::update_statistics_async(const Ref<PlayFabUser> &p_user
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFStatisticsUpdateStatistics.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3078,7 +2943,6 @@ Signal PlayFabTitleData::get_publisher_data_async(const Ref<PlayFabUser> &p_user
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFTitleDataManagementClientGetPublisherData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3096,7 +2960,6 @@ Signal PlayFabTitleData::get_time_async(const Ref<PlayFabUser> &p_user) {
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFTitleDataManagementClientGetTime.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3117,7 +2980,6 @@ Signal PlayFabTitleData::get_title_data_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFTitleDataManagementClientGetTitleData.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();
@@ -3138,7 +3000,6 @@ Signal PlayFabTitleData::get_title_news_async(const Ref<PlayFabUser> &p_user, co
         pending_signal->clear_cancel_handler();
         delete context;
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(start_hr, "Failed to start PlayFab API call: PFTitleDataManagementClientGetTitleNews.", "playfab_api_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
     return pending_signal->get_completed_signal();

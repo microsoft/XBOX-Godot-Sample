@@ -18,6 +18,9 @@ const SETTING_AUTO_ADD_PRIMARY_USER := "gdk/runtime/auto_add_primary_user"
 var _startup_user_in_progress := false
 var _gdk_extension: Variant = null
 var _gdk_load_attempted := false
+var _last_initialize_result: Variant = null
+var _last_default_user_result: Variant = null
+var _default_user_attempted := false
 
 
 func get_gdk() -> Object:
@@ -32,6 +35,29 @@ func get_gdk() -> Object:
 		return Engine.get_singleton("GDK")
 
 	return null
+
+
+## Returns the GDKResult from the most recent bootstrap-driven `GDK.initialize()`
+## call, or `null` if the autoload has not attempted initialization. Tests use
+## this to distinguish "init never attempted" (returns `null`) from "init
+## attempted and failed" (returns a result whose `.ok` is `false`).
+func get_last_initialize_result() -> Variant:
+	return _last_initialize_result
+
+
+## Returns the GDKResult from the most recent bootstrap-driven
+## `GDK.users.add_default_user_async()` call, or `null` if the autoload has
+## not attempted to add a default user yet (or the request never completed).
+## Tests use this to observe sign-in outcomes without polling a global
+## `get_last_error()` accessor.
+func get_last_default_user_result() -> Variant:
+	return _last_default_user_result
+
+
+## Returns `true` once the bootstrap autoload has begun the
+## `add_default_user_async()` call (regardless of completion).
+func has_attempted_default_user() -> bool:
+	return _default_user_attempted
 
 
 func _ready() -> void:
@@ -49,6 +75,7 @@ func _ready() -> void:
 			ProjectSettings.get_setting(SETTING_INITIALIZE_ON_STARTUP, false))
 	if initialize_on_startup and not gdk.is_initialized():
 		var init_result: Variant = gdk.initialize()
+		_last_initialize_result = init_result
 		if init_result == null:
 			push_warning("[GDK] Bootstrap: GDK.initialize() did not return a GDKResult.")
 		elif init_result.ok:
@@ -91,6 +118,7 @@ func _maybe_start_default_user(gdk: Object) -> void:
 		return
 
 	_startup_user_in_progress = true
+	_default_user_attempted = true
 	var startup_user_signal: Signal = gdk.users.add_default_user_async()
 	startup_user_signal.connect(Callable(self, "_on_startup_user_completed"), CONNECT_ONE_SHOT)
 
@@ -123,12 +151,17 @@ func _on_gdk_shutdown_completed() -> void:
 	_startup_user_in_progress = false
 
 
+## Listener for the root `GDK.runtime_error` signal. After the result-only
+## refactor that signal is reserved for `XError` callback events (the global
+## X-error bridge); per-service errors are surfaced on
+## `GDK.<service>.runtime_error` instead.
 func _on_gdk_runtime_error(result: Variant) -> void:
 	push_warning("[GDK] %s" % result.message)
 
 
 func _on_startup_user_completed(result: Variant) -> void:
 	_startup_user_in_progress = false
+	_last_default_user_result = result
 
 	if result == null:
 		push_warning("[GDK] Bootstrap: silent sign-in could not start.")

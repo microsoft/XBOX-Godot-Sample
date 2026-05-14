@@ -270,7 +270,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Privacy permission check cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -283,13 +282,11 @@ protected:
                                 XblPrivacyCheckPermissionResultSize(p_async_block, &result_size));
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Privacy permission check cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve privacy permission result size.", "privacy_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -308,7 +305,6 @@ protected:
                     &buffer_used);
             if (FAILED(result_hr)) {
                 result = result_hr == E_ABORT ? GDKResult::cancelled("Privacy permission check cancelled.") : GDKResult::hresult_error(result_hr, "Failed to retrieve privacy permission results.", "privacy_results_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
@@ -317,7 +313,6 @@ protected:
             for (size_t i = 0; i < result_count; ++i) {
                 payload.push_back(_make_permission_result_dictionary(results[i]));
             }
-            get_runtime()->clear_last_error();
             get_pending_signal()->complete(GDKResult::ok_result(payload));
             return;
         }
@@ -338,13 +333,11 @@ protected:
                         &buffer_used);
         if (FAILED(result_hr)) {
             result = result_hr == E_ABORT ? GDKResult::cancelled("Privacy permission check cancelled.") : GDKResult::hresult_error(result_hr, "Failed to retrieve privacy permission result.", "privacy_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
         Dictionary payload = permission_result == nullptr ? Dictionary() : _make_permission_result_dictionary(*permission_result);
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(payload));
     }
 
@@ -376,7 +369,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Privacy list query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -387,13 +379,11 @@ protected:
                 XblPrivacyGetAvoidListResultCount(p_async_block, &xuid_count);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Privacy list query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve privacy list result count.", "privacy_list_count_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -404,12 +394,10 @@ protected:
                 XblPrivacyGetAvoidListResult(p_async_block, xuids.size(), xuids.empty() ? nullptr : xuids.data());
         if (FAILED(result_hr)) {
             result = result_hr == E_ABORT ? GDKResult::cancelled("Privacy list query cancelled.") : GDKResult::hresult_error(result_hr, "Failed to retrieve privacy list results.", "privacy_list_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(_make_xuid_array(xuids)));
     }
 

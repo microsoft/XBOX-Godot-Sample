@@ -315,7 +315,6 @@ Ref<GDKResult> GDKCapture::enable_capture() {
                 "runtime_not_initialized",
                 "The GDK runtime must be initialized before enabling capture.");
         if (runtime != nullptr) {
-            runtime->set_last_error(result);
         }
         return result;
     }
@@ -323,12 +322,10 @@ Ref<GDKResult> GDKCapture::enable_capture() {
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to enable capture.", "capture_enable_failed");
         if (runtime != nullptr) {
-            runtime->set_last_error(result);
         }
         return result;
     }
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
     return GDKResult::ok_result();
 }
@@ -341,7 +338,6 @@ Ref<GDKResult> GDKCapture::disable_capture() {
                 "runtime_not_initialized",
                 "The GDK runtime must be initialized before disabling capture.");
         if (runtime != nullptr) {
-            runtime->set_last_error(result);
         }
         return result;
     }
@@ -349,12 +345,10 @@ Ref<GDKResult> GDKCapture::disable_capture() {
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to disable capture.", "capture_disable_failed");
         if (runtime != nullptr) {
-            runtime->set_last_error(result);
         }
         return result;
     }
     if (runtime != nullptr) {
-        runtime->clear_last_error();
     }
     return GDKResult::ok_result();
 }
@@ -401,12 +395,10 @@ Signal GDKCapture::record_diagnostic_clip_async(double p_duration) {
                 hr,
                 "Failed to record diagnostic clip.",
                 "capture_record_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
 
-    runtime->clear_last_error();
     pending_signal->complete_deferred(GDKResult::ok_result());
     return pending_signal->get_completed_signal();
 }
@@ -443,12 +435,10 @@ Signal GDKCapture::take_diagnostic_screenshot_async(const String &p_path_hint) {
                 hr,
                 "Failed to take diagnostic screenshot.",
                 "capture_screenshot_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
 
-    runtime->clear_last_error();
     pending_signal->complete_deferred(GDKResult::ok_result());
     return pending_signal->get_completed_signal();
 }

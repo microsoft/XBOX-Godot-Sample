@@ -249,7 +249,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled("Leaderboard request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -257,13 +256,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled("Leaderboard request cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "Failed to query the PlayFab leaderboard.", "leaderboard_query_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -272,7 +269,6 @@ protected:
         HRESULT size_hr = get_result_size_fn()(p_async_block, &buffer_size);
         if (FAILED(size_hr)) {
             result = PlayFabResult::hresult_error(size_hr, "Failed to get the leaderboard result size.", "leaderboard_result_size_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -287,12 +283,10 @@ protected:
                 nullptr);
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve the leaderboard result payload.", "leaderboard_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(make_leaderboard_response(response)));
     }
 };
@@ -351,7 +345,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled("Leaderboard update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -359,13 +352,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (status_hr == E_ABORT) {
             result = PlayFabResult::cancelled("Leaderboard update cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "Failed to update the PlayFab leaderboard entry.", "leaderboard_update_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -382,7 +373,6 @@ protected:
         data["scores"] = scores;
         data["metadata"] = String::utf8(m_metadata_utf8.c_str());
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(data));
     }
 };
@@ -460,7 +450,6 @@ void start_friend_query_with_token(
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the friend leaderboard request.", "friend_leaderboard_start_failed");
-        p_runtime->set_last_error(result);
         p_pending_signal->complete_deferred(result);
     }
 }
@@ -470,7 +459,6 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
 
     if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
         result = PlayFabResult::cancelled("Friend leaderboard token request cancelled.");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
@@ -478,13 +466,11 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
     HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
     if (status_hr == E_ABORT) {
         result = PlayFabResult::cancelled("Friend leaderboard token request cancelled.");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
     if (FAILED(status_hr)) {
         result = PlayFabResult::hresult_error(status_hr, "Failed to acquire an Xbox token for the friend leaderboard request.", "friend_leaderboard_token_failed");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
@@ -493,7 +479,6 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
     HRESULT size_hr = XUserGetTokenAndSignatureResultSize(p_async_block, &buffer_size);
     if (FAILED(size_hr)) {
         result = PlayFabResult::hresult_error(size_hr, "Failed to get the Xbox token result size.", "friend_leaderboard_token_result_size_failed");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
@@ -508,7 +493,6 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
             nullptr);
     if (FAILED(result_hr)) {
         result = PlayFabResult::hresult_error(result_hr, "Failed to retrieve the Xbox token payload.", "friend_leaderboard_token_result_failed");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
@@ -516,7 +500,6 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
     const String xbox_token = token_data != nullptr && token_data->token != nullptr ? String::utf8(token_data->token) : String();
     if (xbox_token.is_empty()) {
         result = PlayFabResult::error_result(E_FAIL, "friend_leaderboard_token_empty", "Xbox token acquisition succeeded but returned an empty token.");
-        get_runtime()->set_last_error(result);
         get_pending_signal()->complete(result);
         return;
     }
@@ -603,7 +586,6 @@ Signal PlayFabLeaderboards::submit_score_async(
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the leaderboard update request.", "leaderboard_update_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -651,7 +633,6 @@ Signal PlayFabLeaderboards::get_leaderboard_async(
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the leaderboard query request.", "leaderboard_query_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -697,7 +678,6 @@ Signal PlayFabLeaderboards::get_leaderboard_around_user_async(
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the around-user leaderboard query request.", "leaderboard_around_user_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -742,7 +722,6 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
             delete context;
 
             Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the friend leaderboard request.", "friend_leaderboard_start_failed");
-            runtime->set_last_error(result);
             pending_signal->complete_deferred(result);
         }
         return pending_signal->get_completed_signal();
@@ -755,7 +734,6 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
     HRESULT hr = XUserFindUserByLocalId(local_id, &user_handle);
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to find an active XUserHandle for the Xbox friends leaderboard request.", "friend_leaderboard_xuser_not_found");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
         return pending_signal->get_completed_signal();
     }
@@ -769,7 +747,6 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
         delete token_context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the Xbox token request for the friend leaderboard call.", "friend_leaderboard_token_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 

@@ -243,7 +243,6 @@ Ref<GDKResult> GDKAccessibility::query_closed_caption_properties() const {
     HRESULT hr = XClosedCaptionGetProperties(&native_properties);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to query closed caption properties.", "closed_caption_get_failed");
-        runtime->set_last_error(result);
         return result;
     }
 
@@ -251,7 +250,6 @@ Ref<GDKResult> GDKAccessibility::query_closed_caption_properties() const {
     properties.instantiate();
     properties->set_from_native(native_properties);
 
-    runtime->clear_last_error();
     return GDKResult::ok_result(properties);
 }
 
@@ -264,13 +262,11 @@ Ref<GDKResult> GDKAccessibility::set_closed_caption_enabled(bool p_enabled) cons
     HRESULT hr = XClosedCaptionSetEnabled(p_enabled);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to update closed caption enabled state.", "closed_caption_set_failed");
-        runtime->set_last_error(result);
         return result;
     }
 
     Dictionary data;
     data["enabled"] = p_enabled;
-    runtime->clear_last_error();
     return GDKResult::ok_result(data);
 }
 
@@ -284,7 +280,6 @@ Ref<GDKResult> GDKAccessibility::query_high_contrast_mode() const {
     HRESULT hr = XHighContrastGetMode(&native_mode);
     if (FAILED(hr)) {
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to query high contrast mode.", "high_contrast_get_failed");
-        runtime->set_last_error(result);
         return result;
     }
 
@@ -293,7 +288,6 @@ Ref<GDKResult> GDKAccessibility::query_high_contrast_mode() const {
     data["mode"] = static_cast<int64_t>(mode);
     data["mode_name"] = _high_contrast_mode_to_name(mode);
 
-    runtime->clear_last_error();
     return GDKResult::ok_result(data);
 }
 

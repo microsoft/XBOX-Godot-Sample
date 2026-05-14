@@ -34,18 +34,23 @@ func _finish() -> void:
 		printerr("BOOTSTRAP_FAIL: %s -- Engine.get_singleton('GDK') returned null" % SCENARIO)
 		quit(3)
 		return
+	var bootstrap = root.get_node_or_null("GDKBootstrap")
+	if bootstrap == null:
+		printerr("BOOTSTRAP_FAIL: %s -- GDKBootstrap autoload not registered under root" % SCENARIO)
+		quit(5)
+		return
 	if not gdk.is_initialized():
 		# An init failure on this dev machine is acceptable (e.g. no GDK
 		# runtime), but the autoload MUST have attempted init. We check
-		# get_last_error() to distinguish "tried and failed" from "never
-		# tried". Either is a pass for this scenario; "never tried" is a
-		# fail.
-		var last_error = gdk.get_last_error()
-		if last_error == null:
-			printerr("BOOTSTRAP_FAIL: %s -- autoload did not attempt GDK.initialize() (no last_error recorded)" % SCENARIO)
+		# get_last_initialize_result() (cached by the autoload) to
+		# distinguish "tried and failed" from "never tried". Either is a
+		# pass for this scenario; "never tried" is a fail.
+		var init_result = bootstrap.get_last_initialize_result()
+		if init_result == null:
+			printerr("BOOTSTRAP_FAIL: %s -- autoload did not attempt GDK.initialize() (no result recorded)" % SCENARIO)
 			quit(4)
 			return
-		print("BOOTSTRAP_OK: %s (autoload attempted init; result=%s)" % [SCENARIO, last_error.code])
+		print("BOOTSTRAP_OK: %s (autoload attempted init; result=%s)" % [SCENARIO, init_result.code])
 		quit(0)
 		return
 	print("BOOTSTRAP_OK: %s (GDK.is_initialized() == true after autoload)" % SCENARIO)

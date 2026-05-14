@@ -50,7 +50,6 @@ Ref<PlayFabResult> make_game_saves_error_result(
         const Variant &p_data = Variant()) {
     Ref<PlayFabResult> result = PlayFabResult::error_result(p_hresult, p_code, p_message, p_data);
     if (p_runtime != nullptr) {
-        p_runtime->set_last_error(result);
     }
     return result;
 }
@@ -63,7 +62,6 @@ Ref<PlayFabResult> make_game_saves_hresult_error(
         const Variant &p_data = Variant()) {
     Ref<PlayFabResult> result = PlayFabResult::hresult_error(p_hresult, p_action, p_code, p_data);
     if (p_runtime != nullptr) {
-        p_runtime->set_last_error(result);
     }
     return result;
 }
@@ -231,7 +229,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled(m_cancel_message);
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -239,13 +236,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (is_cancelled_hresult(status_hr)) {
             result = PlayFabResult::cancelled(m_cancel_message);
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, m_failure_action, m_failure_code);
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -253,18 +248,15 @@ protected:
         HRESULT result_hr = m_result_fn != nullptr ? m_result_fn(p_async_block) : E_FAIL;
         if (is_cancelled_hresult(result_hr)) {
             result = PlayFabResult::cancelled(m_cancel_message);
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, m_failure_action, m_failure_code);
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(m_success_data));
     }
 };
@@ -296,7 +288,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = PlayFabResult::cancelled("Game Saves user sync cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -304,13 +295,11 @@ protected:
         HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
         if (is_cancelled_hresult(status_hr)) {
             result = PlayFabResult::cancelled("Game Saves user sync cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(status_hr)) {
             result = PlayFabResult::hresult_error(status_hr, "Failed to add the PlayFab user to Game Saves.", "gamesave_add_user_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -318,13 +307,11 @@ protected:
         HRESULT result_hr = PFGameSaveFilesAddUserWithUiResult(p_async_block);
         if (is_cancelled_hresult(result_hr)) {
             result = PlayFabResult::cancelled("Game Saves user sync cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = PlayFabResult::hresult_error(result_hr, "Failed to finish adding the PlayFab user to Game Saves.", "gamesave_add_user_result_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -333,12 +320,10 @@ protected:
         HRESULT snapshot_hr = build_user_state_snapshot(m_local_user_handle, m_user, &snapshot);
         if (FAILED(snapshot_hr)) {
             result = PlayFabResult::hresult_error(snapshot_hr, "Failed to query the synchronized Game Saves state.", "gamesave_state_snapshot_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(PlayFabResult::ok_result(snapshot));
     }
 };
@@ -396,7 +381,6 @@ Signal PlayFabGameSaves::add_user_with_ui_async(const Ref<PlayFabUser> &p_user, 
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the Game Saves add-user request.", "gamesave_add_user_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -443,7 +427,6 @@ Signal PlayFabGameSaves::upload_with_ui_async(const Ref<PlayFabUser> &p_user, bo
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the Game Saves upload request.", "gamesave_upload_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -491,7 +474,6 @@ Signal PlayFabGameSaves::set_save_description_async(const Ref<PlayFabUser> &p_us
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the Game Saves description request.", "gamesave_set_description_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -534,7 +516,6 @@ Signal PlayFabGameSaves::reset_cloud_async(const Ref<PlayFabUser> &p_user) {
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the Game Saves reset-cloud request.", "gamesave_reset_cloud_start_failed");
-        runtime->set_last_error(result);
         pending_signal->complete_deferred(result);
     }
 
@@ -563,7 +544,6 @@ Ref<PlayFabResult> PlayFabGameSaves::get_folder(const Ref<PlayFabUser> &p_user) 
         return make_game_saves_hresult_error(runtime, hr, "Failed to query the Game Saves folder.", "gamesave_get_folder_failed");
     }
 
-    runtime->clear_last_error();
     return PlayFabResult::ok_result(folder);
 }
 
@@ -589,7 +569,6 @@ Ref<PlayFabResult> PlayFabGameSaves::get_folder_size(const Ref<PlayFabUser> &p_u
         return make_game_saves_hresult_error(runtime, hr, "Failed to query the Game Saves folder size.", "gamesave_get_folder_size_failed");
     }
 
-    runtime->clear_last_error();
     return PlayFabResult::ok_result(static_cast<int64_t>(folder_size));
 }
 
@@ -615,7 +594,6 @@ Ref<PlayFabResult> PlayFabGameSaves::get_remaining_quota(const Ref<PlayFabUser> 
         return make_game_saves_hresult_error(runtime, hr, "Failed to query the remaining Game Saves quota.", "gamesave_get_remaining_quota_failed");
     }
 
-    runtime->clear_last_error();
     return PlayFabResult::ok_result(remaining_quota);
 }
 
@@ -641,7 +619,6 @@ Ref<PlayFabResult> PlayFabGameSaves::is_connected_to_cloud(const Ref<PlayFabUser
         return make_game_saves_hresult_error(runtime, hr, "Failed to query the Game Saves cloud connectivity.", "gamesave_get_connected_to_cloud_failed");
     }
 
-    runtime->clear_last_error();
     return PlayFabResult::ok_result(connected_to_cloud);
 }
 

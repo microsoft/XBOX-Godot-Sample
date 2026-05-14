@@ -74,6 +74,8 @@ var _event_log_lines: Array[String] = []
 var _demo_achievement_id = DEFAULT_ACHIEVEMENT_ID
 var _last_selected_status = ""
 var _last_mpa_event_text = "No invite events yet."
+var _last_runtime_error_payload = null
+var _last_runtime_error_source = ""
 var _package_dlc_store_id = ""
 var _package_dlc_display_name = ""
 var _package_dlc_resource_pack_path = DEFAULT_DLC_RESOURCE_PACK_PATH
@@ -150,6 +152,8 @@ func _bind_gdk_signals() -> void:
 	gdk.users.user_changed.connect(_on_user_changed)
 	gdk.achievements.achievements_updated.connect(_on_achievements_updated)
 	gdk.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
+	gdk.achievements.runtime_error.connect(_on_achievements_runtime_error)
+	gdk.social.runtime_error.connect(_on_social_runtime_error)
 	gdk.multiplayer_activity.activities_updated.connect(_on_mpa_activities_updated)
 	gdk.multiplayer_activity.pending_invite_received.connect(_on_pending_invite_received)
 	gdk.multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
@@ -166,7 +170,7 @@ func _build_scenario_catalog() -> Dictionary:
 				"Initialize, inspect, and shut down the root GDK runtime singleton.",
 				[
 					_scenario("runtime_initialize", "Initialize Runtime", "Call GDK.initialize() and report the resulting GDKResult.", Callable(self, "_scenario_initialize_runtime")),
-					_scenario("runtime_last_error", "Show Last Error", "Read GDK.get_last_error() and add the current error state to the log.", Callable(self, "_scenario_show_last_error")),
+					_scenario("runtime_last_error", "Show Last Runtime Error", "Show the most recent runtime_error payload captured from GDK and its services (XError, GDK.social.runtime_error, GDK.achievements.runtime_error).", Callable(self, "_scenario_show_last_error")),
 					_scenario("runtime_shutdown", "Shutdown Runtime", "Call GDK.shutdown() so the shell returns to an uninitialized state.", Callable(self, "_scenario_shutdown_runtime"))
 				]
 			),
@@ -841,9 +845,14 @@ func _scenario_show_last_error() -> void:
 		_set_selected_status(entry, "GDK singleton unavailable.")
 		return
 
-	var result = gdk.get_last_error()
-	var status = _describe_result(result)
-	_log_event("Show Last Error -> %s" % status)
+	if _last_runtime_error_payload == null:
+		var idle_status = "No runtime_error has been captured yet."
+		_log_event("Show Last Runtime Error -> %s" % idle_status)
+		_set_selected_status(entry, idle_status)
+		return
+
+	var status = "%s: %s" % [_last_runtime_error_source, _describe_result(_last_runtime_error_payload)]
+	_log_event("Show Last Runtime Error -> %s" % status)
 	_set_selected_status(entry, status)
 
 func _scenario_shutdown_runtime() -> void:
@@ -1244,8 +1253,20 @@ func _on_runtime_shutdown() -> void:
 	_refresh_state_panel()
 
 func _on_runtime_error(result) -> void:
-	_log_event("Runtime error: %s" % result.message)
+	_last_runtime_error_payload = result
+	_last_runtime_error_source = "GDK.runtime_error (XError)"
+	_log_event("Runtime error (XError): %s" % result.message)
 	_refresh_state_panel()
+
+func _on_social_runtime_error(result) -> void:
+	_last_runtime_error_payload = result
+	_last_runtime_error_source = "GDK.social.runtime_error"
+	_log_event("Social runtime error: %s" % result.message)
+
+func _on_achievements_runtime_error(result) -> void:
+	_last_runtime_error_payload = result
+	_last_runtime_error_source = "GDK.achievements.runtime_error"
+	_log_event("Achievements runtime error: %s" % result.message)
 
 func _on_user_changed(user, change_kind: String) -> void:
 	if change_kind == "added":

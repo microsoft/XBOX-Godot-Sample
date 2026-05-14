@@ -83,7 +83,6 @@ protected:
 
         if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
             result = GDKResult::cancelled("Profile query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -93,18 +92,15 @@ protected:
             HRESULT result_hr = XblProfileGetUserProfileResult(p_async_block, &profile);
             if (result_hr == E_ABORT) {
                 result = GDKResult::cancelled("Profile query cancelled.");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
             if (FAILED(result_hr)) {
                 result = GDKResult::hresult_error(result_hr, "Failed to retrieve the profile result.", "profile_result_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
 
-            get_runtime()->clear_last_error();
             get_pending_signal()->complete(GDKResult::ok_result(_make_user_profile(profile)));
             return;
         }
@@ -115,13 +111,11 @@ protected:
                 XblProfileGetUserProfilesResultCount(p_async_block, &profile_count);
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Profile query cancelled.");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
         if (FAILED(result_hr)) {
             result = GDKResult::hresult_error(result_hr, "Failed to retrieve the profile result count.", "profile_result_count_failed");
-            get_runtime()->set_last_error(result);
             get_pending_signal()->complete(result);
             return;
         }
@@ -133,19 +127,16 @@ protected:
                     XblProfileGetUserProfilesResult(p_async_block, profiles.size(), profiles.data());
             if (result_hr == E_ABORT) {
                 result = GDKResult::cancelled("Profile query cancelled.");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
             if (FAILED(result_hr)) {
                 result = GDKResult::hresult_error(result_hr, "Failed to retrieve profile results.", "profile_results_failed");
-                get_runtime()->set_last_error(result);
                 get_pending_signal()->complete(result);
                 return;
             }
         }
 
-        get_runtime()->clear_last_error();
         get_pending_signal()->complete(GDKResult::ok_result(_make_user_profile_array(profiles)));
     }
 
