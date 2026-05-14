@@ -30,6 +30,8 @@ This is the landing page for the `godot_gdk` docs set.
 - multiplayer activity service (`GDK.multiplayer_activity`)
 - capture metadata + capture-state service (`GDK.capture`)
 - launcher service (`GDK.launcher`) — `XLaunchUri` only
+- display service (`GDK.display`) — `XDisplay.h` HDR mode + idle-timeout deferrals
+- activation service (`GDK.activation`) — `XGameActivation.h` activation events (modern replacement for the deprecated `XGameProtocol.h`)
 - XStore commerce service (`GDK.store`)
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
@@ -75,7 +77,7 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
   `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`,
   `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`,
   `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`,
-  `GDK.launcher`, and `GDK.store`.
+  `GDK.launcher`, `GDK.display`, `GDK.activation`, and `GDK.store`.
 
 ### Architecture
 
