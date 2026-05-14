@@ -8,8 +8,10 @@
 
 #include "gdk_achievement.h"
 #include "gdk_accessibility.h"
+#include "gdk_activation.h"
 #include "gdk.h"
 #include "gdk_capture.h"
+#include "gdk_display.h"
 #include "gdk_error_reporting.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
@@ -146,6 +148,9 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<GDKCaptureMetaData>();
     ClassDB::register_class<GDKCapture>();
     ClassDB::register_class<GDKSystem>();
+    ClassDB::register_class<GDKDisplayTimeoutDeferral>();
+    ClassDB::register_class<GDKDisplay>();
+    ClassDB::register_class<GDKActivation>();
 
     gdk_singleton = memnew(GDK);
     Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());

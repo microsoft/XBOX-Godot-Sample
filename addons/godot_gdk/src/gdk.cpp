@@ -2,7 +2,9 @@
 
 #include "gdk_accessibility.h"
 #include "gdk_achievement.h"
+#include "gdk_activation.h"
 #include "gdk_capture.h"
+#include "gdk_display.h"
 #include "gdk_error_reporting.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
@@ -78,6 +80,10 @@ GDK::GDK() {
     m_capture->set_owner(this);
     m_system.instantiate();
     m_system->set_owner(this);
+    m_display.instantiate();
+    m_display->set_owner(this);
+    m_activation.instantiate();
+    m_activation->set_owner(this);
 }
 
 GDK::~GDK() {
@@ -112,6 +118,8 @@ GDK::~GDK() {
     m_multiplayer_activity.unref();
     m_capture.unref();
     m_system.unref();
+    m_display.unref();
+    m_activation.unref();
     singleton = nullptr;
 }
 
@@ -141,6 +149,8 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_multiplayer_activity"), &GDK::get_multiplayer_activity);
     ClassDB::bind_method(D_METHOD("get_capture"), &GDK::get_capture);
     ClassDB::bind_method(D_METHOD("get_system"), &GDK::get_system);
+    ClassDB::bind_method(D_METHOD("get_display"), &GDK::get_display);
+    ClassDB::bind_method(D_METHOD("get_activation"), &GDK::get_activation);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
@@ -161,6 +171,8 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "multiplayer_activity", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKMultiplayerActivity"), "", "get_multiplayer_activity");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "capture", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKCapture"), "", "get_capture");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "system", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSystem"), "", "get_system");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "display", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKDisplay"), "", "get_display");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "activation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKActivation"), "", "get_activation");
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
@@ -209,6 +221,10 @@ const GDKInitStep INIT_STEPS[] = {
       [](GDK *g) { g->get_multiplayer_activity()->shutdown(); } },
     { [](GDK *g) { return g->get_capture()->on_runtime_initialized(); },
       [](GDK *g) { g->get_capture()->shutdown(); } },
+    { [](GDK *g) { return g->get_display()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_display()->shutdown(); } },
+    { [](GDK *g) { return g->get_activation()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_activation()->shutdown(); } },
 };
 
 struct GDKDispatchStep {
@@ -396,6 +412,14 @@ Ref<GDKCapture> GDK::get_capture() const {
 
 Ref<GDKSystem> GDK::get_system() const {
     return m_system;
+}
+
+Ref<GDKDisplay> GDK::get_display() const {
+    return m_display;
+}
+
+Ref<GDKActivation> GDK::get_activation() const {
+    return m_activation;
 }
 
 GDKRuntime *GDK::get_runtime() const {

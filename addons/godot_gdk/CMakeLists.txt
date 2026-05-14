@@ -35,6 +35,8 @@ add_library(godot_gdk SHARED
     src/gdk_capture.cpp
     src/gdk_system.cpp
     src/gdk_xbox_services.cpp
+    src/gdk_display.cpp
+    src/gdk_activation.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE

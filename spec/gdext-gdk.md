@@ -36,7 +36,9 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | String verification | Implemented | `GDK.string_verify` wraps `string_verify_c.h` text verification APIs |
 | Title Storage | Implemented | `GDK.title_storage` wraps `title_storage_c.h`; do not confuse with PlayFab Game Saves or `XGameSaveFiles` |
 | Capture | Implemented | `GDK.capture` wraps PC-supported `XAppCapture` metadata/state APIs; console-only paths excluded |
-| Events | Excluded | Do not wrap `events_c.h` telemetry/configuration APIs |
+| Display | Implemented | `GDK.display` wraps `XDisplay.h`: HDR mode probe/enable and idle display-timeout deferrals |
+| Game activation events | Implemented | `GDK.activation` wraps `XGameActivation.h` (modern replacement for the deprecated `XGameProtocol.h`) |
+| Events | Excluded | Do not wrap `events_c.h` Xbox Services telemetry/configuration APIs or the per-title `XGameEvent.h` writer; titles that need event telemetry should use PlayFab or a separate analytics integration |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
@@ -61,6 +63,14 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 | Planned public service | Public wrapper scope | Native Xbox Services APIs to wrap |
 | --- | --- | --- |
+
+#### Explicit no-wrap PC GDK families
+
+Do not expose wrappers for:
+
+- `XGameProtocol.h` — both `XGameProtocolRegisterForActivation` and `XGameProtocolUnregisterForActivation` are explicitly `__declspec(deprecated)` in the SDK and are superseded by `XGameActivationRegisterForEvent` / `XGameActivationUnregisterForEvent`. Use `GDK.activation.protocol_activated` for the modern protocol-activation event.
+- `XGameInvite.h` — every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK explicitly points each one at the `XGameActivation*` equivalent. Use `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` likewise registers via `XGameActivationRegisterForEvent`, never via `XGameInvite`.
+- `XGameEvent.h` — the per-title `XGameEventWrite` writer ships in PC GDK but is part of the broader Xbox Services events pipeline that this addon does not cover. Titles that need event telemetry should either author it through PlayFab (see the `godot_playfab` addon) or integrate a separate analytics SDK.
 
 #### Explicit no-wrap Xbox Services APIs
 
