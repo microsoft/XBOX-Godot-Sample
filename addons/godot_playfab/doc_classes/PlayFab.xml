@@ -68,6 +68,12 @@
 				Returns the [PlayFabMultiplayer] service for lobby and matchmaking flows.
 			</description>
 		</method>
+		<method name="get_party" qualifiers="const">
+			<return type="PlayFabParty" />
+			<description>
+				Returns the [PlayFabParty] service for low-latency network and chat sessions.
+			</description>
+		</method>
 		<method name="get_accounts" qualifiers="const">
 			<return type="PlayFabAccounts" />
 			<description>
@@ -171,6 +177,9 @@
 		</member>
 		<member name="multiplayer" type="PlayFabMultiplayer" setter="" getter="get_multiplayer">
 			The [PlayFabMultiplayer] service instance for lobby and matchmaking flows.
+		</member>
+		<member name="party" type="PlayFabParty" setter="" getter="get_party">
+			The [PlayFabParty] service instance for low-latency network and chat sessions.
 		</member>
 		<member name="accounts" type="PlayFabAccounts" setter="" getter="get_accounts">
 			The [PlayFabAccounts] service instance for account, profile, and identity APIs.

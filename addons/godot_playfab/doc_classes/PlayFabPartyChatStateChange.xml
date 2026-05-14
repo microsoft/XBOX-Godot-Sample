@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyChatStateChange" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Aggregate state-change record emitted by [PlayFabPartyChat] and [PlayFabPartyChatControl].
+	</brief_description>
+	<description>
+		Surfaced by [signal PlayFabPartyChat.state_changed] and [signal PlayFabPartyChatControl.state_changed]. Wraps the kind, the originating chat control, an optional [PlayFabResult], and a human-readable reason.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_kind" qualifiers="const"><return type="int" /><description>Returns the change kind code.</description></method>
+		<method name="get_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><description>Returns the chat control associated with the change.</description></method>
+		<method name="get_result" qualifiers="const"><return type="PlayFabResult" /><description>Returns the optional [PlayFabResult] for the change.</description></method>
+		<method name="get_reason" qualifiers="const"><return type="String" /><description>Returns the human-readable reason for the change.</description></method>
+	</methods>
+	<members>
+		<member name="kind" type="int" setter="" getter="get_kind">Kind code for the change.</member>
+		<member name="chat_control" type="PlayFabPartyChatControl" setter="" getter="get_chat_control">Chat control associated with the change.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Optional result for the change.</member>
+		<member name="reason" type="String" setter="" getter="get_reason">Human-readable reason for the change.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyChatMessage" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A text or transcription message delivered through PlayFab Party chat.
+	</brief_description>
+	<description>
+		Surfaced through [signal PlayFabPartyPeer.text_message_received], [signal PlayFabPartyPeer.transcription_received], [signal PlayFabPartyChatControl.message_received], and [signal PlayFabPartyChatControl.transcription_received].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_sender" qualifiers="const"><return type="PlayFabPartyChatControl" /><description>Returns the sending [PlayFabPartyChatControl].</description></method>
+		<method name="get_sender_entity_key" qualifiers="const"><return type="Dictionary" /><description>Returns the PlayFab entity key dictionary of the sender.</description></method>
+		<method name="get_targets" qualifiers="const"><return type="Array" /><description>Returns the list of target [PlayFabPartyChatControl] instances.</description></method>
+		<method name="get_text" qualifiers="const"><return type="String" /><description>Returns the source message text.</description></method>
+		<method name="get_language_code" qualifiers="const"><return type="String" /><description>Returns the source language code, if known.</description></method>
+		<method name="get_translated_text" qualifiers="const"><return type="String" /><description>Returns the translated message text, if translation was requested.</description></method>
+		<method name="is_transcription" qualifiers="const"><return type="bool" /><description>Returns whether this message originated from speech-to-text transcription.</description></method>
+		<method name="get_timestamp" qualifiers="const"><return type="int" /><description>Returns the millisecond timestamp captured when the message was produced.</description></method>
+		<method name="get_metadata" qualifiers="const"><return type="Dictionary" /><description>Returns the optional metadata dictionary attached to the message.</description></method>
+	</methods>
+	<members>
+		<member name="sender" type="PlayFabPartyChatControl" setter="" getter="get_sender">The sending chat control.</member>
+		<member name="sender_entity_key" type="Dictionary" setter="" getter="get_sender_entity_key">PlayFab entity key dictionary of the sender.</member>
+		<member name="targets" type="Array" setter="" getter="get_targets">Targeted chat controls.</member>
+		<member name="text" type="String" setter="" getter="get_text">Source message text.</member>
+		<member name="language_code" type="String" setter="" getter="get_language_code">Source language code.</member>
+		<member name="translated_text" type="String" setter="" getter="get_translated_text">Translated message text.</member>
+		<member name="is_transcription" type="bool" setter="" getter="is_transcription">Whether the message originated from speech-to-text transcription.</member>
+		<member name="timestamp" type="int" setter="" getter="get_timestamp">Millisecond timestamp.</member>
+		<member name="metadata" type="Dictionary" setter="" getter="get_metadata">Optional metadata dictionary.</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

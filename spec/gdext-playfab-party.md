@@ -24,7 +24,7 @@ PlayFab Multiplayer lobbies and matchmaking remain separate and are described in
 | Domain | Included | Notes |
 | --- | --- | --- |
 | Party runtime | Yes | `PartyManager::Initialize`, state-change pumping, cleanup |
-| Party host/join | Yes | convenience async operations return ready sessions |
+| Party host/join | Yes | convenience async operations return ready networks |
 | Descriptor serialization | Yes | finalized descriptor only, base64 string |
 | Godot high-level transport | Yes | `PlayFabPartyPeer` implements `MultiplayerPeerExtension` semantics |
 | Peer-id mapping | Yes | host is peer `1`; clients receive positive ids through transport handshake |
@@ -52,12 +52,12 @@ func is_initialized() -> bool
 func initialize_async(config: PlayFabPartyConfig = null) -> Signal
 func shutdown_async() -> Signal
 
-func create_host_peer_async(user: PlayFabUser, config: PlayFabPartyConfig = null) -> Signal
-func create_client_peer_async(user: PlayFabUser, descriptor: String, config: PlayFabPartyConfig = null) -> Signal
-func leave_session_async(session: PlayFabPartySession) -> Signal
+func create_and_join_network_async(user: PlayFabUser, config: PlayFabPartyConfig = null) -> Signal
+func join_network_async(user: PlayFabUser, descriptor: String, config: PlayFabPartyConfig = null) -> Signal
+func leave_network_async(network: PlayFabPartyNetwork) -> Signal
 
 func get_chat() -> PlayFabPartyChat
-func get_sessions() -> Array[PlayFabPartySession]
+func get_networks() -> Array[PlayFabPartyNetwork]
 ```
 
 ### Completion payloads
@@ -65,9 +65,9 @@ func get_sessions() -> Array[PlayFabPartySession]
 | Method | `PlayFabResult.data` |
 | --- | --- |
 | `initialize_async()` / `shutdown_async()` | `null` |
-| `create_host_peer_async()` | `PlayFabPartySession` |
-| `create_client_peer_async()` | `PlayFabPartySession` |
-| `leave_session_async()` | `null` |
+| `create_and_join_network_async()` | `PlayFabPartyNetwork` |
+| `join_network_async()` | `PlayFabPartyNetwork` |
+| `leave_network_async()` | `null` |
 
 Immediate validation failures still return an already-completed `Signal` containing a failed `PlayFabResult`.
 
@@ -75,7 +75,7 @@ Immediate validation failures still return an already-completed `Signal` contain
 
 All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer entity-handle Party APIs. A missing entity handle is an invalid-user error; the implementation must not fall back to entity-key/entity-token auth paths for user-owned Party operations.
 
-`PlayFab.party.create_host_peer_async(user, config)` hides this native state machine:
+`PlayFab.party.create_and_join_network_async(user, config)` hides this native state machine:
 
 1. Validate the signed-in `PlayFabUser` and its `PFEntityHandle`.
 2. Initialize Party lazily if needed.
@@ -86,9 +86,9 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 7. Optionally create/connect the local chat control when chat is enabled.
 8. Create the local data endpoint.
 9. Capture the finalized network descriptor from the completed/connected network state, serialize it, and expose it as a base64 string.
-10. Create a ready `PlayFabPartyPeer` and `PlayFabPartySession`.
+10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
 
-`PlayFab.party.create_client_peer_async(user, descriptor, config)` hides this native state machine:
+`PlayFab.party.join_network_async(user, descriptor, config)` hides this native state machine:
 
 1. Validate the signed-in `PlayFabUser` and its `PFEntityHandle`.
 2. Initialize Party lazily if needed.
@@ -99,7 +99,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 7. Optionally create/connect the local chat control when chat is enabled.
 8. Create the local data endpoint.
 9. Run the peer-id handshake with the host.
-10. Create a ready `PlayFabPartyPeer` and `PlayFabPartySession`.
+10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
 
 The lower-level native steps remain implementation details. Public host/join signals resolve only when every resource required for normal use is complete and usable.
 
@@ -145,37 +145,44 @@ var translate_to_languages: PackedStringArray = PackedStringArray()
 var metadata: Dictionary = {}
 ```
 
-## Party session and descriptor model
+## Party network and descriptor model
 
 ```gdscript
-class_name PlayFabPartySession
+class_name PlayFabPartyNetwork
 extends RefCounted
 
-var peer: PlayFabPartyPeer
-var network: PlayFabPartyNetwork
+signal state_changed(change: PlayFabPartyNetworkStateChange)
+
+var network_id: String
 var descriptor: String
+var state: int
+var local_user: PlayFabUser
+var local_peer: PlayFabPartyPeer
 var local_chat_control: PlayFabPartyChatControl
 var is_host: bool
 
-func get_peer() -> PlayFabPartyPeer
-func get_network() -> PlayFabPartyNetwork
+func get_network_id() -> String
 func get_descriptor() -> String
+func get_state() -> int
+func get_local_user() -> PlayFabUser
+func get_local_peer() -> PlayFabPartyPeer
 func get_local_chat_control() -> PlayFabPartyChatControl
-func is_host_session() -> bool
+func is_host_network() -> bool
+func leave_async() -> Signal
 ```
 
-`PlayFabPartySession` is the typed setup result and lifecycle owner. `PlayFab.party` keeps a strong reference to active sessions until `leave_session_async()`, `PlayFabPartyPeer.close_with_reason()`, or shutdown settles. Dropping a GDScript reference or replacing `multiplayer.multiplayer_peer` must not silently destroy the Party network.
+`PlayFabPartyNetwork` is the typed setup result and lifecycle owner. `PlayFab.party` keeps a strong reference to active networks until `leave_network_async()`, `PlayFabPartyNetwork.leave_async()`, `PlayFabPartyPeer.close_with_reason()`, or shutdown settles. Dropping a GDScript reference or replacing `multiplayer.multiplayer_peer` must not silently destroy the Party network.
 
 Descriptor rules:
 
 1. The immediate `CreateNewNetwork(...)` descriptor is an internal bootstrap value.
-2. `PlayFabPartySession.descriptor`, `PlayFabPartyNetwork.descriptor`, and descriptor getters remain empty/unavailable until the finalized descriptor is available.
+2. `PlayFabPartyNetwork.descriptor` and descriptor getters remain empty/unavailable until the finalized descriptor is available.
 3. Public descriptors are base64-encoded serialized `PartyNetworkDescriptor` values.
 4. Descriptors are title-owned sharing data. The addon does not decide whether they move through lobbies, invites, matchmaking, or a backend.
 
 ## `PlayFabPartyPeer`
 
-`PlayFabPartyPeer` is the object assigned to `multiplayer.multiplayer_peer` and the normal object titles keep for a Party session.
+`PlayFabPartyPeer` is the object assigned to `multiplayer.multiplayer_peer` and the normal object titles keep for a Party network.
 
 ```gdscript
 class_name PlayFabPartyPeer
@@ -227,7 +234,7 @@ Peer-id handshake:
 2. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its `PlayFabEntityKey` and a random join nonce to the host endpoint.
 3. Host allocates the next positive peer id, records `{peer_id, PlayFabEntityKey, Party endpoint}`, and replies with a reserved assignment packet.
 4. Client stores the assigned peer id, transitions to connected, and includes the assigned source peer id in future gameplay packet envelopes.
-5. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the session closes.
+5. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the network closes.
 
 Reserved handshake/control packets are filtered out of `_get_packet()` so Godot RPC code only sees gameplay packets.
 
@@ -251,9 +258,10 @@ Recommended permission constants:
 PlayFabParty.CHAT_PERMISSION_NONE
 PlayFabParty.CHAT_PERMISSION_SEND_AUDIO
 PlayFabParty.CHAT_PERMISSION_RECEIVE_AUDIO
-PlayFabParty.CHAT_PERMISSION_SEND_TEXT
 PlayFabParty.CHAT_PERMISSION_RECEIVE_TEXT
 ```
+
+> **Text-chat permission model:** PlayFab Party does not expose a separate `SEND_TEXT` permission flag. The local chat control may send text chat to any peer; the recipients are determined by the `targets` argument of `send_text_async()`. `RECEIVE_TEXT` controls whether the local chat control will receive text chat from a particular peer.
 
 Advanced wrappers remain available:
 
@@ -304,25 +312,7 @@ var timestamp: int
 var metadata: Dictionary
 ```
 
-## Network and member wrappers
-
-```gdscript
-class_name PlayFabPartyNetwork
-extends RefCounted
-
-signal state_changed(change: PlayFabPartyNetworkStateChange)
-
-var network_id: String
-var descriptor: String
-var state: int
-var local_user: PlayFabUser
-
-func get_network_id() -> String
-func get_descriptor() -> String
-func get_state() -> int
-func get_local_user() -> PlayFabUser
-func leave_async() -> Signal
-```
+## Member and state-change wrappers
 
 ```gdscript
 class_name PlayFabPartyMember
@@ -366,7 +356,7 @@ PlayFabParty.NETWORK_STATE_FAILED
 
 ## Example usage
 
-### Host a Party-backed Godot peer
+### Create and join a Party network
 
 ```gdscript
 func host_party_game(playfab_user: PlayFabUser) -> PlayFabPartyPeer:
@@ -375,13 +365,13 @@ func host_party_game(playfab_user: PlayFabUser) -> PlayFabPartyPeer:
     config.enable_voice_chat = true
     config.enable_text_chat = true
 
-    var result = await PlayFab.party.create_host_peer_async(playfab_user, config)
+    var result = await PlayFab.party.create_and_join_network_async(playfab_user, config)
     if not result.ok:
         push_warning(result.message)
         return null
 
-    var session: PlayFabPartySession = result.data
-    var peer: PlayFabPartyPeer = session.get_peer()
+    var network: PlayFabPartyNetwork = result.data
+    var peer: PlayFabPartyPeer = network.get_local_peer()
     peer.connection_state_changed.connect(_on_party_peer_state_changed)
     peer.text_message_received.connect(_on_party_text_message)
     peer.peer_muted_changed.connect(_on_party_peer_muted_changed)
@@ -389,11 +379,11 @@ func host_party_game(playfab_user: PlayFabUser) -> PlayFabPartyPeer:
     multiplayer.multiplayer_peer = peer
 
     # Share this through a lobby property, invite, matchmaking follow-up, or backend.
-    print("Party descriptor: ", session.get_descriptor())
+    print("Party descriptor: ", network.get_descriptor())
     return peer
 ```
 
-### Join a Party-backed Godot peer
+### Join a Party network
 
 ```gdscript
 func join_party_game(playfab_user: PlayFabUser, descriptor: String) -> PlayFabPartyPeer:
@@ -401,13 +391,13 @@ func join_party_game(playfab_user: PlayFabUser, descriptor: String) -> PlayFabPa
     config.enable_voice_chat = true
     config.enable_text_chat = true
 
-    var result = await PlayFab.party.create_client_peer_async(playfab_user, descriptor, config)
+    var result = await PlayFab.party.join_network_async(playfab_user, descriptor, config)
     if not result.ok:
         push_warning(result.message)
         return null
 
-    var session: PlayFabPartySession = result.data
-    var peer: PlayFabPartyPeer = session.get_peer()
+    var network: PlayFabPartyNetwork = result.data
+    var peer: PlayFabPartyPeer = network.get_local_peer()
     peer.connection_state_changed.connect(_on_party_peer_state_changed)
     peer.text_message_received.connect(_on_party_text_message)
 
@@ -444,24 +434,24 @@ func mute_peer(peer: PlayFabPartyPeer, target_peer_id: int) -> void:
 
 ```gdscript
 func apply_text_only_policy(peer: PlayFabPartyPeer, target_peer_id: int) -> void:
-    var permissions = (
-        PlayFabParty.CHAT_PERMISSION_SEND_TEXT |
-        PlayFabParty.CHAT_PERMISSION_RECEIVE_TEXT
-    )
+    # Receive text from the peer; do not receive their voice audio and do not
+    # send our voice audio to them. Text-send is implicit (per-call recipients
+    # via send_text_async()), so there is no SEND_TEXT flag.
+    var permissions = PlayFabParty.CHAT_PERMISSION_RECEIVE_TEXT
 
     var result = await peer.set_peer_chat_permissions_async(target_peer_id, permissions)
     if not result.ok:
         push_warning(result.message)
 ```
 
-### Leave a Party session
+### Leave a Party network
 
 ```gdscript
-func leave_party(session: PlayFabPartySession) -> void:
-    if session == null:
+func leave_party(network: PlayFabPartyNetwork) -> void:
+    if network == null:
         return
 
-    var result = await PlayFab.party.leave_session_async(session)
+    var result = await PlayFab.party.leave_network_async(network)
     if not result.ok:
         push_warning(result.message)
         return
@@ -471,7 +461,7 @@ func leave_party(session: PlayFabPartySession) -> void:
 
 ## Composition with PlayFab Multiplayer
 
-Party does not know about lobbies or matchmaking. To use lobby discovery, title code creates a Party session first, then stores `session.descriptor` in a lobby property such as `party_descriptor`. Joiners read that property from `PlayFabLobby` and explicitly call `PlayFab.party.create_client_peer_async(...)`.
+Party does not know about lobbies or matchmaking. To use lobby discovery, title code creates and joins a Party network first, then stores `network.descriptor` in a lobby property such as `party_descriptor`. Joiners read that property from `PlayFabLobby` and explicitly call `PlayFab.party.join_network_async(...)`.
 
 Matchmaking completion is also passive. A completed `PlayFabMatchTicket` can report an arranged-lobby connection string; title code decides whether to call `PlayFab.multiplayer.join_arranged_lobby_async(...)`, inspect lobby properties, and then join Party.
 
@@ -484,7 +474,7 @@ Use stable error codes so GDScript callers can branch:
 "party_already_initialized"
 "party_invalid_user"
 "party_invalid_options"
-"party_session_already_active"
+"party_network_already_active"
 "party_network_create_failed"
 "party_network_connect_failed"
 "party_descriptor_invalid"
@@ -504,7 +494,7 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - public class and service registration;
 - invalid or missing `PlayFabUser` entity handles;
 - invalid Party config and invalid descriptors;
-- one active Party session per local PlayFab entity handle;
+- one active Party network per local PlayFab entity handle;
 - finalized-descriptor-only exposure;
 - immediate failure result shapes;
 - resource-not-ready errors for provisional network, endpoint, peer, and chat-control wrappers;
@@ -513,6 +503,6 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - packet queue behavior and reserved control-packet filtering;
 - chat helper validation, including unknown peer ids and missing chat controls;
 - mute/permission helper result shapes;
-- shutdown cleanup for active sessions, networks, endpoints, and chat controls.
+- shutdown cleanup for active networks, endpoints, and chat controls.
 
 Live Party tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title.
