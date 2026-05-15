@@ -94,5 +94,6 @@ godot_addon_sync_files_to_sample(
     FILES
         plugin.cfg
         godot_playfab.gdextension
+        runtime/playfab_bootstrap.gd
         editor/playfab_editor_plugin.gd
 )

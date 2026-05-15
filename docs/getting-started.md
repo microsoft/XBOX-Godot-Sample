@@ -1,22 +1,420 @@
 # Getting Started
 
-This guide covers prerequisites, building from source, editor setup, and the
-development workflow for the GodotGDK repository.
+This guide walks you through using the GodotGDK addons in your own Godot
+project — what to copy, how to enable it, how to configure project settings,
+and how to reach **a signed-in user** for both Xbox Live (`godot_gdk`) and
+PlayFab (`godot_playfab`).
+
+It also covers building the addon binaries from source, which is the current
+way to obtain them.
+
+> **TL;DR**
+> 1. Get the addon binaries (build from source today; release zips later).
+> 2. Copy `addons/<addon>/` into your project, including the `bin/` folder.
+> 3. Enable the editor plugin in **Project Settings → Plugins**.
+> 4. Set the `gdk/runtime/*` and `playfab/*` project settings.
+> 5. Subscribe to `GDK.users.user_changed` (Xbox) and call
+>    `PlayFab.users.sign_in_with_xuser_async(...)` (PlayFab).
+
+## What's in this repo
+
+| Addon | Purpose |
+|-------|---------|
+| `addons/godot_gdk` | Microsoft GDK runtime + PC-supported Xbox services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs a `GDKBootstrap` autoload. |
+| `addons/godot_playfab` | PlayFab runtime, sign-in (Xbox-backed or custom id), Game Saves, leaderboards, Lobby + Matchmaking, Party, and REST service wrappers. Installs a `PlayFabBootstrap` autoload (auto-init is opt-in). |
+| `addons/godot_gameinput` | GameInput controller integration (devices, polling, vibration, action-bridge into Godot's `InputMap`). Installs a `GameInputBootstrap` autoload. |
+| `addons/godot_gdk_packaging` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
+
+The four addons are independent — ship one, several, or all of them.
+
+---
 
 ## Prerequisites
 
-- Windows 10 (18362+) or Windows 11
-- [Microsoft GDK](https://github.com/microsoft/GDK/releases) — install via
-  `winget install Microsoft.Gaming.GDK`
-- [Godot 4.3+](https://godotengine.org/download) (stable, Windows 64-bit)
+### To run the addons in your game
+
+- Windows 10 (build 18362+) or Windows 11
+- [Godot 4.5+](https://godotengine.org/download) (stable, Windows 64-bit)
+- [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed on
+  every machine that runs the game (the Xbox runtime DLLs the addons depend
+  on resolve from the GDK install). `winget install Microsoft.Gaming.GDK`.
+
+### To make Xbox sign-in actually work
+
+- A title in [Partner Center](https://partner.microsoft.com/) (Title ID,
+  SCID, Sandbox ID at minimum)
+- At least one Xbox **test account** provisioned in your sandbox
+- Your dev PC switched into that sandbox
+
+See [Sample project setup](godot-gdk-sample-setup.md) and
+[Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md)
+for the canonical walk-through.
+
+### To make PlayFab sign-in work
+
+- A PlayFab title (you'll need its title id)
+- For the Xbox-backed `sign_in_with_xuser_async` flow, the same Xbox
+  prerequisites above
+- For `sign_in_with_custom_id_async`, no Xbox setup is required
+
+### To build the addons from source
+
 - Visual Studio 2022+ with the **C++ Desktop** workload
-- CMake 3.20+
+- CMake 3.25+ (required by the `CMakePresets.json` schema version)
 
 > **Note:** The Debug build of the GDK addon requires Visual Studio to be
-> installed on the machine that *runs* the sample, not just the machine that
-> builds it. See [Troubleshooting](troubleshooting.md) for details.
+> installed on the machine that *runs* the game, not just the machine that
+> builds it. Use the Release build for distribution. See
+> [Troubleshooting](troubleshooting.md) for details.
 
-## Clone with submodules
+---
+
+## 1. Get the addon binaries
+
+You need a built copy of each addon you want to use. Today the only
+supported path is to build them yourself; once tagged releases are
+published on GitHub, you'll be able to grab them as a zip too.
+
+### Option A — Download a release (when available)
+
+If a release zip has been published at
+<https://github.com/gaming-microsoft/godot-public-gdk-ext/releases>, unzip
+the `addons/<addon>/` directory of each addon you want into your project's
+`addons/` folder. Skip ahead to **Step 2 — Copy the addons**.
+
+### Option B — Build from source (current path)
+
+Clone with submodules and run the default preset:
+
+```powershell
+git clone --recurse-submodules https://github.com/gaming-microsoft/godot-public-gdk-ext.git
+cd godot-public-gdk-ext
+
+cmake --preset default
+cmake --build build --preset debug      # or: --preset release
+```
+
+The build:
+
+- Outputs each addon's DLLs and PDBs into `addons/<addon>/bin/`
+- Copies the runtime dependency DLLs (`libHttpClient.dll`,
+  `Microsoft.Xbox.Services.C.Thunks.dll` for Release or
+  `Microsoft.Xbox.Services.C.Thunks.Debug.dll` for Debug, `PlayFabCore.dll`,
+  `PlayFabServices.dll`, `PlayFabGameSave.dll`, `PlayFabMultiplayer.dll`,
+  `Party.dll`) into the same `bin/` folder so they ship side-by-side
+- Syncs the addon directories into every sample project under `sample/`
+
+If you only need one addon, use the targeted presets (`gdk-only`,
+`playfab-only`, `gameinput-only`). See the
+[repo README](../README.md#build-presets) for the full preset table.
+
+For deeper notes on the build pipeline (CMake auto-detection of the GDK
+install, selective builds, VS Code IntelliSense, ignored-artifact
+cleanup), jump to [Building from source](#building-from-source) at the
+end of this guide.
+
+---
+
+## 2. Copy the addons into your project
+
+For each addon you want, copy the **entire** `addons/<addon>/` directory
+into your project's `addons/` folder. The shape that needs to land in
+your project is:
+
+```
+your_project/
+└── addons/
+    └── godot_gdk/
+        ├── bin/                       # native DLLs + runtime deps
+        │   ├── godot_gdk.windows.debug.x86_64.dll
+        │   ├── godot_gdk.windows.release.x86_64.dll
+        │   ├── libHttpClient.dll
+        │   └── Microsoft.Xbox.Services.C.Thunks.Debug.dll
+        ├── doc_classes/               # in-editor F1 documentation
+        ├── editor/                    # editor plugin scripts
+        ├── runtime/                   # GDKBootstrap autoload
+        ├── godot_gdk.gdextension      # extension manifest
+        └── plugin.cfg                 # editor plugin manifest
+```
+
+Repeat for `godot_playfab/` and `godot_gameinput/` if you want them. The
+`bin/` folder of each addon already contains every native runtime
+dependency that addon needs — copy the directory recursively and you're
+done.
+
+> **Don't strip `bin/`.** Without the DLLs Godot logs `GDExtension
+> dynamic library not found` and the addon's singletons never register.
+> 64-bit Windows is the only target the addons currently build for.
+
+---
+
+## 3. Enable the editor plugin
+
+Open your project in Godot once so it discovers the new `plugin.cfg`
+files, then go to **Project → Project Settings → Plugins** and enable:
+
+| Plugin name in the Plugins tab | What enabling it does |
+|--------------------------------|------------------------|
+| `GodotGDK` | Installs the `GDKBootstrap` autoload at `res://addons/godot_gdk/runtime/gdk_bootstrap.gd`. |
+| `GodotPlayFab` | Installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd`. The autoload only calls `PlayFab.initialize()` automatically when `playfab/runtime/initialize_on_startup` is `true` — sign-in stays in your code. |
+| `Godot GameInput` | Installs the `GameInputBootstrap` autoload at `res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd`. |
+| `GDK Packaging` | (Optional, editor-only) registers MSIXVC packaging tooling under the editor's tools menu. |
+
+Disabling a plugin removes its autoload again — there's no orphaned
+state.
+
+---
+
+## 4. Configure project settings
+
+The bootstrap autoloads consume a handful of `ProjectSettings` entries.
+You can edit them in **Project → Project Settings → General** (toggle
+**Advanced Settings**) or write them straight into `project.godot`.
+
+### `godot_gdk`
+
+```ini
+[gdk]
+
+runtime/initialize_on_startup=true   ; bootstrap calls GDK.initialize() at startup
+runtime/auto_add_primary_user=true   ; bootstrap calls add_default_user_async() after init
+runtime/embed_dispatch=true          ; pump async completions in _process (default)
+```
+
+Leave `embed_dispatch` on unless you want to drive `GDK.dispatch()`
+yourself for deterministic frame control.
+
+### `godot_playfab`
+
+```ini
+[playfab]
+
+titleid=""                           ; REQUIRED: your PlayFab title id
+endpoint=""                          ; optional: blank derives https://<titleid>.playfabapi.com
+runtime/initialize_on_startup=true   ; bootstrap calls PlayFab.initialize() at startup (default false)
+runtime/embed_dispatch=true          ; pump async completions in _process (default)
+```
+
+When `initialize_on_startup` is `true`, the `PlayFabBootstrap` autoload
+calls `PlayFab.initialize()` during `_ready` — the same shape as the GDK
+bootstrap. Sign-in is still in your code because PlayFab needs a
+per-player key (a `GDKUser` or a custom id).
+
+### `godot_gameinput`
+
+```ini
+[game_input]
+
+runtime/initialize_on_startup=true   ; bootstrap calls GameInput.initialize() at startup
+runtime/auto_poll=true               ; bootstrap calls GameInput.poll() in _process (default)
+mapper/default_action_map=""         ; optional path to a GameInputActionMap .tres
+```
+
+See [GameInput addon](godot-gameinput.md) for the action-bridge details.
+
+---
+
+## 5. Walkthrough — get to a signed-in user
+
+This is the smallest thing that proves the addons are wired up
+correctly: an Xbox sign-in (godot_gdk) followed by a PlayFab sign-in
+that reuses the Xbox user (godot_playfab).
+
+### 5a. Xbox sign-in (`godot_gdk`)
+
+If you set `gdk/runtime/initialize_on_startup` and
+`gdk/runtime/auto_add_primary_user` to `true`, the `GDKBootstrap`
+autoload does this for you on `_ready` — your code just needs to react
+to the result.
+
+```gdscript
+extends Node
+## Drop this on a node in your first scene.
+
+func _ready() -> void:
+    if not Engine.has_singleton("GDK"):
+        push_error("godot_gdk extension is not loaded — check addons/godot_gdk/bin/")
+        return
+
+    GDK.users.user_changed.connect(_on_user_changed)
+
+    # The bootstrap may already have signed someone in by the time _ready runs.
+    var user: GDKUser = GDK.users.get_primary_user()
+    if user != null:
+        _show_user(user)
+
+func _on_user_changed(user: GDKUser, change_kind: String) -> void:
+    if change_kind == "added" and user == GDK.users.get_primary_user():
+        _show_user(user)
+    elif change_kind == "removed":
+        print("[GDK] user removed: %d" % user.local_id)
+
+func _show_user(user: GDKUser) -> void:
+    print("[GDK] signed in as %s (XUID %s)" % [user.gamertag, user.xuid])
+```
+
+If you want full control instead, leave the two `gdk/runtime/*` flags
+off and call the lifecycle yourself:
+
+```gdscript
+func _ready() -> void:
+    var init_result: GDKResult = GDK.initialize()
+    if not init_result.ok:
+        push_warning("GDK.initialize failed: %s" % init_result.message)
+        return
+
+    var sign_in_result: GDKResult = await GDK.users.add_default_user_async()
+    if not sign_in_result.ok:
+        push_warning("Silent sign-in failed: %s" % sign_in_result.message)
+        return
+
+    var user: GDKUser = sign_in_result.data
+    print("[GDK] signed in as %s" % user.gamertag)
+
+func _exit_tree() -> void:
+    if GDK.is_initialized():
+        GDK.shutdown()
+```
+
+`add_default_user_async()` is the Xbox **silent** sign-in. If no user is
+already signed into the Xbox app on the PC, it returns a non-ok result
+(commonly `no_default_user`). Use `add_user_with_ui_async()` to put the
+system account picker on screen instead.
+
+For the full method/signal table see
+[GDK API reference → `GDK.users`](godot-gdk-api-reference.md#users-service-gdkusers).
+
+> Real Xbox Live sign-in needs Partner Center configuration, the right
+> sandbox set on the PC, and a test account signed into the Xbox app —
+> see [Sample project setup](godot-gdk-sample-setup.md) and
+> [Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md).
+> Without those, sign-in will report a clear error and the rest of the
+> game keeps running fine.
+
+### 5b. PlayFab sign-in with the Xbox user (`godot_playfab`)
+
+If you set `playfab/runtime/initialize_on_startup` to `true`, the
+`PlayFabBootstrap` autoload calls `PlayFab.initialize()` for you. Sign-in
+still goes through your code because PlayFab needs a per-player key —
+either a `GDKUser` or a custom id.
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    await _sign_in_to_playfab()
+
+func _sign_in_to_playfab() -> void:
+    if not Engine.has_singleton("PlayFab"):
+        push_error("godot_playfab extension is not loaded")
+        return
+    if not Engine.has_singleton("GDK"):
+        push_error("godot_gdk extension is not loaded")
+        return
+
+    # Make sure GDK is up and we have an Xbox user.
+    if not GDK.is_initialized():
+        var init: GDKResult = GDK.initialize()
+        if not init.ok:
+            push_warning("GDK init failed: %s" % init.message); return
+
+    var xbox_user: GDKUser = GDK.users.get_primary_user()
+    if xbox_user == null or not xbox_user.signed_in:
+        var xbox_result: GDKResult = await GDK.users.add_default_user_async()
+        if not xbox_result.ok:
+            push_warning("Xbox sign-in failed: %s" % xbox_result.message); return
+        xbox_user = xbox_result.data
+
+    # Initialize PlayFab once. The PlayFabBootstrap autoload may have
+    # already done this when playfab/runtime/initialize_on_startup is true;
+    # the call here is a defensive fallback for projects that disable it.
+    if not PlayFab.is_initialized():
+        var pf_init: PlayFabResult = PlayFab.initialize()
+        if not pf_init.ok:
+            push_warning("PlayFab init failed: %s" % pf_init.message); return
+
+    # Sign the Xbox user into PlayFab.
+    var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox_user)
+    if not pf_result.ok:
+        push_warning("PlayFab sign-in failed: %s" % pf_result.message); return
+
+    var pf_user: PlayFabUser = pf_result.data
+    var key: Dictionary = pf_user.entity_key
+    print("[PlayFab] signed in: %s:%s" % [key.get("type", ""), key.get("id", "")])
+```
+
+If you don't have an Xbox account yet (or are testing on a machine
+without GDK Live setup), use the no-Xbox custom-ID path:
+
+```gdscript
+var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
+        "your-title-defined-id", false)  # false = don't auto-create
+```
+
+`sign_in_with_xuser_async` returns `invalid_xuser` if you pass a null or
+signed-out GDK user, so always confirm `xbox_user.signed_in` first.
+PlayFab Game Saves additionally require an Xbox-backed PlayFab session
+(custom-id users will get `xbox_user_required` from `PlayFab.game_saves`
+methods).
+
+For the full PlayFab service surface see the
+[PlayFab plugin overview](godot-playfab-plugin.md).
+
+### 5c. Verify
+
+Run your project. You should see, in order:
+
+```
+[GDK] Bootstrap: GDK.initialize() succeeded.
+[GDK] Runtime initialized
+[GDK] User added: <gamertag>
+[GDK] signed in as <gamertag> (XUID <xuid>)
+[PlayFab] signed in: title_player_account:<entity-id>
+```
+
+If sign-in fails before that point, the `result.message` you printed
+tells you which step is broken — see
+[Troubleshooting → sign-in](troubleshooting.md) and the sandbox /
+test-account guide.
+
+---
+
+## Common pitfalls
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
+| `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the GDK is installed on the machine that runs the game |
+| Silent sign-in returns `no_default_user` | No test account signed in to the Xbox app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the Xbox app — see [Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md) |
+| `PlayFab.initialize()` fails immediately | `playfab/titleid` is empty | Set `playfab/titleid` in Project Settings (or `project.godot` `[playfab] titleid="..."`) |
+| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
+| `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
+
+---
+
+## Where to go next
+
+- [GDK API reference](godot-gdk-api-reference.md) — full list of services
+  (`GDK.users`, `GDK.achievements`, `GDK.leaderboards`,
+  `GDK.multiplayer_activity`, `GDK.store`, `GDK.system`, …)
+- [PlayFab plugin overview](godot-playfab-plugin.md) — `PlayFab.users`,
+  `PlayFab.game_saves`, `PlayFab.leaderboards`, `PlayFab.multiplayer`,
+  `PlayFab.party`, `PlayFab.events`, and the REST service wrappers
+- [GameInput addon](godot-gameinput.md) — devices, polling, vibration,
+  and the action-bridge into Godot's `InputMap`
+- [Sample project setup](godot-gdk-sample-setup.md) — Partner Center
+  configuration, sandboxes, test accounts
+- [Troubleshooting](troubleshooting.md) — common build, runtime, and
+  test issues
+
+---
+
+## Building from source
+
+Reference for contributors and anyone reproducing the addon binaries
+themselves.
+
+### Clone with submodules
 
 ```powershell
 git clone --recurse-submodules https://github.com/gaming-microsoft/godot-public-gdk-ext.git
@@ -29,7 +427,7 @@ If you've already cloned without submodules:
 git submodule update --init --recursive
 ```
 
-## Build
+### Build
 
 ```powershell
 # Configure all addons
@@ -55,6 +453,10 @@ The build:
 cmake --preset gdk-only
 cmake --build --preset debug-gdk
 
+# PlayFab addon only
+cmake --preset playfab-only
+cmake --build --preset debug-playfab
+
 # GameInput addon only
 cmake --preset gameinput-only
 cmake --build --preset debug-gameinput
@@ -74,7 +476,7 @@ To override manually:
 cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/260400/windows"
 ```
 
-## Clean ignored local artifacts
+### Clean ignored local artifacts
 
 Use the repo cleanup helper to preview or remove ignored local files such as
 `build\`, addon/sample `bin\`, sample `.godot\`, local sample configs or Godot
@@ -89,26 +491,23 @@ editor copies under `sample\`, and generated packaging output.
 ```
 
 The script wraps `git clean` in ignored-files-only mode, so tracked repository
-files stay intact. Preview first if you want to keep local sample configs or
-Godot executable copies in your worktree.
+files stay intact.
 
-## Run the samples
+### Run the bundled samples
 
 **You must build before launching any sample** — the build step syncs addon
 DLLs and runtime dependencies into every sample project. Without building,
 Godot will fail with "GDExtension dynamic library not found" errors.
 
 ```powershell
-# Build first (required — populates addon DLLs in all samples)
-cmake --build build --preset debug
-
-# Launch any sample
-.\sample\gdk_demo\launch_editor.bat            # GDK addon demo
-.\sample\gdk_launch_point\launch_editor.bat    # GDK Launch Point scenario shell
-.\sample\multiplayer_pong\launch_editor.bat    # Multiplayer pong
+cmake --build build --preset debug                # required first
+.\sample\gdk_demo\launch_editor.bat               # GDK addon demo
+.\sample\gdk_launch_point\launch_editor.bat       # GDK Launch Point scenario shell
+.\sample\multiplayer_pong\launch_editor.bat       # Multiplayer pong
+.\sample\playfab_demo\launch_editor.bat           # PlayFab demo
 ```
 
-## Run the tests
+### Run the tests
 
 Use the repo-wide orchestrator as the canonical local test command:
 
@@ -116,29 +515,35 @@ Use the repo-wide orchestrator as the canonical local test command:
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-The orchestrator runs the GDScript parse gate, debug CMake build, C++ doctest executable, GUT host suites, bootstrap mini-runners, and aggregate summary. Results are written to `build\test-results\run-summary.json` and `build\test-results\run-summary.md`. See [Godot GDK sample and tests](godot-gdk-sample-and-tests.md) for the full pipeline, live switch, and troubleshooting links.
+The orchestrator runs the GDScript parse gate, debug CMake build, C++
+doctest executable, GUT host suites, bootstrap mini-runners, and the
+aggregate summary. Results are written to
+`build\test-results\run-summary.json` and `.md`. See
+[Sample and tests](godot-gdk-sample-and-tests.md) for the full pipeline,
+the live switch, and troubleshooting links.
 
-## VS Code setup
+### VS Code setup
 
 After building, VS Code IntelliSense should work automatically with the
 included `.vscode/c_cpp_properties.json`. If you see red squiggles on
 `#include` directives:
 
 1. Ensure you've **built at least once** — godot-cpp headers are generated
-   during the first build into `build/godot-cpp/gen/include/`
+   during the first build into `build/godot-cpp/gen/include/`.
 2. Ensure the `GameDKCoreLatest` environment variable is available (or update
-   the GDK include path in `.vscode/c_cpp_properties.json`)
-3. Reload VS Code (`Ctrl+Shift+P` → "C/C++: Reset IntelliSense Database")
+   the GDK include path in `.vscode/c_cpp_properties.json`).
+3. Reload VS Code (`Ctrl+Shift+P` → "C/C++: Reset IntelliSense Database").
 
-The config defines `_GAMING_DESKTOP`, which is required for XSAPI/libHttpClient
-platform detection.
+The config defines `_GAMING_DESKTOP`, which is required for XSAPI /
+libHttpClient platform detection.
 
-## Repository layout
+### Repository layout
 
 ```
 addons/godot_gdk/         # GDK addon: metadata, editor scripts, native sources
 addons/godot_gameinput/   # GameInput addon: metadata, native sources
 addons/godot_playfab/     # PlayFab addon: metadata, native sources
+addons/godot_gdk_packaging/   # GDScript-only packaging tools (editor-only)
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
@@ -155,17 +560,18 @@ tests/                    # Baselines, C++ doctest sources, and Godot test hosts
 tools/                    # CLI helper scripts
 ```
 
-## Development workflow
+### Development workflow
 
-### After changing native code
+#### After changing native code
 
 ```powershell
 cmake --build build --preset debug
 ```
 
-This rebuilds the DLL and syncs it, addon metadata, and generated test support into the sample projects.
+This rebuilds the DLL and syncs it, addon metadata, and generated test
+support into the sample projects.
 
-### After changing editor scripts or addon metadata
+#### After changing editor scripts or addon metadata
 
 Rebuild so the sample copy is refreshed:
 
@@ -173,14 +579,14 @@ Rebuild so the sample copy is refreshed:
 cmake --build build --preset debug
 ```
 
-### Validating changes
+#### Validating changes
 
 1. Rebuild the addon or run the full orchestrator.
 2. Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1`.
 3. Open the relevant sample in the editor and verify the user-facing flow still loads.
 4. If Xbox Live or PlayFab live features changed, test with `-Live` against a sandbox title and test account.
 
-### Optional pre-commit hook
+#### Optional pre-commit hook
 
 Enable the repo-managed pre-commit hook to run headless GDScript validation before each commit:
 

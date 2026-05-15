@@ -60,9 +60,36 @@ The script removes ignored files only, so tracked repository files stay intact.
 - Windows 10 (18362+) or Windows 11
 - [Microsoft GDK](https://github.com/microsoft/GDK/releases)
   (`winget install Microsoft.Gaming.GDK`)
-- [Godot 4.3+](https://godotengine.org/download)
+- [Godot 4.5+](https://godotengine.org/download)
 - Visual Studio 2022+ with the C++ Desktop workload
-- CMake 3.20+
+- CMake 3.25+
+
+## Build presets
+
+`CMakePresets.json` defines a `default` preset that builds every addon and
+per-addon presets for selective builds. Each configure preset has matching
+`debug-*` / `release-*` build presets.
+
+| Configure preset | Builds | Build presets |
+|------------------|--------|---------------|
+| `default` | `godot_gdk`, `godot_playfab`, `godot_gameinput` | `debug`, `release` |
+| `gdk-only` | `godot_gdk` only (PlayFab and GameInput disabled) | `debug-gdk`, `release-gdk` |
+| `playfab-only` | `godot_playfab` only (GDK and GameInput disabled) | `debug-playfab`, `release-playfab` |
+| `gameinput-only` | `godot_gameinput` only (GDK and PlayFab disabled) | `debug-gameinput`, `release-gameinput` |
+
+Use one of:
+
+```powershell
+cmake --preset default          ; cmake --build build --preset debug
+cmake --preset gdk-only         ; cmake --build --preset debug-gdk
+cmake --preset playfab-only     ; cmake --build --preset debug-playfab
+cmake --preset gameinput-only   ; cmake --build --preset debug-gameinput
+```
+
+Per-addon `BUILD_GODOT_*` cache variables (`BUILD_GODOT_GDK`,
+`BUILD_GODOT_PLAYFAB`, `BUILD_GODOT_GAMEINPUT`, `BUILD_GODOT_GDK_PACKAGING`)
+can also be flipped manually on the `default` preset if you need a
+combination the dedicated presets do not cover.
 
 ## Repository layout
 

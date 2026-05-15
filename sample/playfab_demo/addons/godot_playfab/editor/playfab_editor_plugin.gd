@@ -1,17 +1,32 @@
 @tool
 extends EditorPlugin
-## GodotPlayFab Editor Plugin — placeholder stub.
-##
-## PlayFab is a runtime-only addon today: there is no auto-installable
-## bootstrap autoload, and the editor plugin currently does no work.
-## This file exists so `plugin.cfg` is a valid Godot 4 EditorPlugin
-## manifest. When PlayFab gains editor tooling (e.g., a title-config
-## helper), wire it up here.
+## GodotPlayFab Editor Plugin - keeps the runtime bootstrap wired into projects.
+
+const AUTOLOAD_NAME := "PlayFabBootstrap"
+const AUTOLOAD_PATH := "res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
 
 
 func _enable_plugin() -> void:
-	print("[GodotPlayFab] Editor plugin enabled — no editor tooling registered yet.")
+	var autoload_setting: String = "autoload/%s" % AUTOLOAD_NAME
+	var current_path: String = ""
+	if ProjectSettings.has_setting(autoload_setting):
+		current_path = str(ProjectSettings.get_setting(autoload_setting, ""))
+		if current_path.begins_with("*"):
+			current_path = current_path.substr(1)
+
+	if current_path == AUTOLOAD_PATH:
+		print("[GodotPlayFab] Editor plugin enabled - '%s' autoload already installed." % AUTOLOAD_NAME)
+		return
+
+	if ProjectSettings.has_setting(autoload_setting):
+		remove_autoload_singleton(AUTOLOAD_NAME)
+
+	add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)
+	print("[GodotPlayFab] Editor plugin enabled - '%s' autoload installed." % AUTOLOAD_NAME)
 
 
 func _disable_plugin() -> void:
-	print("[GodotPlayFab] Editor plugin disabled.")
+	var autoload_setting: String = "autoload/%s" % AUTOLOAD_NAME
+	if ProjectSettings.has_setting(autoload_setting):
+		remove_autoload_singleton(AUTOLOAD_NAME)
+	print("[GodotPlayFab] Editor plugin disabled - '%s' autoload removed." % AUTOLOAD_NAME)

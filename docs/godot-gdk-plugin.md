@@ -66,7 +66,8 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
 ### User guides
 
 - [`getting-started.md`](getting-started.md)  
-  Prerequisites, building, VS Code setup, and development workflow.
+  Adding the addons to your project, configuring project settings,
+  getting to user sign-in (Xbox + PlayFab), and building from source.
 
 - [`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md)  
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.

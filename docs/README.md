@@ -6,8 +6,9 @@ Microsoft public GDK.
 
 ## Getting started
 
-- [**Getting Started**](getting-started.md) — prerequisites, building,
-  VS Code setup, and development workflow
+- [**Getting Started**](getting-started.md) — adding the addons to your
+  project, configuring project settings, getting to user sign-in (Xbox
+  + PlayFab), and building from source
 - [**Test Pipeline**](godot-gdk-sample-and-tests.md) — repo-wide orchestrator,
   GUT hosts, C++ doctest, live switch, and test baselines
 
