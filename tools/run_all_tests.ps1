@@ -929,7 +929,7 @@ function Main {
     # we honor the abort to keep the pipeline simple.)
     if (-not $abort) {
         Write-Host '== [6/7] Bootstrap mini-runners ==' -ForegroundColor Cyan
-        $bootstrapHosts = @(@('tests\godot\gdk', 'tests\godot\gameinput') |
+        $bootstrapHosts = @(@('tests\godot\gdk', 'tests\godot\gameinput', 'tests\godot\playfab') |
             Where-Object { $hostList -contains $_ })
         if ($bootstrapHosts.Count -eq 0) {
             $skip = New-StageRecord 'bootstrap'

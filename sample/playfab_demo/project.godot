@@ -23,10 +23,11 @@ config/icon="res://icon.svg"
 
 GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
+PlayFabBootstrap="*res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg", "res://addons/godot_playfab/plugin.cfg")
 
 [gdk]
 
@@ -39,3 +40,4 @@ runtime/auto_add_primary_user=true
 titleid=""
 endpoint=""
 runtime/embed_dispatch=true
+runtime/initialize_on_startup=true

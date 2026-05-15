@@ -26,6 +26,8 @@ namespace {
 
 constexpr const char *PLAYFAB_RUNTIME_EMBED_DISPATCH_SETTING = "playfab/runtime/embed_dispatch";
 constexpr bool PLAYFAB_RUNTIME_EMBED_DISPATCH_DEFAULT = true;
+constexpr const char *PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING = "playfab/runtime/initialize_on_startup";
+constexpr bool PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_DEFAULT = false;
 constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/titleid";
 constexpr const char *PLAYFAB_TITLE_ID_DEFAULT = "";
 constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/endpoint";
@@ -68,6 +70,20 @@ void register_playfab_project_settings() {
     setting_info["hint"] = PROPERTY_HINT_NONE;
     setting_info["hint_string"] = "";
     project_settings->add_property_info(setting_info);
+
+    if (!project_settings->has_setting(PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING)) {
+        project_settings->set_setting(PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING, PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_DEFAULT);
+    }
+
+    project_settings->set_initial_value(PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING, PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_DEFAULT);
+    project_settings->set_as_basic(PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING, true);
+
+    Dictionary initialize_on_startup_info;
+    initialize_on_startup_info["name"] = PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING;
+    initialize_on_startup_info["type"] = Variant::BOOL;
+    initialize_on_startup_info["hint"] = PROPERTY_HINT_NONE;
+    initialize_on_startup_info["hint_string"] = "";
+    project_settings->add_property_info(initialize_on_startup_info);
 
     register_string_project_setting(project_settings, PLAYFAB_TITLE_ID_SETTING, PLAYFAB_TITLE_ID_DEFAULT);
     register_string_project_setting(project_settings, PLAYFAB_ENDPOINT_SETTING, PLAYFAB_ENDPOINT_DEFAULT);

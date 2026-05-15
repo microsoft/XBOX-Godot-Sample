@@ -13,11 +13,20 @@ config_version=5
 config/name="Godot PlayFab Tests"
 config/features=PackedStringArray("4.6")
 
+[autoload]
+
+PlayFabBootstrap="*res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_playfab/plugin.cfg")
+
 [playfab]
 
 titleid=""
 endpoint=""
 runtime/embed_dispatch=true
+runtime/initialize_on_startup=true
 tests/custom_id=""
 
 [rendering]

@@ -73,6 +73,7 @@ The runtime reads these Project Settings keys:
 
 - `playfab/titleid`
 - `playfab/endpoint`
+- `playfab/runtime/initialize_on_startup`
 - `playfab/runtime/embed_dispatch`
 
 The endpoint setting is optional. When blank, the runtime derives the default endpoint from the title id.
