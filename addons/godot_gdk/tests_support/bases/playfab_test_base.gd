@@ -14,6 +14,7 @@ const PLAYFAB_EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdexte
 const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
 const PLAYFAB_ENDPOINT_SETTING := "playfab/endpoint"
 const PLAYFAB_EMBED_DISPATCH_SETTING := "playfab/runtime/embed_dispatch"
+const PLAYFAB_INITIALIZE_ON_STARTUP_SETTING := "playfab/runtime/initialize_on_startup"
 const PLAYFAB_TEST_CUSTOM_ID_SETTING := "playfab/tests/custom_id"
 const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_TEST_CUSTOM_ID_ENV := "PLAYFAB_CUSTOM_ID"
