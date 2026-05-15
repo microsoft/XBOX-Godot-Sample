@@ -38,8 +38,11 @@ The PlayFab runtime reads these settings from Project Settings:
 
 - `playfab/titleid` — required; the PlayFab title id
 - `playfab/endpoint` — optional; leave blank to derive `https://<titleid>.playfabapi.com`
+- `playfab/runtime/initialize_on_startup` — defaults to `false`; when `true`, the `PlayFabBootstrap` autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code.
 - `playfab/runtime/embed_dispatch` — defaults to `true`; disable only when you want to pump completions manually with `PlayFab.dispatch()`
 - `playfab/tests/leaderboard_settle_msec` — int, default `30000`; polling budget for live leaderboard read-after-write checks
+
+The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
 
 ## Public GDScript surface
 

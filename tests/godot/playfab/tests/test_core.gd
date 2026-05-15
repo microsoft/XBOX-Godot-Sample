@@ -179,6 +179,8 @@ func test_project_settings_registration() -> void:
 	assert_eq(String(get_setting_default(PLAYFAB_ENDPOINT_SETTING)), "", "playfab/endpoint default remains blank")
 	assert_true(ProjectSettings.has_setting(PLAYFAB_EMBED_DISPATCH_SETTING), "playfab/runtime/embed_dispatch project setting registered")
 	assert_eq(bool(get_setting_default(PLAYFAB_EMBED_DISPATCH_SETTING)), true, "playfab/runtime/embed_dispatch defaults to true")
+	assert_true(ProjectSettings.has_setting(PLAYFAB_INITIALIZE_ON_STARTUP_SETTING), "playfab/runtime/initialize_on_startup project setting registered")
+	assert_eq(bool(get_setting_default(PLAYFAB_INITIALIZE_ON_STARTUP_SETTING)), false, "playfab/runtime/initialize_on_startup defaults to false")
 
 
 func test_initialize_rejects_blank_title_id() -> void:

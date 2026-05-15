@@ -37,6 +37,9 @@ func _run_playfab() -> void:
 		xbox_user = gdk.users.get_primary_user()
 
 	if not playfab.is_initialized():
+		# The PlayFabBootstrap autoload normally calls PlayFab.initialize() at
+		# startup when `playfab/runtime/initialize_on_startup` is true. This
+		# fallback handles the case where the project disables auto-init.
 		var init_result = playfab.initialize()
 		if init_result == null or not init_result.ok:
 			_set_status(init_result.message if init_result != null else "PlayFab initialization failed.", false)
