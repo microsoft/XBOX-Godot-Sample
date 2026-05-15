@@ -78,3 +78,14 @@ cd tests\godot\playfab
 - Public Godot-facing class docs live in `addons\godot_playfab\doc_classes\`.
 - `docs\godot-playfab-plugin.md` is the user-facing addon overview. Update it when the public surface or sample workflow changes.
 - `spec\gdext-playfab.md` is the source of truth for design direction and deferred work. Mark shipped sections or note deviations there when scope changes.
+
+## Build / Binding Gotchas
+
+Lessons that have cost rework in past sessions. Apply them as starting assumptions:
+
+- **No `Ref<GDKUser>` in PlayFab public bindings.** `godot_playfab` and `godot_gdk` ship as separate GDExtension DLLs and cannot exchange typed `Ref<>` values directly. Public PlayFab methods that need a GDK user accept `Object *` and duck-type via `has_method` / `call`. See `addons\godot_playfab\src\playfab_users.h` and `playfab_users.cpp` for the established pattern.
+- **PlayFab `sign_in_with_xuser_async` accepts a `GDKUser` object only — never a raw local Xbox user id.** When the supplied user object is null or invalid the call returns `invalid_xuser`; do not re-introduce a `local_id` parameter.
+- **Party SDK typedefs (`PartyError`, `PartyString`, `PartyBool`) live in the global namespace.** They are defined in `<playfab/party/PartyTypes.h>`, not inside `namespace Party`. Writing `Party::PartyError` will not compile.
+- **`<playfab/party/PartyImpl.h>` must be included in exactly one `.cpp`.** Party.lib only exports the C interface; the C++ wrappers (`Party::PartyManager`, …) require `PartyImpl.h` for inline definitions. The current home is `addons\godot_playfab\src\playfab_party.cpp`; do not duplicate the include elsewhere.
+- **PlayFab Lobby `search_properties` must use service keys.** Use `string_key1` … `string_keyN` and `number_key1` … `number_keyN`. Custom key names cause live create/search to fail. See `docs\godot-playfab-plugin.md` and `spec\gdext-playfab-lobby-matchmaking.md` for the canonical list.
+- **Lobby constants/mutators live on `PlayFabLobby`. Match-ticket constants and ticket ops live on `PlayFabMatchTicket`.** Do not put either set on `PlayFabMultiplayer` — that surface stays focused on factory/service-level entry points. This was corrected multiple times in PR #109 and is now the established convention.

@@ -45,6 +45,16 @@ applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/gdk_demo/addons/godot_
 - Add new implementation files to `addons\godot_gdk\CMakeLists.txt`.
 - When exposing object-returning properties from C++, set the `PropertyInfo` class name (for example `GDKUsers` or `GDKAchievements`) so Godot does not instantiate anonymous object defaults.
 
+## Build / Binding Gotchas
+
+Lessons that have cost rework in past sessions. Apply them as starting assumptions:
+
+- **`std::rbegin` / `std::rend` require `<iterator>` explicitly.** Do not rely on transitive includes — past PR review feedback has rejected this. Add `#include <iterator>` to any new `.cpp` that reverse-iterates a container.
+- **Platform availability gate is `defined(_GAMING_DESKTOP)`, not `HC_PLATFORM`.** `_GAMING_DESKTOP` is set via `target_compile_definitions` in the addon CMake. The GDK headers do not provide `HC_PLATFORM`; do not introduce it.
+- **`GDK.initialize` rollback paths must call `m_package->shutdown()` before runtime shutdown.** Failures that occur after the package subsystem has been initialized leak package state otherwise. Mirror the existing rollback pattern in `addons\godot_gdk\src\gdk.cpp` when adding new subsystems.
+- **`GDKSystem` metadata reads use `XGameGetXboxTitleId` and `XSystemGetXboxLiveSandboxId`.** SCID is returned from `GDKXboxServices` cached state, not freshly looked up. Reuse the cached path when adding new Xbox-services-derived properties.
+- **`gdk/runtime/initialize_on_startup` is consumed by `gdk_bootstrap.gd`.** The bootstrap autoload reads this Project Setting to decide whether to call `GDK.initialize()` at startup. Do **not** remove the C++ registration of this setting in `register_types.cpp` — it is intentionally observable from script, and `test_core.gd` asserts on its registration.
+
 ## Public API Documentation Contract
 
 - Public Godot-facing classes in `godot_gdk` should have matching documentation under `addons\godot_gdk\doc_classes\`.

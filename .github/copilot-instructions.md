@@ -69,6 +69,48 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-  The orchestrator runs (in order): the parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), GUT for each coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput` — `multiplayer_pong` is intentionally **not** a test host), and the bootstrap mini-runners under each host's `tests\bootstrap\` directory. Per-stage results land in `build\test-results\run-summary.{json,md}`. Use `-Live` to opt in to live-service tests (`LIVE_TESTS=1`), including tests that write online state; use a dedicated sandbox PlayFab title for live write coverage.
+  The orchestrator runs (in order): the parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), GUT for each coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput` — `multiplayer_pong` is intentionally **not** a test host), and the bootstrap mini-runners under each host's `tests\bootstrap\` directory. Per-stage results land in `build\test-results\run-summary.{json,md}`. Use `-Live` to opt in to live-service tests (`LIVE_TESTS=1`). Writes that persist in the live title (create lobby, post leaderboard entry, save Game Save, …) will be gated behind a separate forthcoming `-AllowLiveWrites` switch (`LIVE_WRITE_TESTS=1`) added in the companion tooling PR; until that switch lands, treat any live write coverage as a conscious sandbox-only decision and never point live write tests at a shared or production title. See `tests\godot\README.md` for the test-tier contract.
 - New GUT suites live under each host's `tests\` directory as `test_*.gd` files (auto-discovered via `-gdir res://tests -ginclude_subdirs`) and should `extends` the appropriate shared base from `addons\godot_gdk_tests\` (`gdk_test_base.gd`, `playfab_test_base.gd`, or `gameinput_test_base.gd`). The bases live in `addons\godot_gdk\tests_support\bases\` and CMake mirrors them into each host. Vendored GUT under `tests_support\gut\` and the mirrored `addons\gut\` copies are intentionally untouched — never edit them; refresh from upstream instead.
 - When public addon behavior changes, keep the corresponding docs, samples, tests, and path-scoped instructions aligned in the same change.
+
+## Before Reporting Completion
+
+A task is not done until the following are satisfied. Walk through this checklist explicitly before claiming completion or opening a PR:
+
+- **Parse gate ran.** If any `.gd` file was touched (anywhere in the repo, including synced sample copies under `sample\<host>\addons\`), run `tools\check_gd_scripts_headless.ps1` and confirm it exits clean. If no `.gd` was touched, say so out loud — do not skip silently.
+- **Test orchestrator ran or was intentionally narrowed.** The canonical green bar is `tools\run_all_tests.ps1`. Running a narrower subset (single GUT host, single bootstrap script, `cmake --build` only) is allowed, but state which subset and why. Never report "tests pass" based on GitHub Actions output alone.
+- **Live coverage decision is explicit.** State whether live tests were skipped (default) or run (`-Live`, with a sandbox title id named). For tests that write online state, state whether the (forthcoming) `-AllowLiveWrites` switch was used; until the companion tooling PR adds that switch, any live write coverage is a conscious sandbox-only decision and must be called out in the PR description. See `tests\godot\README.md` for the test-tier contract.
+- **Public-API drift was reconciled in the same change.** When public addon behavior changed, the matching `doc_classes\*.xml`, `spec\gdext-*.md`, `docs\godot-*.md`, sample content, and tests were updated in this change — not deferred to follow-up.
+- **PR description carries usage examples.** When public API was added or renamed, the PR description (or the change commit body if no PR yet) shows a short GDScript usage snippet for each new or renamed surface. Reviewers should not have to reverse-engineer the new API from the diff.
+
+## Worktree Lifecycle
+
+This repo regularly uses multiple worktrees for parallel feature branches (`.copilot-worktrees/<branch>` and `R:\repos\godot-public-gdk-ext-<feature>` are both seen in practice). Treat each worktree as expendable:
+
+- **Name the worktree after its feature branch.** `R:\repos\godot-public-gdk-ext-<feature>` is preferred for human-driven work; `.copilot-worktrees/<branch>` is acceptable for agent-driven slices.
+- **Rebase or merge `origin/main` before "make the PR".** A worktree that has drifted from main is not ready to be reviewed. Run `git fetch origin && git merge --ff-only origin/main` (or `git rebase origin/main`) before opening or refreshing a PR — do not ask the user to retry merges.
+- **Delete the worktree after its PR merges.** Once the corresponding PR is merged into `origin/main` (or explicitly abandoned), remove the worktree with `git worktree remove --force <path>` and `git worktree prune`. Stale worktrees serve as a foothold for outdated `.github/copilot-instructions.md` content and confuse later sessions.
+- **A standalone helper to list stale worktrees** (`tools\list_stale_worktrees.ps1`) is forthcoming in the companion tooling PR. Until it lands, run `git worktree list` manually and check whether each worktree's branch is fully merged into `origin/main` before pruning.
+
+## Long-Lived Feature Plans
+
+For multi-session work (multi-week features such as PlayFab Multiplayer, PlayFab Party, GDK packaging tooling), do **not** rely on `~\.copilot\session-state\<id>\plan.md` as the persistent plan — those files are scoped to a single session and the next session cannot find them.
+
+Instead, extend the existing `spec\gdext-<feature>.md` with two checked-in sections:
+
+- **`## Plan`** — the phased execution plan that survives across sessions. Each phase calls out the public API surface it lands, the test tier it targets, and any sample/doc updates it must carry.
+- **`## Progress`** — the running ledger of what has shipped (`Phase 1: ✅ shipped in #109`), what is in-flight, and what is intentionally deferred. New sessions read this section first to know where to pick up.
+
+Session-state `plan.md` remains the right place for one-off tasks (single PR scope, a few hours of work). It is **not** the right place for anything you expect to outlive the session.
+
+Do not introduce a parallel `docs\plans\` tree. The spec is the single source of truth for both design and progress.
+
+## Anti-Patterns
+
+Recurring detours observed in past sessions. Recognize them early and steer back to the established conventions instead:
+
+- **No code-generation or manifest pipelines for binding surfaces.** Hand-written C++ bindings and the GDScript test matrix (`tests\godot\<addon>\tests\test_api_services.gd` and siblings) are the source of truth. Do not introduce JSON manifests, generators, or "generated/" directories — past attempts have all been removed.
+- **No new global engine singletons.** Each addon registers exactly one root singleton (`GDK`, `PlayFab`, `GameInput`). New feature areas attach as service namespaces under the existing singleton (`GDK.users`, `PlayFab.party`, …), not as new top-level names.
+- **No `Ref<>` parameters across addon DLL boundaries.** `godot_playfab` cannot accept a `Ref<GDKUser>` directly because `godot_gdk` and `godot_playfab` are separate GDExtension DLLs. Use `Object *` and duck-type via `has_method` / `call`. Same rule for any future cross-addon API.
+- **No silent "tests pass" claims after GitHub Actions runs.** Local validation must be run explicitly per the **Before Reporting Completion** checklist.
+- **No raw local Xbox user ids in PlayFab sign-in.** `PlayFab.users.sign_in_with_xuser_async` accepts a `GDKUser` object only. Plumbing local handles through the higher-level API is a step backwards — keep Xbox-facing identity inside the GDK side.
