@@ -2,13 +2,13 @@
 extends Control
 ## GDK dock panel — coordinator for the tab-local packaging surfaces.
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
-const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/editor/makepkg_executor.gd")
-const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
-const PackagingSettingsStoreScript = preload("res://addons/godot_gdk_packaging/editor/packaging_settings_store.gd")
-const ExportPresetCatalogScript = preload("res://addons/godot_gdk_packaging/editor/export_preset_catalog.gd")
-const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/editor/packaging_content_preparer.gd")
-const WdappManagerScript = preload("res://addons/godot_gdk_packaging/editor/wdapp_manager.gd")
+const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
+const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/core/makepkg_executor.gd")
+const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
+const PackagingSettingsStoreScript = preload("res://addons/godot_gdk_packaging/core/packaging_settings_store.gd")
+const ExportPresetCatalogScript = preload("res://addons/godot_gdk_packaging/core/export_preset_catalog.gd")
+const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/core/packaging_content_preparer.gd")
+const WdappManagerScript = preload("res://addons/godot_gdk_packaging/core/wdapp_manager.gd")
 
 const ConfigTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/config_tab.gd")
 const SandboxTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/sandbox_tab.gd")
@@ -16,7 +16,7 @@ const ExportPackageTabScript = preload("res://addons/godot_gdk_packaging/editor/
 const InstallLaunchTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/install_launch_tab.gd")
 const AchievementsTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/achievements_tab.gd")
 const PlayFabTabScript = preload("res://addons/godot_gdk_packaging/editor/packaging_tabs/playfab_tab.gd")
-const PackagingPanelLogic = preload("res://addons/godot_gdk_packaging/editor/packaging_panel_logic.gd")
+const PackagingPanelLogic = preload("res://addons/godot_gdk_packaging/core/packaging_panel_logic.gd")
 
 const PACKAGING_SETTINGS_PATH := "res://.gdk_packaging.cfg"
 

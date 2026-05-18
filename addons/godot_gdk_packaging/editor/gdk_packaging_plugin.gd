@@ -4,8 +4,8 @@ extends EditorPlugin
 ## menu bar and a dock panel for Microsoft GDK PC packaging tools.
 
 const PackagingPanel = preload("res://addons/godot_gdk_packaging/editor/packaging_panel.gd")
-const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
-const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
+const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
+const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
 const ConfigImportPlugin = preload("res://addons/godot_gdk_packaging/editor/config_import_plugin.gd")
 const GDKTutorialWizard = preload("res://addons/godot_gdk_packaging/editor/gdk_tutorial_wizard.gd")
 

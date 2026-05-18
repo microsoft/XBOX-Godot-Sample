@@ -3,7 +3,7 @@ extends GutTest
 ## from the `packaging_panel.gd` dock script. These tests run headless; the
 ## real panel is a `Control` and is not instantiated.
 
-const PackagingPanelLogic = preload("res://addons/godot_gdk_packaging/editor/packaging_panel_logic.gd")
+const PackagingPanelLogic = preload("res://addons/godot_gdk_packaging/core/packaging_panel_logic.gd")
 
 
 # ── format_status_text ────────────────────────────────────────────────────

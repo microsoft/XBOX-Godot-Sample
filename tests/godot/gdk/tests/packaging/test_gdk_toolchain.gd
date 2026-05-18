@@ -7,9 +7,9 @@ extends GutTest
 ## introspective — they pin the path-normalisation, the version-extraction
 ## branch behavior, and the soft-fail invariants when the tools are missing.
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
+const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
 
-const SCRIPT_PATH := "res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd"
+const SCRIPT_PATH := "res://addons/godot_gdk_packaging/core/gdk_toolchain.gd"
 
 
 # ── Public API shape ──────────────────────────────────────────────────────
