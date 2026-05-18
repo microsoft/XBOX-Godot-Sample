@@ -4,13 +4,13 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## `pending(...)`; `log_fail` early-returns on disk I/O errors preserved as
 ## `assert_true(false, ...)` so failures still fail the suite.
 
-const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/editor/game_config_manager.gd")
-const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/editor/gdk_toolchain.gd")
-const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/editor/makepkg_executor.gd")
-const PackagingSettingsStoreScript = preload("res://addons/godot_gdk_packaging/editor/packaging_settings_store.gd")
-const ExportPresetCatalogScript = preload("res://addons/godot_gdk_packaging/editor/export_preset_catalog.gd")
-const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/editor/packaging_content_preparer.gd")
-const WdappManagerScript = preload("res://addons/godot_gdk_packaging/editor/wdapp_manager.gd")
+const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
+const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
+const MakePkgExecutorScript = preload("res://addons/godot_gdk_packaging/core/makepkg_executor.gd")
+const PackagingSettingsStoreScript = preload("res://addons/godot_gdk_packaging/core/packaging_settings_store.gd")
+const ExportPresetCatalogScript = preload("res://addons/godot_gdk_packaging/core/export_preset_catalog.gd")
+const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/core/packaging_content_preparer.gd")
+const WdappManagerScript = preload("res://addons/godot_gdk_packaging/core/wdapp_manager.gd")
 
 
 func test_toolchain_detection() -> void:

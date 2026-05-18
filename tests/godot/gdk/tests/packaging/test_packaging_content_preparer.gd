@@ -13,7 +13,7 @@ extends GutTest
 ##   * Both helpers passthrough on no-match (no `Executable Name=`,
 ##     no `</Game>` tag).
 
-const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/editor/packaging_content_preparer.gd")
+const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/core/packaging_content_preparer.gd")
 
 
 # ── patch_executable_name ─────────────────────────────────────────────────
