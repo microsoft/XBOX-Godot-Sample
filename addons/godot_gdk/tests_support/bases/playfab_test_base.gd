@@ -11,8 +11,8 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## `extends "res://addons/godot_gdk_tests/playfab_test_base.gd"`.
 
 const PLAYFAB_EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdextension"
-const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
-const PLAYFAB_ENDPOINT_SETTING := "playfab/endpoint"
+const PLAYFAB_TITLE_ID_SETTING := "playfab/runtime/title_id"
+const PLAYFAB_ENDPOINT_SETTING := "playfab/runtime/endpoint"
 const PLAYFAB_EMBED_DISPATCH_SETTING := "playfab/runtime/embed_dispatch"
 const PLAYFAB_INITIALIZE_ON_STARTUP_SETTING := "playfab/runtime/initialize_on_startup"
 const PLAYFAB_TEST_CUSTOM_ID_SETTING := "playfab/tests/custom_id"

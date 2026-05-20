@@ -161,7 +161,8 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '            Version="1.0.0.0" />\n'
 	xml += '  <ExecutableList>\n'
 	xml += '    <Executable Name="%s"\n' % _escape_xml_attr(exe_name)
-	xml += '                Id="Game" />\n'
+	xml += '                Id="Game"\n'
+	xml += '                TargetDeviceFamily="PC" />\n'
 	xml += '  </ExecutableList>\n'
 	xml += '  <ShellVisuals DefaultDisplayName="%s"\n' % _escape_xml_attr(display_name)
 	xml += '                PublisherDisplayName="%s"\n' % _escape_xml_attr(publisher.replace("CN=", ""))
@@ -173,6 +174,7 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '                Description="A Godot game packaged with GDK"\n'
 	xml += '                BackgroundColor="#000000"\n'
 	xml += '                ForegroundText="light" />\n'
+	xml += '  <AdvancedUserModel>false</AdvancedUserModel>\n'
 	xml += '</Game>\n'
 
 	var file: FileAccess = FileAccess.open(res_path, FileAccess.WRITE)

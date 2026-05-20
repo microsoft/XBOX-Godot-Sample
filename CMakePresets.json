@@ -46,6 +46,19 @@
                 "BUILD_GODOT_GAMEINPUT": "OFF",
                 "BUILD_GODOT_PLAYFAB": "ON"
             }
+        },
+        {
+            "name": "addon-package",
+            "displayName": "Drop-in addon package",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/addon-package",
+            "cacheVariables": {
+                "BUILD_GODOT_GDK": "ON",
+                "BUILD_GODOT_GAMEINPUT": "ON",
+                "BUILD_GODOT_PLAYFAB": "ON",
+                "BUILD_GODOT_GDK_PACKAGING": "ON",
+                "GDK_BUILD_TESTS": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -113,6 +126,28 @@
             "configuration": "Release",
             "targets": [
                 "godot_playfab"
+            ]
+        },
+        {
+            "name": "debug-addon-package",
+            "displayName": "Debug (drop-in addon package)",
+            "configurePreset": "addon-package",
+            "configuration": "Debug",
+            "targets": [
+                "godot_gdk",
+                "godot_playfab",
+                "godot_gameinput"
+            ]
+        },
+        {
+            "name": "release-addon-package",
+            "displayName": "Release (drop-in addon package)",
+            "configurePreset": "addon-package",
+            "configuration": "Release",
+            "targets": [
+                "godot_gdk",
+                "godot_playfab",
+                "godot_gameinput"
             ]
         }
     ]

@@ -37,7 +37,7 @@ runtime/auto_add_primary_user=true
 
 [playfab]
 
-titleid=""
-endpoint=""
+runtime/title_id=""
+runtime/endpoint=""
 runtime/embed_dispatch=true
 runtime/initialize_on_startup=true

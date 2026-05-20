@@ -135,15 +135,20 @@ and register that folder with `wdapp`:
    `sample\multiplayer_pong\project.godot`).
 2. **(One-time)** If you've never installed Godot's Windows export
    templates: **Project → Manage Export Templates… → Download and Install**.
-3. Open the **GDK Packaging** dock (right-side panel; the plugin is
-   shipped with the sample). It should list a "Windows Desktop" preset
-   pre-populated from `export_presets.cfg`.
-4. Click **Export and Register**. The plugin will:
-   - call `godot --headless --export-debug "<preset>" Build/<game>.exe`,
-   - copy `MicrosoftGame.config` and the `storelogos\` images into `Build\`,
-   - run `wdapp register <Build folder>`.
-5. Click **Launch** in the same dock (or use `wdapp launch` directly from
-   PowerShell with the package alias printed during register).
+3. Export and prepare the loose layout with the packaging runner:
+
+   ```powershell
+   .\addons\godot_gdk_packaging\gdkpkg.cmd export --preset "Windows Desktop" --output-dir Build
+   ```
+
+4. Register the prepared layout:
+
+   ```powershell
+   .\addons\godot_gdk_packaging\gdkpkg.cmd register_loose --content-dir Build
+   ```
+
+5. Launch with `wdapp launch` from PowerShell using the package alias printed
+   during registration.
 
 The launched process inherits the registered Title ID context, so silent
 sign-in succeeds (or the bootstrap's UI fallback pops the system identity
@@ -202,7 +207,7 @@ to wipe data for a given XUID + sandbox + SCID. You'll be prompted for:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `[GDK] Xbox title ID is unavailable; Xbox services were not initialized.` (`0x80070490`) | `sample_config.cfg` is empty / missing Title ID / SCID. | Run `tools\setup_sample.ps1` or use the **GDK Setup** editor panel ([`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md)). |
-| HUD shows `GDK READY · SIGNED OUT` even though the Xbox app is signed in to the test account | The title is running unpackaged (e.g. via Godot editor F5). PC GDK rejects sign-in attempts when `XGameGetXboxTitleId` can't bind to a registered package; the runtime layer still initializes ("READY") but Xbox services internally degrade. The Xbox app's own broker tokens are unrelated — they only apply to the Xbox app process. | Register a loose layout via the **GDK Packaging** dock and launch through `wdapp` — see [Run the title as a registered loose layout](#run-the-title-as-a-registered-loose-layout) below. The bootstrap also falls back to the system identity picker if silent sign-in fails inside a registered title; use that to switch accounts mid-session. |
+| HUD shows `GDK READY · SIGNED OUT` even though the Xbox app is signed in to the test account | The title is running unpackaged (e.g. via Godot editor F5). PC GDK rejects sign-in attempts when `XGameGetXboxTitleId` can't bind to a registered package; the runtime layer still initializes ("READY") but Xbox services internally degrade. The Xbox app's own broker tokens are unrelated — they only apply to the Xbox app process. | Register a loose layout via `addons\godot_gdk_packaging\gdkpkg.cmd register_loose` and launch through `wdapp` — see [Run the title as a registered loose layout](#run-the-title-as-a-registered-loose-layout) below. The bootstrap also falls back to the system identity picker if silent sign-in fails inside a registered title; use that to switch accounts mid-session. |
 | HUD shows `GDK READY · SIGNED OUT` from a *registered* loose layout, and the system identity picker never appears | Windows Developer Mode is disabled. PC GDK tooling (including `wdapp` and the user broker hooks) refuses to operate, and the bootstrap's UI fallback fires but the system swallows the picker. The classic symptom is `wdapp list` printing `Developer mode is not enabled. To use this tool, please enable developer mode in the Windows Settings app.` | Turn on Developer Mode (Settings → For Developers → **Developer Mode**), or run the equivalent registry edit from an elevated PowerShell — see [Enabling Windows Developer Mode](#enabling-windows-developer-mode) below. Then re-register and relaunch the sample. |
 | `XblPCSandbox.exe` returns `Error: Gaming Services must be updated. Update from https://aka.ms/gamingservices.` even though the Store shows Gaming Services as **Installed** | `XblPCSandbox.exe` is paired one-to-one with the `Microsoft.GamingServices` build that shipped in the same GDK edition (e.g. GDK 260400 ships `XblPCSandbox 1.0.2603.20002` + `GamingServices 35.112.20003.0`). The Microsoft Store ships a different consumer build (e.g. `35.112.23002.0`) that omits the developer/sandbox surface, so the GDK tool refuses to talk to it regardless of how new the Store version is. The bundled `InstallGamingServicesBundle.ps1` script is broken — it ships with literal `%GAMING_SERVICES_VERSION%` placeholders and bails out before doing anything useful. | Replace the consumer package with the GDK-shipped bundle directly. Open an **elevated** PowerShell and run the snippet under [Replacing Gaming Services with the GDK-shipped build](#replacing-gaming-services-with-the-gdk-shipped-build) below. After the script finishes, `XblPCSandbox.exe` will work and you can switch sandboxes normally. |
 | `XblPCSandbox.exe : Access is denied.` | PowerShell is not elevated. | Re-launch PowerShell as Administrator before running `XblPCSandbox.exe`. |

@@ -20,11 +20,13 @@
     Configure preset:
       - `default`        (all addons; binary dir `build`)
       - `gdk-only`       (godot_gdk only; binary dir `build/gdk-only`)
+      - `playfab-only`   (godot_playfab only; binary dir `build/playfab-only`)
       - `gameinput-only` (godot_gameinput only; binary dir `build/gameinput-only`)
+      - `addon-package`  (all addons for drop-in zip staging; binary dir `build/addon-package`)
 
 .PARAMETER Configuration
-    `Debug` (default) or `Release`. Maps to the `{debug|release}{|-gdk|-gameinput}`
-    build preset that matches the configure preset.
+    `Debug` (default) or `Release`. Maps to the matching build preset for the
+    selected configure preset.
 
 .PARAMETER Clean
     `Remove-Item -Recurse -Force` the binary dir before configure. Implies
@@ -51,7 +53,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('default', 'gdk-only', 'gameinput-only')]
+    [ValidateSet('default', 'gdk-only', 'playfab-only', 'gameinput-only', 'addon-package')]
     [string]$Preset = 'default',
 
     [ValidateSet('Debug', 'Release')]
@@ -72,7 +74,9 @@ $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $script:PresetMap = @{
     'default'        = @{ BuildPrefix = '';            BinaryDir = 'build' }
     'gdk-only'       = @{ BuildPrefix = '-gdk';        BinaryDir = 'build/gdk-only' }
+    'playfab-only'   = @{ BuildPrefix = '-playfab';    BinaryDir = 'build/playfab-only' }
     'gameinput-only' = @{ BuildPrefix = '-gameinput';  BinaryDir = 'build/gameinput-only' }
+    'addon-package'  = @{ BuildPrefix = '-addon-package'; BinaryDir = 'build/addon-package' }
 }
 
 function Invoke-Cmake {

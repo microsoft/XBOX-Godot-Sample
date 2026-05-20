@@ -12,7 +12,7 @@ This is the landing page for the `godot_playfab` docs set.
 - shared PlayFab runtime lifecycle through `XGameRuntimeInitialize`, `PFInitialize`, and `PFServicesInitialize`
 - shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
-- project-settings-backed PlayFab config through `playfab/titleid` and `playfab/endpoint`
+- project-settings-backed PlayFab config through `playfab/runtime/title_id` and `playfab/runtime/endpoint`
 - manual Xbox-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`
 - custom-ID PlayFab sign-in through `PlayFab.users.sign_in_with_custom_id_async(...)`
 - cached `PlayFabUser` wrappers keyed by local Xbox user id or custom id
@@ -36,11 +36,10 @@ This is the landing page for the `godot_playfab` docs set.
 
 The PlayFab runtime reads these settings from Project Settings:
 
-- `playfab/titleid` — required; the PlayFab title id
-- `playfab/endpoint` — optional; leave blank to derive `https://<titleid>.playfabapi.com`
+- `playfab/runtime/title_id` — required; the PlayFab title id
+- `playfab/runtime/endpoint` — optional; leave blank to derive `https://<titleid>.playfabapi.com`
 - `playfab/runtime/initialize_on_startup` — defaults to `false`; when `true`, the `PlayFabBootstrap` autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code.
 - `playfab/runtime/embed_dispatch` — defaults to `true`; disable only when you want to pump completions manually with `PlayFab.dispatch()`
-- `playfab/tests/leaderboard_settle_msec` — int, default `30000`; polling budget for live leaderboard read-after-write checks
 
 The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
 
@@ -144,7 +143,7 @@ Live tests run with `-Live` and require a PlayFab title id plus a pre-existing c
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
 ```
 
-The runner forwards those values only to child processes as `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`; the PlayFab test base applies the title id to `playfab/titleid` and uses the custom id for `create_account=false` sign-in. The Multiplayer runner derives worker accounts from `PLAYFAB_CUSTOM_ID` as `<custom-id>-multiplayer-host/client/observer` unless `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` overrides the prefix. The developer secret key is only consumed by `tools\configure_playfab_test_title.ps1`, not by Godot test processes. Project settings (`playfab/titleid`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Some `-Live` tests write online state, such as leaderboard submissions and the PlayFab Multiplayer multi-client lobby smoke, so run live PlayFab coverage only against a personal sandbox title. Leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and mark pending, not failed, when the service is eventually consistent beyond that budget. The live Multiplayer orchestration uses three worker processes and covers lobby creation, search isolation, private lobby discovery behavior, invalid joins, three-member snapshots, member/lobby property propagation, leave/rejoin behavior, owner migration, and cleanup; when `-PlayFabMatchmakingQueue` or `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set it also covers match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
+The runner forwards those values only to child processes as `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`; the PlayFab test base applies the title id to `playfab/runtime/title_id` and uses the custom id for `create_account=false` sign-in. The Multiplayer runner derives worker accounts from `PLAYFAB_CUSTOM_ID` as `<custom-id>-multiplayer-host/client/observer` unless `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` overrides the prefix. The developer secret key is only consumed by `tools\configure_playfab_test_title.ps1`, not by Godot test processes. Project settings (`playfab/runtime/title_id`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Some `-Live` tests write online state, such as leaderboard submissions and the PlayFab Multiplayer multi-client lobby smoke, so run live PlayFab coverage only against a personal sandbox title. Leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and mark pending, not failed, when the service is eventually consistent beyond that budget. The live Multiplayer orchestration uses three worker processes and covers lobby creation, search isolation, private lobby discovery behavior, invalid joins, three-member snapshots, member/lobby property propagation, leave/rejoin behavior, owner migration, and cleanup; when `-PlayFabMatchmakingQueue` or `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set it also covers match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
 
 The PlayFab host uses custom-ID sign-in for default coverage. By default, CMake also mirrors `godot_gdk` into `tests\godot\playfab` so optional Xbox-backed compatibility tests can call `ensure_gdk_primary_user_for_playfab()`. Configure with `-DGODOT_PLAYFAB_TEST_HOST_WITH_GDK=OFF` to omit that mirror; GDK-backed helpers skip cleanly when the addon is not present.
 

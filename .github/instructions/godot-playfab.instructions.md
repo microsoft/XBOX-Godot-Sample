@@ -31,8 +31,8 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/playfab_demo/*
 ## Project Settings and Registration
 
 - Runtime configuration belongs in Project Settings keys:
-  - `playfab/titleid`
-  - `playfab/endpoint`
+  - `playfab/runtime/title_id`
+  - `playfab/runtime/endpoint`
   - `playfab/runtime/embed_dispatch`
 - Register new public classes in `addons\godot_playfab\src\register_types.cpp`.
 - Add new implementation files to `addons\godot_playfab\CMakeLists.txt`.

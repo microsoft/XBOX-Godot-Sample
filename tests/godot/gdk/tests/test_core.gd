@@ -6,6 +6,7 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 
 const INITIALIZE_ON_STARTUP_SETTING := "gdk/runtime/initialize_on_startup"
 const AUTO_ADD_PRIMARY_USER_SETTING := "gdk/runtime/auto_add_primary_user"
+const TESTS_LIVE_REQUIRED_SETTING := "gdk/tests/live_required"
 const GDK_BOOTSTRAP_SCRIPT_PATH := "res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 
 
@@ -151,6 +152,7 @@ func test_gdk_root_api() -> void:
 	assert_true(ProjectSettings.has_setting(AUTO_ADD_PRIMARY_USER_SETTING), "gdk/runtime/auto_add_primary_user project setting registered")
 	assert_eq(bool(get_setting_default(AUTO_ADD_PRIMARY_USER_SETTING)), false, "gdk/runtime/auto_add_primary_user default remains false")
 	assert_eq(bool(ProjectSettings.get_setting(AUTO_ADD_PRIMARY_USER_SETTING, false)), true, "GDK test host sets gdk/runtime/auto_add_primary_user true")
+	assert_false(ProjectSettings.has_setting(TESTS_LIVE_REQUIRED_SETTING), "gdk/tests/live_required stays internal to tests")
 
 	var initialized_events: Array = []
 	var shutdown_events: Array = []

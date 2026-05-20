@@ -8,7 +8,7 @@ extends SceneTree
 ## child process via `--headless --script res://tests/bootstrap/<file>.gd`.
 ## Exit code: 0 on pass, non-zero on fail.
 ##
-## On the test host `playfab/titleid` is intentionally blank, so PlayFab
+## On the test host `playfab/runtime/title_id` is intentionally blank, so PlayFab
 ## initialization will commonly fail with `title_id_required` -- but the
 ## autoload MUST still have *attempted* init. We check
 ## `bootstrap.get_last_initialize_result()` to distinguish "tried and

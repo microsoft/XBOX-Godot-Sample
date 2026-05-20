@@ -12,7 +12,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 
 1. **Single root singleton** — expose one `PlayFab` entry point instead of multiple global singletons.
 2. **Manual sign-in** — PlayFab sign-in is an explicit gameplay action, even though the addon can resolve local Xbox users through `XUser`.
-3. **Project-settings-backed config** — runtime configuration comes from `playfab/titleid` and `playfab/endpoint`.
+3. **Project-settings-backed config** — runtime configuration comes from `playfab/runtime/title_id` and `playfab/runtime/endpoint`.
 4. **Godot-native async flow** — one-shot requests return completion `Signal` values that resolve with `PlayFabResult`.
 5. **Typed service entry points** — higher-level services require an already-signed-in `PlayFabUser`; rich payloads use `Dictionary` request/response data.
 6. **Idempotent loading** — multiple synced `.gdextension` files pointing at the same DLL must not duplicate class or singleton registration.
@@ -71,8 +71,8 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 
 The runtime reads these Project Settings keys:
 
-- `playfab/titleid`
-- `playfab/endpoint`
+- `playfab/runtime/title_id`
+- `playfab/runtime/endpoint`
 - `playfab/runtime/initialize_on_startup`
 - `playfab/runtime/embed_dispatch`
 

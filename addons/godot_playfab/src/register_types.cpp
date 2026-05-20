@@ -28,12 +28,10 @@ constexpr const char *PLAYFAB_RUNTIME_EMBED_DISPATCH_SETTING = "playfab/runtime/
 constexpr bool PLAYFAB_RUNTIME_EMBED_DISPATCH_DEFAULT = true;
 constexpr const char *PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_SETTING = "playfab/runtime/initialize_on_startup";
 constexpr bool PLAYFAB_RUNTIME_INITIALIZE_ON_STARTUP_DEFAULT = false;
-constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/titleid";
+constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/runtime/title_id";
 constexpr const char *PLAYFAB_TITLE_ID_DEFAULT = "";
-constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/endpoint";
+constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/runtime/endpoint";
 constexpr const char *PLAYFAB_ENDPOINT_DEFAULT = "";
-constexpr const char *PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING = "playfab/tests/leaderboard_settle_msec";
-constexpr int PLAYFAB_LEADERBOARD_SETTLE_MSEC_DEFAULT = 30000;
 
 void register_string_project_setting(ProjectSettings *p_project_settings, const char *p_name, const String &p_default_value) {
     if (!p_project_settings->has_setting(p_name)) {
@@ -87,21 +85,6 @@ void register_playfab_project_settings() {
 
     register_string_project_setting(project_settings, PLAYFAB_TITLE_ID_SETTING, PLAYFAB_TITLE_ID_DEFAULT);
     register_string_project_setting(project_settings, PLAYFAB_ENDPOINT_SETTING, PLAYFAB_ENDPOINT_DEFAULT);
-
-    {
-        if (!project_settings->has_setting(PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING)) {
-            project_settings->set_setting(PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING, PLAYFAB_LEADERBOARD_SETTLE_MSEC_DEFAULT);
-        }
-        project_settings->set_initial_value(PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING, PLAYFAB_LEADERBOARD_SETTLE_MSEC_DEFAULT);
-        project_settings->set_as_basic(PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING, true);
-
-        Dictionary settle_info;
-        settle_info["name"] = PLAYFAB_LEADERBOARD_SETTLE_MSEC_SETTING;
-        settle_info["type"] = Variant::INT;
-        settle_info["hint"] = PROPERTY_HINT_RANGE;
-        settle_info["hint_string"] = "0,600000,1,or_greater";
-        project_settings->add_property_info(settle_info);
-    }
 }
 
 bool is_embed_dispatch_enabled() {

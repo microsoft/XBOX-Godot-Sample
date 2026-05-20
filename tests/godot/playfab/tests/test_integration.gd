@@ -2,7 +2,7 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## Wave 3 migration of the previous `tests/suites/integration_suite.gd`.
 ##
 ## Live PlayFab init + custom-ID sign-in smoke. Gated behind `LIVE_TESTS=1`,
-## a configured `playfab/titleid`, and `playfab/tests/custom_id` (or the
+## a configured `playfab/runtime/title_id`, and `playfab/tests/custom_id` (or the
 ## `PLAYFAB_CUSTOM_ID` environment variable). The flow is read-only.
 
 
@@ -16,7 +16,7 @@ func test_optional_live_sign_in() -> void:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/titleid'] to exercise the live PlayFab flow.")
+		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise the live PlayFab flow.")
 		return
 
 	var configured_endpoint := str(ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")).strip_edges()

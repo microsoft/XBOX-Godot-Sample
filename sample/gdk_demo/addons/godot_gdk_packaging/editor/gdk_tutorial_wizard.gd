@@ -51,10 +51,8 @@ The [b]MicrosoftGame.config[/b] file defines your game's name, publisher, logos,
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [font_size=14][b]Actions[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Create MicrosoftGame.config[/b] — Generates a template with placeholder logos
-[color=#107c10]▸[/color]  [b]Edit with GameConfigEditor[/b] — Opens Microsoft's visual config editor
-[color=#107c10]▸[/color]  [b]Refresh[/b] — Re-reads config values and syncs logo sizes from your 480×480 image
-[color=#107c10]▸[/color]  [b]Open Folder[/b] — Opens the project root in Windows Explorer
+[color=#107c10]▸[/color]  [b]GDK → Create MicrosoftGame.config[/b] — Generates a template when the file is missing
+[color=#107c10]▸[/color]  [b]GDK → Edit MicrosoftGame.config[/b] — Opens Microsoft's visual config editor when the file exists
 
 [font_size=14][b]Config Preview[/b][/font_size]
 All parsed values are shown with [i]hover tooltips[/i] explaining each field from the MicrosoftGame.config schema.
@@ -99,17 +97,15 @@ This tab handles the full pipeline — from exporting your Godot project to crea
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
-[font_size=14][b]Export Presets & Actions[/b][/font_size]
+[font_size=14][b]Export Presets & Headless Actions[/b][/font_size]
 [color=#107c10]▸[/color]  Select a [b]Windows Desktop[/b] export preset from the dropdown
-[color=#107c10]▸[/color]  [b]Export Build[/b] — Exports to the [b]Build/[/b] folder
-[color=#107c10]▸[/color]  [b]Export + Register[/b] — Exports then registers for instant testing
-[color=#107c10]▸[/color]  [b]Register Build[/b] — Registers an existing Build/ folder with wdapp
+[color=#107c10]▸[/color]  [b]gdkpkg export[/b] — Exports to the [b]Build/[/b] folder and prepares content
+[color=#107c10]▸[/color]  [b]gdkpkg register_loose[/b] — Registers an existing Build/ folder with wdapp
 
 [font_size=14][b]Packaging Actions[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Export & Package[/b] — One-click: export → generate map → create MSIXVC
-[color=#107c10]▸[/color]  [b]Create Package Only[/b] — Package from an existing Build/ folder
-[color=#107c10]▸[/color]  [b]Validate Package[/b] — Run the Submission Validator without packaging
-[color=#107c10]▸[/color]  [b]Generate Map[/b] — Create layout.xml mapping file
+[color=#107c10]▸[/color]  [b]gdkpkg genmap[/b] — Create layout.xml mapping file
+[color=#107c10]▸[/color]  [b]gdkpkg pack[/b] — Create an MSIXVC package from Build/
+[color=#107c10]▸[/color]  [b]gdkpkg validate[/b] — Run the Submission Validator without packaging
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
@@ -176,8 +172,8 @@ Enter your Title ID from [b]Game Manager → Settings → API Keys[/b] and click
 You can also set an optional endpoint override; leaving it blank uses the default endpoint derived from the Title ID.
 
 [font_size=14][b]Runtime Usage[/b][/font_size]
-[code]var title_id = str(ProjectSettings.get_setting("playfab/titleid", ""))
-var endpoint: String = str(ProjectSettings.get_setting("playfab/endpoint", ""))[/code]
+[code]var title_id = str(ProjectSettings.get_setting("playfab/runtime/title_id", ""))
+var endpoint: String = str(ProjectSettings.get_setting("playfab/runtime/endpoint", ""))[/code]
 
 [font_size=14][b]Tools[/b][/font_size]
 [color=#107c10]▸[/color]  [b]Open Game Manager[/b] — Opens the PlayFab portal

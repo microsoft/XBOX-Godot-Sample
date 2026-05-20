@@ -54,7 +54,7 @@
 
 .PARAMETER PlayFabTitleId
     Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
-    The PlayFab test base applies it to ProjectSettings['playfab/titleid'].
+    The PlayFab test base applies it to ProjectSettings['playfab/runtime/title_id'].
 
 .PARAMETER PlayFabCustomId
     Optional pre-existing PlayFab custom id forwarded to Godot children as

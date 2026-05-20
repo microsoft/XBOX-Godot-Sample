@@ -4,14 +4,14 @@
 		Root singleton for PlayFab services integration.
 	</brief_description>
 	<description>
-		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, Multiplayer lobby/matchmaking, and client-safe PlayFab service surfaces. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
+		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, Multiplayer lobby/matchmaking, and client-safe PlayFab service surfaces. Configure [code]playfab/runtime/title_id[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
 	</description>
 	<tutorials></tutorials>
 	<methods>
 		<method name="initialize">
 			<return type="PlayFabResult" />
 			<description>
-				Initializes the PlayFab runtime using [code]playfab/titleid[/code] and [code]playfab/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure.
+				Initializes the PlayFab runtime using [code]playfab/runtime/title_id[/code] and [code]playfab/runtime/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure.
 			</description>
 		</method>
 		<method name="shutdown">

@@ -10,8 +10,8 @@ config/features=PackedStringArray("4.6")
 
 [playfab]
 
-titleid=""
-endpoint=""
+runtime/title_id=""
+runtime/endpoint=""
 runtime/embed_dispatch=true
 
 [rendering]
