@@ -1,6 +1,6 @@
 extends Node
 
-const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
+const PLAYFAB_TITLE_ID_SETTING := "playfab/runtime/title_id"
 
 @onready var start_button: Button = $Button
 @onready var status_label: Label = $StatusLabel
@@ -24,7 +24,7 @@ func _run_playfab() -> void:
 
 	var title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if title_id == "":
-		_set_status("Set Project Settings > playfab/titleid before running the PlayFab demo.", false)
+		_set_status("Set Project Settings > playfab/runtime/title_id before running the PlayFab demo.", false)
 		return
 
 	var xbox_user = gdk.users.get_primary_user()

@@ -1,13 +1,13 @@
 @tool
 extends EditorPlugin
 ## GDK Packaging Editor Plugin — adds a "GDK" top-level menu in the editor
-## menu bar and a dock panel for Microsoft GDK PC packaging tools.
+## menu bar for Microsoft GDK PC packaging tools.
 
-const PackagingPanel = preload("res://addons/godot_gdk_packaging/editor/packaging_panel.gd")
 const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
 const ConfigImportPlugin = preload("res://addons/godot_gdk_packaging/editor/config_import_plugin.gd")
 const GDKTutorialWizard = preload("res://addons/godot_gdk_packaging/editor/gdk_tutorial_wizard.gd")
+const GDKSandboxDialog = preload("res://addons/godot_gdk_packaging/editor/gdk_sandbox_dialog.gd")
 
 # Documentation URLs
 const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/packaging/pc/pc-packaging-getting-started"
@@ -21,22 +21,18 @@ const DOC_PLAYFAB_GDK := "https://learn.microsoft.com/en-us/gaming/playfab/sdks/
 var _menu_bar: MenuBar
 var _gdk_popup: PopupMenu
 var _gdk_menu_index: int = -1
-var _packaging_panel: Control
 var _toolchain: RefCounted
 var _config_mgr: RefCounted
 var _config_import_plugin: EditorImportPlugin
+var _sandbox_dialog: AcceptDialog
 
 # Menu item IDs
 enum MenuID {
 	GETTING_STARTED,
 	SEP_0,
-	CREATE_PACKAGE,
-	GENERATE_MAP,
-	VALIDATE,
+	GAME_CONFIG,
+	OPEN_SANDBOX,
 	SEP_1,
-	EDIT_CONFIG,
-	CREATE_CONFIG,
-	SEP_2,
 	DOC_PACKAGING,
 	DOC_MAKEPKG,
 	DOC_CONFIG_EDITOR,
@@ -55,28 +51,36 @@ func _enter_tree() -> void:
 	_config_import_plugin = ConfigImportPlugin.new()
 	add_import_plugin(_config_import_plugin)
 
+	# ── GDK Sandbox Switcher dialog (persistent, owned by the plugin) ──
+	# Parented under the editor base control so it inherits theme and input
+	# gating like any other editor dialog.
+	_sandbox_dialog = GDKSandboxDialog.new()
+	var base: Control = EditorInterface.get_base_control()
+	if base != null:
+		base.add_child(_sandbox_dialog)
+		_sandbox_dialog.setup(_toolchain)
+	else:
+		push_warning("[GDK Packaging] No editor base control — Sandbox dialog will be unparented.")
+
 	# ── Find the editor MenuBar and add a "GDK" top-level menu ──
 	_menu_bar = _find_menu_bar(EditorInterface.get_base_control())
 	if _menu_bar:
 		_gdk_popup = PopupMenu.new()
 		_gdk_popup.name = "GDKMenu"
-		_gdk_popup.add_item("🎓 Getting Started", MenuID.GETTING_STARTED)
+		_gdk_popup.add_item("Getting Started", MenuID.GETTING_STARTED)
 		_gdk_popup.add_separator("", MenuID.SEP_0)
-		_gdk_popup.add_item("Create MSIXVC Package...", MenuID.CREATE_PACKAGE)
-		_gdk_popup.add_item("Generate Mapping File...", MenuID.GENERATE_MAP)
-		_gdk_popup.add_item("Validate Package...", MenuID.VALIDATE)
+		_gdk_popup.add_item(_get_game_config_label(), MenuID.GAME_CONFIG)
+		_gdk_popup.add_item("Change Sandbox…", MenuID.OPEN_SANDBOX)
 		_gdk_popup.add_separator("", MenuID.SEP_1)
-		_gdk_popup.add_item("Edit MicrosoftGame.config", MenuID.EDIT_CONFIG)
-		_gdk_popup.add_item("Create MicrosoftGame.config", MenuID.CREATE_CONFIG)
-		_gdk_popup.add_separator("", MenuID.SEP_2)
-		_gdk_popup.add_item("📖 PC Packaging Overview", MenuID.DOC_PACKAGING)
-		_gdk_popup.add_item("📖 makepkg Reference", MenuID.DOC_MAKEPKG)
-		_gdk_popup.add_item("📖 GameConfigEditor Reference", MenuID.DOC_CONFIG_EDITOR)
-		_gdk_popup.add_item("📖 Achievements Guide", MenuID.DOC_ACHIEVEMENTS)
-		_gdk_popup.add_item("📖 PlayFab Game Manager", MenuID.DOC_PLAYFAB)
-		_gdk_popup.add_item("📖 PlayFab IDs from Xbox Live", MenuID.DOC_PLAYFAB_IDS_LINK)
-		_gdk_popup.add_item("📖 PlayFab + GDK Quickstart", MenuID.DOC_PLAYFAB_GDK_LINK)
+		_gdk_popup.add_item("PC Packaging Overview", MenuID.DOC_PACKAGING)
+		_gdk_popup.add_item("makepkg Reference", MenuID.DOC_MAKEPKG)
+		_gdk_popup.add_item("GameConfigEditor Reference", MenuID.DOC_CONFIG_EDITOR)
+		_gdk_popup.add_item("Achievements Guide", MenuID.DOC_ACHIEVEMENTS)
+		_gdk_popup.add_item("PlayFab Game Manager", MenuID.DOC_PLAYFAB)
+		_gdk_popup.add_item("PlayFab IDs from Xbox Live", MenuID.DOC_PLAYFAB_IDS_LINK)
+		_gdk_popup.add_item("PlayFab + GDK Quickstart", MenuID.DOC_PLAYFAB_GDK_LINK)
 		_gdk_popup.id_pressed.connect(_on_menu_item_pressed)
+		_gdk_popup.about_to_popup.connect(_update_game_config_label)
 
 		_menu_bar.add_child(_gdk_popup)
 		_gdk_menu_index = _menu_bar.get_menu_count() - 1
@@ -85,11 +89,6 @@ func _enter_tree() -> void:
 	else:
 		push_warning("[GDK Packaging] Could not find editor MenuBar — falling back to toolbar button.")
 
-	# ── Packaging dock panel ──
-	_packaging_panel = PackagingPanel.new()
-	_packaging_panel.name = "GDK"
-	add_control_to_dock(DOCK_SLOT_RIGHT_BL, _packaging_panel)
-
 	if not _toolchain.is_gdk_available():
 		push_warning("[GDK Packaging] Microsoft GDK not detected — packaging tools unavailable.")
 
@@ -97,10 +96,11 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
-	if _packaging_panel:
-		remove_control_from_docks(_packaging_panel)
-		_packaging_panel.queue_free()
-		_packaging_panel = null
+	if _sandbox_dialog and is_instance_valid(_sandbox_dialog):
+		if _sandbox_dialog.get_parent() != null:
+			_sandbox_dialog.get_parent().remove_child(_sandbox_dialog)
+		_sandbox_dialog.queue_free()
+		_sandbox_dialog = null
 
 	if _gdk_popup and is_instance_valid(_gdk_popup):
 		_gdk_popup.queue_free()
@@ -135,39 +135,11 @@ func _on_menu_item_pressed(id: int) -> void:
 			EditorInterface.get_base_control().add_child(wizard)
 			wizard.popup_centered()
 
-		MenuID.CREATE_PACKAGE:
-			_focus_packaging_panel()
-			if _packaging_panel.has_method("_on_export_and_package"):
-				_packaging_panel._on_export_and_package()
+		MenuID.GAME_CONFIG:
+			_on_game_config_action()
 
-		MenuID.GENERATE_MAP:
-			_focus_packaging_panel()
-			if _packaging_panel.has_method("_on_genmap"):
-				_packaging_panel._on_genmap()
-
-		MenuID.VALIDATE:
-			_focus_packaging_panel()
-			if _packaging_panel.has_method("_on_validate"):
-				_packaging_panel._on_validate()
-
-		MenuID.EDIT_CONFIG:
-			if _config_mgr.config_exists():
-				_config_mgr.launch_editor()
-			else:
-				push_warning("[GDK Packaging] MicrosoftGame.config not found — create one first.")
-
-		MenuID.CREATE_CONFIG:
-			if _config_mgr.config_exists():
-				var dialog: AcceptDialog = AcceptDialog.new()
-				dialog.title = "MicrosoftGame.config"
-				dialog.dialog_text = "MicrosoftGame.config already exists.\nUse \"Edit MicrosoftGame.config\" from the GDK menu\nor the Config tab to modify it."
-				dialog.confirmed.connect(func() -> void: dialog.queue_free())
-				EditorInterface.get_base_control().add_child(dialog)
-				dialog.popup_centered(Vector2i(450, 150))
-			else:
-				var err: Error = _config_mgr.create_template()
-				if err == OK:
-					print("[GDK Packaging] Created template MicrosoftGame.config")
+		MenuID.OPEN_SANDBOX:
+			_open_sandbox_dialog()
 
 		MenuID.DOC_PACKAGING:
 			OS.shell_open(DOC_PC_PACKAGING)
@@ -191,6 +163,45 @@ func _on_menu_item_pressed(id: int) -> void:
 			OS.shell_open(DOC_PLAYFAB_GDK)
 
 
-func _focus_packaging_panel() -> void:
-	if _packaging_panel:
-		_packaging_panel.visible = true
+func _get_game_config_label() -> String:
+	if _config_mgr != null and _config_mgr.config_exists():
+		return "Edit MicrosoftGame.config"
+	return "Create MicrosoftGame.config"
+
+
+func _update_game_config_label() -> void:
+	if _gdk_popup == null:
+		return
+	var index: int = _gdk_popup.get_item_index(MenuID.GAME_CONFIG)
+	if index >= 0:
+		_gdk_popup.set_item_text(index, _get_game_config_label())
+
+
+func _open_sandbox_dialog() -> void:
+	if _sandbox_dialog == null or not is_instance_valid(_sandbox_dialog):
+		push_error("[GDK Packaging] Sandbox dialog not initialized")
+		return
+	_sandbox_dialog.show_centered_clamped()
+
+
+func _on_game_config_action() -> void:
+	if _config_mgr.config_exists():
+		var pid: int = _config_mgr.launch_editor()
+		if pid < 0:
+			push_error("[GDK Packaging] Failed to launch GameConfigEditor")
+		return
+
+	var err: Error = _config_mgr.create_template()
+	if err != OK:
+		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(err))
+		return
+
+	print("[GDK Packaging] Created template MicrosoftGame.config")
+	_update_game_config_label()
+	var fs: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if not fs.is_scanning():
+		fs.scan()
+
+	var pid: int = _config_mgr.launch_editor()
+	if pid < 0:
+		push_error("[GDK Packaging] Failed to launch GameConfigEditor")

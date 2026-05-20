@@ -2,13 +2,13 @@ extends GutTest
 ## GUT coverage for the lifecycle contract of `gdk_packaging_plugin.gd`.
 ##
 ## The real plugin extends `EditorPlugin`, which is only fully wired up
-## inside the Godot editor — `EditorInterface`, the editor MenuBar, and the
-## docks all require an editor host. Headless we can't drive the actual
+## inside the Godot editor — `EditorInterface` and the editor MenuBar require
+## an editor host. Headless we can't drive the actual
 ## `_enter_tree` / `_exit_tree` cycle without crashing on missing editor
 ## singletons. So this suite tests the contract two ways:
 ##
 ##   1. **Mock recorder**: a `MockEditorInterface` records every
-##      `add_import_plugin` / `remove_import_plugin` and dock-style call,
+##      `add_import_plugin` / `remove_import_plugin`,
 ##      and we drive a tiny harness through enter → exit → enter → exit to
 ##      assert the pairs balance and a second enter is idempotent w.r.t.
 ##      net resource state.
@@ -25,7 +25,6 @@ const PLUGIN_SCRIPT_PATH := "res://addons/godot_gdk_packaging/editor/gdk_packagi
 class MockEditorInterface extends RefCounted:
 	var calls: Array = []
 	var registered_imports: Dictionary = {}
-	var docked_controls: Dictionary = {}
 
 	func add_import_plugin(p: Object) -> void:
 		calls.append(["add_import_plugin", p])
@@ -35,18 +34,9 @@ class MockEditorInterface extends RefCounted:
 		calls.append(["remove_import_plugin", p])
 		registered_imports.erase(p.get_instance_id())
 
-	func add_control_to_dock(_slot: int, control: Object) -> void:
-		calls.append(["add_control_to_dock", control])
-		docked_controls[control.get_instance_id()] = control
-
-	func remove_control_from_docks(control: Object) -> void:
-		calls.append(["remove_control_from_docks", control])
-		docked_controls.erase(control.get_instance_id())
-
 	func reset() -> void:
 		calls.clear()
 		registered_imports.clear()
-		docked_controls.clear()
 
 
 # Tiny harness mirroring the structure of `gdk_packaging_plugin._enter_tree`
@@ -56,7 +46,6 @@ class MockEditorInterface extends RefCounted:
 class _LifecycleHarness extends RefCounted:
 	var _interface: MockEditorInterface
 	var _import_plugin: Object = null
-	var _dock_control: Object = null
 
 	func _init(iface: MockEditorInterface) -> void:
 		_interface = iface
@@ -64,13 +53,8 @@ class _LifecycleHarness extends RefCounted:
 	func enter_tree() -> void:
 		_import_plugin = RefCounted.new()
 		_interface.add_import_plugin(_import_plugin)
-		_dock_control = RefCounted.new()
-		_interface.add_control_to_dock(0, _dock_control)
 
 	func exit_tree() -> void:
-		if _dock_control != null:
-			_interface.remove_control_from_docks(_dock_control)
-			_dock_control = null
 		if _import_plugin != null:
 			_interface.remove_import_plugin(_import_plugin)
 			_import_plugin = null
@@ -84,16 +68,14 @@ func test_enter_then_exit_balances_calls() -> void:
 
 	harness.enter_tree()
 	assert_eq(iface.registered_imports.size(), 1, "one import plugin registered after enter")
-	assert_eq(iface.docked_controls.size(), 1, "one dock control added after enter")
 
 	harness.exit_tree()
 	assert_eq(iface.registered_imports.size(), 0, "import plugin removed on exit")
-	assert_eq(iface.docked_controls.size(), 0, "dock control removed on exit")
 
 
 func test_call_sequence_pairs_in_lifo_order() -> void:
-	# add_import → add_dock → remove_dock → remove_import. Mirrors the
-	# actual `_exit_tree` body which removes the dock first.
+	# add_import → remove_import. The editor GDK dock tab is intentionally not
+	# registered anymore.
 	var iface := MockEditorInterface.new()
 	_LifecycleHarness.new(iface).enter_tree()
 	# Build a fresh harness sequence to avoid leftover state.
@@ -109,8 +91,6 @@ func test_call_sequence_pairs_in_lifo_order() -> void:
 		names,
 		[
 			"add_import_plugin",
-			"add_control_to_dock",
-			"remove_control_from_docks",
 			"remove_import_plugin",
 		],
 		"calls fire in registration order on enter and reverse order on exit")
@@ -127,7 +107,6 @@ func test_repeated_enter_exit_cycles_remain_balanced() -> void:
 		assert_eq(iface.registered_imports.size(), 1, "registered after enter (cycle %d)" % _i)
 		harness.exit_tree()
 		assert_eq(iface.registered_imports.size(), 0, "drained after exit (cycle %d)" % _i)
-		assert_eq(iface.docked_controls.size(), 0, "dock drained after exit (cycle %d)" % _i)
 
 	var add_count := 0
 	var remove_count := 0
@@ -138,7 +117,7 @@ func test_repeated_enter_exit_cycles_remain_balanced() -> void:
 		elif name.begins_with("remove_"):
 			remove_count += 1
 	assert_eq(add_count, remove_count, "every add has a matching remove across both cycles")
-	assert_eq(add_count, 4, "two cycles × two add calls per cycle")
+	assert_eq(add_count, 2, "two cycles × one add call per cycle")
 
 
 func test_exit_without_enter_is_a_noop() -> void:
@@ -169,15 +148,14 @@ func test_plugin_source_pairs_add_remove_lifecycle_calls() -> void:
 	var exit_calls := _scan_lifecycle_calls(exit_block, "remove_")
 
 	assert_true(enter_calls.has("add_import_plugin"), "_enter_tree calls add_import_plugin")
-	assert_true(enter_calls.has("add_control_to_dock"), "_enter_tree calls add_control_to_dock")
 	assert_true(exit_calls.has("remove_import_plugin"), "_exit_tree calls remove_import_plugin")
-	assert_true(exit_calls.has("remove_control_from_docks"), "_exit_tree calls remove_control_from_docks")
+	assert_false(enter_calls.has("add_control_to_dock"), "_enter_tree does not create a GDK dock tab")
+	assert_false(exit_calls.has("remove_control_from_docks"), "_exit_tree has no GDK dock tab to remove")
 
 	# Per-pair assertion (kept narrow — only checks the lifecycle methods
 	# this addon actually uses).
 	var pairings := {
 		"add_import_plugin": "remove_import_plugin",
-		"add_control_to_dock": "remove_control_from_docks",
 	}
 	for add_name in pairings:
 		var remove_name: String = pairings[add_name]

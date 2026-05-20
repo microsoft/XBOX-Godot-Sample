@@ -76,6 +76,7 @@ per-addon presets for selective builds. Each configure preset has matching
 | `gdk-only` | `godot_gdk` only (PlayFab and GameInput disabled) | `debug-gdk`, `release-gdk` |
 | `playfab-only` | `godot_playfab` only (GDK and GameInput disabled) | `debug-playfab`, `release-playfab` |
 | `gameinput-only` | `godot_gameinput` only (GDK and PlayFab disabled) | `debug-gameinput`, `release-gameinput` |
+| `addon-package` | Native addons for drop-in zip packaging (tests disabled) | `debug-addon-package`, `release-addon-package` |
 
 Use one of:
 
@@ -90,6 +91,16 @@ Per-addon `BUILD_GODOT_*` cache variables (`BUILD_GODOT_GDK`,
 `BUILD_GODOT_PLAYFAB`, `BUILD_GODOT_GAMEINPUT`, `BUILD_GODOT_GDK_PACKAGING`)
 can also be flipped manually on the `default` preset if you need a
 combination the dedicated presets do not cover.
+
+To create a zip that can be extracted into a Godot project root, run:
+
+```powershell
+.\tools\package_addons.ps1
+```
+
+The default package builds Debug and Release native DLLs, stages the drop-in
+addon files under `build\dist\godot-gdk-addons\addons\`, and writes
+`build\dist\godot-gdk-addons-debug-release.zip`.
 
 ## Repository layout
 
@@ -179,8 +190,8 @@ wraps Microsoft GDK PC packaging tools into the Godot Editor.
 
 ### Features
 
-- **GDK Packaging toolbar menu** with quick access to all tools and documentation
-- **MSIXVC Package Creation** — configure makepkg flags and create PC packages from the editor
+- **GDK editor menu** with quick access to Game Config actions and documentation
+- **Headless MSIXVC Package Creation** — drive makepkg from scripts or CI
 - **Mapping File Generation** — auto-generate layout.xml via `makepkg genmap`
 - **Package Validation** — dry-run validation before building
 - **MicrosoftGame.config Management** — create templates, parse identity, launch GameConfigEditor
@@ -199,11 +210,10 @@ wraps Microsoft GDK PC packaging tools into the Godot Editor.
 
 ### Usage
 
-- Use the **GDK Packaging** dropdown menu in the editor toolbar for quick actions
-- The **GDK Packaging** dock panel (bottom-right) provides the full packaging UI:
-  1. Set your content directory (exported Godot project files)
-  2. Configure packaging options (encryption, update compatibility, etc.)
-  3. Click **Create Package** to build an MSIXVC package
+- Use the **GDK** editor menu to create `MicrosoftGame.config` when it is missing
+  or edit it with GameConfigEditor when it exists.
+- Use the headless runner (`addons\godot_gdk_packaging\gdkpkg.cmd`) for package,
+  map, validate, install, and launch automation.
 
 ## Testing Achievements
 

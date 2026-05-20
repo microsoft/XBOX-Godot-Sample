@@ -23,8 +23,8 @@ enabled=PackedStringArray("res://addons/godot_playfab/plugin.cfg")
 
 [playfab]
 
-titleid=""
-endpoint=""
+runtime/title_id=""
+runtime/endpoint=""
 runtime/embed_dispatch=true
 runtime/initialize_on_startup=true
 tests/custom_id=""

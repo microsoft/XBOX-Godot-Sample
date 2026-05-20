@@ -1,8 +1,8 @@
 extends SceneTree
 
 const PLAYFAB_EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdextension"
-const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
-const PLAYFAB_ENDPOINT_SETTING := "playfab/endpoint"
+const PLAYFAB_TITLE_ID_SETTING := "playfab/runtime/title_id"
+const PLAYFAB_ENDPOINT_SETTING := "playfab/runtime/endpoint"
 const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_ENDPOINT_ENV := "PLAYFAB_ENDPOINT"
 const POLL_MSEC := 25

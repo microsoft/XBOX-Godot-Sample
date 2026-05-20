@@ -5,8 +5,7 @@ var _coordinator: Variant
 
 var status_label: Label
 var identity_label: Label
-var edit_config_btn: Button
-var create_config_btn: Button
+var game_config_btn: Button
 var preview_container: VBoxContainer
 
 
@@ -32,15 +31,10 @@ func setup(coordinator: Variant) -> void:
 	var config_btns: HBoxContainer = HBoxContainer.new()
 	root.add_child(config_btns)
 
-	create_config_btn = Button.new()
-	create_config_btn.text = "Create MicrosoftGame.config"
-	create_config_btn.pressed.connect(_on_create_config)
-	config_btns.add_child(create_config_btn)
-
-	edit_config_btn = Button.new()
-	edit_config_btn.text = "Edit with GameConfigEditor"
-	edit_config_btn.pressed.connect(_on_edit_config)
-	config_btns.add_child(edit_config_btn)
+	game_config_btn = Button.new()
+	game_config_btn.text = "Create MicrosoftGame.config"
+	game_config_btn.pressed.connect(_on_game_config_action)
+	config_btns.add_child(game_config_btn)
 
 	var refresh_btn: Button = Button.new()
 	refresh_btn.text = "Refresh"
@@ -64,7 +58,7 @@ func refresh_status() -> void:
 	var config_mgr: Variant = _coordinator.get_config_manager()
 	if config_mgr.config_exists():
 		status_label.text = "✅ MicrosoftGame.config found"
-		create_config_btn.visible = false
+		game_config_btn.text = "Edit MicrosoftGame.config"
 
 		var info: Dictionary = config_mgr.parse_config()
 		if info.size() > 0 and info["name"] != "":
@@ -93,7 +87,7 @@ func refresh_status() -> void:
 	else:
 		status_label.text = "⚠️ MicrosoftGame.config not found"
 		identity_label.text = "Create a template or use GameConfigEditor to get started."
-		create_config_btn.visible = true
+		game_config_btn.text = "Create MicrosoftGame.config"
 		_refresh_preview({})
 
 
@@ -157,11 +151,10 @@ func _refresh_preview(info: Dictionary) -> void:
 		row.add_child(val_label)
 
 
-func _on_edit_config() -> void:
+func _on_game_config_action() -> void:
 	var config_mgr: Variant = _coordinator.get_config_manager()
 	if not config_mgr.config_exists():
-		_coordinator._log("MicrosoftGame.config not found — create one first.")
-		push_warning("[GDK Packaging] MicrosoftGame.config not found — create one first.")
+		_create_config(config_mgr)
 		return
 
 	var pid: int = config_mgr.launch_editor()
@@ -172,8 +165,8 @@ func _on_edit_config() -> void:
 		push_error("[GDK Packaging] Failed to launch GameConfigEditor")
 
 
-func _on_create_config() -> void:
-	var err: Error = _coordinator.get_config_manager().create_template()
+func _create_config(config_mgr: Variant) -> void:
+	var err: Error = config_mgr.create_template()
 	if err == OK:
 		_coordinator._log("Created template MicrosoftGame.config in project root")
 		refresh_status()

@@ -143,8 +143,8 @@ you'll just see `GDK OFFLINE` in the title screen HUD and PlayFab features
    `XblDevAccount.exe`, resetting player data, and the troubleshooting
    table for the most common HRESULTs.
 3. **Set the PlayFab title ID.** PlayFab leaderboard and Game Saves wrapper
-   only run when `playfab/titleid` is set in the **Project Settings**
-   (and optionally `playfab/endpoint` for self-hosted environments). The
+   only run when `playfab/runtime/title_id` is set in the **Project Settings**
+   (and optionally `playfab/runtime/endpoint` for self-hosted environments). The
    GDK Packaging panel and the export dialog both surface this field; you
    can also set it directly in `project.godot`.
 
@@ -175,7 +175,7 @@ save/leaderboard helpers while the service handles:
 * leaderboard submission / query against `PongLB` (stat `PongLBScore`),
   keyed off the signed-in player's Xbox gamertag
 
-Configure `playfab/titleid` (and optionally `playfab/endpoint`) in the
+Configure `playfab/runtime/title_id` (and optionally `playfab/runtime/endpoint`) in the
 project settings or through the packaging panel before expecting cloud
 save and leaderboard sync to succeed.
 

@@ -109,7 +109,7 @@ A local run is green when all of the following are true:
 | Var | Effect | Default |
 |---|---|---|
 | `LIVE_TESTS=1` | Enables tests that need a live GDK or PlayFab session, including tests that write online state. | unset |
-| `PLAYFAB_TITLE_ID` | Overrides `playfab/titleid` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
+| `PLAYFAB_TITLE_ID` | Overrides `playfab/runtime/title_id` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
 | `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. | unset |
 | `PLAYFAB_DEVELOPER_SECRET_KEY` | Supplies the PlayFab title developer secret key to `tools\configure_playfab_test_title.ps1` only. The script reads it from the process, user, or machine environment. Never forwarded to Godot child processes. | unset |
 | `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` | Optional prefix for pre-created Multiplayer worker custom IDs. If unset, the runner derives `<PLAYFAB_CUSTOM_ID>-multiplayer`. | unset |
@@ -119,7 +119,7 @@ The orchestrator forwards the live/test variables to child Godot processes and s
 | Switch | Effect |
 |--------|--------|
 | `-Live` | Sets `LIVE_TESTS=1` for every Godot child process. |
-| `-PlayFabTitleId <id>` | Sets `PLAYFAB_TITLE_ID` for Godot child processes; the PlayFab test base applies it to `playfab/titleid`. |
+| `-PlayFabTitleId <id>` | Sets `PLAYFAB_TITLE_ID` for Godot child processes; the PlayFab test base applies it to `playfab/runtime/title_id`. |
 | `-PlayFabCustomId <id>` | Sets `PLAYFAB_CUSTOM_ID` for Godot child processes; PlayFab live tests use it with `create_account=false`. |
 | `-SkipBuild` | Skips the CMake build stage. Use only when the debug build and mirrored GUT support are already current. |
 | `-OutDir <dir>` | Writes `run-summary.json` and `run-summary.md` to another directory. The default is `build\test-results`. |
@@ -145,9 +145,8 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 
 
 | Setting | Type | Default | Use |
 |---------|------|---------|-----|
-| `gdk/tests/live_required` | bool | `false` | Records that a sample configuration expects live GDK prerequisites. Tests still use the env-var helpers to decide whether to run or mark pending. |
 | `playfab/tests/custom_id` | String | empty | Pre-existing custom id used by PlayFab live sign-in tests when `PLAYFAB_CUSTOM_ID` is not set. Tests call custom-ID login with `create_account=false`. |
-| `playfab/tests/leaderboard_settle_msec` | int | `30000` | Polling budget for live leaderboard read-after-write checks before they are marked pending. |
+| `playfab/tests/leaderboard_settle_msec` | int | `30000` | Test-host-only polling budget for live leaderboard read-after-write checks before they are marked pending. This key is not registered by the public addon. |
 
 ## GUT layout
 

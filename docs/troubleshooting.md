@@ -168,7 +168,7 @@ This is expected in a free-standing executable. `godot::String` and other Varian
 
 ### Leaderboard test marked pending after submit
 
-PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, raise `playfab/tests/leaderboard_settle_msec` so the test polls longer before marking the read-after-write check pending.
+PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, set the test-host-only `playfab/tests/leaderboard_settle_msec` key in `tests\godot\playfab\project.godot` so the test polls longer before marking the read-after-write check pending.
 
 ### Bootstrap runner exit code is 0 but I never saw `BOOTSTRAP_OK:`
 

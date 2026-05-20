@@ -88,7 +88,7 @@ func _begin_live_session() -> Dictionary:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/titleid'] to exercise PlayFab service live coverage.")
+		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise PlayFab service live coverage.")
 		return outcome
 
 	reset_playfab_runtime()
