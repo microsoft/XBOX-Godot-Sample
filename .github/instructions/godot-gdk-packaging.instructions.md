@@ -1,6 +1,6 @@
 ---
 applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/gdk_demo/addons/godot_gdk_packaging/**,sample/gdk_launch_point/addons/godot_gdk_packaging/**,sample/multiplayer_pong/addons/godot_gdk_packaging/**,sample/playfab_demo/addons/godot_gdk_packaging/**,docs/godot-gdk-packaging*.md,spec/gdext-packaging.md"
-description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and dock split"
+description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and editor menu"
 ---
 
 # Godot GDK Packaging addon — instructions
@@ -26,7 +26,7 @@ addons/godot_gdk_packaging/
     packaging_content_preparer.gd, wdapp_manager.gd,
     packaging_settings_store.gd, export_preset_catalog.gd,
     packaging_panel_logic.gd
-  editor/                    # EditorPlugin / dock / tabs / import plugin; preloads from core/
+  editor/                    # EditorPlugin menu / import plugin; preloads from core/
 ```
 
 Two non-negotiable invariants:
@@ -108,15 +108,14 @@ were chosen to match dock field names verbatim.
   for any shared helper. Do not duplicate helper logic across `editor/` and
   `core/`.
 
-## Dock and headless cohabitation
+## Editor menu and headless cohabitation
 
-Phase 1 (current) leaves the dock unchanged. Phase 2 (separate PR) migrates
-each `editor/packaging_tabs/*.gd` tab to drive `PackagingService` so the
-dock becomes a thin presenter. Until then:
+The primary automation surface is `run.gd` plus the addon-local shell
+forwarders. The editor plugin intentionally does **not** register a dock tab;
+it only adds the top-level GDK menu for Game Config and documentation
+shortcuts.
 
-- Headless changes must not break the dock. `editor/packaging_panel.gd`
-  and the tabs still instantiate the helpers directly via `preload(...)`.
-- If you change a helper's public method signature, update both the dock
+- If you change a helper's public method signature, update both editor menu
   call-sites and the service in the same change.
 
 ## Sample mirrors

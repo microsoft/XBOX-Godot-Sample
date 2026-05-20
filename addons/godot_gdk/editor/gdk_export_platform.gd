@@ -11,15 +11,8 @@ var _makepkg := ""
 var _wdapp := ""
 var _gdk_found := false
 
-# Cached sample_config.cfg values (loaded once on init)
-var _sample_config := ConfigFile.new()
-var _has_sample_config := false
-
 func _initialize() -> void:
 	_detect_gdk()
-	_has_sample_config = _sample_config.load("res://sample_config.cfg") == OK
-	if _has_sample_config:
-		print("[GDK Export] Loaded sample_config.cfg — values will auto-populate export fields")
 
 func _get_name() -> String:
 	return PLATFORM_NAME
@@ -42,119 +35,44 @@ func _get_platform_features() -> PackedStringArray:
 func _get_preset_features(p_preset: EditorExportPreset) -> PackedStringArray:
 	return PackedStringArray(["windows", "gdk", "x86_64"])
 
-func _normalize_title_id(p_title_id: String) -> String:
-	var normalized: String = p_title_id.strip_edges().to_lower()
-	if normalized.begins_with("0x"):
-		normalized = normalized.substr(2)
-	if normalized == "" or normalized.length() > 8:
-		return ""
-
-	for i: int in range(normalized.length()):
-		var digit: String = normalized.substr(i, 1)
-		if not "0123456789abcdef".contains(digit):
-			return ""
-
-	return normalized.lpad(8, "0")
-
-func _derive_scid_from_title_id(p_title_id: String) -> String:
-	var normalized: String = _normalize_title_id(p_title_id)
-	if normalized == "":
-		return ""
-	return "00000000-0000-0000-0000-0000%s" % normalized
-
 func _get_export_options() -> Array[Dictionary]:
-	# Load defaults from sample_config.cfg if it exists
-	var cfg := ConfigFile.new()
-	var has_cfg: bool = cfg.load("res://sample_config.cfg") == OK
-
-	var def_title: String = str(cfg.get_value("xbox_live", "title_id", "")) if has_cfg else ""
-	var def_msa: String = str(cfg.get_value("xbox_live", "msa_app_id", "")) if has_cfg else ""
-	var def_store: String = str(cfg.get_value("xbox_live", "store_id", "")) if has_cfg else ""
-	var def_scid: String = str(cfg.get_value("xbox_live", "scid", "")) if has_cfg else ""
-	if def_scid == "":
-		def_scid = _derive_scid_from_title_id(def_title)
-	var def_sandbox: String = str(cfg.get_value("xbox_live", "sandbox_id", "RETAIL")) if has_cfg else "RETAIL"
-	var def_game: String = str(cfg.get_value("identity", "game_name", "My Godot Game")) if has_cfg else "My Godot Game"
-	var def_pub: String = str(cfg.get_value("identity", "publisher", "CN=Publisher")) if has_cfg else "CN=Publisher"
-	var def_pub_display: String = str(cfg.get_value("identity", "publisher_display_name", "Publisher Name")) if has_cfg else "Publisher Name"
-	var def_version: String = str(cfg.get_value("identity", "version", "1.0.0.0")) if has_cfg else "1.0.0.0"
-
 	return [
-		# ── Identity ──
-		_opt("identity/game_name", TYPE_STRING, def_game,
-			PROPERTY_HINT_NONE, "", true),
-		_opt("identity/publisher_name", TYPE_STRING, def_pub,
-			PROPERTY_HINT_NONE, "", true),
-		_opt("identity/publisher_display_name", TYPE_STRING, def_pub_display,
-			PROPERTY_HINT_NONE, "", true),
-		_opt("identity/version", TYPE_STRING, def_version,
-			PROPERTY_HINT_NONE, "", true),
-
-		# ── Xbox Live (optional — requires Partner Center) ──
-		_opt("xbox_live/title_id", TYPE_STRING, def_title,
-			PROPERTY_HINT_NONE, "Hex Title ID from Partner Center"),
-		_opt("xbox_live/msa_app_id", TYPE_STRING, def_msa,
-			PROPERTY_HINT_NONE, "MSA App ID from Partner Center"),
-		_opt("xbox_live/store_id", TYPE_STRING, def_store,
-			PROPERTY_HINT_NONE, "Store ID from Partner Center"),
-		_opt("xbox_live/scid", TYPE_STRING, def_scid,
-			PROPERTY_HINT_NONE, "Optional override; default derives from Title ID"),
-
 		# ── Packaging ──
-		_opt("packaging/content_id", TYPE_STRING, "",
-			PROPERTY_HINT_NONE, "Optional content ID override"),
 		_opt("packaging/ekb_file", TYPE_STRING, "",
 			PROPERTY_HINT_GLOBAL_FILE, "*.ekb",
 			false),
 
 		# ── Dev Iteration ──
-		_opt("dev/register_loose", TYPE_BOOL, true,
+		_opt("dev/register_loose", TYPE_BOOL, false,
 			PROPERTY_HINT_NONE,
-			"Use wdapp register for fast iteration instead of full packaging"),
-		_opt("dev/sandbox_id", TYPE_STRING, def_sandbox,
-			PROPERTY_HINT_NONE, "Xbox Live sandbox ID"),
+			"Skip MSIXVC packaging. Instead, register the loose staging folder via wdapp for fast dev iteration. Enable for inner-loop testing; leave off to produce a real .msixvc package."),
+		_opt("dev/sandbox_id", TYPE_STRING, "RETAIL",
+			PROPERTY_HINT_NONE, "Xbox Live sandbox ID (used by wdapp register)"),
 	]
 
 func _get_export_option_visibility(p_preset: EditorExportPreset, p_option: String) -> bool:
-	# Hide packaging options when using loose registration
-	if p_option == "packaging/content_id" or p_option == "packaging/ekb_file":
-		if p_preset.has("dev/register_loose"):
-			return not p_preset.get("dev/register_loose")
+	# Hide packaging options when using loose registration; hide sandbox when
+	# producing an MSIXVC (sandbox only applies to `wdapp register`).
+	var register_loose: bool = false
+	if p_preset.has("dev/register_loose"):
+		register_loose = bool(p_preset.get("dev/register_loose"))
+	if p_option == "packaging/ekb_file":
+		return not register_loose
+	if p_option == "dev/sandbox_id":
+		return register_loose
 	return true
 
 func _get_export_option_warning(p_preset: EditorExportPreset, p_option: StringName) -> String:
-	if p_option == "identity/game_name":
-		var name: Variant = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
-		if name == "" or name == "My Godot Game":
-			return "Set a unique game name for your title"
-
-	if p_option == "identity/publisher_name":
-		var pub: Variant = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
-		if pub == "" or pub == "CN=Publisher":
-			return "Set your publisher identity (CN=YourName)"
-
-	if p_option == "identity/version":
-		var ver: Variant = p_preset.get("identity/version") if p_preset.has("identity/version") else ""
-		if ver != "" and str(ver).split(".").size() != 4:
-			return "Version must be in X.X.X.X format"
-
-	if p_option == "xbox_live/title_id":
-		var title_id: Variant = p_preset.get("xbox_live/title_id") if p_preset.has("xbox_live/title_id") else ""
-		if title_id != "" and _normalize_title_id(str(title_id)) == "":
-			return "Title ID must be 1-8 hex characters"
-
 	return ""
 
 func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool) -> bool:
 	if not _gdk_found:
 		return false
-
-	# Check required fields
-	var name: Variant = p_preset.get("identity/game_name") if p_preset.has("identity/game_name") else ""
-	var pub: Variant = p_preset.get("identity/publisher_name") if p_preset.has("identity/publisher_name") else ""
-	if name == "" or pub == "":
+	# MicrosoftGame.config is the source of truth for identity / shell visuals
+	# and is authored via the godot_gdk_packaging addon's "Create Game Config".
+	# If it's missing the export pipeline cannot proceed.
+	if not FileAccess.file_exists("res://MicrosoftGame.config"):
 		return false
-
 	return true
 
 func _has_valid_project_configuration(p_preset: EditorExportPreset) -> bool:
@@ -168,25 +86,55 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 		push_error("GDK not found. Install via: winget install Microsoft.Gaming.GDK")
 		return ERR_FILE_NOT_FOUND
 
-	# Resolve output directory
-	var out_dir: String = p_path.get_base_dir()
+	# Resolve output directory. Globalize first so the entire pipeline operates on
+	# absolute paths — `DirAccess.open(out_dir).make_dir_recursive(staging_dir)`
+	# treats `staging_dir` as relative to `out_dir`, which silently mis-creates the
+	# staging folder when the preset uses a relative output path.
+	var abs_p_path: String = ProjectSettings.globalize_path(p_path) if p_path.begins_with("res://") else p_path
+	if not abs_p_path.is_absolute_path():
+		abs_p_path = ProjectSettings.globalize_path("res://").path_join(abs_p_path)
+	abs_p_path = abs_p_path.simplify_path()
+
+	var out_dir: String = abs_p_path.get_base_dir()
 	var staging_dir: String = out_dir.path_join("_gdk_staging")
 
-	print("[GDK Export] Starting export to: ", p_path)
+	print("[GDK Export] Starting export to: ", abs_p_path)
 	print("[GDK Export] Staging directory: ", staging_dir)
 
 	# ── Step 1: Create staging directory ──
-	var da := DirAccess.open(out_dir)
-	if da == null:
-		push_error("GDK Export: Cannot access output directory: ", out_dir)
+	if not DirAccess.dir_exists_absolute(out_dir):
+		var mk_err: int = DirAccess.make_dir_recursive_absolute(out_dir)
+		if mk_err != OK:
+			push_error("GDK Export: Cannot create output directory: %s (err %d)" % [out_dir, mk_err])
+			return ERR_FILE_BAD_PATH
+
+	if DirAccess.dir_exists_absolute(staging_dir):
+		_rmdir_recursive(staging_dir)
+	var stage_err: int = DirAccess.make_dir_recursive_absolute(staging_dir)
+	if stage_err != OK:
+		push_error("GDK Export: Cannot create staging directory: %s (err %d)" % [staging_dir, stage_err])
 		return ERR_FILE_BAD_PATH
 
-	if da.dir_exists(staging_dir):
-		_rmdir_recursive(staging_dir)
-	da.make_dir_recursive(staging_dir)
+	# Drop a .gdignore so Godot's resource importer doesn't try to import the
+	# staged .exe / .pck / .config / logo files when the staging directory
+	# lives inside the project tree (e.g. `<project>/builds/_gdk_staging/`).
+	var gdignore := FileAccess.open(staging_dir.path_join(".gdignore"), FileAccess.WRITE)
+	if gdignore != null:
+		gdignore.close()
 
 	# ── Step 2: Find Godot export template and export PCK ──
-	var exe_name: String = (p_preset.get("identity/game_name").validate_filename() + ".exe") if p_preset.has("identity/game_name") else "game.exe"
+	# Derive the .exe name from the project's MicrosoftGame.config so the
+	# staged executable matches what `<Executable Name="...">` declares. The
+	# config (authored by the godot_gdk_packaging addon's "Create Game Config"
+	# flow) is the single source of truth for identity, shell visuals, and the
+	# executable name — no preset duplication.
+	var exe_name: String = _read_exe_name_from_project_config()
+	if exe_name == "":
+		push_error(
+			"GDK Export: MicrosoftGame.config not found or missing <Executable Name=...> at project root.\n" +
+			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
+			"  or place a valid MicrosoftGame.config at the project root.")
+		return ERR_FILE_NOT_FOUND
 	var exe_path: String = staging_dir.path_join(exe_name)
 	var pck_path: String = staging_dir.path_join(exe_name.get_basename() + ".pck")
 
@@ -200,7 +148,10 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 			return ERR_FILE_NOT_FOUND
 		push_warning("GDK Export: Using Godot editor binary as template (install export templates for release builds)")
 
-	da.copy(template_path, exe_path)
+	var copy_err: int = DirAccess.copy_absolute(template_path, exe_path)
+	if copy_err != OK:
+		push_error("GDK Export: Failed to copy template to %s (err %d)" % [exe_path, copy_err])
+		return copy_err
 	print("[GDK Export] Template copied: ", exe_path)
 
 	# Export PCK
@@ -211,98 +162,160 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 
 	print("[GDK Export] PCK exported: ", pck_path)
 
-	# ── Step 3: Copy GDK plugin DLL ──
-	var plugin_dll: String = _find_plugin_dll(p_debug)
-	if plugin_dll != "":
-		var addon_dir: String = staging_dir.path_join("addons").path_join("godot_gdk").path_join("bin")
-		da.make_dir_recursive(addon_dir)
-		da.copy(plugin_dll, addon_dir.path_join(plugin_dll.get_file()))
-		print("[GDK Export] Plugin DLL copied")
+	# ── Step 3: Copy addon GDExtension main DLLs + support runtime DLLs ──
+	# - Main DLLs (godot_*.windows.<config>.x86_64.dll) go to staging/addons/<name>/bin/
+	#   so the .gdextension's res:// path resolves to disk at runtime.
+	# - Support DLLs (libHttpClient, PlayFabCore, Microsoft.Xbox.Services.C.Thunks,
+	#   Party, …) go to staging root so Windows's default DLL search finds them.
+	var dll_err: int = _copy_addon_dlls(staging_dir, p_debug)
+	if dll_err != OK:
+		return dll_err
 
-	# ── Step 4: Generate MicrosoftGame.config ──
-	var config_path: String = staging_dir.path_join("MicrosoftGame.config")
-	var config_content: String = _generate_microsoft_game_config(p_preset, exe_name)
-	var config_file := FileAccess.open(config_path, FileAccess.WRITE)
-	if config_file == null:
-		push_error("GDK Export: Cannot write MicrosoftGame.config")
-		return ERR_FILE_CANT_WRITE
-	config_file.store_string(config_content)
-	config_file.close()
-	print("[GDK Export] MicrosoftGame.config generated")
+	# ── Step 4: Stage MicrosoftGame.config from the project ──
+	# The packaging addon's "Create Game Config" flow writes the canonical
+	# config + placeholder logos into the project. Don't regenerate them here —
+	# just copy whatever the project already has.
+	var config_err: int = _stage_microsoft_game_config(staging_dir)
+	if config_err != OK:
+		return config_err
+
+	# ── Step 4b: Stage the logos referenced by the config ──
+	# wdapp register / makepkg pack fail with 0x80070002 if any ShellVisuals
+	# image is missing. Read the config we just staged and copy each referenced
+	# logo from the project (preserving the relative path).
+	_stage_logos(staging_dir)
 
 	# ── Step 5: Package or register ──
-	var use_loose: Variant = p_preset.get("dev/register_loose") if p_preset.has("dev/register_loose") else true
+	var use_loose: Variant = p_preset.get("dev/register_loose") if p_preset.has("dev/register_loose") else false
 
 	if use_loose:
 		return _wdapp_register(staging_dir)
 	else:
-		return _makepkg_pack(staging_dir, p_path, p_preset)
+		return _makepkg_pack(staging_dir, abs_p_path, p_preset)
 
-# ── MicrosoftGame.config generation ─────────────────────────────
+# ── MicrosoftGame.config staging ─────────────────────────────────
 
-## Read a preset value, falling back to sample_config.cfg if the preset value is empty.
-func _preset_or_config(p_preset: EditorExportPreset, preset_key: String,
-		config_section: String, config_key: String, fallback: String = "") -> String:
-	var val: String = p_preset.get(preset_key) if p_preset.has(preset_key) else ""
-	if val == "" and _has_sample_config:
-		val = str(_sample_config.get_value(config_section, config_key, ""))
-	if val == "":
-		val = fallback
-	return val
+# Reads `<Executable Name="...">` from the project's MicrosoftGame.config.
+# Returns "" if the config is missing or has no Executable element. Centralized
+# here so `_export_project` (deriving the staged .exe name) and editor checks
+# can share one parse.
+func _read_exe_name_from_project_config() -> String:
+	var src: String = ProjectSettings.globalize_path("res://").path_join("MicrosoftGame.config")
+	if not FileAccess.file_exists(src):
+		return ""
+	var content: String = FileAccess.get_file_as_string(src)
+	if content == "":
+		return ""
+	var re := RegEx.new()
+	re.compile('<Executable\\b[\\s\\S]*?Name="([^"]+)"')
+	var m: RegExMatch = re.search(content)
+	if m == null:
+		return ""
+	return m.get_string(1)
 
-func _generate_microsoft_game_config(p_preset: EditorExportPreset, exe_name: String) -> String:
-	var game_name: String = _preset_or_config(p_preset, "identity/game_name", "identity", "game_name", "MyGodotGame")
-	var publisher: String = _preset_or_config(p_preset, "identity/publisher_name", "identity", "publisher", "CN=Publisher")
-	var pub_display: String = _preset_or_config(p_preset, "identity/publisher_display_name", "identity", "publisher_display_name", "Publisher")
-	var version: String = _preset_or_config(p_preset, "identity/version", "identity", "version", "1.0.0.0")
-	var title_id: String = _normalize_title_id(_preset_or_config(p_preset, "xbox_live/title_id", "xbox_live", "title_id"))
-	var msa_app_id: String = _preset_or_config(p_preset, "xbox_live/msa_app_id", "xbox_live", "msa_app_id")
-	var store_id: String = _preset_or_config(p_preset, "xbox_live/store_id", "xbox_live", "store_id")
+# Copies the project's `MicrosoftGame.config` into the staging dir, injecting
+# `TargetDeviceFamily="PC"` on the `<Executable>` element if it's missing.
+# The config itself is authored by the `godot_gdk_packaging` addon's "Create
+# Game Config" flow (or by the developer directly via GameConfigEditor) —
+# never generated at export time.
+func _stage_microsoft_game_config(staging_dir: String) -> int:
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var src: String = project_dir.path_join("MicrosoftGame.config")
+	if not FileAccess.file_exists(src):
+		push_error(
+			"GDK Export: MicrosoftGame.config not found at project root.\n" +
+			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
+			"  or place a MicrosoftGame.config (and storelogos/) at the project root.")
+		return ERR_FILE_NOT_FOUND
 
-	# Clean game name for identity (alphanumeric + dots only)
-	var identity_name: String = game_name.replace(" ", "").replace("-", "")
+	var content: String = FileAccess.get_file_as_string(src)
+	if content == "":
+		push_error("GDK Export: Failed to read MicrosoftGame.config at %s" % src)
+		return ERR_FILE_CANT_READ
+	content = _inject_target_device_family(content)
 
-	var xml: String = '<?xml version="1.0" encoding="utf-8"?>\n'
-	xml += '<Game configVersion="1">\n'
-	xml += '  <Identity Name="%s"\n' % identity_name
-	xml += '            Publisher="%s"\n' % publisher
-	xml += '            Version="%s" />\n' % version
-	xml += '\n'
+	var dest: String = staging_dir.path_join("MicrosoftGame.config")
+	var f := FileAccess.open(dest, FileAccess.WRITE)
+	if f == null:
+		push_error("GDK Export: Cannot write MicrosoftGame.config to %s" % dest)
+		return ERR_FILE_CANT_WRITE
+	f.store_string(content)
+	f.close()
+	print("[GDK Export] MicrosoftGame.config staged from project")
+	return OK
 
-	if title_id != "":
-		xml += '  <TitleId>%s</TitleId>\n' % title_id
+# Injects `TargetDeviceFamily="PC"` on the `<Executable>` element if missing.
+# makepkg refuses to pack a non-developer executable without it (error
+# 0x80070057), and the packaging addon's older `create_template` output did
+# not include the attribute.
+func _inject_target_device_family(content: String) -> String:
+	var tag_re := RegEx.new()
+	tag_re.compile("<Executable\\b[\\s\\S]*?/?>")
+	var m: RegExMatch = tag_re.search(content)
+	if m == null:
+		return content
+	var tag: String = m.get_string(0)
+	if tag.contains("TargetDeviceFamily"):
+		return content
+	var patched: String = tag
+	if patched.ends_with("/>"):
+		patched = patched.substr(0, patched.length() - 2) + ' TargetDeviceFamily="PC" />'
+	elif patched.ends_with(">"):
+		patched = patched.substr(0, patched.length() - 1) + ' TargetDeviceFamily="PC">'
+	return content.substr(0, m.get_start()) + patched + content.substr(m.get_end())
 
-	if msa_app_id != "":
-		xml += '  <MSAAppId>%s</MSAAppId>\n' % msa_app_id
+# Reads the staged MicrosoftGame.config to discover which logo files it
+# references, then copies each one from the project into the staging dir at
+# the same relative path. Sources are tried in order: <project>/<rel-from-config>,
+# <project>/storelogos/<filename>, <project>/<filename>. Missing logos surface
+# as warnings — the subsequent wdapp/makepkg step will then fail with a
+# specific 0x80070002 pointing at the offending file.
+func _stage_logos(staging_dir: String) -> void:
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var config_path: String = staging_dir.path_join("MicrosoftGame.config")
+	var content: String = FileAccess.get_file_as_string(config_path)
+	if content == "":
+		return
 
-	if store_id != "":
-		xml += '  <StoreId>%s</StoreId>\n' % store_id
+	var attrs: PackedStringArray = PackedStringArray([
+		"StoreLogo",
+		"Square150x150Logo",
+		"Square44x44Logo",
+		"Square480x480Logo",
+		"SplashScreenImage",
+	])
+	var re := RegEx.new()
+	for attr: String in attrs:
+		re.compile(attr + '="([^"]+)"')
+		var m: RegExMatch = re.search(content)
+		if m == null:
+			continue
+		var rel: String = m.get_string(1).replace("\\", "/")
+		var filename: String = rel.get_file()
 
-	xml += '\n'
-	xml += '  <ExecutableList>\n'
-	xml += '    <Executable Name="%s"\n' % exe_name
-	xml += '               Id="Game"\n'
-	xml += '               IsDevOnly="false" />\n'
-	xml += '  </ExecutableList>\n'
-	xml += '\n'
-	xml += '  <ShellVisuals DefaultDisplayName="%s"\n' % game_name
-	xml += '                PublisherDisplayName="%s"\n' % pub_display
-	xml += '                StoreLogo="StoreLogo.png"\n'
-	xml += '                Square150x150Logo="Logo150.png"\n'
-	xml += '                Square44x44Logo="Logo44.png"\n'
-	xml += '                Square480x480Logo="Logo480.png"\n'
-	xml += '                SplashScreenImage="SplashScreen.png"\n'
-	xml += '                ForegroundText="light"\n'
-	xml += '                BackgroundColor="#1a1a2e" />\n'
-	xml += '\n'
-	xml += '  <DesktopRegistration>\n'
-	xml += '    <DependencyList>\n'
-	xml += '      <KnownDependency Name="VC14" />\n'
-	xml += '    </DependencyList>\n'
-	xml += '  </DesktopRegistration>\n'
-	xml += '</Game>\n'
+		var candidates: PackedStringArray = PackedStringArray([
+			project_dir.path_join(rel),
+			project_dir.path_join("storelogos").path_join(filename),
+			project_dir.path_join(filename),
+		])
+		var src: String = ""
+		for c: String in candidates:
+			if FileAccess.file_exists(c):
+				src = c
+				break
+		if src == "":
+			push_warning(
+				"GDK Export: %s logo not found — expected at %s. " % [attr, project_dir.path_join(rel)] +
+				"Run GDK ▸ Create Game Config to generate placeholders.")
+			continue
 
-	return xml
+		var dest: String = staging_dir.path_join(rel)
+		DirAccess.make_dir_recursive_absolute(dest.get_base_dir())
+		var err: int = DirAccess.copy_absolute(src, dest)
+		if err != OK:
+			push_warning("GDK Export: Failed to copy logo %s -> %s (err %d)" % [src, dest, err])
+		else:
+			print("[GDK Export] Logo staged: %s" % rel)
 
 # ── Tool execution ──────────────────────────────────────────────
 
@@ -438,13 +451,80 @@ func _find_windows_template(p_debug: bool) -> String:
 		return template
 	return ""
 
-func _find_plugin_dll(p_debug: bool) -> String:
-	var suffix: String = "debug" if p_debug else "release"
-	var dll_name: String = "godot_gdk.windows.%s.x86_64.dll" % suffix
-	var path: String = "res://addons/godot_gdk/bin/" + dll_name
-	if FileAccess.file_exists(path):
-		return path
-	return ""
+# Walks every `addons/<name>/bin/` directory and copies:
+# - GDExtension main DLLs (`godot_*.windows.<config>.x86_64.dll`, matching this
+#   build's debug/release config) to `staging/addons/<name>/bin/<dll>` so the
+#   .gdextension's `res://` reference resolves on disk at runtime.
+# - All other `.dll` files (support runtimes such as libHttpClient.dll,
+#   PlayFabCore.dll, Microsoft.Xbox.Services.C.Thunks.dll, Party.dll) to the
+#   staging root so Windows's default DLL search finds them next to the .exe.
+# GDExtension DLLs from the opposite build config are intentionally skipped so
+# a release export does not leak debug binaries (and vice versa).
+func _copy_addon_dlls(staging_dir: String, p_debug: bool) -> int:
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var addons_dir: String = project_dir.path_join("addons")
+	if not DirAccess.dir_exists_absolute(addons_dir):
+		return OK
+
+	var this_config: String = "debug" if p_debug else "release"
+	var other_config: String = "release" if p_debug else "debug"
+
+	var main_re: RegEx = RegEx.new()
+	main_re.compile("^godot_.*\\.windows\\.(?<cfg>[^.]+)\\.x86_64\\.dll$")
+
+	var addons := DirAccess.open(addons_dir)
+	if addons == null:
+		push_warning("GDK Export: Cannot open addons directory: %s" % addons_dir)
+		return OK
+
+	var main_copied: int = 0
+	var support_copied: int = 0
+
+	addons.list_dir_begin()
+	var addon_name: String = addons.get_next()
+	while addon_name != "":
+		if addons.current_is_dir() and not addon_name.begins_with("."):
+			var bin_dir: String = addons_dir.path_join(addon_name).path_join("bin")
+			if DirAccess.dir_exists_absolute(bin_dir):
+				var bin := DirAccess.open(bin_dir)
+				if bin != null:
+					bin.list_dir_begin()
+					var fname: String = bin.get_next()
+					while fname != "":
+						if not bin.current_is_dir() and fname.ends_with(".dll"):
+							var src: String = bin_dir.path_join(fname)
+							var m: RegExMatch = main_re.search(fname)
+							if m != null:
+								# GDExtension main DLL for this addon. Take only
+								# the matching build config; skip the other one.
+								if m.get_string("cfg") == this_config:
+									var dst_dir: String = staging_dir.path_join("addons").path_join(addon_name).path_join("bin")
+									var mk_err: int = DirAccess.make_dir_recursive_absolute(dst_dir)
+									if mk_err != OK:
+										push_error("GDK Export: Failed to create %s (err %d)" % [dst_dir, mk_err])
+										return mk_err
+									var copy_err: int = DirAccess.copy_absolute(src, dst_dir.path_join(fname))
+									if copy_err != OK:
+										push_error("GDK Export: Failed to copy %s -> %s (err %d)" % [src, dst_dir, copy_err])
+										return copy_err
+									main_copied += 1
+								# else: opposite config; skip silently
+							else:
+								# Support DLL — staging root, next to .exe.
+								var dst: String = staging_dir.path_join(fname)
+								if not FileAccess.file_exists(dst):
+									var copy_err2: int = DirAccess.copy_absolute(src, dst)
+									if copy_err2 != OK:
+										push_warning("GDK Export: Failed to copy support DLL %s (err %d)" % [src, copy_err2])
+									else:
+										support_copied += 1
+						fname = bin.get_next()
+					bin.list_dir_end()
+		addon_name = addons.get_next()
+	addons.list_dir_end()
+
+	print("[GDK Export] Copied %d GDExtension main DLL(s), %d support DLL(s)" % [main_copied, support_copied])
+	return OK
 
 func _export_pck(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_flags: int) -> int:
 	return export_pack(p_preset, p_debug, p_path, p_flags)

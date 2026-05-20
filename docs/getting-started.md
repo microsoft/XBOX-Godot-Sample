@@ -9,8 +9,8 @@ It also covers building the addon binaries from source, which is the current
 way to obtain them.
 
 > **TL;DR**
-> 1. Get the addon binaries (build from source today; release zips later).
-> 2. Copy `addons/<addon>/` into your project, including the `bin/` folder.
+> 1. Get the addon binaries (download a release zip, or build one from source).
+> 2. Extract or copy `addons/<addon>/` into your project, including the `bin/` folder.
 > 3. Enable the editor plugin in **Project Settings → Plugins**.
 > 4. Set the `gdk/runtime/*` and `playfab/*` project settings.
 > 5. Subscribe to `GDK.users.user_changed` (Xbox) and call
@@ -71,9 +71,8 @@ for the canonical walk-through.
 
 ## 1. Get the addon binaries
 
-You need a built copy of each addon you want to use. Today the only
-supported path is to build them yourself; once tagged releases are
-published on GitHub, you'll be able to grab them as a zip too.
+You need a built copy of each addon you want to use. Use a tagged release zip
+when one is available, or generate the same drop-in layout from source.
 
 ### Option A — Download a release (when available)
 
@@ -82,19 +81,24 @@ If a release zip has been published at
 the `addons/<addon>/` directory of each addon you want into your project's
 `addons/` folder. Skip ahead to **Step 2 — Copy the addons**.
 
-### Option B — Build from source (current path)
+### Option B — Build a drop-in zip from source
 
-Clone with submodules and run the default preset:
+Clone with submodules and run the package helper:
 
 ```powershell
 git clone --recurse-submodules https://github.com/gaming-microsoft/godot-public-gdk-ext.git
 cd godot-public-gdk-ext
 
-cmake --preset default
-cmake --build build --preset debug      # or: --preset release
+.\tools\package_addons.ps1
 ```
 
-The build:
+The helper configures the `addon-package` CMake preset, builds Debug and
+Release native addon DLLs by default, stages the drop-in addon files under
+`build\dist\godot-gdk-addons\addons\`, and writes
+`build\dist\godot-gdk-addons-debug-release.zip`. Extract that zip into your
+Godot project root, or copy only the addon folders you need.
+
+The package build:
 
 - Outputs each addon's DLLs and PDBs into `addons/<addon>/bin/`
 - Copies the runtime dependency DLLs (`libHttpClient.dll`,
@@ -104,8 +108,8 @@ The build:
   `Party.dll`) into the same `bin/` folder so they ship side-by-side
 - Syncs the addon directories into every sample project under `sample/`
 
-If you only need one addon, use the targeted presets (`gdk-only`,
-`playfab-only`, `gameinput-only`). See the
+If you only need one addon during development, use the targeted presets
+(`gdk-only`, `playfab-only`, `gameinput-only`). See the
 [repo README](../README.md#build-presets) for the full preset table.
 
 For deeper notes on the build pipeline (CMake auto-detection of the GDK
@@ -129,7 +133,8 @@ your_project/
         │   ├── godot_gdk.windows.debug.x86_64.dll
         │   ├── godot_gdk.windows.release.x86_64.dll
         │   ├── libHttpClient.dll
-        │   └── Microsoft.Xbox.Services.C.Thunks.Debug.dll
+        │   ├── Microsoft.Xbox.Services.C.Thunks.Debug.dll
+        │   └── Microsoft.Xbox.Services.C.Thunks.dll
         ├── doc_classes/               # in-editor F1 documentation
         ├── editor/                    # editor plugin scripts
         ├── runtime/                   # GDKBootstrap autoload
@@ -189,7 +194,7 @@ yourself for deterministic frame control.
 ```ini
 [playfab]
 
-titleid=""                           ; REQUIRED: your PlayFab title id
+title_id=""                          ; REQUIRED: your PlayFab title id
 endpoint=""                          ; optional: blank derives https://<titleid>.playfabapi.com
 runtime/initialize_on_startup=true   ; bootstrap calls PlayFab.initialize() at startup (default false)
 runtime/embed_dispatch=true          ; pump async completions in _process (default)
@@ -386,7 +391,7 @@ test-account guide.
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
 | `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the GDK is installed on the machine that runs the game |
 | Silent sign-in returns `no_default_user` | No test account signed in to the Xbox app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the Xbox app — see [Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md) |
-| `PlayFab.initialize()` fails immediately | `playfab/titleid` is empty | Set `playfab/titleid` in Project Settings (or `project.godot` `[playfab] titleid="..."`) |
+| `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
 | `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
 | `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
 
@@ -428,6 +433,14 @@ git submodule update --init --recursive
 ```
 
 ### Build
+
+For a consumer-ready zip:
+
+```powershell
+.\tools\package_addons.ps1
+```
+
+For local development builds:
 
 ```powershell
 # Configure all addons

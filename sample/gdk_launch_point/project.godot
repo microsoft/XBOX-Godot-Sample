@@ -19,12 +19,6 @@ config/features=PackedStringArray("4.6")
 GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
 
-[gdk]
-
-runtime/initialize_on_startup=false
-runtime/embed_dispatch=true
-runtime/auto_add_primary_user=false
-
 [display]
 
 window/size/viewport_width=1600

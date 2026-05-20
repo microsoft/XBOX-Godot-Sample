@@ -3,7 +3,7 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ##
 ## Covers PlayFab singleton/class registration and the root API contract:
 ## method/signal exposure, project-setting registration, and the
-## `initialize()` failure path when `playfab/titleid` is blank.
+## `initialize()` failure path when `playfab/runtime/title_id` is blank.
 
 const PLAYFAB_ROOT_METHODS := [
 	"initialize",
@@ -173,10 +173,10 @@ func test_root_api_initial_state() -> void:
 
 
 func test_project_settings_registration() -> void:
-	assert_true(ProjectSettings.has_setting(PLAYFAB_TITLE_ID_SETTING), "playfab/titleid project setting registered")
-	assert_eq(String(get_setting_default(PLAYFAB_TITLE_ID_SETTING)), "", "playfab/titleid default remains blank")
-	assert_true(ProjectSettings.has_setting(PLAYFAB_ENDPOINT_SETTING), "playfab/endpoint project setting registered")
-	assert_eq(String(get_setting_default(PLAYFAB_ENDPOINT_SETTING)), "", "playfab/endpoint default remains blank")
+	assert_true(ProjectSettings.has_setting(PLAYFAB_TITLE_ID_SETTING), "playfab/runtime/title_id project setting registered")
+	assert_eq(String(get_setting_default(PLAYFAB_TITLE_ID_SETTING)), "", "playfab/runtime/title_id default remains blank")
+	assert_true(ProjectSettings.has_setting(PLAYFAB_ENDPOINT_SETTING), "playfab/runtime/endpoint project setting registered")
+	assert_eq(String(get_setting_default(PLAYFAB_ENDPOINT_SETTING)), "", "playfab/runtime/endpoint default remains blank")
 	assert_true(ProjectSettings.has_setting(PLAYFAB_EMBED_DISPATCH_SETTING), "playfab/runtime/embed_dispatch project setting registered")
 	assert_eq(bool(get_setting_default(PLAYFAB_EMBED_DISPATCH_SETTING)), true, "playfab/runtime/embed_dispatch defaults to true")
 	assert_true(ProjectSettings.has_setting(PLAYFAB_INITIALIZE_ON_STARTUP_SETTING), "playfab/runtime/initialize_on_startup project setting registered")
@@ -206,7 +206,7 @@ func test_initialize_rejects_blank_title_id() -> void:
 	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
 	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
 
-	assert_playfab_result_error(init_result, "title_id_required", "PlayFab.initialize() rejects blank playfab/titleid")
+	assert_playfab_result_error(init_result, "title_id_required", "PlayFab.initialize() rejects blank playfab/runtime/title_id")
 	assert_eq(initialized_events.size(), 0, "PlayFab.initialized is not emitted for blank title id")
 
 	if playfab.initialized.is_connected(initialized_handler):

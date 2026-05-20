@@ -1,8 +1,8 @@
 @tool
 extends ScrollContainer
 
-const PLAYFAB_TITLE_ID_SETTING := "playfab/titleid"
-const PLAYFAB_ENDPOINT_SETTING := "playfab/endpoint"
+const PLAYFAB_TITLE_ID_SETTING := "playfab/runtime/title_id"
+const PLAYFAB_ENDPOINT_SETTING := "playfab/runtime/endpoint"
 
 var _coordinator: Variant
 

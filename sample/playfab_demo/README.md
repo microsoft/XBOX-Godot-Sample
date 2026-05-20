@@ -34,8 +34,8 @@ The sample expects:
 
 Set these Project Settings values before running the sample:
 
-- `playfab/titleid` — required
-- `playfab/endpoint` — optional; leave blank to derive the default endpoint
+- `playfab/runtime/title_id` — required
+- `playfab/runtime/endpoint` — optional; leave blank to derive the default endpoint
 - `playfab/runtime/embed_dispatch` — defaults to `true`
 
 The sample also uses the `GDKBootstrap` autoload so Xbox runtime initialization

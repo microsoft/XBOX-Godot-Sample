@@ -202,7 +202,7 @@ func test_game_saves_invalid_options_requires_init() -> void:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("invalid_options branch requires playfab/titleid to be set so initialize() can succeed.")
+		pending("invalid_options branch requires playfab/runtime/title_id to be set so initialize() can succeed.")
 		return
 
 	var init_result = playfab.initialize()
@@ -242,15 +242,13 @@ func test_runtime_initialize_title_id_required() -> void:
 
 	assert_playfab_result_error(
 		init_result, "title_id_required",
-		"PlayFab.initialize() rejects blank playfab/titleid")
+		"PlayFab.initialize() rejects blank playfab/runtime/title_id")
 
 
-func test_leaderboard_settle_msec_setting_registered() -> void:
-	assert_true(
+func test_internal_leaderboard_settle_msec_setting_not_registered() -> void:
+	assert_false(
 		ProjectSettings.has_setting("playfab/tests/leaderboard_settle_msec"),
-		"playfab/tests/leaderboard_settle_msec project setting registered")
-	var default_value = get_setting_default("playfab/tests/leaderboard_settle_msec")
-	assert_eq(int(default_value), 30000, "playfab/tests/leaderboard_settle_msec defaults to 30000")
+		"playfab/tests/leaderboard_settle_msec stays internal to tests")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ func test_entity_key_populated_and_consistent_after_sign_in() -> void:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/titleid'] to exercise PlayFabUser.entity_key live coverage.")
+		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise PlayFabUser.entity_key live coverage.")
 		return
 
 	reset_playfab_runtime()

@@ -23,8 +23,8 @@ void wait_for_async_completion(HRESULT p_start_hr, XAsyncBlock *p_async_block) {
     }
 }
 
-constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/titleid";
-constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/endpoint";
+constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/runtime/title_id";
+constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/runtime/endpoint";
 
 } // namespace
 
@@ -55,7 +55,7 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     const String title_id = String(project_settings->get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges();
     String endpoint = String(project_settings->get_setting(PLAYFAB_ENDPOINT_SETTING, "")).strip_edges();
     if (title_id.is_empty()) {
-        Ref<PlayFabResult> result = PlayFabResult::error_result(E_INVALIDARG, "title_id_required", "PlayFab initialization requires ProjectSettings['playfab/titleid'] to be set.");
+        Ref<PlayFabResult> result = PlayFabResult::error_result(E_INVALIDARG, "title_id_required", "PlayFab initialization requires ProjectSettings['playfab/runtime/title_id'] to be set.");
         return result;
     }
 

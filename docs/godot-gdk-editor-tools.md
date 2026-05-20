@@ -16,9 +16,14 @@ See also:
 - `gdk_setup_panel.gd`
 - `gdk_export_platform.gd`
 
-However, the current editor workflow is no longer centered on a custom GDK
-export platform. The active export/package/install UI now lives in the
-separate `godot_gdk_packaging` addon.
+The runtime addon's editor plugin owns startup wiring for the runtime addon
+**and** registers the custom `Xbox GDK (PC)` export platform so it appears
+in the editor's `Project > Export… > Add…` dropdown alongside the
+built-in platforms.
+
+The `godot_gdk_packaging` addon hosts the wider editor workflow
+(top-level **GDK** menu, sandbox switcher, `MicrosoftGame.config`
+flows, tutorial wizard) and the headless packaging CLI.
 
 ## `gdk_editor_plugin.gd`
 
@@ -26,13 +31,14 @@ The current `godot_gdk` editor plugin is intentionally narrow.
 
 Today it:
 
-- installs or updates the addon-owned `GDKBootstrap` autoload
-- does **not** register the previous custom export platform
+- installs or updates the addon-owned `GDKBootstrap` autoload on
+  `_enable_plugin`
+- registers the `Xbox GDK (PC)` export platform on `_enter_tree`
 - does **not** dock `gdk_setup_panel.gd`
 
-In other words, `gdk_editor_plugin.gd` owns startup wiring for the runtime
-addon, but it is no longer the owner of the repo's main packaging workflow.
-That responsibility moved to `godot_gdk_packaging`.
+`gdk_editor_plugin.gd` owns startup wiring for the runtime addon and
+the export-platform registration; the rest of the packaging UI lives in
+`godot_gdk_packaging`.
 
 ## `gdk_setup_panel.gd`
 
@@ -51,15 +57,17 @@ Treat it as a retained sample/config utility rather than the primary packaging U
 
 ## `gdk_export_platform.gd`
 
-`gdk_export_platform.gd` is a retained implementation of the older custom
-export-platform path.
+`gdk_export_platform.gd` implements the custom `Xbox GDK (PC)` export
+platform. It is registered by `gdk_editor_plugin.gd` on `_enter_tree`,
+so the platform appears in the editor's `Project > Export… > Add…`
+dropdown alongside Windows Desktop, Linux, etc.
 
-It is **not** the default packaging path today. The repo now favors the
-packaging dock in `godot_gdk_packaging`, which owns the supported export,
-package, validate, install, and launch flow.
-
-Keep docs and samples aligned with that newer flow unless the repo explicitly
-reintroduces the custom export-platform path.
+It is **not** the only packaging path: the headless packaging runner in
+`godot_gdk_packaging` (`tools/run.gd` / `gdkpkg.cmd`) remains the
+canonical entry point for headless package, validate, install, and launch
+automation. The export platform exists for editor-driven workflows; the
+headless runner exists for CI and scripted automation. Keep both paths
+working when the underlying packaging primitives change.
 
 ## `godot_gdk_packaging`
 
@@ -74,9 +82,7 @@ addon rather than patching sample copies directly.
 That addon owns:
 
 - the top-level **GDK** editor menu
-- the packaging dock panel
-- export + package actions
-- install + launch actions
+- headless package, validate, install, and launch actions
 - tutorial/help surfaces
 - `MicrosoftGame.config` helper flows
 

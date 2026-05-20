@@ -44,8 +44,6 @@ constexpr const char *GDK_RUNTIME_EMBED_DISPATCH_SETTING = "gdk/runtime/embed_di
 constexpr bool GDK_RUNTIME_EMBED_DISPATCH_DEFAULT = true;
 constexpr const char *GDK_RUNTIME_AUTO_ADD_PRIMARY_USER_SETTING = "gdk/runtime/auto_add_primary_user";
 constexpr bool GDK_RUNTIME_AUTO_ADD_PRIMARY_USER_DEFAULT = false;
-constexpr const char *GDK_TESTS_LIVE_REQUIRED_SETTING = "gdk/tests/live_required";
-constexpr bool GDK_TESTS_LIVE_REQUIRED_DEFAULT = false;
 
 void register_bool_setting(const char *name, bool default_value) {
     ProjectSettings *project_settings = ProjectSettings::get_singleton();
@@ -72,7 +70,6 @@ void register_gdk_project_settings() {
     register_bool_setting(GDK_RUNTIME_INITIALIZE_ON_STARTUP_SETTING, GDK_RUNTIME_INITIALIZE_ON_STARTUP_DEFAULT);
     register_bool_setting(GDK_RUNTIME_EMBED_DISPATCH_SETTING, GDK_RUNTIME_EMBED_DISPATCH_DEFAULT);
     register_bool_setting(GDK_RUNTIME_AUTO_ADD_PRIMARY_USER_SETTING, GDK_RUNTIME_AUTO_ADD_PRIMARY_USER_DEFAULT);
-    register_bool_setting(GDK_TESTS_LIVE_REQUIRED_SETTING, GDK_TESTS_LIVE_REQUIRED_DEFAULT);
 }
 
 bool is_embed_dispatch_enabled() {

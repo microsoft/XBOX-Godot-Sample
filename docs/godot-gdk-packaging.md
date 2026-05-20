@@ -3,16 +3,12 @@
 `addons\godot_gdk_packaging\` exposes Microsoft GDK PC packaging from
 Godot — Microsoft Game Config, makepkg (genmap / pack / validate), wdapp
 (register / install / launch / terminate / uninstall), XblPCSandbox, and
-the GameConfigEditor / Store Association wizard. It works both as an
-editor dock and as a **headless** runner you can drive from scripts and
-CI.
+the GameConfigEditor / Store Association wizard. It works as a **headless**
+runner you can drive from scripts and CI, with a small editor menu for
+Game Config and documentation shortcuts.
 
-This page is the headless-surface reference. The dock (editor mode) keeps
-its existing UI and call-sites — see in-editor tooltips for that.
-
-> Status: the headless layer is Phase 1 of the packaging addon revamp; the
-> dock still calls the underlying helpers directly. The full plan and
-> progress ledger live in `spec\gdext-packaging.md`.
+This page is the headless-surface reference. The full plan and progress
+ledger live in `spec\gdext-packaging.md`.
 
 ## Invocation
 
