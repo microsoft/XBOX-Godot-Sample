@@ -45,6 +45,8 @@ addons\godot_gdk_packaging\
     packaging_panel.gd                   # dock root
     packaging_tabs\*.gd                  # tab views
     gdk_tutorial_wizard.gd, tutorial_wizard_state.gd
+    gdk_sandbox_dialog.gd                # GDK Sandbox Switcher popup
+    gdk_package_manager_dialog.gd        # machine-wide Package Manager popup
     config_import_plugin.gd              # MicrosoftGame.config import behaviour
 ```
 

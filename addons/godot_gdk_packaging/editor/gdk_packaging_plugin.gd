@@ -8,6 +8,7 @@ const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/g
 const ConfigImportPlugin = preload("res://addons/godot_gdk_packaging/editor/config_import_plugin.gd")
 const GDKTutorialWizard = preload("res://addons/godot_gdk_packaging/editor/gdk_tutorial_wizard.gd")
 const GDKSandboxDialog = preload("res://addons/godot_gdk_packaging/editor/gdk_sandbox_dialog.gd")
+const GDKPackageManagerDialog = preload("res://addons/godot_gdk_packaging/editor/gdk_package_manager_dialog.gd")
 
 # Documentation URLs
 const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/packaging/pc/pc-packaging-getting-started"
@@ -25,6 +26,7 @@ var _toolchain: RefCounted
 var _config_mgr: RefCounted
 var _config_import_plugin: EditorImportPlugin
 var _sandbox_dialog: AcceptDialog
+var _package_manager_dialog: AcceptDialog
 
 # Menu item IDs
 enum MenuID {
@@ -32,6 +34,7 @@ enum MenuID {
 	SEP_0,
 	GAME_CONFIG,
 	OPEN_SANDBOX,
+	OPEN_PACKAGE_MANAGER,
 	SEP_1,
 	DOC_PACKAGING,
 	DOC_MAKEPKG,
@@ -62,6 +65,16 @@ func _enter_tree() -> void:
 	else:
 		push_warning("[GDK Packaging] No editor base control — Sandbox dialog will be unparented.")
 
+	# ── GDK Package Manager dialog (persistent, owned by the plugin) ──
+	# Lists every package registered with wdapp on this machine; lets the
+	# developer install a .msixvc from any path or uninstall any package.
+	_package_manager_dialog = GDKPackageManagerDialog.new()
+	if base != null:
+		base.add_child(_package_manager_dialog)
+		_package_manager_dialog.setup(_toolchain)
+	else:
+		push_warning("[GDK Packaging] No editor base control — Package Manager dialog will be unparented.")
+
 	# ── Find the editor MenuBar and add a "GDK" top-level menu ──
 	_menu_bar = _find_menu_bar(EditorInterface.get_base_control())
 	if _menu_bar:
@@ -71,6 +84,7 @@ func _enter_tree() -> void:
 		_gdk_popup.add_separator("", MenuID.SEP_0)
 		_gdk_popup.add_item(_get_game_config_label(), MenuID.GAME_CONFIG)
 		_gdk_popup.add_item("Change Sandbox…", MenuID.OPEN_SANDBOX)
+		_gdk_popup.add_item("Package Manager…", MenuID.OPEN_PACKAGE_MANAGER)
 		_gdk_popup.add_separator("", MenuID.SEP_1)
 		_gdk_popup.add_item("PC Packaging Overview", MenuID.DOC_PACKAGING)
 		_gdk_popup.add_item("makepkg Reference", MenuID.DOC_MAKEPKG)
@@ -101,6 +115,12 @@ func _exit_tree() -> void:
 			_sandbox_dialog.get_parent().remove_child(_sandbox_dialog)
 		_sandbox_dialog.queue_free()
 		_sandbox_dialog = null
+
+	if _package_manager_dialog and is_instance_valid(_package_manager_dialog):
+		if _package_manager_dialog.get_parent() != null:
+			_package_manager_dialog.get_parent().remove_child(_package_manager_dialog)
+		_package_manager_dialog.queue_free()
+		_package_manager_dialog = null
 
 	if _gdk_popup and is_instance_valid(_gdk_popup):
 		_gdk_popup.queue_free()
@@ -140,6 +160,9 @@ func _on_menu_item_pressed(id: int) -> void:
 
 		MenuID.OPEN_SANDBOX:
 			_open_sandbox_dialog()
+
+		MenuID.OPEN_PACKAGE_MANAGER:
+			_open_package_manager_dialog()
 
 		MenuID.DOC_PACKAGING:
 			OS.shell_open(DOC_PC_PACKAGING)
@@ -182,6 +205,13 @@ func _open_sandbox_dialog() -> void:
 		push_error("[GDK Packaging] Sandbox dialog not initialized")
 		return
 	_sandbox_dialog.show_centered_clamped()
+
+
+func _open_package_manager_dialog() -> void:
+	if _package_manager_dialog == null or not is_instance_valid(_package_manager_dialog):
+		push_error("[GDK Packaging] Package Manager dialog not initialized")
+		return
+	_package_manager_dialog.show_centered_clamped()
 
 
 func _on_game_config_action() -> void:
