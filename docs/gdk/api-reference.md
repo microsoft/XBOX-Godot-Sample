@@ -5,8 +5,8 @@ This document describes the current public GDScript API surface of the
 the native implementation.
 
 For architecture details, see
-[Native Runtime](godot-gdk-native-runtime.md) and
-[Async System](godot-gdk-async-system.md).
+[Native Runtime](native-runtime.md) and
+[Async System](async-system.md).
 
 ## Root singleton: `GDK`
 

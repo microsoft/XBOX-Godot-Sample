@@ -4,9 +4,9 @@ This document explains how the sample projects use the addons and how the repo-w
 
 See also:
 
-- [`godot-gdk-plugin.md`](godot-gdk-plugin.md)
-- [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md)
-- [`troubleshooting.md#tests`](troubleshooting.md#tests)
+- [`gdk/plugin.md`](plugin.md)
+- [`gdk/native-runtime.md`](native-runtime.md)
+- [`troubleshooting.md#tests`](../troubleshooting.md#tests)
 
 ## Sample project role
 
@@ -92,7 +92,7 @@ Use this command as the standard path. Direct Godot `--script` or GUT invocation
 | `tests\godot\playfab\` | `godot_playfab` root singleton, users, custom-ID sign-in, Game Saves, leaderboards, validation paths, and live PlayFab flows. |
 | `tests\godot\gameinput\` | `godot_gameinput` singleton, device/readings wrappers, resources, mapper/action bridge, threading smoke, and bootstrap autoload behavior. |
 
-`sample\gdk_demo\`, `sample\playfab_demo\`, `sample\gdk_launch_point\`, and `sample\multiplayer_pong\` are demo projects, not test hosts. GUT is not mirrored into GDK Demo, PlayFab Demo, or Launch Point once their coverage has moved, and the hardware-specific GameInput paths demonstrated by the samples are covered by the dedicated GameInput host plus the manual hardware checklist in [`godot-gameinput-manual-tests.md`](godot-gameinput-manual-tests.md).
+`sample\gdk_demo\`, `sample\playfab_demo\`, `sample\gdk_launch_point\`, and `sample\multiplayer_pong\` are demo projects, not test hosts. GUT is not mirrored into GDK Demo, PlayFab Demo, or Launch Point once their coverage has moved, and the hardware-specific GameInput paths demonstrated by the samples are covered by the dedicated GameInput host plus the manual hardware checklist in [`gameinput/manual-tests.md`](../gameinput/manual-tests.md).
 
 ## Definition of green
 
@@ -221,4 +221,4 @@ PlayFab leaderboard writes may take several seconds to appear in subsequent read
 
 ## Troubleshooting pointers
 
-See [`troubleshooting.md#tests`](troubleshooting.md#tests) for common discovery, GUT, bootstrap, doctest, live-test, and leaderboard issues.
+See [`troubleshooting.md#tests`](../troubleshooting.md#tests) for common discovery, GUT, bootstrap, doctest, live-test, and leaderboard issues.

@@ -201,4 +201,4 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 - `spec\gdext-packaging.md` — design, plan, and progress ledger.
 - `.github\instructions\godot-gdk-packaging.instructions.md` — repo-wide
   rules for contributors editing the addon.
-- `docs\godot-gdk-editor-tools.md` — broader editor-tooling notes.
+- `docs\gdk\editor-tools.md` — broader editor-tooling notes.

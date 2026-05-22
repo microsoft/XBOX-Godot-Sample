@@ -192,7 +192,7 @@ Headless first. UI rewire is a separate PR.
 8. GUT coverage under `tests\godot\gdk\tests\packaging\` for the CLI parser,
    config resolver, and result builder plus the pre-existing helper suites
    updated to the new `core\` paths.
-9. Spec (this file), user-facing reference (`docs\godot-gdk-packaging.md`),
+9. Spec (this file), user-facing reference (`docs\packaging\plugin.md`),
    and path-scoped instructions
    (`.github\instructions\godot-gdk-packaging.instructions.md`).
 
@@ -227,7 +227,7 @@ Headless first. UI rewire is a separate PR.
   intentionally not shipped in this PR — the dock UI is the only consumer
   driving the service end-to-end until Phase 2 (and that work will land
   alongside its own coverage strategy against the real toolchain).
-  Spec, `docs\godot-gdk-packaging.md`, and
+  Spec, `docs\packaging\plugin.md`, and
   `.github\instructions\godot-gdk-packaging.instructions.md` land in the
   same PR.
 - **Known orchestrator flake (not blocking)**: `tools\run_all_tests.ps1`

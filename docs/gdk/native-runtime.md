@@ -2,12 +2,12 @@
 
 This document explains the current native runtime architecture of the `godot_gdk` addon.
 
-For the lower-level async details, see [`godot-gdk-async-system.md`](godot-gdk-async-system.md).
+For the lower-level async details, see [`gdk/async-system.md`](async-system.md).
 
 See also:
 
-- [`godot-gdk-plugin.md`](godot-gdk-plugin.md)
-- [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md)
+- [`gdk/plugin.md`](plugin.md)
+- [`gdk/build-and-loading.md`](build-and-loading.md)
 
 ## Runtime structure
 

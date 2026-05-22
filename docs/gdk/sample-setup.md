@@ -51,7 +51,7 @@ This prompts for each value and generates `sample_config.cfg`,
 ## Set your PC sandbox
 
 Setting the PC sandbox and signing into a test account is covered in its
-own document — see [`xbox-sandbox-and-test-account-setup.md`](xbox-sandbox-and-test-account-setup.md).
+own document — see [`platform/xbox-sandbox-and-test-accounts.md`](../platform/xbox-sandbox-and-test-accounts.md).
 The short version:
 
 ```powershell
@@ -74,7 +74,7 @@ The sample uses **Xbox test accounts**, not personal Microsoft accounts:
    sandbox
 
 > **Tip:** If sign-in fails, see the troubleshooting table in
-> [`xbox-sandbox-and-test-account-setup.md`](xbox-sandbox-and-test-account-setup.md).
+> [`platform/xbox-sandbox-and-test-accounts.md`](../platform/xbox-sandbox-and-test-accounts.md).
 
 ## How configuration flows
 
