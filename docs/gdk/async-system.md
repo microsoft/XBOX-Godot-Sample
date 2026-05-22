@@ -2,7 +2,7 @@
 
 This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
 
-For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`godot-gdk-plugin.md`](godot-gdk-plugin.md).
+For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`gdk/plugin.md`](plugin.md).
 
 ## Why this exists
 
@@ -21,7 +21,7 @@ The current baseline gives us:
 - one internal Xbox services scaffold: `GDKXboxServices`
 - the concrete services that use this pattern across Xbox identity, services,
   package metadata, commerce, capture, launcher, error reporting, and
-  system metadata (see [API reference](godot-gdk-api-reference.md) for the
+  system metadata (see [API reference](api-reference.md) for the
   full list)
 
 ## Public surface

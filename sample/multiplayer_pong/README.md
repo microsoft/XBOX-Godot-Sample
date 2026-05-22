@@ -136,9 +136,9 @@ you'll just see `GDK OFFLINE` in the title screen HUD and PlayFab features
    for the schema). Either run `tools\setup_sample.ps1` to generate it
    interactively, or use the **GDK Setup** dock in the editor. Both flows
    are documented end-to-end in
-   [`docs/godot-gdk-sample-setup.md`](../../docs/godot-gdk-sample-setup.md).
+   [`docs/gdk/sample-setup.md`](../../docs/gdk/sample-setup.md).
 2. **Set your PC sandbox + sign in a test account.** Follow
-   [`docs/xbox-sandbox-and-test-account-setup.md`](../../docs/xbox-sandbox-and-test-account-setup.md).
+   [`docs/platform/xbox-sandbox-and-test-accounts.md`](../../docs/platform/xbox-sandbox-and-test-accounts.md).
    That doc covers `XblPCSandbox.exe`, the Xbox app sign-in flow,
    `XblDevAccount.exe`, resetting player data, and the troubleshooting
    table for the most common HRESULTs.

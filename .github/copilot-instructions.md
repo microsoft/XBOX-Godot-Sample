@@ -44,9 +44,9 @@ Output binaries land in each addon's `bin\` folder. Addon-local build logic may 
 
 ## Path-Scoped Instructions
 
-- `addons\godot_gdk\`, the GDK-owned sample files, `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` are covered by `.github\instructions\godot-gdk.instructions.md`.
-- `addons\godot_playfab\`, `tests\godot\playfab\`, the PlayFab addon copies synced into samples, `sample\playfab_demo\`, `docs\godot-playfab*.md`, and `spec\gdext-playfab.md` are covered by `.github\instructions\godot-playfab.instructions.md`.
-- `addons\godot_gameinput\`, `tests\godot\gameinput\`, the GameInput-touching sample files (the pong logic scripts that pulse rumble or wire hot-plug), `docs\godot-gameinput*.md`, and `spec\gdext-gameinput.md` are covered by `.github\instructions\godot-gameinput.instructions.md`.
+- `addons\godot_gdk\`, the GDK-owned sample files, `docs\gdk\`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` are covered by `.github\instructions\godot-gdk.instructions.md`.
+- `addons\godot_playfab\`, `tests\godot\playfab\`, the PlayFab addon copies synced into samples, `sample\playfab_demo\`, `docs\playfab\`, and `spec\gdext-playfab.md` are covered by `.github\instructions\godot-playfab.instructions.md`.
+- `addons\godot_gameinput\`, `tests\godot\gameinput\`, the GameInput-touching sample files (the pong logic scripts that pulse rumble or wire hot-plug), `docs\gameinput\`, and `spec\gdext-gameinput.md` are covered by `.github\instructions\godot-gameinput.instructions.md`.
 - If future addon-specific guidance is needed, add another scoped instruction file instead of expanding this top-level file with rules that only apply to one addon.
 
 ## Workflow Quality Gates
@@ -80,7 +80,7 @@ A task is not done until the following are satisfied. Walk through this checklis
 - **Parse gate ran.** If any `.gd` file was touched (anywhere in the repo, including synced sample copies under `sample\<host>\addons\`), run `tools\check_gd_scripts_headless.ps1` and confirm it exits clean. If no `.gd` was touched, say so out loud — do not skip silently.
 - **Test orchestrator ran or was intentionally narrowed.** The canonical green bar is `tools\run_all_tests.ps1`. Running a narrower subset (single GUT host, single bootstrap script, `cmake --build` only) is allowed, but state which subset and why. Never report "tests pass" based on GitHub Actions output alone.
 - **Live coverage decision is explicit.** State whether live tests were skipped (default) or run (`-Live`, with a sandbox title id named). For tests that write online state, state whether the (forthcoming) `-AllowLiveWrites` switch was used; until the companion tooling PR adds that switch, any live write coverage is a conscious sandbox-only decision and must be called out in the PR description. See `tests\godot\README.md` for the test-tier contract.
-- **Public-API drift was reconciled in the same change.** When public addon behavior changed, the matching `doc_classes\*.xml`, `spec\gdext-*.md`, `docs\godot-*.md`, sample content, and tests were updated in this change — not deferred to follow-up.
+- **Public-API drift was reconciled in the same change.** When public addon behavior changed, the matching `doc_classes\*.xml`, `spec\gdext-*.md`, `docs\<addon>\*.md`, sample content, and tests were updated in this change — not deferred to follow-up.
 - **PR description carries usage examples.** When public API was added or renamed, the PR description (or the change commit body if no PR yet) shows a short GDScript usage snippet for each new or renamed surface. Reviewers should not have to reverse-engineer the new API from the diff.
 
 ## Worktree Lifecycle

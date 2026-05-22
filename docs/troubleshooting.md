@@ -145,7 +145,7 @@ git submodule update --init --recursive
 3. **Title not configured** — Ensure your title is set up in Partner Center
    with Xbox Live enabled.
 
-See [Sample Project Setup](godot-gdk-sample-setup.md) for the full
+See [Sample Project Setup](gdk/sample-setup.md) for the full
 configuration guide.
 
 ## Tests

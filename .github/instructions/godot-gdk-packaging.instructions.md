@@ -1,5 +1,5 @@
 ---
-applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/gdk_demo/addons/godot_gdk_packaging/**,sample/gdk_launch_point/addons/godot_gdk_packaging/**,sample/multiplayer_pong/addons/godot_gdk_packaging/**,sample/playfab_demo/addons/godot_gdk_packaging/**,docs/godot-gdk-packaging*.md,spec/gdext-packaging.md"
+applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/gdk_demo/addons/godot_gdk_packaging/**,sample/gdk_launch_point/addons/godot_gdk_packaging/**,sample/multiplayer_pong/addons/godot_gdk_packaging/**,sample/playfab_demo/addons/godot_gdk_packaging/**,docs/packaging/**,spec/gdext-packaging.md"
 description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and editor menu"
 ---
 
@@ -60,7 +60,7 @@ addons/godot_gdk_packaging/gdkpkg.sh  <verb> [...]
 ```
 
 The 14-verb matrix lives in `core/packaging_cli.gd::VERBS` and is the
-single source of truth that docs (`docs/godot-gdk-packaging.md`), the
+single source of truth that docs (`docs/packaging/plugin.md`), the
 spec (`spec/gdext-packaging.md`), and the GUT suite all pin against. Add
 new verbs there first; never duplicate verb metadata in another file.
 

@@ -5,7 +5,7 @@ into the right state to test Xbox Live services from any of the GodotGDK
 samples (`gdk_demo`, `multiplayer_pong`, `gdk_launch_point`, `playfab_demo`).
 
 If you are configuring a sample's Partner Center IDs (Title ID, SCID, etc.),
-see [`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md). This document
+see [`gdk/sample-setup.md`](../gdk/sample-setup.md). This document
 covers what your **PC** and **test account** need on top of that.
 
 ---
@@ -206,7 +206,7 @@ to wipe data for a given XUID + sandbox + SCID. You'll be prompted for:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `[GDK] Xbox title ID is unavailable; Xbox services were not initialized.` (`0x80070490`) | `sample_config.cfg` is empty / missing Title ID / SCID. | Run `tools\setup_sample.ps1` or use the **GDK Setup** editor panel ([`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md)). |
+| `[GDK] Xbox title ID is unavailable; Xbox services were not initialized.` (`0x80070490`) | `sample_config.cfg` is empty / missing Title ID / SCID. | Run `tools\setup_sample.ps1` or use the **GDK Setup** editor panel ([`gdk/sample-setup.md`](../gdk/sample-setup.md)). |
 | HUD shows `GDK READY · SIGNED OUT` even though the Xbox app is signed in to the test account | The title is running unpackaged (e.g. via Godot editor F5). PC GDK rejects sign-in attempts when `XGameGetXboxTitleId` can't bind to a registered package; the runtime layer still initializes ("READY") but Xbox services internally degrade. The Xbox app's own broker tokens are unrelated — they only apply to the Xbox app process. | Register a loose layout via `addons\godot_gdk_packaging\gdkpkg.cmd register_loose` and launch through `wdapp` — see [Run the title as a registered loose layout](#run-the-title-as-a-registered-loose-layout) below. The bootstrap also falls back to the system identity picker if silent sign-in fails inside a registered title; use that to switch accounts mid-session. |
 | HUD shows `GDK READY · SIGNED OUT` from a *registered* loose layout, and the system identity picker never appears | Windows Developer Mode is disabled. PC GDK tooling (including `wdapp` and the user broker hooks) refuses to operate, and the bootstrap's UI fallback fires but the system swallows the picker. The classic symptom is `wdapp list` printing `Developer mode is not enabled. To use this tool, please enable developer mode in the Windows Settings app.` | Turn on Developer Mode (Settings → For Developers → **Developer Mode**), or run the equivalent registry edit from an elevated PowerShell — see [Enabling Windows Developer Mode](#enabling-windows-developer-mode) below. Then re-register and relaunch the sample. |
 | `XblPCSandbox.exe` returns `Error: Gaming Services must be updated. Update from https://aka.ms/gamingservices.` even though the Store shows Gaming Services as **Installed** | `XblPCSandbox.exe` is paired one-to-one with the `Microsoft.GamingServices` build that shipped in the same GDK edition (e.g. GDK 260400 ships `XblPCSandbox 1.0.2603.20002` + `GamingServices 35.112.20003.0`). The Microsoft Store ships a different consumer build (e.g. `35.112.23002.0`) that omits the developer/sandbox surface, so the GDK tool refuses to talk to it regardless of how new the Store version is. The bundled `InstallGamingServicesBundle.ps1` script is broken — it ships with literal `%GAMING_SERVICES_VERSION%` placeholders and bails out before doing anything useful. | Replace the consumer package with the GDK-shipped bundle directly. Open an **elevated** PowerShell and run the snippet under [Replacing Gaming Services with the GDK-shipped build](#replacing-gaming-services-with-the-gdk-shipped-build) below. After the script finishes, `XblPCSandbox.exe` will work and you can switch sandboxes normally. |
@@ -214,7 +214,7 @@ to wipe data for a given XUID + sandbox + SCID. You'll be prompted for:
 | Sandbox flips back to `RETAIL` after reboot | Newer Windows builds need an explicit re-set after major OS updates. | Re-run step 1. |
 | Test account does not appear in Partner Center | Sandbox membership wasn't granted. | In Partner Center → Account Settings → Xbox Live → Test Accounts → click the account → **Sandbox membership** → add the sandbox you're using. |
 | `XblDevAccount.exe signin` fails with `0x87DD0006` | Test account password reset on Partner Center but local cache is stale. | `XblDevAccount.exe signout`, then sign back in. |
-| Multiplayer activity warning at boot (`0x80070032`) | `MultiplayerActivity` requires a properly registered MSA App ID + protocol activation. | Safe to ignore for non-multiplayer samples. For real multiplayer testing, follow `godot-gdk-sample-setup.md`. |
+| Multiplayer activity warning at boot (`0x80070032`) | `MultiplayerActivity` requires a properly registered MSA App ID + protocol activation. | Safe to ignore for non-multiplayer samples. For real multiplayer testing, follow `gdk/sample-setup.md`. |
 
 ---
 
@@ -309,9 +309,9 @@ The `Get-AppxPackage` line should now print the GDK-paired version (e.g.
 
 ## Related docs
 
-- [`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md) — per-sample
+- [`gdk/sample-setup.md`](../gdk/sample-setup.md) — per-sample
   Partner Center configuration (Title ID, SCID, MSA App ID, etc.).
-- [`godot-gdk-async-system.md`](godot-gdk-async-system.md) — how the
+- [`gdk/async-system.md`](../gdk/async-system.md) — how the
   bootstrap silent sign-in op completes.
-- [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md) — full GDK
+- [`gdk/api-reference.md`](../gdk/api-reference.md) — full GDK
   surface (`GDKUsers`, `GDKUser`, `get_gamer_picture_async`, …).

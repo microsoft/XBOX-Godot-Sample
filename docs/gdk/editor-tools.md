@@ -5,8 +5,8 @@ runtime addon and the separate `godot_gdk_packaging` tooling addon.
 
 See also:
 
-- [`godot-gdk-plugin.md`](godot-gdk-plugin.md)
-- [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md)
+- [`gdk/plugin.md`](plugin.md)
+- [`gdk/build-and-loading.md`](build-and-loading.md)
 
 ## Current state
 
