@@ -45,7 +45,7 @@ This is the landing page for the `godot_gdk` docs set.
   `godot_playfab` under `PlayFab.game_saves` because the PlayFab Game Saves
   C API drives the Xbox-backed save flow.
 - Server / admin / private GDK surfaces remain out of scope for the public
-  PC client wrappers (see [`spec/gdext-gdk.md`](../spec/gdext-gdk.md)).
+  PC client wrappers (see [`spec/gdext-gdk.md`](../../spec/gdext-gdk.md)).
 
 ## Testing this addon
 
@@ -59,20 +59,20 @@ Run the standard pipeline from the repository root:
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orchestrator stages, GUT layout, live switch, baselines, and troubleshooting pointers.
+See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages, GUT layout, live switch, baselines, and troubleshooting pointers.
 
 ## Document map
 
 ### User guides
 
-- [`getting-started.md`](getting-started.md)  
+- [`getting-started.md`](../getting-started.md)  
   Adding the addons to your project, configuring project settings,
   getting to user sign-in (Xbox + PlayFab), and building from source.
 
-- [`godot-gdk-sample-setup.md`](godot-gdk-sample-setup.md)  
+- [`gdk/sample-setup.md`](sample-setup.md)  
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
 
-- [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md)  
+- [`gdk/api-reference.md`](api-reference.md)  
   Public GDScript API surface for `GDK`, `GDK.system`, `GDK.users`,
   `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`,
   `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`,
@@ -82,38 +82,38 @@ See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orc
 
 ### Architecture
 
-- [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md)  
+- [`gdk/build-and-loading.md`](build-and-loading.md)  
   How the addon is laid out, built, packaged, and loaded by Godot.
 
-- [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md)  
+- [`gdk/native-runtime.md`](native-runtime.md)  
   The native runtime architecture: `GDK`, `GDKRuntime`, async wrappers, users service, and extension points.
 
-- [`godot-gdk-editor-tools.md`](godot-gdk-editor-tools.md)  
+- [`gdk/editor-tools.md`](editor-tools.md)  
   The editor plugin, setup panel, and export platform.
 
-- [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md)  
+- [`gdk/sample-and-tests.md`](sample-and-tests.md)  
   Sample roles and the repo-wide test pipeline.
 
 ### Subsystem deep dive
 
-- [`godot-gdk-async-system.md`](godot-gdk-async-system.md)  
+- [`gdk/async-system.md`](async-system.md)  
   Lower-level explanation of the shared async bridge and how the GDK service
   wrappers participate in it.
 
 ### Reference
 
-- [`troubleshooting.md`](troubleshooting.md)  
+- [`troubleshooting.md`](../troubleshooting.md)  
   Common build, runtime, and test issues.
 
-- [`../spec/gdext-gdk.md`](../spec/gdext-gdk.md)  
+- [`../spec/gdext-gdk.md`](../../spec/gdext-gdk.md)  
   Design spec (planned API, not necessarily current implementation).
 
 ## Recommended reading order
 
-1. Start with [`getting-started.md`](getting-started.md) to build and run.
+1. Start with [`getting-started.md`](../getting-started.md) to build and run.
 2. Read this page for current scope.
-3. Read [`godot-gdk-api-reference.md`](godot-gdk-api-reference.md) for the public API.
-4. Read [`godot-gdk-build-and-loading.md`](godot-gdk-build-and-loading.md) for the addon lifecycle.
-5. Read [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md) for the current runtime architecture.
-6. Use [`godot-gdk-async-system.md`](godot-gdk-async-system.md) when you need the lower-level async mechanics.
-7. Read [`godot-gdk-editor-tools.md`](godot-gdk-editor-tools.md) and [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) when working on tooling or validation.
+3. Read [`gdk/api-reference.md`](api-reference.md) for the public API.
+4. Read [`gdk/build-and-loading.md`](build-and-loading.md) for the addon lifecycle.
+5. Read [`gdk/native-runtime.md`](native-runtime.md) for the current runtime architecture.
+6. Use [`gdk/async-system.md`](async-system.md) when you need the lower-level async mechanics.
+7. Read [`gdk/editor-tools.md`](editor-tools.md) and [`gdk/sample-and-tests.md`](sample-and-tests.md) when working on tooling or validation.

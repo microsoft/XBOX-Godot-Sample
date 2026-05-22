@@ -46,8 +46,8 @@ The four addons are independent — ship one, several, or all of them.
 - At least one Xbox **test account** provisioned in your sandbox
 - Your dev PC switched into that sandbox
 
-See [Sample project setup](godot-gdk-sample-setup.md) and
-[Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md)
+See [Sample project setup](gdk/sample-setup.md) and
+[Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md)
 for the canonical walk-through.
 
 ### To make PlayFab sign-in work
@@ -215,7 +215,7 @@ runtime/auto_poll=true               ; bootstrap calls GameInput.poll() in _proc
 mapper/default_action_map=""         ; optional path to a GameInputActionMap .tres
 ```
 
-See [GameInput addon](godot-gameinput.md) for the action-bridge details.
+See [GameInput addon](gameinput/plugin.md) for the action-bridge details.
 
 ---
 
@@ -287,12 +287,12 @@ already signed into the Xbox app on the PC, it returns a non-ok result
 system account picker on screen instead.
 
 For the full method/signal table see
-[GDK API reference → `GDK.users`](godot-gdk-api-reference.md#users-service-gdkusers).
+[GDK API reference → `GDK.users`](gdk/api-reference.md#users-service-gdkusers).
 
 > Real Xbox Live sign-in needs Partner Center configuration, the right
 > sandbox set on the PC, and a test account signed into the Xbox app —
-> see [Sample project setup](godot-gdk-sample-setup.md) and
-> [Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md).
+> see [Sample project setup](gdk/sample-setup.md) and
+> [Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md).
 > Without those, sign-in will report a clear error and the rest of the
 > game keeps running fine.
 
@@ -363,7 +363,7 @@ PlayFab Game Saves additionally require an Xbox-backed PlayFab session
 methods).
 
 For the full PlayFab service surface see the
-[PlayFab plugin overview](godot-playfab-plugin.md).
+[PlayFab plugin overview](playfab/plugin.md).
 
 ### 5c. Verify
 
@@ -390,7 +390,7 @@ test-account guide.
 |---------|--------------|-----|
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
 | `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the GDK is installed on the machine that runs the game |
-| Silent sign-in returns `no_default_user` | No test account signed in to the Xbox app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the Xbox app — see [Xbox sandbox and test-account setup](xbox-sandbox-and-test-account-setup.md) |
+| Silent sign-in returns `no_default_user` | No test account signed in to the Xbox app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the Xbox app — see [Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md) |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
 | `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
 | `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
@@ -399,15 +399,18 @@ test-account guide.
 
 ## Where to go next
 
-- [GDK API reference](godot-gdk-api-reference.md) — full list of services
+- [**Tutorials**](tutorials/README.md) — task-oriented walkthroughs
+  for sign-in, achievements, leaderboards, Game Saves, lobbies, and
+  GameInput. Recommended next stop once you have signed in.
+- [GDK API reference](gdk/api-reference.md) — full list of services
   (`GDK.users`, `GDK.achievements`, `GDK.leaderboards`,
   `GDK.multiplayer_activity`, `GDK.store`, `GDK.system`, …)
-- [PlayFab plugin overview](godot-playfab-plugin.md) — `PlayFab.users`,
+- [PlayFab plugin overview](playfab/plugin.md) — `PlayFab.users`,
   `PlayFab.game_saves`, `PlayFab.leaderboards`, `PlayFab.multiplayer`,
   `PlayFab.party`, `PlayFab.events`, and the REST service wrappers
-- [GameInput addon](godot-gameinput.md) — devices, polling, vibration,
+- [GameInput addon](gameinput/plugin.md) — devices, polling, vibration,
   and the action-bridge into Godot's `InputMap`
-- [Sample project setup](godot-gdk-sample-setup.md) — Partner Center
+- [Sample project setup](gdk/sample-setup.md) — Partner Center
   configuration, sandboxes, test accounts
 - [Troubleshooting](troubleshooting.md) — common build, runtime, and
   test issues
@@ -532,7 +535,7 @@ The orchestrator runs the GDScript parse gate, debug CMake build, C++
 doctest executable, GUT host suites, bootstrap mini-runners, and the
 aggregate summary. Results are written to
 `build\test-results\run-summary.json` and `.md`. See
-[Sample and tests](godot-gdk-sample-and-tests.md) for the full pipeline,
+[Sample and tests](gdk/sample-and-tests.md) for the full pipeline,
 the live switch, and troubleshooting links.
 
 ### VS Code setup

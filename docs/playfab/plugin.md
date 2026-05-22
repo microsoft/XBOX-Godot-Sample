@@ -153,10 +153,10 @@ Run the standard pipeline from the repository root:
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-See [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) for the orchestrator stages, env vars, live-test safety model, baselines, cleanup pointer, and troubleshooting links.
+See [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) for the orchestrator stages, env vars, live-test safety model, baselines, cleanup pointer, and troubleshooting links.
 
 ## Reference
 
-- [`godot-gdk-sample-and-tests.md`](godot-gdk-sample-and-tests.md) — repo-wide test pipeline
-- [`troubleshooting.md#tests`](troubleshooting.md#tests) — common test issues
-- [`../spec/gdext-playfab.md`](../spec/gdext-playfab.md) — design spec
+- [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) — repo-wide test pipeline
+- [`troubleshooting.md#tests`](../troubleshooting.md#tests) — common test issues
+- [`../spec/gdext-playfab.md`](../../spec/gdext-playfab.md) — design spec

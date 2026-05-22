@@ -1,6 +1,6 @@
 ---
 description: Godot GDK addon architecture, async model, script conventions, and sample workflow
-applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_launch_point/project.godot, sample/multiplayer_pong/project.godot, sample/playfab_demo/project.godot, docs/godot-gdk-*.md, spec/gdext-gdk.md, tools/setup_sample.ps1"
+applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_launch_point/project.godot, sample/multiplayer_pong/project.godot, sample/playfab_demo/project.godot, docs/gdk/**, spec/gdext-gdk.md, tools/setup_sample.ps1"
 ---
 
 # Godot GDK Addon Instructions
@@ -70,7 +70,7 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
 ## Sample, Docs, and Tooling Workflow
 
 - The GDK-owned sample surfaces under `sample\` are part of the addon contract. Update them when public `godot_gdk` behavior changes.
-- When public `godot_gdk` API or behavior changes, keep `doc_classes`, `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, the sample, and tests aligned in the same change.
+- When public `godot_gdk` API or behavior changes, keep `doc_classes`, `docs\gdk\`, `spec\gdext-gdk.md`, the sample, and tests aligned in the same change.
 - For `.gd` changes in the GDK-owned sample or editor/plugin scripts, run the repo headless validator:
 
 ```powershell
@@ -101,4 +101,4 @@ cmake --build build --preset debug
 ```
 
   so the sample and test-host addon copies are refreshed.
-- Keep `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` aligned with the current addon architecture and sample workflow when those surfaces change.
+- Keep `docs\gdk\`, `spec\gdext-gdk.md`, and `tools\setup_sample.ps1` aligned with the current addon architecture and sample workflow when those surfaces change.

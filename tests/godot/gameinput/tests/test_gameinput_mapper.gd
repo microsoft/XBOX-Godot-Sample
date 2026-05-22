@@ -5,7 +5,7 @@ extends "res://addons/godot_gdk_tests/gameinput_test_base.gd"
 ## target_device_id properties, and stays inert (no crashes, no actions
 ## emitted) without a real device. Device-driven press/release transitions are
 ## covered by the manual test checklist in
-## `docs/godot-gameinput-manual-tests.md`.
+## `docs/gameinput/manual-tests.md`.
 
 
 func test_mapper_construction() -> void:

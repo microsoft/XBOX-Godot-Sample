@@ -1,6 +1,6 @@
 ---
 description: Godot GameInput addon architecture, threading model, action-bridge conventions, and sample workflow
-applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/godot-gameinput*.md, spec/gdext-gameinput.md"
+applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/gameinput/**, spec/gdext-gameinput.md"
 ---
 
 # Godot GameInput Addon Instructions
@@ -137,7 +137,7 @@ cd tests\godot\gameinput
 
 - F1 in-editor docs live in `addons/godot_gameinput/doc_classes/`. Wire new
   classes through `target_doc_sources` in the CMakeLists.
-- `docs/godot-gameinput.md` is the user-facing reference. Update it when
+- `docs/gameinput/plugin.md` is the user-facing reference. Update it when
   public API or sample workflow changes.
 - `spec/gdext-gameinput.md` is the source of truth for design decisions and
   deferred work. Mark sections shipped or note deviations there when
