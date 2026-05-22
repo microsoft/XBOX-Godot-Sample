@@ -1,0 +1,170 @@
+name: Package addons zip
+
+# Builds the GodotGDK addon zip and (optionally) attaches it to a draft GitHub
+# Release. Triggered on:
+#   - push of any tag matching v* (release flow)
+#   - manual workflow_dispatch with an optional version override (ad-hoc builds)
+#
+# The zip filename embeds the version: godot-gdk-addons-<version>.zip.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version for the zip filename (e.g. 0.2.0). Leave blank to use
+          0.0.0-dev+<short-sha>. Tag-triggered runs always use the tag.
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-addons-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # Don't keep a write-capable token on disk during the build steps.
+          # The release step uses GH_TOKEN explicitly from secrets.GITHUB_TOKEN.
+          persist-credentials: false
+
+      - name: Derive and validate version
+        id: ver
+        shell: pwsh
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME) {
+              $version = $env:GITHUB_REF_NAME -replace '^v',''
+              $source = "tag '$($env:GITHUB_REF_NAME)'"
+          } elseif (-not [string]::IsNullOrWhiteSpace($env:DISPATCH_VERSION)) {
+              $version = $env:DISPATCH_VERSION.Trim()
+              $source = 'workflow_dispatch input'
+          } else {
+              $sha = $env:GITHUB_SHA.Substring(0, 7)
+              $version = "0.0.0-dev+$sha"
+              $source = "fallback (commit $sha)"
+          }
+
+          # Allow standard SemVer 2.0.0 shape (with optional -prerelease and
+          # +build metadata). This prevents path/quoting injection and bad
+          # release tags from broken inputs or stray tag pushes.
+          $pattern = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
+          if ($version -notmatch $pattern) {
+              throw "Invalid package version '$version' (source: $source). Expected SemVer 2.0.0 shape, e.g. 0.2.0, 1.0.0-beta.1, 0.0.0-dev+abcd123."
+          }
+
+          Write-Host "Resolved version: $version (source: $source)"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install Microsoft GDK
+        shell: pwsh
+        timeout-minutes: 25
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Installing Microsoft.Gaming.GDK via winget..."
+          winget install `
+              --id Microsoft.Gaming.GDK `
+              --exact `
+              --silent `
+              --disable-interactivity `
+              --accept-source-agreements `
+              --accept-package-agreements
+          if ($LASTEXITCODE -ne 0) {
+              throw "winget install Microsoft.Gaming.GDK failed with exit code $LASTEXITCODE."
+          }
+
+          # The winget install updates registry-level env vars (GameDKLatest,
+          # GameDKCoreLatest), but they aren't visible to already-running
+          # shells. Locate the install ourselves and propagate the path to
+          # subsequent steps via $GITHUB_ENV so CMake's GDK detection has
+          # something deterministic to bind to.
+          $gdkParent = 'C:\Program Files (x86)\Microsoft GDK'
+          if (-not (Test-Path $gdkParent)) {
+              throw "Microsoft GDK install directory not found at '$gdkParent' after winget install."
+          }
+
+          $gdkRoot = Get-ChildItem -LiteralPath $gdkParent -Directory `
+              | Where-Object { Test-Path (Join-Path $_.FullName 'windows') } `
+              | Sort-Object Name -Descending `
+              | Select-Object -First 1
+          if ($null -eq $gdkRoot) {
+              Get-ChildItem -LiteralPath $gdkParent | Format-Table -AutoSize | Out-String | Write-Host
+              throw "No GDK edition with a 'windows' subdirectory was found under '$gdkParent'."
+          }
+
+          $gdkPath = $gdkRoot.FullName + '\'
+          Write-Host "GDK detected: $gdkPath"
+          "GameDKCoreLatest=$gdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "GameDKLatest=$gdkPath"     | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build and package zip
+        id: pkg
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = "build\dist\godot-gdk-addons-$($env:VERSION).zip"
+          Write-Host "Packaging to: $zip"
+          .\tools\package_addons.ps1 -OutputPath $zip
+          if (-not (Test-Path -LiteralPath $zip)) {
+              throw "package_addons.ps1 finished but '$zip' is missing."
+          }
+          "zip_path=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-gdk-addons-${{ steps.ver.outputs.version }}
+          path: ${{ steps.pkg.outputs.zip_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create or update draft Release (tag pushes only)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          ZIP_PATH: ${{ steps.pkg.outputs.zip_path }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Be idempotent: if a draft already exists for this tag (rerun or a
+          # prior partial run), reuse it and replace the asset rather than
+          # failing with "release already exists". Do not overwrite assets on
+          # an already-published release.
+          $releaseJson = gh release view $env:TAG --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+              $release = $releaseJson | ConvertFrom-Json
+              if ($release.isDraft) {
+                  Write-Host "Draft release '$($env:TAG)' already exists. Uploading asset with --clobber."
+                  gh release upload $env:TAG $env:ZIP_PATH --clobber
+              } else {
+                  throw "Release '$($env:TAG)' already exists and is published. Refusing to overwrite assets."
+              }
+          } else {
+              Write-Host "Creating draft release '$($env:TAG)'."
+              gh release create $env:TAG `
+                  --draft `
+                  --title $env:TAG `
+                  --notes "Automated draft release for $($env:TAG). Edit and publish when ready." `
+                  $env:ZIP_PATH
+          }
+          if ($LASTEXITCODE -ne 0) {
+              throw "gh release step failed with exit code $LASTEXITCODE."
+          }
