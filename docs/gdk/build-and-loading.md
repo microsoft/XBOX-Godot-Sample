@@ -4,8 +4,8 @@ This document explains how the `godot_gdk` addon is laid out, built, packaged, a
 
 See also:
 
-- [`godot-gdk-plugin.md`](godot-gdk-plugin.md)
-- [`godot-gdk-native-runtime.md`](godot-gdk-native-runtime.md)
+- [`gdk/plugin.md`](plugin.md)
+- [`gdk/native-runtime.md`](native-runtime.md)
 
 ## Repository and addon layout
 

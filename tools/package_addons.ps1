@@ -5,7 +5,8 @@
 .DESCRIPTION
     Configures the package-specific CMake preset, builds the requested native
     addon configurations, stages only the files a game project should receive,
-    then writes a zip whose root contains an `addons\` directory.
+    then writes a zip whose root contains an `addons\` directory and a
+    `GETTING_STARTED.md` quickstart for the recipient.
 
     The default `Both` configuration includes Debug and Release GDExtension
     DLLs because the addon's .gdextension manifests declare both library paths.
@@ -312,6 +313,14 @@ foreach ($addon in $script:NativeAddons) {
 
 Write-Host "  Staging godot_gdk_packaging"
 Copy-PackagingAddon
+
+Write-Host "  Staging GETTING_STARTED.md"
+Copy-RequiredFile `
+    -Source (Join-Path $script:RepoRoot 'docs\addon-getting-started.md') `
+    -DestinationDirectory $script:StageDir
+Rename-Item `
+    -LiteralPath (Join-Path $script:StageDir 'addon-getting-started.md') `
+    -NewName 'GETTING_STARTED.md'
 
 $outputDirectory = Split-Path -Path $outputFullPath -Parent
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null

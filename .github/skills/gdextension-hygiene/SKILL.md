@@ -31,7 +31,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 - For `godot_gdk` public contract changes:
   - ensure public classes, methods, properties, signals, and enums stay reflected in
     `addons\godot_gdk\doc_classes\*.xml`
-  - ensure the related `docs\godot-gdk-*.md`, `spec\gdext-gdk.md`, sample content, and tests stay
+  - ensure the related `docs\<addon>\*.md`, `spec\gdext-<addon>.md`, sample content, and tests stay
     aligned when behavior or script-visible API changes
 - For new native classes or source files:
   - ensure registration and ownership are wired correctly
