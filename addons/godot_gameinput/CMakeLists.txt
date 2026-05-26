@@ -1,10 +1,12 @@
 include(GodotExtensionCommon)
 include(GDKDependencies)
 
-# We only need the GDK include directory (for <GameInput.h>) — godot_gameinput
-# does NOT depend on the godot_gdk addon binary, and it does NOT need the XSAPI
-# / libHttpClient runtime DLLs that godot_gdk pulls in.
-gdk_detect_dependencies(GDK_WINDOWS_OUT GDK_WINDOWS)
+# godot_gameinput only consumes GameInput.h + gameinput.lib — no XGameRuntime
+# API usage anywhere in src/. Therefore it links Microsoft::GameInput (from
+# the vcpkg `gameinput` port) and does not depend on the ms-gdk port at all.
+# gdk_require_gameinput() restores only the `gameinput` port, so the
+# `gameinput-only` preset does not pay the cost of restoring `ms-gdk`.
+gdk_require_gameinput()
 
 add_library(godot_gameinput SHARED
     src/register_types.cpp
@@ -18,17 +20,11 @@ add_library(godot_gameinput SHARED
 
 target_include_directories(godot_gameinput PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${GDK_WINDOWS}/include"
-)
-
-target_link_directories(godot_gameinput PRIVATE
-    "${GDK_WINDOWS}/lib/x64"
 )
 
 target_link_libraries(godot_gameinput PRIVATE
     godot::cpp
-    xgameruntime
-    GameInput
+    Microsoft::GameInput
 )
 
 target_compile_definitions(godot_gameinput PRIVATE _GAMING_DESKTOP)

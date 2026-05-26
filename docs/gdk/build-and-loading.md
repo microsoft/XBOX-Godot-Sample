@@ -72,14 +72,18 @@ The native addon is built by `addons\godot_gdk\CMakeLists.txt`.
 
 That target currently:
 
-1. detects the public GDK Windows layout and dependent runtime DLLs
+1. resolves the GDK headers and import libs via vcpkg (`ms-gdk[playfab]`
+   port, configured by the repo-root `vcpkg.json` and consumed by the
+   CMake preset's vcpkg toolchain)
 2. builds `godot_gdk` as a shared library
 3. links against:
    - `godot::cpp`
-   - `xgameruntime`
-   - XSAPI thunks
-   - `libHttpClient`
-4. copies runtime DLL dependencies into the addon output
+   - `Xbox::GameRuntime`
+   - `Xbox::XSAPI` (XSAPI thunks)
+   - `Xbox::HTTPClient` (libHttpClient)
+4. copies runtime DLL dependencies (libHttpClient, the per-config XSAPI
+   Thunks DLL, and XCurl) into the addon output via `$<TARGET_FILE:...>`
+   genexps so the addon-local `bin/` is self-contained
 5. syncs addon metadata, the runtime bootstrap, and editor scripts into the sample projects listed by the root CMake configuration
 
 The effective runtime artifact chain is:
@@ -90,6 +94,11 @@ native C++ sources
   -> addons/godot_gdk/bin/
   -> sample/*/addons/godot_gdk/bin/
 ```
+
+> **Note:** vcpkg only provides the build-time dependencies. Consumers who
+> want to **run** `makepkg.exe`, `wdapp.exe`, or the Game Config Editor
+> still need the full Microsoft GDK installed on their machine — see
+> [Editor tools](editor-tools.md) and [Packaging plugin](../packaging/plugin.md).
 
 ## Runtime loading path
 

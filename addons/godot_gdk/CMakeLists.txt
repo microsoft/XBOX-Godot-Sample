@@ -1,11 +1,8 @@
 include(GodotExtensionCommon)
 include(GDKDependencies)
 
-gdk_detect_dependencies(
-    GDK_WINDOWS_OUT GDK_WINDOWS
-    XSAPI_RUNTIME_DLL_OUT XSAPI_RUNTIME_DLL
-    LIBHTTPCLIENT_RUNTIME_DLL_OUT LIBHTTPCLIENT_RUNTIME_DLL
-)
+gdk_require_ms_gdk()
+gdk_xsapi_thunks_dlls(XSAPI_THUNKS_DLLS)
 
 add_library(godot_gdk SHARED
     src/register_types.cpp
@@ -41,18 +38,13 @@ add_library(godot_gdk SHARED
 
 target_include_directories(godot_gdk PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${GDK_WINDOWS}/include"
-)
-
-target_link_directories(godot_gdk PRIVATE
-    "${GDK_WINDOWS}/lib/x64"
 )
 
 target_link_libraries(godot_gdk PRIVATE
     godot::cpp
-    xgameruntime
-    "$<IF:$<CONFIG:Debug>,Microsoft.Xbox.Services.C.Thunks.Debug,Microsoft.Xbox.Services.C.Thunks>"
-    libHttpClient
+    Xbox::GameRuntime
+    Xbox::XSAPI
+    Xbox::HTTPClient
 )
 
 target_compile_definitions(godot_gdk PRIVATE _GAMING_DESKTOP)
@@ -73,13 +65,20 @@ if(GODOTCPP_TARGET MATCHES "editor|template_debug")
     )
 endif()
 
+# Runtime DLLs to deploy alongside the addon. `Xbox::XSAPI` transitively links
+# `Xbox::XCurl` (vcpkg ms-gdk port), which adds an import on XCurl.dll — ship
+# it. The Thunks DLLs are the XSAPI runtime bridge; they aren't proper imported
+# targets so we resolve their absolute paths explicitly via
+# gdk_xsapi_thunks_dlls. Both Debug- and Release-named variants ship in every
+# config (see comment on gdk_xsapi_thunks_dlls in cmake/GDKDependencies.cmake).
 godot_addon_copy_runtime_files(
     TARGET godot_gdk
     ADDON_NAME godot_gdk
     PROJECT_DIRS ${GODOT_GDK_PROJECT_DIRS}
     FILES
-        "${XSAPI_RUNTIME_DLL}"
-        "${LIBHTTPCLIENT_RUNTIME_DLL}"
+        "$<TARGET_FILE:Xbox::HTTPClient>"
+        "$<TARGET_FILE:Xbox::XCurl>"
+        ${XSAPI_THUNKS_DLLS}
 )
 
 godot_addon_sync_files_to_sample(

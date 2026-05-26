@@ -8,8 +8,14 @@
             "generator": "Visual Studio 17 2022",
             "architecture": "x64",
             "binaryDir": "${sourceDir}/build",
+            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "17",
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
+                "CMAKE_MAP_IMPORTED_CONFIG_DEBUG": "Release;",
+                "CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO": "Release;",
+                "CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL": "Release;",
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "ON"
             }
@@ -22,7 +28,9 @@
             "cacheVariables": {
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "OFF",
-                "BUILD_GODOT_PLAYFAB": "OFF"
+                "BUILD_GODOT_PLAYFAB": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "godot-gdk",
+                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON"
             }
         },
         {
@@ -33,7 +41,9 @@
             "cacheVariables": {
                 "BUILD_GODOT_GDK": "OFF",
                 "BUILD_GODOT_GAMEINPUT": "ON",
-                "BUILD_GODOT_PLAYFAB": "OFF"
+                "BUILD_GODOT_PLAYFAB": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "godot-gameinput",
+                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON"
             }
         },
         {
@@ -44,7 +54,9 @@
             "cacheVariables": {
                 "BUILD_GODOT_GDK": "OFF",
                 "BUILD_GODOT_GAMEINPUT": "OFF",
-                "BUILD_GODOT_PLAYFAB": "ON"
+                "BUILD_GODOT_PLAYFAB": "ON",
+                "VCPKG_MANIFEST_FEATURES": "godot-gdk",
+                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON"
             }
         },
         {

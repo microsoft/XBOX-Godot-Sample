@@ -7,7 +7,7 @@ GameInput API to Godot 4.x on Windows. It works independently of the
 The addon gives GDScript first-class access to:
 
 * The GameInput runtime (initialize, shutdown, per-frame poll)
-* Connected gamepads (display name, vendor / product id, battery, vibration support)
+* Connected gamepads (display name, vendor / product id, vibration support)
 * Per-frame readings (button bitmask + axes, with edge-detected press / release)
 * Vibration (low + high freq motors, plus trigger rumble)
 * Hot-plug signals on the main thread
@@ -21,7 +21,7 @@ The addon gives GDScript first-class access to:
 | --- | --- |
 | `GameInput` engine singleton | Shipped |
 | Devices + readings + vibration | Shipped |
-| `GameInputDevice.get_battery_level()` / `get_device_info()` | Shipped (issue #23) |
+| `GameInputDevice.get_device_info()` | Shipped (issue #23, device-info half) |
 | `GameInputBinding` / `GameInputActionMap` / `GameInputMapper` | Shipped |
 | `EditorPlugin` autoload installer + Project Settings | Shipped |
 | Sample integration (`gdk_launch_point`, `multiplayer_pong`) | Shipped |
@@ -162,7 +162,7 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 
 * **`sample/gdk_launch_point`** — full GameInput scenario panel with Initialize /
   Shutdown / List Devices / Inspect Primary / Rumble Pulse / Stop Rumble.
-  Live device count + battery surface in the state panel; hot-plug events
+  Live device count surfaces in the state panel; hot-plug events
   appear in the event log.
 * **`sample/multiplayer_pong`** — paddle-hit and score events vibrate the
   primary controller; the lobby surfaces controller hot-plug / disconnect as
@@ -172,7 +172,7 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 
 `godot_gameinput` is exercised by the `tests\godot\gameinput\` host. Coverage lives under `tests\godot\gameinput\tests\` and includes files such as `test_gameinput_core.gd`, `test_gameinput_device.gd`, `test_gameinput_reading.gd`, `test_gameinput_resource.gd`, `test_gameinput_mapper.gd`, `test_gameinput_mapper_extensions.gd`, and `test_gameinput_threading_smoke.gd`. Bootstrap autoload checks live under `tests\godot\gameinput\tests\bootstrap\`.
 
-GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, battery, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md). `sample\multiplayer_pong\` demonstrates GameInput rumble but is not a test host.
+GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md). `sample\multiplayer_pong\` demonstrates GameInput rumble but is not a test host.
 
 Run the standard pipeline from the repository root:
 

@@ -83,7 +83,7 @@ for Partner Center configuration.
   action bridge, project settings, sample integration, and testing
 - [**GameInput Manual Tests**](gameinput/manual-tests.md) — hardware
   checklist for things headless tests can't cover (real controllers, rumble,
-  battery, hot-plug)
+  hot-plug)
 
 ## PlayFab addon (`godot_playfab`)
 
