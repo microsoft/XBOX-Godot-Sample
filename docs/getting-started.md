@@ -525,17 +525,11 @@ files stay intact.
 
 ### Run the bundled samples
 
-**You must build before launching any sample** — the build step syncs addon
-DLLs and runtime dependencies into every sample project. Without building,
-Godot will fail with "GDExtension dynamic library not found" errors.
-
-```powershell
-cmake --build build --preset debug                # required first
-.\sample\gdk_demo\launch_editor.bat               # GDK addon demo
-.\sample\gdk_launch_point\launch_editor.bat       # GDK Launch Point scenario shell
-.\sample\multiplayer_pong\launch_editor.bat       # Multiplayer pong
-.\sample\playfab_demo\launch_editor.bat           # PlayFab demo
-```
+> **No sample projects currently.** The repository is mid-revamp;
+> samples are returning in PR 3 of the tutorial-driven sample
+> series (`sample/tutorial_app/` and `sample/tutorial_gameinput/`).
+> Until then, follow [the tutorials](tutorials/README.md) in your
+> own Godot project.
 
 ### Run the tests
 
@@ -580,11 +574,11 @@ addons/godot_gdk_packaging/   # GDScript-only packaging tools (editor-only)
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
-sample/                   # Sample projects
-  gdk_demo/               # GDK addon demo
-  gdk_launch_point/       # GDK Launch Point scenario shell
-  multiplayer_pong/       # Multiplayer pong demo, not a test host
-  playfab_demo/           # PlayFab demo
+sample/                   # Sample projects (returning in PR 3 of the
+                          # tutorial-driven sample revamp:
+                          #   tutorial_app/        — integrated chain
+                          #   tutorial_gameinput/  — standalone GameInput
+                          # ; currently empty)
 spec/                     # Design spec documents
 tests/                    # Baselines, C++ doctest sources, and Godot test hosts
   godot/gdk/              # GDK and GDK packaging test host

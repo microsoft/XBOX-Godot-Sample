@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8r4xrogueliketscn"]
-
-[ext_resource type="Script" path="res://roguelike/roguelike.gd" id="1_roguelike"]
-
-[node name="Roguelike" type="Node2D"]
-script = ExtResource("1_roguelike")

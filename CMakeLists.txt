@@ -14,12 +14,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
 
-set(GODOT_SAMPLE_DIRS
-    "${CMAKE_SOURCE_DIR}/sample/gdk_demo"
-    "${CMAKE_SOURCE_DIR}/sample/multiplayer_pong"
-    "${CMAKE_SOURCE_DIR}/sample/gdk_launch_point"
-    "${CMAKE_SOURCE_DIR}/sample/playfab_demo"
-)
+set(GODOT_SAMPLE_DIRS)
+
+# Sample projects are intentionally absent on this branch.
+# PR #3 of the tutorial-driven sample revamp adds:
+#   - sample/tutorial_app/        (integrated tutorial chain)
+#   - sample/tutorial_gameinput/  (standalone GameInput demo)
+# Until then, the addons build and the test hosts under
+# tests/godot/ provide the only consumers.
 
 set(GODOT_TEST_HOST_DIRS
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"

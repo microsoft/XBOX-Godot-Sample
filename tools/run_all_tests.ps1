@@ -49,8 +49,8 @@
 
 .PARAMETER ParseExcludeProjects
     Optional project/context exclusion forwarded to the parse gate. For example,
-    pass `-ParseExcludeProjects sample\multiplayer_pong` to keep the parse gate
-    active while skipping the Pong sample project.
+    pass `-ParseExcludeProjects tests\godot\playfab` to keep the parse gate
+    active while skipping the PlayFab test host.
 
 .PARAMETER PlayFabTitleId
     Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.

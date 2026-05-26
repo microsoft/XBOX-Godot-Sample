@@ -1,5 +1,5 @@
 ---
-applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/gdk_demo/addons/godot_gdk_packaging/**,sample/gdk_launch_point/addons/godot_gdk_packaging/**,sample/multiplayer_pong/addons/godot_gdk_packaging/**,sample/playfab_demo/addons/godot_gdk_packaging/**,docs/packaging/**,spec/gdext-packaging.md"
+applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,docs/packaging/**,spec/gdext-packaging.md"
 description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and editor menu"
 ---
 
@@ -120,13 +120,17 @@ shortcuts.
 
 ## Sample mirrors
 
-`addons/godot_gdk_packaging/` is mirrored into all four samples and the
-GDK test host via `godot_addon_sync_directory` in the root CMakeLists.
-The sync uses `copy_if_different` — **it does not delete stale mirror
-files.** When you remove or rename a file in `addons/godot_gdk_packaging/`,
-run `cmake --build build --preset debug` once, then manually delete the
-stale mirror files under each `sample/*/addons/godot_gdk_packaging/` and
-`tests/godot/gdk/addons/godot_gdk_packaging/` before committing.
+`addons/godot_gdk_packaging/` is mirrored into the GDK test host
+via `godot_addon_sync_directory` in the root CMakeLists. (Sample
+mirror targets will return when PR 3 of the tutorial-driven
+sample revamp adds `sample/tutorial_app/`.) The sync uses
+`copy_if_different` — **it does not delete stale mirror files.**
+When you remove or rename a file in `addons/godot_gdk_packaging/`,
+run `cmake --build build --preset debug` once, then manually
+delete the stale mirror files under
+`tests/godot/gdk/addons/godot_gdk_packaging/` (and, once
+samples land, under each `sample/*/addons/godot_gdk_packaging/`)
+before committing.
 
 ## Tests
 

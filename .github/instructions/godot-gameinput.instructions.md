@@ -1,6 +1,6 @@
 ---
 description: Godot GameInput addon architecture, threading model, action-bridge conventions, and sample workflow
-applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/gdk_launch_point/addons/godot_gameinput/**, sample/multiplayer_pong/addons/godot_gameinput/**, sample/gdk_demo/addons/godot_gameinput/**, sample/multiplayer_pong/logic/lobby.gd, sample/multiplayer_pong/logic/pong.gd, sample/multiplayer_pong/logic/paddle.gd, docs/gameinput/**, spec/gdext-gameinput.md"
+applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, docs/gameinput/**, spec/gdext-gameinput.md"
 ---
 
 # Godot GameInput Addon Instructions
@@ -101,13 +101,16 @@ applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/gdk_launch
 
 ## Sample Integration
 
-- The GameInput addon is enabled in `sample/gdk_launch_point` (full scenario panel)
-  and `sample/multiplayer_pong` (rumble on hit, controller hot-plug surface
-  in the lobby). Update both samples when public `godot_gameinput` behaviour
-  changes.
-- Pong's `pulse_rumble()` helper is the canonical "raw API" usage pattern;
-  gdk_launch_point's GameInput group is the canonical "explore the API surface"
-  pattern.
+- No GameInput samples currently ship in `sample/`. The legacy
+  `sample/gdk_launch_point` (full scenario panel) and
+  `sample/multiplayer_pong` (rumble on hit, controller hot-plug
+  surface in the lobby) have been removed; the tutorial-driven
+  sample revamp's PR 3 will reintroduce a GameInput scenario
+  panel inside `sample/tutorial_app/` and a standalone
+  action-bridge demo at `sample/tutorial_gameinput/`. Until
+  those land, manual rumble + hot-plug verification follows the
+  [GameInput manual-test checklist](../../docs/gameinput/manual-tests.md)
+  in any GameInput-using Godot project.
 - The headless test entry point for GameInput is the repo-root orchestrator:
 
 ```powershell

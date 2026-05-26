@@ -1,9 +1,0 @@
-; Engine configuration file.
-; This project is a tiny companion content fixture for sample/gdk_launch_point.
-
-config_version=5
-
-[application]
-
-config/name="GDK Launch Point DLC Fixture"
-config/features=PackedStringArray("4.6", "GL Compatibility")

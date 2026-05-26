@@ -1,6 +1,6 @@
 ---
 description: Godot PlayFab addon architecture, runtime model, and sample workflow
-applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/playfab_demo/**, sample/gdk_demo/addons/godot_playfab/**, sample/gdk_launch_point/addons/godot_playfab/**, sample/multiplayer_pong/addons/godot_playfab/**, docs/playfab/**, spec/gdext-playfab.md"
+applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, docs/playfab/**, spec/gdext-playfab.md"
 ---
 
 # Godot PlayFab Addon Instructions
@@ -41,18 +41,24 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/playfab_demo/*
 
 ## Sample and Workflow
 
-- `sample\playfab_demo\` is the canonical PlayFab smoke-test sample.
-- The PlayFab demo depends on the GDK sample bootstrap to provide Xbox runtime initialization and user sign-in before PlayFab sign-in.
+- No PlayFab sample currently ships in `sample/`. The legacy
+  `sample\playfab_demo\` (canonical PlayFab smoke-test sample,
+  depending on the GDK sample bootstrap for Xbox runtime
+  initialization and user sign-in) has been removed; the
+  tutorial-driven sample revamp's PR 3 will reintroduce PlayFab
+  coverage inside `sample/tutorial_app/` (T1 sign-in autoload
+  + per-tutorial scenes for Game Saves, leaderboards, lobby,
+  Party).
 - PlayFab GUT suites live under `tests\godot\playfab\tests\` and `extends "res://addons/godot_gdk_tests/playfab_test_base.gd"` (the base is at `addons\godot_gdk\tests_support\bases\playfab_test_base.gd` and is mirrored into the host by CMake). Use custom-ID helpers for default PlayFab sign-in coverage; reserve `ensure_gdk_primary_user_for_playfab()` for optional Xbox-backed compatibility flows. The root CMake option `GODOT_PLAYFAB_TEST_HOST_WITH_GDK` controls whether `godot_gdk` is mirrored into the PlayFab host for those optional flows.
-- When public `godot_playfab` behavior changes, update the sample, docs, spec, and tests in the same change rather than leaving automation follow-up for later.
+- When public `godot_playfab` behavior changes, update the docs, spec, and tests in the same change rather than leaving automation follow-up for later. (Sample updates resume once PR 3 lands `sample/tutorial_app/`.)
 - After changing synced addon files under `addons\godot_playfab\`, run:
 
 ```powershell
 cmake --build build --preset debug
 ```
 
-  so the sample addon copies are refreshed.
-- For `.gd` changes in the PlayFab sample or synced addon scripts, run the repo headless validator:
+  so the test host addon copies are refreshed.
+- For `.gd` changes in the PlayFab synced addon scripts, run the repo headless validator:
 
 ```powershell
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1

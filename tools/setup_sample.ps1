@@ -2,10 +2,26 @@
 # Generates sample_config.cfg and MicrosoftGame.config from your Partner Center values.
 
 param(
-    [string]$ConfigPath = "$PSScriptRoot\..\sample\gdk_demo\sample_config.cfg"
+    [string]$ConfigPath = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrEmpty($ConfigPath)) {
+    Write-Error @"
+setup_sample.ps1 requires a -ConfigPath argument.
+
+The repository currently has no sample projects. The tutorial-driven
+sample revamp (PR 3) will add sample/tutorial_app/ and
+sample/tutorial_gameinput/, after which the default will return.
+
+Until then, point this script at a sample_config.cfg in your own
+Godot project:
+
+    .\tools\setup_sample.ps1 -ConfigPath path\to\sample_config.cfg
+"@
+    exit 1
+}
 
 function Normalize-TitleId {
     param([string]$Value)
