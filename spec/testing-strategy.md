@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document is the durable record of the test-coverage strategy for the four addons in this repository (`godot_gdk`, `godot_playfab`, `godot_gameinput`, `godot_gdk_packaging`), the GDScript test hosts that exercise them (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`), and the C++ helper code that backs them. It captures the framework choice (GUT for GDScript, doctest for C++), the vendoring and mirroring layout, the orchestrator contract, the live-tests guard semantics, the autoload/bootstrap mini-runner pattern, and the definition of "green" used in lieu of CI. GitHub Actions / CI workflows, expansion of the manual hardware checklist in `docs\gameinput\manual-tests.md`, and any testing of `sample\multiplayer_pong` are explicitly out of scope; pong is a demo project, not a coverage host, and the GameInput rumble paths it exercises are covered through `tests\godot\gameinput` plus the manual hardware checklist that already exists.
+This document is the durable record of the test-coverage strategy for the four addons in this repository (`godot_gdk`, `godot_playfab`, `godot_gameinput`, `godot_gdk_packaging`), the GDScript test hosts that exercise them (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`), and the C++ helper code that backs them. It captures the framework choice (GUT for GDScript, doctest for C++), the vendoring and mirroring layout, the orchestrator contract, the live-tests guard semantics, the autoload/bootstrap mini-runner pattern, and the definition of "green" used in lieu of CI. GitHub Actions / CI workflows, expansion of the manual hardware checklist in `docs\gameinput\manual-tests.md`, and any testing of the (now-removed) sample projects are explicitly out of scope; the legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were demo projects, not coverage hosts. The tutorial-driven sample revamp (PR 3) reintroduces `sample\tutorial_app\` and `sample\tutorial_gameinput\`, which will likewise be demo / tutorial reference projects, not coverage hosts.
 
 ## Test surface inventory
 
-- GDScript test hosts: `tests\godot\gdk` (covers `godot_gdk` and `godot_gdk_packaging`), `tests\godot\playfab` (covers `godot_playfab`), `tests\godot\gameinput` (covers `godot_gameinput`). `sample\gdk_demo`, `sample\playfab_demo`, `sample\gdk_launch_point`, and `sample\multiplayer_pong` are intentionally excluded as demo projects.
+- GDScript test hosts: `tests\godot\gdk` (covers `godot_gdk` and `godot_gdk_packaging`), `tests\godot\playfab` (covers `godot_playfab`), `tests\godot\gameinput` (covers `godot_gameinput`). The legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were intentionally excluded as demo projects. They have since been removed; the tutorial-driven samples returning in PR 3 (`sample\tutorial_app\`, `sample\tutorial_gameinput\`) will likewise stay out of the coverage host set.
 - GUT framework, vendored once at `addons\godot_gdk\tests_support\gut\` and mirrored by CMake into coverage hosts. Mirrored copies are git-ignored.
 - C++ unit tests via doctest, vendored at `tests\cpp\third_party\doctest\doctest.h`, built behind `GDK_BUILD_TESTS=ON` (default ON) into the `gdk_unit_tests` executable.
 - Headless GDScript validator `tools\check_gd_scripts_headless.ps1` (already enforced by the pre-commit hook).
@@ -237,7 +237,7 @@ PR opening is gated on user review. Agents commit and push to their fleet branch
 
 - GitHub Actions / CI workflow.
 - Manual hardware-checklist expansion in `docs\gameinput\manual-tests.md`.
-- Testing of `sample\multiplayer_pong`. GUT is intentionally not mirrored into it. The GameInput rumble paths it exercises are covered through `tests\godot\gameinput` and the manual hardware checklist.
+- Testing of the historical `sample\multiplayer_pong` (now removed). GUT was intentionally not mirrored into it. The GameInput rumble paths it exercised are covered through `tests\godot\gameinput` and the manual hardware checklist.
 
 ## Todo manifest
 

@@ -1,6 +1,7 @@
 # Godot GDK sample and tests
 
-This document explains how the sample projects use the addons and how the repo-wide test pipeline validates them.
+This document explains how the repo-wide test pipeline validates
+the addons.
 
 See also:
 
@@ -8,58 +9,20 @@ See also:
 - [`gdk/native-runtime.md`](native-runtime.md)
 - [`troubleshooting.md#tests`](../troubleshooting.md#tests)
 
-## Sample project role
+## Sample projects
 
-The `sample\` directory contains multiple sample projects:
-
-| Sample | Description |
-|--------|-------------|
-| `sample\gdk_demo\` | Baseline GDK runtime/users/achievements/presence/social demo. |
-| `sample\gdk_launch_point\` | GDK Launch Point scenario shell for manual runtime exploration. |
-| `sample\gdk_launch_point_dlc\` | Companion DLC content fixture for Launch Point package/resource-pack scenarios. |
-| `sample\multiplayer_pong\` | Gameplay demo with Xbox identity and GameInput rumble. It is not a test host. |
-| `sample\playfab_demo\` | PlayFab smoke sample. |
-
-All samples that use GDK share the addon-owned bootstrap path, `res://addons/godot_gdk/runtime/gdk_bootstrap.gd`, alongside the `plugin.cfg` editor plugin and the addon files synced by the CMake build system.
-
-## Autoload bootstrap
-
-Each GDK-facing sample's `project.godot` autoloads the addon-owned `GDKBootstrap` singleton from `addons\godot_gdk\runtime\gdk_bootstrap.gd`.
-The bootstrap listens to the single `GDK.users.user_changed` event for user lifecycle and state output.
-
-| Sample | `gdk/runtime/initialize_on_startup` | `gdk/runtime/auto_add_primary_user` | Role |
-|--------|-------------------------------------|--------------------------------------|------|
-| `gdk_demo` | `true` | `true` | Baseline demo starts the runtime and silent sign-in automatically. |
-| `gdk_launch_point` | `false` | `false` | Launch Point stays manual so the scenario shell can drive runtime actions explicitly. |
-| `multiplayer_pong` | `true` | `true` | Pong wants Xbox identity ready for the lobby flow. |
-| `playfab_demo` | `true` | `true` | PlayFab demo depends on GDK runtime startup and silent sign-in before PlayFab calls. |
-
-All samples still set `gdk/runtime/embed_dispatch=true`. Demo-style samples therefore expect native auto-dispatch to stay enabled, while Launch Point keeps runtime startup under explicit scenario control.
-
-## Demo scenes
-
-### GDK Demo (`sample\gdk_demo\main.gd`)
-
-A minimal runtime/users/achievements/presence/social demo. It reflects runtime state, shows the primary user's gamertag and XUID, retries silent sign-in, queries and updates achievement `1`, displays cached presence, starts the Social Manager graph, requests the default friends group, and shows the tracked friend count.
-
-### GDK Launch Point (`sample\gdk_launch_point\main.gd`)
-
-`sample\gdk_launch_point\main.gd` builds a scenario catalog with grouped runtime, users, achievements, package/DLC, multiplayer activity, and GameInput actions. It provides nested navigation, a tile-style menu, a persistent event log, and a side panel that reflects the selected scenario and live state.
-
-The Package / DLC group demonstrates the Godot-native `GDK.package` flow:
-enumerate content packages, select a sample DLC by stable store ID or display
-name, load a `.pck`/`.zip` resource pack into `res://`, inspect retained
-resource-pack metadata, and mount the package temporarily for loose-file
-`FileAccess` reads. The companion `sample\gdk_launch_point_dlc\` folder contains
-the fixture content and `build_dlc_content.ps1`, which writes
-`content\launch_point_dlc.zip` from `resource_pack\`. Copy the `[packages]`
-values from the fixture template into Launch Point's `sample_config.cfg`, then
-register or install the DLC package with GDK tooling before running the live
-scenarios.
-
-### Multiplayer Pong (`sample\multiplayer_pong\`)
-
-A gameplay demo imported from `godot-demo-projects` and extended with Xbox identity, single-player AI, visual effects, and controller rumble. It is intentionally not a GUT coverage host.
+> **No sample projects currently.** The repository is mid-revamp;
+> samples are returning in PR 3 of the tutorial-driven sample
+> series:
+>
+> - `sample/tutorial_app/` — integrated tutorial chain (sign-in,
+>   achievements, leaderboards, game saves, lobby, MPA, Party,
+>   integration tech demo)
+> - `sample/tutorial_gameinput/` — standalone GameInput demo
+>
+> Until then, [the tutorials](../tutorials/README.md) walk
+> through each surface in your own Godot project, and the test
+> hosts under `tests/godot/` exercise the addons end-to-end.
 
 ## Overview
 
@@ -92,7 +55,7 @@ Use this command as the standard path. Direct Godot `--script` or GUT invocation
 | `tests\godot\playfab\` | `godot_playfab` root singleton, users, custom-ID sign-in, Game Saves, leaderboards, validation paths, and live PlayFab flows. |
 | `tests\godot\gameinput\` | `godot_gameinput` singleton, device/readings wrappers, resources, mapper/action bridge, threading smoke, and bootstrap autoload behavior. |
 
-`sample\gdk_demo\`, `sample\playfab_demo\`, `sample\gdk_launch_point\`, and `sample\multiplayer_pong\` are demo projects, not test hosts. GUT is not mirrored into GDK Demo, PlayFab Demo, or Launch Point once their coverage has moved, and the hardware-specific GameInput paths demonstrated by the samples are covered by the dedicated GameInput host plus the manual hardware checklist in [`gameinput/manual-tests.md`](../gameinput/manual-tests.md).
+The hardware-specific GameInput paths are covered by the dedicated GameInput host plus the manual hardware checklist in [`gameinput/manual-tests.md`](../gameinput/manual-tests.md).
 
 ## Definition of green
 

@@ -172,8 +172,8 @@ Match tickets report `match_id` and `arranged_lobby_connection_string` through `
 
 ## Samples
 
-- `sample\playfab_demo` demonstrates settings-backed init plus manual PlayFab sign-in
-- `sample\multiplayer_pong` demonstrates a sample-local wrapper that signs the
+- `sample\playfab_demo` (now removed) demonstrated settings-backed init plus manual PlayFab sign-in
+- `sample\multiplayer_pong` (now removed) demonstrated a sample-local wrapper that signs the
   active Xbox user into PlayFab, persists save JSON through Game Saves, and
   submits and queries the roguelike leaderboard
 

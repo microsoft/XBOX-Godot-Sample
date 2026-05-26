@@ -176,11 +176,11 @@ func assert_playfab_result_error(result: Variant, expected_code: String, name: S
 
 # ── Composite GDK + PlayFab user flow ────────────────────────────────────
 
-# Mirrors `ensure_gdk_primary_user` from the existing playfab_demo
-# `test_context.gd`: ensures GDK is initialized and a primary user is
-# signed in before PlayFab tests attempt PlayFab sign-in. Returns a
-# Dictionary with the same shape so suites can drive `pending(...)` off
-# `skip_reason` consistently.
+# Mirrors `ensure_gdk_primary_user` from the historical (now-removed)
+# `playfab_demo` `test_context.gd`: ensures GDK is initialized and a
+# primary user is signed in before PlayFab tests attempt PlayFab
+# sign-in. Returns a Dictionary with the same shape so suites can
+# drive `pending(...)` off `skip_reason` consistently.
 func ensure_gdk_primary_user_for_playfab(timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dictionary:
 	var outcome := {
 		"user": null,

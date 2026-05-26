@@ -1,7 +1,0 @@
-[configuration]
-entry_symbol = "gdk_addon_init"
-compatibility_minimum = "4.2"
-
-[libraries]
-windows.debug.x86_64 = "res://addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll"
-windows.release.x86_64 = "res://addons/godot_gdk/bin/godot_gdk.windows.release.x86_64.dll"

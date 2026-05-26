@@ -2,7 +2,7 @@
 
 > **Status: v1 shipped.** Devices, polling, vibration, action bridge, project
 > settings, EditorPlugin-installed bootstrap autoload, and sample integration
-> in `gdk_launch_point` and `multiplayer_pong` are all live. Headless tests pass under
+> in the historical `gdk_launch_point` and `multiplayer_pong` samples (now removed) were all live. Headless tests pass under
 > `tests/godot/gameinput/tests/`. Device metadata is exposed via
 > `GameInputDevice.get_device_info()`.
 >
@@ -216,7 +216,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
 | 3 | Device info (issue #23) | Shipped (battery half removed — GameInput v3 dropped the API) |
-| 4 | Sample integration (`gdk_launch_point` panel + `multiplayer_pong` rumble & hot-plug) | Shipped |
+| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both removed in the tutorial-driven sample revamp. New samples (`sample\tutorial_app\` + `sample\tutorial_gameinput\`) returning in PR 3. |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
 

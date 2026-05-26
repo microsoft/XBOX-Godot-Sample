@@ -1,5 +1,15 @@
 # Dedicated Godot Test Hosts
 
+> **Historical spec.** This document describes the dedicated
+> test-host conversion that originally landed alongside the legacy
+> sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`,
+> `multiplayer_pong`). Those samples have since been removed; the
+> tutorial-driven sample revamp (PR 3) will reintroduce
+> `sample\tutorial_app\` and `sample\tutorial_gameinput\`. The
+> `tests\godot\*` host contract documented below is unchanged and
+> still authoritative — the goals/non-goals references to the
+> historical samples are kept for context.
+
 ## Purpose
 
 Automated Godot coverage must run from dedicated test projects instead of demo samples. Demo projects should remain examples for developers and manual scenarios, while `tests\godot\*` owns default automated GUT and bootstrap coverage.

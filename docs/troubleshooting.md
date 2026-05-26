@@ -109,13 +109,16 @@ You can also point `GDK_BIN` at a non-default tools directory — see
 Windows cannot find 'Godot_v4.6.1-stable_win64.exe'.
 ```
 
-**Cause:** `sample/gdk_demo/launch_editor.bat` expects the Godot executable to be
-placed in the `sample/gdk_demo/` directory with that exact filename.
+**Cause:** Older sample `launch_editor.bat` scripts (now removed)
+expected the Godot executable to be placed in the sample directory
+with that exact filename. The sample-driven tutorial revamp in
+progress replaces those launchers with the standard Godot editor
+workflow (open `project.godot` directly).
 
-**Fix:** Download Godot 4.6.1 stable from
-[godotengine.org](https://godotengine.org/download) and place the executable
-in the `sample/gdk_demo/` directory. The `.exe` filename must match what's in
-`launch_editor.bat`.
+**Fix:** Open the project the standard way — launch your Godot 4.x
+editor and use **Project → Open** to pick `project.godot` in
+whichever Godot project you are working in. No bundled launcher
+script is required.
 
 ## Visual Studio version mismatch
 

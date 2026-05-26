@@ -1,10 +1,11 @@
 # Xbox sandbox and test-account setup
 
 This guide is the canonical, addon-agnostic walk-through for getting a PC
-into the right state to test Xbox Live services from any of the GodotGDK
-samples (`gdk_demo`, `multiplayer_pong`, `gdk_launch_point`, `playfab_demo`).
+into the right state to test Xbox Live services from any Godot project
+that uses `godot_gdk` (your own project or, once PR 3 of the
+tutorial-driven sample revamp lands, `sample/tutorial_app/`).
 
-If you are configuring a sample's Partner Center IDs (Title ID, SCID, etc.),
+If you are configuring a project's Partner Center IDs (Title ID, SCID, etc.),
 see [`gdk/sample-setup.md`](../gdk/sample-setup.md). This document
 covers what your **PC** and **test account** need on top of that.
 
@@ -99,8 +100,9 @@ Three quick checks confirm the PC is wired up:
 
 1. **Sandbox** — `XblPCSandbox.exe` (no args) prints the sandbox ID.
 2. **Account** — Xbox app shows the test account's gamertag.
-3. **In sample** — launch e.g. `sample\multiplayer_pong` and check the
-   title screen HUD:
+3. **In your title** — launch any GDK-using Godot project (your own,
+   or one of the tutorial samples once PR 3 lands) and check the
+   title-screen HUD:
 
    | HUD readout | Meaning |
    |---|---|
@@ -131,8 +133,8 @@ ever bind (`SIGNED OUT`).
 The supported dev workflow is to export the sample into a `Build/` folder
 and register that folder with `wdapp`:
 
-1. Open the sample's project in the Godot editor (e.g.
-   `sample\multiplayer_pong\project.godot`).
+1. Open the project in the Godot editor (your own project's
+   `project.godot`).
 2. **(One-time)** If you've never installed Godot's Windows export
    templates: **Project → Manage Export Templates… → Download and Install**.
 3. Export and prepare the loose layout with the packaging runner:
