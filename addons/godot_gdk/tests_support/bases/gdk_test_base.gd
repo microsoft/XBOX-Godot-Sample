@@ -5,9 +5,9 @@ extends GutTest
 ## (the mirrored res:// path produced by the second
 ## `godot_addon_mirror_test_support` call in the root `CMakeLists.txt`).
 ##
-## Helpers absorbed from `sample/gdk_demo/tests/test_context.gd` (and their
-## near-duplicates in the PlayFab test_context). Helpers used by only one
-## suite were intentionally left in their suite files; Wave 3 may move them
+## Helpers absorbed from the now-removed `sample/gdk_demo/tests/test_context.gd`
+## (and their near-duplicates in the PlayFab test_context). Helpers used by only
+## one suite were intentionally left in their suite files; Wave 3 may move them
 ## here later if cross-cutting use emerges.
 
 const TestEnv = preload("res://addons/godot_gdk_tests/test_env.gd")
@@ -93,9 +93,10 @@ func track_signal(async_signal) -> Dictionary:
 
 
 # Drains the GDK manual completion queue while waiting. Mirrors the historic
-# `wait_for_tracked_signal` from `sample/gdk_demo/tests/test_context.gd` —
-# pumps `GDK.dispatch()` each loop iteration so manager-driven completions
-# resolve under both `embed_dispatch=true` and `embed_dispatch=false`.
+# `wait_for_tracked_signal` from the now-removed
+# `sample/gdk_demo/tests/test_context.gd` — pumps `GDK.dispatch()` each loop
+# iteration so manager-driven completions resolve under both
+# `embed_dispatch=true` and `embed_dispatch=false`.
 #
 # Renamed from the pre-GUT `wait_for_tracked_signal` to avoid shadowing
 # `GutTest.wait_for_signal(Signal, max_time, msg)` which has a different

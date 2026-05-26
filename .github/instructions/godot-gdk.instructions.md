@@ -1,6 +1,6 @@
 ---
 description: Godot GDK addon architecture, async model, script conventions, and sample workflow
-applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/gdk_demo/addons/godot_gdk/**, sample/gdk_demo/main.gd, sample/gdk_demo/main.tscn, sample/gdk_demo/MicrosoftGame.config, sample/gdk_demo/project.godot, sample/gdk_demo/sample_config.cfg.template, sample/gdk_launch_point/project.godot, sample/multiplayer_pong/project.godot, sample/playfab_demo/project.godot, docs/gdk/**, spec/gdext-gdk.md, tools/setup_sample.ps1"
+applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, docs/gdk/**, spec/gdext-gdk.md, tools/setup_sample.ps1"
 ---
 
 # Godot GDK Addon Instructions
@@ -83,7 +83,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
 ```
 
-  The orchestrator runs (in order): `check_gd_scripts_headless.ps1` parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), one GUT run per coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput` — `multiplayer_pong` is intentionally **not** a test host), and the per-scenario bootstrap mini-runners under each host's `tests\bootstrap\` directory. Aggregate results land in `build\test-results\run-summary.{json,md}`.
+  The orchestrator runs (in order): `check_gd_scripts_headless.ps1` parse gate, `cmake --build --preset debug`, the C++ doctest exe (`gdk_unit_tests.exe`), one GUT run per coverage host (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`), and the per-scenario bootstrap mini-runners under each host's `tests\bootstrap\` directory. Aggregate results land in `build\test-results\run-summary.{json,md}`.
 - For iterative work on a single host, you can also run GUT directly:
 
 ```powershell

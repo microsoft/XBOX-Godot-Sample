@@ -61,9 +61,12 @@ lives in the separate `godot_gdk_packaging` addon. The current
 
 ### Sample project
 
-- `sample\gdk_demo\project.godot`
+> **No sample projects currently.** The repository is mid-revamp;
+> samples are returning in PR 3 of the tutorial-driven sample
+> series (`sample/tutorial_app/` and
+> `sample/tutorial_gameinput/`).
+
 - `addons\godot_gdk\runtime\gdk_bootstrap.gd`
-- `sample\gdk_demo\main.gd`
 - `tests\godot\gdk\tests\`
 
 ## Build and packaging flow
@@ -150,8 +153,6 @@ projects exercise different slices of the addon surface.
 
 In practice:
 
-- `sample\gdk_demo\` is the canonical GDK regression sample
 - `tests\godot\gdk\` is the canonical GDK test harness
-- `sample\gdk_launch_point\` and `sample\multiplayer_pong\` consume the same synced addon payload for broader scenario coverage
-- `sample\playfab_demo\` also receives synced `godot_gdk` files because the PlayFab sample depends on the GDK runtime/user flow
 - `tests\godot\playfab\` receives `godot_gdk` when `GODOT_PLAYFAB_TEST_HOST_WITH_GDK=ON` so optional Xbox-backed PlayFab compatibility tests can run; turn the option off to keep the PlayFab host custom-ID-only
+- Sample projects are temporarily absent. PR 3 of the tutorial-driven sample revamp will reintroduce `sample\tutorial_app\` (integrated chain) and `sample\tutorial_gameinput\` (standalone GameInput demo), wiring them into the same addon-sync infrastructure described above.

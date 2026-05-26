@@ -10,8 +10,11 @@ GDK side. Each addon can also be used on its own.
 
 The addons are designed to be dropped into any Godot 4.5+ project — most
 developers will consume them as a prebuilt addon zip. This repository is where
-the addons are authored, built, tested, and demonstrated through a small set
-of sample projects.
+the addons are authored, built, tested, and (once the tutorial-driven sample
+revamp's PR 3 lands) demonstrated through a small set of tutorial sample
+projects. Sample projects are temporarily absent while that revamp lands;
+follow the [tutorials](docs/tutorials/README.md) in your own project in the
+meantime.
 
 ## Addons
 
@@ -29,7 +32,7 @@ Full documentation lives in [`docs/`](docs/README.md).
 Start here:
 
 - [**Documentation index**](docs/README.md) — full doc tree
-- [**Getting started**](docs/getting-started.md) — clone, build, run a sample, sign in
+- [**Getting started**](docs/getting-started.md) — clone, build, install the addons in your own Godot project, and sign in
 - [**Addons quickstart**](docs/addon-getting-started.md) — drop-in addon zip in an existing project
 - [**Tutorials**](docs/tutorials/README.md) — task-oriented walkthroughs (sign-in, achievements, leaderboards, Game Saves, lobbies, GameInput)
 - [**Troubleshooting**](docs/troubleshooting.md) — common build, runtime, and test issues

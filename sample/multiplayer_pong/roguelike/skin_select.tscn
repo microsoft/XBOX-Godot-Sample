@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8r4xpongroyaleskin"]
-
-[ext_resource type="Script" path="res://roguelike/skin_select.gd" id="1_skin"]
-
-[node name="SkinSelect" type="Node2D"]
-script = ExtResource("1_skin")

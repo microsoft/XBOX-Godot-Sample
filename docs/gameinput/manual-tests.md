@@ -4,26 +4,30 @@ The headless test suite under `tests/godot/gameinput/tests/` covers everything t
 can be verified without a real controller. This document covers the pieces
 that need a human + hardware in the loop.
 
+> **Sample-dependent steps are temporarily inert.** The repository is
+> mid-revamp; samples are returning in PR 3 of the tutorial-driven
+> sample series (`sample/tutorial_app/` for the action-bridge demo
+> and `sample/tutorial_gameinput/` as a standalone scene). The
+> checklist below references the historical sample names —
+> `gdk_launch_point` for the scenario shell and `multiplayer_pong`
+> for the rumble-on-event verification — and will be re-pointed at
+> the new samples once they land. Until then, GameInput hardware
+> testing falls back to the GUT host plus your own minimal Godot
+> project that calls `GameInput.initialize()` and exercises the
+> action bridge.
+
 ## Setup
 
-1. Build the addon and launch the **GDK Launch Point** sample editor:
+1. Build the addon:
 
     ```powershell
     cmake --preset default
     cmake --build build --preset debug
-    cd sample\gdk_launch_point
-    .\launch_editor.bat
     ```
 
-2. Press **Play** to run the scenario shell.
-3. From the home screen, open the **GameInput** group.
-
-> Pong rumble verification needs the **multiplayer_pong** sample instead:
->
-> ```powershell
-> cd sample\multiplayer_pong
-> .\launch_editor.bat
-> ```
+2. Open the GameInput-using Godot project of your choice. Until the
+   samples land (PR 3), this means a project you wired up
+   following [Tutorial — GameInput action bridge](../tutorials/06-gameinput-action-bridge.md).
 
 ## Per-feature checklist
 
@@ -84,31 +88,17 @@ Connect two vibration-capable controllers.
 
 ### Mapper — `Input.is_action_pressed` integration
 
-The Mapper is exercised through pong; for a focused unit you can also drop a
-`GameInputMapper` node into a test scene and assign a small
-`GameInputActionMap` with one binding.
+The Mapper is exercised by any project that wires a `GameInputMapper` node
+to a `GameInputActionMap`. For a focused unit, drop a `GameInputMapper`
+node into a scene and assign a small `GameInputActionMap` with one binding.
 
-- [ ] With the pong sample running and a controller plugged in,
-  `move_up` / `move_down` actions in the existing `[input]` map drive the
-  paddle. (This works through Godot's standard joypad mapping; the Mapper
-  layer adds GameInput devices that aren't recognised by Godot's built-in joypad
-  enum.)
+- [ ] With a project that maps `move_up` / `move_down` to controller axes,
+  the actions drive your gameplay. (This works through Godot's standard
+  joypad mapping; the Mapper layer adds GameInput devices that aren't
+  recognised by Godot's built-in joypad enum.)
 - [ ] When you create a custom `GameInputBinding` that targets an action
   **not** present in `InputMap`, the Mapper logs **one** warning per missing
   action (not per frame).
-
-## Pong-specific checks
-
-Run the **multiplayer_pong** sample in **Single Player** mode.
-
-- [ ] Score events vibrate the primary controller (low-freq pulse, ~0.25 s).
-- [ ] Paddle hits vibrate the primary controller (short low-freq pulse,
-  ~0.08 s).
-- [ ] Plug a controller in at the lobby — status text shows
-  `Controller connected: <Name>`.
-- [ ] Unplug the controller — status text shows `Controller disconnected.`
-- [ ] Pong remains fully playable on keyboard if no controller is connected
-  (rumble paths soft-fail silently).
 
 ## Regression smoke
 
@@ -119,8 +109,9 @@ After any change to the GameInput addon C++:
   pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts @('tests\godot\gameinput')
   ```
   Expected output ends with `Overall: pass`.
-- [ ] Both editors (`gdk_launch_point`, `multiplayer_pong`) launch without
-  `ERROR:` lines mentioning `gameinput` in editor output.
+- [ ] Any GameInput-using Godot project (yours or, once PR 3 lands, the
+  tutorial samples) launches without `ERROR:` lines mentioning `gameinput`
+  in editor output.
 - [ ] `GameInput` singleton appears in **Project → Project Settings →
   Globals** (or wherever Godot lists engine singletons in your version).
 

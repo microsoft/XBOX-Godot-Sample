@@ -25,11 +25,12 @@ Xbox Live services. You can configure everything through the in-editor
 
 ## Option A: Configure in the Godot editor (recommended)
 
-1. Build the addon and open the sample in the editor:
+1. Build the addon and open your Godot project in the editor:
    ```powershell
    cmake --build build --preset debug
-   .\sample\gdk_demo\launch_editor.bat
    ```
+   Then launch your Godot 4.x editor and **Project → Open** the
+   `project.godot` of the project you are configuring.
 2. Find the **GDK Setup** panel in the bottom-right dock
 3. Enter your Partner Center values
 4. Click **Save Configuration** — this writes `sample_config.cfg` (used at

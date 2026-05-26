@@ -24,7 +24,7 @@ The addon gives GDScript first-class access to:
 | `GameInputDevice.get_device_info()` | Shipped (issue #23, device-info half) |
 | `GameInputBinding` / `GameInputActionMap` / `GameInputMapper` | Shipped |
 | `EditorPlugin` autoload installer + Project Settings | Shipped |
-| Sample integration (`gdk_launch_point`, `multiplayer_pong`) | Shipped |
+| Sample integration (`sample/tutorial_app/` action-bridge scene + `sample/tutorial_gameinput/`) | Returning in PR 3 of the tutorial-driven sample revamp |
 | Headless test suite | Shipped |
 | Manual hardware checklist ([docs/gameinput/manual-tests.md](manual-tests.md)) | Shipped |
 | Reading callbacks (event-driven) | Deferred — see issue list |
@@ -160,19 +160,21 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 
 ## Sample integration
 
-* **`sample/gdk_launch_point`** — full GameInput scenario panel with Initialize /
-  Shutdown / List Devices / Inspect Primary / Rumble Pulse / Stop Rumble.
-  Live device count surfaces in the state panel; hot-plug events
-  appear in the event log.
-* **`sample/multiplayer_pong`** — paddle-hit and score events vibrate the
-  primary controller; the lobby surfaces controller hot-plug / disconnect as
-  status messages.
+> **No sample projects currently.** PR 3 of the tutorial-driven
+> sample revamp will add a GameInput scenario panel inside
+> `sample/tutorial_app/` (Initialize / Shutdown / List Devices /
+> Inspect Primary / Rumble Pulse / Stop Rumble, with live device
+> count and hot-plug events in an event log), plus the standalone
+> `sample/tutorial_gameinput/` project that builds the action
+> bridge from scratch. Until then, follow
+> [Tutorial — GameInput action bridge](../tutorials/06-gameinput-action-bridge.md)
+> in your own project.
 
 ## Testing this addon
 
 `godot_gameinput` is exercised by the `tests\godot\gameinput\` host. Coverage lives under `tests\godot\gameinput\tests\` and includes files such as `test_gameinput_core.gd`, `test_gameinput_device.gd`, `test_gameinput_reading.gd`, `test_gameinput_resource.gd`, `test_gameinput_mapper.gd`, `test_gameinput_mapper_extensions.gd`, and `test_gameinput_threading_smoke.gd`. Bootstrap autoload checks live under `tests\godot\gameinput\tests\bootstrap\`.
 
-GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md). `sample\multiplayer_pong\` demonstrates GameInput rumble but is not a test host.
+GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md).
 
 Run the standard pipeline from the repository root:
 

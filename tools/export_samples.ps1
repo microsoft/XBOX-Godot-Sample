@@ -16,18 +16,18 @@
     want a quick PC export and `tools\run_all_tests.ps1` -style automation;
     use the editor panel for full GDK packaging.
 
-    Sample preset configuration (current state of the repo):
-      - gdk_demo:         "Windows Desktop", "Xbox GDK (PC)", "Windows Desktop 2"
-      - gdk_launch_point: "Windows Desktop"
-      - multiplayer_pong: "Windows Desktop"
-      - playfab_demo:     no export_presets.cfg (intentionally headless-only).
-                          Default behavior skips it; explicit `-Sample
-                          playfab_demo` exits non-zero with an explanatory
-                          message.
+    NOTE: The repository currently has **no sample projects**. The
+    tutorial-driven sample revamp (PR 3 of that series) will add
+    `sample/tutorial_app/` and `sample/tutorial_gameinput/`. Until those
+    land, this script accepts the `-Sample` parameter as a free-form
+    string and gracefully reports "no samples currently" when the
+    requested sample does not exist. The default `-Sample` value is empty
+    so a no-arg invocation succeeds.
 
 .PARAMETER Sample
-    Subset of samples to export. Defaults to all four. Unknown names exit
-    non-zero before any work runs.
+    One or more sample directory names under `sample\`. Default is empty
+    (no samples). When the repo has samples again, pass the directory
+    name (e.g. `tutorial_app`).
 
 .PARAMETER Preset
     Godot export preset name. Default: `Windows Desktop`. Pass an alternate
@@ -55,21 +55,15 @@
 
 .EXAMPLE
     .\tools\export_samples.ps1
-    Default: Debug exports for gdk_demo, gdk_launch_point, multiplayer_pong;
-    skips playfab_demo with a notice.
+    No-op on this branch (no samples currently). Returns exit code 0.
 
 .EXAMPLE
-    .\tools\export_samples.ps1 -Sample multiplayer_pong -Configuration Release
-    Release export of multiplayer_pong only.
-
-.EXAMPLE
-    .\tools\export_samples.ps1 -Sample gdk_demo -Preset 'Xbox GDK (PC)'
-    Switch the preset for a one-off Xbox GDK export.
+    .\tools\export_samples.ps1 -Sample tutorial_app -Configuration Release
+    Release export of `sample\tutorial_app\` (once PR 3 lands).
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('gdk_demo', 'gdk_launch_point', 'multiplayer_pong', 'playfab_demo')]
-    [string[]]$Sample = @('gdk_demo', 'gdk_launch_point', 'multiplayer_pong', 'playfab_demo'),
+    [string[]]$Sample = @(),
 
     [string]$Preset = 'Windows Desktop',
 
@@ -236,6 +230,13 @@ function Get-ProjectName {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+if ($Sample.Count -eq 0) {
+    Write-Host "export_samples.ps1: no samples to export (sample/ is currently empty)."
+    Write-Host "                   The tutorial-driven sample revamp (PR 3) will add"
+    Write-Host "                   sample/tutorial_app/ and sample/tutorial_gameinput/."
+    exit 0
+}
 
 $godotExe = Get-GodotExecutable -Explicit $Godot
 Write-Host "export_samples.ps1: Godot=$godotExe Configuration=$Configuration Preset='$Preset'"

@@ -22,8 +22,6 @@ This is the landing page for the `godot_playfab` docs set.
 - `PlayFab.events` as a reserved service namespace; the current GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
 - PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
 - PlayFab Party network host (`create_and_join_network_async`) and join (`join_network_async`) flows over the PartyManager runtime, with peer-id handshake, descriptor publishing, chat controls (voice/text/transcription), mute, and permission management; the per-network peer object is a Godot `MultiplayerPeerExtension`
-- sample demos wired to the root singleton, including multiplayer_pong's
-  sample-local service wrapper for Game Saves and leaderboard sync
 - GUT coverage under `tests\godot\playfab\tests\`
 - idempotent extension registration so duplicated synced `.gdextension` files do not spam duplicate singleton/class registration
 

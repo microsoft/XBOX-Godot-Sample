@@ -45,16 +45,16 @@
 
 .PARAMETER Projects
     Optional repo-relative project/context paths to validate. Examples:
-    `addons`, `sample\gdk_launch_point`, `tests\godot\gdk`. Parent directories
+    `addons`, `tests\godot\gdk`. Parent directories
     such as `sample` match every discovered validation context under that path.
     When calling through `pwsh -File`, pass multiple targets as a comma-separated
-    value such as `-Projects addons,sample\gdk_launch_point`.
+    value such as `-Projects addons,tests\godot\gdk`.
 
 .PARAMETER ExcludeProjects
     Optional repo-relative project/context paths to skip after applying
     -Projects. Uses the same matching rules as -Projects. For example,
-    `-ExcludeProjects sample\multiplayer_pong` keeps the rest of the parse gate
-    active while skipping the Pong sample project.
+    `-ExcludeProjects tests\godot\playfab` keeps the rest of the parse gate
+    active while skipping the PlayFab host project.
 #>
 [CmdletBinding()]
 param(

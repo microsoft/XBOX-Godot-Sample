@@ -36,17 +36,18 @@ docs/
 
 ## Sample projects
 
-Four sample projects live under `sample/`:
-
-| Sample | Description |
-|--------|-------------|
-| [`gdk_demo`](gdk/sample-and-tests.md) | GDK addon demo |
-| [`gdk_launch_point`](gdk/sample-and-tests.md) | GDK Launch Point scenario shell |
-| `multiplayer_pong` | Multiplayer pong with Xbox identity and GameInput rumble; not a test host |
-| [`playfab_demo`](playfab/plugin.md) | PlayFab sign-in, Game Saves, and leaderboard sample |
-
-All samples share the same GDK setup. See [Sample Project Setup](gdk/sample-setup.md)
-for Partner Center configuration.
+> **No sample projects currently.** The repository is mid-revamp;
+> samples are returning in PR 3 of the tutorial-driven sample
+> series:
+>
+> - `sample/tutorial_app/` — integrated tutorial chain (sign-in,
+>   achievements, leaderboards, game saves, lobby, MPA, Party,
+>   integration tech demo)
+> - `sample/tutorial_gameinput/` — standalone GameInput demo
+>
+> Until then, [the tutorials](../docs/tutorials/README.md) walk
+> through each surface, and the test hosts under `tests/godot/`
+> exercise the addons end-to-end.
 
 ## Godot GDK addon (`godot_gdk`)
 
