@@ -49,6 +49,18 @@ Sample output:
 > `PlayFab.player_data` for structured per-player JSON that does not
 > need the Xbox-backed sync semantics.
 
+## Relevant addon surfaces
+
+- [`PlayFab.game_saves`](../playfab/plugin.md) —
+  `add_user_with_ui_async`, `upload_with_ui_async`,
+  `get_folder`, `get_folder_size`, `get_remaining_quota`,
+  `is_connected_to_cloud`, `set_save_description_async`,
+  `reset_cloud_async`.
+- [`PlayFabUser`](../playfab/plugin.md) — read
+  `has_local_user_handle` to confirm an Xbox-backed session.
+- One-page primer on the addons' async model:
+  [Async patterns](../async-patterns.md).
+
 ## Step 1 — Add the user to Game Saves
 
 Game Saves treats your signed-in PlayFab session as the identity for

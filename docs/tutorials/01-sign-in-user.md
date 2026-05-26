@@ -36,6 +36,24 @@ Everything in tutorials 2–5 assumes you can reach this state.
   `is_initialized()` so they survive a project that has the auto-init
   turned off.
 
+## Relevant addon surfaces
+
+- [`GDK.users`](../../addons/godot_gdk/doc_classes/GDKUsers.xml)
+  — `get_primary_user`, `add_default_user_async`,
+  `add_user_with_ui_async`, `user_changed` (avoid for sign-in
+  bootstrap).
+- [`GDKUser`](../../addons/godot_gdk/doc_classes/GDKUser.xml) —
+  the typed wrapper your `Auth.xbox_user` holds. Read
+  `signed_in`, `gamertag`, `xbox_user_id`.
+- [`PlayFab.users`](../playfab/plugin.md) —
+  `sign_in_with_xuser_async`, `sign_in_with_custom_id_async`.
+- [`PlayFabUser`](../playfab/plugin.md) — the typed wrapper your
+  `Auth.playfab_user` holds. Read `entity_key`,
+  `has_local_user_handle`.
+- [`GDKResult`](../../addons/godot_gdk/doc_classes/GDKResult.xml)
+  / `PlayFabResult` — the normalized result type returned by every
+  `_async` call (see [Async patterns](../async-patterns.md)).
+
 ## Step 1 — Add an `Auth` autoload
 
 Create `res://auth/auth.gd`:

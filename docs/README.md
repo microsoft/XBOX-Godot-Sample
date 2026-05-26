@@ -11,6 +11,7 @@ docs/
 ├── README.md                                — this index
 ├── getting-started.md                       — onboarding (repo build + first sign-in)
 ├── addon-getting-started.md                 — addon-zip quickstart
+├── async-patterns.md                        — one-page async-system primer
 ├── troubleshooting.md                       — common build, runtime, and test issues
 ├── tutorials/                               — task-oriented walkthroughs
 ├── gdk/                                     — godot_gdk addon
@@ -29,8 +30,12 @@ docs/
   quickstart shipped inside the addon zip (enable, set PlayFab title
   id, create game config, switch sandbox, sign in)
 - [**Tutorials**](tutorials/README.md) — task-oriented walkthroughs
-  for sign-in, achievements, leaderboards, Game Saves, lobbies, and
-  GameInput
+  for sign-in, achievements, leaderboards, Game Saves, lobbies,
+  Multiplayer Activity, PlayFab Party, the integration tech demo
+  capstone, plus a standalone GameInput track
+- [**Async patterns**](async-patterns.md) — one-page primer on the
+  `_async` naming convention, `await`-on-coroutine, Result objects,
+  and service-level runtime errors
 - [**Test Pipeline**](gdk/sample-and-tests.md) — repo-wide orchestrator,
   GUT hosts, C++ doctest, live switch, and test baselines
 

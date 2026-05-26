@@ -8,6 +8,50 @@ PlayFab (`godot_playfab`).
 It also covers building the addon binaries from source, which is the current
 way to obtain them.
 
+## Who this is for
+
+- **Godot developers** building a Windows game that needs to ship with
+  Microsoft Store / GDK identity, Xbox Live services, PlayFab backend
+  features, GameInput, or MSIXVC packaging.
+- **Comfortable with Godot 4.x** as an everyday tool: scenes, autoloads,
+  signals, `await`, and the in-editor F1 documentation.
+- **Have at least a sandbox Partner Center title** (or plan to) — the
+  Xbox-services side of the addons cannot meaningfully be exercised
+  without a title id, SCID, and a sandbox.
+
+You do **not** need prior Microsoft GDK or PlayFab experience to follow
+the [tutorials](tutorials/README.md). You **do** need a working Godot
+project, a Windows PC, and (for live tests) a sandbox-provisioned test
+account.
+
+## You should already know
+
+- Godot 4.x editor workflow (creating scenes, attaching scripts,
+  using autoloads, reading the Output panel).
+- GDScript basics: `func`, `var` with type hints, `await`, `signal`,
+  `match`. The tutorial snippets are dense; you should be able to read
+  one without looking up GDScript syntax.
+- One-shot async with `await Signal` — this is how every long-running
+  call in the addons resolves. The dedicated
+  [Async patterns](async-patterns.md) page is the one-page primer the
+  tutorials assume you've read.
+
+## You need
+
+- Windows 10 (build 18362+) or Windows 11
+- [Godot 4.5+](https://godotengine.org/download) (stable, Windows
+  64-bit)
+- [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed
+  (`winget install Microsoft.Gaming.GDK`)
+- A built copy of each addon you want to use — either a release zip,
+  or built from source per **Step 1** below
+- For Xbox-services tutorials (T1+): a Partner Center title + SCID +
+  sandbox test account
+- For PlayFab tutorials (T1+): a PlayFab title id
+- A scratch Godot project to copy the addons into (the tutorials build
+  one from scratch — you do not need to clone this repo as a
+  Godot project)
+
 > **TL;DR**
 > 1. Get the addon binaries (download a release zip, or build one from source).
 > 2. Extract or copy `addons/<addon>/` into your project, including the `bin/` folder.
@@ -26,6 +70,11 @@ way to obtain them.
 | `addons/godot_gdk_packaging` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
 
 The four addons are independent — ship one, several, or all of them.
+
+When something goes wrong while you follow the tutorials, the
+[Troubleshooting](troubleshooting.md) page collects the failures we see
+most often (DLL load 126, SCID mismatch, sandbox mismatch, schema
+errors in `MicrosoftGame.config`, etc.).
 
 ---
 

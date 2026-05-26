@@ -171,6 +171,174 @@ git submodule update --init --recursive
 See [Sample Project Setup](gdk/sample-setup.md) for the full
 configuration guide.
 
+## SCID does not match between `MicrosoftGame.config` and Partner Center
+
+**Symptom:**
+
+```
+[GDK] add_default_user_async failed: code=auth_invalid_scid, message=...
+```
+
+Or sign-in succeeds but every Xbox services call (achievements,
+leaderboards, MPA, presence) fails with `404` / `not_found` / a similar
+"unknown SCID" diagnostic.
+
+**Cause:** The `<ExtendedAttributeList>` `Scid` value inside
+`MicrosoftGame.config` does not match the SCID assigned to your title in
+Partner Center, or matches an SCID from a different sandbox.
+
+**Fix:**
+
+1. In Partner Center → your title → **Xbox services → Service
+   configuration → IDs**, copy the **Service Configuration ID** value.
+2. Open your project's `MicrosoftGame.config` and confirm the `Scid`
+   attribute under
+   `ExtendedAttributeList/ExtendedAttribute Name="Xbox.Services.Configuration"`
+   matches **exactly** (uppercase, no surrounding whitespace).
+3. Repackage and reinstall (`makepkg pack` → `wdapp register`); the
+   running game keeps the SCID it was packaged with.
+
+If the SCID is right but sign-in still fails with an SCID-shaped
+error, the game's **sandbox** does not match the SCID's sandbox. See
+the next entry.
+
+## Sandbox mismatch between PC and test account
+
+**Symptom:**
+
+- Sign-in succeeds in **RETAIL** but returns no friend list / no
+  achievements / wrong gamerscore.
+- Sign-in fails immediately with `auth_no_account` when the account
+  works fine on a different machine.
+- The Game Bar identity badge shows a different gamertag than the one
+  Xbox services returns.
+
+**Cause:** The PC's active sandbox does not match the sandbox the test
+account is provisioned in (or the SCID is published into).
+
+**Fix:**
+
+1. Switch the PC's sandbox to the one your test account lives in:
+   ```powershell
+   & "C:\Program Files (x86)\Microsoft GDK\bin\XblPCSandbox.exe" YOURSANDBOX.0
+   ```
+2. Sign out of the Microsoft Store / Xbox app, then sign back in with
+   the test account.
+3. Re-run the game.
+
+Use `RETAIL` only for live builds. While developing, stay on a
+non-retail sandbox tied to your title's Partner Center configuration.
+
+## `MicrosoftGame.config` schema errors during `makepkg pack`
+
+**Symptom:**
+
+```
+MakePkg : error 0xc00ce169 : 'GodotGDK Sample' violates pattern constraint of '[^_ ]+'
+MakePkg : error: <Identity Name="..."> contains an illegal character
+```
+
+…or any `makepkg.exe` error citing `MicrosoftGame.config` and an
+attribute name (`Identity/@Name`, `Identity/@Publisher`, etc.).
+
+**Cause:** `MicrosoftGame.config` is validated against a strict XML
+schema. Two common slip-ups:
+
+- `Identity/@Name` and `Identity/@Publisher` reject spaces and
+  underscores. `DisplayName` and `PublisherDisplayName` allow them.
+- `Identity/@Publisher` must start with `CN=` (e.g. `CN=Contoso`).
+
+**Fix:**
+
+- Edit `MicrosoftGame.config` so `Identity/@Name` is alphanumeric +
+  hyphens only (`GodotGDK-Sample`, not `GodotGDK Sample`).
+- Keep `Identity/@Publisher` as `CN=<your publisher name>`.
+- If you generated the config from `GDKPackagingConfig`, re-run the
+  generator after fixing the source name; the generator sanitizes the
+  Identity name automatically.
+
+See [Packaging plugin](packaging/plugin.md) for the full config
+schema.
+
+## `PlayFab.initialize()` fails with `title_id_required`
+
+**Symptom:**
+
+```
+[PlayFab] initialize failed: code=title_id_required, message=Set playfab/runtime/title_id in Project Settings.
+```
+
+**Cause:** The PlayFab runtime needs a title id at initialize time.
+The `playfab/runtime/title_id` project setting is empty or missing.
+
+**Fix:**
+
+1. Open **Project → Project Settings → PlayFab → Runtime** (with the
+   `GodotPlayFab` plugin enabled, the section appears automatically).
+2. Set **Title Id** to your PlayFab title id (a 4–6 character
+   hexadecimal string from PlayFab Game Manager → your title →
+   **Settings → API features**).
+3. Save the project.
+
+If you initialize PlayFab from script before the project settings have
+been loaded (e.g. from a `_init` rather than `_ready`), `title_id`
+reads as empty even when it is set in the project file. Initialize
+PlayFab from an autoload's `_ready` instead — the
+`GodotPlayFab` editor plugin's `PlayFabBootstrap` autoload does this
+for you when you flip `playfab/runtime/initialize_on_startup` to
+`true`.
+
+## `PlayFab.users.sign_in_with_xuser_async` fails with `invalid_xuser` or `xuser_not_found`
+
+**Symptom:**
+
+```
+[PlayFab] sign-in failed: code=invalid_xuser, message=The provided GDK user is not signed in.
+```
+
+…or:
+
+```
+[PlayFab] sign-in failed: code=xuser_not_found, message=Failed to find an active XUserHandle for the provided GDK user.
+```
+
+**Cause:** `PlayFab.users.sign_in_with_xuser_async` takes a typed
+`GDKUser` object and reads its `local_id` to find the matching
+`XUserHandle`. Two failure paths show up most often:
+
+- `invalid_xuser` — the GDK user you passed in is `null`, has not
+  finished sign-in (`signed_in == false`), or does not expose a
+  non-zero `local_id`. Most common cause: handing `PlayFab` a stale
+  `Auth.xbox_user` from before sign-in completed.
+- `xuser_not_found` — the `local_id` was valid at one point but the
+  underlying `XUserHandle` has been freed or signed out. Most common
+  cause: signing out of Xbox between `add_default_user_async` and
+  `sign_in_with_xuser_async`, or holding a stored user across a
+  long-running test session.
+
+**Fix:**
+
+1. Confirm Xbox sign-in completed and the user is still live before
+   passing it to PlayFab:
+   ```gdscript
+   var xbox_result := await GDK.users.add_default_user_async()
+   assert(xbox_result.ok, "Xbox sign-in failed before PlayFab")
+   ```
+2. Pass the `xbox_result.data` (a `GDKUser`) into PlayFab sign-in:
+   ```gdscript
+   var pf_result := await PlayFab.users.sign_in_with_xuser_async(xbox_result.data)
+   ```
+   Do not pass an `xuid` or a raw local id directly — `sign_in_with_xuser_async`
+   takes the typed `GDKUser` object.
+3. If the Xbox sign-in succeeded but PlayFab still fails with
+   `xuser_not_found`, re-run `GDK.users.add_default_user_async()` to
+   obtain a fresh `GDKUser` and immediately retry — the previous
+   handle was released.
+4. If the failure is consistent across fresh sign-ins, your PlayFab
+   title may not have Xbox Live linked. In PlayFab Game Manager →
+   your title → **Add-ons → Xbox Live**, install the add-on and
+   configure it with your title's SCID.
+
 ## Tests
 
 ### Orchestrator says all green but my new test wasn't discovered

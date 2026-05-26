@@ -167,7 +167,7 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 > count and hot-plug events in an event log), plus the standalone
 > `sample/tutorial_gameinput/` project that builds the action
 > bridge from scratch. Until then, follow
-> [Tutorial — GameInput action bridge](../tutorials/06-gameinput-action-bridge.md)
+> [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md)
 > in your own project.
 
 ## Testing this addon
