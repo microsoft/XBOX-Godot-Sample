@@ -27,7 +27,7 @@ that need a human + hardware in the loop.
 
 2. Open the GameInput-using Godot project of your choice. Until the
    samples land (PR 3), this means a project you wired up
-   following [Tutorial — GameInput action bridge](../tutorials/06-gameinput-action-bridge.md).
+   following [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md).
 
 ## Per-feature checklist
 

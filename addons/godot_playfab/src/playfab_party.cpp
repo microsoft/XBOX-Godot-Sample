@@ -2466,6 +2466,26 @@ void PlayFabParty::_process_chat_text_received(const Party::PartyStateChange *p_
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("message_received", message);
     }
+    // Mirror onto the network-level peer signal so titles that wired
+    // PlayFabPartyPeer.text_message_received (the documented + tested
+    // public API) actually receive incoming chat. A chat control is
+    // only ever associated with one tracked network, so break after the
+    // first match to avoid unnecessary scans and any chance of double
+    // emission if that invariant ever changes.
+    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+        if (!network.is_valid()) {
+            continue;
+        }
+        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+        if (!peer.is_valid()) {
+            continue;
+        }
+        int32_t peer_id = peer->find_peer_by_chat_control(change->senderChatControl);
+        if (peer_id != 0) {
+            peer->emit_text_message(peer_id, message);
+            break;
+        }
+    }
 }
 
 void PlayFabParty::_process_voice_chat_transcription_received(const Party::PartyStateChange *p_change) {
@@ -2488,6 +2508,26 @@ void PlayFabParty::_process_voice_chat_transcription_received(const Party::Party
     message->set_values(sender_wrapper, Dictionary(), targets, text, language, text, true, 0, Dictionary());
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("transcription_received", message);
+    }
+    // Mirror onto the network-level peer signal so titles that wired
+    // PlayFabPartyPeer.transcription_received (the documented + tested
+    // public API) actually receive transcribed audio. A chat control is
+    // only ever associated with one tracked network, so break after the
+    // first match to avoid unnecessary scans and any chance of double
+    // emission if that invariant ever changes.
+    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+        if (!network.is_valid()) {
+            continue;
+        }
+        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+        if (!peer.is_valid()) {
+            continue;
+        }
+        int32_t peer_id = peer->find_peer_by_chat_control(change->senderChatControl);
+        if (peer_id != 0) {
+            peer->emit_transcription(peer_id, message);
+            break;
+        }
     }
 }
 

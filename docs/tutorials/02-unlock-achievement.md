@@ -44,6 +44,19 @@ When it works, the editor Output ends with:
 > calls against an undeclared id return a service error and do not
 > create the achievement on the fly.
 
+## Relevant addon surfaces
+
+- [`GDK.achievements`](../../addons/godot_gdk/doc_classes/GDKAchievements.xml)
+  — `query_player_achievements_async`,
+  `update_achievement_async`, `get_cached_achievements`,
+  signal `achievement_unlocked(user, achievement_id)`,
+  `runtime_error` for service-level failures.
+- [`GDKAchievement`](../../addons/godot_gdk/doc_classes/GDKAchievement.xml)
+  — the cached snapshot wrapper. Read `id`, `name`,
+  `progress_percent`, `is_secret`.
+- One-page primer on the addons' async model:
+  [Async patterns](../async-patterns.md).
+
 ## Step 1 — Confirm the achievement is reachable
 
 Before you write any progress code, prove the round-trip works by
@@ -229,6 +242,6 @@ You now have one Xbox achievement firing end-to-end. Tutorial 3
 moves on to leaderboards, which use the same `GDKUser` plus the
 title-managed statistics system:
 
-- [**Tutorial 3 — Post and query a leaderboard**](03-gdk-leaderboard.md)
+- [**Tutorial 3 — Post and query a PlayFab leaderboard**](03-playfab-leaderboard.md)
 - Reference: [GDKAchievements](../gdk/api-reference.md),
   [GDKAchievement](../gdk/api-reference.md)

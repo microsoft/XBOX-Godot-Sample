@@ -1,4 +1,10 @@
-# Tutorial 6 — Map a controller through GameInput
+# GameInput action bridge
+
+> **Standalone track.** This tutorial is independent of the main
+> cumulative chain (Sign-in → Achievements → Leaderboards → Game
+> Saves → Lobby → MPA → Party → Capstone). You can read it before,
+> after, or in parallel with that chain — it does not depend on
+> a signed-in Xbox user or any PlayFab state.
 
 ## What you'll build
 
@@ -25,6 +31,10 @@ controller would otherwise be routed through GameInput-only paths
 - The `godot_gameinput` addon is enabled in
   **Project Settings → Plugins** (the addon installs a
   `GameInputBootstrap` autoload).
+- A scratch Godot project with a single scene to attach the
+  mapper to. You do **not** need to have followed any tutorial
+  in the main cumulative chain — GameInput is entirely
+  independent of Xbox / PlayFab sign-in.
 - `game_input/runtime/initialize_on_startup` is set to `true`.
   This defaults to `false`, so flip it explicitly in
   **Project Settings → Game Input → Runtime** (or call
@@ -39,6 +49,26 @@ controller would otherwise be routed through GameInput-only paths
   gamepad) plugged into the dev PC. The action bridge is
   GDScript-only on top of `GameInput` — it works on any
   GameInput-supported device kind.
+- One-page primer on async patterns:
+  [Async patterns](../async-patterns.md) — GameInput is mostly
+  synchronous, but the surrounding addon conventions still apply.
+
+## Relevant addon surfaces
+
+- [`GameInput`](../../addons/godot_gameinput/doc_classes/GameInput.xml)
+  — `is_initialized`, `poll`, `get_devices`,
+  `get_connected_device_count`, signals `device_connected` /
+  `device_disconnected`.
+- [`GameInputActionMap`](../../addons/godot_gameinput/doc_classes/GameInputActionMap.xml)
+  — the typed `Resource` you author in the inspector (or in code).
+- [`GameInputBinding`](../../addons/godot_gameinput/doc_classes/GameInputBinding.xml)
+  — one row per action / source pair.
+- [`GameInputMapper`](../../addons/godot_gameinput/doc_classes/GameInputMapper.xml)
+  — the `Node` that polls and feeds `Input.action_press` /
+  `Input.action_release` every frame.
+- [`GameInputDevice`](../../addons/godot_gameinput/doc_classes/GameInputDevice.xml)
+  — wrapper exposing `get_device_id`, `get_display_name`, and the
+  `SRC_*` constants.
 
 > **GameInput vs. Godot's built-in joypad backend.** Godot has its
 > own joypad backend that delivers `InputEventJoypadButton` and
@@ -276,20 +306,22 @@ Common failures:
 
 ## What's next
 
-You now have a working GameInput → InputMap bridge and the full
-six-tutorial loop is done. Next steps from here:
+You now have a working GameInput → InputMap bridge. The GameInput
+track is intentionally a single-tutorial standalone — it does not
+chain into the main cumulative tutorials. From here:
 
-- **Combine the tutorials.** Tutorial 1 + 5 + 6 is the minimum for
-  a multiplayer prototype: signed-in users, a lobby, controller
-  input on both sides.
 - **Add rumble.** `GameInput.set_vibration(device, low, high, lt, rt)`
   takes the same `GameInputDevice` wrappers the bridge uses. The
   [GameInput addon doc](../gameinput/plugin.md) covers the rumble
   patterns the addon supports.
-- **Watch the "Coming next" section** in the
-  [tutorial index](README.md) for the next docs pass — matchmaking,
-  Party voice, presence, packaging, and direct-poll variants of the
-  GameInput API are all on the list.
+- **Per-player binding for split-screen.** The hot-plug handler in
+  Step 5 is the starting point — extend it to pin specific device
+  ids to per-player `GameInputMapper` nodes.
+- **Wire GameInput into a signed-in Xbox session.** If you also
+  built through the main cumulative chain (signs in, lobbies,
+  Party, MPA), the [capstone integration tech demo](08-integration-tech-demo.md)
+  is the natural place to drop the gamepad autoload alongside the
+  identity / lobby / Party panels.
 
 - Reference: [GameInput](../gameinput/plugin.md),
   [GameInputActionMap](../gameinput/plugin.md),

@@ -34,7 +34,7 @@ Start here:
 - [**Documentation index**](docs/README.md) — full doc tree
 - [**Getting started**](docs/getting-started.md) — clone, build, install the addons in your own Godot project, and sign in
 - [**Addons quickstart**](docs/addon-getting-started.md) — drop-in addon zip in an existing project
-- [**Tutorials**](docs/tutorials/README.md) — task-oriented walkthroughs (sign-in, achievements, leaderboards, Game Saves, lobbies, GameInput)
+- [**Tutorials**](docs/tutorials/README.md) — task-oriented walkthroughs (sign-in, achievements, leaderboards, Game Saves, lobbies, Multiplayer Activity, PlayFab Party, integration tech demo) plus a standalone GameInput track
 - [**Troubleshooting**](docs/troubleshooting.md) — common build, runtime, and test issues
 
 Per-addon documentation:
