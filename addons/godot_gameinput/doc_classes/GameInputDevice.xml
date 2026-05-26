@@ -46,16 +46,10 @@
 				Returns [code]true[/code] if the device reports one or more haptic-feedback motors (distinct from rumble). The current addon does not yet send haptic patterns; this is exposed so games can detect capability ahead of a future API.
 			</description>
 		</method>
-		<method name="get_battery_level" qualifiers="const">
-			<return type="float" />
-			<description>
-				Returns the battery level as a value in [code][0.0, 1.0][/code], or [code]-1.0[/code] when the battery state is unknown, the device is wired/has no battery, or the device is disconnected. Use [code]&lt; 0[/code] as the "no battery info" sentinel rather than treating low values as low battery.
-			</description>
-		</method>
 		<method name="get_device_info" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
-				Returns a [Dictionary] describing the device. Keys include [code]name[/code] ([String]), [code]vendor_id[/code] ([int]), [code]product_id[/code] ([int]), [code]revision[/code] ([int]), [code]interface_number[/code] ([int]), [code]device_family[/code] ([int]), [code]supported_input_kinds[/code] ([int], the raw [code]GameInputKind[/code] mask), [code]supported_input_mask[/code] ([int], the [enum GameInput.DeviceKind] mask), [code]supports_vibration[/code] ([bool]), [code]controller_axis_count[/code], [code]controller_button_count[/code], [code]force_feedback_motor_count[/code], and [code]haptic_feedback_motor_count[/code]. Returns an empty [Dictionary] when the device is disconnected.
+				Returns a [Dictionary] describing the device. Keys: [code]name[/code] ([String]), [code]vendor_id[/code] ([int]), [code]product_id[/code] ([int]), [code]revision[/code] ([int]), [code]device_family[/code] ([int]), [code]supported_input_kinds[/code] ([int], the raw [code]GameInputKind[/code] mask), [code]supported_input_mask[/code] ([int], the [enum GameInput.DeviceKind] mask), [code]supports_vibration[/code] ([bool]), [code]controller_axis_count[/code] ([int]), [code]controller_button_count[/code] ([int]), and [code]force_feedback_motor_count[/code] ([int]). Returns an empty [Dictionary] when the device is disconnected. Use [method supports_haptics] for haptic-motor capability — the GameInput v3 SDK no longer exposes a per-device haptic motor count.
 			</description>
 		</method>
 		<method name="button_to_source" qualifiers="static">

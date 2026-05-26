@@ -12,6 +12,17 @@
 
 namespace godot {
 
+// vcpkg's `gameinput` port ships the GameInput v3 redistributable, which
+// returns device info via an HRESULT + out-param instead of the v1 direct
+// pointer return. This helper bridges the v3 shape back to the v1-style
+// `nullptr-on-failure` ergonomics used throughout this file.
+static inline const GameInputDeviceInfo *_get_device_info(IGameInputDevice *device) {
+    if (!device) return nullptr;
+    const GameInputDeviceInfo *info = nullptr;
+    HRESULT hr = device->GetDeviceInfo(&info);
+    return SUCCEEDED(hr) ? info : nullptr;
+}
+
 GameInput *GameInput::singleton = nullptr;
 
 GameInput *GameInput::get_singleton() {
@@ -152,7 +163,7 @@ void GameInput::_drain_pending_events() {
                 continue;
             }
 
-            const GameInputDeviceInfo *info = ev.native_device->GetDeviceInfo();
+            const GameInputDeviceInfo *info = _get_device_info(ev.native_device);
             int kind_mask = info ? _kind_mask_from_supported(info->supportedInput) : DEVICE_UNKNOWN;
 
             DeviceEntry entry;
@@ -261,7 +272,8 @@ void GameInput::shutdown() {
     if (!m_initialized) return;
 
     if (m_game_input && m_device_callback_token) {
-        m_game_input->UnregisterCallback(m_device_callback_token, 5000);
+        // GameInput v3 dropped the timeout parameter that v1 accepted here.
+        m_game_input->UnregisterCallback(m_device_callback_token);
         m_device_callback_token = 0;
     }
 
@@ -269,7 +281,7 @@ void GameInput::shutdown() {
     for (int i = 0; i < m_devices.size(); ++i) {
         IGameInputDevice *d = m_devices[i].native;
         if (d) {
-            const GameInputDeviceInfo *info = d->GetDeviceInfo();
+            const GameInputDeviceInfo *info = _get_device_info(d);
             if (info && info->supportedRumbleMotors != GameInputRumbleNone) {
                 GameInputRumbleParams zero{};
                 d->SetRumbleState(&zero);
@@ -387,7 +399,7 @@ bool GameInput::set_vibration(const Ref<GameInputDevice> &device, float low_freq
     IGameInputDevice *native = m_devices[idx].native;
     if (!native) return false;
 
-    const GameInputDeviceInfo *info = native->GetDeviceInfo();
+    const GameInputDeviceInfo *info = _get_device_info(native);
     if (!info || info->supportedRumbleMotors == GameInputRumbleNone) {
         return false;
     }
@@ -418,8 +430,8 @@ String GameInput::device_get_display_name(int64_t id) {
     if (!device_lookup(id, &native, nullptr) || !native) {
         return String();
     }
-    const GameInputDeviceInfo *info = native->GetDeviceInfo();
-    if (!info || !info->displayName || !info->displayName->data) {
+    const GameInputDeviceInfo *info = _get_device_info(native);
+    if (!info || !info->displayName) {
         // Fallback to a synthesized name.
         if (info) {
             return String("GameInput Device ") + String::num_int64(info->vendorId, 16).to_upper()
@@ -427,30 +439,13 @@ String GameInput::device_get_display_name(int64_t id) {
         }
         return String("GameInput Device");
     }
-    return String::utf8(info->displayName->data, (int)info->displayName->sizeInBytes);
+    // GameInput v3 ships `displayName` as a plain null-terminated `const char *`
+    // (v1 wrapped it in a `GameInputString` struct with `.data` + `.sizeInBytes`).
+    return String::utf8(info->displayName);
 }
 
 bool GameInput::device_is_connected(int64_t id) {
     return _find_index_by_id(id) >= 0;
-}
-
-float GameInput::device_get_battery_level(int64_t id) {
-    IGameInputDevice *native = nullptr;
-    if (!device_lookup(id, &native, nullptr) || !native) {
-        return -1.0f;
-    }
-    GameInputBatteryState bs{};
-    native->GetBatteryState(&bs);
-    if (bs.status == GameInputBatteryNotPresent || bs.status == GameInputBatteryUnknown) {
-        return -1.0f;
-    }
-    if (bs.fullChargeCapacity <= 0.0f) {
-        return -1.0f;
-    }
-    float level = bs.remainingCapacity / bs.fullChargeCapacity;
-    if (level < 0.0f) level = 0.0f;
-    if (level > 1.0f) level = 1.0f;
-    return level;
 }
 
 Dictionary GameInput::device_get_device_info(int64_t id) {
@@ -460,7 +455,7 @@ Dictionary GameInput::device_get_device_info(int64_t id) {
     if (!device_lookup(id, &native, &kind_mask) || !native) {
         return out;
     }
-    const GameInputDeviceInfo *info = native->GetDeviceInfo();
+    const GameInputDeviceInfo *info = _get_device_info(native);
     if (!info) {
         return out;
     }
@@ -469,30 +464,41 @@ Dictionary GameInput::device_get_device_info(int64_t id) {
     out["vendor_id"] = (int)info->vendorId;
     out["product_id"] = (int)info->productId;
     out["revision"] = (int)info->revisionNumber;
-    out["interface_number"] = (int)info->interfaceNumber;
     out["device_family"] = (int)info->deviceFamily;
     out["supported_input_kinds"] = (int)info->supportedInput;
     out["supported_input_mask"] = (int)kind_mask;
     out["supports_vibration"] = info->supportedRumbleMotors != GameInputRumbleNone;
-    out["controller_axis_count"] = (int)info->controllerAxisCount;
-    out["controller_button_count"] = (int)info->controllerButtonCount;
+    // Controller axis/button counts moved under `controllerInfo` in v3; the
+    // pointer is null for non-controller devices.
+    out["controller_axis_count"] =
+        (int)(info->controllerInfo ? info->controllerInfo->controllerAxisCount : 0u);
+    out["controller_button_count"] =
+        (int)(info->controllerInfo ? info->controllerInfo->controllerButtonCount : 0u);
     out["force_feedback_motor_count"] = (int)info->forceFeedbackMotorCount;
-    out["haptic_feedback_motor_count"] = (int)info->hapticFeedbackMotorCount;
+    // GameInput v3 removed the v1 `hapticFeedbackMotorCount` field; haptic
+    // capability is now queried via `IGameInputDevice::GetHapticInfo`. We expose
+    // an explicit boolean via `device_supports_haptics()` rather than re-deriving
+    // a synthetic count here.
     return out;
 }
 
 bool GameInput::device_supports_vibration(int64_t id) {
     IGameInputDevice *native = nullptr;
     if (!device_lookup(id, &native, nullptr) || !native) return false;
-    const GameInputDeviceInfo *info = native->GetDeviceInfo();
+    const GameInputDeviceInfo *info = _get_device_info(native);
     return info && info->supportedRumbleMotors != GameInputRumbleNone;
 }
 
 bool GameInput::device_supports_haptics(int64_t id) {
     IGameInputDevice *native = nullptr;
     if (!device_lookup(id, &native, nullptr) || !native) return false;
-    const GameInputDeviceInfo *info = native->GetDeviceInfo();
-    return info && info->hapticFeedbackMotorCount > 0;
+    // GameInput v3 dropped `GameInputDeviceInfo::hapticFeedbackMotorCount` and
+    // moved haptic capability behind a dedicated `GetHapticInfo` call. A device
+    // is considered haptics-capable if the call succeeds and reports at least
+    // one haptic location.
+    GameInputHapticInfo haptic{};
+    HRESULT hr = native->GetHapticInfo(&haptic);
+    return SUCCEEDED(hr) && haptic.locationCount > 0;
 }
 
 bool GameInput::device_get_state_snapshot(int64_t id, GameInputGamepadState *out_cur,

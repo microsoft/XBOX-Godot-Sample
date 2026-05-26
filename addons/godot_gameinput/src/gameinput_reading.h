@@ -11,6 +11,9 @@
 
 #include <GameInput.h>
 
+// See gameinput_singleton.h for why we pull `::GameInput::v3` into global scope.
+using namespace ::GameInput::v3;
+
 namespace godot {
 
 // Snapshot of the gamepad state for a single device, captured at the moment

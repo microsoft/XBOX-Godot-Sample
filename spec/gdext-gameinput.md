@@ -3,8 +3,8 @@
 > **Status: v1 shipped.** Devices, polling, vibration, action bridge, project
 > settings, EditorPlugin-installed bootstrap autoload, and sample integration
 > in `gdk_launch_point` and `multiplayer_pong` are all live. Headless tests pass under
-> `tests/godot/gameinput/tests/`. Issue #23 (battery + device info) is satisfied via
-> `GameInputDevice.get_battery_level()` / `GameInputDevice.get_device_info()`.
+> `tests/godot/gameinput/tests/`. Device metadata is exposed via
+> `GameInputDevice.get_device_info()`.
 >
 > Deviations from the original sketch are listed in
 > [§ Deviations](#deviations-from-the-original-sketch). Deferred items are in
@@ -36,7 +36,8 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Reading callbacks | Deferred | event-driven readings — see [§ Deferred to v2](#deferred-to-v2) |
 | Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first |
 | Force feedback / advanced haptics | Deferred | optional follow-on after basic rumble |
-| Battery + device info | Shipped | `GameInputDevice.get_battery_level()` / `get_device_info()` (issue #23) |
+| Battery state | Removed | GameInput v3 SDK dropped the battery API (`IGameInputDevice::GetBatteryState`, `GameInputBatteryState`) — no replacement upstream |
+| Device info | Shipped | `GameInputDevice.get_device_info()` (issue #23, device-info half) |
 | Godot action bridge | Shipped | `GameInputMapper` + `GameInputActionMap` + `GameInputBinding` |
 | Project Settings + bootstrap autoload | Shipped | EditorPlugin installs `GameInputBootstrap` autoload |
 | Dependency on `godot_gdk` | None | ships independently |
@@ -214,7 +215,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | --- | --- | --- |
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
-| 3 | Battery + device info (issue #23) | Shipped |
+| 3 | Device info (issue #23) | Shipped (battery half removed — GameInput v3 dropped the API) |
 | 4 | Sample integration (`gdk_launch_point` panel + `multiplayer_pong` rumble & hot-plug) | Shipped |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |

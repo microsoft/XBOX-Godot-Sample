@@ -44,7 +44,7 @@ Razer Wolverine, etc.) **before** initializing.
 
 - [ ] After **Initialize GameInput**, state panel reports `Devices: 1`.
 - [ ] **List Devices** logs `1 device(s) — <Name> (#1)` with a sensible name.
-- [ ] **Inspect Primary Device** logs vendor / product / battery / vibration.
+- [ ] **Inspect Primary Device** logs vendor / product / vibration.
 
 ### Hot-plug (connect mid-frame)
 
@@ -64,21 +64,6 @@ With a controller connected, unplug it.
 - [ ] Event log shows `GameInput device disconnected: #<id>`.
 - [ ] Re-plugging assigns a **new** device id (ids are session-local
   monotonic; never recycled).
-
-### Battery — wired
-
-Connect a wired controller (e.g. an Xbox controller via USB cable).
-
-- [ ] **Inspect Primary Device** reports `battery=wired/unknown`.
-
-### Battery — wireless
-
-Connect a wireless controller (e.g. Xbox Wireless via Bluetooth or the
-Xbox Wireless Adapter).
-
-- [ ] **Inspect Primary Device** reports `battery=N%` where `N` matches the
-  controller's actual charge to within ~10%.
-- [ ] State panel `Battery:` line updates accordingly.
 
 ### Vibration — primary device
 

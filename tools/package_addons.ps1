@@ -80,8 +80,14 @@ $script:NativeAddons = @(
 
 $script:RequiredRuntimeDlls = @{
     godot_gdk = @{
-        Debug = @('libHttpClient.dll', 'Microsoft.Xbox.Services.C.Thunks.Debug.dll')
-        Release = @('libHttpClient.dll', 'Microsoft.Xbox.Services.C.Thunks.dll')
+        # Both Thunks variants must be deployed in every config: the Debug
+        # addon links Release imports (per CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release)
+        # so it needs Thunks.dll, AND xsapi internals probe for Thunks.Debug.dll
+        # at runtime on a Debug addon (empirically required to avoid a
+        # deterministic signal-11 shutdown crash). See gdk_xsapi_thunks_dlls()
+        # in cmake/GDKDependencies.cmake.
+        Debug = @('libHttpClient.dll', 'Microsoft.Xbox.Services.C.Thunks.dll', 'Microsoft.Xbox.Services.C.Thunks.Debug.dll', 'XCurl.dll')
+        Release = @('libHttpClient.dll', 'Microsoft.Xbox.Services.C.Thunks.dll', 'Microsoft.Xbox.Services.C.Thunks.Debug.dll', 'XCurl.dll')
     }
     godot_playfab = @{
         Debug = @('libHttpClient.dll', 'Party.dll', 'PlayFabCore.dll', 'PlayFabGameSave.dll', 'PlayFabMultiplayer.dll', 'PlayFabServices.dll')
@@ -175,15 +181,9 @@ function Should-CopyRuntimeDll {
         return $false
     }
 
-    if ($AddonName -eq 'godot_gdk') {
-        if ($FileName -ieq 'Microsoft.Xbox.Services.C.Thunks.Debug.dll') {
-            return (Test-ConfigurationSelected 'Debug')
-        }
-        if ($FileName -ieq 'Microsoft.Xbox.Services.C.Thunks.dll') {
-            return (Test-ConfigurationSelected 'Release')
-        }
-    }
-
+    # Both XSAPI Thunks DLL variants ship in every config — see the comment
+    # on $script:RequiredRuntimeDlls.godot_gdk and gdk_xsapi_thunks_dlls()
+    # in cmake/GDKDependencies.cmake. No per-config filtering here.
     return $true
 }
 

@@ -1,15 +1,7 @@
 include(GodotExtensionCommon)
 include(GDKDependencies)
 
-gdk_detect_dependencies(
-    GDK_WINDOWS_OUT GDK_WINDOWS
-    LIBHTTPCLIENT_RUNTIME_DLL_OUT LIBHTTPCLIENT_RUNTIME_DLL
-    PLAYFAB_CORE_RUNTIME_DLL_OUT PLAYFAB_CORE_RUNTIME_DLL
-    PLAYFAB_GAMESAVE_RUNTIME_DLL_OUT PLAYFAB_GAMESAVE_RUNTIME_DLL
-    PLAYFAB_SERVICES_RUNTIME_DLL_OUT PLAYFAB_SERVICES_RUNTIME_DLL
-    PLAYFAB_MULTIPLAYER_RUNTIME_DLL_OUT PLAYFAB_MULTIPLAYER_RUNTIME_DLL
-    PLAYFAB_PARTY_RUNTIME_DLL_OUT PLAYFAB_PARTY_RUNTIME_DLL
-)
+gdk_require_ms_gdk()
 
 add_library(godot_playfab SHARED
     src/register_types.cpp
@@ -32,27 +24,17 @@ add_library(godot_playfab SHARED
 
 target_include_directories(godot_playfab PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${GDK_WINDOWS}/include"
-    "${GDK_WINDOWS}/include/httpClient"
-    "${GDK_WINDOWS}/include/playfab/core"
-    "${GDK_WINDOWS}/include/playfab/multiplayer"
-    "${GDK_WINDOWS}/include/playfab/party"
-    "${GDK_WINDOWS}/include/playfab/services"
-)
-
-target_link_directories(godot_playfab PRIVATE
-    "${GDK_WINDOWS}/lib/x64"
 )
 
 target_link_libraries(godot_playfab PRIVATE
     godot::cpp
-    PlayFabCore
-    PlayFabGameSave
-    PlayFabMultiplayer
-    PlayFabServices
-    Party
-    xgameruntime
-    libHttpClient
+    Xbox::GameRuntime
+    Xbox::HTTPClient
+    Xbox::PlayFabCore
+    Xbox::PlayFabServices
+    Xbox::PlayFabMultiplayer
+    Xbox::PlayFabParty
+    Xbox::PlayFabGameSave
 )
 
 target_compile_definitions(godot_playfab PRIVATE _GAMING_DESKTOP)
@@ -73,17 +55,21 @@ if(GODOTCPP_TARGET MATCHES "editor|template_debug")
     )
 endif()
 
+# PlayFab runtime DLLs. vcpkg's ms-gdk port installs the SAME PlayFab DLL bits
+# in both bin/ and debug/bin/ (the PF NuGet does not split Debug vs Release),
+# so `$<TARGET_FILE:Xbox::PlayFab*>` resolves to a single file regardless of
+# config. Behavior matches the previous hand-rolled deployment.
 godot_addon_copy_runtime_files(
     TARGET godot_playfab
     ADDON_NAME godot_playfab
     PROJECT_DIRS ${GODOT_PLAYFAB_PROJECT_DIRS}
     FILES
-        "${LIBHTTPCLIENT_RUNTIME_DLL}"
-        "${PLAYFAB_CORE_RUNTIME_DLL}"
-        "${PLAYFAB_GAMESAVE_RUNTIME_DLL}"
-        "${PLAYFAB_MULTIPLAYER_RUNTIME_DLL}"
-        "${PLAYFAB_PARTY_RUNTIME_DLL}"
-        "${PLAYFAB_SERVICES_RUNTIME_DLL}"
+        "$<TARGET_FILE:Xbox::HTTPClient>"
+        "$<TARGET_FILE:Xbox::PlayFabCore>"
+        "$<TARGET_FILE:Xbox::PlayFabGameSave>"
+        "$<TARGET_FILE:Xbox::PlayFabMultiplayer>"
+        "$<TARGET_FILE:Xbox::PlayFabParty>"
+        "$<TARGET_FILE:Xbox::PlayFabServices>"
 )
 
 godot_addon_sync_files_to_sample(

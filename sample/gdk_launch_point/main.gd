@@ -222,12 +222,12 @@ func _build_scenario_catalog() -> Dictionary:
 			_group(
 				"gameinput",
 				"GameInput",
-				"Drive the godot_gameinput addon: initialize the runtime, list connected devices, query battery + device info, and pulse rumble on the primary controller.",
+				"Drive the godot_gameinput addon: initialize the runtime, list connected devices, query device info, and pulse rumble on the primary controller.",
 				[
 					_scenario("gameinput_initialize", "Initialize GameInput", "Call GameInput.initialize() and report whether the GameInput runtime is ready.", Callable(self, "_scenario_gameinput_initialize")),
 					_scenario("gameinput_shutdown", "Shutdown GameInput", "Call GameInput.shutdown() and confirm the runtime returns to an uninitialized state.", Callable(self, "_scenario_gameinput_shutdown")),
 					_scenario("gameinput_list_devices", "List Devices", "Poll GameInput, enumerate gamepads, and log each device's display name + ID.", Callable(self, "_scenario_gameinput_list_devices")),
-					_scenario("gameinput_inspect_primary", "Inspect Primary Device", "Show the primary device's display name, vendor/product IDs, battery level, and rumble support.", Callable(self, "_scenario_gameinput_inspect_primary")),
+					_scenario("gameinput_inspect_primary", "Inspect Primary Device", "Show the primary device's display name, vendor/product IDs, and rumble support.", Callable(self, "_scenario_gameinput_inspect_primary")),
 					_scenario("gameinput_rumble_pulse", "Rumble Pulse", "Run a short low+high frequency rumble on the primary device, then stop haptics.", Callable(self, "_scenario_gameinput_rumble_pulse")),
 					_scenario("gameinput_stop_rumble", "Stop Rumble", "Call GameInput.stop_haptics() on the primary device immediately.", Callable(self, "_scenario_gameinput_stop_rumble"))
 				]
@@ -1373,12 +1373,6 @@ func _get_gameinput_snapshot_lines() -> Array:
 	lines.append("Primary: %s" % _format_gameinput_device_label(primary))
 	if primary.has_method("supports_vibration"):
 		lines.append("  Vibration: %s" % str(primary.supports_vibration()))
-	if primary.has_method("get_battery_level"):
-		var battery: float = float(primary.get_battery_level())
-		if battery < 0.0:
-			lines.append("  Battery: wired/unknown")
-		else:
-			lines.append("  Battery: %d%%" % int(round(battery * 100.0)))
 	return lines
 
 func _scenario_gameinput_initialize() -> void:
@@ -1447,18 +1441,13 @@ func _scenario_gameinput_inspect_primary() -> void:
 		_log_event("GameInput.inspect_primary: no primary device.")
 		return
 	var info: Dictionary = primary.get_device_info() if primary.has_method("get_device_info") else {}
-	var battery: float = -1.0
-	if primary.has_method("get_battery_level"):
-		battery = float(primary.get_battery_level())
 	var supports_vibration: bool = false
 	if primary.has_method("supports_vibration"):
 		supports_vibration = bool(primary.supports_vibration())
-	var battery_text: String = "wired/unknown" if battery < 0.0 else "%d%%" % int(round(battery * 100.0))
-	var summary: String = "%s — vendor=0x%04X product=0x%04X battery=%s vibration=%s" % [
+	var summary: String = "%s — vendor=0x%04X product=0x%04X vibration=%s" % [
 		_format_gameinput_device_label(primary),
 		int(info.get("vendor_id", 0)),
 		int(info.get("product_id", 0)),
-		battery_text,
 		str(supports_vibration)
 	]
 	_set_scenario_status(summary)
