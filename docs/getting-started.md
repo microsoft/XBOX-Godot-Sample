@@ -61,6 +61,18 @@ for the canonical walk-through.
 
 - Visual Studio 2022+ with the **C++ Desktop** workload
 - CMake 3.25+ (required by the `CMakePresets.json` schema version)
+- [vcpkg](https://github.com/microsoft/vcpkg) in manifest mode. The build
+  reads `vcpkg.json` + `vcpkg-configuration.json` at the repo root and
+  resolves the `ms-gdk[playfab]` and `gameinput` ports for you, so you
+  don't need a separate Microsoft GDK install just to compile the addons.
+  Set the `VCPKG_ROOT` environment variable to your vcpkg clone (the
+  CMake preset reads it via `$env{VCPKG_ROOT}`).
+
+> **Note:** The vcpkg manifest only provides the **build-time headers and
+> import libs** for GDK + GameInput. You still need a full Microsoft GDK
+> install on any machine where you intend to run `makepkg.exe`, `wdapp.exe`,
+> or the Game Config Editor (see [Editor tools](gdk/editor-tools.md) and
+> [Packaging plugin](packaging/plugin.md)).
 
 > **Note:** The Debug build of the GDK addon requires Visual Studio to be
 > installed on the machine that *runs* the game, not just the machine that
@@ -480,16 +492,18 @@ cmake --build --preset debug-gameinput
 
 ### CMake auto-detection
 
-CMake automatically detects the GDK Windows layout:
+The build resolves its native dependencies via vcpkg manifest mode. CMake
+reads `vcpkg.json` + `vcpkg-configuration.json` at the repo root and pulls
+in the `ms-gdk[playfab]` and `gameinput` ports for you. There is no
+machine-wide GDK install required for compilation — set `VCPKG_ROOT` and
+run the `default` preset.
 
-1. `GameDKCoreLatest` environment variable (preferred)
-2. `GameDKLatest` environment variable (fallback)
-3. Latest edition under `C:/Program Files (x86)/Microsoft GDK/<edition>/windows`
-
-To override manually:
+If you ever need to point at a specific vcpkg toolchain file (for example,
+to share an installed cache between repos), override it on the CMake
+command line:
 
 ```powershell
-cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/260400/windows"
+cmake --preset default -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
 ```
 
 ### Clean ignored local artifacts
@@ -545,9 +559,12 @@ included `.vscode/c_cpp_properties.json`. If you see red squiggles on
 `#include` directives:
 
 1. Ensure you've **built at least once** — godot-cpp headers are generated
-   during the first build into `build/godot-cpp/gen/include/`.
-2. Ensure the `GameDKCoreLatest` environment variable is available (or update
-   the GDK include path in `.vscode/c_cpp_properties.json`).
+   during the first build into `build/godot-cpp/gen/include/`, and vcpkg
+   stages the GDK + GameInput headers into `build/vcpkg_installed/`.
+2. Ensure `VCPKG_ROOT` is set in your environment so the IntelliSense
+   include paths resolve. If you point IntelliSense at a different vcpkg
+   install than the build uses, update `.vscode/c_cpp_properties.json` to
+   match.
 3. Reload VS Code (`Ctrl+Shift+P` → "C/C++: Reset IntelliSense Database").
 
 The config defines `_GAMING_DESKTOP`, which is required for XSAPI /

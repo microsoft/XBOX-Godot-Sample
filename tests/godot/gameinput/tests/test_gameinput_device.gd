@@ -10,7 +10,6 @@ extends "res://addons/godot_gdk_tests/gameinput_test_base.gd"
 ##       - `get_kind_mask()`    → `GameInput.DEVICE_UNKNOWN` (== 0)
 ##       - `is_connected()`     → `false`
 ##       - `supports_vibration()` / `supports_haptics()` → `false`
-##       - `get_battery_level()` → `-1.0`
 ##       - `get_device_info()`   → empty `Dictionary`
 ##
 ## These match the soft-fail conventions documented in
@@ -25,7 +24,6 @@ const _METHOD_NAMES := [
 	"is_connected",
 	"supports_vibration",
 	"supports_haptics",
-	"get_battery_level",
 	"get_device_info",
 ]
 
@@ -75,8 +73,6 @@ func test_device_defaults_before_init() -> void:
 			"supports_vibration() == false before init")
 	assert_eq(device.supports_haptics(), false,
 			"supports_haptics() == false before init")
-	assert_eq_approx(device.get_battery_level(), -1.0,
-			"get_battery_level() ≈ -1.0 before init")
 	var info = device.get_device_info()
 	assert_true(info is Dictionary, "get_device_info() returns Dictionary")
 	assert_eq(info.size(), 0,
@@ -114,8 +110,6 @@ func test_device_defaults_after_shutdown() -> void:
 			"supports_vibration() == false after shutdown()")
 	assert_eq(device.supports_haptics(), false,
 			"supports_haptics() == false after shutdown()")
-	assert_eq_approx(device.get_battery_level(), -1.0,
-			"get_battery_level() ≈ -1.0 after shutdown()")
 	var info = device.get_device_info()
 	assert_true(info is Dictionary and info.size() == 0,
 			"get_device_info() returns empty Dictionary after shutdown()")

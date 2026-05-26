@@ -21,7 +21,7 @@ on:
         default: ''
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: package-addons-${{ github.ref }}
@@ -71,46 +71,40 @@ jobs:
           Write-Host "Resolved version: $version (source: $source)"
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Install Microsoft GDK
+      - name: Configure vcpkg
         shell: pwsh
-        timeout-minutes: 25
         run: |
           $ErrorActionPreference = 'Stop'
-          Write-Host "Installing Microsoft.Gaming.GDK via winget..."
-          winget install `
-              --id Microsoft.Gaming.GDK `
-              --exact `
-              --silent `
-              --disable-interactivity `
-              --accept-source-agreements `
-              --accept-package-agreements
-          if ($LASTEXITCODE -ne 0) {
-              throw "winget install Microsoft.Gaming.GDK failed with exit code $LASTEXITCODE."
+          # windows-latest images ship vcpkg under $env:VCPKG_INSTALLATION_ROOT
+          # but the toolchain in CMakePresets.json reads $env:VCPKG_ROOT.
+          # Bridge the two names so the preset wiring works unchanged in CI.
+          if (-not $env:VCPKG_INSTALLATION_ROOT) {
+              throw "VCPKG_INSTALLATION_ROOT is not set on this runner. windows-latest is expected to provide a pre-installed vcpkg."
           }
-
-          # The winget install updates registry-level env vars (GameDKLatest,
-          # GameDKCoreLatest), but they aren't visible to already-running
-          # shells. Locate the install ourselves and propagate the path to
-          # subsequent steps via $GITHUB_ENV so CMake's GDK detection has
-          # something deterministic to bind to.
-          $gdkParent = 'C:\Program Files (x86)\Microsoft GDK'
-          if (-not (Test-Path $gdkParent)) {
-              throw "Microsoft GDK install directory not found at '$gdkParent' after winget install."
+          if (-not (Test-Path -LiteralPath $env:VCPKG_INSTALLATION_ROOT)) {
+              throw "VCPKG_INSTALLATION_ROOT='$($env:VCPKG_INSTALLATION_ROOT)' does not exist."
           }
+          Write-Host "Using vcpkg at: $($env:VCPKG_INSTALLATION_ROOT)"
+          "VCPKG_ROOT=$($env:VCPKG_INSTALLATION_ROOT)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-          $gdkRoot = Get-ChildItem -LiteralPath $gdkParent -Directory `
-              | Where-Object { Test-Path (Join-Path $_.FullName 'windows') } `
-              | Sort-Object Name -Descending `
-              | Select-Object -First 1
-          if ($null -eq $gdkRoot) {
-              Get-ChildItem -LiteralPath $gdkParent | Format-Table -AutoSize | Out-String | Write-Host
-              throw "No GDK edition with a 'windows' subdirectory was found under '$gdkParent'."
-          }
-
-          $gdkPath = $gdkRoot.FullName + '\'
-          Write-Host "GDK detected: $gdkPath"
-          "GameDKCoreLatest=$gdkPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "GameDKLatest=$gdkPath"     | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Cache vcpkg manifest install
+        uses: actions/cache@v4
+        with:
+          # Cache the per-build install tree that the toolchain populates from
+          # the repo manifest. vcpkg's own `x-gha` binary cache provider was
+          # removed in mid-2025, so we cache the install tree directly. The
+          # key includes the manifest hash and the triplet so any change to
+          # ports or baseline invalidates the cache.
+          #
+          # IMPORTANT: this workflow runs package_addons.ps1, which configures
+          # CMake with the `addon-package` preset (binaryDir build/addon-package).
+          # vcpkg installs into <binaryDir>/vcpkg_installed, so the cache path
+          # must match — not build/vcpkg_installed (which is the default
+          # preset's binaryDir).
+          path: build/addon-package/vcpkg_installed
+          key: vcpkg-addon-package-x64-windows-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-addon-package-x64-windows-
 
       - name: Build and package zip
         id: pkg

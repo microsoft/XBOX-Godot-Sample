@@ -17,6 +17,12 @@
 
 #include <GameInput.h>
 
+// vcpkg's `gameinput` port ships the GameInput v3 redistributable, which puts
+// every public symbol inside `namespace GameInput::v3`. The addon was written
+// against the GDK's v1 header where the same symbols sit at global scope. Pull
+// the v3 namespace into the global scope so the addon source compiles unchanged.
+using namespace ::GameInput::v3;
+
 #include <atomic>
 #include <cstdint>
 #include <mutex>
@@ -126,7 +132,6 @@ public:
     bool device_lookup(int64_t id, IGameInputDevice **out_native, int *out_kind_mask);
     String device_get_display_name(int64_t id);
     bool device_is_connected(int64_t id);
-    float device_get_battery_level(int64_t id);
     Dictionary device_get_device_info(int64_t id);
     bool device_supports_vibration(int64_t id);
     bool device_supports_haptics(int64_t id);

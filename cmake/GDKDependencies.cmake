@@ -1,124 +1,102 @@
 include_guard(GLOBAL)
 
-include(CMakeParseArguments)
+# GDK build-time dependencies via vcpkg.
+#
+# This module brings in the Microsoft GDK (via the `ms-gdk[playfab]` port) and
+# GameInput (via the `gameinput` port). It exposes:
+#
+#   Xbox::GameRuntime, Xbox::HTTPClient, Xbox::XCurl, Xbox::XSAPI,
+#   Xbox::GameChat2, Xbox::PlayFab{Core,Services,Multiplayer,Party,
+#   PartyLIVE,GameSave}                       -- from ms-gdk
+#   Microsoft::GameInput                      -- from gameinput
+#
+# In addition, it provides cache/cmake variables addons use to deploy SDK
+# runtime DLLs that are NOT exposed as proper imported targets — namely the
+# Microsoft.Xbox.Services.C.Thunks DLLs (per-config Debug/Release file names)
+# and the Microsoft.Xbox.Services.143.C.{Debug.pdb,pdb}. vcpkg lays these out
+# as bin/<file>.dll for Release and debug/bin/<file>.Debug.dll for Debug.
+#
+# Consumer pattern (per-addon CMakeLists):
+#
+#   include(GDKDependencies)
+#   gdk_require_ms_gdk()        # addons that need Xbox::XSAPI / PlayFab*
+#   # or
+#   gdk_require_gameinput()     # addons that only need Microsoft::GameInput
+#   target_link_libraries(my_addon PRIVATE Xbox::XSAPI Xbox::HTTPClient ...)
+#
+# Local prereq: developers must have a vcpkg checkout and either set
+# VCPKG_ROOT or pass `-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake`.
+# The repo-default preset honors $env{VCPKG_ROOT}.
 
-function(gdk_detect_dependencies)
-    set(one_value_args
-        GDK_WINDOWS_OUT
-        XSAPI_RUNTIME_DLL_OUT
-        LIBHTTPCLIENT_RUNTIME_DLL_OUT
-        PLAYFAB_CORE_RUNTIME_DLL_OUT
-        PLAYFAB_GAMESAVE_RUNTIME_DLL_OUT
-        PLAYFAB_SERVICES_RUNTIME_DLL_OUT
-        PLAYFAB_MULTIPLAYER_RUNTIME_DLL_OUT
-        PLAYFAB_PARTY_RUNTIME_DLL_OUT
-    )
-    cmake_parse_arguments(ARG "" "${one_value_args}" "" ${ARGN})
-
-    if(DEFINED ENV{GameDKCoreLatest})
-        file(TO_CMAKE_PATH "$ENV{GameDKCoreLatest}" _GDK_ROOT_FROM_ENV)
-        if(EXISTS "${_GDK_ROOT_FROM_ENV}/windows/include/XGameRuntimeInit.h")
-            set(_GDK_WINDOWS_DEFAULT "${_GDK_ROOT_FROM_ENV}/windows")
-        endif()
-    endif()
-
-    if(NOT DEFINED _GDK_WINDOWS_DEFAULT AND DEFINED ENV{GameDKLatest})
-        file(TO_CMAKE_PATH "$ENV{GameDKLatest}" _GDK_ROOT_FROM_GAMEDK_ENV)
-        if(EXISTS "${_GDK_ROOT_FROM_GAMEDK_ENV}/windows/include/XGameRuntimeInit.h")
-            set(_GDK_WINDOWS_DEFAULT "${_GDK_ROOT_FROM_GAMEDK_ENV}/windows")
-        endif()
-    endif()
-
-    if(NOT DEFINED _GDK_WINDOWS_DEFAULT)
-        set(_GDK_ROOT "C:/Program Files (x86)/Microsoft GDK")
-        file(GLOB _GDK_EDITIONS "${_GDK_ROOT}/[0-9]*")
-        if(NOT _GDK_EDITIONS)
-            message(FATAL_ERROR
-                "Microsoft GDK not found.\n"
-                "Install via: winget install Microsoft.Gaming.GDK\n"
-                "Or set GDK_WINDOWS to your GDK windows layout path.")
-        endif()
-        list(SORT _GDK_EDITIONS ORDER DESCENDING)
-        list(GET _GDK_EDITIONS 0 _GDK_EDITION_PATH)
-        set(_GDK_WINDOWS_DEFAULT "${_GDK_EDITION_PATH}/windows")
-    endif()
-
-    set(GDK_WINDOWS "${_GDK_WINDOWS_DEFAULT}" CACHE PATH "Path to GDK windows layout directory")
-
-    if(NOT EXISTS "${GDK_WINDOWS}/include/XGameRuntimeInit.h")
+# Validate that a vcpkg toolchain file is wired into the build. Fail with a
+# targeted message if VCPKG_ROOT was unset (the preset would expand to an
+# invalid path that still ends in vcpkg.cmake) or if the toolchain file
+# doesn't exist on disk.
+function(_gdk_assert_vcpkg_toolchain)
+    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE OR NOT CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg.cmake$")
         message(FATAL_ERROR
-            "GDK headers not found in the windows layout at: ${GDK_WINDOWS}\n"
-            "Verify your GDK installation or set -DGDK_WINDOWS=<path>")
+            "vcpkg toolchain file is required to build the GDK addons.\n"
+            "Set the VCPKG_ROOT environment variable to a vcpkg checkout (e.g. C:/vcpkg) "
+            "and reconfigure using the `default` preset, or pass "
+            "-DCMAKE_TOOLCHAIN_FILE=<vcpkg-root>/scripts/buildsystems/vcpkg.cmake explicitly.\n"
+            "vcpkg manifest mode is configured via vcpkg.json + vcpkg-configuration.json at the repo root.")
     endif()
 
-    if(NOT EXISTS "${GDK_WINDOWS}/include/xsapi-c/services_c.h")
+    if(NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}")
         message(FATAL_ERROR
-            "Xbox Services API (XSAPI) headers not found in: ${GDK_WINDOWS}/include\n"
-            "Ensure the GDK is installed with Xbox Extensions.")
+            "CMAKE_TOOLCHAIN_FILE='${CMAKE_TOOLCHAIN_FILE}' does not exist on disk.\n"
+            "This usually means VCPKG_ROOT is unset (the default preset expands "
+            "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake with an empty prefix).\n"
+            "Set VCPKG_ROOT to a real vcpkg checkout (e.g. C:/vcpkg) and reconfigure.")
     endif()
+endfunction()
 
-    if(NOT EXISTS "${GDK_WINDOWS}/include/httpClient/httpClient.h")
-        message(FATAL_ERROR
-            "libHttpClient headers not found in: ${GDK_WINDOWS}/include\n"
-            "Ensure the GDK is installed with Xbox Extensions.")
+# Require the `ms-gdk` port (Xbox::*, PlayFab*). Use this for the godot_gdk and
+# godot_playfab addons. Kept separate from gdk_require_gameinput() so selective
+# presets (gameinput-only, gdk-only, playfab-only) only restore what they need.
+function(gdk_require_ms_gdk)
+    _gdk_assert_vcpkg_toolchain()
+    find_package(ms-gdk CONFIG REQUIRED)
+endfunction()
+
+# Require the `gameinput` port (Microsoft::GameInput). Use this for the
+# godot_gameinput addon, which does not depend on any ms-gdk component.
+function(gdk_require_gameinput)
+    _gdk_assert_vcpkg_toolchain()
+    find_package(gameinput CONFIG REQUIRED)
+endfunction()
+
+# Paths inside the vcpkg install tree for the XSAPI Thunks DLLs which are NOT
+# exposed as proper imported targets. vcpkg lays these out as bin/<file>.dll
+# for Release and debug/bin/<file>.Debug.dll for Debug.
+#
+# IMPORTANT: we deploy BOTH variants in BOTH configs (not one per config),
+# for two independent reasons:
+#
+#   1. With CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release the Debug addon links
+#      against Release Xbox::XSAPI .lib import entries (which reference
+#      `Microsoft.Xbox.Services.C.Thunks.dll`). A Debug-only deploy that
+#      ships only the `.Debug.dll` variant breaks addon loading on a clean
+#      machine without GDK on PATH.
+#   2. Empirically, dropping the `.Debug.dll` variant for Debug addon
+#      builds causes a deterministic signal-11 shutdown crash in xsapi
+#      teardown — XSAPI internals probe for the matching Debug Thunks DLL
+#      at runtime even though it isn't a static import.
+#
+# Shipping both is the only configuration that satisfies both constraints,
+# and the ~4.6 MiB extra in Release builds is an acceptable tradeoff for
+# self-contained loading on machines without a GDK install.
+#
+# Usage:
+#   gdk_xsapi_thunks_dlls(OUT_VAR)
+#
+# Returns a CMake list of two absolute paths.
+function(gdk_xsapi_thunks_dlls OUT_VAR)
+    if(NOT DEFINED VCPKG_INSTALLED_DIR)
+        message(FATAL_ERROR "VCPKG_INSTALLED_DIR is not set; call gdk_require_ms_gdk() first.")
     endif()
-
-    if(NOT EXISTS "${GDK_WINDOWS}/include/playfab/multiplayer/PFMultiplayer.h")
-        message(FATAL_ERROR
-            "PlayFab Multiplayer headers not found in: ${GDK_WINDOWS}/include/playfab/multiplayer/\n"
-            "Ensure the GDK is installed with Xbox Extensions.")
-    endif()
-
-    if(NOT EXISTS "${GDK_WINDOWS}/include/playfab/gamesave/PFGameSaveFiles.h")
-        message(FATAL_ERROR
-            "PlayFab Game Save headers not found in: ${GDK_WINDOWS}/include/playfab/gamesave/\n"
-            "Ensure the GDK is installed with Xbox Extensions.")
-    endif()
-
-    if(NOT EXISTS "${GDK_WINDOWS}/include/playfab/party/Party.h")
-        message(FATAL_ERROR
-            "PlayFab Party headers not found in: ${GDK_WINDOWS}/include/playfab/party/\n"
-            "Ensure the GDK is installed with Xbox Extensions.")
-    endif()
-
-    message(STATUS "GDK windows layout: ${GDK_WINDOWS}")
-
-    if(ARG_GDK_WINDOWS_OUT)
-        set(${ARG_GDK_WINDOWS_OUT} "${GDK_WINDOWS}" PARENT_SCOPE)
-    endif()
-
-    if(ARG_XSAPI_RUNTIME_DLL_OUT)
-        # Match the linker import: addons/godot_gdk/CMakeLists.txt links against
-        # Microsoft.Xbox.Services.C.Thunks[.Debug].lib whose DLL name is
-        # Microsoft.Xbox.Services.C.Thunks[.Debug].dll. The GRDK ExtensionLibraries
-        # variant ships a differently-named DLL (Microsoft.Xbox.Services.GDK.C.Thunks.dll)
-        # which does NOT satisfy that import, so always deploy the SDK thunks DLL
-        # alongside the addon binary so loading does not require GDK to be on PATH.
-        set(${ARG_XSAPI_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/Microsoft.Xbox.Services.C.Thunks$<$<CONFIG:Debug>:.Debug>.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_LIBHTTPCLIENT_RUNTIME_DLL_OUT)
-        # libHttpClient.dll is the SDK-shipped runtime that matches the linker import.
-        set(${ARG_LIBHTTPCLIENT_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/libHttpClient.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_PLAYFAB_CORE_RUNTIME_DLL_OUT)
-        set(${ARG_PLAYFAB_CORE_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/PlayFabCore.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_PLAYFAB_GAMESAVE_RUNTIME_DLL_OUT)
-        set(${ARG_PLAYFAB_GAMESAVE_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/PlayFabGameSave.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_PLAYFAB_SERVICES_RUNTIME_DLL_OUT)
-        set(${ARG_PLAYFAB_SERVICES_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/PlayFabServices.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_PLAYFAB_MULTIPLAYER_RUNTIME_DLL_OUT)
-        set(${ARG_PLAYFAB_MULTIPLAYER_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/PlayFabMultiplayer.dll" PARENT_SCOPE)
-    endif()
-
-    if(ARG_PLAYFAB_PARTY_RUNTIME_DLL_OUT)
-        set(${ARG_PLAYFAB_PARTY_RUNTIME_DLL_OUT} "${GDK_WINDOWS}/bin/x64/Party.dll" PARENT_SCOPE)
-    endif()
+    set(${OUT_VAR}
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/Microsoft.Xbox.Services.C.Thunks.dll"
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin/Microsoft.Xbox.Services.C.Thunks.Debug.dll"
+        PARENT_SCOPE)
 endfunction()

@@ -39,47 +39,67 @@ godot_gdk.windows.debug.x86_64.dll
   cmake --build build --config Release
   ```
 
-## GDK not found during CMake configure
+## GDK headers or import libs not found during CMake configure
 
 **Symptom:**
 
 ```
-CMake Error: Microsoft GDK not found.
-Install via: winget install Microsoft.Gaming.GDK
+CMake Error: Could not find a package configuration file provided by "ms-gdk"
+CMake Error: Could not find a package configuration file provided by "gameinput"
 ```
 
-**Cause:** The GDK is not installed, or CMake cannot find it.
+…or any error mentioning XSAPI / libHttpClient / GameInput headers being
+unresolvable during CMake configure.
+
+**Cause:** vcpkg manifest mode could not resolve the `ms-gdk[playfab]` or
+`gameinput` ports defined in the repo's `vcpkg.json`.
 
 **Fixes:**
 
-1. Install the GDK:
+1. Ensure `VCPKG_ROOT` is set to a valid vcpkg clone:
    ```powershell
-   winget install Microsoft.Gaming.GDK
+   $env:VCPKG_ROOT = "C:\path\to\vcpkg"
    ```
-2. If installed but not detected, set the path manually:
+   The default CMake preset reads this when it injects the vcpkg toolchain
+   file. If you prefer to point at a specific toolchain, override on the
+   command line:
    ```powershell
-   cmake --preset default -DGDK_WINDOWS="C:/Program Files (x86)/Microsoft GDK/<edition>/windows"
+   cmake --preset default -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
    ```
-3. Check the `GameDKCoreLatest` or `GameDKLatest` environment variables point
-   to a valid GDK installation.
+2. From a fresh shell at the repo root, re-run the configure step so vcpkg
+   restores the manifest packages into `build\vcpkg_installed\`:
+   ```powershell
+   cmake --preset default
+   ```
+   The first run downloads the GDK and GameInput NuGet packages from
+   Microsoft's public feed and can take several minutes; subsequent runs
+   reuse the cached install.
+3. If the configure still fails, delete `build\vcpkg_installed\` and try
+   again — partial manifest installs from an interrupted previous run can
+   leave the cache in an inconsistent state.
 
-## XSAPI or libHttpClient headers not found
+> **Note:** vcpkg covers everything you need to **build** the addons. You
+> still need a full Microsoft GDK install on machines that need to **run**
+> packaging tools (`makepkg.exe`, `wdapp.exe`, Game Config Editor).
 
-**Symptom:**
+## GDK packaging tools not found at runtime
 
-```
-CMake Error: Xbox Services API (XSAPI) headers not found
-CMake Error: libHttpClient headers not found
-```
+**Symptom:** The packaging plugin reports that `makepkg.exe`, `wdapp.exe`,
+or `GameConfigEditor.exe` cannot be located.
 
-**Cause:** The GDK installation does not include Xbox Extensions headers.
+**Cause:** The vcpkg-based build does not install the GDK tools (only the
+headers and import libs). End users need the full GDK install for the
+tooling surface.
 
-**Fix:** Ensure you've installed the full GDK (not a partial installation).
-Re-install with:
+**Fix:** Install the Microsoft GDK on the machine that runs the packaging
+plugin:
 
 ```powershell
 winget install Microsoft.Gaming.GDK
 ```
+
+You can also point `GDK_BIN` at a non-default tools directory — see
+[Packaging plugin](packaging/plugin.md) for the full precedence list.
 
 ## Godot editor cannot find the executable
 

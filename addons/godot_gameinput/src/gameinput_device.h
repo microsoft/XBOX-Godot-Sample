@@ -90,7 +90,6 @@ public:
     bool is_connected() const;
     bool supports_vibration() const;
     bool supports_haptics() const;
-    float get_battery_level() const;
     Dictionary get_device_info() const;
 
     // Helpers used internally + exposed to GDScript for convenience.

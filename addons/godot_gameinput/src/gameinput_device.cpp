@@ -11,7 +11,6 @@ void GameInputDevice::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_connected"), &GameInputDevice::is_connected);
     ClassDB::bind_method(D_METHOD("supports_vibration"), &GameInputDevice::supports_vibration);
     ClassDB::bind_method(D_METHOD("supports_haptics"), &GameInputDevice::supports_haptics);
-    ClassDB::bind_method(D_METHOD("get_battery_level"), &GameInputDevice::get_battery_level);
     ClassDB::bind_method(D_METHOD("get_device_info"), &GameInputDevice::get_device_info);
     ClassDB::bind_static_method("GameInputDevice",
                                 D_METHOD("button_to_source", "button"),
@@ -91,11 +90,6 @@ bool GameInputDevice::supports_vibration() const {
 bool GameInputDevice::supports_haptics() const {
     GameInput *gi = GameInput::get_singleton();
     return gi ? gi->device_supports_haptics(m_id) : false;
-}
-
-float GameInputDevice::get_battery_level() const {
-    GameInput *gi = GameInput::get_singleton();
-    return gi ? gi->device_get_battery_level(m_id) : -1.0f;
 }
 
 Dictionary GameInputDevice::get_device_info() const {

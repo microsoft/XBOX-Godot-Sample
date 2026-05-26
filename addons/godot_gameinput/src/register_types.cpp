@@ -14,7 +14,12 @@
 #include "gameinput_mapper.h"
 #include "gameinput_reading.h"
 
-using namespace godot;
+// All initialize/uninitialize helpers live inside `namespace godot` (matching
+// the other .cpp files in this addon). This keeps unqualified `GameInput` here
+// resolving to our `godot::GameInput` class rather than the global `::GameInput`
+// namespace that the vcpkg gameinput port (GameInput v3) introduces via
+// `<GameInput.h>`.
+namespace godot {
 
 static GameInput *gameinput_singleton = nullptr;
 
@@ -71,6 +76,8 @@ void uninitialize_godot_gameinput_extension(ModuleInitializationLevel p_level) {
     }
 }
 
+} // namespace godot
+
 extern "C" {
 
 GDExtensionBool GDE_EXPORT godot_gameinput_extension_init(
@@ -78,11 +85,11 @@ GDExtensionBool GDE_EXPORT godot_gameinput_extension_init(
     const GDExtensionClassLibraryPtr p_library,
     GDExtensionInitialization *r_initialization
 ) {
-    GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
+    godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 
-    init_obj.register_initializer(initialize_godot_gameinput_extension);
-    init_obj.register_terminator(uninitialize_godot_gameinput_extension);
-    init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
+    init_obj.register_initializer(godot::initialize_godot_gameinput_extension);
+    init_obj.register_terminator(godot::uninitialize_godot_gameinput_extension);
+    init_obj.set_minimum_library_initialization_level(godot::MODULE_INITIALIZATION_LEVEL_SCENE);
 
     return init_obj.init();
 }

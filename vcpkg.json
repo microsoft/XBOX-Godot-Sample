@@ -1,0 +1,26 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "godot-public-gdk-ext",
+    "version-string": "0.1.0-preview",
+    "description": "GDExtension addons for the Microsoft public GDK and PlayFab. Build-time dependencies for godot_gdk, godot_playfab, and godot_gameinput.",
+    "dependencies": [],
+    "default-features": [
+        "godot-gdk",
+        "godot-gameinput"
+    ],
+    "features": {
+        "godot-gdk": {
+            "description": "Dependencies for godot_gdk and godot_playfab addons (Microsoft GDK + PlayFab).",
+            "dependencies": [
+                {
+                    "name": "ms-gdk",
+                    "features": [ "playfab" ]
+                }
+            ]
+        },
+        "godot-gameinput": {
+            "description": "Dependencies for godot_gameinput addon (Microsoft GameInput v3).",
+            "dependencies": [ "gameinput" ]
+        }
+    }
+}
