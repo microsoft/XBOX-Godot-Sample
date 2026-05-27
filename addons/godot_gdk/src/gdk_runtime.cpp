@@ -22,6 +22,18 @@ GDKRuntime::GDKRuntime() {
 
 GDKRuntime::~GDKRuntime() {
     shutdown();
+
+    // XGameRuntimeUninitialize is the matching half of the process-lifetime
+    // pair: call it exactly once, when the GDK extension is being torn down
+    // at process exit (~GDKRuntime is reached via memdelete(gdk_singleton) in
+    // uninitialize_gdk_extension). Do NOT call it from shutdown() above -
+    // tests cycle gdk.initialize()/gdk.shutdown() many times per process, and
+    // doing Initialize/Uninitialize on every cycle leaks GDK background
+    // threads that race DLL unload at process exit.
+    if (m_xgame_runtime_initialized) {
+        XGameRuntimeUninitialize();
+        m_xgame_runtime_initialized = false;
+    }
 }
 
 Ref<GDKResult> GDKRuntime::initialize() {
@@ -30,19 +42,23 @@ Ref<GDKResult> GDKRuntime::initialize() {
         return result;
     }
 
-    HRESULT hr = XGameRuntimeInitialize();
-    if (FAILED(hr)) {
-        Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to initialize GDK runtime.", "runtime_initialize_failed");
-        return result;
+    if (!m_xgame_runtime_initialized) {
+        HRESULT hr = XGameRuntimeInitialize();
+        if (FAILED(hr)) {
+            Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to initialize GDK runtime.", "runtime_initialize_failed");
+            return result;
+        }
+        m_xgame_runtime_initialized = true;
     }
 
-    hr = XTaskQueueCreate(
+    HRESULT hr = XTaskQueueCreate(
         XTaskQueueDispatchMode::ThreadPool,
         XTaskQueueDispatchMode::Manual,
         &m_task_queue);
     if (FAILED(hr)) {
-        XGameRuntimeUninitialize();
-
+        // Leave m_xgame_runtime_initialized true so the next initialize()
+        // attempt skips redundant XGameRuntimeInitialize. The matching
+        // Uninitialize runs from ~GDKRuntime().
         Ref<GDKResult> result = GDKResult::hresult_error(hr, "Failed to create the shared XTaskQueue.", "task_queue_create_failed");
         return result;
     }
@@ -87,7 +103,9 @@ void GDKRuntime::shutdown() {
     }
     m_active_pending_signals.clear();
 
-    XGameRuntimeUninitialize();
+    // NOTE: XGameRuntimeUninitialize is intentionally NOT called here. It is
+    // the process-lifetime peer of XGameRuntimeInitialize and runs once from
+    // ~GDKRuntime() at extension teardown. See class-level comment.
 
     m_initialized = false;
     m_shutting_down = false;

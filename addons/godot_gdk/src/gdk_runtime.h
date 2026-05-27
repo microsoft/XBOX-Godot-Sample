@@ -22,6 +22,16 @@ class GDKResult;
 class GDKRuntime {
     bool m_initialized = false;
     bool m_shutting_down = false;
+    // XGameRuntimeInitialize is documented as a process-lifetime call (paired
+    // with one XGameRuntimeUninitialize before process exit). Repeatedly
+    // cycling Initialize/Uninitialize within a single process - as the test
+    // harness does across many gdk.initialize()/gdk.shutdown() rounds - leaks
+    // GDK runtime threads and triggers a SIGSEGV at process exit during DLL
+    // unload (fault module ntdll.dll). Track the global-init state separately
+    // from the per-session m_initialized flag so XGameRuntimeInitialize runs
+    // at most once per process and XGameRuntimeUninitialize runs only from
+    // ~GDKRuntime().
+    bool m_xgame_runtime_initialized = false;
     XTaskQueueHandle m_task_queue = nullptr;
     std::vector<Ref<GDKPendingSignal>> m_active_pending_signals;
 
