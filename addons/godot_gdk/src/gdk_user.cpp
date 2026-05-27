@@ -787,7 +787,15 @@ void GDKUsers::shutdown() {
     m_runtime_ready = false;
 
     if (m_change_event_registered) {
-        XUserUnregisterForChangeEvent(m_change_token, false);
+        // wait=true matches the pattern in gdk_activation.cpp and
+        // gdk_multiplayer_activity.cpp: block until any in-flight change
+        // callback has finished before we destroy member state. Defensive
+        // even though the per-session GDK shutdown crash was actually
+        // caused by cycling XGameRuntimeInitialize/Uninitialize (see
+        // gdk_runtime.cpp); making the change-event unregister synchronous
+        // keeps a worker-thread callback from ever dereferencing a GDKUsers
+        // whose Refs have started unwinding.
+        XUserUnregisterForChangeEvent(m_change_token, true);
         m_change_event_registered = false;
     }
 
