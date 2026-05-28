@@ -9,6 +9,17 @@ If you are configuring a project's Partner Center IDs (Title ID, SCID, etc.),
 see [`gdk/sample-setup.md`](../gdk/sample-setup.md). This document
 covers what your **PC** and **test account** need on top of that.
 
+> **No Partner Center title yet?** Start with the
+> [ID@Xbox program](https://www.xbox.com/en-us/developers/id), register
+> your title in the
+> [Partner Center dashboard](https://partner.microsoft.com/dashboard),
+> and follow
+> [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+> and
+> [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+> for the Microsoft-side walkthrough. The IDs they produce are what
+> the rest of this guide reads off Partner Center.
+
 ---
 
 ## Prerequisites
@@ -32,7 +43,11 @@ covers what your **PC** and **test account** need on top of that.
 
 Your PC has to be in the same sandbox as the test account you plan to sign
 into. The sandbox ID comes straight from Partner Center → Xbox Live → Xbox
-Live Setup (e.g. `XDKS.1` or `MYTEAM.0`).
+Live Setup (e.g. `XDKS.1` or `MYTEAM.0`). For the Microsoft-side reference
+on the sandbox model see
+[Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox);
+the underlying tool is documented at
+[PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
 
 ```powershell
 # Set sandbox (admin PowerShell required).

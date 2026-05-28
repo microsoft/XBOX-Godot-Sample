@@ -26,8 +26,11 @@ When it works, the editor Output ends with:
 - [Tutorial 1 — Sign in a user](01-sign-in-user.md) is complete and
   reaches `[Auth] Sign-in complete.`. The snippets below read
   `Auth.xbox_user`.
-- Your title is set up in Partner Center with at least one
-  declared achievement. You need:
+- Your title is set up in
+  [Partner Center](https://partner.microsoft.com/dashboard) with at
+  least one declared achievement. See
+  [Microsoft GDK — Achievements](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/achievements/live-achievements-nav)
+  for the Partner Center authoring flow. You need:
   - **Achievement ID** — a short integer string Partner Center hands
     you (e.g. `"1"` for the first achievement, `"2"` for the second).
     The snippets below use `FIRST_SCORE_ID = "1"`.
@@ -39,8 +42,10 @@ When it works, the editor Output ends with:
 
 > **Achievement declaration is a Partner Center step, not a code
 > step.** If you have never set one up, see
+> [Microsoft GDK — Achievements](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/achievements/live-achievements-nav)
+> for the Partner Center walkthrough and
 > [Sample project setup — achievements](../gdk/sample-setup.md)
-> for the canonical walkthrough. Code-side `update_achievement_async`
+> for the addon-side counterpart. Code-side `update_achievement_async`
 > calls against an undeclared id return a service error and do not
 > create the achievement on the fly.
 

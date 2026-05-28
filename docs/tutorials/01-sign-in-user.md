@@ -24,8 +24,14 @@ Everything in tutorials 2–5 assumes you can reach this state.
     in **Project Settings → Plugins**.
   - `playfab/runtime/title_id` is set.
   - `MicrosoftGame.config` has real Title ID and SCID values
-    (not the template defaults).
-  - The PC is switched into the right Xbox sandbox.
+    (not the template defaults). See
+    [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+    for where these values live in
+    [Partner Center](https://partner.microsoft.com/dashboard).
+  - The PC is switched into the right Xbox sandbox. See
+    [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+    and the
+    [PC Sandbox Switcher tool](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
 - An Xbox **test account** signed into the Xbox app on the dev PC for
   the silent path to succeed without surfacing UI.
 - `gdk/runtime/initialize_on_startup` and
