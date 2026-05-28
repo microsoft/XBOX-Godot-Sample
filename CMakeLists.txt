@@ -14,14 +14,19 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
 
-set(GODOT_SAMPLE_DIRS)
-
-# Sample projects are intentionally absent on this branch.
-# PR #3 of the tutorial-driven sample revamp adds:
-#   - sample/tutorial_app/        (integrated tutorial chain)
-#   - sample/tutorial_gameinput/  (standalone GameInput demo)
-# Until then, the addons build and the test hosts under
-# tests/godot/ provide the only consumers.
+# Per-sample directories. The two tutorial samples have different
+# addon ownership so they are tracked individually rather than as a
+# single undifferentiated GODOT_SAMPLE_DIRS list:
+#   - tutorial_app:        gdk, playfab, gdk_packaging
+#   - tutorial_gameinput:  gameinput only
+# `GODOT_SAMPLE_DIRS` aggregates both for tooling that walks every
+# sample (e.g. the GodotExtensionCommon fallback path).
+set(GODOT_SAMPLE_TUTORIAL_APP_DIR        "${CMAKE_SOURCE_DIR}/sample/tutorial_app")
+set(GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR  "${CMAKE_SOURCE_DIR}/sample/tutorial_gameinput")
+set(GODOT_SAMPLE_DIRS
+    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR}
+)
 
 set(GODOT_TEST_HOST_DIRS
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
@@ -39,7 +44,7 @@ option(GODOT_PLAYFAB_TEST_HOST_WITH_GDK
     ON)
 
 set(GODOT_GDK_PROJECT_DIRS
-    ${GODOT_SAMPLE_DIRS}
+    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
 )
 
@@ -50,13 +55,13 @@ if(GODOT_PLAYFAB_TEST_HOST_WITH_GDK)
 endif()
 
 set(GODOT_PLAYFAB_PROJECT_DIRS
-    ${GODOT_SAMPLE_DIRS}
+    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab_multiplayer_worker"
 )
 
 set(GODOT_GAMEINPUT_PROJECT_DIRS
-    ${GODOT_SAMPLE_DIRS}
+    ${GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gameinput"
 )
 
@@ -76,7 +81,7 @@ option(BUILD_GODOT_GDK_PACKAGING "Sync the godot_gdk_packaging editor plugin int
 
 set(GODOT_GDK_PACKAGING_MIRROR_DIRS)
 set(GODOT_GDK_PACKAGING_PROJECT_DIRS
-    ${GODOT_SAMPLE_DIRS}
+    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
 )
 

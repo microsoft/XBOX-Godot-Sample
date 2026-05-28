@@ -16,18 +16,17 @@
     want a quick PC export and `tools\run_all_tests.ps1` -style automation;
     use the editor panel for full GDK packaging.
 
-    NOTE: The repository currently has **no sample projects**. The
-    tutorial-driven sample revamp (PR 3 of that series) will add
-    `sample/tutorial_app/` and `sample/tutorial_gameinput/`. Until those
-    land, this script accepts the `-Sample` parameter as a free-form
-    string and gracefully reports "no samples currently" when the
-    requested sample does not exist. The default `-Sample` value is empty
-    so a no-arg invocation succeeds.
+    The repository ships two samples under `sample\`:
+      - `tutorial_app`        — integrated tutorial chain (T1-T8)
+      - `tutorial_gameinput`  — standalone GameInput demo
+    Pass either name (or both) via `-Sample`. The default `-Sample`
+    value is empty so a no-arg invocation is a no-op; opt in
+    explicitly per sample. Samples without an `export_presets.cfg`
+    are reported and skipped.
 
 .PARAMETER Sample
     One or more sample directory names under `sample\`. Default is empty
-    (no samples). When the repo has samples again, pass the directory
-    name (e.g. `tutorial_app`).
+    (no samples). Pass `tutorial_app`, `tutorial_gameinput`, or both.
 
 .PARAMETER Preset
     Godot export preset name. Default: `Windows Desktop`. Pass an alternate
@@ -55,11 +54,15 @@
 
 .EXAMPLE
     .\tools\export_samples.ps1
-    No-op on this branch (no samples currently). Returns exit code 0.
+    No-op (no samples requested). Returns exit code 0.
 
 .EXAMPLE
     .\tools\export_samples.ps1 -Sample tutorial_app -Configuration Release
-    Release export of `sample\tutorial_app\` (once PR 3 lands).
+    Release export of `sample\tutorial_app\`.
+
+.EXAMPLE
+    .\tools\export_samples.ps1 -Sample tutorial_app,tutorial_gameinput
+    Debug export of both samples in sequence.
 #>
 [CmdletBinding()]
 param(

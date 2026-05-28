@@ -170,7 +170,9 @@ In normal app code you should never need to call `dispatch()`.
 - **Don't drive sign-in from `GDK.users.user_changed`.** That signal
   fires for every user lifecycle event (adds, removes, picture
   changes, privilege updates). Use the dedicated `_async` entry
-  point in `Auth._sign_in()` (see [Tutorial 1](tutorials/01-sign-in-user.md)).
+  point in `Auth.sign_in()` (see [Tutorial 1](tutorials/01-sign-in-user.md))
+  — it's idempotent and joins any in-flight attempt instead of
+  starting a second one.
 - **Don't shut the runtime down inside an `await`.** Call
   `GDK.shutdown()` / `PlayFab.shutdown()` from `_exit_tree` only
   after every in-flight `await` has resolved. Outstanding signals

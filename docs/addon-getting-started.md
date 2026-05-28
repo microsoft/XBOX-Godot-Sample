@@ -31,9 +31,32 @@ your Godot project's `addons/` directory.
   Microsoft.Gaming.GDK`). The Xbox runtime DLLs the addons depend on
   resolve from the GDK install.
 - A PlayFab title (you'll need its title id) for the `godot_playfab`
-  addon. Sign up at the [PlayFab portal](https://playfab.com/).
+  addon.
 - A **Partner Center title** with Xbox Live configured, plus at least one
   Xbox **test account** provisioned in the title's sandbox.
+
+> **First time setting up a PlayFab title?** Sign up and create the
+> title in Game Manager — the Title ID lives in **Settings → API
+> features**:
+>
+> - [PlayFab developer portal (sign-up + Game Manager)](https://developer.playfab.com/)
+>   — sign in with a Microsoft account or a PlayFab-specific account.
+> - [Microsoft Learn — PlayFab](https://learn.microsoft.com/en-us/gaming/playfab/)
+>   — top-level Learn hub for the PlayFab product.
+> - [PlayFab — Game Manager quickstart](https://learn.microsoft.com/en-us/gaming/playfab/gamemanager/quickstart)
+>   — walks you through creating your PlayFab account, your studio, and
+>   your first title (the one that produces the Title ID this guide
+>   reads).
+> - [PlayFab — Get started](https://learn.microsoft.com/en-us/gaming/playfab/get-started/)
+>   — fundamentals hub if you want a deeper tour before plugging the
+>   Title ID into Godot.
+> - [PlayFab title prerequisites](playfab/prerequisites.md) — the
+>   in-repo walkthrough that complements the Microsoft links above.
+>   Documents the per-tutorial Game Manager fixtures (the statistic
+>   + leaderboard pair backing T3, the Lobby and Party feature
+>   switches, the `CloudSaves` block in `MicrosoftGame.config`) and
+>   the `configure_playfab_test_title.ps1` helper used by the live
+>   tests.
 
 > **First time setting up a Partner Center title?** You need an Xbox
 > publisher account before you can register a title. Start here:

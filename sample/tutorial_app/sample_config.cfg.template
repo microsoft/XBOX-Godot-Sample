@@ -1,0 +1,36 @@
+; GodotGDK Tutorial App — sample configuration template.
+;
+; Copy this file to `sample_config.cfg` (next to it) and fill in the
+; values from Partner Center, OR run:
+;
+;     pwsh -File .\tools\setup_sample.ps1
+;
+; which generates `sample_config.cfg` + `MicrosoftGame.config` for you
+; interactively. The committed `.template` is checked in; the generated
+; `.cfg` and `MicrosoftGame.config` are git-ignored (per-developer state).
+
+[xbox_live]
+title_id = "<8-char hex title id, e.g. 6718942c>"
+msa_app_id = "<MSA App Id GUID>"
+store_id = "<Store Id, e.g. 9NXXXXXXXXXX>"
+scid = "00000000-0000-0000-0000-0000<title_id>"
+sandbox_id = "<Sandbox Id, e.g. XDKS.1>"
+
+[identity]
+game_name = "GodotGDK Tutorial App"
+publisher = "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+publisher_display_name = "<Publisher display name>"
+version = "1.0.0.0"
+
+[achievements]
+; T2 unlocks this achievement id; declared in Partner Center.
+demo_achievement_id = "1"
+
+[playfab]
+; PlayFab title id (3-5 hex chars). Set in PlayFab Game Manager.
+; The same value should be set in Project Settings -> PlayFab -> Runtime -> Title Id.
+title_id = "<PlayFab title id, e.g. ABC12>"
+
+[leaderboards]
+; T3 / T8 leaderboard panel target. Declared in PlayFab Game Manager.
+demo_leaderboard_name = "high_score"

@@ -101,6 +101,11 @@ docs/
   `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`,
   `PlayFab.player_data`, `PlayFab.statistics`, `PlayFab.title_data`), sample
   usage, and testing
+- [**PlayFab title prerequisites**](playfab/prerequisites.md) —
+  PlayFab title configuration required before any PlayFab tutorial or
+  sample runs (Title ID, per-tutorial Game Manager fixtures including
+  the statistic + leaderboard pair backing T3, the Lobby and Party
+  feature switches, and the `configure_playfab_test_title.ps1` helper)
 
 ## Packaging addon (`godot_gdk_packaging`)
 
@@ -113,16 +118,6 @@ docs/
 - [**Xbox Sandbox and Test Accounts**](platform/xbox-sandbox-and-test-accounts.md)
   — switching the PC into a Partner Center sandbox, signing in the
   Xbox app with a test account, and the error-code lookup table
-
-## Design specs
-
-Design intent documents live in [`spec/`](../spec/). These describe the planned
-API surface and are not guaranteed to match the current implementation.
-
-- [`gdext-gdk.md`](../spec/gdext-gdk.md) — GDK addon design spec
-- [`gdext-gameinput.md`](../spec/gdext-gameinput.md) — GameInput addon design spec
-- [`gdext-playfab.md`](../spec/gdext-playfab.md) — PlayFab addon design spec
-- [`testing-strategy.md`](../spec/testing-strategy.md) — durable test strategy spec
 
 ## Troubleshooting
 

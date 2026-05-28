@@ -2,11 +2,13 @@
 
 ## What you'll build
 
-A scene that submits a player score into a **PlayFab leaderboard** and
-then reads it back, top of the page first. By the end you will:
+A scene that records a player score into a **PlayFab statistic** and
+then reads back the **leaderboard** that ranks the statistic, top of
+the page first. By the end you will:
 
-- Submit a score with `PlayFab.leaderboards.submit_score_async`.
-- Query the global top with
+- Record a score with `PlayFab.statistics.update_statistics_async`
+  against a statistic whose values feed the leaderboard.
+- Query the global top of the leaderboard with
   `PlayFab.leaderboards.get_leaderboard_async`.
 - Page through the result with `start_position` + `page_size` and
   read the same leaderboard "around the player" with
@@ -17,7 +19,7 @@ then reads it back, top of the page first. By the end you will:
 Sample output:
 
 ```
-[Lead] Submitted score 1234 for leaderboard "high_score"
+[Lead] Recorded score 1234 to statistic "high_score"
 [Lead] Global page 1: rank 1..10 of ~317 entries (version 4)
 [Lead]   #1   SteelGorilla — 99800
 [Lead]   #2   ThunderBison — 87420
@@ -31,15 +33,24 @@ Sample output:
 
 - [Tutorial 1 — Sign in a user](01-sign-in-user.md) is complete and
   `Auth.playfab_user` resolves to a signed-in `PlayFabUser`.
-- One **leaderboard** is configured in the PlayFab Game Manager for
-  this title. The snippets below use the name `"high_score"`;
-  substitute your own. Leaderboards are not auto-created — submissions
-  against an unknown leaderboard return a service error.
-- The **column types** on your leaderboard match the numeric type
-  you're submitting. The snippets below assume a single integer
-  column. The addon serializes scores as decimal strings, so a
-  leaderboard configured for a different stat type rejects the
-  submission.
+- The title-side leaderboards configuration is in place. PlayFab
+  client-driven leaderboards are sourced from a **statistic**: the
+  client writes a value to the statistic, and the leaderboard ranks
+  the statistic across all entities. Configure both resources in
+  PlayFab Game Manager:
+  - **A statistic with a known name** (the snippets below use
+    `"high_score"`; substitute an alternative and update the
+    matching constant). Entity type `title_player_account`. A
+    single column with `AggregationMethod = Last` matches the
+    snippets below; `Max` is also a common choice for high-score
+    boards.
+  - **A leaderboard that sources its rankings from the statistic.**
+    In Game Manager, create the leaderboard, then configure its
+    source to be the statistic above. The leaderboard name and the
+    statistic name may differ; the snippets below assume the same
+    name (`"high_score"`) for both.
+  - The full walkthrough is in
+    [PlayFab title prerequisites — §2 Leaderboards](../playfab/prerequisites.md#leaderboards-t3-t8).
 - For the friend leaderboard step: `Auth.playfab_user` was obtained
   via `PlayFab.users.sign_in_with_xuser_async(Auth.xbox_user)`, not
   `sign_in_with_custom_id_async`. The friend-leaderboard call needs
@@ -47,77 +58,106 @@ Sample output:
   session is backed by an Xbox user. The signed-in test account must
   also have at least one Xbox friend who has submitted a score.
 
+> **Why statistic-backed instead of direct writes?** PlayFab's
+> `LeaderboardsV2/UpdateLeaderboardEntries` is, by default,
+> server-only — a client call returns
+> `E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS` (HRESULT
+> `0x89235472`). The supported client-side pattern for
+> player-driven leaderboards is to write a statistic and let the
+> leaderboard surface those values. See
+> [Troubleshooting → PlayFab leaderboard submit returns 0x89235472](../troubleshooting.md#playfab-leaderboard-submit-fails-with-e_pf_api_not_enabled_for_game_client_access-0x89235472)
+> for the diagnostic context.
+
 > **PlayFab leaderboards vs. GDK leaderboards.** PlayFab leaderboards
 > are an explicitly **versioned** resource: a leaderboard is created
 > in Game Manager with a reset cadence (or a manual reset endpoint),
-> and every reset increments `version`. Submissions and queries
-> default to the current version. The GDK leaderboard surface
-> (`GDK.leaderboards` + `GDK.stats`) is a separate Xbox Live
-> service with a different reset model; the two are not
-> interchangeable. This tutorial uses PlayFab; the GDK surface
-> remains available in the addon for titles that prefer it.
+> and every reset increments `version`. Statistics carry their own
+> version that the leaderboard tracks. The GDK leaderboard surface
+> (`GDK.leaderboards` + `GDK.stats`) is a separate Xbox Live service
+> with a different reset model; the two are not interchangeable.
+> This tutorial uses PlayFab; the GDK surface remains available in
+> the addon for titles that prefer it.
 
 ## Relevant addon surfaces
 
+- [`PlayFab.statistics`](../../addons/godot_playfab/doc_classes/PlayFabStatistics.xml)
+  — `update_statistics_async` (the client-write entry point for
+  statistic-backed leaderboards), `get_statistics_async`,
+  `get_statistics_for_entities_async`.
 - [`PlayFab.leaderboards`](../../addons/godot_playfab/doc_classes/PlayFabLeaderboards.xml)
-  — `submit_score_async`, `get_leaderboard_async`,
+  — `get_leaderboard_async`,
   `get_leaderboard_around_user_async`,
   `get_friend_leaderboard_async`.
-- [`PlayFab.users`](../playfab/plugin.md) — provides the
-  `PlayFabUser` every leaderboard call takes as its first parameter
-  (typically `Auth.playfab_user` from T1).
-- [`PlayFabResult`](../playfab/plugin.md) — the normalized result
+- [`PlayFab.users`](../../addons/godot_playfab/doc_classes/PlayFabUsers.xml) — provides the
+  `PlayFabUser` every statistics and leaderboards call takes as its
+  first parameter (typically `Auth.playfab_user` from T1).
+- [`PlayFabResult`](../../addons/godot_playfab/doc_classes/PlayFabResult.xml) — the normalized result
   type. `result.ok`, `result.message`, `result.data` (a `Dictionary`
   for leaderboard responses; see the response shape in Step 2).
 - One-page primer on the addons' async model:
   [Async patterns](../async-patterns.md).
 
-## Step 1 — Submit a score
+## Step 1 — Record a score to the statistic
 
-PlayFab leaderboard submissions are **single-shot** — no staging,
-no flush; one call submits the row:
+`PlayFab.statistics.update_statistics_async` takes the signed-in
+user and a request dictionary that lists the statistics to update.
+Each entry carries the statistic `name` and a `scores` array of
+decimal-encoded strings, one per statistic column. A single-column
+statistic takes a single-element `scores` array:
 
 ```gdscript
 extends Node
 
-const LEADERBOARD_NAME := "high_score"
+const STATISTIC_NAME := "high_score"
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
-
-    await _submit_score(1234)
-
-func _submit_score(score: int) -> void:
-    var user: PlayFabUser = Auth.playfab_user
-
-    var result: PlayFabResult = await PlayFab.leaderboards.submit_score_async(
-            user, LEADERBOARD_NAME, score)
-    if not result.ok:
-        push_warning("[Lead] Submit failed: %s" % result.message)
+    if not await Auth.sign_in():
         return
 
-    print("[Lead] Submitted score %d for leaderboard \"%s\"" % [score, LEADERBOARD_NAME])
+    await _record_score(1234)
+
+func _record_score(score: int) -> void:
+    var user: PlayFabUser = Auth.playfab_user
+
+    var result: PlayFabResult = await PlayFab.statistics.update_statistics_async(user, {
+        "statistics": [
+            {"name": STATISTIC_NAME, "scores": [str(score)]},
+        ],
+    })
+    if not result.ok:
+        push_warning("[Lead] Record failed: %s" % result.message)
+        return
+
+    print("[Lead] Recorded score %d to statistic \"%s\"" % [score, STATISTIC_NAME])
 ```
 
 Two patterns worth knowing:
 
-- **Submit when the run ends, not every frame.** Each submission is
-  a service round-trip. Posting a score per frame both rate-limits
-  you and wastes bandwidth.
-- **`submit_score_async` accepts additional scores and metadata.**
-  Pass `additional_scores: Array` (each int) when the leaderboard
-  has more than one column, and `metadata: String` for a small
-  per-entry payload (e.g., JSON-encoded run summary). For a
-  single-column integer leaderboard the two extras stay defaulted.
+- **Record when the run ends, not every frame.** Each statistic
+  write is a service round-trip. Recording a score per frame both
+  rate-limits you and wastes bandwidth.
+- **`update_statistics_async` accepts multi-column scores, metadata,
+  and an optional version.** Each entry in `statistics` may carry a
+  multi-element `scores` array (one decimal string per statistic
+  column), a `metadata` string (returned by every leaderboard
+  query for the entry), and a `version` int to pin the write to a
+  specific statistic version. A single-column statistic takes a
+  single-element `scores` array and otherwise leaves the optional
+  fields out.
 
 ## Step 2 — Query the global top of the leaderboard
 
+The leaderboard surfaces the statistic values as ranked entries.
 `get_leaderboard_async` returns a `Dictionary` describing the page —
 the rows already copied out plus the leaderboard's `version` and a
-total entry count:
+total entry count. The leaderboard name passed here is the
+**leaderboard** name configured in Game Manager (which may differ
+from the statistic name; the snippets here use `"high_score"` for
+both):
 
 ```gdscript
+const LEADERBOARD_NAME := "high_score"
+
 func _print_global_top() -> void:
     var user: PlayFabUser = Auth.playfab_user
 
@@ -289,7 +329,7 @@ prereq; mutual PlayFab friends still appear either way.
 A clean run prints something like:
 
 ```
-[Lead] Submitted score 1234 for leaderboard "high_score"
+[Lead] Recorded score 1234 to statistic "high_score"
 [Lead] Global page 1: rank 1..10 of ~317 entries (version 4)
 [Lead]   #1   SteelGorilla — 99800
 [Lead]   #2   ThunderBison — 87420
@@ -305,18 +345,23 @@ Common failures:
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| `Submit failed: leaderboard_not_found` | The leaderboard name is not configured in Game Manager. | Open **PlayFab Game Manager → Leaderboards** and create the leaderboard. |
-| `Submit failed: invalid_score` or column-mismatch error | The submission shape doesn't match the configured column types. | Match the column count and types in `additional_scores`. A single-column integer leaderboard takes one int score, no extras. |
-| `get_leaderboard failed: not_found` | The leaderboard exists but no one has submitted yet. | Submit at least one score first (your own counts). |
-| Around-user returns only one row | You are the only player with a score in this leaderboard version. | Submit scores from a second test account, or use the global query for the demo. |
+| `Record failed: statistic_not_found` (or `errorCode 1310`, `StatisticDefinitionNotFound`) | The statistic name is not configured in Game Manager, or the entity type does not match. | Open **PlayFab Game Manager → Statistics** and create the statistic with entity type `title_player_account`. |
+| `Record failed: invalid_request` or column-mismatch error | The `scores` array length does not match the statistic's configured column count, or a value is not a decimal-formatted string. | Match the column count and use `str(value)` for each integer score. A single-column statistic takes a single-element `scores` array. |
+| `Record failed: ...APINotEnabledForGameClientAccess...` (HRESULT `0x89235472`) on `update_statistics_async` | The title's **Allow client to post player stats** setting is disabled. | Open **PlayFab Game Manager → your title → Title settings → API Features**, enable **Allow client to post player stats**, save, and re-run. See [PlayFab prerequisites — §2 Leaderboards step 3](../playfab/prerequisites.md#leaderboards-t3-t8). |
+| `Record failed: ...APINotEnabledForGameClientAccess...` (HRESULT `0x89235472`) on `submit_score_async` | The code is calling `PlayFab.leaderboards.submit_score_async` instead of `PlayFab.statistics.update_statistics_async`. The direct-leaderboard-write endpoint is server-only and has no Game Manager toggle. | Switch the write path to `update_statistics_async`; see [Troubleshooting → PlayFab leaderboard submit returns 0x89235472](../troubleshooting.md#playfab-leaderboard-submit-fails-with-e_pf_api_not_enabled_for_game_client_access-0x89235472). |
+| `get_leaderboard failed: not_found` | The leaderboard name does not match a leaderboard configured in Game Manager, or no entity has a statistic value yet. | Confirm the leaderboard exists and is sourced from the statistic. Then record at least one score (your own counts). |
+| Leaderboard renders `(no entries)` even after a successful record | The leaderboard is sourced from a different statistic than the one being written, or the rankings have not refreshed yet. | Confirm the Game Manager leaderboard's source statistic matches `STATISTIC_NAME`. Statistic-to-leaderboard propagation is typically a few seconds; wait and re-query. |
+| Around-user returns only one row | You are the only entity with a value in this statistic version. | Record values from a second test account, or use the global query for the demo. |
 | `friend leaderboard failed: missing_xbox_token` | `Auth.playfab_user` was created with `sign_in_with_custom_id_async`, so no Xbox token is available. | Switch the session to `PlayFab.users.sign_in_with_xuser_async(Auth.xbox_user)`. |
-| Xbox-friend page is empty for a friended account | The friend has never submitted to this leaderboard, or you and the friend are in different PlayFab titles in the same Xbox sandbox. | Have the friend submit a score; confirm the same PlayFab title id on both accounts. |
+| Xbox-friend page is empty for a friended account | The friend has never recorded the statistic, or you and the friend are in different PlayFab titles in the same Xbox sandbox. | Have the friend record a score; confirm the same PlayFab title id on both accounts. |
+
+## Reference implementation
+
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t03_leaderboard.tscn`](../../sample/tutorial_app/t03_leaderboard.tscn)
+- Script: [`sample/tutorial_app/t03_leaderboard.gd`](../../sample/tutorial_app/t03_leaderboard.gd)
+- Reuses the `Auth` autoload from T1.
 
 ## What's next
-
-You can now write and read PlayFab leaderboards. Tutorial 4 moves to
-**PlayFab Game Saves**, which builds on the same PlayFab session:
-
-- [**Tutorial 4 — Save the player's progress**](04-game-saves.md)
-- Reference:
-  [PlayFabLeaderboards](../../addons/godot_playfab/doc_classes/PlayFabLeaderboards.xml)

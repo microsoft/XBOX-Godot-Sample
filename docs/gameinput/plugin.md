@@ -31,8 +31,6 @@ The addon gives GDScript first-class access to:
 | Force feedback / arcade stick / racing wheel | Deferred |
 | KB / mouse raw input | Deferred |
 
-See `spec/gdext-gameinput.md` for the full spec and known deviations.
-
 ## Building
 
 ```powershell
@@ -186,8 +184,6 @@ See [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) for the orchestrator
 
 ## See also
 
-* `spec/gdext-gameinput.md` — design spec, deferred work, deviations from the
-  original sketch.
 * `addons/godot_gameinput/CMakeLists.txt` — the build target. Add new sources
   to `_GAMEINPUT_SRCS` and new sync files to `godot_addon_sync_files_to_sample`'s
   FILES list.

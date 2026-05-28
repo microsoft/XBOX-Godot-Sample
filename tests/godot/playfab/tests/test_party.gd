@@ -101,6 +101,11 @@ func test_party_stable_constants() -> void:
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE"), 1, "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE == 1")
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE"), 2, "DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE == 2")
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE"), 3, "DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE == 3")
+	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER"), 4, "DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER == 4")
+	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_DIFFERENT_ENTITY_LOGIN_PROVIDER"), 8, "DIRECT_PEER_CONNECTIVITY_DIFFERENT_ENTITY_LOGIN_PROVIDER == 8")
+	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY_ENTITY_LOGIN_PROVIDER"), 12, "DIRECT_PEER_CONNECTIVITY_ANY_ENTITY_LOGIN_PROVIDER == 12")
+	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY"), 15, "DIRECT_PEER_CONNECTIVITY_ANY == 15")
+	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS"), 16, "DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS == 16")
 
 	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATE_CREATING"), 0, "NETWORK_STATE_CREATING == 0")
 	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATE_CONNECTING"), 1, "NETWORK_STATE_CONNECTING == 1")
@@ -220,6 +225,62 @@ func test_party_invalid_user_failures() -> void:
 	await _assert_signal_error(party.create_and_join_network_async(blank_user, config), "party_invalid_user", "PlayFab.party.create_and_join_network_async() with blank user")
 	await _assert_signal_error(party.join_network_async(blank_user, "descriptor", config), "party_invalid_user", "PlayFab.party.join_network_async() with blank user")
 	await _assert_signal_error(party.leave_network_async(null), "party_invalid_options", "PlayFab.party.leave_network_async(null) reports party_invalid_options")
+
+
+# Regression: PartyManager::CreateNewNetwork rejects the network
+# configuration struct if platform-type flags are not combined with at
+# least one entity-login-provider flag (or vice versa), or if
+# OnlyServers is mixed with anything else. The addon validates the
+# bitmask before reaching the SDK so authors get a clear actionable
+# error instead of a generic "invalid network configuration struct".
+func test_party_invalid_direct_peer_connectivity_rejected() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	if party == null:
+		return
+
+	var blank_user = instantiate_class("PlayFabUser")
+	var same_platform_only = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE")
+	var any_platform_only = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE")
+	var login_provider_only = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER")
+	var only_servers = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS")
+	var any_preset = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY")
+
+	# Platform-type flag without login-provider flag is invalid.
+	var bad_platform_only = instantiate_class("PlayFabPartyConfig")
+	bad_platform_only.direct_peer_connectivity = same_platform_only
+	await _assert_signal_error(party.create_and_join_network_async(blank_user, bad_platform_only), "party_invalid_options", "create_and_join_network_async(SAME_PLATFORM_TYPE alone) rejected")
+
+	var bad_any_platform = instantiate_class("PlayFabPartyConfig")
+	bad_any_platform.direct_peer_connectivity = any_platform_only
+	await _assert_signal_error(party.create_and_join_network_async(blank_user, bad_any_platform), "party_invalid_options", "create_and_join_network_async(ANY_PLATFORM_TYPE alone) rejected")
+
+	# Login-provider flag without platform-type flag is invalid.
+	var bad_login_only = instantiate_class("PlayFabPartyConfig")
+	bad_login_only.direct_peer_connectivity = login_provider_only
+	await _assert_signal_error(party.create_and_join_network_async(blank_user, bad_login_only), "party_invalid_options", "create_and_join_network_async(SAME_ENTITY_LOGIN_PROVIDER alone) rejected")
+
+	# OnlyServers mixed with anything else is invalid.
+	var bad_only_servers_mix = instantiate_class("PlayFabPartyConfig")
+	bad_only_servers_mix.direct_peer_connectivity = only_servers | any_preset
+	await _assert_signal_error(party.create_and_join_network_async(blank_user, bad_only_servers_mix), "party_invalid_options", "create_and_join_network_async(ONLY_SERVERS | ANY) rejected")
+
+	# Bits outside the known mask are rejected.
+	var bad_unknown_bits = instantiate_class("PlayFabPartyConfig")
+	bad_unknown_bits.direct_peer_connectivity = 0x40
+	await _assert_signal_error(party.create_and_join_network_async(blank_user, bad_unknown_bits), "party_invalid_options", "create_and_join_network_async(unknown bits 0x40) rejected")
+
+	# Valid shapes pass the connectivity check and then trip the next
+	# guard (blank user -> party_invalid_user). This confirms the
+	# validator doesn't false-positive on the recommended combinations.
+	for valid_value in [0, any_preset, only_servers, same_platform_only | login_provider_only]:
+		var ok_config = instantiate_class("PlayFabPartyConfig")
+		ok_config.direct_peer_connectivity = valid_value
+		await _assert_signal_error(party.create_and_join_network_async(blank_user, ok_config), "party_invalid_user", "create_and_join_network_async(valid connectivity=%d) passes connectivity check" % valid_value)
 
 
 func test_party_initialize_requires_playfab_runtime() -> void:

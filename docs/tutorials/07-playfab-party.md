@@ -51,10 +51,11 @@ Sample output (host side):
   to publish its descriptor — but most titles ship Party + MPA
   together so friends can both **find** and **talk to** each
   other in the same session.
-- Your PlayFab title has **Party** enabled. In the PlayFab Game
-  Manager open **Multiplayer → Party** and confirm the title shows
-  "Party enabled". Most titles created in the last few years have
-  it on by default.
+- The title-side Party configuration is in place: PlayFab
+  Multiplayer → Party is enabled in Game Manager. Recently created
+  titles enable this by default; older titles require the feature to
+  be enabled manually. See
+  [PlayFab title prerequisites — §2 Party](../playfab/prerequisites.md#party-t7-t8).
 - Two Godot processes (host + client), each signed into a different
   Xbox test account in the same sandbox. As with the lobby tutorial,
   the easiest setup is one editor scene as host and an exported
@@ -66,25 +67,25 @@ Sample output (host side):
 
 ## Relevant addon surfaces
 
-- [`PlayFab.party`](../playfab/plugin.md) —
+- [`PlayFab.party`](../../addons/godot_playfab/doc_classes/PlayFabParty.xml) —
   `initialize_async`, `create_and_join_network_async`,
   `join_network_async`, signal `party_error`.
-- [`PlayFabPartyConfig`](../playfab/plugin.md) — Party network
+- [`PlayFabPartyConfig`](../../addons/godot_playfab/doc_classes/PlayFabPartyConfig.xml) — Party network
   configuration (voice, text, max players, direct peer
   connectivity). `set_voice_chat_enabled` and
   `set_text_chat_enabled` decide which chat surfaces are wired
   for the network — Step 6 reads the local user's privileges
   before flipping them on.
-- [`PlayFabPartyNetwork`](../playfab/plugin.md) — the network
+- [`PlayFabPartyNetwork`](../../addons/godot_playfab/doc_classes/PlayFabPartyNetwork.xml) — the network
   handle returned by create / join; carries the peer list,
   descriptor, `local_peer`, and the `state_changed(change)`
   signal that carries network lifecycle changes.
-- [`PlayFabPartyPeer`](../playfab/plugin.md) — the per-peer chat
+- [`PlayFabPartyPeer`](../../addons/godot_playfab/doc_classes/PlayFabPartyPeer.xml) — the per-peer chat
   surface: `send_text_async`, `set_peer_muted_async`,
   `set_peer_chat_permissions_async`,
   `text_message_received(peer_id, message)`,
   `chat_control_added`, `chat_permissions_changed`.
-- [`PlayFab.multiplayer`](../playfab/plugin.md) — used here only to
+- [`PlayFab.multiplayer`](../../addons/godot_playfab/doc_classes/PlayFabMultiplayer.xml) — used here only to
   publish the network descriptor through lobby properties.
 - [`GDK.users`](../../addons/godot_gdk/doc_classes/GDKUsers.xml)
   — `check_privilege_async`. Step 6 checks the local user's
@@ -107,31 +108,102 @@ Sample output (host side):
 > descriptor around through lobby properties, which is what this
 > tutorial does.
 
-## Step 1 — Initialize PlayFab Party
+## Step 1 — Bring up the Party autoload
 
 PlayFab Party sits on top of `PartyManager` and must be initialized
 once before any network method works. Do it after PlayFab itself is
-ready (so it shares the runtime queue with the rest of the addon)
-but it does **not** need to wait for `PlayFab.multiplayer` — Party
-and Multiplayer are independent services:
+ready (so it shares the runtime queue with the rest of the addon).
+Party and Multiplayer are independent services so you don't have to
+order them against each other.
+
+Like Lobby in [Tutorial 5](05-multiplayer-lobby.md#step-1--bring-up-the-lobby-autoload),
+initialize Party **lazily** on first host / join rather than eagerly
+in `_ready`. Party allocates an audio engine and a network stack at
+init time — paying that cost on app boot bloats every scene that
+doesn't use voice. The pattern is the same `_ensure_initialized()`
+helper guarded by a "signals connected" flag.
+
+Pair the lazy init with the same `State` enum the Auth (T1) and
+Lobby (T5) autoloads use. The state machine pays for itself on
+Party because the autoload has more interlocked entry points than
+either of its peers: `host_party` / `_join_party_network` /
+`leave_party` plus three indirect triggers from the Lobby autoload
+(`lobby_joined`, `lobby_left`, `lobby_disconnected`) and the
+`NETWORK_CHANGE_DESTROYED` firehose from PlayFab itself. Without a
+state machine these paths race; with one they reject or coalesce
+deterministically.
+
+> **Note — single-slot design.** Like the Lobby autoload, this one
+> owns exactly one `PlayFabPartyNetwork` at a time and the
+> host/join methods reject re-entrant calls. The PlayFab addon
+> supports multiple live Party networks per process, so if your
+> game needs concurrent networks (e.g. a persistent clan voice
+> channel plus a per-match network), refactor `host_party` /
+> `_join_party_network` to return the new `PlayFabPartyNetwork`
+> and have the caller hold the reference. The single-slot choice
+> lives entirely in this sample autoload, not in the addon.
 
 ```gdscript
 extends Node
 
 const PARTY_DESCRIPTOR_KEY := "party_descriptor"
 
-var _network: PlayFabPartyNetwork = null
-var _is_host := false
+enum State {
+    UNINITIALIZED,    # autoload _ready has not finished sign-in / lobby wiring
+    READY,            # signed in, lobby wiring up, no network; host/join allowed
+    HOSTING,          # host_party() in flight (create_and_join_network_async)
+    JOINING,          # _join_party_network() in flight (join_network_async)
+    IN_NETWORK,       # active PlayFabPartyNetwork; chat/leave allowed
+    LEAVING,          # leave_party() in flight
+}
 
+signal state_changed(state: State)
+signal network_joined(network: PlayFabPartyNetwork)
+signal network_left          # voluntary teardown (leave_party)
+signal network_destroyed     # involuntary teardown (lobby host left, network error, shutdown)
+
+var _state: State = State.UNINITIALIZED
+var _network: PlayFabPartyNetwork = null
+var _is_host: bool = false
+var _pf_party_signals_connected: bool = false
+
+# Abort flag for in-flight host/join when the lobby disappears mid-await.
+var _abort_party_op: bool = false
+# Set true while leave_party is unwinding; NETWORK_CHANGE_DESTROYED
+# uses this to know the teardown is voluntary and skip double-emit.
+var _teardown_in_progress: bool = false
+
+# Guarded accessor — returns null unless we're actually in a network.
+var network: PlayFabPartyNetwork:
+    get:
+        return _network if _state == State.IN_NETWORK else null
+
+func is_in_network() -> bool: return _state == State.IN_NETWORK
+func is_busy() -> bool:
+    return _state == State.HOSTING or _state == State.JOINING or _state == State.LEAVING
+
+func _set_state(next: State) -> void:
+    if _state == next:
+        return
+    _state = next
+    state_changed.emit(_state)
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
+    # Lobby wiring is cheap and does not require the PlayFab Party SDK
+    # to be initialized; lazy-init happens on first host/join.
+    Lobby.lobby_joined.connect(_on_lobby_joined_from_lobby_autoload)
+    Lobby.lobby_left.connect(_on_lobby_left_from_lobby_autoload)
+    Lobby.lobby_disconnected.connect(_on_lobby_left_from_lobby_autoload)
+    _set_state(State.READY)
+    print("[Party] autoload ready (PlayFab Party init is lazy)")
 
+func _ensure_initialized() -> bool:
     if not PlayFab.party.is_initialized():
         var cfg := PlayFabPartyConfig.new()
         cfg.max_players = 8
-        cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE
+        cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY
         cfg.enable_voice_chat = true
         cfg.enable_text_chat = true
         cfg.enable_transcription = false  # Flip to true to receive
@@ -140,11 +212,13 @@ func _ready() -> void:
         var init: PlayFabResult = await PlayFab.party.initialize_async(cfg)
         if not init.ok:
             push_error("[Party] init failed: %s (%s)" % [init.message, init.code])
-            return
+            return false
+        print("[Party] initialized lazily (voice=true text=true transcription=false)")
 
-    print("[Party] Party initialized (voice=true text=true transcription=false)")
-
-    PlayFab.party.party_error.connect(_on_party_error)
+    if not _pf_party_signals_connected:
+        PlayFab.party.party_error.connect(_on_party_error)
+        _pf_party_signals_connected = true
+    return true
 
 
 func _on_party_error(result: PlayFabResult) -> void:
@@ -158,6 +232,14 @@ policy** — they decide whether the addon creates and connects a
 chat control alongside the network endpoint. You can flip them per
 network, not just at init time.
 
+> **Voluntary vs involuntary teardown.** `network_left` fires when
+> *we* called `leave_party`. `network_destroyed` fires when PlayFab
+> tore the network down on us — the lobby host left, a network
+> error killed the peer, or the engine is shutting down. UI usually
+> handles them differently: `network_left` is "clean, ready to host
+> again," while `network_destroyed` is "show a banner explaining
+> the disconnection." Both reset the autoload to `READY`.
+
 ## Step 2 — Host: create the Party network
 
 The lobby owner creates the Party network. The host's
@@ -166,21 +248,48 @@ The lobby owner creates the Party network. The host's
 checks in your gameplay code still mean what you expect:
 
 ```gdscript
-func host_party() -> void:
+func host_party() -> bool:
+    if _state != State.READY:
+        push_warning("[Party] host_party rejected — busy or already in network (state=%d)" % _state)
+        return false
+
+    _set_state(State.HOSTING)
+    _abort_party_op = false
     _is_host = true
+
+    if not await _ensure_initialized():
+        _is_host = false
+        _set_state(State.READY)
+        return false
 
     var user: PlayFabUser = Auth.playfab_user
     var cfg := PlayFabPartyConfig.new()
     cfg.max_players = 4
-    cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE
+    cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY
 
     var result: PlayFabResult = await PlayFab.party.create_and_join_network_async(user, cfg)
+
+    # The lobby may have disappeared while we were awaiting create_and_join.
+    # Tear down the orphan network without binding it or emitting joined.
+    if _abort_party_op or _state != State.HOSTING:
+        if result.ok:
+            result.data.leave_async()
+        _abort_party_op = false
+        _is_host = false
+        if _state == State.HOSTING:
+            _set_state(State.READY)
+        return false
+
     if not result.ok:
         push_warning("[Party] create_and_join failed: %s (%s)" % [result.message, result.code])
-        return
+        _is_host = false
+        _set_state(State.READY)
+        return false
 
     _network = result.data
     _network.state_changed.connect(_on_network_state_changed)
+    _set_state(State.IN_NETWORK)
+    network_joined.emit(_network)
     print("[Party] Network created — waiting for descriptor…")
 
     # The provisional descriptor is never exposed. The finalized base64
@@ -188,14 +297,15 @@ func host_party() -> void:
     # NETWORK_CHANGE_DESCRIPTOR_UPDATED; we publish onto the lobby from
     # _on_network_state_changed once that fires (Step 3).
     if not _network.descriptor.is_empty():
-        _publish_descriptor_on_lobby(_network.descriptor)
+        await _publish_descriptor_on_lobby(_network.descriptor, _network)
+    return true
 
 
 func _on_network_state_changed(change: PlayFabPartyNetworkStateChange) -> void:
     match change.kind:
         PlayFabParty.NETWORK_CHANGE_DESCRIPTOR_UPDATED:
-            if _is_host and not _network.descriptor.is_empty():
-                _publish_descriptor_on_lobby(_network.descriptor)
+            if _is_host and _state == State.IN_NETWORK and not _network.descriptor.is_empty():
+                await _publish_descriptor_on_lobby(_network.descriptor, _network)
         PlayFabParty.NETWORK_CHANGE_PEER_JOINED:
             print("[Party] Peer connected: id=%d entity=%s" % [
                 change.peer_id,
@@ -208,8 +318,7 @@ func _on_network_state_changed(change: PlayFabPartyNetworkStateChange) -> void:
         PlayFabParty.NETWORK_CHANGE_ERROR:
             push_warning("[Party] network error: %s" % change.reason)
         PlayFabParty.NETWORK_CHANGE_DESTROYED:
-            print("[Party] Network destroyed (%s)" % change.reason)
-            _network = null
+            _handle_network_destroyed(change.reason)
 ```
 
 `create_and_join_network_async` resolves as soon as the local user is
@@ -222,6 +331,17 @@ as it arrives. Either way, the host publishes exactly once. The
 provisional descriptor from the immediate Party API is intentionally
 never exposed — only the finalized one is publishable.
 
+> **Why the abort-after-await check?** `host_party` and
+> `_join_party_network` are async — between the `await` going out
+> and the await coming back, the user could leave the lobby, the
+> lobby host could kick everyone, or the network connection could
+> die. Without the `_abort_party_op` check the autoload would
+> happily bind Godot's `multiplayer.multiplayer_peer` to a network
+> whose backing lobby is already gone and emit `network_joined` to
+> consumers who are about to receive `network_destroyed` anyway.
+> The flag is set by `_on_lobby_left_from_lobby_autoload` when it
+> sees `is_busy()` (Step 8).
+
 ## Step 3 — Host: publish the descriptor on the lobby
 
 The simplest discovery flow is: write the descriptor into the
@@ -233,7 +353,13 @@ sees the descriptor as soon as it's available:
 var _lobby: PlayFabLobby = null  # Set this from Tutorial 5's create_lobby_async.
 
 
-func _publish_descriptor_on_lobby(descriptor: String) -> void:
+func _publish_descriptor_on_lobby(descriptor: String, expected_network: PlayFabPartyNetwork) -> void:
+    # Re-check before writing — by the time the await on set_properties_async
+    # returns, the host could have torn the network down (LEAVING) or a
+    # newer network could be in flight. Publishing a stale descriptor would
+    # send clients chasing a dead network.
+    if _state != State.IN_NETWORK or _network != expected_network:
+        return
     if _lobby == null:
         push_warning("[Party] No lobby to publish descriptor on")
         return
@@ -244,7 +370,9 @@ func _publish_descriptor_on_lobby(descriptor: String) -> void:
     var pf: PlayFabResult = await _lobby.set_properties_async({
         PARTY_DESCRIPTOR_KEY: descriptor,
     })
-    if not pf.ok:
+    # Re-check once more so we don't warn about a failure caused by our
+    # own teardown.
+    if not pf.ok and _state == State.IN_NETWORK and _network == expected_network:
         push_warning("[Party] descriptor publish failed: %s" % pf.message)
 ```
 
@@ -274,8 +402,11 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
     # is the new piece for the Party tutorial.
     if change.kind != PlayFabLobby.PROPERTIES_UPDATED:
         return
-    if _network != null or _is_host:
-        return  # We're either already joined or we're the host.
+    # Only the not-yet-joined client side cares about descriptor updates.
+    # State.READY also rules out the host (HOSTING / IN_NETWORK) and any
+    # in-flight client join (JOINING).
+    if _is_host or _state != State.READY:
+        return
 
     var descriptor: String = String(change.lobby.properties.get(PARTY_DESCRIPTOR_KEY, ""))
     if descriptor.is_empty():
@@ -284,20 +415,46 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
     await _join_party_network(descriptor)
 
 
-func _join_party_network(descriptor: String) -> void:
+func _join_party_network(descriptor: String) -> bool:
+    if _state != State.READY:
+        push_warning("[Party] join rejected — busy or already in network (state=%d)" % _state)
+        return false
+
+    _set_state(State.JOINING)
+    _abort_party_op = false
+    _is_host = false
+
+    if not await _ensure_initialized():
+        _set_state(State.READY)
+        return false
+
     var user: PlayFabUser = Auth.playfab_user
     var cfg := PlayFabPartyConfig.new()
     cfg.enable_voice_chat = true
     cfg.enable_text_chat = true
 
     var result: PlayFabResult = await PlayFab.party.join_network_async(user, descriptor, cfg)
+
+    # Same abort-after-await guard as host_party (Step 2).
+    if _abort_party_op or _state != State.JOINING:
+        if result.ok:
+            result.data.leave_async()
+        _abort_party_op = false
+        if _state == State.JOINING:
+            _set_state(State.READY)
+        return false
+
     if not result.ok:
         push_warning("[Party] join_network failed: %s (%s)" % [result.message, result.code])
-        return
+        _set_state(State.READY)
+        return false
 
     _network = result.data
     _network.state_changed.connect(_on_network_state_changed)
+    _set_state(State.IN_NETWORK)
+    network_joined.emit(_network)
     print("[Party] Joined Party network: %s" % _network.network_id)
+    return true
 ```
 
 `PlayFabResult.data` for both create and join is the same
@@ -417,7 +574,15 @@ const PARTY_CHAT_SEND_TEXT := 4
 const PARTY_CHAT_RECEIVE_TEXT := 8
 
 func _on_chat_control_added(peer_id: int, _control) -> void:
-    var peer_xuid: String = _xuid_for_peer(peer_id) # from your lobby roster
+    var peer_xuid: String = _xuid_for_peer(peer_id)
+    if peer_xuid.is_empty():
+        # Fall through: no XUID for this peer (non-Xbox sign-in, or the
+        # lobby roster hasn't propagated yet). The privilege gate (Step 6)
+        # already filtered out non-comms users on the local side, so
+        # leaving the default permissions in place is safe for the demo.
+        # A shipping title would defer the permission set and retry on
+        # the lobby's MEMBER_UPDATED event for this entity.
+        return
     var allow_voice: bool = await _check_permission("communicate_using_voice", peer_xuid)
     var allow_text: bool = await _check_permission("communicate_using_text", peer_xuid)
 
@@ -436,6 +601,32 @@ func _check_permission(permission: String, peer_xuid: String) -> bool:
     var pf: GDKResult = await GDK.privacy.check_permission_async(
             Auth.xbox_user, permission, peer_xuid)
     return pf.ok and bool(pf.data.get("allowed", false))
+
+func _xuid_for_peer(peer_id: int) -> String:
+    # Walk the lobby roster to map Party peer_id -> XUID. The Lobby
+    # autoload writes the local user's XUID into member_properties["xuid"]
+    # on host / join (T5 Step 3 / Step 4), so we match the peer's
+    # PlayFab entity key against the roster and read the XUID off the
+    # matching member. Returns "" when:
+    #   - We're not currently in a lobby (no roster to walk).
+    #   - The peer hasn't propagated into the lobby snapshot yet
+    #     (chat_control_added can fire before the lobby's MEMBER_UPDATED
+    #     for the same join — fail open and rely on the privilege gate
+    #     for now; a shipping title would defer and retry on the
+    #     MEMBER_UPDATED state-change).
+    #   - The peer signed in via a non-Xbox path (no XUID was written).
+    if _network == null or _network.local_peer == null or Lobby.current_lobby == null:
+        return ""
+    var key: Dictionary = _network.local_peer.get_peer_entity_key(peer_id)
+    if key.is_empty():
+        return ""
+    var entity_id: String = String(key.get("id", ""))
+    if entity_id.is_empty():
+        return ""
+    for member in Lobby.current_lobby.members:
+        if String(member.entity_key.get("id", "")) == entity_id:
+            return String(member.properties.get("xuid", ""))
+    return ""
 ```
 
 Notes:
@@ -466,11 +657,15 @@ default to "on", and the addon mixes incoming audio through the
 platform default output. Per-peer mute is one call away:
 
 ```gdscript
-func toggle_mute(peer_id: int, muted: bool) -> void:
+func toggle_mute(peer_id: int, muted: bool) -> bool:
+    if _state != State.IN_NETWORK:
+        push_warning("[Party] toggle_mute rejected — not in a network (state=%d)" % _state)
+        return false
     var peer: PlayFabPartyPeer = _network.local_peer
     var pf: PlayFabResult = await peer.set_peer_muted_async(peer_id, muted)
     if not pf.ok:
         push_warning("[Party] mute toggle failed: %s" % pf.message)
+    return pf.ok
 ```
 
 `set_peer_muted_async` updates the **local** chat control's view of
@@ -481,16 +676,24 @@ local client.
 Text chat is sent through the same peer object:
 
 ```gdscript
-func send_chat(text: String) -> void:
+func send_chat(text: String) -> bool:
+    if _state != State.IN_NETWORK:
+        push_warning("[Party] send_chat rejected — not in a network (state=%d)" % _state)
+        return false
     var peer: PlayFabPartyPeer = _network.local_peer
     var pf: PlayFabResult = await peer.send_text_async(text)
     if not pf.ok:
         push_warning("[Party] send_text failed: %s" % pf.message)
+    return pf.ok
 
 
 func _on_party_text_received(peer_id: int, message: PlayFabPartyChatMessage) -> void:
     print("[Party] Text from peer %d: \"%s\"" % [peer_id, message.text])
 ```
+
+`send_chat` returning `bool` lets the UI suppress the local
+"you> ..." echo on failure so the user doesn't see text that
+was never broadcast.
 
 `send_text_async` with no `target_peer_ids` broadcasts to every
 remote chat control the addon has mapped. Pass a `PackedInt32Array`
@@ -519,14 +722,80 @@ When the local player wants to leave (back-button in the lobby UI,
 scene exit, etc.):
 
 ```gdscript
-func leave_party() -> void:
-    if _network == null:
-        return
+func leave_party() -> bool:
+    if _state != State.IN_NETWORK:
+        push_warning("[Party] leave_party rejected — not in a network (state=%d)" % _state)
+        return false
+
+    _set_state(State.LEAVING)
+    _teardown_in_progress = true
+
+    # Clear the descriptor we published if we're the host leaving. Best
+    # effort: clients who already joined ignore the empty value; clients
+    # that hadn't joined yet won't chase a stale descriptor.
+    if _is_host and _lobby != null and _lobby.is_owner(Auth.playfab_user):
+        var clear: PlayFabResult = await _lobby.set_properties_async({PARTY_DESCRIPTOR_KEY: ""})
+        if not clear.ok:
+            push_warning("[Party] descriptor clear failed: %s" % clear.message)
+
     var pf: PlayFabResult = await _network.leave_async()
     if not pf.ok:
         push_warning("[Party] leave failed: %s" % pf.message)
+
     _network = null
-    multiplayer.multiplayer_peer = null
+    _is_host = false
+    _clear_multiplayer_peer()
+    _set_state(State.READY)
+    network_left.emit()
+    _teardown_in_progress = false
+    return pf.ok
+
+
+# NETWORK_CHANGE_DESTROYED arrives in several scenarios:
+#   - mid-leave_party (voluntary; leave_party owns the emit, skip here)
+#   - after leave_party already returned us to READY (voluntary residue, ignore)
+#   - while still IN_NETWORK (involuntary; emit network_destroyed)
+#   - during engine shutdown (autoload may be out of the tree; suppress)
+func _handle_network_destroyed(reason: String) -> void:
+    if _teardown_in_progress or _state == State.LEAVING or _state != State.IN_NETWORK:
+        return
+    if not is_inside_tree():
+        return
+    print("[Party] Network destroyed (%s)" % reason)
+    _network = null
+    _is_host = false
+    _clear_multiplayer_peer()
+    _set_state(State.READY)
+    network_destroyed.emit()
+
+
+# PlayFab.shutdown() during engine teardown emits
+# NETWORK_CHANGE_DESTROYED from the bootstrap autoload's _exit_tree.
+# At that point this autoload may already be detached from the
+# SceneTree, so Node.multiplayer is null and a direct assignment
+# would crash. Guard both the tree membership and the multiplayer
+# reference.
+func _clear_multiplayer_peer() -> void:
+    if not is_inside_tree():
+        return
+    var api: MultiplayerAPI = multiplayer
+    if api == null:
+        return
+    api.multiplayer_peer = null
+
+
+# Triggered by the Lobby autoload when the local user leaves or is
+# kicked. If we're mid-host/join, flag the in-flight op to abort on
+# completion (Step 2 / Step 4). If we're already in the network,
+# unwind cleanly.
+func _on_lobby_left_from_lobby_autoload() -> void:
+    _lobby = null
+    if is_busy() and _state != State.LEAVING:
+        _abort_party_op = true
+        push_warning("[Party] Lobby left while busy (state=%d); in-flight op will abort" % _state)
+        return
+    if _state == State.IN_NETWORK:
+        await leave_party()
 ```
 
 When the **host** leaves, the network is destroyed (every client
@@ -536,6 +805,15 @@ that peer's `NETWORK_CHANGE_PEER_LEFT` reaches the host. Call
 `_exit_tree` if you want a guaranteed clean teardown on app exit;
 the addon also tears Party down automatically when `PlayFab.shutdown()`
 runs.
+
+> **Why the `_teardown_in_progress` flag matters.**
+> `NETWORK_CHANGE_DESTROYED` fires after `leave_async` completes
+> too. Without the flag, `_handle_network_destroyed` would emit
+> `network_destroyed` for what is actually a voluntary leave —
+> a real double-emit bug consumers had to defend against.
+> The flag plus the `_state != State.IN_NETWORK` check guarantee
+> exactly one teardown signal per network lifecycle, correctly
+> classified.
 
 ## Verify
 
@@ -578,15 +856,23 @@ Common failures:
 | `send_text_async` succeeds but no `text_message_received` ever fires | The remote peer's chat control had not been mapped yet at send time (zero broadcast targets). | Wait for `PlayFabPartyPeer.chat_control_added(peer_id, control)` for at least one remote peer before exposing the chat send UI. |
 | Voice works one direction only | The peer was muted locally (Step 7) or `enable_voice_chat` was set differently on the two sides. | Both sides must initialize Party with `enable_voice_chat = true`; mute is per-direction. |
 
-## What's next
+## Reference implementation
 
-You now have an end-to-end multiplayer stack: Xbox + PlayFab
-identity (Tutorial 1), a lobby for roster + invites (Tutorial 5),
-MPA for shell-level discovery (Tutorial 6), and PlayFab Party for
-the real transport (this tutorial). The [capstone](08-integration-tech-demo.md)
-is next — a single Control scene that wires every surface from
-T1–T7 into one panel-per-surface dashboard so you can see them
-all running against one signed-in identity:
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t07_party.tscn`](../../sample/tutorial_app/t07_party.tscn)
+- Script: [`sample/tutorial_app/t07_party.gd`](../../sample/tutorial_app/t07_party.gd)
+- Autoload introduced here: [`sample/tutorial_app/autoload/party.gd`](../../sample/tutorial_app/autoload/party.gd)
+  (consumed by T8).
+
+> **Path note.** The tutorial places `party.gd` at
+> `res://party/party.gd` (one folder per topic). The sample
+> collapses every autoload under `res://autoload/` because all
+> three (`Auth`, `Lobby`, `Party`) are registered from the first
+> tutorial. Same code, different folder.
+
+## What's next
 
 - [**Tutorial 8 — Integration tech demo**](08-integration-tech-demo.md)
 
@@ -603,13 +889,16 @@ From here you might also want to:
   which is exactly the Tutorial 5 lobby flow — your Party setup
   above keeps working unchanged.
 - **Cross-platform voice.** Set
-  `direct_peer_connectivity = DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE`
+  `direct_peer_connectivity = DIRECT_PEER_CONNECTIVITY_ANY`
   on `PlayFabPartyConfig` (as in the snippets above) when you
-  expect PC ↔ Xbox sessions. Same-platform-only is a small latency
-  win when you ship single-platform builds.
-- Reference: [`PlayFabParty`](../playfab/plugin.md),
-  [`PlayFabPartyNetwork`](../playfab/plugin.md),
-  [`PlayFabPartyPeer`](../playfab/plugin.md),
-  [`PlayFabPartyConfig`](../playfab/plugin.md),
-  [`PlayFabPartyNetworkStateChange`](../playfab/plugin.md),
-  [`PlayFabPartyChatMessage`](../playfab/plugin.md)
+  expect PC ↔ Xbox sessions. `DIRECT_PEER_CONNECTIVITY_ANY` is
+  shorthand for "any platform type + any login provider", which is
+  the SDK's required pairing. Same-platform-only is a small latency
+  win when you ship single-platform builds — e.g.
+  `DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE | DIRECT_PEER_CONNECTIVITY_ANY_ENTITY_LOGIN_PROVIDER`.
+- Reference: [`PlayFabParty`](../../addons/godot_playfab/doc_classes/PlayFabParty.xml),
+  [`PlayFabPartyNetwork`](../../addons/godot_playfab/doc_classes/PlayFabPartyNetwork.xml),
+  [`PlayFabPartyPeer`](../../addons/godot_playfab/doc_classes/PlayFabPartyPeer.xml),
+  [`PlayFabPartyConfig`](../../addons/godot_playfab/doc_classes/PlayFabPartyConfig.xml),
+  [`PlayFabPartyNetworkStateChange`](../../addons/godot_playfab/doc_classes/PlayFabPartyNetworkStateChange.xml),
+  [`PlayFabPartyChatMessage`](../../addons/godot_playfab/doc_classes/PlayFabPartyChatMessage.xml)

@@ -44,6 +44,11 @@ func setup(toolchain: RefCounted) -> void:
 
 
 func show_centered_clamped() -> void:
+	# Snap to the layout's calculated minimum so the window opens only as
+	# tall as the warning + rows + buttons need. Without this the dialog
+	# opens at its stale prior size (or stretches to the editor window
+	# height on first open).
+	reset_size()
 	popup_centered()
 	refresh_status()
 

@@ -8,8 +8,8 @@
 	</description>
 	<tutorials></tutorials>
 	<methods>
-		<method name="set_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this lobby's string properties and returns a completion [Signal].</description></method>
-		<method name="set_member_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this local member's string properties in the lobby and returns a completion [Signal].</description></method>
+		<method name="set_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this lobby's [member lobby_properties] (visible only to lobby members; hidden from [method PlayFabMultiplayer.find_lobbies_async] results) and returns a completion [Signal]. Owner-only; non-owner callers receive a failure result.</description></method>
+		<method name="set_member_properties_async"><return type="Signal" /><param index="0" name="properties" type="Dictionary" /><description>Updates this local member's [member PlayFabLobbyMember.properties] in the lobby and returns a completion [Signal]. Can only edit the local member's entry — see [member PlayFabLobbyConfig.member_properties] for scope details.</description></method>
 		<method name="leave_async"><return type="Signal" /><description>Leaves this lobby and returns a completion [Signal].</description></method>
 		<method name="is_owner" qualifiers="const"><return type="bool" /><param index="0" name="user" type="PlayFabUser" /><description>Returns whether [param user] is the current owner snapshot.</description></method>
 	</methods>
@@ -20,8 +20,8 @@
 		<member name="max_member_count" type="int" setter="" getter="get_max_member_count">Maximum members.</member>
 		<member name="member_count" type="int" setter="" getter="get_member_count">Current members.</member>
 		<member name="members" type="Array" setter="" getter="get_members">Array of [PlayFabLobbyMember].</member>
-		<member name="properties" type="Dictionary" setter="" getter="get_properties">Lobby string properties.</member>
-		<member name="search_properties" type="Dictionary" setter="" getter="get_search_properties">Search string properties.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Lobby string properties (the [member PlayFabLobbyConfig.lobby_properties] bucket). Visible only to lobby members; hidden from [method PlayFabMultiplayer.find_lobbies_async] results.</member>
+		<member name="search_properties" type="Dictionary" setter="" getter="get_search_properties">Search string properties (the [member PlayFabLobbyConfig.search_properties] bucket). Visible to anyone who can discover the lobby. Set at create time only and not editable through this snapshot.</member>
 	</members>
 	<signals>
 		<signal name="state_changed"><param index="0" name="change" type="PlayFabLobbyStateChange" /><description>Emitted after the lobby snapshot refreshes.</description></signal>
@@ -32,6 +32,6 @@
 		<constant name="MEMBER_UPDATED" value="3">A lobby member snapshot changed.</constant>
 		<constant name="PROPERTIES_UPDATED" value="4">Lobby properties changed.</constant>
 		<constant name="OWNER_CHANGED" value="5">Lobby ownership changed.</constant>
-		<constant name="DISCONNECTED" value="6">Lobby disconnected.</constant>
+		<constant name="DISCONNECTED" value="6">Lobby session ended for the local user. Fires both when [code]leave_async()[/code] completes and when the SDK observes an unexpected disconnect; the lobby is removed from [PlayFabMultiplayer]'s tracked list before this is emitted.</constant>
 	</constants>
 </class>

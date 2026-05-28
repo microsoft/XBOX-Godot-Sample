@@ -1,0 +1,261 @@
+[gd_scene load_steps=8 format=3 uid="uid://bt08int"]
+
+[ext_resource type="Script" path="res://t08_integration/t08_integration.gd" id="1_root"]
+[ext_resource type="Script" path="res://t08_integration/panel_achievements.gd" id="2_ach"]
+[ext_resource type="Script" path="res://t08_integration/panel_leaderboard.gd" id="3_lb"]
+[ext_resource type="Script" path="res://t08_integration/panel_game_saves.gd" id="4_gs"]
+[ext_resource type="Script" path="res://t08_integration/panel_lobby.gd" id="5_lob"]
+[ext_resource type="Script" path="res://t08_integration/panel_mpa.gd" id="6_mpa"]
+[ext_resource type="Script" path="res://t08_integration/panel_party.gd" id="7_pty"]
+
+[node name="TechDemo" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_root")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+
+[node name="Hud" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="IdentityLabel" type="Label" parent="Root/Hud"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Signing in…"
+
+[node name="ErrorLabel" type="Label" parent="Root/Hud"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SignInRetry" type="Button" parent="Root/Hud"]
+layout_mode = 2
+text = "Retry sign-in"
+
+[node name="Back" type="Button" parent="Root/Hud"]
+layout_mode = 2
+text = "← Picker"
+
+[node name="Tabs" type="TabContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Achievements" type="VBoxContainer" parent="Root/Tabs"]
+script = ExtResource("2_ach")
+
+[node name="Status" type="Label" parent="Root/Tabs/Achievements"]
+layout_mode = 2
+text = "Waiting for sign-in…"
+
+[node name="Progress25" type="Button" parent="Root/Tabs/Achievements"]
+layout_mode = 2
+text = "Push 25%"
+
+[node name="Progress50" type="Button" parent="Root/Tabs/Achievements"]
+layout_mode = 2
+text = "Push 50%"
+
+[node name="Progress75" type="Button" parent="Root/Tabs/Achievements"]
+layout_mode = 2
+text = "Push 75%"
+
+[node name="Unlock" type="Button" parent="Root/Tabs/Achievements"]
+layout_mode = 2
+text = "Unlock (100%)"
+
+[node name="Leaderboard" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("3_lb")
+
+[node name="Status" type="Label" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+
+[node name="Top10Label" type="Label" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "Top 10"
+
+[node name="Top10" type="Label" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "(loading)"
+
+[node name="AroundUserLabel" type="Label" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "Around you"
+
+[node name="AroundUser" type="Label" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "(loading)"
+
+[node name="SubmitScore" type="Button" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "Submit next score (+10)"
+
+[node name="Refresh" type="Button" parent="Root/Tabs/Leaderboard"]
+layout_mode = 2
+text = "Refresh"
+
+[node name="GameSaves" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("4_gs")
+
+[node name="Status" type="Label" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "Resolving folder…"
+
+[node name="Write" type="Button" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "Write progress.dat"
+
+[node name="Read" type="Button" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "Read back"
+
+[node name="Resolve" type="Button" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "Resolve conflict…"
+
+[node name="LastReadLabel" type="Label" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "Last read"
+
+[node name="LastRead" type="Label" parent="Root/Tabs/GameSaves"]
+layout_mode = 2
+text = "(none)"
+
+[node name="ResolveDialog" type="AcceptDialog" parent="Root/Tabs/GameSaves"]
+title = "Resolve Game Saves conflict"
+ok_button_text = "Cancel"
+dialog_text = "Pick a recovery strategy. Each option re-runs add_user_with_ui_async with a different ADD_USER_OPTION_* flag — the system Game Saves dialog will surface if the cloud actually has a conflict to resolve.
+
+• Keep cloud version — accept whatever PlayFab considers the latest upload.
+• Roll back to last known good — use the most recently verified earlier save.
+• Roll back to last conflict — restore the preserved \"losing\" side from the most recent conflict resolution."
+dialog_autowrap = true
+size = Vector2i(560, 0)
+
+[node name="Lobby" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("5_lob")
+
+[node name="Status" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "Not in a lobby"
+
+[node name="Host" type="Button" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "Host lobby"
+
+[node name="ConnectionString" type="LineEdit" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+placeholder_text = "Paste / read connection string"
+
+[node name="Join" type="Button" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "Join from above"
+
+[node name="Leave" type="Button" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "Leave"
+
+[node name="MembersLabel" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "Members"
+
+[node name="Members" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = ""
+
+[node name="MPA" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("6_mpa")
+
+[node name="State" type="Label" parent="Root/Tabs/MPA"]
+layout_mode = 2
+text = "No lobby — activity not advertised"
+
+[node name="XuidInputLabel" type="Label" parent="Root/Tabs/MPA"]
+layout_mode = 2
+text = "Friends (from Xbox Social Manager):"
+
+[node name="Friends" type="OptionButton" parent="Root/Tabs/MPA"]
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="Root/Tabs/MPA"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Refresh" type="Button" parent="Root/Tabs/MPA/ButtonRow"]
+layout_mode = 2
+text = "Refresh friends"
+
+[node name="Send" type="Button" parent="Root/Tabs/MPA/ButtonRow"]
+layout_mode = 2
+text = "Send invite to selected"
+
+[node name="Picker" type="Button" parent="Root/Tabs/MPA/ButtonRow"]
+layout_mode = 2
+text = "Open system invite picker"
+
+[node name="LogLabel" type="Label" parent="Root/Tabs/MPA"]
+layout_mode = 2
+text = "Invite log"
+
+[node name="Log" type="RichTextLabel" parent="Root/Tabs/MPA"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_following = true
+
+[node name="InviteDialog" type="ConfirmationDialog" parent="Root/Tabs/MPA"]
+title = "Join friend?"
+ok_button_text = "Leave current lobby and join"
+cancel_button_text = "Stay in current lobby"
+dialog_text = "You're already in a lobby. Leave it and join the invited lobby?"
+dialog_autowrap = true
+
+[node name="Party" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("7_pty")
+
+[node name="PeerListLabel" type="Label" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Peers"
+
+[node name="PeerList" type="Label" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Not connected"
+
+[node name="MuteRemotes" type="CheckButton" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Mute all remote peers"
+
+[node name="ChatLogLabel" type="Label" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Chat"
+
+[node name="ChatLog" type="RichTextLabel" parent="Root/Tabs/Party"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_following = true
+
+[node name="ChatInput" type="LineEdit" parent="Root/Tabs/Party"]
+layout_mode = 2
+placeholder_text = "Broadcast a message"
+
+[node name="Send" type="Button" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Send"

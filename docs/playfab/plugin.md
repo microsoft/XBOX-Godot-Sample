@@ -32,6 +32,21 @@ This is the landing page for the `godot_playfab` docs set.
 
 ## Runtime configuration
 
+> **Where do I get a PlayFab title id?** Sign up at the
+> [PlayFab developer portal](https://developer.playfab.com/) and follow
+> [PlayFab — Game Manager quickstart](https://learn.microsoft.com/en-us/gaming/playfab/gamemanager/quickstart)
+> to create your account, studio, and first title. The Title ID lives in
+> Game Manager under **your title → Settings → API features**. For the
+> broader product tour see [Microsoft Learn — PlayFab](https://learn.microsoft.com/en-us/gaming/playfab/)
+> and the [PlayFab — Get started](https://learn.microsoft.com/en-us/gaming/playfab/get-started/) hub.
+>
+> For the full per-tutorial walkthrough — sign-in mode selection, the
+> Game Manager fixtures required by each tutorial (the "Allow client
+> to update entries" leaderboard toggle, the Lobby and Party feature
+> switches, the `CloudSaves` block in `MicrosoftGame.config`), and the
+> `configure_playfab_test_title.ps1` helper — see
+> [PlayFab title prerequisites](prerequisites.md).
+
 The PlayFab runtime reads these settings from Project Settings:
 
 - `playfab/runtime/title_id` — required; the PlayFab title id
@@ -91,7 +106,11 @@ if not sign_in_result.ok:
     return
 
 var playfab_user = sign_in_result.data
-await PlayFab.leaderboards.submit_score_async(playfab_user, "pong_score", 42)
+await PlayFab.statistics.update_statistics_async(playfab_user, {
+    "statistics": [
+        {"name": "pong_score", "scores": ["42"]},
+    ],
+})
 
 var title_data_result = await PlayFab.title_data.get_title_data_async(playfab_user, {
     "keys": ["welcome_message"],
@@ -157,4 +176,3 @@ See [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) for the orchestrator
 
 - [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) — repo-wide test pipeline
 - [`troubleshooting.md#tests`](../troubleshooting.md#tests) — common test issues
-- [`../spec/gdext-playfab.md`](../../spec/gdext-playfab.md) — design spec

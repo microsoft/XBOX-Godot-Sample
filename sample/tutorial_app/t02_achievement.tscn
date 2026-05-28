@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=3 uid="uid://bt02ach"]
+
+[ext_resource type="Script" path="res://t02_achievement.gd" id="1_t02"]
+
+[node name="T02Achievement" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_t02")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "T2 — Unlock an achievement"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "GDK.achievements.update_achievement_async + achievement_unlocked signal."
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ListBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "List declared (Step 1)"
+
+[node name="PushBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Push 50% → 100% (Step 2)"
+
+[node name="BackBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "← Back"
+
+[node name="LogPanel" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Log" type="RichTextLabel" parent="Root/LogPanel"]
+layout_mode = 2
+bbcode_enabled = true
+scroll_following = true
