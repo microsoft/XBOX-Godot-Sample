@@ -19,21 +19,20 @@ Everything in tutorials 2–5 assumes you can reach this state.
 ## Prerequisites
 
 - The [addons quickstart](../addon-getting-started.md) is complete:
-  - All four addons (`godot_gdk`, `godot_playfab`, optionally
-    `godot_gameinput`, plus `godot_gdk_packaging`) are enabled
-    in **Project Settings → Plugins**.
-  - `playfab/runtime/title_id` is set.
-  - `MicrosoftGame.config` has real Title ID and SCID values
-    (not the template defaults). See
-    [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
-    for where these values live in
-    [Partner Center](https://partner.microsoft.com/dashboard).
-  - The PC is switched into the right Xbox sandbox. See
-    [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
-    and the
-    [PC Sandbox Switcher tool](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
-- An Xbox **test account** signed into the Xbox app on the dev PC for
-  the silent path to succeed without surfacing UI.
+  all four addons (`godot_gdk`, `godot_playfab`, optionally
+  `godot_gameinput`, plus `godot_gdk_packaging`) are enabled in
+  **Project Settings → Plugins**, and `MicrosoftGame.config` has
+  real Title ID and SCID values (not the template defaults). See
+  [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+  for where these values live in
+  [Partner Center](https://partner.microsoft.com/dashboard).
+- Your **PlayFab title** is provisioned and `playfab/runtime/title_id`
+  is set. The walkthrough — creating the title and configuring the
+  Title ID in Project Settings — is documented in
+  [PlayFab title prerequisites — §1 Create the title](../playfab/prerequisites.md#1-create-the-title-and-capture-the-title-id).
+- Your **PC is in the right Xbox sandbox** and at least one Xbox
+  **test account** is signed into the Xbox app for the silent path.
+  See [Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md).
 - `gdk/runtime/initialize_on_startup` and
   `playfab/runtime/initialize_on_startup` are both `true` (the
   quickstart sets these explicitly — they ship `false` out of the
@@ -51,27 +50,56 @@ Everything in tutorials 2–5 assumes you can reach this state.
 - [`GDKUser`](../../addons/godot_gdk/doc_classes/GDKUser.xml) —
   the typed wrapper your `Auth.xbox_user` holds. Read
   `signed_in`, `gamertag`, `xbox_user_id`.
-- [`PlayFab.users`](../playfab/plugin.md) —
+- [`PlayFab.users`](../../addons/godot_playfab/doc_classes/PlayFabUsers.xml) —
   `sign_in_with_xuser_async`, `sign_in_with_custom_id_async`.
-- [`PlayFabUser`](../playfab/plugin.md) — the typed wrapper your
+- [`PlayFabUser`](../../addons/godot_playfab/doc_classes/PlayFabUser.xml) — the typed wrapper your
   `Auth.playfab_user` holds. Read `entity_key`,
   `has_local_user_handle`.
 - [`GDKResult`](../../addons/godot_gdk/doc_classes/GDKResult.xml)
-  / `PlayFabResult` — the normalized result type returned by every
+  / [`PlayFabResult`](../../addons/godot_playfab/doc_classes/PlayFabResult.xml) — the normalized result type returned by every
   `_async` call (see [Async patterns](../async-patterns.md)).
 
 ## Step 1 — Add an `Auth` autoload
 
-Create `res://auth/auth.gd`:
+Sign-in is a phased flow with explicit failure modes, so model
+it as a state machine. Create `res://auth/auth.gd`:
 
 ```gdscript
 extends Node
 
-signal sign_in_completed(xbox_user: GDKUser, playfab_user: PlayFabUser)
-signal sign_in_failed(stage: String, message: String)
+enum State {
+    UNINITIALIZED,
+    SIGNING_IN_XBOX,
+    SIGNING_IN_PLAYFAB,
+    SIGNED_IN,
+    FAILED,
+}
 
-var xbox_user: GDKUser = null
-var playfab_user: PlayFabUser = null
+signal state_changed(state: State)
+
+var _state: State = State.UNINITIALIZED
+var _xbox_user: GDKUser = null
+var _playfab_user: PlayFabUser = null
+var _last_error_stage: String = ""
+var _last_error_message: String = ""
+
+# Guarded getters so callers can't accidentally use a half-completed
+# session (e.g. Xbox signed in, PlayFab still in flight).
+var xbox_user: GDKUser:
+    get:
+        return _xbox_user if _state == State.SIGNED_IN else null
+
+var playfab_user: PlayFabUser:
+    get:
+        return _playfab_user if _state == State.SIGNED_IN else null
+
+func get_state() -> State: return _state
+func is_signed_in() -> bool: return _state == State.SIGNED_IN
+func is_signing_in() -> bool:
+    return _state == State.SIGNING_IN_XBOX or _state == State.SIGNING_IN_PLAYFAB
+func is_failed() -> bool: return _state == State.FAILED
+func get_last_error_stage() -> String: return _last_error_stage
+func get_last_error_message() -> String: return _last_error_message
 ```
 
 Then register it as an autoload in **Project Settings → Globals →
@@ -82,7 +110,9 @@ Autoload**:
 | `res://auth/auth.gd` | `Auth` |
 
 Every other tutorial can now reach the signed-in users as
-`Auth.xbox_user` and `Auth.playfab_user`.
+`Auth.xbox_user` and `Auth.playfab_user`, listen for transitions
+on `Auth.state_changed`, and call `await Auth.sign_in()` when
+they need to gate work on a completed session.
 
 ## Step 2 — Reach a `GDKUser` (check → silent → UI)
 
@@ -91,13 +121,13 @@ Add the Xbox sign-in routine to `auth.gd`:
 ```gdscript
 func _ensure_xbox_user() -> GDKUser:
     if not Engine.has_singleton("GDK"):
-        push_error("[Auth] godot_gdk extension is not loaded")
+        _set_error("gdk.missing", "godot_gdk extension is not loaded")
         return null
 
     if not GDK.is_initialized():
         var init: GDKResult = GDK.initialize()
         if not init.ok:
-            sign_in_failed.emit("gdk.initialize", init.message)
+            _set_error("gdk.initialize", init.message)
             return null
 
     # 1. Already have a primary user (auto-init, prior sign-in)? Use it.
@@ -118,7 +148,7 @@ func _ensure_xbox_user() -> GDKUser:
     if ui.ok and ui.data != null and ui.data.signed_in:
         return ui.data
 
-    sign_in_failed.emit("gdk.add_user_with_ui", ui.message)
+    _set_error("gdk.add_user_with_ui", ui.message)
     return null
 ```
 
@@ -146,17 +176,17 @@ signed-in `GDKUser`, `sign_in_with_xuser_async` does the rest:
 ```gdscript
 func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
     if not Engine.has_singleton("PlayFab"):
-        push_error("[Auth] godot_playfab extension is not loaded")
+        _set_error("playfab.missing", "godot_playfab extension is not loaded")
         return null
 
     if xbox == null or not xbox.signed_in:
-        sign_in_failed.emit("playfab.sign_in", "Xbox user is not signed in")
+        _set_error("playfab.sign_in", "Xbox user is not signed in")
         return null
 
     if not PlayFab.is_initialized():
         var init: PlayFabResult = PlayFab.initialize()
         if not init.ok:
-            sign_in_failed.emit("playfab.initialize", init.message)
+            _set_error("playfab.initialize", init.message)
             return null
 
     # Pass the GDKUser object directly. The addon reads the local user
@@ -164,7 +194,7 @@ func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
     # as Object because Ref<> types cannot cross GDExtension DLLs.
     var result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox)
     if not result.ok:
-        sign_in_failed.emit("playfab.sign_in", result.message)
+        _set_error("playfab.sign_in", result.message)
         return null
 
     return result.data
@@ -180,56 +210,121 @@ The two failure codes worth recognizing here are:
   Re-read the [addons quickstart](../addon-getting-started.md) and
   the [PlayFab plugin overview](../playfab/plugin.md).
 
-## Step 4 — Wire the two pieces together
+## Step 4 — Drive the state machine
 
-Add an entry point and run both stages in order:
+Wire `_ensure_xbox_user()` and `_ensure_playfab_user()` together
+under a single public `sign_in()` entry point. The transition
+helpers (`_set_state`, `_set_error`) keep state mutations + signal
+emission in one place; the public entry point is idempotent and
+joins an in-flight attempt so callers can `await Auth.sign_in()`
+defensively. Add the following to `auth.gd`:
 
 ```gdscript
 func _ready() -> void:
-    await _sign_in()
+    # Kick off silent sign-in immediately so the first scene to load
+    # can simply `await Auth.sign_in()` and join the in-flight attempt.
+    sign_in()
 
-func _sign_in() -> void:
-    xbox_user = await _ensure_xbox_user()
-    if xbox_user == null:
-        return
+func sign_in() -> bool:
+    if _state == State.SIGNED_IN:
+        return true
+    if is_signing_in():
+        # Coalesce concurrent callers. The first caller's _do_sign_in()
+        # sets SIGNING_IN_XBOX before its first await, so anyone arriving
+        # later sees the in-flight state and waits here for completion.
+        while is_signing_in():
+            await state_changed
+        return _state == State.SIGNED_IN
+    # UNINITIALIZED or FAILED → start a fresh attempt.
+    return await _do_sign_in()
 
-    print("[Auth] Xbox primary user: %s" % xbox_user.gamertag)
+func _do_sign_in() -> bool:
+    _last_error_stage = ""
+    _last_error_message = ""
+    _xbox_user = null
+    _playfab_user = null
 
-    playfab_user = await _ensure_playfab_user(xbox_user)
-    if playfab_user == null:
-        return
+    _set_state(State.SIGNING_IN_XBOX)
+    var xbox: GDKUser = await _ensure_xbox_user()
+    if xbox == null:
+        _set_state(State.FAILED)
+        return false
+    _xbox_user = xbox
+    print("[Auth] Xbox primary user: %s" % xbox.gamertag)
 
-    var key: Dictionary = playfab_user.entity_key
+    _set_state(State.SIGNING_IN_PLAYFAB)
+    var pf: PlayFabUser = await _ensure_playfab_user(xbox)
+    if pf == null:
+        _set_state(State.FAILED)
+        return false
+    _playfab_user = pf
+
+    var key: Dictionary = pf.entity_key
     print("[Auth] PlayFab session: %s:%s" % [key.get("type", ""), key.get("id", "")])
     print("[Auth] Sign-in complete.")
 
-    sign_in_completed.emit(xbox_user, playfab_user)
+    _set_state(State.SIGNED_IN)
+    return true
+
+func _set_state(new_state: State) -> void:
+    if _state == new_state:
+        return
+    _state = new_state
+    state_changed.emit(_state)
+
+func _set_error(stage: String, message: String) -> void:
+    _last_error_stage = stage
+    _last_error_message = message
+    push_warning("[Auth] sign-in failed at %s: %s" % [stage, message])
 ```
 
 That's the whole `Auth` autoload — single responsibility, awaitable,
-and idempotent so a screen that needs the session later can call
-`await Auth._sign_in()` defensively without double-signing-in.
+and idempotent. `sign_in()` is safe to call from any number of
+scenes and panels: the first call drives the state machine
+forward, every subsequent call (before the first finishes) waits
+on `state_changed` for the same transition.
 
 ## Step 5 — Use the signed-in users from a scene
 
-Anywhere else in your game, gate work on `Auth.xbox_user` and
-`Auth.playfab_user`. For one-shot work, await the completion signal:
+Anywhere else in your game, gate work on `await Auth.sign_in()`
+and react to transitions via `Auth.state_changed`:
 
 ```gdscript
 extends Node
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        push_warning("Sign-in failed at %s: %s" % [
+                Auth.get_last_error_stage(),
+                Auth.get_last_error_message()])
+        return
 
     print("Welcome, %s" % Auth.xbox_user.gamertag)
 ```
 
 For UI screens that show different content depending on sign-in
-state, listen to the `sign_in_failed` signal too and render an
-"Offline" badge on `gdk.add_user_with_ui` failures — those are the
-ones the user can recover from by signing into the Xbox app and
-relaunching.
+state, connect `state_changed` and branch on the accessors:
+
+```gdscript
+func _ready() -> void:
+    Auth.state_changed.connect(_on_state_changed)
+    _on_state_changed(Auth.get_state())
+
+func _on_state_changed(_state: Auth.State) -> void:
+    if Auth.is_signed_in():
+        _badge.text = "Signed in as %s" % Auth.xbox_user.gamertag
+    elif Auth.is_signing_in():
+        _badge.text = "Signing in…"
+    elif Auth.is_failed():
+        _badge.text = "Offline (%s)" % Auth.get_last_error_stage()
+    else:
+        _badge.text = "(not signed in)"
+```
+
+A `gdk.add_user_with_ui` failure is the one the user can recover
+from by signing into the Xbox app and tapping a retry button that
+calls `await Auth.sign_in()` again — `sign_in()` resets stale
+state on each fresh attempt so it's safe to retry.
 
 ## Verify
 
@@ -253,17 +348,26 @@ The most common failure paths and how to read them:
 | Output | Diagnosis | Fix |
 |---|---|---|
 | `[Auth] Silent sign-in failed (no_default_user) — falling back to UI.` | No Xbox-app account on the PC. The fallback handles it. | Pick a test account in the picker, or sign one into the Xbox app first. |
-| `sign_in_failed("gdk.initialize", "...")` | GDK runtime did not initialize. | Confirm the GDK is installed (`winget install Microsoft.Gaming.GDK`) and the addon `bin/` folder shipped into the project. |
-| `sign_in_failed("playfab.initialize", "...")` | PlayFab runtime did not initialize. Usually `title_id_required`. | Set `playfab/runtime/title_id` in Project Settings. |
-| `sign_in_failed("playfab.sign_in", "invalid_xuser")` | The Xbox user signed out between sign-in stages. | Retry. If it persists, check the sandbox setting and the test account state. |
-| `sign_in_failed("gdk.add_user_with_ui", "...")` | The picker was dismissed or the account flow was canceled. | Run again — `add_user_with_ui_async` is idempotent. |
+| `[Auth] sign-in failed at gdk.initialize: ...` | GDK runtime did not initialize. | Confirm the GDK is installed (`winget install Microsoft.Gaming.GDK`) and the addon `bin/` folder shipped into the project. |
+| `[Auth] sign-in failed at playfab.initialize: ...` | PlayFab runtime did not initialize. Usually `title_id_required`. | Set `playfab/runtime/title_id` in Project Settings. |
+| `[Auth] sign-in failed at playfab.sign_in: invalid_xuser` | The Xbox user signed out between sign-in stages. | Retry. If it persists, check the sandbox setting and the test account state. |
+| `[Auth] sign-in failed at gdk.add_user_with_ui: ...` | The picker was dismissed or the account flow was canceled. | Run again — `add_user_with_ui_async` is idempotent, and `Auth.sign_in()` resets failure state on each retry. |
+
+## Reference implementation
+
+The cumulative end-state of this tutorial lives in the integrated
+sample at [`sample/tutorial_app/`](../../sample/tutorial_app/README.md).
+Open the matching scene and compare if your project drifts:
+
+- Scene: [`sample/tutorial_app/t01_signin.tscn`](../../sample/tutorial_app/t01_signin.tscn)
+- Script: [`sample/tutorial_app/t01_signin.gd`](../../sample/tutorial_app/t01_signin.gd)
+- Autoload introduced here: [`sample/tutorial_app/autoload/auth.gd`](../../sample/tutorial_app/autoload/auth.gd)
+
+> **Path note.** The tutorial places `auth.gd` at `res://auth/auth.gd`
+> (one folder per topic) so a reader can follow the chain
+> incrementally. The sample collapses every autoload under
+> `res://autoload/` because all three (`Auth`, `Lobby`, `Party`) are
+> registered from the first tutorial so any picker scene runs out of
+> the box. Same code, different folder.
 
 ## What's next
-
-You have a signed-in Xbox user and a signed-in PlayFab session.
-Tutorial 2 takes that `GDKUser` and uses it to unlock an Xbox
-achievement end-to-end:
-
-- [**Tutorial 2 — Unlock an achievement**](02-unlock-achievement.md)
-- Reference: [GDKUsers](../gdk/api-reference.md),
-  [PlayFabUsers](../playfab/plugin.md)

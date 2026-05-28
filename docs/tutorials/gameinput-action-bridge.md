@@ -304,11 +304,25 @@ Common failures:
 | Analog stick "snaps" to full strength at a small tilt | `deadzone` on the axis binding is too low. | Raise `deadzone` to `0.2` or higher (the default). |
 | `[Pad] GameInput runtime not available` on a GDK build | `GameInputCreate()` failed at runtime. | Check that the GDK is installed on the target machine and the addon `bin/` ships with the build. |
 
-## What's next
+## Reference implementation
 
-You now have a working GameInput → InputMap bridge. The GameInput
-track is intentionally a single-tutorial standalone — it does not
-chain into the main cumulative tutorials. From here:
+The end-state lives in the standalone GameInput sample at
+[`sample/tutorial_gameinput/`](../../sample/tutorial_gameinput/README.md):
+
+- Scene: [`sample/tutorial_gameinput/main.tscn`](../../sample/tutorial_gameinput/main.tscn)
+- Script: [`sample/tutorial_gameinput/main.gd`](../../sample/tutorial_gameinput/main.gd)
+
+> **Layout note.** The tutorial splits the work across an autoload
+> (`res://input/gamepad_autoload.gd`), a resource
+> (`res://input/gamepad.tres`), and a gameplay scene that consumes
+> the autoload. The sample collapses this into a single `main.tscn`
+> + `main.gd` that builds the action map in code (the Step 2 code
+> path) and adds the `GameInputMapper` at scene `_ready` instead of
+> via autoload. Same wiring, fewer files — and it adds visible
+> debug UI (device list, hot-plug log, live action strengths,
+> jumping player) so you can see the bridge react.
+
+## What's next
 
 - **Add rumble.** `GameInput.set_vibration(device, low, high, lt, rt)`
   takes the same `GameInputDevice` wrappers the bridge uses. The
@@ -323,8 +337,8 @@ chain into the main cumulative tutorials. From here:
   is the natural place to drop the gamepad autoload alongside the
   identity / lobby / Party panels.
 
-- Reference: [GameInput](../gameinput/plugin.md),
-  [GameInputActionMap](../gameinput/plugin.md),
-  [GameInputBinding](../gameinput/plugin.md),
-  [GameInputMapper](../gameinput/plugin.md),
-  [GameInputDevice](../gameinput/plugin.md)
+- Reference: [`GameInput`](../../addons/godot_gameinput/doc_classes/GameInput.xml),
+  [`GameInputActionMap`](../../addons/godot_gameinput/doc_classes/GameInputActionMap.xml),
+  [`GameInputBinding`](../../addons/godot_gameinput/doc_classes/GameInputBinding.xml),
+  [`GameInputMapper`](../../addons/godot_gameinput/doc_classes/GameInputMapper.xml),
+  [`GameInputDevice`](../../addons/godot_gameinput/doc_classes/GameInputDevice.xml)

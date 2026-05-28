@@ -1,0 +1,75 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8gameinputmain"]
+
+[ext_resource type="Script" path="res://main.gd" id="1_main"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "GameInput action bridge"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "A button → ui_accept + jump. Left stick → move_left / move_right. Keyboard fallback (A / D / Space) is additive."
+
+[node name="RuntimeStatus" type="Label" parent="Root"]
+layout_mode = 2
+text = "Loading…"
+
+[node name="DeviceCount" type="Label" parent="Root"]
+layout_mode = 2
+text = "Connected gamepads: ?"
+
+[node name="DevicesLabel" type="Label" parent="Root"]
+layout_mode = 2
+text = "Devices:"
+
+[node name="Devices" type="Label" parent="Root"]
+layout_mode = 2
+text = "(loading)"
+
+[node name="ActionStateLabel" type="Label" parent="Root"]
+layout_mode = 2
+text = "Live action state:"
+
+[node name="ActionState" type="Label" parent="Root"]
+layout_mode = 2
+text = "(awaiting input)"
+
+[node name="HotplugLabel" type="Label" parent="Root"]
+layout_mode = 2
+text = "Hot-plug events:"
+
+[node name="HotplugLog" type="RichTextLabel" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_following = true
+custom_minimum_size = Vector2(0, 120)
+
+[node name="Player" type="ColorRect" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 32.0
+offset_bottom = 32.0
+color = Color(0.2, 0.6, 1, 1)

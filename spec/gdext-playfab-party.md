@@ -136,6 +136,16 @@ var metadata: Dictionary = {}
 
 `enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags. They decide whether and how the addon creates/connects Party chat controls; they are not native Party network settings.
 
+### `direct_peer_connectivity` flag rules
+
+`direct_peer_connectivity` is a bitmask of `PlayFabParty.DirectPeerConnectivity` flags. The valid shapes that match the GDK Party SDK contract are:
+
+- `0` (`DIRECT_PEER_CONNECTIVITY_NONE`, default): no direct connections; all traffic relays through PlayFab Party.
+- One or both of (`SAME_PLATFORM_TYPE`, `DIFFERENT_PLATFORM_TYPE`) **combined with** one or both of (`SAME_ENTITY_LOGIN_PROVIDER`, `DIFFERENT_ENTITY_LOGIN_PROVIDER`). `DIRECT_PEER_CONNECTIVITY_ANY` (= `ANY_PLATFORM_TYPE | ANY_ENTITY_LOGIN_PROVIDER`) is the recommended "broadest direct-connection" preset.
+- `DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS` by itself; it cannot be combined with the platform-type or entity-login-provider flags in the network configuration.
+
+Setting platform-type flags without a login-provider flag (or vice versa) — or combining `ONLY_SERVERS` with anything else — fails synchronously inside `PlayFabParty.create_and_join_network_async()` with code `party_invalid_options` instead of being forwarded to `PartyManager::CreateNewNetwork` (which would return a generic "invalid network configuration struct" `PartyError`).
+
 ```gdscript
 class_name PlayFabPartyTextMessageConfig
 extends RefCounted

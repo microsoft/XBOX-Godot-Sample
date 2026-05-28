@@ -289,8 +289,11 @@ The `playfab/runtime/title_id` project setting is empty or missing.
 1. Open **Project → Project Settings → PlayFab → Runtime** (with the
    `GodotPlayFab` plugin enabled, the section appears automatically).
 2. Set **Title Id** to your PlayFab title id (a 4–6 character
-   hexadecimal string from PlayFab Game Manager → your title →
-   **Settings → API features**).
+   hexadecimal string from [PlayFab Game Manager](https://developer.playfab.com/) →
+   your title → **Settings → API features**). If you don't have a title
+   yet, see
+   [PlayFab — Game Manager quickstart](https://learn.microsoft.com/en-us/gaming/playfab/gamemanager/quickstart)
+   for the create-account-and-title walkthrough.
 3. Save the project.
 
 If you initialize PlayFab from script before the project settings have
@@ -348,9 +351,111 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
    obtain a fresh `GDKUser` and immediately retry — the previous
    handle was released.
 4. If the failure is consistent across fresh sign-ins, your PlayFab
-   title may not have Xbox Live linked. In PlayFab Game Manager →
+   title may not have Xbox Live linked. In
+   [PlayFab Game Manager](https://developer.playfab.com/) →
    your title → **Add-ons → Xbox Live**, install the add-on and
    configure it with your title's SCID.
+
+## PlayFab leaderboard submit fails with `E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS` (0x89235472)
+
+**Symptom:** `PlayFab.leaderboards.submit_score_async` returns a result
+with `ok == false` and a message like:
+
+```
+[Lead] Submit failed: Failed to update the PlayFab leaderboard entry. (HRESULT 0x89235472)
+```
+
+The HRESULT `0x89235472` decodes (via `<playfab/core/PFErrors.h>`) to
+`E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS`. The verbatim service
+error body is:
+
+```json
+{
+  "code": 400,
+  "status": "BadRequest",
+  "error": "APINotEnabledForGameClientAccess",
+  "errorCode": 1082,
+  "errorMessage": "This API must be enabled for client access in the Game Manager API Features settings"
+}
+```
+
+**Cause:** PlayFab's `LeaderboardsV2/UpdateLeaderboardEntries` endpoint
+(the one the addon's `submit_score_async` calls via
+`PFLeaderboardsUpdateLeaderboardEntriesAsync`) is, by default,
+**server-only**, and the current PlayFab Game Manager UI does not
+expose a per-leaderboard or per-title toggle to grant client write
+access to it. The block lives at the LeaderboardsV2 service layer and
+is not relaxed by anything the public PlayFab admin REST API exposes:
+
+- It is **not** controlled by `ApiPolicy` / `Admin/UpdatePolicy`. The
+  default `ApiPolicy` already has an `Allow * *` statement on
+  `pfrn:api--/Leaderboard/*`, and adding the analogous statement on
+  `pfrn:api--/LeaderboardsV2/*` does **not** unblock the call — the
+  service still returns errorCode 1082.
+- It is **not** an entry in `Admin/GetTitleData` /
+  `Admin/GetTitleInternalData` either.
+- `Admin/GetPolicy` only accepts `PolicyName: "ApiPolicy"` — no other
+  policy name exists.
+- No `Admin/GetAPIFeatures` / `Admin/GetTitleAPIFeatures` /
+  `Admin/GetClientAPISettings` endpoint exists (all return 404).
+
+**Fix:** switch the client write path from
+`PlayFab.leaderboards.submit_score_async` to
+`PlayFab.statistics.update_statistics_async`, configure the
+leaderboard in Game Manager to source its rankings from a statistic,
+and enable the title's **Allow client to post player stats** setting
+so the statistic write itself reaches the service. The leaderboard
+ranks statistic values, so the read paths
+(`get_leaderboard_async`, `get_leaderboard_around_user_async`,
+`get_friend_leaderboard_async`) stay unchanged.
+
+1. Open [PlayFab Game Manager](https://developer.playfab.com/) and
+   select your title.
+2. Navigate to **Statistics → New statistic**. Create a statistic with
+   entity type `title_player_account` and one column (a name like
+   `"high_score"` matches the T3 sample).
+3. Navigate to **LeaderboardsV2** → create or edit the target
+   leaderboard and configure its source to be the statistic created
+   in step 2. The leaderboard and statistic may share the same name.
+4. Navigate to **Title settings → API Features** and enable
+   **Allow client to post player stats**. This title-wide setting
+   gates both the legacy `Client/UpdatePlayerStatistics` endpoint and
+   the V2 `Statistic/UpdateStatistics` endpoint that
+   `update_statistics_async` calls. The same `errorCode 1082`
+   returned by `submit_score_async` is returned by
+   `update_statistics_async` when this setting is disabled.
+5. In code, replace any call shaped like
+   `PlayFab.leaderboards.submit_score_async(user, name, score)` with:
+
+   ```gdscript
+   await PlayFab.statistics.update_statistics_async(user, {
+       "statistics": [
+           {"name": STATISTIC_NAME, "scores": [str(score)]},
+       ],
+   })
+   ```
+
+   `scores` is a `PackedStringArray` of decimal-encoded values, one
+   per statistic column. A single-column statistic takes a
+   single-element array.
+
+After the leaderboard is sourced from the statistic and the write
+path is `update_statistics_async`, the T3 sample succeeds and
+subsequent `get_leaderboard_async` calls return the recorded value
+once statistic-to-leaderboard propagation completes (typically a few
+seconds). The
+[Tutorial 3 walkthrough](tutorials/03-playfab-leaderboard.md) and
+[PlayFab title prerequisites — §2 Leaderboards](playfab/prerequisites.md#leaderboards-t3-t8)
+cover the full pattern.
+
+> **Security note.** The statistic-backed pattern lets any signed-in
+> client write any value to the statistic. Fine for tutorial /
+> sandbox titles; for a production title that requires validated
+> writes, keep client writes off and call
+> `LeaderboardsV2/UpdateLeaderboardEntries` or
+> `Statistics/UpdateStatistics` from CloudScript / Azure Functions /
+> your own trusted backend with the developer secret key, and
+> validate scores before writing.
 
 ## Tests
 

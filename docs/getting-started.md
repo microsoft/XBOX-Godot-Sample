@@ -117,6 +117,15 @@ for the canonical addon-side walk-through.
   prerequisites above
 - For `sign_in_with_custom_id_async`, no Xbox setup is required
 
+> **First time?** You need a PlayFab title before you can fill in
+> `playfab/runtime/title_id`. Sign up at the
+> [PlayFab developer portal](https://developer.playfab.com/) and follow
+> [PlayFab — Game Manager quickstart](https://learn.microsoft.com/en-us/gaming/playfab/gamemanager/quickstart)
+> to create your account, studio, and first title. The Title ID lives in
+> Game Manager under **your title → Settings → API features**. The
+> [PlayFab Learn hub](https://learn.microsoft.com/en-us/gaming/playfab/)
+> is the entry point for everything else.
+
 ### To build the addons from source
 
 - Visual Studio 2022+ with the **C++ Desktop** workload
@@ -639,7 +648,6 @@ sample/                   # Sample projects (returning in PR 3 of the
                           #   tutorial_app/        — integrated chain
                           #   tutorial_gameinput/  — standalone GameInput
                           # ; currently empty)
-spec/                     # Design spec documents
 tests/                    # Baselines, C++ doctest sources, and Godot test hosts
   godot/gdk/              # GDK and GDK packaging test host
   godot/playfab/          # PlayFab test host

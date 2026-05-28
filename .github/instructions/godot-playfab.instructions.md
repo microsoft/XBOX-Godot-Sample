@@ -1,6 +1,6 @@
 ---
 description: Godot PlayFab addon architecture, runtime model, and sample workflow
-applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, docs/playfab/**, spec/gdext-playfab.md"
+applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_app/**, docs/playfab/**, spec/gdext-playfab.md"
 ---
 
 # Godot PlayFab Addon Instructions

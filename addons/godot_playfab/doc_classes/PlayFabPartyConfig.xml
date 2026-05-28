@@ -10,7 +10,7 @@
 	<methods></methods>
 	<members>
 		<member name="max_players" type="int" setter="set_max_players" getter="get_max_players" default="8">Maximum number of players permitted in the Party network.</member>
-		<member name="direct_peer_connectivity" type="int" setter="set_direct_peer_connectivity" getter="get_direct_peer_connectivity" default="0">Direct peer connectivity policy. See [enum PlayFabParty.DirectPeerConnectivity].</member>
+		<member name="direct_peer_connectivity" type="int" setter="set_direct_peer_connectivity" getter="get_direct_peer_connectivity" default="0">Direct peer connectivity policy bitmask. See [enum PlayFabParty.DirectPeerConnectivity]. Defaults to [constant PlayFabParty.DIRECT_PEER_CONNECTIVITY_NONE] (all traffic relayed through PlayFab Party). Platform-type and entity-login-provider flags must be combined; for the common "any platform + any login provider" preset use [constant PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY]. Invalid combinations cause [method PlayFabParty.create_and_join_network_async] to fail synchronously with code [code]party_invalid_options[/code].</member>
 		<member name="invitation_id" type="String" setter="set_invitation_id" getter="get_invitation_id" default="&quot;&quot;">Optional invitation id; the addon generates one if empty.</member>
 		<member name="enable_voice_chat" type="bool" setter="set_voice_chat_enabled" getter="is_voice_chat_enabled" default="true">Whether the addon should create and connect a voice chat control.</member>
 		<member name="enable_text_chat" type="bool" setter="set_text_chat_enabled" getter="is_text_chat_enabled" default="true">Whether the addon should enable text chat on the chat control.</member>

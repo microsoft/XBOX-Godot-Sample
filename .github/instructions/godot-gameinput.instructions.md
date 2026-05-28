@@ -1,6 +1,6 @@
 ---
 description: Godot GameInput addon architecture, threading model, action-bridge conventions, and sample workflow
-applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, docs/gameinput/**, spec/gdext-gameinput.md"
+applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/tutorial_gameinput/**, docs/gameinput/**, spec/gdext-gameinput.md"
 ---
 
 # Godot GameInput Addon Instructions

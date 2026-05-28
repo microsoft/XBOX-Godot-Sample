@@ -644,6 +644,24 @@ int64_t PlayFabLobby::get_member_count() const { return m_member_count; }
 Array PlayFabLobby::get_members() const { return m_members; }
 Dictionary PlayFabLobby::get_properties() const { return m_properties; }
 Dictionary PlayFabLobby::get_search_properties() const { return m_search_properties; }
+Ref<PlayFabLobbyMember> PlayFabLobby::find_member(const Dictionary &p_entity_key) const {
+    const String id = p_entity_key.get("id", String());
+    const String type = p_entity_key.get("type", String());
+    if (id.is_empty() && type.is_empty()) {
+        return Ref<PlayFabLobbyMember>();
+    }
+    for (int i = 0; i < m_members.size(); ++i) {
+        Ref<PlayFabLobbyMember> member = m_members[i];
+        if (!member.is_valid()) {
+            continue;
+        }
+        const Dictionary mk = member->get_entity_key();
+        if (String(mk.get("id", String())) == id && String(mk.get("type", String())) == type) {
+            return member;
+        }
+    }
+    return Ref<PlayFabLobbyMember>();
+}
 bool PlayFabLobby::is_owner(const Ref<PlayFabUser> &p_user) const {
     return p_user.is_valid() && String(m_owner_entity_key.get("id", String())) == String(p_user->get_entity_key().get("id", String())) &&
             String(m_owner_entity_key.get("type", String())) == String(p_user->get_entity_key().get("type", String()));
@@ -1562,11 +1580,35 @@ Array PlayFabMultiplayer::get_match_tickets() const {
     return tickets;
 }
 
-void PlayFabMultiplayer::_emit_lobby_change(int64_t p_kind, const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabResult> &p_result) {
+void PlayFabMultiplayer::_emit_lobby_change(
+        int64_t p_kind,
+        const Ref<PlayFabLobby> &p_lobby,
+        const Ref<PlayFabResult> &p_result,
+        const Ref<PlayFabLobbyMember> &p_member,
+        const Dictionary &p_properties) {
+    // Defense in depth: member-scoped kinds with a successful result must
+    // carry a non-null member, or the listener will null-deref on
+    // `change.member.<anything>`. Surface this loud-fail in dev rather than
+    // silently emitting a malformed payload — the duplicate-emit bug in
+    // LeaveLobbyCompleted and the use-after-free bugs in JoinLobbyCompleted /
+    // PostUpdateCompleted both manifested as null-member emits that the
+    // sample crashed on. A failed result legitimately has a null member
+    // (e.g. JoinLobbyCompleted with FAILED result was never a member event).
+    if (p_member.is_null() && p_result.is_valid() && p_result->is_ok() &&
+            (p_kind == PlayFabLobby::MEMBER_ADDED || p_kind == PlayFabLobby::MEMBER_UPDATED || p_kind == PlayFabLobby::MEMBER_REMOVED)) {
+        WARN_PRINT(vformat("PlayFabMultiplayer: emitting member-scoped lobby state change (kind=%d) with null member; listeners expecting change.member will fail. This is a regression in the dispatcher.", p_kind));
+    }
+
     Ref<PlayFabLobbyStateChange> lobby_change;
     lobby_change.instantiate();
     Ref<RefCounted> lobby_ref = p_lobby;
     lobby_change->set_values(p_kind, lobby_ref, p_result);
+    if (p_member.is_valid()) {
+        lobby_change->set_member(p_member);
+    }
+    if (!p_properties.is_empty()) {
+        lobby_change->set_properties(p_properties);
+    }
     if (p_lobby.is_valid()) {
         p_lobby->emit_signal("state_changed", lobby_change);
     }
@@ -1574,6 +1616,9 @@ void PlayFabMultiplayer::_emit_lobby_change(int64_t p_kind, const Ref<PlayFabLob
     Ref<PlayFabMultiplayerStateChange> service_change;
     service_change.instantiate();
     service_change->set_values(p_kind, lobby_ref, Ref<RefCounted>(), p_result);
+    if (!p_properties.is_empty()) {
+        service_change->set_properties(p_properties);
+    }
     emit_signal("state_changed", service_change);
 }
 
@@ -1644,8 +1689,12 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     lobby->refresh_snapshot();
                 }
                 Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby join failed.", "lobby_join_failed");
+                Ref<PlayFabLobbyMember> joined_member;
+                if (lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
+                    joined_member = lobby->find_member(operation->user->get_entity_key());
+                }
                 _complete_pending_operation(operation, result);
-                _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result);
+                _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result, joined_member);
             } break;
             case PFLobbyStateChangeType::JoinArrangedLobbyCompleted: {
                 const auto *change = static_cast<const PFLobbyJoinArrangedLobbyCompletedStateChange *>(state_change);
@@ -1659,8 +1708,12 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     lobby->refresh_snapshot();
                 }
                 Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab arranged lobby join failed.", "arranged_lobby_join_failed");
+                Ref<PlayFabLobbyMember> joined_member;
+                if (lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
+                    joined_member = lobby->find_member(operation->user->get_entity_key());
+                }
                 _complete_pending_operation(operation, result);
-                _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result);
+                _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result, joined_member);
             } break;
             case PFLobbyStateChangeType::FindLobbiesCompleted: {
                 const auto *change = static_cast<const PFLobbyFindLobbiesCompletedStateChange *>(state_change);
@@ -1703,8 +1756,19 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     lobby->refresh_snapshot();
                 }
                 Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby update failed.", "lobby_update_failed");
+                // Capture kind + look up the affected member BEFORE
+                // _complete_pending_operation deletes the operation. For
+                // MEMBER_UPDATED, _set_member_properties_async always acts on
+                // the lobby's local user, so resolve through the snapshot to
+                // avoid relying on operation->user (which is not populated by
+                // that code path).
+                const int64_t completed_kind = operation != nullptr ? operation->kind : PlayFabLobby::PROPERTIES_UPDATED;
+                Ref<PlayFabLobbyMember> updated_member;
+                if (completed_kind == PlayFabLobby::MEMBER_UPDATED && lobby.is_valid() && lobby->get_local_user().is_valid()) {
+                    updated_member = lobby->find_member(lobby->get_local_user()->get_entity_key());
+                }
                 _complete_pending_operation(operation, result);
-                _emit_lobby_change(operation != nullptr ? operation->kind : PlayFabLobby::PROPERTIES_UPDATED, lobby, result);
+                _emit_lobby_change(completed_kind, lobby, result, updated_member);
             } break;
             case PFLobbyStateChangeType::LeaveLobbyCompleted: {
                 const auto *change = static_cast<const PFLobbyLeaveLobbyCompletedStateChange *>(state_change);
@@ -1718,22 +1782,34 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     }), m_lobbies.end());
                 }
                 _complete_pending_operation(operation, result);
-                _emit_lobby_change(PlayFabLobby::MEMBER_REMOVED, lobby, result);
+                // Emit DISCONNECTED here, not MEMBER_REMOVED — the SDK already
+                // fired a per-member MemberRemoved for every local user that
+                // left as part of this op. Re-emitting MEMBER_REMOVED would
+                // duplicate that signal and (after the MemberRemoved handler's
+                // refresh_snapshot dropped the leaving user from m_members)
+                // would also carry change.member = null, since the user is no
+                // longer in the cached members list.
+                _emit_lobby_change(PlayFabLobby::DISCONNECTED, lobby, result);
             } break;
             case PFLobbyStateChangeType::MemberAdded: {
                 const auto *change = static_cast<const PFLobbyMemberAddedStateChange *>(state_change);
                 Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
                 if (lobby.is_valid()) {
                     lobby->refresh_snapshot();
-                    _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, PlayFabResult::ok_result());
+                    Ref<PlayFabLobbyMember> added_member = lobby->find_member(entity_key_to_dictionary(&change->member));
+                    _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, PlayFabResult::ok_result(), added_member);
                 }
             } break;
             case PFLobbyStateChangeType::MemberRemoved: {
                 const auto *change = static_cast<const PFLobbyMemberRemovedStateChange *>(state_change);
                 Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
                 if (lobby.is_valid()) {
+                    // Resolve the removed member from the pre-refresh snapshot —
+                    // after refresh_snapshot() the SDK has already dropped them
+                    // from the members list and their properties are emptied.
+                    Ref<PlayFabLobbyMember> removed_member = lobby->find_member(entity_key_to_dictionary(&change->member));
                     lobby->refresh_snapshot();
-                    _emit_lobby_change(PlayFabLobby::MEMBER_REMOVED, lobby, PlayFabResult::ok_result());
+                    _emit_lobby_change(PlayFabLobby::MEMBER_REMOVED, lobby, PlayFabResult::ok_result(), removed_member);
                 }
             } break;
             case PFLobbyStateChangeType::Updated: {
@@ -1741,9 +1817,39 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
                 if (lobby.is_valid()) {
                     lobby->refresh_snapshot();
-                    const int64_t kind = change->ownerUpdated ? PlayFabLobby::OWNER_CHANGED :
-                            (change->memberUpdateCount > 0 ? PlayFabLobby::MEMBER_UPDATED : PlayFabLobby::PROPERTIES_UPDATED);
-                    _emit_lobby_change(kind, lobby, PlayFabResult::ok_result());
+                    if (change->ownerUpdated) {
+                        _emit_lobby_change(PlayFabLobby::OWNER_CHANGED, lobby, PlayFabResult::ok_result());
+                    } else if (change->memberUpdateCount > 0) {
+                        // Fire one MEMBER_UPDATED per affected member so a
+                        // listener can attribute every update; member-update
+                        // bundling is rare but legal in the PFLobby SDK.
+                        for (uint32_t mi = 0; mi < change->memberUpdateCount; ++mi) {
+                            Ref<PlayFabLobbyMember> updated_member = lobby->find_member(entity_key_to_dictionary(&change->memberUpdates[mi].member));
+                            _emit_lobby_change(PlayFabLobby::MEMBER_UPDATED, lobby, PlayFabResult::ok_result(), updated_member);
+                        }
+                    } else {
+                        // Build the changed-properties dictionary from the
+                        // updated keys. A missing value (PFLobbyGetLobbyProperty
+                        // returning null) maps to Variant() and signals the key
+                        // was cleared.
+                        Dictionary updated_lobby_props;
+                        PFLobbyHandle handle = lobby->get_native_handle();
+                        if (handle != nullptr) {
+                            for (uint32_t pi = 0; pi < change->updatedLobbyPropertyCount; ++pi) {
+                                const char *key = change->updatedLobbyPropertyKeys[pi];
+                                if (key == nullptr) {
+                                    continue;
+                                }
+                                const char *value = nullptr;
+                                if (SUCCEEDED(PFLobbyGetLobbyProperty(handle, key, &value)) && value != nullptr) {
+                                    updated_lobby_props[String::utf8(key)] = String::utf8(value);
+                                } else {
+                                    updated_lobby_props[String::utf8(key)] = Variant();
+                                }
+                            }
+                        }
+                        _emit_lobby_change(PlayFabLobby::PROPERTIES_UPDATED, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), updated_lobby_props);
+                    }
                 }
             } break;
             case PFLobbyStateChangeType::InviteReceived: {

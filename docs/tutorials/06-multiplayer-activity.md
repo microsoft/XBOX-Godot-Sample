@@ -90,7 +90,7 @@ Game Bar):
   joinable badges.
 - [`GDKPresenceRecord`](../../addons/godot_gdk/doc_classes/GDKPresenceRecord.xml)
   — typed snapshot returned by `get_cached_presence(xuid)`.
-- [`PlayFab.multiplayer`](../playfab/plugin.md) — `join_lobby_async`
+- [`PlayFab.multiplayer`](../../addons/godot_playfab/doc_classes/PlayFabMultiplayer.xml) — `join_lobby_async`
   is the receiving end of the invite flow.
 - [`GDK.privacy`](../../addons/godot_gdk/doc_classes/GDKPrivacy.xml)
   — `batch_check_permission_async`. Step 5 uses it with the
@@ -102,36 +102,45 @@ Game Bar):
   — the privilege is the *"can I multiplayer at all"* check, the
   permission is the *"can I multiplayer with **that** person"*
   check.
+- [`GDK.social`](../../addons/godot_gdk/doc_classes/GDKSocial.xml)
+  — `start_social_graph`, `stop_social_graph`,
+  `get_friends_async`, `get_group_users`, `destroy_social_group`.
+  Step 5 wraps these in a `Lobby.get_friends_async()` helper that
+  feeds the targeted invite UI with a real friends list instead of
+  hand-typed XUIDs.
+- [`GDKSocialGroup`](../../addons/godot_gdk/doc_classes/GDKSocialGroup.xml),
+  [`GDKSocialUser`](../../addons/godot_gdk/doc_classes/GDKSocialUser.xml)
+  — typed snapshots returned by the social-graph helpers; each
+  user exposes `xuid`, `gamertag`, `display_name`, and
+  `presence`.
 
 ## Step 1 — Wire the activity signals at startup
 
 Add the three signal connections to the `Lobby` autoload's
-`_ready` (alongside the PlayFab multiplayer signals from T5). The
-goal is to install handlers **before** the GDK runtime can fire a
+`_ready` (alongside the existing `Auth.sign_in()` await). The goal
+is to install handlers **before** the GDK runtime can fire a
 deferred `invite_accepted` from a launch-with-invite activation —
 that activation can race `_ready` if the title is launched cold
-straight from a friend's invite:
+straight from a friend's invite.
+
+The PlayFab Multiplayer side stays inside the
+`_ensure_initialized()` helper you added in
+[T5 Step 1](05-multiplayer-lobby.md#step-1--bring-up-the-lobby-autoload)
+so the SDK only spins up when the user actually hosts / joins. The
+GDK side wires up unconditionally in `_ready` — `GDK.multiplayer_activity`
+is part of the core GDK runtime that's already initialized by the
+bootstrap.
 
 ```gdscript
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
-
-    if not PlayFab.multiplayer.is_initialized():
-        var init: PlayFabResult = await PlayFab.multiplayer.initialize_async()
-        if not init.ok:
-            push_error("[Lobby] Multiplayer init failed: %s" % init.message)
-            return
-
-    PlayFab.multiplayer.state_changed.connect(_on_state_changed)
-    PlayFab.multiplayer.invite_received.connect(_on_pf_invite_received)
-    PlayFab.multiplayer.multiplayer_error.connect(_on_multiplayer_error)
+    if not await Auth.sign_in():
+        return
 
     GDK.multiplayer_activity.pending_invite_received.connect(_on_pending_invite_received)
     GDK.multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
     GDK.multiplayer_activity.activities_updated.connect(_on_activities_updated)
 
-    print("[Lobby] Multiplayer initialized (Lobby + MPA wired)")
+    print("[Lobby] autoload ready (Lobby + MPA wired; PlayFab Multiplayer init is lazy)")
 ```
 
 The three GDK signals are stateless — connecting after a missed
@@ -282,8 +291,9 @@ seconds while the leave round-trips.
 When a friend taps **Join** on your activity, the Xbox shell
 queues an activation event. The addon parses the activation URI
 into a `Dictionary` and fires `invite_accepted`. The handler
-should pull the `connectionstring` out of that dict and hand it to
-`PlayFab.multiplayer.join_lobby_async`:
+should pull the `connectionstring` out of that dict and decide
+whether the user can be auto-joined right now or whether the UI
+should prompt them first:
 
 ```gdscript
 func _on_invite_accepted(invite: Dictionary) -> void:
@@ -295,20 +305,29 @@ func _on_invite_accepted(invite: Dictionary) -> void:
         push_warning("[MPA] Invite did not carry a connection string: %s" % invite.get("raw_uri", ""))
         return
 
-    if _lobby != null:
-        await leave_lobby()
-
-    var user: PlayFabUser = Auth.playfab_user
-    var config := PlayFabLobbyJoinConfig.new()
-    var result: PlayFabResult = await PlayFab.multiplayer.join_lobby_async(user, connection_string, config)
-    if not result.ok:
-        push_warning("[Lobby] join_lobby (invite) failed: %s (%s)" % [result.message, result.code])
+    # The Lobby autoload's state machine (T5 Step 1) rejects re-entrant
+    # host/join/leave calls. Drop the invite if we're mid-flight rather
+    # than racing the existing operation — the user can re-tap once it
+    # settles.
+    if is_busy():
+        push_warning("[MPA] Invite ignored — lobby autoload is busy (state=%d)" % _state)
         return
 
-    _lobby = result.data
-    _lobby.state_changed.connect(_on_lobby_state_changed)
-    print("[Lobby] Joined lobby id=%s with %d member(s)" % [_lobby.lobby_id, _lobby.member_count])
-    await _publish_activity()
+    # Not in a lobby — nothing to leave. Direct-join.
+    if _state != State.IN_LOBBY:
+        await join_lobby(connection_string)
+        return
+
+    # IN_LOBBY — stash the invite and ask the UI to confirm.
+    # confirm_pending_invite / reject_pending_invite drive the
+    # leave+join from here. (See "Confirming the destructive accept"
+    # below.)
+    if _pending_invite_confirming:
+        push_warning("[MPA] Invite arrived while confirming another — dropping new invite")
+        return
+    _pending_invite_id += 1
+    _pending_invite_cs = connection_string
+    invite_pending_confirmation.emit(_pending_invite_id, connection_string)
 ```
 
 A few notes:
@@ -318,10 +337,11 @@ A few notes:
   `connectionString` (camel case); the parsed dict exposes it as
   `"connectionstring"`. Use `invite.get("raw_uri", "")` for the
   full URI when you need to log unparsed cases.
-- The handler **awaits** `leave_lobby()` before joining — you
-  cannot be in two PlayFab lobbies at the same time. T5's
-  `leave_lobby` is idempotent thanks to the `_lobby == null` guard
-  so calling it pre-emptively is safe.
+- The `is_busy()` guard avoids a known race: tapping Join in the
+  Game Bar while `host_lobby` is mid-flight would otherwise leak a
+  half-created lobby. Dropping the invite is the conservative
+  choice — the friend can re-tap, or the local user can retry
+  once UI shows them as `READY`.
 - `pending_invite_received` fires on the receiver side **before**
   the user actually accepts (the Game Bar is showing a toast).
   Most titles only need `invite_accepted`. Connect
@@ -333,13 +353,124 @@ A few notes:
       print("[MPA] Pending invite (not yet accepted): %s" % invite.get("raw_uri", ""))
   ```
 
+### Confirming the destructive accept
+
+Auto-leaving the user's current lobby to honor an invite is a
+**destructive UX**. Users who already started a match with one
+friend don't expect a Game Bar tap from a different friend to
+silently bump them. The pattern: only auto-join when there's
+nothing to leave. When `IN_LOBBY`, fire a signal that the UI
+binds to a confirmation dialog, and gate the actual leave+join
+behind the dialog's Accept callback.
+
+The autoload owns the pending-invite slot (so it survives scene
+switches and gets cleared on disconnect / manual leave); the UI
+owns the dialog rendering. An `invite_id` token guards against
+stale dialogs: if a second invite arrives while the first is
+still on-screen, the autoload increments the token and re-emits;
+a tap on the stale dialog with the old token is a no-op.
+
+```gdscript
+signal invite_pending_confirmation(invite_id: int, connection_string: String)
+signal invite_pending_cleared(invite_id: int)
+
+var _pending_invite_id: int = 0
+var _pending_invite_cs: String = ""
+var _pending_invite_confirming: bool = false
+
+func confirm_pending_invite(invite_id: int) -> bool:
+    if _pending_invite_cs.is_empty() or invite_id != _pending_invite_id:
+        return false                           # stale token
+    if _pending_invite_confirming:
+        return false                           # double-tap
+    _pending_invite_confirming = true
+    var cs := _pending_invite_cs
+    var id := _pending_invite_id
+    _pending_invite_cs = ""                    # snapshot-then-clear
+
+    if _state == State.IN_LOBBY:
+        if not await leave_lobby():
+            _pending_invite_confirming = false
+            invite_pending_cleared.emit(id)
+            return false
+
+    var ok := await join_lobby(cs)
+    _pending_invite_confirming = false
+    invite_pending_cleared.emit(id)
+    return ok
+
+func reject_pending_invite(invite_id: int) -> void:
+    if invite_id != _pending_invite_id:
+        return
+    _clear_pending_invite()
+
+func _clear_pending_invite() -> void:
+    if _pending_invite_cs.is_empty():
+        return
+    var id := _pending_invite_id
+    _pending_invite_cs = ""
+    invite_pending_cleared.emit(id)
+```
+
+Wire `_clear_pending_invite()` into your state transitions so a
+stale invite can't outlive the lobby it would tear down:
+
+```gdscript
+func _set_state(next: State) -> void:
+    if _state == next:
+        return
+    var was_in_lobby := _state == State.IN_LOBBY
+    _state = next
+    state_changed.emit(_state)
+    # Manual leave, disconnect, etc. — drop the pending invite so a
+    # user who taps Accept after the underlying lobby is gone doesn't
+    # join the invited lobby out of context.
+    if was_in_lobby and _state != State.IN_LOBBY:
+        _clear_pending_invite()
+```
+
+The UI side is a `ConfirmationDialog` in the scene, bound to the
+autoload via the pair of signals:
+
+```gdscript
+var _dialog_invite_id: int = 0
+
+func _ready() -> void:
+    # ...other wiring...
+    Lobby.invite_pending_confirmation.connect(_on_invite_pending_confirmation)
+    Lobby.invite_pending_cleared.connect(_on_invite_pending_cleared)
+    $InviteDialog.confirmed.connect(_on_invite_dialog_confirmed)
+    $InviteDialog.canceled.connect(_on_invite_dialog_canceled)
+
+func _on_invite_pending_confirmation(invite_id: int, _cs: String) -> void:
+    _dialog_invite_id = invite_id
+    $InviteDialog.popup_centered()
+
+func _on_invite_pending_cleared(invite_id: int) -> void:
+    if invite_id == _dialog_invite_id and $InviteDialog.visible:
+        $InviteDialog.hide()
+
+func _on_invite_dialog_confirmed() -> void:
+    await Lobby.confirm_pending_invite(_dialog_invite_id)
+
+func _on_invite_dialog_canceled() -> void:
+    Lobby.reject_pending_invite(_dialog_invite_id)
+```
+
+The dialog text is intentionally generic
+("You're already in a lobby. Leave it and join the invited lobby?")
+— don't render the raw connection string, it's not human-readable
+and it changes between invites for the same lobby.
+
 ## Step 5 — Send an invite from inside the game
 
 Two flavors:
 
-- **Targeted invite** — you know the friend's XUID (from
-  `GDK.social.get_followed_users(...)` or your own friend cache)
-  and want to push the invite without surfacing UI.
+- **Targeted invite** — you know the friend's XUID and want to
+  push the invite without surfacing UI. Use
+  `Lobby.get_friends_async()` (Step 5a) to pull a real friends
+  list from the Xbox Social Manager instead of asking the player
+  to paste a XUID by hand.
 - **Picker invite** — surface the system **People Picker** so the
   user chooses who to invite.
 
@@ -347,10 +478,10 @@ Two flavors:
 > you build the targeted-invite list yourself (no system picker),
 > certification expects you to drop XUIDs the local user is not
 > permitted to play multiplayer with. The friends list from
-> `GDK.social.get_followed_users(...)` is unfiltered — it includes
-> friends who have you blocked, friends whose privacy setting
-> denies multiplayer, and friends a parental control restriction
-> hides from your account. Pre-filter through
+> `Lobby.get_friends_async()` is unfiltered — it includes friends
+> who have you blocked, friends whose privacy setting denies
+> multiplayer, and friends a parental control restriction hides
+> from your account. Pre-filter through
 > `GDK.privacy.batch_check_permission_async(user, "play_multiplayer", xuids)`
 > and keep only the entries with `entry.allowed == true`:
 >
@@ -376,13 +507,106 @@ Two flavors:
 > friend-presence panel from Step 7 so denied XUIDs do not get
 > a "Joinable" badge they cannot act on.
 
+### Step 5a — Pull a real friends list from Social Manager
+
+The friends list lives in the **Xbox Social Manager**, which
+tracks the local user's social graph in the background and exposes
+it as a snapshot of `GDKSocialUser` records (XUID + gamertag +
+presence). Bring it up lazily on first call, then reuse the cached
+group on subsequent refreshes. Add this helper to the `Lobby`
+autoload:
+
+```gdscript
+var _social_graph_started: bool = false
+var _friends_group: GDKSocialGroup = null
+
+func get_friends_async() -> Array:
+    var user: GDKUser = Auth.xbox_user
+    if user == null:
+        return []
+    if not _social_graph_started:
+        var sg: GDKResult = GDK.social.start_social_graph(user)
+        if not sg.ok:
+            push_warning("[Lobby] start_social_graph failed: %s" % sg.message)
+            return []
+        _social_graph_started = true
+    if _friends_group == null:
+        var f: GDKResult = await GDK.social.get_friends_async(user)
+        if not f.ok:
+            push_warning("[Lobby] get_friends failed: %s" % f.message)
+            return []
+        _friends_group = f.data
+    var users: GDKResult = GDK.social.get_group_users(_friends_group)
+    if not users.ok:
+        push_warning("[Lobby] get_group_users failed: %s" % users.message)
+        return []
+    return users.data
+
+func _exit_tree() -> void:
+    if Engine.has_singleton("GDK"):
+        if _friends_group != null:
+            GDK.social.destroy_social_group(_friends_group)
+            _friends_group = null
+        if _social_graph_started:
+            GDK.social.stop_social_graph(Auth.xbox_user)
+            _social_graph_started = false
+```
+
+The UI side feeds these into an `ItemList` and binds each row's
+metadata to the XUID, so the invite button just walks the
+selection:
+
+```gdscript
+func _on_refresh_pressed() -> void:
+    _friends_list.clear()
+    var friends: Array = await Lobby.get_friends_async()
+    if friends.is_empty():
+        _friends_list.add_item("(no friends found)")
+        return
+    for friend: GDKSocialUser in friends:
+        var label := "%s  —  %s" % [friend.gamertag, friend.xuid]
+        var idx := _friends_list.add_item(label)
+        _friends_list.set_item_metadata(idx, friend.xuid)
+
+func _selected_xuids() -> PackedStringArray:
+    var out := PackedStringArray()
+    for idx in _friends_list.get_selected_items():
+        var meta = _friends_list.get_item_metadata(idx)
+        if typeof(meta) == TYPE_STRING and not (meta as String).is_empty():
+            out.append(meta)
+    return out
+```
+
+Notes:
+
+- `start_social_graph(user)` is required **once per local user**
+  before any `get_friends_async` or `create_social_group` call.
+  Idempotent guards (`_social_graph_started`) keep repeated UI
+  refreshes from re-starting the graph.
+- `get_friends_async` returns a `GDKSocialGroup`; cache it. The
+  group keeps tracking friends in the background and the Social
+  Manager fires
+  [`social_graph_changed(user)`](../../addons/godot_gdk/doc_classes/GDKSocial.xml)
+  when entries appear/disappear. Connect to that signal and
+  re-call `get_group_users(group)` for live updates instead of
+  re-running `get_friends_async`.
+- Always destroy the group in `_exit_tree`. Leaving it alive after
+  the autoload is gone keeps the Social Manager doing background
+  work for nothing.
+- For testing the targeted invite path without two real Xbox
+  accounts, fall back to the system picker
+  (`show_invite_ui_async`) which uses the shell's own friends
+  view and works against test sandbox accounts immediately.
+
+### Step 5b — Send the invite
+
 Both call into `GDK.multiplayer_activity`:
 
 ```gdscript
-func invite_friend(xuid: String) -> void:
+func invite_friend(xuid: String) -> bool:
     if _lobby == null:
         push_warning("[MPA] Cannot invite — not in a lobby")
-        return
+        return false
 
     var xuids: PackedStringArray = [xuid]
     var result: GDKResult = await GDK.multiplayer_activity.send_invites_async(
@@ -392,8 +616,9 @@ func invite_friend(xuid: String) -> void:
         _lobby.connection_string)
     if result.ok:
         print("[MPA] Sent invite to %s" % xuid)
-    else:
-        push_warning("[MPA] send_invites failed: %s (%s)" % [result.message, result.code])
+        return true
+    push_warning("[MPA] send_invites failed: %s (%s)" % [result.message, result.code])
+    return false
 
 func open_invite_picker() -> void:
     if _lobby == null:
@@ -607,18 +832,26 @@ republished activity:
 | `set_activity failed: auth_invalid_scid` | The PC's sandbox SCID does not match Partner Center. | See [Troubleshooting → SCID mismatch](../troubleshooting.md). |
 | `invite_accepted` never fires when a friend taps Join | The PC and the friend are in different sandboxes, or the friend's title's SCID does not match yours. | Both sides must be in the same sandbox, with the same SCID published. |
 | `invite_accepted` fires with `invite.get("connectionstring", "") == ""` | The invite was issued against a non-PlayFab activity (e.g. a stale Xbox-only MPSD session from an earlier build), or you passed an empty `connection_string` to `send_invites_async`. | Always advertise a real lobby connection string in `set_activity_async`, and let `send_invites_async` default to it. |
-| `send_invites failed: invalid_xuids` | One or more entries in the `xuids` PackedStringArray was not a valid base-10 XUID. | XUIDs are decimal strings (e.g. `"2814635463725476"`) — not gamertags. Pull them from `GDK.social.get_followed_users(...)`. |
+| `send_invites failed: invalid_xuids` | One or more entries in the `xuids` PackedStringArray was not a valid base-10 XUID. | XUIDs are decimal strings (e.g. `"2814635463725476"`) — not gamertags. Pull them from `Lobby.get_friends_async()` (Step 5a) — each `GDKSocialUser.xuid` is in the correct format. |
 | `delete_activity failed: not_found` | No activity was ever set, or the runtime restarted between set and delete. | Safe to ignore — the user is already not advertising. |
 
-## Next
+## Reference implementation
 
-You now have a session that the rest of the Xbox ecosystem can
-see and join through the Game Bar. Tutorial 7 layers a PlayFab
-Party network on top so two clients can actually talk to each
-other over a peer transport (voice chat, text chat, Godot RPC):
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t06_mpa.tscn`](../../sample/tutorial_app/t06_mpa.tscn)
+- Script: [`sample/tutorial_app/t06_mpa.gd`](../../sample/tutorial_app/t06_mpa.gd)
+- Extends the `Lobby` autoload introduced in T5
+  ([`sample/tutorial_app/autoload/lobby.gd`](../../sample/tutorial_app/autoload/lobby.gd))
+  with the MPA `set_activity_async` / `delete_activity_async`
+  wiring + the `invite_accepted` listener.
+
+## Next
 
 - [**Tutorial 7 — Stand up a PlayFab Party network**](07-playfab-party.md)
 - Reference:
   [`GDKMultiplayerActivity`](../../addons/godot_gdk/doc_classes/GDKMultiplayerActivity.xml),
   [`GDKMultiplayerActivityInfo`](../../addons/godot_gdk/doc_classes/GDKMultiplayerActivityInfo.xml),
-  [`PlayFabLobby` and `PlayFabMultiplayer`](../playfab/plugin.md)
+  [`PlayFabLobby`](../../addons/godot_playfab/doc_classes/PlayFabLobby.xml),
+  [`PlayFabMultiplayer`](../../addons/godot_playfab/doc_classes/PlayFabMultiplayer.xml)

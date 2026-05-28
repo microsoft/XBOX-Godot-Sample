@@ -1,0 +1,90 @@
+[gd_scene load_steps=2 format=3 uid="uid://bt07party"]
+
+[ext_resource type="Script" path="res://t07_party.gd" id="1_t07"]
+
+[node name="TutorialScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_t07")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "T7 — PlayFab Party (voice + text + RPC)"
+theme_override_font_sizes/font_size = 24
+
+[node name="Status" type="Label" parent="Root"]
+layout_mode = 2
+text = "Sign-in pending."
+
+[node name="NetworkLabel" type="Label" parent="Root"]
+layout_mode = 2
+text = "Network: (none)"
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="Host" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Host lobby + Party"
+
+[node name="Leave" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Leave"
+
+[node name="JoinRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="LobbyIdLabel" type="Label" parent="Root/JoinRow"]
+layout_mode = 2
+text = "Lobby conn string:"
+
+[node name="LobbyId" type="LineEdit" parent="Root/JoinRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Paste a lobby connection string, or host a lobby to fill this in"
+
+[node name="Join" type="Button" parent="Root/JoinRow"]
+layout_mode = 2
+text = "Join"
+
+[node name="ChatRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="MessageLabel" type="Label" parent="Root/ChatRow"]
+layout_mode = 2
+text = "Chat:"
+
+[node name="Message" type="LineEdit" parent="Root/ChatRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Type a message"
+
+[node name="Send" type="Button" parent="Root/ChatRow"]
+layout_mode = 2
+text = "Send"
+
+[node name="ChatLog" type="TextEdit" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+editable = false
+placeholder_text = "Chat + peer events appear here."
+
+[node name="Back" type="Button" parent="Root"]
+layout_mode = 2
+text = "← Back to picker"

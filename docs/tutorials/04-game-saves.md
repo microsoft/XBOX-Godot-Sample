@@ -33,11 +33,12 @@ Sample output:
   with `sign_in_with_custom_id_async` are rejected by every Game
   Saves call with the `xbox_user_required` code — Game Saves is
   Xbox-backed only.
-- Your `MicrosoftGame.config` declares Game Saves storage. The
-  template that the **GDK → Create MicrosoftGame.config** menu writes
-  already sets a `CloudSaves` block; if your config was created
-  before that template was added, open `GameConfigEditor.exe` and
-  confirm a CloudSaves section is present.
+- The title-side Game Saves configuration is in place: a `CloudSaves`
+  block is present in `MicrosoftGame.config`, and the signed-in
+  PlayFab session is Xbox-backed. The walkthrough — including the
+  template written by **GDK → Create MicrosoftGame.config** and the
+  procedure for updating older configurations — is documented in
+  [PlayFab title prerequisites — §2 Game Saves](../playfab/prerequisites.md#game-saves-t4-t8).
 - Network connectivity for the cloud sync round-trips. Game Saves
   also works offline (with reduced semantics) — every method's
   result has an explicit "cloud connected" bit you can check.
@@ -51,12 +52,12 @@ Sample output:
 
 ## Relevant addon surfaces
 
-- [`PlayFab.game_saves`](../playfab/plugin.md) —
+- [`PlayFab.game_saves`](../../addons/godot_playfab/doc_classes/PlayFabGameSaves.xml) —
   `add_user_with_ui_async`, `upload_with_ui_async`,
   `get_folder`, `get_folder_size`, `get_remaining_quota`,
   `is_connected_to_cloud`, `set_save_description_async`,
   `reset_cloud_async`.
-- [`PlayFabUser`](../playfab/plugin.md) — read
+- [`PlayFabUser`](../../addons/godot_playfab/doc_classes/PlayFabUser.xml) — read
   `has_local_user_handle` to confirm an Xbox-backed session.
 - One-page primer on the addons' async model:
   [Async patterns](../async-patterns.md).
@@ -73,8 +74,8 @@ extends Node
 var _save_folder: String = ""
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
 
     await _add_to_game_saves()
 
@@ -211,34 +212,84 @@ These never call out to the cloud; they read state that the most
 recent `add_user_with_ui_async` or `upload_with_ui_async` cached.
 That makes them cheap to call on every HUD redraw.
 
-## Step 5 — Handle conflicts and rollback
+## Step 5 — Surface conflict resolution to the player
 
 When two devices write conflicting saves, the system surfaces a
 conflict in the Cloud Saves UI. Game Saves preserves both sides,
-and the next `add_user_with_ui_async` call can pick which one
-becomes the new canonical save by passing one of the
-`ADD_USER_OPTION_*` constants:
-
-```gdscript
-func _recover_after_conflict() -> void:
-    var user: PlayFabUser = Auth.playfab_user
-
-    # Roll back to the most recent verified-good cloud snapshot.
-    var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(
-        user, PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD)
-    if result.ok:
-        print("[Save] Rolled back to last known good save")
-    else:
-        push_warning("[Save] Rollback failed: %s" % result.message)
-```
-
-The three options today are:
+and the next `add_user_with_ui_async` call decides which one
+becomes the new canonical save based on the `ADD_USER_OPTION_*`
+constant you pass. Three options are exposed today:
 
 | Constant | Behavior |
 |---|---|
 | `ADD_USER_OPTION_NONE` | Default. Sync to the latest cloud save. |
 | `ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD` | Sync to the most recently verified earlier cloud save instead of the latest upload (when such a snapshot exists). |
 | `ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT` | Restore the "losing" side from the most recent conflict resolution (when available). |
+
+A real game should let the **player** pick the recovery strategy
+rather than hard-wiring one — they're the only ones who know
+whether the latest cloud upload or the preserved losing side is
+the version they actually want to keep. Wire one button per
+option through an `AcceptDialog`'s `custom_action` signal:
+
+```gdscript
+const ACTION_KEEP_CLOUD := "keep_cloud"
+const ACTION_LAST_KNOWN_GOOD := "last_known_good"
+const ACTION_LAST_CONFLICT := "last_conflict"
+
+@onready var _resolve_dialog: AcceptDialog = $ResolveDialog
+
+func _ready() -> void:
+    # The default OK button is repurposed as Cancel (no custom_action
+    # fires when the user closes the dialog without picking an option).
+    _resolve_dialog.add_button("Keep cloud version", true, ACTION_KEEP_CLOUD)
+    _resolve_dialog.add_button("Roll back to last known good", true, ACTION_LAST_KNOWN_GOOD)
+    _resolve_dialog.add_button("Roll back to last conflict", true, ACTION_LAST_CONFLICT)
+    _resolve_dialog.custom_action.connect(_on_resolve_action)
+
+func _on_resolve_action(action: StringName) -> void:
+    _resolve_dialog.hide()
+    var option: int = PlayFabGameSaves.ADD_USER_OPTION_NONE
+    var label := ""
+    match str(action):
+        ACTION_KEEP_CLOUD:
+            option = PlayFabGameSaves.ADD_USER_OPTION_NONE
+            label = "keep cloud version"
+        ACTION_LAST_KNOWN_GOOD:
+            option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD
+            label = "rolled back to last known good"
+        ACTION_LAST_CONFLICT:
+            option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT
+            label = "rolled back to last conflict"
+        _:
+            return
+
+    var user: PlayFabUser = Auth.playfab_user
+    var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(user, option)
+    if not result.ok:
+        push_warning("[Save] Resolution failed (%s): %s" % [label, result.message])
+        return
+    # Rollback strategies can change which version of the save tree
+    # is on disk, so re-cache the folder before the next write.
+    var folder: String = String(result.data.get("folder", ""))
+    print("[Save] Resolution complete — %s. Folder: %s" % [label, folder])
+```
+
+A few discipline points worth pinning down before you ship this:
+
+- **Pre-flight before showing the dialog.** Game Saves only
+  supports Xbox-backed sessions, so check
+  `Auth.playfab_user.has_local_user_handle` first and refuse to
+  open the dialog (rather than letting `add_user_with_ui_async`
+  fail under the player's nose).
+- **Re-cache the folder after a rollback.** Each rollback
+  variant can flip which version of the save tree is on disk —
+  treat any stored `_save_folder` as stale after the dialog
+  closes successfully.
+- **`ADD_USER_OPTION_NONE` is not a no-op.** It still runs the
+  system Game Saves UI, which is what surfaces the underlying
+  conflict prompt to the player when the cloud actually has one
+  to resolve.
 
 For development-only recovery you can also call
 `reset_cloud_async`, which clears the cloud state without touching
@@ -272,11 +323,16 @@ Common failures:
 | `Upload failed: not_connected` | The PC has no internet, or PlayFab Game Saves connectivity dropped. | Cache the local write and retry the upload when connectivity returns. `is_connected_to_cloud(user)` is your check. |
 | `Open failed` on `FileAccess.open` | Game Saves has not yet resolved a folder for this user. | Confirm `add_user_with_ui_async` succeeded and `_save_folder` is non-empty before any file IO. |
 
+## Reference implementation
+
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t04_game_saves.tscn`](../../sample/tutorial_app/t04_game_saves.tscn)
+- Script: [`sample/tutorial_app/t04_game_saves.gd`](../../sample/tutorial_app/t04_game_saves.gd)
+- Reuses the `Auth` autoload from T1.
+- The T8 integration tech demo wires the same flow into the
+  `GameSaves` panel —
+  [`sample/tutorial_app/t08_integration/panel_game_saves.gd`](../../sample/tutorial_app/t08_integration/panel_game_saves.gd).
+
 ## What's next
-
-You now have persistent, Xbox-backed cloud saves. Tutorial 5 sets up
-the multiplayer side — creating and joining a PlayFab lobby:
-
-- [**Tutorial 5 — Create and join a lobby**](05-multiplayer-lobby.md)
-- Reference: [PlayFabGameSaves](../playfab/plugin.md),
-  [PlayFabUser](../playfab/plugin.md)

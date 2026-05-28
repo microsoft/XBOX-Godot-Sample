@@ -1,5 +1,5 @@
 ---
-applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,docs/packaging/**,spec/gdext-packaging.md"
+applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/tutorial_app/**,docs/packaging/**,spec/gdext-packaging.md"
 description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and editor menu"
 ---
 

@@ -86,6 +86,11 @@ func _notification(what: int) -> void:
 
 func show_centered_clamped() -> void:
 	_apply_screen_size_cap()
+	# Snap to the layout's calculated minimum so the window opens only as
+	# tall as the current package count + chrome needs. Without this the
+	# Window's prior size (or its size_flags / max_size interaction with
+	# the SIZE_EXPAND_FILL root) makes it open near full-screen height.
+	reset_size()
 	popup_centered()
 	refresh()
 
