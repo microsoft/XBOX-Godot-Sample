@@ -6,13 +6,22 @@ Xbox Live services. You can configure everything through the in-editor
 
 ## Prerequisites
 
-1. **Register your title** in
-   [Partner Center](https://partner.microsoft.com/)
+1. **Register your title** in the
+   [Partner Center dashboard](https://partner.microsoft.com/dashboard).
+   If you don't have a publisher account yet, start with the
+   [ID@Xbox program](https://www.xbox.com/en-us/developers/id) and the
+   [Microsoft Game Stack publisher hub](https://developer.microsoft.com/en-us/games/publish/).
 2. **Create test accounts** in Partner Center → Account Settings → Xbox Live
    → Test Accounts
 3. **Configure achievements** (optional) in Partner Center → Xbox Live →
-   Achievements, then publish to your sandbox
-4. Gather these values from Partner Center → Xbox Live → Xbox Live Setup:
+   Achievements, then publish to your sandbox. See
+   [Microsoft GDK — Achievements](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/achievements/live-achievements-nav)
+   for the authoring walkthrough.
+4. Gather these values from Partner Center → Xbox Live → Xbox Live Setup
+   (see
+   [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   and
+   [Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)):
 
 | Value | Where to find it | Example |
 |-------|-------------------|---------|
@@ -97,8 +106,10 @@ If it's blank, the config file value is used as a fallback.
 ## Testing achievements
 
 Achievements must be configured in
-[Partner Center](https://partner.microsoft.com/) and published to your
-development sandbox before they can be unlocked.
+[Partner Center](https://partner.microsoft.com/dashboard) and published to
+your development sandbox before they can be unlocked. See
+[Microsoft GDK — Achievements](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/achievements/live-achievements-nav)
+for the authoring walkthrough.
 
 To **reset** achievements for re-testing, use the included helper script:
 

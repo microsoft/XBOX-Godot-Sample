@@ -13,6 +13,14 @@ creating the `MicrosoftGame.config`, switching the Xbox sandbox, and
 signing a user into both Xbox Live and PlayFab. Every tutorial below
 assumes you have completed that quickstart.
 
+> **You also need a Partner Center title with Xbox Live configured.**
+> The quickstart links above assume you already have one. If you don't,
+> start at the [ID@Xbox program](https://www.xbox.com/en-us/developers/id),
+> register your title in the
+> [Partner Center dashboard](https://partner.microsoft.com/dashboard),
+> and follow [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+> to surface the Title ID and SCID values the addon quickstart asks for.
+
 For a deeper repo-wide guide (building from source, samples, full API
 surface), see [Getting Started](../getting-started.md) and the
 [documentation index](../README.md). For the one-page async-pattern

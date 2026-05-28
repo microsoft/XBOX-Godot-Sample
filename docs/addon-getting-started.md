@@ -31,9 +31,28 @@ your Godot project's `addons/` directory.
   Microsoft.Gaming.GDK`). The Xbox runtime DLLs the addons depend on
   resolve from the GDK install.
 - A PlayFab title (you'll need its title id) for the `godot_playfab`
-  addon.
-- An Xbox test account and the matching sandbox configured in Partner
-  Center for the sign-in flow at the end of this guide.
+  addon. Sign up at the [PlayFab portal](https://playfab.com/).
+- A **Partner Center title** with Xbox Live configured, plus at least one
+  Xbox **test account** provisioned in the title's sandbox.
+
+> **First time setting up a Partner Center title?** You need an Xbox
+> publisher account before you can register a title. Start here:
+>
+> - [ID@Xbox program overview](https://www.xbox.com/en-us/developers/id)
+>   and [application form](https://www.xbox.com/en-us/developers/id/apply)
+>   — Microsoft's on-ramp for independent developers.
+> - [Microsoft Game Stack — Publish](https://developer.microsoft.com/en-us/games/publish/)
+>   — top-level publisher resources.
+> - [Partner Center dashboard](https://partner.microsoft.com/dashboard)
+>   — where you register the title and read the Title ID, SCID, MSA App
+>   ID, Store ID, and Sandbox ID values this guide refers to.
+> - [Microsoft GDK — Get started](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/get-started/get-started-home)
+>   and [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+>   for the canonical Microsoft walkthrough of the IDs and configuration
+>   surfaces this guide assumes you already have.
+> - [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+>   for the sandbox model (test accounts only authenticate against the
+>   sandbox they were created in).
 
 ## 1. Enable the addons
 
@@ -105,9 +124,11 @@ packaging. The `godot_gdk_packaging` addon ships a one-click action:
 3. Fill in at minimum:
    - **Identity / Name** — package family name (e.g. `Studio.Game`;
      no spaces or underscores).
-   - **Title Id** — the Xbox title id from Partner Center.
+   - **Title Id** — the Xbox title id from
+     [Partner Center → your title → Xbox services → Setup](https://partner.microsoft.com/dashboard).
+     See [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp).
    - **Store Id (SCID)** — the service configuration id from Partner
-     Center.
+     Center, same page as above.
    - **Version** — `1.0.0.0` is a fine starting value.
 4. Save and close GameConfigEditor.
 

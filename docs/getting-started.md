@@ -90,14 +90,25 @@ errors in `MicrosoftGame.config`, etc.).
 
 ### To make Xbox sign-in actually work
 
-- A title in [Partner Center](https://partner.microsoft.com/) (Title ID,
-  SCID, Sandbox ID at minimum)
+- A title in [Partner Center](https://partner.microsoft.com/dashboard)
+  (Title ID, SCID, Sandbox ID at minimum)
 - At least one Xbox **test account** provisioned in your sandbox
 - Your dev PC switched into that sandbox
 
+> **First time?** You need an Xbox publisher account before you can
+> register a Partner Center title. Start with the
+> [ID@Xbox program overview](https://www.xbox.com/en-us/developers/id) /
+> [application form](https://www.xbox.com/en-us/developers/id/apply)
+> and the [Microsoft Game Stack publisher hub](https://developer.microsoft.com/en-us/games/publish/).
+> Then follow [Microsoft GDK — Get started](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/get-started/get-started-home),
+> [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp),
+> and [Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+> for the Microsoft-side walkthrough that produces the IDs the rest of
+> this guide refers to.
+
 See [Sample project setup](gdk/sample-setup.md) and
 [Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md)
-for the canonical walk-through.
+for the canonical addon-side walk-through.
 
 ### To make PlayFab sign-in work
 
