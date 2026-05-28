@@ -21,6 +21,16 @@ assumes you have completed that quickstart.
 > and follow [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
 > to surface the Title ID and SCID values the addon quickstart asks for.
 
+> **And a PlayFab title.** Every tutorial below talks to PlayFab. The
+> title-side walkthrough — creating the title, setting
+> `playfab/runtime/title_id`, and configuring the per-tutorial Game
+> Manager fixtures (the statistic + leaderboard pair backing T3, the
+> Lobby and Party feature switches, the `CloudSaves` block in
+> `MicrosoftGame.config`) — is documented in
+> [PlayFab title prerequisites](../playfab/prerequisites.md). Each
+> tutorial below links back to the section of that page that documents
+> its prerequisites.
+
 For a deeper repo-wide guide (building from source, samples, full API
 surface), see [Getting Started](../getting-started.md) and the
 [documentation index](../README.md). For the one-page async-pattern
@@ -82,6 +92,25 @@ can read them at any time — they do not depend on the `Auth` or
 | Tutorial | Addon | Approx. time |
 |----------|-------|--------------|
 | [GameInput action bridge](gameinput-action-bridge.md) | `godot_gameinput` | 20 min |
+
+## Reference samples
+
+If your own project drifts from a tutorial, open the matching
+sample scene and compare. The samples are the cumulative
+end-state of each chain — you don't need to follow the tutorials
+to use them.
+
+- [`sample/tutorial_app/`](../../sample/tutorial_app/README.md) —
+  integrated end-state of the main cumulative chain (T1 → T8).
+  Default scene is a picker; each `tNN_*.tscn` is the reference
+  for the matching tutorial.
+- [`sample/tutorial_gameinput/`](../../sample/tutorial_gameinput/README.md) —
+  standalone end-state of the GameInput action-bridge tutorial.
+  Single `main.tscn`; bring a controller and run.
+
+Both samples have CMake-mirrored `addons/` folders; run
+`cmake --build build --preset debug` from the repo root once, then
+open either project in Godot.
 
 ## Recommended reading order
 

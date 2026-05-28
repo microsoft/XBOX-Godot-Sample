@@ -71,8 +71,9 @@ out side by side.
   runtimes are up by the time the dashboard's panels query them.
 - A signed-in Xbox test account with at least one **declared
   achievement** in Partner Center (any progress-style achievement
-  works) and a **PlayFab leaderboard** configured in Game Manager
-  (the snippets below use `"high_score"` to match T3).
+  works) and a **PlayFab statistic + a leaderboard that sources the
+  statistic** configured in Game Manager (the snippets below use
+  `"high_score"` for both, matching T3).
 - For end-to-end Lobby / MPA / Party panels: a second client
   signed into a different test account in the same sandbox. The
   single-client run still walks through every panel; it just shows
@@ -81,21 +82,25 @@ out side by side.
 
 ## Relevant addon surfaces
 
-- `Auth.xbox_user`, `Auth.playfab_user`, `Auth.sign_in_completed`
-  — your T1 autoload.
+- `Auth.xbox_user`, `Auth.playfab_user`, `Auth.state_changed`,
+  `Auth.sign_in()`, `Auth.is_signed_in()` — your T1 state-machine
+  autoload.
 - `Lobby._lobby`, `Lobby.host_lobby`, `Lobby.join_lobby`,
   `Lobby.leave_lobby`, `Lobby.invite_friend`,
   `Lobby.open_invite_picker` — your T5+T6 autoload.
 - [`GDK.achievements`](../../addons/godot_gdk/doc_classes/GDKAchievements.xml)
   — `query_player_achievements_async`, `update_achievement_async`,
   `achievement_unlocked` signal.
+- [`PlayFab.statistics`](../../addons/godot_playfab/doc_classes/PlayFabStatistics.xml)
+  — `update_statistics_async` (client-write entry point for the
+  statistic that backs the leaderboard).
 - [`PlayFab.leaderboards`](../../addons/godot_playfab/doc_classes/PlayFabLeaderboards.xml)
-  — `submit_score_async`, `get_leaderboard_async`,
+  — `get_leaderboard_async`,
   `get_leaderboard_around_user_async`. Response shape:
   `result.data = { entry_count, version, [next_reset], rankings: Array<Dictionary> }`,
   where each ranking carries `display_name`, `rank`, `entity: {id, type}`,
   and `scores: PackedStringArray` (decimal-encoded column values).
-- [`PlayFab.game_saves`](../playfab/plugin.md) —
+- [`PlayFab.game_saves`](../../addons/godot_playfab/doc_classes/PlayFabGameSaves.xml) —
   `add_user_with_ui_async`, `upload_with_ui_async`,
   `get_folder`.
 - [`GDK.multiplayer_activity`](../../addons/godot_gdk/doc_classes/GDKMultiplayerActivity.xml)
@@ -120,7 +125,7 @@ out side by side.
   Per-target permission filtering for invites (T6 Step 5) and
   per-peer chat permissions (T7 Step 6); inherited through the
   Lobby and Party autoloads.
-- [`PlayFab.party`](../playfab/plugin.md) —
+- [`PlayFab.party`](../../addons/godot_playfab/doc_classes/PlayFabParty.xml) —
   `create_and_join_network_async`, `join_network_async`. The
   `PlayFabPartyNetwork.state_changed` signal carries network
   lifecycle changes; the `PlayFabPartyPeer.text_message_received`
@@ -165,28 +170,40 @@ func _ready() -> void:
     _error.text = ""
     _retry.pressed.connect(_on_retry_pressed)
 
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    Auth.state_changed.connect(_on_auth_state_changed)
+    _on_auth_state_changed(Auth.get_state())
 
-    _identity.text = "%s ↔ PlayFab:%s" % [
-        Auth.xbox_user.gamertag,
-        str(Auth.playfab_user.entity_key.get("id", "")).left(8),
-    ]
-    print("[Hud] identity badge live for %s" % Auth.xbox_user.gamertag)
-
-    Auth.sign_in_failed.connect(_on_sign_in_failed)
     GDK.runtime_error.connect(_on_runtime_error.bind("gdk"))
     GDK.achievements.runtime_error.connect(_on_runtime_error.bind("achievements"))
     PlayFab.multiplayer.multiplayer_error.connect(_on_pf_runtime_error.bind("multiplayer"))
     PlayFab.party.party_error.connect(_on_pf_runtime_error.bind("party"))
 
+    # Kick sign-in for cold T8 entry. Idempotent — joins the
+    # autoload's in-flight attempt if one is already running.
+    await Auth.sign_in()
+
+func _on_auth_state_changed(_state: Auth.State) -> void:
+    if Auth.is_signed_in():
+        _identity.text = "%s ↔ PlayFab:%s" % [
+            Auth.xbox_user.gamertag,
+            str(Auth.playfab_user.entity_key.get("id", "")).left(8),
+        ]
+        _error.text = ""
+        print("[Hud] identity badge live for %s" % Auth.xbox_user.gamertag)
+    elif Auth.is_signing_in():
+        _identity.text = "Signing in…"
+    elif Auth.is_failed():
+        _identity.text = "(not signed in)"
+        _error.text = "Sign-in failed (%s): %s" % [
+                Auth.get_last_error_stage(),
+                Auth.get_last_error_message()]
+        push_warning("[Hud] %s" % _error.text)
+    else:
+        _identity.text = "(not signed in)"
+
 func _on_retry_pressed() -> void:
     _error.text = ""
-    await Auth._sign_in()
-
-func _on_sign_in_failed(stage: String, message: String) -> void:
-    _error.text = "Sign-in failed (%s): %s" % [stage, message]
-    push_warning("[Hud] %s" % _error.text)
+    await Auth.sign_in()
 
 func _on_runtime_error(result: GDKResult, source: String) -> void:
     _error.text = "[%s] %s" % [source, result.message]
@@ -205,9 +222,11 @@ The HUD does exactly two things:
   scripts below can stay focused on their happy path; if a
   surface goes wrong, the HUD lights up).
 
-This is also the only place we touch `Auth.sign_in_failed` —
-panel scripts assume `Auth.xbox_user` and `Auth.playfab_user` are
-non-null. Re-entrant sign-in is driven by the retry button.
+This is also the only place we listen to `Auth.state_changed` for
+its full lifecycle — panel scripts just `await Auth.sign_in()` and
+assume success. Re-entrant sign-in is driven by the retry button,
+which calls the same `Auth.sign_in()` accessor that resets stale
+failure state and starts a fresh attempt.
 
 ## Step 2 — Achievements panel
 
@@ -228,8 +247,8 @@ const ACHIEVEMENT_ID := "1"
 @onready var _unlock: Button = $Unlock
 
 func _ready() -> void:
-    if Auth.xbox_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
 
     GDK.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
     _progress_25.pressed.connect(_push_progress.bind(25))
@@ -262,7 +281,7 @@ func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
     _refresh_status()
 
 func _refresh_status() -> void:
-    var cached: Array = GDK.achievements.get_cached_achievements()
+    var cached: Array = GDK.achievements.get_cached_achievements(Auth.xbox_user)
     for ach in cached:
         if ach.id == ACHIEVEMENT_ID:
             _status.text = "%s: %d%% — %s" % [ach.id, ach.progress_percent,
@@ -287,6 +306,7 @@ can re-run after a score submission:
 ```gdscript
 extends VBoxContainer
 
+const STATISTIC_NAME := "high_score"
 const LEADERBOARD_NAME := "high_score"
 
 @onready var _top10: Label = $Top10
@@ -298,21 +318,25 @@ const LEADERBOARD_NAME := "high_score"
 var _scratch_score: int = 100
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
     _submit.pressed.connect(_on_submit_pressed)
     _refresh.pressed.connect(_refresh_views)
     await _refresh_views()
 
 func _on_submit_pressed() -> void:
     _scratch_score += 10
-    var result: PlayFabResult = await PlayFab.leaderboards.submit_score_async(
-            Auth.playfab_user, LEADERBOARD_NAME, _scratch_score)
+    var result: PlayFabResult = await PlayFab.statistics.update_statistics_async(
+            Auth.playfab_user, {
+                "statistics": [
+                    {"name": STATISTIC_NAME, "scores": [str(_scratch_score)]},
+                ],
+            })
     if result.ok:
-        _status.text = "Submitted %d to %s" % [_scratch_score, LEADERBOARD_NAME]
-        print("[Lb] Submitted %d to %s" % [_scratch_score, LEADERBOARD_NAME])
+        _status.text = "Recorded %d to %s" % [_scratch_score, STATISTIC_NAME]
+        print("[Lb] Recorded %d to %s" % [_scratch_score, STATISTIC_NAME])
     else:
-        _status.text = "Submit failed: %s" % result.message
+        _status.text = "Record failed: %s" % result.message
         return
     await _refresh_views()
 
@@ -361,12 +385,12 @@ func _primary_score(row: Dictionary) -> int:
 
 Two things worth calling out:
 
-- The submit button pushes the same `submit_score_async` flow from
-  T3, except the score increments every click instead of being
-  read from a gameplay value. That lets you watch the refresh
-  redraw the user's position in the around-user window after each
-  submit (leaderboard writes are eventually consistent — a
-  one-second delay between submit and refresh is normal, and
+- The submit button drives the same `update_statistics_async` flow
+  from T3, except the score increments every click instead of being
+  read from a gameplay value. That lets you watch the refresh redraw
+  the user's position in the around-user window after each record
+  (statistic-to-leaderboard propagation is eventually consistent —
+  a one-second delay between record and refresh is normal, and
   PlayFab can occasionally take longer).
 - The top-10 and around-user calls run **sequentially** here for
   prose clarity. In production, fan them out by saving the
@@ -393,8 +417,8 @@ const SAVE_FILE := "progress.dat"
 var _save_folder: String = ""
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
 
     var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(Auth.playfab_user)
     if not result.ok:
@@ -462,8 +486,8 @@ extends VBoxContainer
 @onready var _connection_string: LineEdit = $ConnectionString
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
     _host.pressed.connect(_on_host_pressed)
     _join.pressed.connect(_on_join_pressed)
     _leave.pressed.connect(_on_leave_pressed)
@@ -553,8 +577,8 @@ extends VBoxContainer
 @onready var _log: RichTextLabel = $Log
 
 func _ready() -> void:
-    if Auth.xbox_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
     _send.pressed.connect(_on_send_pressed)
     _picker.pressed.connect(_on_picker_pressed)
     GDK.multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
@@ -580,6 +604,9 @@ func _on_send_pressed() -> void:
         return
     await Lobby.invite_friend(xuid)
     _log.append_text("Sent invite to %s\n" % xuid)
+    # invite_friend returns a bool — see T6 Step 5 — so this panel can
+    # surface a suppressed-invite hint by checking `await`'s value if
+    # the title wants to differentiate "sent" from "blocked / failed".
 
 func _on_picker_pressed() -> void:
     await Lobby.open_invite_picker()
@@ -616,10 +643,12 @@ var _network: PlayFabPartyNetwork = null
 var _peer: PlayFabPartyPeer = null
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
-    if not PlayFab.party.is_initialized():
-        await PlayFab.party.initialize_async()
+    if not await Auth.sign_in():
+        return
+    # PlayFab.party init happens lazily inside the Party autoload when
+    # host_party() / _join_party_network() runs. This panel observes via
+    # Party.network_joined / network_left and does not bring the SDK up
+    # itself.
     _send.pressed.connect(_on_send_pressed)
     _mute_remotes.toggled.connect(_on_mute_remotes_toggled)
     _attach_network(Party.network)
@@ -784,7 +813,7 @@ After clicking through the tabs:
 [Ach] Updated to 50%
 [Ach] Updated to 75%
 [Ach] Unlocked id=1
-[Lb]  Submitted 110 to high_score
+[Lb]  Recorded 110 to high_score
 [Lb]  Top-10 refresh: 1. SteelGorilla 110
 [Gs]  Wrote progress.dat (47 bytes), upload synced
 [Lobby] Lobby created: id=BBA9... max=4
@@ -800,19 +829,35 @@ error fires.
 
 | Symptom | Diagnosis | Fix |
 |---|---|---|
-| HUD says "Signing in…" forever | `Auth.sign_in_completed` never fired. | Check the Output panel for a `[Auth] sign_in_failed` line and run the matching T1 fix. The HUD retry button re-runs `Auth._sign_in()` without restarting the scene. |
+| HUD says "Signing in…" forever | `Auth` is stuck in `SIGNING_IN_*`. | Check the Output panel for a `[Auth] sign-in failed at <stage>: <message>` line and run the matching T1 fix. The HUD retry button re-runs `Auth.sign_in()` without restarting the scene; `sign_in()` resets stale failure state on each retry. |
 | Achievements panel `Status` is "Achievement 1 not yet in cache" indefinitely | The achievement id passed in `ACHIEVEMENT_ID` does not match a declared achievement in Partner Center. | Update `ACHIEVEMENT_ID` to one of your declared ids (a numeric string like `"2"`, not a slug). |
-| Leaderboard panel renders `(no entries)` even after submit | Leaderboard writes are eventually consistent. | Wait 1–10 seconds and click **Refresh**. If still empty, confirm `LEADERBOARD_NAME` matches the entity-typed leaderboard configured in PlayFab Game Manager and that the entity type seeded by your sign-in (`title_player_account`) matches the leaderboard's expected entity. See T3's common-failures table for the same diagnoses. |
+| Leaderboard panel renders `(no entries)` even after a successful record | Statistic-to-leaderboard propagation is eventually consistent, or the leaderboard's source statistic does not match `STATISTIC_NAME`. | Wait 1–10 seconds and click **Refresh**. If still empty, confirm in Game Manager that `LEADERBOARD_NAME` matches a leaderboard sourced from the statistic named `STATISTIC_NAME`, and that the entity type seeded by your sign-in (`title_player_account`) matches the statistic's expected entity. See T3's common-failures table for the same diagnoses. |
 | Game Saves panel `_save_folder` stays empty | `add_user_with_ui_async` failed. | Most common cause: the PlayFab session is custom-id rather than Xbox-backed. See T4's common failures table. |
 | MPA panel shows "Advertising …" but the second client never sees a join card | Sandbox mismatch between PC and friend's PC. | See [Troubleshooting → Sandbox mismatch](../troubleshooting.md). |
 | Party panel chat send returns ok but no remote ever receives it | The remote peer's chat control had not been mapped at send time (zero broadcast targets). | Wait for `PlayFabPartyPeer.chat_control_added(peer_id, control)` for at least one remote peer before exposing the chat send UI — same diagnosis as T7. |
 | `_on_runtime_error` fires every frame for the same service | Stale connection that the addon keeps retrying. | Restart the runtime: `PlayFab.shutdown()` then `PlayFab.initialize()` from the HUD's retry button, or recreate the Party network from the Party panel. |
 
-## What's next
+## Reference implementation
 
-You have a single scene that proves all of T1–T7 coexist against
-one signed-in identity without contention. This is the end of the
-main cumulative track.
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t08_integration/t08_integration.tscn`](../../sample/tutorial_app/t08_integration/t08_integration.tscn)
+- Root script: [`sample/tutorial_app/t08_integration/t08_integration.gd`](../../sample/tutorial_app/t08_integration/t08_integration.gd)
+- Per-surface panels (one per Step):
+  - [`panel_achievements.gd`](../../sample/tutorial_app/t08_integration/panel_achievements.gd) (Step 2)
+  - [`panel_leaderboard.gd`](../../sample/tutorial_app/t08_integration/panel_leaderboard.gd) (Step 3)
+  - [`panel_game_saves.gd`](../../sample/tutorial_app/t08_integration/panel_game_saves.gd) (Step 4)
+  - [`panel_lobby.gd`](../../sample/tutorial_app/t08_integration/panel_lobby.gd) (Step 5)
+  - [`panel_mpa.gd`](../../sample/tutorial_app/t08_integration/panel_mpa.gd) (Step 6)
+  - [`panel_party.gd`](../../sample/tutorial_app/t08_integration/panel_party.gd) (Step 7)
+- Consumes the `Auth`, `Lobby`, and `Party` autoloads in
+  [`sample/tutorial_app/autoload/`](../../sample/tutorial_app/autoload/).
+
+Tutorial paths in this Step (`res://t08_integration/...`) match
+the sample exactly — no per-folder divergence here.
+
+## What's next
 
 If you skipped the parallel GameInput track, that is the next
 recommended read — it adds Microsoft GameInput on top of Godot's

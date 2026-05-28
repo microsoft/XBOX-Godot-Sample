@@ -74,8 +74,8 @@ extends Node
 const FIRST_SCORE_ID := "1"
 
 func _ready() -> void:
-    if Auth.xbox_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
 
     await _print_cached_achievements()
 
@@ -111,8 +111,8 @@ not on the 50% intermediate step:
 
 ```gdscript
 func _ready() -> void:
-    if Auth.xbox_user == null:
-        await Auth.sign_in_completed
+    if not await Auth.sign_in():
+        return
 
     GDK.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
 
@@ -241,12 +241,14 @@ Common failures:
 | `Update to 50% failed: unauthorized (...)` | The signed-in user has no rights to the title (no test-account assignment). | Add the test account to the title's sandbox in Partner Center. |
 | `[Ach] Updated to 100% — result ok` but no `Unlocked` signal | A second copy of the unlock listener already consumed it, or the achievement was previously unlocked for this account. | Check `progress_percent` and `unlocked` on the cached entry; once unlocked the signal stays silent on repeat 100% pushes. |
 
+## Reference implementation
+
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t02_achievement.tscn`](../../sample/tutorial_app/t02_achievement.tscn)
+- Script: [`sample/tutorial_app/t02_achievement.gd`](../../sample/tutorial_app/t02_achievement.gd)
+- Reuses the `Auth` autoload from T1
+  ([`sample/tutorial_app/autoload/auth.gd`](../../sample/tutorial_app/autoload/auth.gd)).
+
 ## What's next
-
-You now have one Xbox achievement firing end-to-end. Tutorial 3
-moves on to leaderboards, which use the same `GDKUser` plus the
-title-managed statistics system:
-
-- [**Tutorial 3 — Post and query a PlayFab leaderboard**](03-playfab-leaderboard.md)
-- Reference: [GDKAchievements](../gdk/api-reference.md),
-  [GDKAchievement](../gdk/api-reference.md)

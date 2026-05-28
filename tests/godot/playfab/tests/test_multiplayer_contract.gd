@@ -40,8 +40,43 @@ func test_multiplayer_service_contract() -> void:
 	for signal_name in ["state_changed", "invite_received", "multiplayer_error"]:
 		assert_has_signal_named(multiplayer, signal_name)
 
+	# All PlayFabLobby state-change kinds are part of the public contract — the
+	# values are referenced from sample/tutorial_app/autoload/lobby.gd and from
+	# the doc_classes XML. Regressions in either direction (renames or value
+	# shifts) silently break listener match statements.
 	assert_eq(get_class_constant("PlayFabLobby", "MEMBER_ADDED"), 1, "PlayFabLobby.MEMBER_ADDED constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "MEMBER_REMOVED"), 2, "PlayFabLobby.MEMBER_REMOVED constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "MEMBER_UPDATED"), 3, "PlayFabLobby.MEMBER_UPDATED constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "PROPERTIES_UPDATED"), 4, "PlayFabLobby.PROPERTIES_UPDATED constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "OWNER_CHANGED"), 5, "PlayFabLobby.OWNER_CHANGED constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "DISCONNECTED"), 6, "PlayFabLobby.DISCONNECTED constant is stable")
+	assert_eq(get_class_constant("PlayFabMatchTicket", "CREATED"), 100, "PlayFabMatchTicket.CREATED constant is stable")
+	assert_eq(get_class_constant("PlayFabMatchTicket", "STATUS_CHANGED"), 101, "PlayFabMatchTicket.STATUS_CHANGED constant is stable")
 	assert_eq(get_class_constant("PlayFabMatchTicket", "COMPLETED"), 102, "PlayFabMatchTicket.COMPLETED constant is stable")
+	assert_eq(get_class_constant("PlayFabMatchTicket", "CANCELLED"), 103, "PlayFabMatchTicket.CANCELLED constant is stable")
+	assert_eq(get_class_constant("PlayFabMatchTicket", "FAILED"), 104, "PlayFabMatchTicket.FAILED constant is stable")
+
+	# State-change payload shape is part of the public contract too — listeners
+	# read change.kind / change.lobby / change.member / change.result directly.
+	var lobby_change = instantiate_class("PlayFabLobbyStateChange")
+	if lobby_change != null:
+		for getter in ["get_kind", "get_lobby", "get_result", "get_member", "get_invite", "get_user", "get_properties"]:
+			assert_has_method_named(lobby_change, getter)
+	var ticket_change = instantiate_class("PlayFabMatchTicketStateChange")
+	if ticket_change != null:
+		for getter in ["get_kind", "get_ticket", "get_result", "get_status", "get_match_id", "get_arranged_lobby_connection_string"]:
+			assert_has_method_named(ticket_change, getter)
+	var service_change = instantiate_class("PlayFabMultiplayerStateChange")
+	if service_change != null:
+		for getter in ["get_kind", "get_lobby", "get_ticket", "get_result", "get_properties"]:
+			assert_has_method_named(service_change, getter)
+
+	# PlayFabLobby exposes state_changed so sample listeners can attach to a
+	# per-lobby firehose; removing that signal would silently break member
+	# event delivery to anything that wires up via lobby.state_changed.
+	var detached_lobby = instantiate_class("PlayFabLobby")
+	if detached_lobby != null:
+		assert_has_signal_named(detached_lobby, "state_changed")
 	assert_false(multiplayer.is_initialized(), "PlayFab.multiplayer starts uninitialized")
 	assert_eq(multiplayer.get_lobbies().size(), 0, "PlayFab.multiplayer starts with no tracked lobbies")
 	assert_eq(multiplayer.get_match_tickets().size(), 0, "PlayFab.multiplayer starts with no tracked tickets")

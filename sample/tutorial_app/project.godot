@@ -1,0 +1,45 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="GodotGDK Tutorial App"
+run/main_scene="res://shared/tutorial_picker.tscn"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
+PlayFabBootstrap="*res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
+Auth="*res://autoload/auth.gd"
+Lobby="*res://autoload/lobby.gd"
+Party="*res://autoload/party.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+
+[gdk]
+
+runtime/initialize_on_startup=true
+runtime/embed_dispatch=true
+runtime/auto_add_primary_user=true
+
+[playfab]
+
+runtime/title_id=""
+runtime/endpoint=""
+runtime/embed_dispatch=true
+runtime/initialize_on_startup=true
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"

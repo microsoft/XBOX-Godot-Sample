@@ -13,6 +13,16 @@
       - the wave4_settle_smoke leaderboard definition
       - API-service fixtures for accounts, friends, player data,
         title data, publisher data, statistics, and catalog draft-item tests
+      - the high_score statistic + high_score leaderboard pair used by the
+        T3 / T8 tutorial sample (Tutorial 3 — PlayFab leaderboard). The
+        leaderboard sources its rankings from the statistic; client writes
+        go through PlayFab.statistics.update_statistics_async. Pass
+        -SkipTutorialFixtures to opt out. After provisioning the pair, the
+        script performs a Client/LoginWithCustomID + Statistic/UpdateStatistics
+        probe to verify the title's "Allow client to post player stats"
+        setting (Game Manager -> Title settings -> API Features) is enabled,
+        and prints an actionable WARN message when it is not — without that
+        setting, the T3 sample will fail with HRESULT 0x89235472.
       - a small title-data marker describing the configured test resources
 
     The secret key is read from the process, user, or machine environment. It
@@ -29,12 +39,15 @@ param(
     [string]$MatchmakingQueueName = 'godot_gdk_ext_live_smoke_queue',
     [string]$ServiceFixturePrefix = '',
     [string]$LeaderboardName = 'wave4_settle_smoke',
+    [string]$TutorialStatisticName = 'high_score',
+    [string]$TutorialLeaderboardName = 'high_score',
     [string]$ServiceStatisticName = 'godot_services_smoke_stat',
     [string]$ServiceCatalogItemId = 'godot-services-smoke-item',
     [string]$ServiceTitleDataKey = 'godot_services_smoke_title_data',
     [string]$ServicePublisherDataKey = 'godot_services_smoke_publisher_data',
     [string]$ServicePlayerDataKey = 'godot_services_smoke_player_data',
     [int]$LeaderboardSizeLimit = 1000,
+    [int]$TutorialLeaderboardSizeLimit = 1000,
     [switch]$SkipCustomIdAccount,
     [switch]$SkipMultiplayerWorkerAccounts,
     [switch]$SkipMultiplayerMatchmakingQueue,
@@ -44,6 +57,7 @@ param(
     [switch]$SkipServiceTitleData,
     [switch]$SkipServiceStatistic,
     [switch]$SkipServiceCatalogDraftItem,
+    [switch]$SkipTutorialFixtures,
     [switch]$SkipTitleDataMarker
 )
 
@@ -112,6 +126,15 @@ if (-not $SkipApiServiceFixtures -and -not $SkipServicePlayerData -and [string]:
 }
 if ($LeaderboardSizeLimit -lt 1) {
     throw 'LeaderboardSizeLimit must be greater than zero.'
+}
+if (-not $SkipTutorialFixtures -and [string]::IsNullOrWhiteSpace($TutorialStatisticName)) {
+    throw 'TutorialStatisticName must not be empty unless -SkipTutorialFixtures is specified.'
+}
+if (-not $SkipTutorialFixtures -and [string]::IsNullOrWhiteSpace($TutorialLeaderboardName)) {
+    throw 'TutorialLeaderboardName must not be empty unless -SkipTutorialFixtures is specified.'
+}
+if (-not $SkipTutorialFixtures -and $TutorialLeaderboardSizeLimit -lt 1) {
+    throw 'TutorialLeaderboardSizeLimit must be greater than zero unless -SkipTutorialFixtures is specified.'
 }
 
 function Get-SecretEnvironmentVariable {
@@ -504,7 +527,9 @@ function Get-LeaderboardDefinition {
 function Assert-LeaderboardDefinition {
     param(
         [Parameter(Mandatory = $true)]$Definition,
-        [Parameter(Mandatory = $true)][string]$Name
+        [Parameter(Mandatory = $true)][string]$Name,
+        [string]$LinkedStatisticName,
+        [string]$LinkedStatisticColumnName
     )
 
     $errors = [System.Collections.Generic.List[string]]::new()
@@ -512,6 +537,7 @@ function Assert-LeaderboardDefinition {
     $entityType = [string](Get-ObjectProperty -Object $Definition -Name 'EntityType')
     $columnsValue = Get-ObjectProperty -Object $Definition -Name 'Columns'
     $columns = if ($null -eq $columnsValue) { @() } else { @($columnsValue) }
+    $expectLinked = -not [string]::IsNullOrWhiteSpace($LinkedStatisticName)
 
     if ($actualName -ne $Name) {
         $errors.Add("Name is '$actualName', expected '$Name'")
@@ -532,6 +558,21 @@ function Assert-LeaderboardDefinition {
         if ($sortDirection -ne 'Descending') {
             $errors.Add("Column sort is '$sortDirection', expected 'Descending'")
         }
+        if ($expectLinked) {
+            $linkedColumn = Get-ObjectProperty -Object $columns[0] -Name 'LinkedStatisticColumn'
+            if ($null -eq $linkedColumn) {
+                $errors.Add("Column is not linked to a statistic, expected LinkedStatisticName '$LinkedStatisticName'")
+            } else {
+                $actualLinkedName = [string](Get-ObjectProperty -Object $linkedColumn -Name 'LinkedStatisticName')
+                $actualLinkedColumn = [string](Get-ObjectProperty -Object $linkedColumn -Name 'LinkedStatisticColumnName')
+                if ($actualLinkedName -ne $LinkedStatisticName) {
+                    $errors.Add("LinkedStatisticName is '$actualLinkedName', expected '$LinkedStatisticName'")
+                }
+                if (-not [string]::IsNullOrWhiteSpace($LinkedStatisticColumnName) -and $actualLinkedColumn -ne $LinkedStatisticColumnName) {
+                    $errors.Add("LinkedStatisticColumnName is '$actualLinkedColumn', expected '$LinkedStatisticColumnName'")
+                }
+            }
+        }
     }
 
     if ($errors.Count -gt 0) {
@@ -543,14 +584,30 @@ function Ensure-LeaderboardDefinition {
     param(
         [Parameter(Mandatory = $true)][hashtable]$EntityHeaders,
         [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][int]$SizeLimit
+        [Parameter(Mandatory = $true)][int]$SizeLimit,
+        [string]$LinkedStatisticName,
+        [string]$LinkedStatisticColumnName = 'value'
     )
+
+    $expectLinked = -not [string]::IsNullOrWhiteSpace($LinkedStatisticName)
+    $linkedSummary = if ($expectLinked) { " (sourced from statistic '$LinkedStatisticName' column '$LinkedStatisticColumnName')" } else { '' }
 
     $definition = Get-LeaderboardDefinition -EntityHeaders $EntityHeaders -Name $Name
     if ($null -ne $definition) {
-        Assert-LeaderboardDefinition -Definition $definition -Name $Name
-        Write-Host "OK: leaderboard '$Name' already exists with the expected title_player_account score column."
+        Assert-LeaderboardDefinition -Definition $definition -Name $Name -LinkedStatisticName $LinkedStatisticName -LinkedStatisticColumnName $LinkedStatisticColumnName
+        Write-Host "OK: leaderboard '$Name' already exists with the expected title_player_account score column$linkedSummary."
         return
+    }
+
+    $column = @{
+        Name          = 'score'
+        SortDirection = 'Descending'
+    }
+    if ($expectLinked) {
+        $column['LinkedStatisticColumn'] = @{
+            LinkedStatisticName       = $LinkedStatisticName
+            LinkedStatisticColumnName = $LinkedStatisticColumnName
+        }
     }
 
     $route = 'Leaderboard/CreateLeaderboardDefinition'
@@ -558,12 +615,7 @@ function Ensure-LeaderboardDefinition {
         Name                 = $Name
         EntityType           = 'title_player_account'
         SizeLimit            = $SizeLimit
-        Columns              = @(
-            @{
-                Name          = 'score'
-                SortDirection = 'Descending'
-            }
-        )
+        Columns              = @($column)
         VersionConfiguration = @{
             ResetInterval        = 'Manual'
             MaxQueryableVersions = 1
@@ -580,16 +632,16 @@ function Ensure-LeaderboardDefinition {
             [void](Assert-PlayFabRestResponse -Response $response -Route $route)
         }
     } else {
-        Write-Host "OK: created leaderboard '$Name'."
+        Write-Host "OK: created leaderboard '$Name'$linkedSummary."
     }
 
     $definition = Get-LeaderboardDefinition -EntityHeaders $EntityHeaders -Name $Name
     if ($null -eq $definition) {
         throw "Leaderboard '$Name' was not found after creation."
     }
-    Assert-LeaderboardDefinition -Definition $definition -Name $Name
+    Assert-LeaderboardDefinition -Definition $definition -Name $Name -LinkedStatisticName $LinkedStatisticName -LinkedStatisticColumnName $LinkedStatisticColumnName
     if (-not [bool]$response.Ok) {
-        Write-Host "OK: leaderboard '$Name' already exists with the expected title_player_account score column."
+        Write-Host "OK: leaderboard '$Name' already exists with the expected title_player_account score column$linkedSummary."
     }
 }
 
@@ -788,6 +840,63 @@ function Ensure-StatisticDefinition {
     if (-not [bool]$response.Ok) {
         Write-Host "OK: statistic '$Name' already exists with the expected title_player_account value column."
     }
+}
+
+function Test-ClientStatisticWriteEnabled {
+    param(
+        [Parameter(Mandatory = $true)][string]$CustomId,
+        [Parameter(Mandatory = $true)][string]$StatisticName
+    )
+
+    $loginRoute = 'Client/LoginWithCustomID'
+    $loginBody = @{
+        TitleId       = $script:TitleIdForRequests
+        CustomId      = $CustomId
+        CreateAccount = $false
+    }
+    $loginResponse = Invoke-PlayFabRest -Route $loginRoute -Headers @{} -Body $loginBody
+    if (-not [bool]$loginResponse.Ok) {
+        Write-Host "WARN: client probe could not log in as custom-ID '$CustomId' to verify the 'Allow client to post player stats' setting. Re-run after the account is fully provisioned. Detail: $(Format-PlayFabRestError -ErrorInfo $loginResponse.Error)"
+        return
+    }
+
+    $entityTokenObject = Get-ObjectProperty -Object $loginResponse.Data -Name 'EntityToken'
+    $clientEntityToken = [string](Get-ObjectProperty -Object $entityTokenObject -Name 'EntityToken')
+    if ([string]::IsNullOrWhiteSpace($clientEntityToken)) {
+        Write-Host "WARN: client probe could not obtain an EntityToken for custom-ID '$CustomId'; skipping the client-write verification."
+        return
+    }
+
+    $writeRoute = 'Statistic/UpdateStatistics'
+    $writeBody = @{
+        Statistics = @(
+            @{
+                Name   = $StatisticName
+                Scores = @('0')
+            }
+        )
+        CustomTags = @{
+            source = 'godot-public-gdk-ext-configure-script-probe'
+        }
+    }
+    $writeResponse = Invoke-PlayFabRest -Route $writeRoute -Headers @{ 'X-EntityToken' = $clientEntityToken } -Body $writeBody
+    if ([bool]$writeResponse.Ok) {
+        Write-Host "OK: client-side write to statistic '$StatisticName' is enabled (Tutorial 3 sample can write scores)."
+        return
+    }
+
+    $errorCode = [int](Get-ObjectProperty -Object $writeResponse.Error -Name 'ErrorCode')
+    if ($errorCode -eq 1082) {
+        Write-Host ''
+        Write-Host "WARN: client-side writes to statistic '$StatisticName' are blocked by the title's 'Allow client to post player stats' setting (PlayFab errorCode 1082)."
+        Write-Host "      The Tutorial 3 / Tutorial 8 sample will fail with HRESULT 0x89235472 until this is enabled."
+        Write-Host "      Enable it manually: PlayFab Game Manager (https://developer.playfab.com) -> select title '$script:TitleIdForRequests' -> Title settings -> API Features -> 'Allow client to post player stats' -> Save."
+        Write-Host "      Re-run this script (or wait ~30 seconds for the change to propagate) to confirm; this probe is read-effective-only on a sentinel score of 0."
+        Write-Host ''
+        return
+    }
+
+    Write-Host "WARN: client probe write to statistic '$StatisticName' returned an unexpected error; the sample may or may not work. Detail: $(Format-PlayFabRestError -ErrorInfo $writeResponse.Error)"
 }
 
 function Get-CatalogConfig {
@@ -1111,6 +1220,18 @@ if (-not $SkipMultiplayerMatchmakingQueue) {
     $matchmakingQueue = Ensure-MatchmakingQueue -EntityHeaders $entityHeaders -Name $MatchmakingQueueName
 }
 Ensure-LeaderboardDefinition -EntityHeaders $entityHeaders -Name $LeaderboardName -SizeLimit $LeaderboardSizeLimit
+if (-not $SkipTutorialFixtures) {
+    Ensure-StatisticDefinition -EntityHeaders $entityHeaders -Name $TutorialStatisticName
+    Ensure-LeaderboardDefinition `
+        -EntityHeaders $entityHeaders `
+        -Name $TutorialLeaderboardName `
+        -SizeLimit $TutorialLeaderboardSizeLimit `
+        -LinkedStatisticName $TutorialStatisticName `
+        -LinkedStatisticColumnName 'value'
+    if (-not $SkipCustomIdAccount) {
+        Test-ClientStatisticWriteEnabled -CustomId $CustomId -StatisticName $TutorialStatisticName
+    }
+}
 $APIServiceFixtures = $null
 if (-not $SkipApiServiceFixtures) {
     $APIServiceFixtures = Ensure-ApiServiceFixtures `
@@ -1153,4 +1274,9 @@ if (-not $SkipMultiplayerMatchmakingQueue) {
 if (-not $SkipApiServiceFixtures) {
     Write-Host "API-service fixtures use custom IDs '$ServiceFixturePrefix-friend' and '$ServiceFixturePrefix-peer'."
     Write-Host "API-service fixtures use title data '$ServiceTitleDataKey', publisher data '$ServicePublisherDataKey', statistic '$ServiceStatisticName', and catalog draft item '$ServiceCatalogItemId'."
+}
+if (-not $SkipTutorialFixtures) {
+    Write-Host "Tutorial 3 sample uses statistic '$TutorialStatisticName' and leaderboard '$TutorialLeaderboardName' (leaderboard sources rankings from the statistic)."
+} else {
+    Write-Host "Skipped tutorial fixtures: create the T3 statistic + linked leaderboard manually in Game Manager, or rerun without -SkipTutorialFixtures."
 }

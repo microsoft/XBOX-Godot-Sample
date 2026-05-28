@@ -1289,6 +1289,49 @@ Ref<PlayFabResult> PlayFabParty::_validate_user(const Ref<PlayFabUser> &p_user) 
     return Ref<PlayFabResult>();
 }
 
+// Validates a PlayFabPartyConfig.direct_peer_connectivity bitmask against the
+// rules documented on PartyDirectPeerConnectivityOptions in the GDK Party
+// SDK. Catches the most common authoring mistake — setting platform-type
+// flags without an entity-login-provider flag — before reaching the SDK,
+// which would otherwise reject the network configuration struct with a
+// generic "invalid configuration" PartyError.
+bool PlayFabParty::_validate_direct_peer_connectivity(int64_t p_options, String *r_error) {
+    constexpr int64_t kPlatformTypeMask = 0x3;
+    constexpr int64_t kEntityLoginProviderMask = 0xC;
+    constexpr int64_t kOnlyServers = 0x10;
+    constexpr int64_t kKnownMask = 0x1F;
+
+    if (r_error == nullptr) {
+        return false;
+    }
+
+    if ((p_options & ~kKnownMask) != 0) {
+        *r_error = vformat("PlayFabPartyConfig.direct_peer_connectivity contains unsupported bits (0x%x). Allowed flags are DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE (0x1), DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE (0x2), DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER (0x4), DIRECT_PEER_CONNECTIVITY_DIFFERENT_ENTITY_LOGIN_PROVIDER (0x8), and DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS (0x10).", static_cast<int64_t>(p_options));
+        return false;
+    }
+
+    const bool has_platform = (p_options & kPlatformTypeMask) != 0;
+    const bool has_login_provider = (p_options & kEntityLoginProviderMask) != 0;
+    const bool has_only_servers = (p_options & kOnlyServers) != 0;
+
+    if (has_only_servers && (has_platform || has_login_provider)) {
+        *r_error = "PlayFabPartyConfig.direct_peer_connectivity cannot combine DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS with platform-type or entity-login-provider flags in the network configuration. Use DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS by itself.";
+        return false;
+    }
+
+    if (has_platform && !has_login_provider) {
+        *r_error = "PlayFabPartyConfig.direct_peer_connectivity has platform-type flags (SAME_PLATFORM_TYPE / DIFFERENT_PLATFORM_TYPE / ANY_PLATFORM_TYPE) but no entity-login-provider flag. Combine with SAME_ENTITY_LOGIN_PROVIDER, DIFFERENT_ENTITY_LOGIN_PROVIDER, or ANY_ENTITY_LOGIN_PROVIDER \u2014 or use DIRECT_PEER_CONNECTIVITY_ANY for the common 'any platform + any login provider' preset.";
+        return false;
+    }
+
+    if (has_login_provider && !has_platform) {
+        *r_error = "PlayFabPartyConfig.direct_peer_connectivity has entity-login-provider flags but no platform-type flag. Combine with SAME_PLATFORM_TYPE, DIFFERENT_PLATFORM_TYPE, or ANY_PLATFORM_TYPE \u2014 or use DIRECT_PEER_CONNECTIVITY_ANY for the common 'any platform + any login provider' preset.";
+        return false;
+    }
+
+    return true;
+}
+
 HRESULT PlayFabParty::_ensure_initialized() {
     if (m_initialized) {
         return S_OK;
@@ -1579,6 +1622,18 @@ bool PlayFabParty::_abort_join_op_if_network_dead(PendingOperation *p_operation)
 // PlayFabParty (network operations)
 
 Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config) {
+    // Validate the caller-supplied config bitmask first so the error
+    // message points at a static, code-authored mistake instead of a
+    // transient sign-in / initialization state issue.
+    Ref<PlayFabPartyConfig> config = p_config;
+    if (config.is_null()) {
+        config.instantiate();
+    }
+    String connectivity_error;
+    if (!_validate_direct_peer_connectivity(config->get_direct_peer_connectivity(), &connectivity_error)) {
+        return _make_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS, connectivity_error);
+    }
+
     Ref<PlayFabResult> validation = _validate_user(p_user);
     if (validation.is_valid() && !validation->is_ok()) {
         if (_get_runtime() != nullptr) {
@@ -1592,11 +1647,6 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
     if (FAILED(hr)) {
         return _make_error_signal(hr, PARTY_NOT_INITIALIZED,
                 "PlayFab.party requires initialization before creating a network.");
-    }
-
-    Ref<PlayFabPartyConfig> config = p_config;
-    if (config.is_null()) {
-        config.instantiate();
     }
 
     String error_text;
@@ -2903,6 +2953,11 @@ void PlayFabParty::_bind_methods() {
     BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE);
     BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE);
     BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE);
+    BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER);
+    BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_DIFFERENT_ENTITY_LOGIN_PROVIDER);
+    BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_ANY_ENTITY_LOGIN_PROVIDER);
+    BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_ANY);
+    BIND_ENUM_CONSTANT(DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS);
 
     BIND_ENUM_CONSTANT(NETWORK_STATE_CREATING);
     BIND_ENUM_CONSTANT(NETWORK_STATE_CONNECTING);

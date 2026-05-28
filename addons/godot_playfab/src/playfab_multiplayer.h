@@ -362,6 +362,7 @@ public:
     Array get_members() const;
     Dictionary get_properties() const;
     Dictionary get_search_properties() const;
+    Ref<PlayFabLobbyMember> find_member(const Dictionary &p_entity_key) const;
     bool is_owner(const Ref<PlayFabUser> &p_user) const;
     Signal set_properties_async(const Dictionary &p_properties);
     Signal set_member_properties_async(const Dictionary &p_properties);
@@ -447,7 +448,12 @@ private:
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
     int _dispatch_lobby_state_changes();
     int _dispatch_matchmaking_state_changes();
-    void _emit_lobby_change(int64_t p_kind, const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabResult> &p_result = Ref<PlayFabResult>());
+    void _emit_lobby_change(
+            int64_t p_kind,
+            const Ref<PlayFabLobby> &p_lobby,
+            const Ref<PlayFabResult> &p_result = Ref<PlayFabResult>(),
+            const Ref<PlayFabLobbyMember> &p_member = Ref<PlayFabLobbyMember>(),
+            const Dictionary &p_properties = Dictionary());
     void _emit_ticket_change(
             int64_t p_kind,
             const Ref<PlayFabMatchTicket> &p_ticket,

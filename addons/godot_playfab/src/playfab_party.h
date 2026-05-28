@@ -466,6 +466,11 @@ public:
         DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE = 1,
         DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE = 2,
         DIRECT_PEER_CONNECTIVITY_ANY_PLATFORM_TYPE = 3,
+        DIRECT_PEER_CONNECTIVITY_SAME_ENTITY_LOGIN_PROVIDER = 4,
+        DIRECT_PEER_CONNECTIVITY_DIFFERENT_ENTITY_LOGIN_PROVIDER = 8,
+        DIRECT_PEER_CONNECTIVITY_ANY_ENTITY_LOGIN_PROVIDER = 12,
+        DIRECT_PEER_CONNECTIVITY_ANY = 15,
+        DIRECT_PEER_CONNECTIVITY_ONLY_SERVERS = 16,
     };
 
     enum NetworkState : int64_t {
@@ -546,6 +551,7 @@ private:
     Signal _make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant());
     Signal _make_ok_signal(const Variant &p_data = Variant());
     Ref<PlayFabResult> _validate_user(const Ref<PlayFabUser> &p_user) const;
+    static bool _validate_direct_peer_connectivity(int64_t p_options, String *r_error);
 
     HRESULT _ensure_initialized();
     Party::PartyLocalUser *_get_or_create_local_user(const Ref<PlayFabUser> &p_user, String *r_error);

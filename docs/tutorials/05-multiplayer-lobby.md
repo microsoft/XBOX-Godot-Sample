@@ -29,10 +29,11 @@ Sample output (host side):
 ## Prerequisites
 
 - [Tutorial 1 — Sign in a user](01-sign-in-user.md) is complete.
-- Your PlayFab title has Lobby enabled. PlayFab titles created in
-  the last few years have it on by default; older titles need the
-  **Multiplayer → Lobby** feature switched on in the PlayFab Game
-  Manager.
+- The title-side Lobby configuration is in place: PlayFab
+  Multiplayer → Lobby is enabled in Game Manager. Recently created
+  titles enable this by default; older titles require the feature to
+  be enabled manually. See
+  [PlayFab title prerequisites — §2 Lobby](../playfab/prerequisites.md#lobby-t5-t6-t7-t8).
 - Two Godot processes (one host, one client). The simplest way to
   test on one PC is to run the host scene in the editor and a
   separate exported build for the client, each signed into a
@@ -53,16 +54,16 @@ Sample output (host side):
 
 ## Relevant addon surfaces
 
-- [`PlayFab.multiplayer`](../playfab/plugin.md) —
+- [`PlayFab.multiplayer`](../../addons/godot_playfab/doc_classes/PlayFabMultiplayer.xml) —
   `initialize_async`, `create_lobby_async`, `join_lobby_async`,
   `find_lobbies_async`, signals `state_changed`,
   `invite_received`, `multiplayer_error`.
-- [`PlayFabLobbyConfig`](../playfab/plugin.md) — the typed config
+- [`PlayFabLobbyConfig`](../../addons/godot_playfab/doc_classes/PlayFabLobbyConfig.xml) — the typed config
   for `create_lobby_async`. Constants `ACCESS_POLICY_*`,
   `OWNER_MIGRATION_*` live here.
-- [`PlayFabLobbyJoinConfig`](../playfab/plugin.md) — the typed
+- [`PlayFabLobbyJoinConfig`](../../addons/godot_playfab/doc_classes/PlayFabLobbyJoinConfig.xml) — the typed
   config for `join_lobby_async`.
-- [`PlayFabLobby`](../playfab/plugin.md) — the typed result that
+- [`PlayFabLobby`](../../addons/godot_playfab/doc_classes/PlayFabLobby.xml) — the typed result that
   carries the live lobby. Read `lobby_id`, `connection_string`,
   `members`, `max_member_count`, `member_count`; call
   `set_member_properties_async`, `set_properties_async`,
@@ -108,32 +109,106 @@ Sample output (host side):
 >   privilege blocked a target-user check. Don't confuse it with
 >   the local privilege check; you almost never read it directly.
 
-## Step 1 — Initialize PlayFab Multiplayer
+## Step 1 — Bring up the Lobby autoload
 
 PlayFab Multiplayer is a separate runtime that sits on top of the
 main PlayFab runtime — it needs its own `initialize_async` before
-any lobby method works:
+any lobby method works. Bring it up **lazily** the first time the
+user actually hosts or joins, rather than eagerly in `_ready`. The
+init has cost (allocates queues, opens a hub connection) and most
+of your scenes don't need lobbies. A small `_ensure_initialized()`
+helper keeps the call sites readable.
+
+Pair the lazy init with a tracked `State` enum so panels and
+sibling autoloads can drive UI from a single firehose
+(`state_changed`) instead of holding their own bookkeeping. The
+[Auth autoload](01-sign-in-user.md#step-4--track-the-sign-in-state-machine)
+uses the same pattern; matching it across the autoloads keeps the
+codebase consistent.
+
+> **Note — single-slot design.** The autoload here owns exactly
+> one `PlayFabLobby` at a time and the host/join methods reject
+> re-entrant calls. That's a deliberate trade for the tutorial:
+> panels render one lobby's state without juggling lobby IDs.
+> The PlayFab addon itself supports multiple live lobbies per
+> process, so if your shipping game needs concurrent lobbies
+> (e.g. a persistent clan/social lobby alongside a match lobby),
+> refactor `host_lobby` / `join_lobby` to return the new
+> `PlayFabLobby` (instead of stashing it on `_lobby`) and have
+> the caller hold the reference plus connect to it directly.
+> Drop or partition the `_state` bookkeeping at the same time.
 
 ```gdscript
 extends Node
 
+enum State {
+    UNINITIALIZED,    # autoload _ready has not finished sign-in
+    READY,            # signed in, no lobby; host/join allowed
+    HOSTING,          # host_lobby() in flight
+    JOINING,          # join_lobby() in flight
+    IN_LOBBY,         # active lobby; leave allowed
+    LEAVING,          # leave_lobby() in flight
+}
+
+signal state_changed(state: State)
+signal lobby_joined(lobby: PlayFabLobby)
+signal lobby_left
+signal lobby_disconnected   ## involuntary — PlayFab kicked us
+
+var _state: State = State.UNINITIALIZED
 var _lobby: PlayFabLobby = null
+var _pf_multiplayer_signals_connected: bool = false
 
 func _ready() -> void:
-    if Auth.playfab_user == null:
-        await Auth.sign_in_completed
+    await _ensure_ready()
+    print("[Lobby] autoload ready (PlayFab Multiplayer init is lazy)")
 
+# Guarded accessor — returns null unless we're actually in a lobby.
+var current_lobby: PlayFabLobby:
+    get:
+        return _lobby if _state == State.IN_LOBBY else null
+
+func is_in_lobby() -> bool: return _state == State.IN_LOBBY
+func is_busy() -> bool:
+    return _state == State.HOSTING or _state == State.JOINING or _state == State.LEAVING
+
+func _set_state(next: State) -> void:
+    if _state == next:
+        return
+    _state = next
+    state_changed.emit(_state)
+
+# Awaits sign-in (Auth.sign_in is idempotent for concurrent callers)
+# and transitions UNINITIALIZED -> READY. Safe to call from _ready
+# and from host_lobby / join_lobby entry points.
+func _ensure_ready() -> bool:
+    if _state == State.READY or _state == State.IN_LOBBY:
+        return true
+    if is_busy() or _state != State.UNINITIALIZED:
+        return false
+    if not await Auth.sign_in():
+        return false
+    _set_state(State.READY)
+    return true
+
+# PlayFab Multiplayer SDK lazy init. The `_pf_multiplayer_signals_connected`
+# guard makes the helper safe to call from every entry point that needs
+# the SDK up — `host_lobby`, `join_lobby`, `find_lobbies` — without
+# duplicating signal connections on repeated calls.
+func _ensure_initialized() -> bool:
     if not PlayFab.multiplayer.is_initialized():
         var init: PlayFabResult = await PlayFab.multiplayer.initialize_async()
         if not init.ok:
             push_error("[Lobby] Multiplayer init failed: %s" % init.message)
-            return
+            return false
+        print("[Lobby] Multiplayer initialized lazily")
 
-    print("[Lobby] Multiplayer initialized")
-
-    PlayFab.multiplayer.state_changed.connect(_on_state_changed)
-    PlayFab.multiplayer.invite_received.connect(_on_invite_received)
-    PlayFab.multiplayer.multiplayer_error.connect(_on_multiplayer_error)
+    if not _pf_multiplayer_signals_connected:
+        PlayFab.multiplayer.state_changed.connect(_on_state_changed)
+        PlayFab.multiplayer.invite_received.connect(_on_invite_received)
+        PlayFab.multiplayer.multiplayer_error.connect(_on_multiplayer_error)
+        _pf_multiplayer_signals_connected = true
+    return true
 
 func _on_state_changed(change: PlayFabMultiplayerStateChange) -> void:
     pass # Per-lobby changes are routed to _on_lobby_state_changed in Step 5.
@@ -145,10 +220,32 @@ func _on_multiplayer_error(result: PlayFabResult) -> void:
     push_warning("[Lobby] multiplayer error: %s (%s)" % [result.message, result.code])
 ```
 
-The three signals are the **firehose** of every lobby + matchmaking
-change. Connect them at startup; per-call awaits handle the
-synchronous part of a create / join, but member updates,
-disconnect, and ownership migration all arrive here.
+The three PlayFab signals are the **firehose** of every lobby +
+matchmaking change. Connect them exactly once on first init; per-
+call awaits handle the synchronous part of a create / join, but
+member updates, disconnect, and ownership migration all arrive
+here.
+
+The state-machine pieces (`State` enum, `_set_state`,
+`_ensure_ready`, the guarded `current_lobby` getter) cost a few
+extra lines but pay back across the rest of the tutorial:
+
+- `host_lobby` / `join_lobby` / `leave_lobby` return `bool` and
+  reject re-entrant calls instead of racing against an in-flight
+  PlayFab operation.
+- Panels listen on `state_changed` to drive button enable state
+  with no local bookkeeping (`HOSTING` / `JOINING` / `LEAVING`
+  → disable everything; `IN_LOBBY` → enable Leave; `READY` →
+  enable Host / Join).
+- Involuntary disconnect (`lobby_disconnected`) is distinguishable
+  from voluntary leave (`lobby_left`), so the UI can warn the
+  user without conflating the two.
+
+> The `current_lobby` getter guards against accessing a stale
+> `PlayFabLobby` after a disconnect. Callers that need the lobby
+> outside `IN_LOBBY` (for example to log its id during cleanup)
+> should pull it from `lobby_joined` / `lobby_left` payloads
+> rather than poking the getter.
 
 ## Step 2 — Gate host/join on the Multiplayer privilege
 
@@ -253,7 +350,18 @@ hold on to the returned `PlayFabLobby`. The lobby's
 `connection_string` is what your client side will need:
 
 ```gdscript
-func host_lobby() -> void:
+func host_lobby() -> bool:
+    if not await _ensure_ready():
+        return false
+    if _state != State.READY:
+        push_warning("[Lobby] host_lobby rejected — busy or already in a lobby (state=%d)" % _state)
+        return false
+
+    _set_state(State.HOSTING)
+    if not await _ensure_initialized():
+        _set_state(State.READY)
+        return false
+
     var user: PlayFabUser = Auth.playfab_user
 
     var config := PlayFabLobbyConfig.new()
@@ -269,18 +377,24 @@ func host_lobby() -> void:
     }
     config.member_properties = {
         "loadout": "rifle",
+        "xuid": Auth.xbox_user.xuid,
     }
 
     var result: PlayFabResult = await PlayFab.multiplayer.create_lobby_async(user, config)
     if not result.ok:
         push_warning("[Lobby] create_lobby failed: %s (%s)" % [result.message, result.code])
-        return
+        _set_state(State.READY)
+        return false
 
     _lobby = result.data
     _lobby.state_changed.connect(_on_lobby_state_changed)
+    _set_state(State.IN_LOBBY)
+    lobby_joined.emit(_lobby)
+
     print("[Lobby] Lobby created: id=%s max=%d" % [_lobby.lobby_id, _lobby.max_member_count])
     print("[Lobby] connection string ready — copy to second client")
     print("[Lobby] %s" % _lobby.connection_string)
+    return true
 ```
 
 Notes:
@@ -297,6 +411,46 @@ Notes:
 - `ACCESS_POLICY_PUBLIC` makes the lobby searchable. Use
   `ACCESS_POLICY_FRIENDS` for friends-only or
   `ACCESS_POLICY_PRIVATE` for invite-only.
+- The `xuid` key in `member_properties` is title-defined. The
+  PlayFab entity key on a lobby member is **not** an XUID, so
+  T7 (PlayFab Party) needs another way to map a Party peer back
+  to an XUID for per-peer permission checks. Writing the local
+  user's `Auth.xbox_user.xuid` into `member_properties["xuid"]`
+  on host **and** join puts that mapping in the lobby roster,
+  where T7's `_xuid_for_peer(peer_id)` can read it.
+
+### Property scopes — what's public vs private
+
+Picking the right bucket matters. The three dictionaries on
+`PlayFabLobbyConfig` (and the matching `set_*_properties_async`
+calls on `PlayFabLobby` once you're in the lobby) advertise to
+very different audiences:
+
+| Property bucket | Mutator | Who sees the value | Searchable filter? |
+|---|---|---|---|
+| `search_properties` | Set on `PlayFabLobbyConfig` at create time. Cannot be edited after create. | Anyone running `find_lobbies_async` for the lobby's `access_policy` audience (everyone for `PUBLIC`, friends for `FRIENDS`, nobody for `PRIVATE`). Returned on `PlayFabLobbySummary.search_properties`. | **Yes** — only these keys can appear in `find_lobbies_async` filter expressions, and only with reserved names like `string_key1`. |
+| `lobby_properties` | `PlayFabLobby.set_properties_async` (owner only). | Only **lobby members** (read via `PlayFabLobby.properties`). Hidden from `find_lobbies_async` results. | No. |
+| `member_properties` | `PlayFabLobby.set_member_properties_async` (acts on the local member only). | Only **lobby members** (read via `PlayFabLobbyMember.properties`). Hidden from search results. | No. |
+
+Practical rules of thumb when wiring properties for a new feature:
+
+- **Anything a matchmaker or lobby browser must filter on goes in
+  `search_properties`.** Region, mode, skill bracket, lobby
+  visibility flags — these are server-indexed and let other
+  clients narrow their search before joining.
+- **Anything a player should read after joining (but no one outside
+  the lobby needs) goes in `lobby_properties`.** Selected map,
+  game mode display name, round number, host preferences. Free of
+  the `string_keyN` naming constraint and never leaks via
+  `find_lobbies_async`.
+- **Anything per-player — loadout, character pick, ready state,
+  the XUID bridge from the note above — goes in
+  `member_properties`.** Only that member can write their own
+  entry; everyone in the lobby reads the same snapshot.
+
+Don't put secrets in `search_properties`. Anything in that bucket
+is visible to every client that can discover the lobby — including
+clients you have no relationship with on `ACCESS_POLICY_PUBLIC`.
 
 The `connection_string` survives across restarts of the title only
 as long as the lobby itself stays alive — once the last member
@@ -311,22 +465,38 @@ client scene, and run that scene:
 ```gdscript
 const JOIN_STRING := "<paste connection string here>"
 
-func join_lobby() -> void:
+func join_lobby() -> bool:
+    if not await _ensure_ready():
+        return false
+    if _state != State.READY:
+        push_warning("[Lobby] join_lobby rejected — busy or already in a lobby (state=%d)" % _state)
+        return false
+
+    _set_state(State.JOINING)
+    if not await _ensure_initialized():
+        _set_state(State.READY)
+        return false
+
     var user: PlayFabUser = Auth.playfab_user
 
     var config := PlayFabLobbyJoinConfig.new()
     config.member_properties = {
         "loadout": "shotgun",
+        "xuid": Auth.xbox_user.xuid,
     }
 
     var result: PlayFabResult = await PlayFab.multiplayer.join_lobby_async(user, JOIN_STRING, config)
     if not result.ok:
         push_warning("[Lobby] join_lobby failed: %s (%s)" % [result.message, result.code])
-        return
+        _set_state(State.READY)
+        return false
 
     _lobby = result.data
     _lobby.state_changed.connect(_on_lobby_state_changed)
+    _set_state(State.IN_LOBBY)
+    lobby_joined.emit(_lobby)
     print("[Lobby] Joined lobby id=%s with %d member(s)" % [_lobby.lobby_id, _lobby.member_count])
+    return true
 ```
 
 In production you would replace the hard-coded join string with
@@ -417,16 +587,32 @@ Have a "leave" UI button or scene-exit hook call
 `leave_async`:
 
 ```gdscript
-func leave_lobby() -> void:
-    if _lobby == null:
-        return
+func leave_lobby() -> bool:
+    if _state != State.IN_LOBBY:
+        push_warning("[Lobby] leave_lobby rejected — not in a lobby (state=%d)" % _state)
+        return false
+
+    _set_state(State.LEAVING)
     var pf: PlayFabResult = await _lobby.leave_async()
     if pf.ok:
         print("[Lobby] left lobby")
     else:
         push_warning("[Lobby] leave failed: %s" % pf.message)
+
+    if _lobby != null and _lobby.state_changed.is_connected(_on_lobby_state_changed):
+        _lobby.state_changed.disconnect(_on_lobby_state_changed)
     _lobby = null
+    _set_state(State.READY)
+    lobby_left.emit()
+    return pf.ok
 ```
+
+> **Why `LEAVING` is its own state.** `leave_async` is a round-trip
+> to PlayFab — during the await, the lobby is no longer usable
+> (calls like `set_member_properties_async` will fail) but it isn't
+> torn down yet either. Gating the UI on `is_busy()` (which
+> includes `LEAVING`) prevents the user from re-clicking Host
+> before the leave completes and racing two operations.
 
 The opposite peer sees this as `MEMBER_REMOVED`. The lobby itself
 sticks around as long as there is at least one member; when the
@@ -476,18 +662,21 @@ func _clear_lobby_presence() -> void:
 Hook them into the existing methods:
 
 ```gdscript
-func host_lobby() -> void:
+func host_lobby() -> bool:
     # ... existing create_lobby_async / _lobby = result.data wiring ...
     await _publish_lobby_presence()
+    return true
 
-func join_lobby() -> void:
+func join_lobby() -> bool:
     # ... existing join_lobby_async / _lobby = result.data wiring ...
     await _publish_lobby_presence()
+    return true
 
-func leave_lobby() -> void:
+func leave_lobby() -> bool:
     # ... existing _lobby.leave_async wiring ...
     await _clear_lobby_presence()
     _lobby = null
+    return true
 ```
 
 Notes:
@@ -542,14 +731,20 @@ Common failures:
 | `join_lobby failed: full` | Tried to join a lobby that has reached `max_players`. | Either increase `max_players` on the host or pick another lobby. |
 | `set_properties_async` succeeds but the opposite peer never sees a `PROPERTIES_UPDATED` event | The opposite peer's `_lobby.state_changed` signal is not connected. | Connect it in the same function that returned the lobby. |
 
+## Reference implementation
+
+The cumulative end-state lives in
+[`sample/tutorial_app/`](../../sample/tutorial_app/README.md):
+
+- Scene: [`sample/tutorial_app/t05_lobby.tscn`](../../sample/tutorial_app/t05_lobby.tscn)
+- Script: [`sample/tutorial_app/t05_lobby.gd`](../../sample/tutorial_app/t05_lobby.gd)
+- Autoload introduced here: [`sample/tutorial_app/autoload/lobby.gd`](../../sample/tutorial_app/autoload/lobby.gd)
+  (extended in T6, consumed by T7 and T8).
+
+> **Path note.** The tutorial places `lobby.gd` at
+> `res://lobby/lobby.gd` (one folder per topic). The sample
+> collapses every autoload under `res://autoload/` because all
+> three (`Auth`, `Lobby`, `Party`) are registered from the first
+> tutorial. Same code, different folder.
+
 ## What's next
-
-You can now stand up a lobby, get a second client into it, and
-keep both sides in sync as members come and go. Tutorial 6 takes
-that lobby and advertises it on the Xbox shell's **Multiplayer
-Activity** surface so friends can see "Playing with you" cards
-and accept invites from the Game Bar:
-
-- [**Tutorial 6 — Advertise your lobby with Multiplayer Activity**](06-multiplayer-activity.md)
-- Reference: [PlayFabMultiplayer](../playfab/plugin.md),
-  [PlayFabLobby](../playfab/plugin.md)

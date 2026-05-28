@@ -45,7 +45,7 @@ This is the landing page for the `godot_gdk` docs set.
   `godot_playfab` under `PlayFab.game_saves` because the PlayFab Game Saves
   C API drives the Xbox-backed save flow.
 - Server / admin / private GDK surfaces remain out of scope for the public
-  PC client wrappers (see [`spec/gdext-gdk.md`](../../spec/gdext-gdk.md)).
+  PC client wrappers.
 
 ## Testing this addon
 
@@ -104,9 +104,6 @@ See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages
 
 - [`troubleshooting.md`](../troubleshooting.md)  
   Common build, runtime, and test issues.
-
-- [`../spec/gdext-gdk.md`](../../spec/gdext-gdk.md)  
-  Design spec (planned API, not necessarily current implementation).
 
 ## Recommended reading order
 

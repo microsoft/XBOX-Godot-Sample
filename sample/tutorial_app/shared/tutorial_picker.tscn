@@ -1,0 +1,54 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8tutorialpicker"]
+
+[ext_resource type="Script" path="res://shared/tutorial_picker.gd" id="1_picker"]
+
+[node name="TutorialPicker" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_picker")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "GodotGDK Tutorial App"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "Pick a tutorial scene to open its end-state reference."
+
+[node name="Status" type="Label" parent="Root"]
+layout_mode = 2
+text = "Signing in…"
+
+[node name="Problems" type="RichTextLabel" parent="Root"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+custom_minimum_size = Vector2(0, 80)
+
+[node name="Spacer" type="Control" parent="Root"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="Buttons" type="VBoxContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3

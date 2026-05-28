@@ -38,6 +38,15 @@ sample/*/addons/gut/
 sample/*/addons/godot_gdk_tests/
 tests/godot/*/addons/
 
+# ── CMake-synced sample addon mirrors ───────────────────────────
+# Each sample's addons/godot_<name>/ directory is populated at build
+# time by `cmake --build`. Source of truth lives under addons/<addon>/.
+# Tracking these would duplicate files and create needless diff noise.
+sample/*/addons/godot_gdk/
+sample/*/addons/godot_playfab/
+sample/*/addons/godot_gameinput/
+sample/*/addons/godot_gdk_packaging/
+
 # ── Godot ────────────────────────────────────────────────────────
 .godot/
 *.import

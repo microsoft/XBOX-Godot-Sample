@@ -7,8 +7,7 @@ the GameConfigEditor / Store Association wizard. It works as a **headless**
 runner you can drive from scripts and CI, with a small editor menu for
 Game Config and documentation shortcuts.
 
-This page is the headless-surface reference. The full plan and progress
-ledger live in `spec\gdext-packaging.md`.
+This page is the headless-surface reference.
 
 ## Invocation
 
@@ -198,7 +197,6 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 
 ## See also
 
-- `spec\gdext-packaging.md` — design, plan, and progress ledger.
 - `.github\instructions\godot-gdk-packaging.instructions.md` — repo-wide
   rules for contributors editing the addon.
 - `docs\gdk\editor-tools.md` — broader editor-tooling notes.

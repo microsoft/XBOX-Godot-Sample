@@ -12,10 +12,10 @@
 		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabMultiplayer]'s lobby constants.</member>
 		<member name="lobby" type="PlayFabLobby" setter="" getter="get_lobby">Lobby that changed.</member>
 		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for completed operations.</member>
-		<member name="member" type="PlayFabLobbyMember" setter="" getter="get_member">Affected member when available.</member>
+		<member name="member" type="PlayFabLobbyMember" setter="" getter="get_member">Affected member. Guaranteed non-null for successful [code]MEMBER_ADDED[/code] (the joining member), [code]MEMBER_REMOVED[/code] (the leaving member, resolved before the snapshot drops them), and [code]MEMBER_UPDATED[/code] (the member whose properties or connection status changed). May be [code]null[/code] when [member result] is a failure (e.g. join/post-update operation completed with an error) and for kinds outside the member-scoped set.</member>
 		<member name="invite" type="PlayFabLobbyInvite" setter="" getter="get_invite">Invite payload when available.</member>
 		<member name="user" type="PlayFabUser" setter="" getter="get_user">Affected user when available.</member>
-		<member name="properties" type="Dictionary" setter="" getter="get_properties">Changed properties when available.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Changed lobby properties. Populated for [code]PROPERTIES_UPDATED[/code] with the keys reported by the underlying [code]Updated[/code] state change — values are the post-update strings, or [Variant] [code]null[/code] when the key was cleared. Empty for other kinds.</member>
 	</members>
 	<signals></signals>
 	<constants></constants>
