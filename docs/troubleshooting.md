@@ -163,10 +163,16 @@ git submodule update --init --recursive
    ```powershell
    & "C:\Program Files (x86)\Microsoft GDK\bin\XblPCSandbox.exe"
    ```
+   See [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+   and
+   [PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
 2. **Using personal account** — The sample requires Xbox test accounts, not
    personal Microsoft accounts.
-3. **Title not configured** — Ensure your title is set up in Partner Center
-   with Xbox Live enabled.
+3. **Title not configured** — Ensure your title is set up in
+   [Partner Center](https://partner.microsoft.com/dashboard) with Xbox Live
+   enabled. See
+   [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   for the canonical Microsoft-side walkthrough.
 
 See [Sample Project Setup](gdk/sample-setup.md) for the full
 configuration guide.
@@ -189,8 +195,11 @@ Partner Center, or matches an SCID from a different sandbox.
 
 **Fix:**
 
-1. In Partner Center → your title → **Xbox services → Service
-   configuration → IDs**, copy the **Service Configuration ID** value.
+1. In [Partner Center](https://partner.microsoft.com/dashboard) → your title
+   → **Xbox services → Service configuration → IDs**, copy the
+   **Service Configuration ID** value. See
+   [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   for where this lives.
 2. Open your project's `MicrosoftGame.config` and confirm the `Scid`
    attribute under
    `ExtendedAttributeList/ExtendedAttribute Name="Xbox.Services.Configuration"`
@@ -222,6 +231,10 @@ account is provisioned in (or the SCID is published into).
    ```powershell
    & "C:\Program Files (x86)\Microsoft GDK\bin\XblPCSandbox.exe" YOURSANDBOX.0
    ```
+   See [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
+   for the underlying model and
+   [PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher)
+   for the tool reference.
 2. Sign out of the Microsoft Store / Xbox app, then sign back in with
    the test account.
 3. Re-run the game.
