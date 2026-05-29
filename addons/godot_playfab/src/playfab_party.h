@@ -307,6 +307,11 @@ class PlayFabPartyNetwork : public RefCounted {
     Ref<PlayFabPartyPeer> m_local_peer;
     Ref<PlayFabPartyChatControl> m_local_chat_control;
     bool m_host = false;
+    // Remembered failure result from PartyNetworkDestroyed so that any
+    // in-flight join-chain *Completed handler can surface the real reason
+    // the network died instead of a generic "Network destroyed during join."
+    // string. Cleared on attach_native().
+    Ref<PlayFabResult> m_destroyed_result;
 
 protected:
     static void _bind_methods();
@@ -566,7 +571,7 @@ private:
     Ref<PlayFabResult> _validate_user(const Ref<PlayFabUser> &p_user) const;
     static bool _validate_direct_peer_connectivity(int64_t p_options, String *r_error);
 
-    HRESULT _ensure_initialized();
+    HRESULT _ensure_initialized(int p_local_udp_port_override = -1);
     Party::PartyLocalUser *_get_or_create_local_user(const Ref<PlayFabUser> &p_user, String *r_error);
     void _release_local_user(PFEntityHandle p_handle);
     void _release_all_local_users();
@@ -645,7 +650,7 @@ public:
     void set_owner(PlayFab *p_owner);
 
     bool is_initialized() const;
-    Signal initialize_async(const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>());
+    Signal initialize_async(const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>(), int p_local_udp_port = -1);
     Signal shutdown_async();
     void shutdown();
     int dispatch();
