@@ -21,6 +21,7 @@ extends Control
 @onready var _leave_button: Button = $Root/Buttons/Leave
 @onready var _chat_input: LineEdit = $Root/ChatRow/Message
 @onready var _send_button: Button = $Root/ChatRow/Send
+@onready var _ping_button: Button = $Root/ChatRow/Ping
 @onready var _chat_log: TextEdit = $Root/ChatLog
 @onready var _back_button: Button = $Root/Back
 
@@ -37,12 +38,14 @@ func _ready() -> void:
 	_join_button.pressed.connect(_on_join_pressed)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	_send_button.pressed.connect(_on_send_pressed)
+	_ping_button.pressed.connect(_on_ping_pressed)
 	_back_button.pressed.connect(_on_back_pressed)
 
 	_set_buttons_for_state(false)
 	_status_label.text = "Sign-in pending."
 	_network_label.text = "Network: (none)"
 	_send_button.disabled = true
+	_ping_button.disabled = true
 
 	if _auth == null or _lobby_node == null or _party_node == null:
 		_status_label.text = "[ERR] Auth/Lobby/Party autoload missing"
@@ -70,6 +73,7 @@ func _ready() -> void:
 	_party_node.peer_connected.connect(_on_peer_connected)
 	_party_node.peer_disconnected.connect(_on_peer_disconnected)
 	_party_node.chat_received.connect(_on_chat_received)
+	_party_node.rpc_received.connect(_on_rpc_received)
 	_party_node.state_changed.connect(_on_party_state_changed)
 
 	_set_buttons_for_state(true)
@@ -111,6 +115,7 @@ func _on_leave_pressed() -> void:
 	_join_button.disabled = false
 	_leave_button.disabled = true
 	_send_button.disabled = true
+	_ping_button.disabled = true
 	_network_label.text = "Network: (none)"
 
 func _on_send_pressed() -> void:
@@ -122,6 +127,17 @@ func _on_send_pressed() -> void:
 		_append_log("you> " + text)
 	else:
 		_append_log("[send failed]")
+
+func _on_ping_pressed() -> void:
+	# Broadcast an RPC to every connected peer to exercise the Godot
+	# MultiplayerAPI path (peer.send_text_async goes through
+	# PartyLocalChatControl, not through the multiplayer peer, so chat
+	# alone doesn't prove RPC delivery).
+	var text: String = "ping @%s" % str(Time.get_ticks_msec())
+	if _party_node.send_rpc_ping(text):
+		_append_log("you (rpc)> " + text)
+	else:
+		_append_log("[ping failed — not in a network]")
 
 func _on_lobby_joined(lobby: PlayFabLobby) -> void:
 	_status_label.text = "Lobby ready: %s" % lobby.lobby_id
@@ -146,6 +162,7 @@ func _on_lobby_left() -> void:
 	_join_button.disabled = false
 	_leave_button.disabled = true
 	_send_button.disabled = true
+	_ping_button.disabled = true
 	_network_label.text = "Network: (none)"
 
 func _on_lobby_disconnected() -> void:
@@ -154,20 +171,24 @@ func _on_lobby_disconnected() -> void:
 	_join_button.disabled = false
 	_leave_button.disabled = true
 	_send_button.disabled = true
+	_ping_button.disabled = true
 	_network_label.text = "Network: (none)"
 
 func _on_network_joined(network: PlayFabPartyNetwork) -> void:
 	_network_label.text = "Network: %s" % network.network_id
 	_send_button.disabled = false
+	_ping_button.disabled = false
 	_status_label.text = "Party network up. Voice/text chat active."
 
 func _on_network_left() -> void:
 	_network_label.text = "Network: (none)"
 	_send_button.disabled = true
+	_ping_button.disabled = true
 
 func _on_network_destroyed() -> void:
 	_network_label.text = "Network: (lost)"
 	_send_button.disabled = true
+	_ping_button.disabled = true
 	_status_label.text = "Party network destroyed (lobby host left, network error, or shutdown)."
 
 func _on_lobby_state_changed(state) -> void:
@@ -205,6 +226,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 func _on_chat_received(peer_id: int, text: String) -> void:
 	_append_log("peer %d> %s" % [peer_id, text])
+
+func _on_rpc_received(peer_id: int, text: String) -> void:
+	_append_log("peer %d (rpc)> %s" % [peer_id, text])
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://shared/tutorial_picker.tscn")

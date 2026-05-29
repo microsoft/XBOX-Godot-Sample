@@ -396,6 +396,15 @@ public:
 
     int32_t allocate_peer_id();
     bool register_peer(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint, const Dictionary &p_entity_key);
+    // Splits register_peer's "add to records" from "emit Godot signal" so a
+    // caller can insert the record BEFORE the GDScript await resumes (so
+    // _put_packet has a target the moment _attach_network fires its first
+    // rpc) but emit peer_connected only AFTER multiplayer.multiplayer_peer
+    // has been assigned (so Godot's MultiplayerAPI captures the signal and
+    // adds the peer to its internal connected set). Required by the
+    // handshake-resolve fix in _resolve_handshake_assignment.
+    bool insert_peer_record(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint, const Dictionary &p_entity_key);
+    void emit_peer_connected(int32_t p_peer_id);
     void update_peer_endpoint(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint);
     void update_peer_chat_control(int32_t p_peer_id, const Ref<PlayFabPartyChatControl> &p_chat_control);
     void unregister_peer(int32_t p_peer_id);
@@ -545,6 +554,10 @@ private:
     std::vector<Ref<PlayFabPartyNetwork>> m_networks;
     std::map<PFEntityHandle, Party::PartyLocalUser *> m_local_users;
     std::vector<PendingOperation *> m_pending_operations;
+    // Chat controls that arrived via PartyChatControlCreated before the
+    // matching peer was registered (handshake race). Drained by
+    // _attach_orphan_chat_controls() after every register_peer.
+    std::vector<Ref<PlayFabPartyChatControl>> m_orphan_chat_controls;
 
     PlayFabRuntime *_get_runtime() const;
     Ref<PlayFabPendingSignal> _make_pending_signal();
@@ -591,6 +604,11 @@ private:
     void _process_chat_control_destroyed(const Party::PartyStateChange *p_change);
     void _process_chat_text_received(const Party::PartyStateChange *p_change);
     void _process_voice_chat_transcription_received(const Party::PartyStateChange *p_change);
+    // Drains m_orphan_chat_controls — chat controls that arrived before
+    // the matching peer was registered. Called after every register_peer
+    // so handshake-race-orphaned controls are surfaced as chat_control_added
+    // once the peer mapping exists.
+    void _attach_orphan_chat_controls();
 
     void _emit_network_state(const Ref<PlayFabPartyNetwork> &p_network, int64_t p_kind, int64_t p_peer_id, const Ref<PlayFabResult> &p_result, const String &p_reason);
     void _emit_chat_state(const Ref<PlayFabPartyChatControl> &p_chat_control, int64_t p_kind, const Ref<PlayFabResult> &p_result, const String &p_reason);
