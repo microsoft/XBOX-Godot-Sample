@@ -3,21 +3,28 @@
     "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
     "configurePresets": [
         {
-            "name": "default",
-            "displayName": "Visual Studio 2022 x64",
+            "name": "_base",
+            "hidden": true,
             "generator": "Visual Studio 17 2022",
             "architecture": "x64",
             "binaryDir": "${sourceDir}/build",
-            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "17",
-                "VCPKG_TARGET_TRIPLET": "x64-windows",
                 "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
                 "CMAKE_MAP_IMPORTED_CONFIG_DEBUG": "Release;",
                 "CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO": "Release;",
                 "CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL": "Release;",
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "ON"
+            }
+        },
+        {
+            "name": "default",
+            "displayName": "Visual Studio 2022 x64",
+            "inherits": "_base",
+            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
             }
         },
         {
@@ -70,6 +77,16 @@
                 "BUILD_GODOT_PLAYFAB": "ON",
                 "BUILD_GODOT_GDK_PACKAGING": "ON",
                 "GDK_BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "installed-gdk",
+            "displayName": "Installed GDK on disk (no vcpkg required; GameInput via NuGet)",
+            "inherits": "_base",
+            "binaryDir": "${sourceDir}/build/installed-gdk",
+            "cacheVariables": {
+                "GDK_DEPENDENCY_SOURCE": "installed",
+                "GAMEINPUT_SOURCE": "nuget"
             }
         }
     ],
@@ -161,6 +178,18 @@
                 "godot_playfab",
                 "godot_gameinput"
             ]
+        },
+        {
+            "name": "debug-installed-gdk",
+            "displayName": "Debug (installed GDK)",
+            "configurePreset": "installed-gdk",
+            "configuration": "Debug"
+        },
+        {
+            "name": "release-installed-gdk",
+            "displayName": "Release (installed GDK)",
+            "configurePreset": "installed-gdk",
+            "configuration": "Release"
         }
     ]
 }
