@@ -113,7 +113,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 
 
 ## GUT layout
 
-GUT v9.6.0 is vendored once at `addons\godot_gdk\tests_support\gut\`. The CMake build mirrors it into each coverage host as `<host>\addons\gut\`; those mirrored copies are generated and git-ignored.
+GUT v9.6.0 is sourced as a git submodule at `third_party\Gut\` (upstream `https://github.com/bitwes/Gut.git`, pinned to tag `v9.6.0`). The CMake build mirrors `third_party\Gut\addons\gut\` into each coverage host as `<host>\addons\gut\`; those mirrored copies are generated and git-ignored. The submodule itself is also un-edited — to refresh GUT, bump the submodule pin (`cd third_party\Gut && git fetch && git checkout <tag>`) and commit the updated submodule pointer.
 
 Each host owns tests under its local `tests\` directory. Shared bases are mirrored as `res://addons/godot_gdk_tests/` and come from `addons\godot_gdk\tests_support\bases\`.
 

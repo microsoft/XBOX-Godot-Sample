@@ -708,6 +708,7 @@ tests/                    # Baselines, C++ doctest sources, and Godot test hosts
   godot/gdk/              # GDK and GDK packaging test host
   godot/playfab/          # PlayFab test host
   godot/gameinput/        # GameInput test host
+third_party/Gut/          # GUT (bitwes/Gut) submodule — mirrored into test hosts
 tools/                    # CLI helper scripts
 ```
 

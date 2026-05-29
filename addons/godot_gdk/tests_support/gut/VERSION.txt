@@ -1,5 +1,0 @@
-tag: v9.6.0
-source_url: https://github.com/bitwes/Gut/archive/refs/tags/v9.6.0.tar.gz
-sha256: 3C6C87DDE4C79E8EF109A1C9419B6E654971BA11E7F5AC1731E927EAA0FD1159
-date: 2026-05-05
-notes: Spike vendoring (Wave -1). Wave 1 will replace this with hardened pin/fetch logic.
