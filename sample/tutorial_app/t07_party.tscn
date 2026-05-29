@@ -79,6 +79,10 @@ placeholder_text = "Type a message"
 layout_mode = 2
 text = "Send"
 
+[node name="Ping" type="Button" parent="Root/ChatRow"]
+layout_mode = 2
+text = "Ping"
+
 [node name="ChatLog" type="TextEdit" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3

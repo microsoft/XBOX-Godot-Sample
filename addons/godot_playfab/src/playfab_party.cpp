@@ -775,6 +775,14 @@ int32_t PlayFabPartyPeer::allocate_peer_id() {
 }
 
 bool PlayFabPartyPeer::register_peer(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint, const Dictionary &p_entity_key) {
+    if (!insert_peer_record(p_peer_id, p_endpoint, p_entity_key)) {
+        return false;
+    }
+    emit_peer_connected(p_peer_id);
+    return true;
+}
+
+bool PlayFabPartyPeer::insert_peer_record(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint, const Dictionary &p_entity_key) {
     if (p_peer_id <= 0) {
         return false;
     }
@@ -784,8 +792,11 @@ bool PlayFabPartyPeer::register_peer(int32_t p_peer_id, Party::PartyEndpoint *p_
     if (p_peer_id >= m_next_assigned_peer_id) {
         m_next_assigned_peer_id = p_peer_id + 1;
     }
-    emit_signal("peer_connected", static_cast<int64_t>(p_peer_id));
     return true;
+}
+
+void PlayFabPartyPeer::emit_peer_connected(int32_t p_peer_id) {
+    emit_signal("peer_connected", static_cast<int64_t>(p_peer_id));
 }
 
 void PlayFabPartyPeer::update_peer_endpoint(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint) {
@@ -1430,6 +1441,8 @@ void PlayFabParty::shutdown() {
     if (m_chat.is_valid()) {
         m_chat->clear();
     }
+
+    m_orphan_chat_controls.clear();
 
     _release_all_local_users();
 
@@ -2194,6 +2207,7 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
             if (assigned_id == 0) {
                 assigned_id = peer->allocate_peer_id();
                 peer->register_peer(assigned_id, change->senderEndpoint, entity_key);
+                _attach_orphan_chat_controls();
                 newly_joined = true;
             } else {
                 peer->update_peer_endpoint(assigned_id, change->senderEndpoint);
@@ -2230,10 +2244,22 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
                 peer->set_unique_id(assigned_id);
                 peer->set_connection_status(MultiplayerPeer::CONNECTION_CONNECTED);
                 if (change->senderEndpoint != nullptr && peer->find_peer_by_endpoint(change->senderEndpoint) == 0) {
-                    Dictionary host_entity_key;
+                    // Populate the host's entity_key from the endpoint so a
+                    // later PartyChatControlCreated for the host's chat
+                    // control can find peer 1 by entity_key and fire
+                    // chat_control_added. With an empty key the lookup
+                    // fails and the sample never sets chat permissions for
+                    // the host, breaking text + voice in both directions.
+                    Dictionary host_entity_key = entity_key_for_endpoint(change->senderEndpoint);
                     peer->register_peer(HOST_PEER_ID, change->senderEndpoint, host_entity_key);
+                    _attach_orphan_chat_controls();
                 }
                 network->set_state_value(NETWORK_STATE_CONNECTED);
+                // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see
+                // line 2205) so client-side listeners see the host as a
+                // joined peer. Without this, the autoload's peer_connected
+                // signal never fires on the client for the host.
+                _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, HOST_PEER_ID, Ref<PlayFabResult>(), "handshake reply");
                 _emit_network_state(network, NETWORK_CHANGE_STATE, assigned_id, Ref<PlayFabResult>(), "connected");
             }
         }
@@ -2428,6 +2454,8 @@ void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *
     // chat_control_added signal so GDScript can subscribe to messages and
     // transcriptions on a per-peer basis.
     Dictionary entity_key = entity_key_for_chat_control(change->chatControl);
+    int32_t matched_peer_id = 0;
+    Ref<PlayFabPartyPeer> matched_peer;
     for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
         if (!network.is_valid()) {
             continue;
@@ -2444,17 +2472,72 @@ void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *
             // Already mapped via handshake or a prior event.
             return;
         }
-        Ref<PlayFabPartyChatControl> wrapper;
-        wrapper.instantiate();
-        wrapper->attach(this, change->chatControl, false);
-        PartyString id_str = nullptr;
-        change->chatControl->GetEntityId(&id_str);
-        String id = id_str != nullptr ? String::utf8(id_str) : String();
-        wrapper->set_snapshot(id, Ref<PlayFabUser>(), true, true, false, false);
-        peer->update_peer_chat_control(peer_id, wrapper);
-        peer->emit_chat_control_added(peer_id, wrapper);
-        m_chat->track(wrapper);
-        return;
+        matched_peer_id = peer_id;
+        matched_peer = peer;
+        break;
+    }
+    Ref<PlayFabPartyChatControl> wrapper;
+    wrapper.instantiate();
+    wrapper->attach(this, change->chatControl, false);
+    PartyString id_str = nullptr;
+    change->chatControl->GetEntityId(&id_str);
+    String id = id_str != nullptr ? String::utf8(id_str) : String();
+    wrapper->set_snapshot(id, Ref<PlayFabUser>(), true, true, false, false);
+    m_chat->track(wrapper);
+    if (matched_peer.is_valid()) {
+        matched_peer->update_peer_chat_control(matched_peer_id, wrapper);
+        matched_peer->emit_chat_control_added(matched_peer_id, wrapper);
+    } else {
+        // Peer not registered yet (handshake hasn't completed for this
+        // chat control's owner). Queue and retry from
+        // _attach_orphan_chat_controls() after the next register_peer.
+        // Without this, a PartyChatControlCreated that lands in the same
+        // DoWork pass BEFORE the handshake reply/request is processed is
+        // silently dropped — chat_control_added never fires, the sample
+        // never calls set_peer_chat_permissions_async, and both sides
+        // reject inbound text/voice for lack of receive permission.
+        m_orphan_chat_controls.push_back(wrapper);
+    }
+}
+
+void PlayFabParty::_attach_orphan_chat_controls() {
+    for (auto it = m_orphan_chat_controls.begin(); it != m_orphan_chat_controls.end(); ) {
+        Ref<PlayFabPartyChatControl> wrapper = *it;
+        if (!wrapper.is_valid()) {
+            it = m_orphan_chat_controls.erase(it);
+            continue;
+        }
+        Party::PartyChatControl *native = wrapper->get_native_handle();
+        if (native == nullptr) {
+            it = m_orphan_chat_controls.erase(it);
+            continue;
+        }
+        Dictionary entity_key = entity_key_for_chat_control(native);
+        bool attached = false;
+        for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+            if (!network.is_valid()) {
+                continue;
+            }
+            Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+            if (!peer.is_valid()) {
+                continue;
+            }
+            int32_t peer_id = peer->find_peer_by_entity_key(entity_key);
+            if (peer_id == 0) {
+                continue;
+            }
+            if (peer->find_peer_by_chat_control(native) == 0) {
+                peer->update_peer_chat_control(peer_id, wrapper);
+                peer->emit_chat_control_added(peer_id, wrapper);
+            }
+            attached = true;
+            break;
+        }
+        if (attached) {
+            it = m_orphan_chat_controls.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -2487,6 +2570,15 @@ void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange
             m_chat->untrack(wrapper);
             _emit_chat_state(wrapper, CHAT_CHANGE_DESTROYED, Ref<PlayFabResult>(), "chat control destroyed");
             break;
+        }
+    }
+    // Drop any orphan wrapper still pointing at the destroyed control so we
+    // don't leak the Ref or re-emit chat_control_added later for a dead handle.
+    for (auto it = m_orphan_chat_controls.begin(); it != m_orphan_chat_controls.end(); ) {
+        if (it->is_valid() && (*it)->get_native_handle() == change->chatControl) {
+            it = m_orphan_chat_controls.erase(it);
+        } else {
+            ++it;
         }
     }
 }
@@ -2813,18 +2905,49 @@ void PlayFabParty::_resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party
     }
     p_peer->set_unique_id(p_assigned_id);
     p_peer->set_connection_status(MultiplayerPeer::CONNECTION_CONNECTED);
-    // Register the host (sender of the reply) as peer 1 so outbound traffic
-    // routed through the local PlayFabPartyPeer can resolve targets.
-    if (p_sender_endpoint != nullptr && p_peer->find_peer_by_endpoint(p_sender_endpoint) == 0) {
-        Dictionary host_entity_key;
-        p_peer->register_peer(HOST_PEER_ID, p_sender_endpoint, host_entity_key);
-    }
     Ref<PlayFabPartyNetwork> network = p_operation->network;
     if (network.is_valid()) {
         network->set_state_value(NETWORK_STATE_CONNECTED);
+    }
+    // Insert the host into m_peer_records BEFORE resolving the await so the
+    // moment _attach_network runs and fires any outbound rpc(...), _put_packet
+    // can find the host endpoint and route the packet. Without this, the very
+    // first RPC after attach (the autoload's automatic
+    //   rpc("handshake_message", "ready")
+    // line) silently dropped with ERR_UNAVAILABLE because m_peer_records was
+    // still empty. Populate the host's entity_key from the endpoint so a
+    // later PartyChatControlCreated for the host's chat control can find
+    // peer 1 by entity_key and fire chat_control_added; an empty key would
+    // cause that lookup to fail and break text + voice in both directions.
+    bool inserted = false;
+    if (p_sender_endpoint != nullptr && p_peer->find_peer_by_endpoint(p_sender_endpoint) == 0) {
+        Dictionary host_entity_key = entity_key_for_endpoint(p_sender_endpoint);
+        inserted = p_peer->insert_peer_record(HOST_PEER_ID, p_sender_endpoint, host_entity_key);
+    }
+    // Resolve the await. The GDScript coroutine resumes synchronously, so
+    // _attach_network runs here: it assigns multiplayer.multiplayer_peer,
+    // wires signal handlers, and may fire an initial RPC. All of that
+    // depends on m_peer_records being populated (done above), but the
+    // inherited MultiplayerPeer "peer_connected" signal MUST NOT fire yet
+    // — it has to land after multiplayer.multiplayer_peer is assigned so
+    // Godot's MultiplayerAPI captures it and adds the peer to its connected
+    // set. _complete_pending invalidates p_operation, so network was captured.
+    _complete_pending(p_operation, PlayFabResult::ok_result(network));
+    if (inserted) {
+        // _attach_network has assigned multiplayer.multiplayer_peer and
+        // wired peer.chat_control_added; now safe to emit peer_connected
+        // (MultiplayerAPI picks it up so subsequent rpc(...) calls to peer
+        // 1 are routed) and drain any chat controls that arrived before
+        // the peer was registered.
+        p_peer->emit_peer_connected(HOST_PEER_ID);
+        _attach_orphan_chat_controls();
+    }
+    if (network.is_valid()) {
+        // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see line 2205)
+        // so client-side listeners see the host as a joined peer.
+        _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, HOST_PEER_ID, Ref<PlayFabResult>(), "handshake reply");
         _emit_network_state(network, NETWORK_CHANGE_STATE, p_assigned_id, Ref<PlayFabResult>(), "connected");
     }
-    _complete_pending(p_operation, PlayFabResult::ok_result(network));
 }
 
 PlayFabParty::PendingOperation *PlayFabParty::_find_handshake_pending(const Ref<PlayFabPartyNetwork> &p_network) {
