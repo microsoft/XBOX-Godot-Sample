@@ -10,6 +10,12 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/godot-cpp/CMakeLists.txt")
         "  git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut/plugin.cfg")
+    message(FATAL_ERROR
+        "GUT submodule not found at third_party/Gut/. Run:\n"
+        "  git submodule update --init --recursive")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
@@ -112,12 +118,14 @@ if(BUILD_GODOT_PLAYFAB)
     add_subdirectory(addons/godot_playfab)
 endif()
 
-# ── Vendored GUT mirror ──────────────────────────────────────────
-# GUT is mirrored from the canonical vendored copy under
-# addons/godot_gdk/tests_support/gut/ into coverage hosts that run headless GUT
-# suites. Demo/sample projects are intentionally not coverage hosts.
+# ── GUT mirror ───────────────────────────────────────────────────
+# GUT lives as a git submodule at `third_party/Gut/` (upstream
+# bitwes/Gut, pinned to v9.6.0). The GUT plugin source is at
+# `third_party/Gut/addons/gut/` (the upstream repo's own addon layout).
+# Mirror that single source into the coverage hosts that run headless
+# GUT suites. Demo/sample projects are intentionally not coverage hosts.
 godot_addon_mirror_test_support(
-    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/addons/godot_gdk/tests_support/gut"
+    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut"
     DEST_SUBDIR "gut"
     HOST_DIRS
         ${GODOT_GUT_HOST_DIRS}

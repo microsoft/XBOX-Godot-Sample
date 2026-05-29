@@ -1,3 +1,6 @@
 [submodule "godot-cpp"]
 	path = godot-cpp
 	url = https://github.com/godotengine/godot-cpp.git
+[submodule "third_party/Gut"]
+	path = third_party/Gut
+	url = https://github.com/bitwes/Gut.git
