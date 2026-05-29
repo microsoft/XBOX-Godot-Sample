@@ -254,15 +254,16 @@ function(_gdk_discover_install_path OUT_VAR)
     endif()
 endfunction()
 
-# Decide between vcpkg and installed sources. Honors an explicit
-# GDK_DEPENDENCY_SOURCE if set; otherwise auto-detects. Caches the resolved
-# value (and the discovered `windows/` path, if installed) for the duration
-# of the CMake project. Idempotent -- safe to call from each addon.
+# Validate GDK_DEPENDENCY_SOURCE and, when set to `installed`, discover
+# and cache the resolved `windows/` directory. There is no auto-detection
+# fallback: `vcpkg` is the default, and `installed` must be selected
+# explicitly (normally by the `installed-gdk` preset). Idempotent -- safe
+# to call from each addon.
 #
 # Re-resolves whenever GDK_DEPENDENCY_SOURCE, GDK_INSTALL_DIR, or the env
-# vars used for discovery change across reconfigures (tracked via
-# _GDK_RESOLVED_FOR_INPUT). Without this, switching presets in the same
-# build dir would silently keep the prior resolution.
+# vars used for installed-GDK discovery change across reconfigures
+# (tracked via _GDK_RESOLVED_FOR_INPUT). Without this, switching presets
+# in the same build dir would silently keep the prior resolution.
 function(_gdk_resolve_dependency_source)
     set(_input_signature "${GDK_DEPENDENCY_SOURCE}|${GDK_INSTALL_DIR}|$ENV{GRDKLatest}|$ENV{GameDK}")
     if(_GDK_RESOLVED_SOURCE AND _GDK_RESOLVED_FOR_INPUT STREQUAL "${_input_signature}")

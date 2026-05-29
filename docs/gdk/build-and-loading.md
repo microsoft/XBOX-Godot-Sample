@@ -77,8 +77,8 @@ That target currently:
 
 1. resolves the GDK headers and import libs via the shared
    `cmake/GDKDependencies.cmake` helper, which dispatches to either the
-   `ms-gdk[playfab]` vcpkg port or an installed Microsoft GDK on disk
-   (auto-detected by default — see
+   `ms-gdk[playfab]` vcpkg port (default) or an installed Microsoft GDK
+   on disk (opt-in via the `installed-gdk` preset — see
    [Source for the GDK dependency](../getting-started.md#source-for-the-gdk-dependency))
 2. builds `godot_gdk` as a shared library
 3. links against:
