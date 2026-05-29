@@ -567,8 +567,8 @@ a vcpkg checkout — no machine-wide GDK install is needed at build time.
 
 If you already have a Microsoft GDK installed on disk (most developers
 do, for `makepkg.exe` / `wdapp.exe` / Game Config Editor), the
-`installed-gdk` preset consumes it directly and skips the vcpkg restore
-entirely:
+`installed-gdk` preset consumes it directly and **does not require vcpkg
+at all** — no `VCPKG_ROOT`, no vcpkg checkout, no port restore:
 
 ```powershell
 # Consume an installed Microsoft GDK (auto-detected via %GRDKLatest% or %GameDK%)
@@ -583,9 +583,8 @@ cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft
 > consume an installed GDK. Setting `-DGDK_DEPENDENCY_SOURCE=installed`
 > on the `default` preset does **not** work — the vcpkg toolchain
 > processes manifest features (and restores `ms-gdk[playfab]`) before
-> the GDK source-selection logic runs. The `installed-gdk` preset pairs
-> the source switch with `VCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON` so
-> vcpkg restores nothing.
+> the GDK source-selection logic runs. The `installed-gdk` preset
+> sidesteps this by not loading the vcpkg toolchain at all.
 
 Installed mode consumes the modern `windows\` subdirectory layout of the
 GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
@@ -593,30 +592,19 @@ GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
 later**. The legacy `GRDK\` peer layout is not supported; use the
 `default` preset (vcpkg) for older GDK versions.
 
-Either preset still requires `VCPKG_ROOT` to be set, because the
-inherited toolchain file is loaded in both cases. The `installed-gdk`
-preset simply restores zero ports.
-
 **GameInput v3 is a separate SDK from the GDK**, so the `installed-gdk`
 preset disables the `godot_gameinput` addon by default
-(`BUILD_GODOT_GAMEINPUT=OFF`). Developers who want controller support
-have two options:
-
-* Use the default preset (which restores `gameinput` from vcpkg when
-  the GameInput addon is enabled).
-* Explicitly opt in from installed mode:
-
-  ```powershell
-  cmake --preset installed-gdk -DBUILD_GODOT_GAMEINPUT=ON -DVCPKG_MANIFEST_FEATURES=godot-gameinput
-  cmake --build --preset debug-installed-gdk
-  ```
+(`BUILD_GODOT_GAMEINPUT=OFF`). The installed GDK ships GameInput v1
+only; the addon targets v3. Developers who want controller support
+should use the default preset, which restores the `gameinput` vcpkg
+port (which itself wraps the Microsoft.GameInput NuGet package).
 
 Source-selection options:
 
 | `GDK_DEPENDENCY_SOURCE` | Behavior |
 |---|---|
-| `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. |
-| `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also disables vcpkg manifest restore). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
+| `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. Requires `VCPKG_ROOT`. |
+| `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also drops the vcpkg toolchain — no `VCPKG_ROOT` required). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
 
 ### CMake auto-detection
 

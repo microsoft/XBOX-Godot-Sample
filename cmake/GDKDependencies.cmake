@@ -22,8 +22,9 @@ include_guard(GLOBAL)
 #     260400 / April 2026 and later ship. The legacy `GRDK\` peer layout
 #     (`ExtensionLibraries\*\Lib\x64\...`, per-library flat `Include\`)
 #     is **not** supported. Use the vcpkg source for older GDK versions.
-#     Selected by the `installed-gdk` preset, which also disables vcpkg
-#     manifest restore (no `ms-gdk[playfab]` round-trip).
+#     Selected by the `installed-gdk` preset, which does *not* load the
+#     vcpkg toolchain at all -- a vcpkg checkout (or `VCPKG_ROOT`) is not
+#     required when building in installed mode.
 #
 # Source selection is controlled by the `GDK_DEPENDENCY_SOURCE` cache
 # variable, with values:
@@ -31,21 +32,19 @@ include_guard(GLOBAL)
 #   - `vcpkg` (default): use the pinned `ms-gdk[playfab]` vcpkg port.
 #     Errors if no toolchain file is set.
 #   - `installed`: use a discovered GDK install. Errors if none is found.
-#     Set by the `installed-gdk` preset, which pairs it with
-#     `VCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON` so vcpkg does not also
-#     restore `ms-gdk[playfab]`. The default preset cannot be retargeted
-#     to installed via `-DGDK_DEPENDENCY_SOURCE=installed` alone because
-#     the vcpkg toolchain processes manifest features before this module
-#     runs -- always go through the `installed-gdk` preset.
+#     Set by the `installed-gdk` preset, which also drops the vcpkg
+#     toolchain so the build needs no vcpkg checkout. The default preset
+#     cannot be retargeted to installed via `-DGDK_DEPENDENCY_SOURCE=installed`
+#     alone because the vcpkg toolchain processes manifest features
+#     before this module runs -- always go through the `installed-gdk`
+#     preset.
 #
 # GameInput v3 is provided by the vcpkg `gameinput` port. The installed
 # GDK ships GameInput v1 only -- v3 is a separate Microsoft SDK release
 # that lives outside the main GDK bundle. The `installed-gdk` preset
 # therefore disables the `godot_gameinput` addon by default
 # (`BUILD_GODOT_GAMEINPUT=OFF`); developers who want controller support
-# can either use the default preset (which restores `gameinput` from
-# vcpkg) or explicitly opt in with `-DBUILD_GODOT_GAMEINPUT=ON
-# -DVCPKG_MANIFEST_FEATURES=godot-gameinput`.
+# should use the default preset (which restores `gameinput` from vcpkg).
 #
 # An explicit GDK install path can also be supplied as `-DGDK_INSTALL_DIR=<path>`.
 # The path may point at the version root (e.g. `...\260400\`), its
@@ -70,8 +69,8 @@ set(GDK_DEPENDENCY_SOURCE "vcpkg" CACHE STRING
     "Source for the Microsoft GDK dependency. One of: vcpkg, installed. \
 Defaults to `vcpkg`: the pinned `ms-gdk[playfab]` vcpkg port. To consume \
 an installed Microsoft GDK on disk instead, use the `installed-gdk` \
-preset (it sets `GDK_DEPENDENCY_SOURCE=installed` *and* disables vcpkg \
-manifest restore -- both are required). Setting `installed` on the \
+preset (it sets `GDK_DEPENDENCY_SOURCE=installed` *and* drops the vcpkg \
+toolchain so no `VCPKG_ROOT` is required). Setting `installed` on the \
 default preset will not work: the vcpkg toolchain processes manifest \
 features before this module runs.")
 set_property(CACHE GDK_DEPENDENCY_SOURCE PROPERTY STRINGS vcpkg installed)

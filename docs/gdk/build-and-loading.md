@@ -105,8 +105,9 @@ native C++ sources
 > still need the full Microsoft GDK installed on their machine — see
 > [Editor tools](editor-tools.md) and [Packaging plugin](../packaging/plugin.md).
 > The same install can also be used as the source of build-time headers
-> and libs in place of vcpkg via the `installed-gdk` preset
-> ([Source for the GDK dependency](../getting-started.md#source-for-the-gdk-dependency)).
+> and libs in place of vcpkg via the `installed-gdk` preset (which then
+> needs no vcpkg checkout at all) —
+> [Source for the GDK dependency](../getting-started.md#source-for-the-gdk-dependency).
 
 ## Runtime loading path
 
