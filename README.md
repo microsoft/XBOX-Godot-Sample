@@ -1,28 +1,35 @@
 # Godot for XBOX on PC
 
-A repository of Godot 4.x GDExtension addons for Microsoft gaming on Windows,
-covering both the Microsoft public **GDK** (Game Development Kit) and
-**PlayFab** live services. The two stacks compose: the GDK addons handle Xbox
-identity, services, GameInput, and PC MSIXVC packaging, while the PlayFab
-addon handles cross-platform live services such as Game Saves, leaderboards,
-and multiplayer — typically signed in with the Xbox user provided by the
-GDK side. Each addon can also be used on its own.
+> [!IMPORTANT]
+> **This is a source-only sample, not a product.** It is not a commercial release and there is no SLA for support or maintenance. The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. We will watch the repo, monitor issues, and iterate where it makes sense.
+>
+> **This is a sample specific to XBOX on PC.** There is no specific support for Xbox Series X\|S or Xbox One. Please talk with your Microsoft representative if you'd like to learn more about support on those platforms.
 
-The addons are designed to be dropped into any Godot 4.5+ project — most
-developers will consume them as a prebuilt addon zip. This repository is where
-the addons are authored, built, tested, and (once the tutorial-driven sample
-revamp's PR 3 lands) demonstrated through a small set of tutorial sample
-projects. Sample projects are temporarily absent while that revamp lands;
-follow the [tutorials](docs/tutorials/README.md) in your own project in the
-meantime.
+A working source-only reference for building a Godot extension that wraps the Microsoft **GDK**, **XBOX Services**, and **PlayFab**, and lets you build your title for XBOX on PC — without leaving the engine you already love.
+
+The sample covers roughly **85–95% of the surface area** a Godot developer needs to ship for XBOX on PC, across:
+
+- GDK platform services and XBOX services (identity, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, package metadata + DLC, XStore commerce, GameUI, accessibility, capture, launcher, error reporting)
+- PlayFab Core + Services (accounts, catalog, cloud script, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data)
+- PlayFab Multiplayer (Lobby, Matchmaking, Party)
+- PlayFab Game Saves
+- Microsoft GameInput v3 controller support — devices, polling, rumble, and an action bridge into Godot's `Input` / `InputMap`
+
+The **PlayFab extension sample code does not have a specific dependency on the GDK extension sample code**, so the two can be adopted modularly — use either on its own, or compose them (e.g. sign in to PlayFab with the Xbox user provided by the GDK side).
+
+The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The sample is currently compatible with the **April 2026 GDK** out of the box.
+
+This is the **first step** in our Godot for XBOX on PC integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
 
 ## Addons
+
+The addons are designed to be dropped into any Godot 4.5+ project — most developers will consume them as a prebuilt addon zip. This repository is where the addons are authored, built, tested, and (once the tutorial-driven sample revamp's PR 3 lands) demonstrated through a small set of tutorial sample projects. Sample projects are temporarily absent while that revamp lands; follow the [tutorials](docs/tutorials/README.md) in your own project in the meantime.
 
 | Addon | Description |
 |-------|-------------|
 | [`godot_gdk`](addons/godot_gdk/) | GDK runtime + PC-supported Xbox services: users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, system metadata |
-| [`godot_playfab`](addons/godot_playfab/) | PlayFab runtime, Xbox- and custom-ID sign-in, Game Saves, leaderboards, Multiplayer (lobby + matchmaking), and client-safe service wrappers (accounts, catalog, cloud script, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data) |
-| [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput controller support — devices, polling, vibration, and an action bridge into Godot's InputMap |
+| [`godot_playfab`](addons/godot_playfab/) | PlayFab runtime, Xbox- and custom-ID sign-in, Game Saves, leaderboards, Multiplayer (lobby + matchmaking), Party, and client-safe service wrappers (accounts, catalog, cloud script, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data) |
+| [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput v3 controller support — devices, polling, vibration, and an action bridge into Godot's InputMap |
 | [`godot_gdk_packaging`](addons/godot_gdk_packaging/) | Pure-GDScript editor plugin for PC MSIXVC packaging via `makepkg.exe`, plus the in-editor Package Manager dialog |
 
 ## Documentation
@@ -49,3 +56,10 @@ Platform setup:
 - [Xbox sandbox and test accounts](docs/platform/xbox-sandbox-and-test-accounts.md)
 
 Design specs live in [`spec/`](spec/) — design intent that is not always reflective of the current implementation.
+
+## Support and contributing
+
+- [`SUPPORT.md`](SUPPORT.md) — how to file issues
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — CLA and Code of Conduct
+- [`SECURITY.md`](SECURITY.md) — security vulnerability reporting (MSRC; please do **not** file security issues via GitHub)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Microsoft Open Source Code of Conduct
