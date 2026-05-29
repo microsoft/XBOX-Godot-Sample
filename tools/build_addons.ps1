@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Configure (when needed) and build the GodotGDK addon DLLs.
+    Configure (when needed) and build the Godot for XBOX on PC addon DLLs.
 
 .DESCRIPTION
     Convenience wrapper around the canonical two-step build:

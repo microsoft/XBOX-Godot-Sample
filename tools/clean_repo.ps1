@@ -1,4 +1,4 @@
-# GodotGDK Repo Cleanup
+# Godot for XBOX on PC Repo Cleanup
 # Previews or removes ignored local artifacts from the current worktree.
 
 param(
@@ -11,7 +11,7 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  GodotGDK Repo Cleanup" -ForegroundColor Cyan
+Write-Host "  Godot for XBOX on PC Repo Cleanup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

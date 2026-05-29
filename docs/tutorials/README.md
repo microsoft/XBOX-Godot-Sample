@@ -1,6 +1,6 @@
 # Tutorials
 
-Task-oriented walkthroughs for the GodotGDK addons. The tutorial
+Task-oriented walkthroughs for the Godot for XBOX on PC addons. The tutorial
 chain takes you from a fresh project to a single integrated tech
 demo — sign-in, achievements, leaderboards, game saves, lobby,
 multiplayer activity, Party chat — with each step landing one

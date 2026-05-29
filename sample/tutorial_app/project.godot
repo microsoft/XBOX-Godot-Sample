@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="GodotGDK Tutorial App"
+config/name="Godot for XBOX on PC Tutorial App"
 run/main_scene="res://shared/tutorial_picker.tscn"
 config/features=PackedStringArray("4.6")
 
