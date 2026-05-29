@@ -12,7 +12,8 @@ include_guard(GLOBAL)
 # The `ms-gdk` dependency can be satisfied from either of two sources:
 #
 #   - **vcpkg** (default): the `ms-gdk[playfab]` port. Requires only a
-#     vcpkg checkout (no machine-wide GDK install). This is what CI uses.
+#     vcpkg checkout (no machine-wide GDK install). This is what CI uses
+#     and what the `default` preset gives you.
 #
 #   - **installed GDK**: a developer's Microsoft GDK install on disk,
 #     typically at `C:\Program Files (x86)\Microsoft GDK\<version>\`.
@@ -21,6 +22,21 @@ include_guard(GLOBAL)
 #     260400 / April 2026 and later ship. The legacy `GRDK\` peer layout
 #     (`ExtensionLibraries\*\Lib\x64\...`, per-library flat `Include\`)
 #     is **not** supported. Use the vcpkg source for older GDK versions.
+#     Selected by the `installed-gdk` preset, which also disables vcpkg
+#     manifest restore (no `ms-gdk[playfab]` round-trip).
+#
+# Source selection is controlled by the `GDK_DEPENDENCY_SOURCE` cache
+# variable, with values:
+#
+#   - `vcpkg` (default): use the pinned `ms-gdk[playfab]` vcpkg port.
+#     Errors if no toolchain file is set.
+#   - `installed`: use a discovered GDK install. Errors if none is found.
+#     Set by the `installed-gdk` preset, which pairs it with
+#     `VCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON` so vcpkg does not also
+#     restore `ms-gdk[playfab]`. The default preset cannot be retargeted
+#     to installed via `-DGDK_DEPENDENCY_SOURCE=installed` alone because
+#     the vcpkg toolchain processes manifest features before this module
+#     runs -- always go through the `installed-gdk` preset.
 #
 # GameInput v3 is provided by the vcpkg `gameinput` port. The installed
 # GDK ships GameInput v1 only -- v3 is a separate Microsoft SDK release
@@ -30,20 +46,6 @@ include_guard(GLOBAL)
 # can either use the default preset (which restores `gameinput` from
 # vcpkg) or explicitly opt in with `-DBUILD_GODOT_GAMEINPUT=ON
 # -DVCPKG_MANIFEST_FEATURES=godot-gameinput`.
-#
-# Source selection is controlled by the `GDK_DEPENDENCY_SOURCE` cache
-# variable, with values:
-#
-#   - `auto` (default): prefers an installed GDK when one is discoverable
-#     (via `-DGDK_INSTALL_DIR=`, `%GRDKLatest%`, or `%GameDK%`), otherwise
-#     falls back to the vcpkg port. This is the right choice for most
-#     developers, who already have a GDK installed for `makepkg.exe` /
-#     `wdapp.exe`.
-#   - `vcpkg`: force the vcpkg port (skip auto-detection). Useful for CI
-#     and machines where the installed GDK shouldn't be picked up. Errors
-#     if no toolchain file is set.
-#   - `installed`: force a discovered GDK install. Errors if none found.
-#     Set by the `installed-gdk` preset.
 #
 # An explicit GDK install path can also be supplied as `-DGDK_INSTALL_DIR=<path>`.
 # The path may point at the version root (e.g. `...\260400\`), its
@@ -64,21 +66,21 @@ include_guard(GLOBAL)
 #   Xbox::PlayFabMultiplayer, Xbox::PlayFabParty, Xbox::PlayFabPartyLIVE,
 #   Xbox::PlayFabGameSave
 
-set(GDK_DEPENDENCY_SOURCE "auto" CACHE STRING
-    "Source for the Microsoft GDK dependency. One of: auto, vcpkg, installed. \
-Defaults to `auto`: uses an installed GDK if one is discoverable (via \
-`-DGDK_INSTALL_DIR=`, `%GRDKLatest%`, or `%GameDK%`), otherwise falls back \
-to the pinned `ms-gdk[playfab]` vcpkg port. Force vcpkg with \
-`-DGDK_DEPENDENCY_SOURCE=vcpkg`, or force the installed GDK (failing if \
-none is found) with the `installed-gdk` preset (or \
-`-DGDK_DEPENDENCY_SOURCE=installed`).")
-set_property(CACHE GDK_DEPENDENCY_SOURCE PROPERTY STRINGS auto vcpkg installed)
+set(GDK_DEPENDENCY_SOURCE "vcpkg" CACHE STRING
+    "Source for the Microsoft GDK dependency. One of: vcpkg, installed. \
+Defaults to `vcpkg`: the pinned `ms-gdk[playfab]` vcpkg port. To consume \
+an installed Microsoft GDK on disk instead, use the `installed-gdk` \
+preset (it sets `GDK_DEPENDENCY_SOURCE=installed` *and* disables vcpkg \
+manifest restore -- both are required). Setting `installed` on the \
+default preset will not work: the vcpkg toolchain processes manifest \
+features before this module runs.")
+set_property(CACHE GDK_DEPENDENCY_SOURCE PROPERTY STRINGS vcpkg installed)
 
 set(GDK_INSTALL_DIR "" CACHE PATH
     "Optional path to a Microsoft GDK install. May point at the version root \
 (e.g. `C:/Program Files (x86)/Microsoft GDK/260400/`), its `windows/` subdir, \
 or its `GRDK/` peer (auto-redirected to the sibling `windows/`). Only used \
-when GDK_DEPENDENCY_SOURCE is `installed` or resolves to `installed` via `auto`.")
+when GDK_DEPENDENCY_SOURCE is `installed`.")
 
 # Internal cache. Populated by _gdk_resolve_dependency_source().
 set(_GDK_RESOLVED_SOURCE "" CACHE INTERNAL "Resolved GDK source: vcpkg or installed.")
@@ -236,28 +238,15 @@ function(_gdk_resolve_dependency_source)
         return()
     endif()
 
-    if(NOT GDK_DEPENDENCY_SOURCE MATCHES "^(auto|vcpkg|installed)$")
+    if(NOT GDK_DEPENDENCY_SOURCE MATCHES "^(vcpkg|installed)$")
         message(FATAL_ERROR
             "Invalid GDK_DEPENDENCY_SOURCE='${GDK_DEPENDENCY_SOURCE}'. "
-            "Allowed values: auto, vcpkg, installed.")
+            "Allowed values: vcpkg, installed.")
     endif()
 
     set(_source "${GDK_DEPENDENCY_SOURCE}")
 
-    if(_source STREQUAL "auto")
-        _gdk_discover_install_path(_win)
-        if(_win)
-            set(_source "installed")
-            set(_GDK_RESOLVED_WINDOWS_PATH "${_win}" CACHE INTERNAL "" FORCE)
-            message(STATUS "GDK dependency source: installed (auto-detected at ${_win}). "
-                           "Override with -DGDK_DEPENDENCY_SOURCE=vcpkg to force vcpkg.")
-        else()
-            set(_source "vcpkg")
-            set(_GDK_RESOLVED_WINDOWS_PATH "" CACHE INTERNAL "" FORCE)
-            message(STATUS "GDK dependency source: vcpkg (auto-detected; no GDK install found). "
-                           "Set %GRDKLatest%/%GameDK% or -DGDK_INSTALL_DIR=<path> to use an installed GDK.")
-        endif()
-    elseif(_source STREQUAL "installed")
+    if(_source STREQUAL "installed")
         _gdk_discover_install_path(_win)
         if(NOT _win)
             message(FATAL_ERROR
@@ -270,7 +259,7 @@ function(_gdk_resolve_dependency_source)
         message(STATUS "GDK dependency source: installed (${_win})")
     else() # vcpkg
         set(_GDK_RESOLVED_WINDOWS_PATH "" CACHE INTERNAL "" FORCE)
-        message(STATUS "GDK dependency source: vcpkg (explicit)")
+        message(STATUS "GDK dependency source: vcpkg (ms-gdk[playfab] port)")
     endif()
 
     set(_GDK_RESOLVED_SOURCE "${_source}" CACHE INTERNAL "" FORCE)

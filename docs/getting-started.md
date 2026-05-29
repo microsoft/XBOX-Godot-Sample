@@ -561,17 +561,17 @@ cmake --build --preset debug-gameinput
 
 ### Source for the GDK dependency
 
-By default, the build prefers a Microsoft GDK install on disk when one is
-discoverable (via `-DGDK_INSTALL_DIR=`, `%GRDKLatest%`, or `%GameDK%`),
-and falls back to the `ms-gdk[playfab]` vcpkg port when none is found.
-Most developers already have a GDK installed (for `makepkg.exe` /
-`wdapp.exe`), so this picks up the install you already have.
+By default, the build resolves the GDK headers and import libs through
+the `ms-gdk[playfab]` vcpkg port (`default` preset). This requires only
+a vcpkg checkout — no machine-wide GDK install is needed at build time.
 
-To force the installed GDK (and error out if none is found), use the
-`installed-gdk` preset:
+If you already have a Microsoft GDK installed on disk (most developers
+do, for `makepkg.exe` / `wdapp.exe` / Game Config Editor), the
+`installed-gdk` preset consumes it directly and skips the vcpkg restore
+entirely:
 
 ```powershell
-# Use an installed Microsoft GDK (auto-detected via %GRDKLatest% or %GameDK%)
+# Consume an installed Microsoft GDK (auto-detected via %GRDKLatest% or %GameDK%)
 cmake --preset installed-gdk
 cmake --build --preset debug-installed-gdk
 
@@ -579,25 +579,23 @@ cmake --build --preset debug-installed-gdk
 cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft GDK/260400"
 ```
 
-To force the vcpkg port (skipping auto-detection -- useful for CI or
-machines where the installed GDK shouldn't be picked up):
-
-```powershell
-cmake --preset default -DGDK_DEPENDENCY_SOURCE=vcpkg
-cmake --build build --preset debug
-```
+> **Note:** the `installed-gdk` preset is the only supported way to
+> consume an installed GDK. Setting `-DGDK_DEPENDENCY_SOURCE=installed`
+> on the `default` preset does **not** work — the vcpkg toolchain
+> processes manifest features (and restores `ms-gdk[playfab]`) before
+> the GDK source-selection logic runs. The `installed-gdk` preset pairs
+> the source switch with `VCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON` so
+> vcpkg restores nothing.
 
 Installed mode consumes the modern `windows\` subdirectory layout of the
 GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
 `<install>/windows/bin/x64`) that ships in GDK **260400 / April 2026 and
-later**. The legacy `GRDK\` peer layout is not supported; use
-`-DGDK_DEPENDENCY_SOURCE=vcpkg` for older GDK versions.
+later**. The legacy `GRDK\` peer layout is not supported; use the
+`default` preset (vcpkg) for older GDK versions.
 
-Either source path requires vcpkg (`VCPKG_ROOT` set) for the CMake
-toolchain file, even when no ports are restored. The default preset
-restores `ms-gdk[playfab]` and `gameinput` as needed; the `installed-gdk`
-preset restores nothing (the toolchain is loaded but is a no-op for
-dependency restore).
+Either preset still requires `VCPKG_ROOT` to be set, because the
+inherited toolchain file is loaded in both cases. The `installed-gdk`
+preset simply restores zero ports.
 
 **GameInput v3 is a separate SDK from the GDK**, so the `installed-gdk`
 preset disables the `godot_gameinput` addon by default
@@ -617,9 +615,8 @@ Source-selection options:
 
 | `GDK_DEPENDENCY_SOURCE` | Behavior |
 |---|---|
-| `auto` (default) | Prefer the installed GDK if discoverable via `-DGDK_INSTALL_DIR=`, `%GRDKLatest%`, or `%GameDK%`; fall back to vcpkg otherwise. |
-| `vcpkg` | Always use the `ms-gdk[playfab]` vcpkg port (skip auto-detection). |
-| `installed` | Always use a Microsoft GDK install on disk; error out if none is found. Set by the `installed-gdk` preset. |
+| `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. |
+| `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also disables vcpkg manifest restore). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
 
 ### CMake auto-detection
 
