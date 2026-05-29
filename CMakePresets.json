@@ -71,6 +71,17 @@
                 "BUILD_GODOT_GDK_PACKAGING": "ON",
                 "GDK_BUILD_TESTS": "OFF"
             }
+        },
+        {
+            "name": "installed-gdk",
+            "displayName": "Installed GDK (ms-gdk on disk; GameInput addon disabled)",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/installed-gdk",
+            "cacheVariables": {
+                "GDK_DEPENDENCY_SOURCE": "installed",
+                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON",
+                "BUILD_GODOT_GAMEINPUT": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -161,6 +172,18 @@
                 "godot_playfab",
                 "godot_gameinput"
             ]
+        },
+        {
+            "name": "debug-installed-gdk",
+            "displayName": "Debug (installed GDK)",
+            "configurePreset": "installed-gdk",
+            "configuration": "Debug"
+        },
+        {
+            "name": "release-installed-gdk",
+            "displayName": "Release (installed GDK)",
+            "configurePreset": "installed-gdk",
+            "configuration": "Release"
         }
     ]
 }
