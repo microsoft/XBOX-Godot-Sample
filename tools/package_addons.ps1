@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Build and zip the GodotGDK addons for drop-in use in a Godot project.
+    Build and zip the Godot for XBOX on PC addons for drop-in use in a Godot project.
 
 .DESCRIPTION
     Configures the package-specific CMake preset, builds the requested native

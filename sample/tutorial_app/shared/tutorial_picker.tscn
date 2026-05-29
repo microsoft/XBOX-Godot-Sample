@@ -25,7 +25,7 @@ offset_bottom = -24.0
 
 [node name="Title" type="Label" parent="Root"]
 layout_mode = 2
-text = "GodotGDK Tutorial App"
+text = "Godot for XBOX on PC Tutorial App"
 theme_override_font_sizes/font_size = 24
 
 [node name="Subtitle" type="Label" parent="Root"]

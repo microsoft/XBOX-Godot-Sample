@@ -1,6 +1,6 @@
 name: Package addons zip
 
-# Builds the GodotGDK addon zip and (optionally) attaches it to a draft GitHub
+# Builds the Godot for XBOX on PC addon zip and (optionally) attaches it to a draft GitHub
 # Release. Triggered on:
 #   - push of any tag matching v* (release flow)
 #   - manual workflow_dispatch with an optional version override (ad-hoc builds)

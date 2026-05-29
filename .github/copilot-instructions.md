@@ -1,8 +1,8 @@
-# Copilot Instructions — GodotGDK Repo
+# Copilot Instructions — Godot for XBOX on PC Repo
 
 ## Repository Overview
 
-GodotGDK is a repository of Godot 4.x GDExtension addons for Windows gaming integrations around the **Microsoft public GDK**.
+Godot for XBOX on PC is a repository of Godot 4.x GDExtension addons for Windows gaming integrations around the **Microsoft public GDK**.
 
 Current addon targets:
 
