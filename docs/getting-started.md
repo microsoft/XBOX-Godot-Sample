@@ -592,12 +592,16 @@ GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
 later**. The legacy `GRDK\` peer layout is not supported; use the
 `default` preset (vcpkg) for older GDK versions.
 
-**GameInput v3 is a separate SDK from the GDK**, so the `installed-gdk`
-preset disables the `godot_gameinput` addon by default
-(`BUILD_GODOT_GAMEINPUT=OFF`). The installed GDK ships GameInput v1
-only; the addon targets v3. Developers who want controller support
-should use the default preset, which restores the `gameinput` vcpkg
-port (which itself wraps the Microsoft.GameInput NuGet package).
+**GameInput in installed mode** — the installed GDK ships GameInput v1
+only, but the `godot_gameinput` addon targets v3. The `installed-gdk`
+preset solves this by setting `GAMEINPUT_SOURCE=nuget`, which fetches
+the `Microsoft.GameInput` NuGet package directly from nuget.org via
+`file(DOWNLOAD)` (cached under `build/installed-gdk/_deps/`). No vcpkg
+toolchain is involved; the first configure needs network access, and
+subsequent configures reuse the cached extract. This is the same
+upstream archive vcpkg's `gameinput` port wraps, so behavior is
+identical at runtime. Target machines still need `GameInputRedist.msi`
+installed (extracted to `build/installed-gdk/_deps/gameinput-nuget-<version>/redist/`).
 
 Source-selection options:
 
@@ -605,6 +609,11 @@ Source-selection options:
 |---|---|
 | `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. Requires `VCPKG_ROOT`. |
 | `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also drops the vcpkg toolchain — no `VCPKG_ROOT` required). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
+
+| `GAMEINPUT_SOURCE` | Behavior |
+|---|---|
+| `vcpkg` (default) | Use the `gameinput` vcpkg port. Requires `VCPKG_ROOT`. |
+| `nuget` | Fetch the `Microsoft.GameInput` NuGet package directly from nuget.org (no vcpkg required). Set automatically by the `installed-gdk` preset. The pinned version + SHA512 are tracked in `cmake/GDKDependencies.cmake` (override with `-DGDK_GAMEINPUT_NUGET_VERSION=<version> -DGDK_GAMEINPUT_NUGET_SHA512=<hash>`). |
 
 ### CMake auto-detection
 

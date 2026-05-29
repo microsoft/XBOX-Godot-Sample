@@ -81,12 +81,12 @@
         },
         {
             "name": "installed-gdk",
-            "displayName": "Installed GDK on disk (no vcpkg required; GameInput addon disabled)",
+            "displayName": "Installed GDK on disk (no vcpkg required; GameInput via NuGet)",
             "inherits": "_base",
             "binaryDir": "${sourceDir}/build/installed-gdk",
             "cacheVariables": {
                 "GDK_DEPENDENCY_SOURCE": "installed",
-                "BUILD_GODOT_GAMEINPUT": "OFF"
+                "GAMEINPUT_SOURCE": "nuget"
             }
         }
     ],

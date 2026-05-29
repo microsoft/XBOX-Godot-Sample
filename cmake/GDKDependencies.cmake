@@ -39,12 +39,22 @@ include_guard(GLOBAL)
 #     before this module runs -- always go through the `installed-gdk`
 #     preset.
 #
-# GameInput v3 is provided by the vcpkg `gameinput` port. The installed
-# GDK ships GameInput v1 only -- v3 is a separate Microsoft SDK release
-# that lives outside the main GDK bundle. The `installed-gdk` preset
-# therefore disables the `godot_gameinput` addon by default
-# (`BUILD_GODOT_GAMEINPUT=OFF`); developers who want controller support
-# should use the default preset (which restores `gameinput` from vcpkg).
+# GameInput v3 is sourced separately from the GDK because the installed
+# GDK ships GameInput v1 only -- v3 is published independently by
+# Microsoft. Source selection is controlled by `GAMEINPUT_SOURCE`:
+#
+#   - `vcpkg` (default): the `gameinput` vcpkg port. Used by the default
+#     preset and the other vcpkg-based presets.
+#   - `nuget`: pull the `Microsoft.GameInput` NuGet package directly from
+#     nuget.org via `file(DOWNLOAD)`, cached under
+#     `${CMAKE_BINARY_DIR}/_deps/`. No vcpkg toolchain required. Used by
+#     the `installed-gdk` preset so GameInput stays available even when
+#     vcpkg is not present.
+#
+# Both GameInput sources expose the same `Microsoft::GameInput` IMPORTED
+# target -- the godot_gameinput addon's CMakeLists is identical in both
+# cases. The vcpkg port and the NuGet path wrap the same upstream archive,
+# so behavior is identical at runtime.
 #
 # An explicit GDK install path can also be supplied as `-DGDK_INSTALL_DIR=<path>`.
 # The path may point at the version root (e.g. `...\260400\`), its
@@ -80,6 +90,28 @@ set(GDK_INSTALL_DIR "" CACHE PATH
 (e.g. `C:/Program Files (x86)/Microsoft GDK/260400/`), its `windows/` subdir, \
 or its `GRDK/` peer (auto-redirected to the sibling `windows/`). Only used \
 when GDK_DEPENDENCY_SOURCE is `installed`.")
+
+set(GAMEINPUT_SOURCE "vcpkg" CACHE STRING
+    "Source for the GameInput v3 dependency. One of: vcpkg, nuget. \
+Defaults to `vcpkg`: the `gameinput` port (which itself wraps the \
+`Microsoft.GameInput` NuGet package). The `installed-gdk` preset \
+overrides this to `nuget` so GameInput stays available without a vcpkg \
+toolchain -- the NuGet package is fetched directly from nuget.org via \
+`file(DOWNLOAD)` and cached under `${CMAKE_BINARY_DIR}/_deps/`. Both \
+sources expose the same `Microsoft::GameInput` IMPORTED target.")
+set_property(CACHE GAMEINPUT_SOURCE PROPERTY STRINGS vcpkg nuget)
+
+# Pinned version of the Microsoft.GameInput NuGet package fetched when
+# GAMEINPUT_SOURCE=nuget. Matches the version vcpkg's `gameinput` port
+# currently wraps (same upstream archive, same SHA512). Bump together
+# with the vcpkg port when refreshing.
+set(GDK_GAMEINPUT_NUGET_VERSION "3.1.26100.6879" CACHE STRING
+    "Version of the Microsoft.GameInput NuGet package fetched when GAMEINPUT_SOURCE=nuget.")
+set(GDK_GAMEINPUT_NUGET_SHA512
+    "7377a8cf9291318b99db4f94b6e2db6d8bd2a5afdac0b35bd38b3f51c75948a247e74dab155f2ba67d4ece78899e87c3e0e35510f1547bbc9b7c8202573a8ff6"
+    CACHE STRING
+    "SHA512 of the Microsoft.GameInput NuGet package archive. Used to verify the download.")
+mark_as_advanced(GDK_GAMEINPUT_NUGET_VERSION GDK_GAMEINPUT_NUGET_SHA512)
 
 # Internal cache. Populated by _gdk_resolve_dependency_source().
 set(_GDK_RESOLVED_SOURCE "" CACHE INTERNAL "Resolved GDK source: vcpkg or installed.")
@@ -473,14 +505,119 @@ function(gdk_require_ms_gdk)
     endif()
 endfunction()
 
-# Require GameInput (Microsoft::GameInput). Always vcpkg-backed -- the
-# installed GDK ships GameInput v1 only, and this repo targets v3 (a
-# separate Microsoft SDK release that the vcpkg `gameinput` port wraps).
-# The `installed-gdk` preset disables the godot_gameinput addon by
-# default so this is not called in pure-installed-GDK builds.
+# Fetch the Microsoft.GameInput NuGet package directly from nuget.org and
+# cache it under `${CMAKE_BINARY_DIR}/_deps/gameinput-nuget-<version>/`.
+# Idempotent -- second and subsequent configures reuse the cached extract.
+# Sets `<OUT_DIR>` in the parent scope to the extracted package root, which
+# contains:
+#
+#   native/include/GameInput.h          (v3 header; v0/v1/v2 subdirs ship
+#                                        backward-compat headers we don't use)
+#   native/lib/x64/GameInput.lib        (import lib)
+#   redist/GameInputRedist.msi          (runtime redistributable for
+#                                        deployment on target machines)
+#   LICENSE.txt
+#
+# The package is verified against GDK_GAMEINPUT_NUGET_SHA512 before
+# extraction. Bumping GDK_GAMEINPUT_NUGET_VERSION re-downloads because the
+# cache directory name embeds the version.
+function(_gdk_fetch_gameinput_nuget OUT_DIR)
+    set(_ver "${GDK_GAMEINPUT_NUGET_VERSION}")
+    set(_sha "${GDK_GAMEINPUT_NUGET_SHA512}")
+    set(_cache_dir "${CMAKE_BINARY_DIR}/_deps/gameinput-nuget-${_ver}")
+    set(_pkg "${CMAKE_BINARY_DIR}/_deps/gameinput-nuget-${_ver}.nupkg")
+    set(_fingerprint "${_cache_dir}/native/lib/x64/GameInput.lib")
+
+    if(NOT EXISTS "${_fingerprint}")
+        message(STATUS "Fetching Microsoft.GameInput ${_ver} from nuget.org "
+                       "(GAMEINPUT_SOURCE=nuget)")
+        file(MAKE_DIRECTORY "${_cache_dir}")
+        file(DOWNLOAD
+            "https://www.nuget.org/api/v2/package/Microsoft.GameInput/${_ver}"
+            "${_pkg}"
+            EXPECTED_HASH SHA512=${_sha}
+            STATUS _dl_status
+            SHOW_PROGRESS)
+        list(GET _dl_status 0 _dl_code)
+        if(NOT _dl_code EQUAL 0)
+            list(GET _dl_status 1 _dl_msg)
+            file(REMOVE "${_pkg}")
+            message(FATAL_ERROR
+                "Failed to download Microsoft.GameInput ${_ver} from nuget.org "
+                "(code ${_dl_code}): ${_dl_msg}.\n"
+                "Network access is required the first time you configure with "
+                "GAMEINPUT_SOURCE=nuget. To use a different version, override "
+                "-DGDK_GAMEINPUT_NUGET_VERSION=<version> "
+                "-DGDK_GAMEINPUT_NUGET_SHA512=<hash>. To skip GameInput, "
+                "set -DBUILD_GODOT_GAMEINPUT=OFF.")
+        endif()
+        file(ARCHIVE_EXTRACT INPUT "${_pkg}" DESTINATION "${_cache_dir}")
+        file(REMOVE "${_pkg}")
+        if(NOT EXISTS "${_fingerprint}")
+            message(FATAL_ERROR
+                "Microsoft.GameInput ${_ver} extracted from nuget.org but "
+                "expected file is missing: ${_fingerprint}. The NuGet package "
+                "layout may have changed.")
+        endif()
+    endif()
+
+    set(${OUT_DIR} "${_cache_dir}" PARENT_SCOPE)
+endfunction()
+
+# Define the `Microsoft::GameInput` IMPORTED target from an extracted
+# NuGet package directory. Target shape mirrors what vcpkg's `gameinput`
+# port exports (INTERFACE library with linked .lib + include dir) so
+# addon CMakeLists work against either source unchanged.
+#
+# Idempotent -- guarded by Microsoft::GameInput existence.
+function(_gdk_define_gameinput_nuget_target NUGET_DIR)
+    if(TARGET Microsoft::GameInput)
+        return()
+    endif()
+
+    set(_inc "${NUGET_DIR}/native/include")
+    set(_lib "${NUGET_DIR}/native/lib/x64/GameInput.lib")
+
+    if(NOT EXISTS "${_inc}/GameInput.h")
+        message(FATAL_ERROR
+            "Microsoft.GameInput NuGet package missing header: ${_inc}/GameInput.h")
+    endif()
+    if(NOT EXISTS "${_lib}")
+        message(FATAL_ERROR
+            "Microsoft.GameInput NuGet package missing import lib: ${_lib}")
+    endif()
+
+    add_library(Microsoft::GameInput INTERFACE IMPORTED)
+    set_target_properties(Microsoft::GameInput PROPERTIES
+        INTERFACE_LINK_LIBRARIES      "${_lib}"
+        INTERFACE_INCLUDE_DIRECTORIES "${_inc}")
+endfunction()
+
+# Require GameInput (Microsoft::GameInput). Dispatches on GAMEINPUT_SOURCE:
+#
+#   - `vcpkg` (default): the `gameinput` vcpkg port. Requires the vcpkg
+#     toolchain. This is what the `default` preset uses.
+#
+#   - `nuget`: pull the `Microsoft.GameInput` NuGet package from nuget.org
+#     directly (the same upstream the vcpkg port wraps). Requires no vcpkg
+#     toolchain -- the package is fetched via `file(DOWNLOAD)` and cached
+#     under `${CMAKE_BINARY_DIR}/_deps/`. This is what the `installed-gdk`
+#     preset uses so GameInput v3 stays available even without vcpkg.
+#
+# Both paths expose the same `Microsoft::GameInput` IMPORTED INTERFACE
+# target -- addon CMakeLists need no changes.
 function(gdk_require_gameinput)
-    _gdk_assert_vcpkg_toolchain()
-    find_package(gameinput CONFIG REQUIRED)
+    if(GAMEINPUT_SOURCE STREQUAL "nuget")
+        _gdk_fetch_gameinput_nuget(_nuget_dir)
+        _gdk_define_gameinput_nuget_target("${_nuget_dir}")
+    elseif(GAMEINPUT_SOURCE STREQUAL "vcpkg")
+        _gdk_assert_vcpkg_toolchain()
+        find_package(gameinput CONFIG REQUIRED)
+    else()
+        message(FATAL_ERROR
+            "Invalid GAMEINPUT_SOURCE='${GAMEINPUT_SOURCE}'. "
+            "Allowed values: vcpkg, nuget.")
+    endif()
 endfunction()
 
 # Absolute paths to the XSAPI Thunks DLLs that must be deployed alongside
