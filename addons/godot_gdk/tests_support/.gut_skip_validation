@@ -1,4 +1,11 @@
 # Empty sentinel file. See tools/check_gd_scripts_headless.ps1 header.
-# Vendored GUT (upstream v9.6.0) cannot parse standalone — it relies on the
-# class_name registry being imported by Godot. Headless GUT runs from the
-# coverage host samples validate it indirectly.
+# Marks the `tests_support/` tree as a vendored / GUT-extending area whose
+# `.gd` files (currently the shared bases under `bases/`) cannot parse
+# standalone — they `extends GutTest` (or similar) and require GUT's
+# class_name registry to be loaded by Godot. Headless GUT runs from the
+# dedicated coverage hosts under `tests/godot/*` validate them indirectly.
+#
+# Note: GUT itself is no longer vendored under this directory; it lives as
+# a git submodule at `third_party/Gut/`. Submodule contents are not listed
+# by `git ls-files` from the superproject, so the validator skips them
+# automatically without needing a sentinel.

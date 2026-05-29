@@ -38,7 +38,7 @@ Automated Godot coverage must run from dedicated test projects instead of demo s
 | `tests\godot\playfab` | PlayFab GUT suites and PlayFab custom-ID sign-in coverage |
 | `tests\godot\gameinput` | GameInput GUT suites and GameInput bootstrap mini-runners |
 
-Each host is a standalone Godot project with its own `project.godot`, local `tests\` tree, mirrored addon files, mirrored vendored GUT, and mirrored shared test bases.
+Each host is a standalone Godot project with its own `project.godot`, local `tests\` tree, mirrored addon files, mirrored GUT (sourced from the `third_party\Gut\` submodule), and mirrored shared test bases.
 
 ## Runner contract
 

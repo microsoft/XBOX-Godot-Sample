@@ -7,34 +7,27 @@ This document is the durable record of the test-coverage strategy for the four a
 ## Test surface inventory
 
 - GDScript test hosts: `tests\godot\gdk` (covers `godot_gdk` and `godot_gdk_packaging`), `tests\godot\playfab` (covers `godot_playfab`), `tests\godot\gameinput` (covers `godot_gameinput`). The legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were intentionally excluded as demo projects. They have since been removed; the tutorial-driven samples returning in PR 3 (`sample\tutorial_app\`, `sample\tutorial_gameinput\`) will likewise stay out of the coverage host set.
-- GUT framework, vendored once at `addons\godot_gdk\tests_support\gut\` and mirrored by CMake into coverage hosts. Mirrored copies are git-ignored.
+- GUT framework, sourced as a git submodule at `third_party\Gut\` (upstream `https://github.com/bitwes/Gut.git`, pinned to tag `v9.6.0`); CMake mirrors the embedded `addons\gut\` into coverage hosts. Mirrored copies are git-ignored.
 - C++ unit tests via doctest, vendored at `tests\cpp\third_party\doctest\doctest.h`, built behind `GDK_BUILD_TESTS=ON` (default ON) into the `gdk_unit_tests` executable.
 - Headless GDScript validator `tools\check_gd_scripts_headless.ps1` (already enforced by the pre-commit hook).
 - Orchestrator `tools\run_all_tests.ps1` (lands in Wave 3 (`infra-orchestrator`)).
 - Bootstrap mini-runners under `tests\godot\gdk\tests\bootstrap\` (and the analogous folder under `tests\godot\gameinput\tests\bootstrap\` for the GameInput autoload). Each bootstrap scenario runs in its own Godot child process so the autoload starts fresh with the desired project settings already in place.
 
-## GUT vendoring layout
+## GUT layout
 
-GUT is pinned to upstream tag `v9.6.0` (Godot 4 line):
-
-```
-https://github.com/bitwes/Gut/archive/refs/tags/v9.6.0.tar.gz
-SHA-256: 3C6C87DDE4C79E8EF109A1C9419B6E654971BA11E7F5AC1731E927EAA0FD1159
-```
-
-The single source of truth lives at:
+GUT is sourced as a git submodule at:
 
 ```
-addons\godot_gdk\tests_support\gut\
+third_party\Gut\
 ```
 
-with the upstream `LICENSE.md` (MIT, Tom "Butch" Wesley) preserved in place and a `VERSION.txt` recording the tag, source URL, SHA-256, and date.
+pinned to upstream tag `v9.6.0` (Godot 4 line) from `https://github.com/bitwes/Gut.git`. The upstream repo keeps its plugin source under `addons/gut/`, so the GUT addon source-of-truth from the superproject's perspective is `third_party\Gut\addons\gut\`. The upstream `LICENSE.md` (MIT, Tom "Butch" Wesley) and `plugin.cfg` (which records the upstream version) ship inside the submodule and need no local mirror.
 
 CMake mirrors that single source into coverage hosts via the `godot_addon_mirror_test_support` function in `cmake\GodotExtensionCommon.cmake`:
 
 ```cmake
 godot_addon_mirror_test_support(
-    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/addons/godot_gdk/tests_support/gut"
+    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut"
     DEST_SUBDIR "gut"
     HOST_DIRS "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
               "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
@@ -42,7 +35,9 @@ godot_addon_mirror_test_support(
 )
 ```
 
-Demo-only projects are intentionally absent. The mirrored copies under `<host>\addons\gut\` are git-ignored. Refresh procedure: replace the contents of `addons\godot_gdk\tests_support\gut\` with the new upstream tarball, bump `VERSION.txt`, and rebuild — the mirror picks up the new copy.
+Demo-only projects are intentionally absent. The mirrored copies under `<host>\addons\gut\` are git-ignored. Refresh procedure: bump the submodule pin from the repo root with `cd third_party\Gut && git fetch && git checkout <new-tag>`, run a build (the mirror picks up the new copy via `CONFIGURE_DEPENDS`), and commit the updated submodule pointer in the superproject. Do not vendor copies into the superproject — `git ls-files` does not recurse into submodules, so the parse-gate validator skips submodule contents automatically.
+
+Historical note: GUT was initially vendored under `addons\godot_gdk\tests_support\gut\` (see the `infra-vendor-gut` phase below). That tree was migrated to the `third_party\Gut\` submodule layout to simplify upstream refreshes; the mirroring contract and `godot_addon_mirror_test_support` function are unchanged.
 
 ## doctest layout
 
