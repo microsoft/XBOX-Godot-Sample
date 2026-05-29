@@ -8,7 +8,12 @@
     PlayFab live tests need:
 
       - a custom-ID account used by tests that sign in with create_account=false
-      - three Multiplayer worker custom-ID accounts for host/client/observer
+      - four Multiplayer worker custom-ID accounts ({prefix}-{host,client,client2,observer})
+        used by the legacy tools/run_playfab_multiplayer_live.ps1 runner
+      - sixteen pooled Multiplayer worker custom-ID accounts
+        ({prefix}-{host,client,client2,observer}-{1..4}) used by the
+        mp_orchestrator harness, which rotates through the pool between
+        scenarios to spread per-(title_player_account) PlayFab rate limits
       - a PlayFab Matchmaking queue for Multiplayer live smoke coverage
       - the wave4_settle_smoke leaderboard definition
       - API-service fixtures for accounts, friends, player data,
@@ -399,11 +404,31 @@ function Ensure-CustomIdAccount {
 function Ensure-MultiplayerWorkerAccounts {
     param(
         [Parameter(Mandatory = $true)][hashtable]$SecretHeaders,
-        [Parameter(Mandatory = $true)][string]$CustomIdPrefix
+        [Parameter(Mandatory = $true)][string]$CustomIdPrefix,
+        [Parameter(Mandatory = $false)][int]$PoolSize = 4
     )
 
-    foreach ($role in @('host', 'client', 'observer')) {
+    # Provision both naming conventions during the transition:
+    #
+    #   1. Legacy unsuffixed accounts ({prefix}-{role}) — used by the
+    #      retiring `tools/run_playfab_multiplayer_live.ps1` runner and
+    #      by ad-hoc smoke scripts that hard-code a single account per
+    #      role. Removable once C6 retires the old runner.
+    #
+    #   2. Rotation pool ({prefix}-{role}-{1..PoolSize}) — used by the
+    #      new mp_orchestrator test client (tests/godot/mp_test_client/
+    #      scripts/test_client.gd::_derive_custom_id_for_role), which
+    #      rotates through `PoolSize` accounts per role between
+    #      scenarios to spread per-(title_player_account) PlayFab rate
+    #      limits. Without this pool, sequential lobby scenarios stack
+    #      every create_lobby call on the host account and hit the
+    #      6/120s create_lobby limit; with the pool, four accounts
+    #      provide 24 creates per window of headroom for the host role.
+    foreach ($role in @('host', 'client', 'client2', 'observer')) {
         [void](Ensure-CustomIdAccount -SecretHeaders $SecretHeaders -Id "$CustomIdPrefix-$role")
+        for ($slot = 1; $slot -le $PoolSize; $slot++) {
+            [void](Ensure-CustomIdAccount -SecretHeaders $SecretHeaders -Id "$CustomIdPrefix-$role-$slot")
+        }
     }
 }
 
@@ -1162,28 +1187,41 @@ function Set-LiveTestTitleDataMarker {
         [Parameter(Mandatory = $true)][string]$MarkerCustomId,
         [Parameter(Mandatory = $true)][string]$MarkerMultiplayerCustomIdPrefix,
         [Parameter(Mandatory = $true)][string]$MarkerLeaderboardName,
+        [Parameter(Mandatory = $false)][int]$MarkerMultiplayerPoolSize = 4,
         [AllowNull()]$MatchmakingQueue = $null,
         [AllowNull()]$ApiServiceFixtures = $null
     )
 
     $route = 'Admin/SetTitleData'
+    # Legacy unsuffixed list (used by tools/run_playfab_multiplayer_live.ps1).
+    $legacyAccounts = @(
+        "$MarkerMultiplayerCustomIdPrefix-host",
+        "$MarkerMultiplayerCustomIdPrefix-client",
+        "$MarkerMultiplayerCustomIdPrefix-client2",
+        "$MarkerMultiplayerCustomIdPrefix-observer"
+    )
+    # Rotation pool (used by tests/godot/mp_orchestrator + mp_test_client).
+    $poolAccounts = @()
+    foreach ($role in @('host', 'client', 'client2', 'observer')) {
+        for ($slot = 1; $slot -le $MarkerMultiplayerPoolSize; $slot++) {
+            $poolAccounts += "$MarkerMultiplayerCustomIdPrefix-$role-$slot"
+        }
+    }
     $marker = [ordered]@{
-        repository              = 'gaming-microsoft/godot-public-gdk-ext'
-        title_id                = $script:TitleIdForRequests
-        custom_id               = $MarkerCustomId
-        multiplayer_custom_ids  = @(
-            "$MarkerMultiplayerCustomIdPrefix-host",
-            "$MarkerMultiplayerCustomIdPrefix-client",
-            "$MarkerMultiplayerCustomIdPrefix-observer"
-        )
-        leaderboard             = @{
+        repository                         = 'gaming-microsoft/godot-public-gdk-ext'
+        title_id                           = $script:TitleIdForRequests
+        custom_id                          = $MarkerCustomId
+        multiplayer_custom_ids             = $legacyAccounts
+        multiplayer_custom_id_pool_size    = $MarkerMultiplayerPoolSize
+        multiplayer_custom_id_pool         = $poolAccounts
+        leaderboard                        = @{
             name        = $MarkerLeaderboardName
             entity_type = 'title_player_account'
             columns     = @(@{ name = 'score'; sort_direction = 'Descending' })
         }
-        lobby_search_properties = @('string_key1', 'number_key1')
-        note                    = 'Lobby search properties use reserved PlayFab keys and do not require title setup.'
-        updated_utc             = (Get-Date).ToUniversalTime().ToString('o')
+        lobby_search_properties            = @('string_key1', 'number_key1')
+        note                               = 'Lobby search properties use reserved PlayFab keys and do not require title setup.'
+        updated_utc                        = (Get-Date).ToUniversalTime().ToString('o')
     }
     if ($null -ne $MatchmakingQueue) {
         $marker['matchmaking_queue'] = $MatchmakingQueue
@@ -1264,7 +1302,8 @@ Write-Host $liveTestCommand
 if ($SkipCustomIdAccount) {
     Write-Host 'Custom-ID live service tests remain pending unless PLAYFAB_CUSTOM_ID is set by the caller.'
 } else {
-    Write-Host "The Multiplayer runner will derive worker custom IDs from PLAYFAB_CUSTOM_ID as '$MultiplayerCustomIdPrefix-<role>'."
+    Write-Host "The legacy Multiplayer runner will derive worker custom IDs from PLAYFAB_CUSTOM_ID as '$MultiplayerCustomIdPrefix-<role>'."
+    Write-Host "The mp_orchestrator runner rotates through pooled accounts '$MultiplayerCustomIdPrefix-<role>-{1..4}' (one slot per scenario, per role)."
 }
 if (-not $SkipMultiplayerMatchmakingQueue) {
     Write-Host "The Multiplayer runner will use matchmaking queue '$MatchmakingQueueName'."

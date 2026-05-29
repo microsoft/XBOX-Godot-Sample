@@ -32,6 +32,8 @@ constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/runtime/title_id";
 constexpr const char *PLAYFAB_TITLE_ID_DEFAULT = "";
 constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/runtime/endpoint";
 constexpr const char *PLAYFAB_ENDPOINT_DEFAULT = "";
+constexpr const char *PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING = "playfab/party/local_udp_socket_bind_port";
+constexpr int PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_DEFAULT = -1;
 
 void register_string_project_setting(ProjectSettings *p_project_settings, const char *p_name, const String &p_default_value) {
     if (!p_project_settings->has_setting(p_name)) {
@@ -85,6 +87,27 @@ void register_playfab_project_settings() {
 
     register_string_project_setting(project_settings, PLAYFAB_TITLE_ID_SETTING, PLAYFAB_TITLE_ID_DEFAULT);
     register_string_project_setting(project_settings, PLAYFAB_ENDPOINT_SETTING, PLAYFAB_ENDPOINT_DEFAULT);
+
+    // Opt-in override for PlayFab Party's PartyOption::LocalUdpSocketBindAddress.
+    // Default -1 means "use the SDK's default bind address" — the right
+    // choice for shipping games. Multi-process same-host scenarios (CI test
+    // orchestrators, splitscreen dev iteration) set this to 0 so the OS
+    // picks an ephemeral port and the SDK's preferred Game Core port doesn't
+    // collide between sibling processes. A specific value 1-65535 pins to
+    // that port. Per-call override is also available via the
+    // [code]local_udp_port[/code] arg on [PlayFabParty.initialize_async].
+    if (!project_settings->has_setting(PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING)) {
+        project_settings->set_setting(PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING, PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_DEFAULT);
+    }
+    project_settings->set_initial_value(PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING, PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_DEFAULT);
+    project_settings->set_as_basic(PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING, false);
+
+    Dictionary local_udp_bind_port_info;
+    local_udp_bind_port_info["name"] = PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING;
+    local_udp_bind_port_info["type"] = Variant::INT;
+    local_udp_bind_port_info["hint"] = PROPERTY_HINT_RANGE;
+    local_udp_bind_port_info["hint_string"] = "-1,65535,1";
+    project_settings->add_property_info(local_udp_bind_port_info);
 }
 
 bool is_embed_dispatch_enabled() {

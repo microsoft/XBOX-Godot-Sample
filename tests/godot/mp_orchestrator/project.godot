@@ -1,0 +1,15 @@
+; Engine configuration file.
+; Headless PlayFab Multiplayer test orchestrator project.
+
+config_version=5
+
+[application]
+
+config/name="MP Test Orchestrator"
+config/features=PackedStringArray("4.6")
+run/main_scene=""
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"
