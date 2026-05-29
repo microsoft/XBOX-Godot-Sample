@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through using the GodotGDK addons in your own Godot
+This guide walks you through using the Godot for XBOX on PC addons in your own Godot
 project — what to copy, how to enable it, how to configure project settings,
 and how to reach **a signed-in user** for both Xbox Live (`godot_gdk`) and
 PlayFab (`godot_playfab`).

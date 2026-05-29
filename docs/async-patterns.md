@@ -1,6 +1,6 @@
-# Async patterns in the GodotGDK addons
+# Async patterns in the Godot for XBOX on PC addons
 
-Every long-running call in the GodotGDK addons returns a one-shot
+Every long-running call in the Godot for XBOX on PC addons returns a one-shot
 **Godot Signal** that resolves to a typed **Result** object. The
 pattern is identical across `godot_gdk`, `godot_playfab`, and (when
 relevant) `godot_gameinput`, so once you know it for one method you

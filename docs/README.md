@@ -1,6 +1,6 @@
-# GodotGDK Documentation
+# Godot for XBOX on PC Documentation
 
-Welcome to the documentation for the GodotGDK repository — a collection of
+Welcome to the documentation for the Godot for XBOX on PC repository — a collection of
 Godot 4.x GDExtension addons for Windows gaming integrations around the
 Microsoft public GDK.
 

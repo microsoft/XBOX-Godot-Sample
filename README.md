@@ -1,4 +1,4 @@
-# GodotGDK
+# Godot for XBOX on PC
 
 A repository of Godot 4.x GDExtension addons for Microsoft gaming on Windows,
 covering both the Microsoft public **GDK** (Game Development Kit) and

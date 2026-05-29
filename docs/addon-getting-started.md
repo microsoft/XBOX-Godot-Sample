@@ -1,4 +1,4 @@
-# GodotGDK addons — getting started
+# Godot for XBOX on PC addons — getting started
 
 A quickstart for the addon zip. This walks through enabling the addons,
 setting the PlayFab title id, creating the GDK game config, switching
