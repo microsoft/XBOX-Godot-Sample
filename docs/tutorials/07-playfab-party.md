@@ -15,7 +15,8 @@ chat ride on the same Party peer. By the end you will:
 - **Client:** read the descriptor from the lobby, call
   `join_network_async`, and join the same Party network.
 - Assign the `PlayFabPartyPeer` returned by the network to
-  `multiplayer.multiplayer_peer` and call a one-line RPC.
+  `multiplayer.multiplayer_peer` and call a one-line RPC, both
+  automatically on bind and on demand from a UI button.
 - Send a text chat message and mute / unmute a remote peer using the
   per-peer chat helpers on `PlayFabPartyPeer`.
 - Tear the network down on the way out so the next test run starts
@@ -29,6 +30,7 @@ Sample output (host side):
 [Party] Descriptor ready, publishing on the lobby
 [Party] Peer connected: id=2 entity=title_player_account:6F4B…
 [Party] RPC from peer 2: "ready"
+[Party] ping RPC from peer 2: "ping @42137"
 [Party] Text from peer 2: "gg"
 [Party] Peer 2 left, leaving network
 ```
@@ -508,6 +510,57 @@ Reserved handshake and control packets are filtered out of the
 public packet queue by the addon, so they never surface as Godot
 `packet_received` traffic and do not collide with RPC channels.
 
+### User-driven RPCs
+
+The `"ready"` handshake fires automatically when the peer is bound,
+which is enough to confirm the multiplayer plumbing came up but
+does not exercise it again after the fact. Add a second RPC that
+the UI can call repeatedly — the T7 panel wires this to a **Ping**
+button next to **Send**:
+
+```gdscript
+signal rpc_received(peer_id: int, text: String)
+
+
+func send_rpc_ping(text: String) -> bool:
+    if _state != State.IN_NETWORK or _network == null:
+        return false
+    if multiplayer.multiplayer_peer == null:
+        return false
+    # rpc(...) returns OK when broadcasting to an empty connected-peer
+    # set, so refuse up front if no remote peer is registered yet —
+    # otherwise the UI would log a "you (rpc)>" line that actually
+    # went nowhere.
+    if multiplayer.get_peers().is_empty():
+        return false
+    # Also surface any non-OK return from rpc() so a future transport
+    # failure does not silently look like success.
+    var err: Error = rpc("ping_message", text)
+    if err != OK:
+        return false
+    return true
+
+
+@rpc("any_peer", "reliable", "call_remote")
+func ping_message(text: String) -> void:
+    var sender: int = multiplayer.get_remote_sender_id()
+    print("[Party] ping RPC from peer %d: \"%s\"" % [sender, text])
+    rpc_received.emit(sender, text)
+```
+
+The `"call_remote"` mode skips the local invocation so the sender
+does not also call its own handler — the UI handles the local echo
+("you (rpc)> …") so the chat log shows exactly one inbound line
+per remote peer. Without the `"call_remote"` flag the sender
+would also receive its own ping (`"call_local"` is the default
+when the mode is omitted in Godot 4).
+
+The Ping button is the recommended manual sanity check after
+hosting/joining: if **Ping** logs a "peer N (rpc)>" line on the
+opposite window, the Godot `MultiplayerAPI` round-trip is healthy
+end to end. Text chat riding next to it does **not** prove this
+— see the callout in [Step 7](#step-7--voice-and-text-chat).
+
 ## Step 6 — Gate chat on the user's privileges and permissions
 
 Voice and text chat have **two** gating layers, both of which the
@@ -700,6 +753,17 @@ remote chat control the addon has mapped. Pass a `PackedInt32Array`
 to send to a subset; unknown ids cause the awaited `PlayFabResult`
 to come back failed.
 
+> **Chat is not RPC.** Text chat goes through
+> `PartyLocalChatControl::SendText` on the chat control, **not**
+> through the Godot `MultiplayerAPI` peer. A working chat path
+> proves the addon's chat plumbing came up; it does **not** prove
+> that `rpc(...)` calls round-trip. Use the Ping button from
+> [Step 5](#user-driven-rpcs) (or your own `@rpc` handler) as the
+> RPC sanity check, distinct from chat. The two paths can fail
+> independently — for example, if a remote chat control was never
+> mapped, chat silently goes to zero targets while RPC keeps
+> working over the same `PlayFabPartyPeer`.
+
 > **Chat controls arrive after the peer.** Remote chat controls are
 > reported through `PlayFabPartyPeer.chat_control_added(peer_id,
 > chat_control)`, which fires **after** the peer has joined the
@@ -828,6 +892,7 @@ Host Output:
 [Party] State → 3 (connected)
 [Party] Peer connected: id=2 entity=title_player_account:6F4B…
 [Party] RPC from peer 2: "ready"
+[Party] ping RPC from peer 2: "ping @42137"
 [Party] Text from peer 2: "gg"
 [Party] Peer 2 left
 [Party] Network destroyed (host leaving)
@@ -840,6 +905,7 @@ Client Output:
 [Party] Joined Party network: 6acf3…
 [Party] State → 3 (connected)
 [Party] RPC from peer 1: "ready"
+[Party] ping RPC from peer 1: "ping @42910"
 ```
 
 Common failures:

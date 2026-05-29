@@ -61,6 +61,7 @@ signal network_destroyed      ## Involuntary teardown (NETWORK_CHANGE_DESTROYED 
 signal peer_connected(peer_id: int)
 signal peer_disconnected(peer_id: int)
 signal chat_received(peer_id: int, text: String)
+signal rpc_received(peer_id: int, text: String) ## ping RPC received from a peer (Tutorial 7 Step 5).
 
 var _state: State = State.UNINITIALIZED
 var _auth: Node = null
@@ -211,6 +212,14 @@ func host_party() -> bool:
 	cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY
 	cfg.set_voice_chat_enabled(caps.voice)
 	cfg.set_text_chat_enabled(caps.text)
+	# Microsoft Party requires every user to authenticate with the same
+	# invitation identifier the host created the network with. The Party
+	# SDK auto-generates one if invitation_id is left empty, but that
+	# value is opaque to GDScript and cannot be forwarded to clients.
+	# Use the PlayFab lobby_id (already shared via the connection string)
+	# as a stable, mutually-known identifier on both sides. Capped well
+	# under Party's c_maxInvitationIdentifierStringLength (127).
+	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
 
 	var result: PlayFabResult = await PlayFab.party.create_and_join_network_async(user, cfg)
 
@@ -268,6 +277,10 @@ func _join_party_network(descriptor: String) -> bool:
 	var cfg := PlayFabPartyConfig.new()
 	cfg.set_voice_chat_enabled(caps.voice)
 	cfg.set_text_chat_enabled(caps.text)
+	# Mirror host_party — Party.AuthenticateLocalUser requires the same
+	# non-empty invitation_id the host used. The lobby_id is mutually
+	# known to host and client once the lobby is joined, so use it.
+	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
 
 	var result: PlayFabResult = await PlayFab.party.join_network_async(user, descriptor, cfg)
 
@@ -354,11 +367,50 @@ func send_chat(text: String) -> bool:
 		push_warning("[Party] send_text failed: %s" % pf.message)
 	return pf.ok
 
-# Tutorial 7 Step 5 — example RPC.
+# Tutorial 7 Step 5 — example RPC. Fires automatically once when the
+# multiplayer peer attaches; useful as a heartbeat to confirm the
+# Godot MultiplayerAPI binding is live, distinct from text chat
+# (which goes through PartyLocalChatControl::SendText rather than the
+# Godot multiplayer peer).
 @rpc("any_peer", "reliable")
 func handshake_message(text: String) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	print("[Party] RPC from peer %d: \"%s\"" % [sender, text])
+
+# Tutorial 7 Step 5 — user-driven RPC ping. Same channel as
+# handshake_message but routed through a signal so the T7 panel can
+# render inbound pings in the chat log. Validates that the
+# multiplayer_peer binding round-trips arbitrary RPCs both
+# directions, not just the one-shot ready handshake.
+func send_rpc_ping(text: String) -> bool:
+	if _state != State.IN_NETWORK or _network == null:
+		push_warning("[Party] send_rpc_ping rejected — not in a network (state=%d)" % _state)
+		return false
+	if multiplayer.multiplayer_peer == null:
+		push_warning("[Party] send_rpc_ping rejected — multiplayer peer not bound")
+		return false
+	# rpc(...) returns OK when broadcasting to an empty connected-peer
+	# set, so guard up front: if no remote peer is registered on the
+	# MultiplayerAPI yet, refuse rather than report a "you (rpc)>" send
+	# that actually went nowhere. multiplayer.get_peers() returns the
+	# unique ids of every remote peer currently registered on the API.
+	if multiplayer.get_peers().is_empty():
+		push_warning("[Party] send_rpc_ping rejected — no remote peers connected yet")
+		return false
+	# Defensive: also surface any non-OK return from rpc() so a future
+	# transport-level failure (e.g. _put_packet ERR_UNAVAILABLE on a
+	# specific peer endpoint) does not silently look like success.
+	var err: Error = rpc("ping_message", text)
+	if err != OK:
+		push_warning("[Party] send_rpc_ping failed: %s" % error_string(err))
+		return false
+	return true
+
+@rpc("any_peer", "reliable", "call_remote")
+func ping_message(text: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	print("[Party] ping RPC from peer %d: \"%s\"" % [sender, text])
+	rpc_received.emit(sender, text)
 
 # --- Internal helpers ---
 
@@ -435,6 +487,25 @@ func _attach_network(net: PlayFabPartyNetwork) -> void:
 	peer.text_message_received.connect(_on_party_text_received)
 	peer.connection_state_changed.connect(_on_party_connection_state_changed)
 	peer.chat_control_added.connect(_on_chat_control_added)
+
+	# Bootstrap signals for state that was already established before this
+	# attach. The addon emits NETWORK_CHANGE_PEER_JOINED + chat_control_added
+	# synchronously while the join_network_async / create_and_join_network_async
+	# call is still awaiting completion — at which point this autoload has
+	# nothing connected yet, so those events would otherwise be silently
+	# dropped. Replay them here for every already-registered peer so the
+	# client side sees the host as "[peer connected] id=1" + sets per-peer
+	# chat permissions, symmetric with the host-side path where the
+	# remote handshakes arrive AFTER this attach has wired the handlers.
+	for raw_id in peer.get_peers():
+		var peer_id: int = int(raw_id)
+		# Don't emit peer_connected for the local peer.
+		if peer_id == peer.get_unique_id():
+			continue
+		peer_connected.emit(peer_id)
+		var ctrl = peer.get_peer_chat_control(peer_id)
+		if ctrl != null:
+			_on_chat_control_added(peer_id, ctrl)
 
 	if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 		rpc("handshake_message", "ready")
