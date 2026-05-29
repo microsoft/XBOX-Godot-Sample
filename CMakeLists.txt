@@ -10,6 +10,12 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/godot-cpp/CMakeLists.txt")
         "  git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut/plugin.cfg")
+    message(FATAL_ERROR
+        "GUT submodule not found at third_party/Gut/. Run:\n"
+        "  git submodule update --init --recursive")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")

@@ -3,7 +3,7 @@
 # `.gd` files (currently the shared bases under `bases/`) cannot parse
 # standalone — they `extends GutTest` (or similar) and require GUT's
 # class_name registry to be loaded by Godot. Headless GUT runs from the
-# coverage host samples validate them indirectly.
+# dedicated coverage hosts under `tests/godot/*` validate them indirectly.
 #
 # Note: GUT itself is no longer vendored under this directory; it lives as
 # a git submodule at `third_party/Gut/`. Submodule contents are not listed
