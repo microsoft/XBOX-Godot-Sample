@@ -64,13 +64,22 @@ Signal detached_error_signal(HRESULT p_hresult, const String &p_code, const Stri
 class StringPairList {
     std::vector<std::string> m_key_strings;
     std::vector<std::string> m_value_strings;
+    std::vector<bool> m_value_is_null;
     std::vector<const char *> m_key_ptrs;
     std::vector<const char *> m_value_ptrs;
 
 public:
+    // Builds parallel key/value char* arrays for the PlayFab Multiplayer SDK.
+    //
+    // A NIL value entry is preserved as a nullptr pointer in `values()`, which
+    // the SDK interprets as "delete this property" (see PFLobby.h:
+    // PFLobbyDataUpdate / PFLobbyMemberDataUpdate — "To delete a value,
+    // provide nullptr as its new value"). String / StringName values are
+    // copied into char* storage.
     bool assign(const Dictionary &p_dictionary, String *r_error_message) {
         m_key_strings.clear();
         m_value_strings.clear();
+        m_value_is_null.clear();
         m_key_ptrs.clear();
         m_value_ptrs.clear();
 
@@ -85,22 +94,25 @@ public:
             }
 
             const Variant value_variant = p_dictionary[key_variant];
-            if (value_variant.get_type() != Variant::STRING && value_variant.get_type() != Variant::STRING_NAME) {
+            const Variant::Type value_type = value_variant.get_type();
+            const bool value_is_null = value_type == Variant::NIL;
+            if (!value_is_null && value_type != Variant::STRING && value_type != Variant::STRING_NAME) {
                 if (r_error_message != nullptr) {
-                    *r_error_message = "PlayFab Multiplayer property dictionaries require String values.";
+                    *r_error_message = "PlayFab Multiplayer property dictionaries require String values (or null to delete the entry).";
                 }
                 return false;
             }
 
             m_key_strings.push_back(String(key_variant).utf8().get_data());
-            m_value_strings.push_back(String(value_variant).utf8().get_data());
+            m_value_strings.push_back(value_is_null ? std::string() : std::string(String(value_variant).utf8().get_data()));
+            m_value_is_null.push_back(value_is_null);
         }
 
         for (const std::string &key : m_key_strings) {
             m_key_ptrs.push_back(key.c_str());
         }
-        for (const std::string &value : m_value_strings) {
-            m_value_ptrs.push_back(value.c_str());
+        for (size_t i = 0; i < m_value_strings.size(); ++i) {
+            m_value_ptrs.push_back(m_value_is_null[i] ? nullptr : m_value_strings[i].c_str());
         }
         return true;
     }

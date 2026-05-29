@@ -9,6 +9,8 @@
 #include <playfab/party/Party.h>
 #include <playfab/party/PartyImpl.h>
 
+#include <godot_cpp/classes/project_settings.hpp>
+
 #include "playfab.h"
 #include "playfab_pending_signal.h"
 #include "playfab_result.h"
@@ -694,6 +696,7 @@ void PlayFabPartyNetwork::attach_native(
     m_native_local_user = p_local_user;
     m_native_local_endpoint = p_local_endpoint;
     m_native_local_chat_control = p_local_chat_control;
+    m_destroyed_result = Ref<PlayFabResult>();
 }
 
 void PlayFabPartyNetwork::detach_native() {
@@ -1343,7 +1346,7 @@ bool PlayFabParty::_validate_direct_peer_connectivity(int64_t p_options, String 
     return true;
 }
 
-HRESULT PlayFabParty::_ensure_initialized() {
+HRESULT PlayFabParty::_ensure_initialized(int p_local_udp_port_override) {
     if (m_initialized) {
         return S_OK;
     }
@@ -1351,6 +1354,56 @@ HRESULT PlayFabParty::_ensure_initialized() {
     if (runtime == nullptr || !runtime->is_initialized()) {
         return E_NOT_VALID_STATE;
     }
+
+    // Opt-in override for PartyOption::LocalUdpSocketBindAddress. Default
+    // (no override) leaves the SDK to pick its preferred bind address —
+    // the right choice for shipping games. Multi-process same-host
+    // scenarios (CI test orchestrators, splitscreen dev iteration) opt
+    // in via the explicit initialize_async() port arg or via the
+    // [code]playfab/party/local_udp_socket_bind_port[/code] project
+    // setting. Per Party.h:1009 it's "safe and recommended" to override
+    // this option PRIOR to initializing the Party library, so we apply
+    // it BEFORE the Initialize() call below.
+    int resolved_port = p_local_udp_port_override;
+    if (resolved_port < 0) {
+        ProjectSettings *project_settings = ProjectSettings::get_singleton();
+        if (project_settings != nullptr) {
+            resolved_port = static_cast<int>(project_settings->get_setting(
+                    "playfab/party/local_udp_socket_bind_port", -1));
+        }
+    }
+    if (resolved_port > 65535) {
+        ERR_PRINT(vformat("PlayFab.party: local_udp_socket_bind_port=%d is out of range (0-65535); falling back to the SDK's default bind address.",
+                resolved_port));
+        resolved_port = -1;
+    }
+    if (resolved_port >= 0) {
+        Party::PartyLocalUdpSocketBindAddressConfiguration bind_config = {};
+        // The ExcludeGameCorePreferredUdpMultiplayerPort flag is documented
+        // (Party.h:2787-2791) to only be valid when port == 0 on the
+        // Microsoft Game Core build of the Party library. Auto-derive it
+        // here: when the caller asks for OS-picked (port == 0), exclude
+        // the Game Core preferred port so the OS selection never lands
+        // on the platform's reserved slot. For specific ports we MUST
+        // NOT set the flag per the same doc.
+        bind_config.options = (resolved_port == 0)
+                ? Party::PartyLocalUdpSocketBindAddressOptions::ExcludeGameCorePreferredUdpMultiplayerPort
+                : Party::PartyLocalUdpSocketBindAddressOptions::None;
+        bind_config.port = static_cast<uint16_t>(resolved_port);
+        PartyError opt_err = Party::PartyManager::GetSingleton().SetOption(
+                nullptr,
+                Party::PartyOption::LocalUdpSocketBindAddress,
+                &bind_config);
+        if (PARTY_FAILED(opt_err)) {
+            PartyString opt_err_msg = nullptr;
+            Party::PartyManager::GetErrorMessage(opt_err, &opt_err_msg);
+            ERR_PRINT(vformat("PlayFab.party: SetOption(LocalUdpSocketBindAddress, port=%d) returned 0x%x (%s). Falling back to the SDK's default bind address.",
+                    resolved_port,
+                    static_cast<int64_t>(opt_err),
+                    String(opt_err_msg != nullptr ? opt_err_msg : "<no message>")));
+        }
+    }
+
     const CharString title_id_utf8 = runtime->get_title_id().utf8();
     Party::PartyInitializationConfiguration init_config = {};
     init_config.titleId = title_id_utf8.get_data();
@@ -1360,11 +1413,12 @@ HRESULT PlayFabParty::_ensure_initialized() {
     if (PARTY_FAILED(err)) {
         return E_FAIL;
     }
+
     m_initialized = true;
     return S_OK;
 }
 
-Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config) {
+Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config, int p_local_udp_port) {
     (void)p_config;
     PlayFabRuntime *runtime = _get_runtime();
     if (runtime == nullptr || !runtime->is_initialized()) {
@@ -1376,7 +1430,7 @@ Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config) {
                 "PlayFab.party is already initialized.");
     }
 
-    HRESULT hr = _ensure_initialized();
+    HRESULT hr = _ensure_initialized(p_local_udp_port);
     if (FAILED(hr)) {
         return _make_error_signal(hr, PARTY_NOT_INITIALIZED,
                 "Failed to initialize PlayFab Party (PartyManager::Initialize).");
@@ -1624,9 +1678,13 @@ bool PlayFabParty::_abort_join_op_if_network_dead(PendingOperation *p_operation)
         return false;
     }
     // _process_network_destroyed already emitted NETWORK_CHANGE_DESTROYED on
-    // this wrapper; do not emit a second NETWORK_CHANGE_ERROR. Just resolve
-    // the awaiting join_*_async() call so it observes the failure result.
-    Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, PARTY_RESOURCE_NOT_READY, "Network destroyed during join.");
+    // this wrapper; do not emit a second NETWORK_CHANGE_ERROR. Resolve the
+    // awaiting join_*_async() call with the actual destruction reason if we
+    // captured one on the wrapper, falling back to a generic message otherwise.
+    Ref<PlayFabResult> result = p_operation->network->m_destroyed_result;
+    if (result.is_null()) {
+        result = PlayFabResult::error_result(E_FAIL, PARTY_RESOURCE_NOT_READY, "Network destroyed during join.");
+    }
     _complete_pending(p_operation, result);
     return true;
 }
@@ -2298,7 +2356,14 @@ void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChang
     const auto *change = static_cast<const Party::PartyLeaveNetworkCompletedStateChange *>(p_change);
     PendingOperation *operation = static_cast<PendingOperation *>(change->asyncIdentifier);
     Ref<PlayFabResult> result;
-    if (change->result != Party::PartyStateChangeResult::Succeeded) {
+    // Treat any non-Succeeded result with a zero errorDetail as a success.
+    // PartyLeaveNetwork can surface result codes like CanceledByPlatform or
+    // benign-but-not-Succeeded statuses where errorDetail == 0 and
+    // GetErrorMessage returns the literal string "operation succeeded".
+    // Without this guard we'd report `party_resource_not_ready:
+    // PartyLeaveNetwork: operation succeeded` even though the leave itself
+    // completed without an actionable error.
+    if (change->result != Party::PartyStateChangeResult::Succeeded && change->errorDetail != 0) {
         result = _party_error_result(change->errorDetail, PARTY_RESOURCE_NOT_READY, "PartyLeaveNetwork");
     } else {
         result = PlayFabResult::ok_result();
@@ -2329,6 +2394,12 @@ void PlayFabParty::_process_network_destroyed(const Party::PartyStateChange *p_c
     if (change->reason != Party::PartyDestroyedReason::Requested) {
         result = _party_error_result(change->errorDetail, PARTY_RESOURCE_NOT_READY, "PartyNetworkDestroyed");
     }
+    // Remember the destruction reason on the wrapper so any join-chain
+    // *Completed delivered after this point (potentially in the same Party
+    // DoWork batch) can surface the real failure via
+    // _abort_join_op_if_network_dead instead of the generic
+    // "Network destroyed during join." string.
+    network->m_destroyed_result = result;
     network->set_state_value(NETWORK_STATE_DISCONNECTED);
     _emit_network_state(network, NETWORK_CHANGE_DESTROYED, 0, result, "network destroyed");
     Ref<PlayFabPartyPeer> peer = network->get_local_peer();
@@ -3062,7 +3133,7 @@ void PlayFabParty::_emit_chat_state(const Ref<PlayFabPartyChatControl> &p_chat_c
 
 void PlayFabParty::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_initialized"), &PlayFabParty::is_initialized);
-    ClassDB::bind_method(D_METHOD("initialize_async", "config"), &PlayFabParty::initialize_async, DEFVAL(Ref<PlayFabPartyConfig>()));
+    ClassDB::bind_method(D_METHOD("initialize_async", "config", "local_udp_port"), &PlayFabParty::initialize_async, DEFVAL(Ref<PlayFabPartyConfig>()), DEFVAL(-1));
     ClassDB::bind_method(D_METHOD("shutdown_async"), &PlayFabParty::shutdown_async);
     ClassDB::bind_method(D_METHOD("create_and_join_network_async", "user", "config"), &PlayFabParty::create_and_join_network_async, DEFVAL(Ref<PlayFabPartyConfig>()));
     ClassDB::bind_method(D_METHOD("join_network_async", "user", "descriptor", "config"), &PlayFabParty::join_network_async, DEFVAL(Ref<PlayFabPartyConfig>()));

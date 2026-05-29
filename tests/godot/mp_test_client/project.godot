@@ -1,0 +1,22 @@
+; Engine configuration file.
+; Headless PlayFab Multiplayer test client project.
+
+config_version=5
+
+[application]
+
+config/name="MP Test Client"
+config/features=PackedStringArray("4.6")
+run/main_scene=""
+
+[playfab]
+
+runtime/title_id=""
+runtime/endpoint=""
+runtime/embed_dispatch=true
+party/local_udp_socket_bind_port=0
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"
