@@ -559,6 +559,62 @@ cmake --preset gameinput-only
 cmake --build --preset debug-gameinput
 ```
 
+### Source for the GDK dependency
+
+By default, the build resolves the GDK headers and import libs through
+the `ms-gdk[playfab]` vcpkg port (`default` preset). This requires only
+a vcpkg checkout — no machine-wide GDK install is needed at build time.
+
+If you already have a Microsoft GDK installed on disk (most developers
+do, for `makepkg.exe` / `wdapp.exe` / Game Config Editor), the
+`installed-gdk` preset consumes it directly and **does not require vcpkg
+at all** — no `VCPKG_ROOT`, no vcpkg checkout, no port restore:
+
+```powershell
+# Consume an installed Microsoft GDK (auto-detected via %GRDKLatest% or %GameDK%)
+cmake --preset installed-gdk
+cmake --build --preset debug-installed-gdk
+
+# Override auto-detection with an explicit path
+cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft GDK/260400"
+```
+
+> **Note:** the `installed-gdk` preset is the only supported way to
+> consume an installed GDK. Setting `-DGDK_DEPENDENCY_SOURCE=installed`
+> on the `default` preset does **not** work — the vcpkg toolchain
+> processes manifest features (and restores `ms-gdk[playfab]`) before
+> the GDK source-selection logic runs. The `installed-gdk` preset
+> sidesteps this by not loading the vcpkg toolchain at all.
+
+Installed mode consumes the modern `windows\` subdirectory layout of the
+GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
+`<install>/windows/bin/x64`) that ships in GDK **260400 / April 2026 and
+later**. The legacy `GRDK\` peer layout is not supported; use the
+`default` preset (vcpkg) for older GDK versions.
+
+**GameInput in installed mode** — the installed GDK ships GameInput v1
+only, but the `godot_gameinput` addon targets v3. The `installed-gdk`
+preset solves this by setting `GAMEINPUT_SOURCE=nuget`, which fetches
+the `Microsoft.GameInput` NuGet package directly from nuget.org via
+`file(DOWNLOAD)` (cached under `build/installed-gdk/_deps/`). No vcpkg
+toolchain is involved; the first configure needs network access, and
+subsequent configures reuse the cached extract. This is the same
+upstream archive vcpkg's `gameinput` port wraps, so behavior is
+identical at runtime. Target machines still need `GameInputRedist.msi`
+installed (extracted to `build/installed-gdk/_deps/gameinput-nuget-<version>/redist/`).
+
+Source-selection options:
+
+| `GDK_DEPENDENCY_SOURCE` | Behavior |
+|---|---|
+| `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. Requires `VCPKG_ROOT`. |
+| `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also drops the vcpkg toolchain — no `VCPKG_ROOT` required). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
+
+| `GAMEINPUT_SOURCE` | Behavior |
+|---|---|
+| `vcpkg` (default) | Use the `gameinput` vcpkg port. Requires `VCPKG_ROOT`. |
+| `nuget` | Fetch the `Microsoft.GameInput` NuGet package directly from nuget.org (no vcpkg required). Set automatically by the `installed-gdk` preset. The pinned version + SHA512 are tracked in `cmake/GDKDependencies.cmake` (override with `-DGDK_GAMEINPUT_NUGET_VERSION=<version> -DGDK_GAMEINPUT_NUGET_SHA512=<hash>`). |
+
 ### CMake auto-detection
 
 The build resolves its native dependencies via vcpkg manifest mode. CMake

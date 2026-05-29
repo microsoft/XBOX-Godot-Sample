@@ -75,9 +75,11 @@ The native addon is built by `addons\godot_gdk\CMakeLists.txt`.
 
 That target currently:
 
-1. resolves the GDK headers and import libs via vcpkg (`ms-gdk[playfab]`
-   port, configured by the repo-root `vcpkg.json` and consumed by the
-   CMake preset's vcpkg toolchain)
+1. resolves the GDK headers and import libs via the shared
+   `cmake/GDKDependencies.cmake` helper, which dispatches to either the
+   `ms-gdk[playfab]` vcpkg port (default) or an installed Microsoft GDK
+   on disk (opt-in via the `installed-gdk` preset — see
+   [Source for the GDK dependency](../getting-started.md#source-for-the-gdk-dependency))
 2. builds `godot_gdk` as a shared library
 3. links against:
    - `godot::cpp`
@@ -102,6 +104,10 @@ native C++ sources
 > want to **run** `makepkg.exe`, `wdapp.exe`, or the Game Config Editor
 > still need the full Microsoft GDK installed on their machine — see
 > [Editor tools](editor-tools.md) and [Packaging plugin](../packaging/plugin.md).
+> The same install can also be used as the source of build-time headers
+> and libs in place of vcpkg via the `installed-gdk` preset (which then
+> needs no vcpkg checkout at all) —
+> [Source for the GDK dependency](../getting-started.md#source-for-the-gdk-dependency).
 
 ## Runtime loading path
 

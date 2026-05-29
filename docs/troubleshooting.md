@@ -52,7 +52,9 @@ CMake Error: Could not find a package configuration file provided by "gameinput"
 unresolvable during CMake configure.
 
 **Cause:** vcpkg manifest mode could not resolve the `ms-gdk[playfab]` or
-`gameinput` ports defined in the repo's `vcpkg.json`.
+`gameinput` ports defined in the repo's `vcpkg.json`. (The `installed-gdk`
+preset does not require vcpkg at all — see
+[Source for the GDK dependency](getting-started.md#source-for-the-gdk-dependency).)
 
 **Fixes:**
 
