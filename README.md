@@ -1,7 +1,7 @@
 # Godot for XBOX on PC
 
 > [!IMPORTANT]
-> **This is a source-only sample, not a product.** It is not a commercial release and there is no SLA for support or maintenance. The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. We will watch the repo, monitor issues, and iterate where it makes sense.
+> **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
 >
 > **This is a sample specific to XBOX on PC.** There is no specific support for Xbox Series X\|S or Xbox One. Please talk with your Microsoft representative if you'd like to learn more about support on those platforms.
 
