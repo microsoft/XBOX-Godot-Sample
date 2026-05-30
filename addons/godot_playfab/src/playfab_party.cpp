@@ -1735,19 +1735,20 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
     net_config.maxEndpointsPerDeviceCount = 1;
     net_config.directPeerConnectivityOptions = static_cast<Party::PartyDirectPeerConnectivityOptions>(config->get_direct_peer_connectivity());
 
-    Party::PartyInvitationConfiguration invite_config = {};
-    const CharString invite_id_utf8 = config->get_invitation_id().utf8();
-    invite_config.identifier = invite_id_utf8.length() > 0 ? invite_id_utf8.get_data() : nullptr;
-    invite_config.revocability = Party::PartyInvitationRevocability::Anyone;
-    invite_config.entityIdCount = 0;
-    invite_config.entityIds = nullptr;
-
     PendingOperation *operation = _create_pending(PENDING_CREATE_NETWORK);
     operation->user = p_user;
     operation->config = config;
     operation->host = true;
     operation->native_user = local_user;
     operation->invitation_id = config->get_invitation_id();
+    const CharString invite_id_utf8 = operation->invitation_id.utf8();
+    operation->create_invitation_id_utf8.set(invite_id_utf8.get_data());
+
+    Party::PartyInvitationConfiguration invite_config = {};
+    invite_config.identifier = operation->create_invitation_id_utf8.c_str_or_null();
+    invite_config.revocability = Party::PartyInvitationRevocability::Anyone;
+    invite_config.entityIdCount = 0;
+    invite_config.entityIds = nullptr;
     operation->network.instantiate();
     operation->network->set_owner(this);
     operation->network->set_state_value(NETWORK_STATE_CREATING);
@@ -1773,6 +1774,7 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
     }
 
     operation->invitation_id = String::utf8(applied_invitation_id);
+    operation->auth_invitation_id_utf8.set(applied_invitation_id);
     operation->network->set_network_id(String::utf8(descriptor.networkIdentifier));
 
     Party::PartyNetwork *network_handle = nullptr;
@@ -1839,6 +1841,8 @@ Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const St
     operation->descriptor = p_descriptor;
     operation->native_user = local_user;
     operation->invitation_id = config->get_invitation_id();
+    const CharString invitation_id_utf8 = operation->invitation_id.utf8();
+    operation->auth_invitation_id_utf8.set(invitation_id_utf8.get_data());
     operation->network.instantiate();
     operation->network->set_owner(this);
     operation->network->set_state_value(NETWORK_STATE_CONNECTING);
@@ -2041,7 +2045,7 @@ void PlayFabParty::_process_connect_to_network_completed(const Party::PartyState
 
     PartyError err = change->network->AuthenticateLocalUser(
             operation->native_user,
-            operation->invitation_id.utf8().get_data(),
+            operation->auth_invitation_id_utf8.c_str(),
             operation);
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_NETWORK_CONNECT_FAILED, "PartyNetwork::AuthenticateLocalUser");

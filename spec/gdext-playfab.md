@@ -90,6 +90,7 @@ Rules:
 4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
 5. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
 6. `PlayFab.dispatch()` also pumps PlayFab Multiplayer lobby and matchmaking state changes after `PlayFab.multiplayer.initialize_async()`.
+7. Native async-operation contexts own UTF-8 request strings passed to PlayFab or Party SDK calls until the SDK completion callback has settled; callers must not hand SDK async calls pointers into stack-local `CharString` buffers.
 
 ## User/session model
 

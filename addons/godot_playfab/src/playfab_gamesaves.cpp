@@ -6,6 +6,8 @@
 
 #include <playfab/gamesave/PFGameSaveFiles.h>
 
+#include "playfab_owned_utf8.h"
+
 #include "playfab.h"
 #include "playfab_pending_signal.h"
 #include "playfab_result.h"
@@ -197,6 +199,7 @@ class GameSaveSimpleAsyncContext final : public PlayFabSignalXAsyncContext {
     String m_cancel_message;
     String m_failure_action;
     String m_failure_code;
+    playfab_internal::OwnedUtf8String m_request_utf8;
 
 public:
     GameSaveSimpleAsyncContext(
@@ -207,20 +210,26 @@ public:
             const Variant &p_success_data,
             const String &p_cancel_message,
             const String &p_failure_action,
-            const String &p_failure_code) :
+            const String &p_failure_code,
+            const char *p_request_utf8 = nullptr) :
             PlayFabSignalXAsyncContext(p_runtime, p_pending_signal),
             m_local_user_handle(p_local_user_handle),
             m_result_fn(p_result_fn),
             m_success_data(p_success_data),
             m_cancel_message(p_cancel_message),
             m_failure_action(p_failure_action),
-            m_failure_code(p_failure_code) {}
+            m_failure_code(p_failure_code),
+            m_request_utf8(p_request_utf8) {}
 
     ~GameSaveSimpleAsyncContext() override {
         if (m_local_user_handle != nullptr) {
             PFLocalUserCloseHandle(m_local_user_handle);
             m_local_user_handle = nullptr;
         }
+    }
+
+    const char *get_request_utf8() const {
+        return m_request_utf8.c_str();
     }
 
 protected:
@@ -453,6 +462,7 @@ Signal PlayFabGameSaves::set_save_description_async(const Ref<PlayFabUser> &p_us
 
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
 
+    const CharString description_utf8 = p_short_save_description.utf8();
     auto *context = new GameSaveSimpleAsyncContext(
             runtime,
             pending_signal,
@@ -461,13 +471,13 @@ Signal PlayFabGameSaves::set_save_description_async(const Ref<PlayFabUser> &p_us
             success_data,
             "Setting the Game Saves description was cancelled.",
             "Failed to set the Game Saves description.",
-            "gamesave_set_description_failed");
+            "gamesave_set_description_failed",
+            description_utf8.get_data());
     context->bind_cancel_handler();
 
-    const CharString description_utf8 = p_short_save_description.utf8();
     HRESULT hr = PFGameSaveFilesSetSaveDescriptionAsync(
             local_user_handle,
-            description_utf8.get_data(),
+            context->get_request_utf8(),
             context->get_async_block());
     if (FAILED(hr)) {
         pending_signal->clear_cancel_handler();

@@ -23,6 +23,7 @@ godot_addon_doctest_target(
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_gdk_result_codes.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_playfab_result_codes.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/playfab/test_owned_utf8.cpp"
         "${_GDK_RC_SRC}/gdk_result_codes_internal.cpp"
         "${_PF_RC_SRC}/playfab_result_codes_internal.cpp"
     LINK_LIBS   godot::cpp

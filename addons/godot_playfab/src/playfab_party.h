@@ -22,6 +22,8 @@
 #include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 
+#include "playfab_owned_utf8.h"
+
 #include <XTaskQueue.h>
 #include <playfab/core/PFEntity.h>
 
@@ -546,6 +548,8 @@ public:
         Party::PartyLocalEndpoint *native_endpoint = nullptr;
         Party::PartyLocalChatControl *native_chat_control = nullptr;
         String invitation_id;
+        playfab_internal::OwnedUtf8String create_invitation_id_utf8;
+        playfab_internal::OwnedUtf8String auth_invitation_id_utf8;
         uint32_t handshake_nonce = 0;
     };
 
