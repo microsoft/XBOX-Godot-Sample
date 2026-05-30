@@ -76,6 +76,7 @@ With a vibration-capable controller connected:
 - [ ] **Rumble Pulse** scenario causes the controller to vibrate for ~0.4 s.
 - [ ] **Stop Rumble** ends any in-flight rumble immediately.
 - [ ] Event log records both events.
+- [ ] Disconnect or disable the target device and confirm `GameInput.set_vibration()` returns `false` (or logs the native HRESULT on SDKs that report one) instead of reporting success.
 
 ### Vibration — two controllers
 
@@ -99,6 +100,12 @@ node into a scene and assign a small `GameInputActionMap` with one binding.
 - [ ] When you create a custom `GameInputBinding` that targets an action
   **not** present in `InputMap`, the Mapper logs **one** warning per missing
   action (not per frame).
+- [ ] Hold a mapped action, then hot-swap the mapper's `action_map`, call
+  `set_bindings()` / `add_binding()` / `clear()` on the active map, and remove
+  the mapper from the tree. After each stop-driving path,
+  `Input.is_action_pressed(action)` returns `false`.
+- [ ] Hold a mapped action and unplug the target controller. The action is
+  released on the next frame and does not remain stuck in Godot's `InputMap`.
 
 ## Regression smoke
 

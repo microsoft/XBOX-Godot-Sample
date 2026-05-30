@@ -58,6 +58,9 @@ func test_soft_fail_before_init() -> void:
 	var reading = gi.get_current_reading(null)
 	assert_true(reading == null, "get_current_reading(null) returns null before init")
 
+	assert_eq(gi.set_vibration(null, 1.0, 1.0), false,
+			"set_vibration(null) returns false before init")
+
 	gi.poll()
 	assert_true(true, "poll() is safe before initialize()")
 

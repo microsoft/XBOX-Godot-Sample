@@ -63,7 +63,7 @@
 			<param index="3" name="left_trigger" type="float" default="0.0" />
 			<param index="4" name="right_trigger" type="float" default="0.0" />
 			<description>
-				Sets the rumble motor levels on [param device]. Each value is clamped to [code][0.0, 1.0][/code]. Returns [code]true[/code] when the rumble request was sent, or [code]false[/code] when the device is null, disconnected, has no rumble motors, or the runtime is not initialized. Trigger motors are only meaningful on impulse-trigger gamepads; pass [code]0.0[/code] on devices without them.
+				Sets the rumble motor levels on [param device]. Each value is clamped to [code][0.0, 1.0][/code]. Returns [code]true[/code] when the rumble request was sent, or [code]false[/code] when the device is null, disconnected, has no rumble motors, the runtime is not initialized, or the native [code]SetRumbleState[/code] call reports failure on SDKs that expose an HRESULT. Trigger motors are only meaningful on impulse-trigger gamepads; pass [code]0.0[/code] on devices without them.
 			</description>
 		</method>
 		<method name="stop_haptics">

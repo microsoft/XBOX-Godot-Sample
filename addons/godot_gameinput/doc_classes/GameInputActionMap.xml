@@ -5,7 +5,7 @@
 	</brief_description>
 	<description>
 		[GameInputActionMap] is a [Resource] that owns an ordered, typed array of [GameInputBinding]. Edit it in the inspector or build it in code, save and load via [code]ResourceSaver[/code] / [code]ResourceLoader[/code], and assign it to [member GameInputMapper.action_map] to drive Godot actions from GameInput.
-		Mutations through [method add_binding] and [method clear] emit [code]changed[/code] (inherited from [Resource]), so a [GameInputMapper] referencing the action map can react to live edits in the editor.
+		Mutations through [method set_bindings], [method add_binding], [method clear], and property edits on contained [GameInputBinding] resources emit [code]changed[/code] (inherited from [Resource]), so a [GameInputMapper] referencing the action map can release any currently held actions and refresh its caches before the next frame.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -19,7 +19,7 @@
 			<return type="void" />
 			<param index="0" name="bindings" type="Array" />
 			<description>
-				Replaces the entire binding list. The argument should be a typed [code]Array[GameInputBinding][/code]; non-binding entries are silently kept by Godot's typed-array machinery but ignored at runtime. See [member bindings].
+				Replaces the entire binding list and emits [code]changed[/code]. The argument should be a typed [code]Array[GameInputBinding][/code]; non-binding entries are silently kept by Godot's typed-array machinery but ignored at runtime. See [member bindings].
 			</description>
 		</method>
 		<method name="get_binding_count" qualifiers="const">
