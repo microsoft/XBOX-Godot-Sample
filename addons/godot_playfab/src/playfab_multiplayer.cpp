@@ -39,6 +39,44 @@ bool entity_key_equals_user(const PFEntityKey *p_entity_key, const Ref<PlayFabUs
     return p_user.is_valid() && entity_key_equals_dictionary(p_entity_key, p_user->get_entity_key());
 }
 
+Dictionary copy_dictionary(const Dictionary &p_dictionary) {
+    Dictionary copy;
+    Array keys = p_dictionary.keys();
+    for (int64_t i = 0; i < keys.size(); ++i) {
+        const Variant key = keys[i];
+        copy[key] = p_dictionary[key];
+    }
+    return copy;
+}
+
+Dictionary normalize_property_dictionary(const Dictionary &p_properties) {
+    Dictionary normalized;
+    Array keys = p_properties.keys();
+    for (int64_t i = 0; i < keys.size(); ++i) {
+        const Variant key_variant = keys[i];
+        const Variant value_variant = p_properties[key_variant];
+        if (value_variant.get_type() == Variant::NIL) {
+            continue;
+        }
+        normalized[String(key_variant)] = String(value_variant);
+    }
+    return normalized;
+}
+
+void apply_property_update(Dictionary &r_properties, const Dictionary &p_update) {
+    Array keys = p_update.keys();
+    for (int64_t i = 0; i < keys.size(); ++i) {
+        const Variant key_variant = keys[i];
+        const Variant value_variant = p_update[key_variant];
+        const String key = String(key_variant);
+        if (value_variant.get_type() == Variant::NIL) {
+            r_properties.erase(key);
+        } else {
+            r_properties[key] = String(value_variant);
+        }
+    }
+}
+
 String multiplayer_error_message(HRESULT p_hresult, const String &p_fallback) {
     const char *message = PFMultiplayerGetErrorMessage(p_hresult);
     if (message != nullptr && message[0] != '\0') {
@@ -261,6 +299,9 @@ struct PlayFabMultiplayer::PendingOperation {
     Ref<PlayFabLobby> lobby;
     Ref<PlayFabMatchTicket> ticket;
     Ref<PlayFabUser> user;
+    Dictionary local_member_property_update;
+    bool has_local_member_property_update = false;
+    bool replace_local_member_properties = false;
 };
 
 void PlayFabMultiplayerConfig::_bind_methods() {}
@@ -581,6 +622,10 @@ void PlayFabLobby::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_properties_async", "properties"), &PlayFabLobby::set_properties_async);
     ClassDB::bind_method(D_METHOD("set_member_properties_async", "properties"), &PlayFabLobby::set_member_properties_async);
     ClassDB::bind_method(D_METHOD("leave_async"), &PlayFabLobby::leave_async);
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(D_METHOD("_test_seed_local_member", "entity_key", "properties"), &PlayFabLobby::_test_seed_local_member);
+    ClassDB::bind_method(D_METHOD("_test_apply_local_member_property_update", "properties"), &PlayFabLobby::_test_apply_local_member_property_update);
+#endif
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "lobby_id"), "", "get_lobby_id");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "connection_string"), "", "get_connection_string");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "owner_entity_key"), "", "get_owner_entity_key");
@@ -608,6 +653,120 @@ PFLobbyHandle PlayFabLobby::get_native_handle() const { return m_lobby_handle; }
 Ref<PlayFabUser> PlayFabLobby::get_local_user() const { return m_local_user; }
 void PlayFabLobby::mark_disconnected() { m_disconnected = true; m_lobby_handle = nullptr; }
 bool PlayFabLobby::is_disconnected() const { return m_disconnected; }
+
+bool PlayFabLobby::_is_local_entity_key(const Dictionary &p_entity_key) const {
+    if (!m_local_user.is_valid()) {
+        return false;
+    }
+
+    const Dictionary local_key = m_local_user->get_entity_key();
+    const String local_id = String(local_key.get("id", String()));
+    const String member_id = String(p_entity_key.get("id", String()));
+    if (local_id.is_empty() || member_id != local_id) {
+        return false;
+    }
+
+    const String local_type = String(local_key.get("type", String()));
+    const String member_type = String(p_entity_key.get("type", String()));
+    return local_type.is_empty() || member_type.is_empty() || member_type == local_type;
+}
+
+Ref<PlayFabLobbyMember> PlayFabLobby::_find_local_member() const {
+    for (int i = 0; i < m_members.size(); ++i) {
+        Ref<PlayFabLobbyMember> member = m_members[i];
+        if (!member.is_valid()) {
+            continue;
+        }
+        if (member->is_local_member() || _is_local_entity_key(member->get_entity_key())) {
+            return member;
+        }
+    }
+    return Ref<PlayFabLobbyMember>();
+}
+
+void PlayFabLobby::_apply_local_member_properties_to_snapshot(bool p_allow_synthetic_create) {
+    if (!m_local_member_properties_known) {
+        return;
+    }
+
+    Ref<PlayFabLobbyMember> local_member = _find_local_member();
+    if (local_member.is_valid()) {
+        const Dictionary entity_key = local_member->get_entity_key();
+        local_member->set_snapshot(
+                String(entity_key.get("id", String())),
+                entity_key,
+                copy_dictionary(m_local_member_properties),
+                true);
+        return;
+    }
+
+    // Update path (apply_local_member_property_update): when the SDK snapshot
+    // no longer contains the local user — for example during the local
+    // MemberRemoved state change that precedes LeaveLobbyCompleted, or after
+    // _refresh_snapshot drops a leaving user — do NOT synthesize a stale
+    // local member. The leave/remove flow expects the refreshed snapshot to
+    // be authoritative.
+    if (!p_allow_synthetic_create) {
+        return;
+    }
+
+    if (!m_local_user.is_valid()) {
+        return;
+    }
+
+    const Dictionary entity_key = m_local_user->get_entity_key();
+    Ref<PlayFabLobbyMember> member;
+    member.instantiate();
+    member->set_snapshot(
+            String(entity_key.get("id", String())),
+            entity_key,
+            copy_dictionary(m_local_member_properties),
+            true);
+    m_members.push_back(member);
+    m_member_count = std::max<int64_t>(m_member_count, static_cast<int64_t>(m_members.size()));
+}
+
+void PlayFabLobby::replace_local_member_properties(const Dictionary &p_properties) {
+    m_local_member_properties = normalize_property_dictionary(p_properties);
+    m_local_member_properties_known = true;
+    // Create/join seeding: the SDK has not necessarily emitted a MemberAdded
+    // callback for the local user yet, so allow the synthetic-create
+    // fallback to seed the snapshot.
+    _apply_local_member_properties_to_snapshot(true);
+}
+
+void PlayFabLobby::apply_local_member_property_update(const Dictionary &p_update) {
+    if (!m_local_member_properties_known) {
+        Ref<PlayFabLobbyMember> local_member = _find_local_member();
+        m_local_member_properties = local_member.is_valid() ? copy_dictionary(local_member->get_properties()) : Dictionary();
+        m_local_member_properties_known = true;
+    }
+
+    apply_property_update(m_local_member_properties, p_update);
+    // Update path: do NOT synthesize a stale local member if the SDK
+    // snapshot has already dropped the local user (mid-leave/remove).
+    _apply_local_member_properties_to_snapshot(false);
+}
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+void PlayFabLobby::_test_seed_local_member(const Dictionary &p_entity_key, const Dictionary &p_properties) {
+    Ref<PlayFabLobbyMember> member;
+    member.instantiate();
+    member->set_snapshot(
+            String(p_entity_key.get("id", String())),
+            p_entity_key,
+            normalize_property_dictionary(p_properties),
+            true);
+    m_members.clear();
+    m_members.push_back(member);
+    m_member_count = 1;
+    replace_local_member_properties(p_properties);
+}
+
+void PlayFabLobby::_test_apply_local_member_property_update(const Dictionary &p_update) {
+    apply_local_member_property_update(p_update);
+}
+#endif
 
 HRESULT PlayFabLobby::refresh_snapshot() {
     if (m_lobby_handle == nullptr) {
@@ -647,14 +806,32 @@ HRESULT PlayFabLobby::refresh_snapshot() {
             Ref<PlayFabLobbyMember> member;
             member.instantiate();
             const Dictionary entity_key = entity_key_to_dictionary(member_key);
+            const bool is_local = entity_key_equals_user(member_key, m_local_user) || _is_local_entity_key(entity_key);
+            Dictionary member_properties = get_member_property_dictionary(m_lobby_handle, member_key);
+            if (is_local) {
+                if (m_local_member_properties_known) {
+                    member_properties = copy_dictionary(m_local_member_properties);
+                } else {
+                    m_local_member_properties = copy_dictionary(member_properties);
+                    m_local_member_properties_known = true;
+                }
+            }
             member->set_snapshot(
                     String(entity_key.get("id", String())),
                     entity_key,
-                    get_member_property_dictionary(m_lobby_handle, member_key),
-                    entity_key_equals_user(member_key, m_local_user));
+                    member_properties,
+                    is_local);
             member_wrappers.push_back(member);
         }
         m_members = member_wrappers;
+        // refresh_snapshot is authoritative: if the SDK has dropped the local
+        // user (mid-leave / MemberRemoved), do NOT synthesize a stale local
+        // member here. Callers that want to seed the local snapshot from a
+        // pending operation (CreateAndJoinLobbyCompleted /
+        // JoinLobbyCompleted / JoinArrangedLobbyCompleted) follow this call
+        // with replace_local_member_properties(), which is allowed to
+        // synthesize because the local user has just joined.
+        _apply_local_member_properties_to_snapshot(false);
     }
 
     return S_OK;
@@ -680,7 +857,9 @@ Ref<PlayFabLobbyMember> PlayFabLobby::find_member(const Dictionary &p_entity_key
             continue;
         }
         const Dictionary mk = member->get_entity_key();
-        if (String(mk.get("id", String())) == id && String(mk.get("type", String())) == type) {
+        const String member_id = String(mk.get("id", String()));
+        const String member_type = String(mk.get("type", String()));
+        if (member_id == id && (member_type == type || member_type.is_empty() || type.is_empty())) {
             return member;
         }
     }
@@ -1335,6 +1514,9 @@ Signal PlayFabMultiplayer::create_lobby_async(const Ref<PlayFabUser> &p_user, co
     lobby->set_owner(this);
     operation->lobby = lobby;
     operation->user = p_user;
+    operation->local_member_property_update = config->get_member_properties();
+    operation->has_local_member_property_update = true;
+    operation->replace_local_member_properties = true;
 
     PFLobbyHandle lobby_handle = nullptr;
     HRESULT hr = PFMultiplayerCreateAndJoinLobbyWithEntityHandle(
@@ -1398,6 +1580,9 @@ Signal PlayFabMultiplayer::join_lobby_async(const Ref<PlayFabUser> &p_user, cons
     lobby->set_owner(this);
     operation->lobby = lobby;
     operation->user = p_user;
+    operation->local_member_property_update = config->get_member_properties();
+    operation->has_local_member_property_update = true;
+    operation->replace_local_member_properties = true;
 
     const CharString connection_string_utf8 = p_connection_string.strip_edges().utf8();
     PFLobbyHandle lobby_handle = nullptr;
@@ -1466,6 +1651,9 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
     lobby->set_owner(this);
     operation->lobby = lobby;
     operation->user = p_user;
+    operation->local_member_property_update = config->get_member_properties();
+    operation->has_local_member_property_update = true;
+    operation->replace_local_member_properties = true;
 
     const CharString connection_string_utf8 = p_connection_string.strip_edges().utf8();
     PFLobbyHandle lobby_handle = nullptr;
@@ -1605,6 +1793,8 @@ Signal PlayFabMultiplayer::_set_member_properties_async(const Ref<PlayFabLobby> 
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     PendingOperation *operation = _create_pending_operation(PlayFabLobby::MEMBER_UPDATED, pending_signal);
     operation->lobby = p_lobby;
+    operation->local_member_property_update = p_properties;
+    operation->has_local_member_property_update = true;
 
     HRESULT hr = PFLobbyPostUpdateWithEntityHandle(
             p_lobby->get_native_handle(),
@@ -1942,6 +2132,9 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 }
                 if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
+                    if (operation != nullptr && operation->has_local_member_property_update && operation->replace_local_member_properties) {
+                        lobby->replace_local_member_properties(operation->local_member_property_update);
+                    }
                 }
                 Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby creation failed.", "lobby_create_failed");
                 if (!succeeded && lobby.is_valid()) {
@@ -1962,6 +2155,9 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 }
                 if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
+                    if (operation != nullptr && operation->has_local_member_property_update && operation->replace_local_member_properties) {
+                        lobby->replace_local_member_properties(operation->local_member_property_update);
+                    }
                 }
                 Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby join failed.", "lobby_join_failed");
                 Ref<PlayFabLobbyMember> joined_member;
@@ -1986,6 +2182,9 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 }
                 if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
+                    if (operation != nullptr && operation->has_local_member_property_update && operation->replace_local_member_properties) {
+                        lobby->replace_local_member_properties(operation->local_member_property_update);
+                    }
                 }
                 Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab arranged lobby join failed.", "arranged_lobby_join_failed");
                 Ref<PlayFabLobbyMember> joined_member;
@@ -2036,17 +2235,20 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 const auto *change = static_cast<const PFLobbyPostUpdateCompletedStateChange *>(state_change);
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
+                const bool succeeded = SUCCEEDED(change->result);
+                const int64_t completed_kind = operation != nullptr ? operation->kind : PlayFabLobby::PROPERTIES_UPDATED;
                 if (lobby.is_valid()) {
                     lobby->refresh_snapshot();
+                    if (succeeded && completed_kind == PlayFabLobby::MEMBER_UPDATED && operation != nullptr && operation->has_local_member_property_update) {
+                        lobby->apply_local_member_property_update(operation->local_member_property_update);
+                    }
                 }
-                Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby update failed.", "lobby_update_failed");
+                Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby update failed.", "lobby_update_failed");
                 // Capture kind + look up the affected member BEFORE
                 // _complete_pending_operation deletes the operation. For
-                // MEMBER_UPDATED, _set_member_properties_async always acts on
-                // the lobby's local user, so resolve through the snapshot to
-                // avoid relying on operation->user (which is not populated by
-                // that code path).
-                const int64_t completed_kind = operation != nullptr ? operation->kind : PlayFabLobby::PROPERTIES_UPDATED;
+                // local-self member updates, apply_local_member_property_update
+                // eagerly patches the snapshot because the SDK does not surface
+                // a LobbyMemberPropertyChanged callback for the writer.
                 Ref<PlayFabLobbyMember> updated_member;
                 if (completed_kind == PlayFabLobby::MEMBER_UPDATED && lobby.is_valid() && lobby->get_local_user().is_valid()) {
                     updated_member = lobby->find_member(lobby->get_local_user()->get_entity_key());

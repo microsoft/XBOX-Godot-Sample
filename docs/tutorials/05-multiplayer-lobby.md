@@ -561,6 +561,9 @@ func push_loadout_change(loadout: String) -> void:
     var pf: PlayFabResult = await _lobby.set_member_properties_async({ "loadout": loadout })
     if not pf.ok:
         push_warning("[Lobby] member props failed: %s" % pf.message)
+        return
+    # The local member snapshot is updated before this await resumes.
+    # Remote members receive the change via MEMBER_UPDATED.
 
 func change_map(new_map: String) -> void:
     if _lobby == null or not _lobby.is_owner(Auth.playfab_user):

@@ -28,7 +28,13 @@
 
 .PARAMETER Live
     Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
-    talk to services and mutate online state.
+    talk to services. Live tests that write persistent online state also require
+    -AllowLiveWrites.
+
+.PARAMETER AllowLiveWrites
+    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for live tests
+    that create lobbies, write leaderboards, save Game Saves, or otherwise
+    mutate the configured sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
@@ -77,6 +83,7 @@
 [CmdletBinding()]
 param(
     [switch]$Live,
+    [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
     [string]$OutDir = 'build/test-results',
     [string[]]$Hosts,
@@ -828,8 +835,13 @@ function Main {
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
+    if ($AllowLiveWrites -and -not $Live) {
+        throw '-AllowLiveWrites requires -Live so writes only run in an explicit live-test session.'
+    }
+
     $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
+    if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
     if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
         $childEnv['PLAYFAB_TITLE_ID'] = $PlayFabTitleId.Trim()
     }
@@ -853,7 +865,7 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   SkipBuild = $SkipBuild" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan

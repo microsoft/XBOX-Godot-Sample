@@ -332,7 +332,13 @@ class PlayFabLobby : public RefCounted {
     Dictionary m_properties;
     Dictionary m_search_properties;
     Array m_members;
+    Dictionary m_local_member_properties;
+    bool m_local_member_properties_known = false;
     bool m_disconnected = false;
+
+    bool _is_local_entity_key(const Dictionary &p_entity_key) const;
+    Ref<PlayFabLobbyMember> _find_local_member() const;
+    void _apply_local_member_properties_to_snapshot(bool p_allow_synthetic_create = true);
 
 protected:
     static void _bind_methods();
@@ -354,6 +360,8 @@ public:
     void mark_disconnected();
     bool is_disconnected() const;
     HRESULT refresh_snapshot();
+    void replace_local_member_properties(const Dictionary &p_properties);
+    void apply_local_member_property_update(const Dictionary &p_update);
 
     String get_lobby_id() const;
     String get_connection_string() const;
@@ -368,6 +376,10 @@ public:
     Signal set_properties_async(const Dictionary &p_properties);
     Signal set_member_properties_async(const Dictionary &p_properties);
     Signal leave_async();
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    void _test_seed_local_member(const Dictionary &p_entity_key, const Dictionary &p_properties);
+    void _test_apply_local_member_property_update(const Dictionary &p_update);
+#endif
 };
 
 class PlayFabMatchTicket : public RefCounted {
