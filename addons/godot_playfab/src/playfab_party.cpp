@@ -1569,6 +1569,20 @@ Signal PlayFabParty::_test_enqueue_shutdown_pending() {
 int64_t PlayFabParty::_test_pending_operation_count() const {
     return static_cast<int64_t>(m_pending_operations.size() + m_pending_operations_deferred_delete.size());
 }
+
+Dictionary PlayFabParty::_test_classify_leave_network_completed(int64_t p_state_change_result, int64_t p_error_detail) const {
+    const auto state_change_result = static_cast<Party::PartyStateChangeResult>(p_state_change_result);
+    Ref<PlayFabResult> result = _party_leave_network_completed_result(state_change_result, static_cast<uint32_t>(p_error_detail));
+    Dictionary payload;
+    payload["state_change_result"] = _party_state_change_result_name(state_change_result);
+    if (result.is_valid()) {
+        payload["ok"] = result->is_ok();
+        payload["hresult"] = result->get_hresult();
+        payload["code"] = result->get_code();
+        payload["message"] = result->get_message();
+    }
+    return payload;
+}
 #endif
 
 void PlayFabParty::_track_network(const Ref<PlayFabPartyNetwork> &p_network) {
@@ -2173,7 +2187,7 @@ void PlayFabParty::_process_create_new_network_completed(const Party::PartyState
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_NETWORK_CREATE_FAILED, "PartyCreateNewNetwork");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CREATE_FAILED, "PartyCreateNewNetwork");
         if (operation->network.is_valid()) {
             operation->network->set_state_value(NETWORK_STATE_FAILED);
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create new network failed.");
@@ -2195,7 +2209,7 @@ void PlayFabParty::_process_connect_to_network_completed(const Party::PartyState
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyConnectToNetwork");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyConnectToNetwork");
         if (operation->network.is_valid()) {
             operation->network->set_state_value(NETWORK_STATE_FAILED);
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Connect to network failed.");
@@ -2241,7 +2255,7 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyAuthenticateLocalUser");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyAuthenticateLocalUser");
         if (operation->network.is_valid()) {
             operation->network->set_state_value(NETWORK_STATE_FAILED);
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Authenticate failed.");
@@ -2289,7 +2303,7 @@ void PlayFabParty::_process_create_endpoint_completed(const Party::PartyStateCha
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_TRANSPORT_CREATE_FAILED, "PartyCreateEndpoint");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_TRANSPORT_CREATE_FAILED, "PartyCreateEndpoint");
         if (operation->network.is_valid()) {
             operation->network->set_state_value(NETWORK_STATE_FAILED);
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create endpoint failed.");
@@ -2529,19 +2543,7 @@ void PlayFabParty::_process_network_descriptor_changed(const Party::PartyStateCh
 void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChange *p_change) {
     const auto *change = static_cast<const Party::PartyLeaveNetworkCompletedStateChange *>(p_change);
     PendingOperation *operation = static_cast<PendingOperation *>(change->asyncIdentifier);
-    Ref<PlayFabResult> result;
-    // Treat any non-Succeeded result with a zero errorDetail as a success.
-    // PartyLeaveNetwork can surface result codes like CanceledByPlatform or
-    // benign-but-not-Succeeded statuses where errorDetail == 0 and
-    // GetErrorMessage returns the literal string "operation succeeded".
-    // Without this guard we'd report `party_resource_not_ready:
-    // PartyLeaveNetwork: operation succeeded` even though the leave itself
-    // completed without an actionable error.
-    if (change->result != Party::PartyStateChangeResult::Succeeded && change->errorDetail != 0) {
-        result = _party_error_result(change->errorDetail, PARTY_RESOURCE_NOT_READY, "PartyLeaveNetwork");
-    } else {
-        result = PlayFabResult::ok_result();
-    }
+    Ref<PlayFabResult> result = _party_leave_network_completed_result(change->result, change->errorDetail);
     Ref<PlayFabPartyNetwork> network;
     if (operation != nullptr) {
         network = operation->network;
@@ -2613,7 +2615,7 @@ void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStat
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyCreateChatControl");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyCreateChatControl");
         if (operation->network.is_valid()) {
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create chat control failed.");
         }
@@ -2661,7 +2663,7 @@ void PlayFabParty::_process_connect_chat_control_completed(const Party::PartySta
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
-        Ref<PlayFabResult> result = _party_error_result(change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyNetwork::ConnectChatControl");
+        Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyNetwork::ConnectChatControl");
         if (operation->network.is_valid()) {
             _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Connect chat control failed.");
         }
@@ -3303,6 +3305,21 @@ Ref<PlayFabResult> PlayFabParty::_party_error_result(uint32_t p_party_error, con
     return PlayFabResult::error_result(E_FAIL, p_code, message);
 }
 
+Ref<PlayFabResult> PlayFabParty::_party_state_change_error_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error, const String &p_code, const String &p_action) const {
+    if (p_party_error != c_partyErrorSuccess) {
+        return _party_error_result(p_party_error, p_code, p_action);
+    }
+    return PlayFabResult::error_result(E_FAIL, p_code,
+            vformat("%s failed with PartyStateChangeResult::%s.", p_action, _party_state_change_result_name(p_result)));
+}
+
+Ref<PlayFabResult> PlayFabParty::_party_leave_network_completed_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error) const {
+    if (p_result == Party::PartyStateChangeResult::Succeeded || p_result == Party::PartyStateChangeResult::LeaveNetworkCalled) {
+        return PlayFabResult::ok_result();
+    }
+    return _party_state_change_error_result(p_result, p_party_error, PARTY_RESOURCE_NOT_READY, "PartyLeaveNetwork");
+}
+
 String PlayFabParty::_party_error_message(uint32_t p_party_error) {
     PartyString text = nullptr;
     PartyError err = Party::PartyManager::GetErrorMessage(p_party_error, &text);
@@ -3310,6 +3327,43 @@ String PlayFabParty::_party_error_message(uint32_t p_party_error) {
         return String("Unknown PlayFab Party error.");
     }
     return String::utf8(text);
+}
+
+String PlayFabParty::_party_state_change_result_name(Party::PartyStateChangeResult p_result) {
+    switch (p_result) {
+        case Party::PartyStateChangeResult::Succeeded:
+            return "Succeeded";
+        case Party::PartyStateChangeResult::UnknownError:
+            return "UnknownError";
+        case Party::PartyStateChangeResult::CanceledByTitle:
+            return "CanceledByTitle";
+        case Party::PartyStateChangeResult::InternetConnectivityError:
+            return "InternetConnectivityError";
+        case Party::PartyStateChangeResult::PartyServiceError:
+            return "PartyServiceError";
+        case Party::PartyStateChangeResult::NoServersAvailable:
+            return "NoServersAvailable";
+        case Party::PartyStateChangeResult::UserNotAuthorized:
+            return "UserNotAuthorized";
+        case Party::PartyStateChangeResult::UserCreateNetworkThrottled:
+            return "UserCreateNetworkThrottled";
+        case Party::PartyStateChangeResult::TitleNotEnabledForParty:
+            return "TitleNotEnabledForParty";
+        case Party::PartyStateChangeResult::NetworkLimitReached:
+            return "NetworkLimitReached";
+        case Party::PartyStateChangeResult::NetworkNoLongerExists:
+            return "NetworkNoLongerExists";
+        case Party::PartyStateChangeResult::NetworkNotJoinable:
+            return "NetworkNotJoinable";
+        case Party::PartyStateChangeResult::VersionMismatch:
+            return "VersionMismatch";
+        case Party::PartyStateChangeResult::LeaveNetworkCalled:
+            return "LeaveNetworkCalled";
+        case Party::PartyStateChangeResult::FailedToBindToLocalUdpSocket:
+            return "FailedToBindToLocalUdpSocket";
+        default:
+            return vformat("Unknown(%d)", static_cast<int64_t>(p_result));
+    }
 }
 
 void PlayFabParty::_emit_network_state(const Ref<PlayFabPartyNetwork> &p_network, int64_t p_kind, int64_t p_peer_id, const Ref<PlayFabResult> &p_result, const String &p_reason) {
@@ -3348,6 +3402,7 @@ void PlayFabParty::_bind_methods() {
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabParty::_test_enqueue_shutdown_pending);
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabParty::_test_pending_operation_count);
+    ClassDB::bind_method(D_METHOD("_test_classify_leave_network_completed", "state_change_result", "error_detail"), &PlayFabParty::_test_classify_leave_network_completed);
 #endif
 
     ADD_SIGNAL(MethodInfo("party_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabResult")));
