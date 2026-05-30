@@ -314,6 +314,10 @@ func pending_unless_live_write() -> bool:
 	return not requires_live_write()
 
 
+# ── Run-id helpers ───────────────────────────────────────────────────────
+
+
+
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive
 # correlated, run-stable ids from one shared run id.
 func with_unique_id(prefix: String) -> String:
