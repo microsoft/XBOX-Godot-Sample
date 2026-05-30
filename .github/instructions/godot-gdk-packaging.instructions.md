@@ -156,6 +156,8 @@ before committing.
   builder shape, exit-code constants, JSON round trip.
 - `tests/godot/gdk/tests/packaging/test_tutorial_wizard_state.gd` — tutorial
   wizard state transitions.
+- `tests/godot/gdk/tests/packaging/test_wdapp_manager.gd` — wdapp
+  install/uninstall verb wiring + cancellation/early-return guards.
 
 GUT base class for packaging tests: just `extends GutTest`. The shared
 service bases (`gdk_test_base.gd`, …) are for runtime addons; do not use

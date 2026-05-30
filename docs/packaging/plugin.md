@@ -93,10 +93,10 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 | `--encrypt`       | `none`   | `none`, `license`, or `key:<ekb-path>`.                                |
 | `--encrypt-key`   |          | EKB path (required when `--encrypt=key`).                              |
 | `--updcompat`     | `3`      | makepkg `/updcompat` level (1, 2, or 3).                               |
+| `--no-prepare`    | off      | Skip the content-prep step before pack.                                |
 
 `--encrypt=key` without a non-empty `--encrypt-key` fails with `EXIT_CONFIG`;
 the pack verb never silently downgrades a key-encrypted build to unencrypted.
-| `--no-prepare`    | off      | Skip the content-prep step before pack.                                |
 
 Per-verb help is always reachable as `<verb> --help`:
 
