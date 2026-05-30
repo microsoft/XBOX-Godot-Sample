@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 3 — Leaderboards panel.
 ##
 ## Top-10 + around-user views side by side; submit button drives the
@@ -60,8 +62,8 @@ func _initialize_after_sign_in() -> void:
 
 func _on_submit_pressed() -> void:
 	_scratch_score += 10
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var result: PlayFabResult = await PlayFab.statistics.update_statistics_async(user, {
+	var user = _auth.get("playfab_user")
+	var result = await AddonApi.singleton("PlayFab").statistics.update_statistics_async(user, {
 		"statistics": [
 			{"name": STATISTIC_NAME, "scores": [str(_scratch_score)]},
 		],
@@ -77,8 +79,8 @@ func _on_submit_pressed() -> void:
 	await _refresh_views()
 
 func _refresh_views() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var top: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_async(
+	var user = _auth.get("playfab_user")
+	var top = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_async(
 			user, LEADERBOARD_NAME, 1, 10)
 	if not is_inside_tree():
 		return
@@ -94,7 +96,7 @@ func _refresh_views() -> void:
 	else:
 		_top10.text = "Top-10 failed: %s" % top.message
 
-	var around: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_around_user_async(
+	var around = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_around_user_async(
 			user, LEADERBOARD_NAME, 3)
 	if not is_inside_tree():
 		return

@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 3 reference scene — record a statistic + read its PlayFab
 ## leaderboard.
 ##
@@ -60,10 +62,10 @@ func _ready() -> void:
 				_auth.call("get_last_error_message")])
 
 func _record_score(score: int) -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.statistics.update_statistics_async(user, {
+	var result = await AddonApi.singleton("PlayFab").statistics.update_statistics_async(user, {
 		"statistics": [
 			{"name": STATISTIC_NAME, "scores": [str(score)]},
 		],
@@ -74,10 +76,10 @@ func _record_score(score: int) -> void:
 	_append("[Lead] Recorded score %d to statistic \"%s\"" % [score, STATISTIC_NAME])
 
 func _print_global_top() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_async(
+	var result = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_async(
 			user, LEADERBOARD_NAME, 1, 10)
 	if not result.ok:
 		_append("[color=orange][Lead] get_leaderboard failed: %s[/color]" % result.message)
@@ -96,11 +98,11 @@ func _print_global_top() -> void:
 				_primary_score(row)])
 
 func _print_all_pages() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
 	const PAGE_SIZE := 10
-	var first: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_async(
+	var first = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_async(
 			user, LEADERBOARD_NAME, 1, PAGE_SIZE)
 	if not first.ok:
 		_append("[color=orange][Lead] first page failed: %s[/color]" % first.message)
@@ -119,7 +121,7 @@ func _print_all_pages() -> void:
 		next_position += rankings.size()
 		if rankings.is_empty() or next_position > total:
 			break
-		var next_page: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_async(
+		var next_page = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_async(
 				user, LEADERBOARD_NAME, next_position, PAGE_SIZE, version)
 		if not next_page.ok:
 			_append("[color=orange][Lead] page %d failed: %s[/color]" % [page_index + 1, next_page.message])
@@ -128,10 +130,10 @@ func _print_all_pages() -> void:
 		page_index += 1
 
 func _print_around_user() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.leaderboards.get_leaderboard_around_user_async(
+	var result = await AddonApi.singleton("PlayFab").leaderboards.get_leaderboard_around_user_async(
 			user, LEADERBOARD_NAME, 3)
 	if not result.ok:
 		_append("[color=orange][Lead] around_user failed: %s[/color]" % result.message)
@@ -151,10 +153,10 @@ func _print_around_user() -> void:
 				marker])
 
 func _print_xbox_friend_leaderboard() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.leaderboards.get_friend_leaderboard_async(
+	var result = await AddonApi.singleton("PlayFab").leaderboards.get_friend_leaderboard_async(
 			user, LEADERBOARD_NAME, true)
 	if not result.ok:
 		_append("[color=orange][Lead] friend leaderboard failed: %s[/color]" % result.message)

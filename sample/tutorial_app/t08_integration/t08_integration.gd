@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 — Integration tech demo (capstone).
 ##
 ## Root wiring layer: HUD strip (identity + runtime-error indicator +
@@ -35,11 +37,11 @@ func _ready() -> void:
 	_on_auth_state_changed(_auth.call("get_state"))
 
 	if Engine.has_singleton("GDK"):
-		GDK.runtime_error.connect(_on_runtime_error.bind("gdk"))
-		GDK.achievements.runtime_error.connect(_on_runtime_error.bind("achievements"))
+		AddonApi.singleton("GDK").runtime_error.connect(_on_runtime_error.bind("gdk"))
+		AddonApi.singleton("GDK").achievements.runtime_error.connect(_on_runtime_error.bind("achievements"))
 	if Engine.has_singleton("PlayFab"):
-		PlayFab.multiplayer.multiplayer_error.connect(_on_pf_runtime_error.bind("multiplayer"))
-		PlayFab.party.party_error.connect(_on_pf_runtime_error.bind("party"))
+		AddonApi.singleton("PlayFab").multiplayer.multiplayer_error.connect(_on_pf_runtime_error.bind("multiplayer"))
+		AddonApi.singleton("PlayFab").party.party_error.connect(_on_pf_runtime_error.bind("party"))
 
 	# Make sure sign_in fires for cold T8 entry even without other listeners.
 	await _auth.call("sign_in")
@@ -48,8 +50,8 @@ func _on_auth_state_changed(_state) -> void:
 	if _auth == null:
 		return
 	if _auth.call("is_signed_in"):
-		var xbox: GDKUser = _auth.get("xbox_user")
-		var pf: PlayFabUser = _auth.get("playfab_user")
+		var xbox = _auth.get("xbox_user")
+		var pf = _auth.get("playfab_user")
 		if xbox != null and pf != null:
 			var entity_id: String = str(pf.entity_key.get("id", ""))
 			_identity.text = "%s ↔ PlayFab:%s" % [xbox.gamertag, entity_id.left(8)]
@@ -74,10 +76,10 @@ func _on_retry_pressed() -> void:
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://shared/tutorial_picker.tscn")
 
-func _on_runtime_error(result: GDKResult, source: String) -> void:
+func _on_runtime_error(result, source: String) -> void:
 	_error.text = "[%s] %s" % [source, result.message]
 	push_warning("[Hud] runtime error from %s: %s" % [source, result.message])
 
-func _on_pf_runtime_error(result: PlayFabResult, source: String) -> void:
+func _on_pf_runtime_error(result, source: String) -> void:
 	_error.text = "[%s] %s" % [source, result.message]
 	push_warning("[Hud] PlayFab runtime error from %s: %s" % [source, result.message])

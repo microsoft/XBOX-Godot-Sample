@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 2 — Achievements panel.
 ##
 ## Mirrors the T2 happy path: buttons for the canonical progress curve
@@ -42,8 +44,8 @@ func _exit_tree() -> void:
 	if _auth != null and _auth.state_changed.is_connected(_on_auth_state_changed):
 		_auth.state_changed.disconnect(_on_auth_state_changed)
 	if _initialized and Engine.has_singleton("GDK"):
-		if GDK.achievements.achievement_unlocked.is_connected(_on_achievement_unlocked):
-			GDK.achievements.achievement_unlocked.disconnect(_on_achievement_unlocked)
+		if AddonApi.singleton("GDK").achievements.achievement_unlocked.is_connected(_on_achievement_unlocked):
+			AddonApi.singleton("GDK").achievements.achievement_unlocked.disconnect(_on_achievement_unlocked)
 
 func _on_auth_state_changed(_state) -> void:
 	if _initialized or _auth == null:
@@ -56,14 +58,14 @@ func _initialize_after_sign_in() -> void:
 		return
 	_initialized = true
 
-	GDK.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
+	AddonApi.singleton("GDK").achievements.achievement_unlocked.connect(_on_achievement_unlocked)
 	_progress_25.pressed.connect(_push_progress.bind(25))
 	_progress_50.pressed.connect(_push_progress.bind(50))
 	_progress_75.pressed.connect(_push_progress.bind(75))
 	_unlock.pressed.connect(_push_progress.bind(100))
 
-	var user: GDKUser = _auth.get("xbox_user")
-	var result: GDKResult = await GDK.achievements.query_player_achievements_async(user)
+	var user = _auth.get("xbox_user")
+	var result = await AddonApi.singleton("GDK").achievements.query_player_achievements_async(user)
 	if not is_inside_tree():
 		return
 	if result.ok:
@@ -74,8 +76,8 @@ func _initialize_after_sign_in() -> void:
 		_status.text = "Query failed: %s" % result.message
 
 func _push_progress(percent: int) -> void:
-	var user: GDKUser = _auth.get("xbox_user")
-	var result: GDKResult = await GDK.achievements.update_achievement_async(
+	var user = _auth.get("xbox_user")
+	var result = await AddonApi.singleton("GDK").achievements.update_achievement_async(
 			user, ACHIEVEMENT_ID, percent)
 	if not is_inside_tree():
 		return
@@ -86,7 +88,7 @@ func _push_progress(percent: int) -> void:
 		_status.text = "Update failed: %s" % result.message
 		push_warning("[Ach] %s" % _status.text)
 
-func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
+func _on_achievement_unlocked(user, achievement_id: String) -> void:
 	if achievement_id != ACHIEVEMENT_ID:
 		return
 	_status.text = "Unlocked %s for %s" % [achievement_id, user.gamertag]
@@ -94,8 +96,8 @@ func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
 	_refresh_status()
 
 func _refresh_status() -> void:
-	var user: GDKUser = _auth.get("xbox_user")
-	var cached: Array = GDK.achievements.get_cached_achievements(user)
+	var user = _auth.get("xbox_user")
+	var cached: Array = AddonApi.singleton("GDK").achievements.get_cached_achievements(user)
 	for ach in cached:
 		if ach.id == ACHIEVEMENT_ID:
 			var verb: String = "Unlocked" if ach.progress_percent >= 100 else "In progress"
