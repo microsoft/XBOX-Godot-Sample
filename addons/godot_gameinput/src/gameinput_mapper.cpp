@@ -6,12 +6,14 @@
 #include "gameinput_device.h"
 #include "gameinput_reading.h"
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/input_event_action.hpp>
 #include <godot_cpp/classes/input_event_joypad_button.hpp>
 #include <godot_cpp/classes/input_event_joypad_motion.hpp>
 #include <godot_cpp/classes/input_map.hpp>
+#include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/typed_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -21,6 +23,11 @@ namespace godot {
 
 GameInputMapper::GameInputMapper() {
     set_process(true);
+}
+
+GameInputMapper::~GameInputMapper() {
+    _release_held_actions();
+    _disconnect_action_map_changed(m_action_map);
 }
 
 void GameInputMapper::_bind_methods() {
@@ -36,6 +43,14 @@ void GameInputMapper::_bind_methods() {
                          &GameInputMapper::get_target_device_id);
     ClassDB::bind_method(D_METHOD("get_active_binding_count"),
                          &GameInputMapper::get_active_binding_count);
+#ifndef NDEBUG
+    ClassDB::bind_method(D_METHOD("_test_mark_binding_pressed", "binding_index"),
+                         &GameInputMapper::_test_mark_binding_pressed);
+    ClassDB::bind_method(D_METHOD("_test_prime_native_handles_cache", "binding_index", "native_handles"),
+                         &GameInputMapper::_test_prime_native_handles_cache);
+    ClassDB::bind_method(D_METHOD("_test_get_native_handles_cache_count"),
+                         &GameInputMapper::_test_get_native_handles_cache_count);
+#endif
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "action_map",
                               PROPERTY_HINT_RESOURCE_TYPE, "GameInputActionMap"),
@@ -55,33 +70,21 @@ void GameInputMapper::_notification(int p_what) {
     if (p_what == NOTIFICATION_PROCESS) {
         _process_bindings();
     } else if (p_what == NOTIFICATION_EXIT_TREE) {
-        // Release any actions we currently hold pressed.
-        Input *input = Input::get_singleton();
-        InputMap *imap = InputMap::get_singleton();
-        if (input && imap && m_action_map.is_valid()) {
-            for (KeyValue<int, bool> &kv : m_prev_pressed) {
-                if (!kv.value) continue;
-                Ref<GameInputBinding> b = m_action_map->get_binding(kv.key);
-                if (b.is_null()) continue;
-                StringName a = b->get_action();
-                if (a != StringName() && imap->has_action(a)) {
-                    input->action_release(a);
-                    Ref<InputEventAction> evt;
-                    evt.instantiate();
-                    evt->set_action(a);
-                    evt->set_pressed(false);
-                    input->parse_input_event(evt);
-                }
-            }
-        }
-        m_prev_pressed.clear();
+        _release_held_actions();
     }
 }
 
 void GameInputMapper::set_action_map(const Ref<GameInputActionMap> &map) {
+    if (m_action_map == map) {
+        return;
+    }
+
+    _release_held_actions();
+    _disconnect_action_map_changed(m_action_map);
     m_action_map = map;
-    m_prev_pressed.clear();
-    m_native_handles_cache.clear();
+    _connect_action_map_changed(m_action_map);
+    _forget_pressed_state();
+    _invalidate_native_handles_cache();
     m_warned_missing_actions.clear();
 }
 
@@ -89,10 +92,22 @@ Ref<GameInputActionMap> GameInputMapper::get_action_map() const {
     return m_action_map;
 }
 
-void GameInputMapper::set_target_kind_mask(int mask) { m_target_kind_mask = mask; }
+void GameInputMapper::set_target_kind_mask(int mask) {
+    if (m_target_kind_mask == mask) {
+        return;
+    }
+    _release_held_actions();
+    m_target_kind_mask = mask;
+}
 int GameInputMapper::get_target_kind_mask() const { return m_target_kind_mask; }
 
-void GameInputMapper::set_target_device_id(int64_t id) { m_target_device_id = id; }
+void GameInputMapper::set_target_device_id(int64_t id) {
+    if (m_target_device_id == id) {
+        return;
+    }
+    _release_held_actions();
+    m_target_device_id = id;
+}
 int64_t GameInputMapper::get_target_device_id() const { return m_target_device_id; }
 
 int GameInputMapper::get_active_binding_count() const {
@@ -101,6 +116,120 @@ int GameInputMapper::get_active_binding_count() const {
         if (kv.value) n++;
     }
     return n;
+}
+
+#ifndef NDEBUG
+void GameInputMapper::_test_mark_binding_pressed(int binding_index) {
+    if (m_action_map.is_null()) {
+        return;
+    }
+    Ref<GameInputBinding> binding = m_action_map->get_binding(binding_index);
+    if (binding.is_null()) {
+        return;
+    }
+    StringName action = binding->get_action();
+    if (action == StringName()) {
+        return;
+    }
+    Input *input = Input::get_singleton();
+    if (input) {
+        input->action_press(action, 1.0f);
+    }
+    m_prev_pressed[binding_index] = true;
+    m_prev_actions[binding_index] = action;
+}
+
+void GameInputMapper::_test_prime_native_handles_cache(int binding_index, bool native_handles) {
+    m_native_handles_cache[binding_index] = native_handles;
+}
+
+int GameInputMapper::_test_get_native_handles_cache_count() const {
+    return (int)m_native_handles_cache.size();
+}
+#endif
+
+void GameInputMapper::_release_held_action_for(int binding_index) {
+    bool was_pressed = false;
+    if (HashMap<int, bool>::Iterator it = m_prev_pressed.find(binding_index)) {
+        was_pressed = it->value;
+    }
+
+    if (was_pressed) {
+        StringName action;
+        if (HashMap<int, StringName>::Iterator ait = m_prev_actions.find(binding_index)) {
+            action = ait->value;
+        }
+        if (action == StringName() && m_action_map.is_valid()) {
+            Ref<GameInputBinding> binding = m_action_map->get_binding(binding_index);
+            if (binding.is_valid()) {
+                action = binding->get_action();
+            }
+        }
+
+        Input *input = Input::get_singleton();
+        InputMap *imap = InputMap::get_singleton();
+        if (input && action != StringName()) {
+            input->action_release(action);
+            if (imap && imap->has_action(action)) {
+                Ref<InputEventAction> evt;
+                evt.instantiate();
+                evt->set_action(action);
+                evt->set_pressed(false);
+                input->parse_input_event(evt);
+            }
+        }
+        }
+    }
+
+    m_prev_pressed.erase(binding_index);
+    m_prev_actions.erase(binding_index);
+}
+
+void GameInputMapper::_release_held_actions() {
+    Vector<int> keys;
+    for (const KeyValue<int, bool> &kv : m_prev_pressed) {
+        keys.push_back(kv.key);
+    }
+    for (int i = 0; i < keys.size(); ++i) {
+        _release_held_action_for(keys[i]);
+    }
+}
+
+void GameInputMapper::_forget_pressed_state() {
+    m_prev_pressed.clear();
+    m_prev_actions.clear();
+}
+
+void GameInputMapper::_invalidate_native_handles_cache() {
+    m_native_handles_cache.clear();
+    m_native_handles_cache_frame = UINT64_MAX;
+}
+
+void GameInputMapper::_connect_action_map_changed(const Ref<GameInputActionMap> &map) {
+    if (map.is_null()) {
+        return;
+    }
+    Callable callback = callable_mp(this, &GameInputMapper::_on_action_map_changed);
+    if (!map->is_connected("changed", callback)) {
+        map->connect("changed", callback);
+    }
+}
+
+void GameInputMapper::_disconnect_action_map_changed(const Ref<GameInputActionMap> &map) {
+    if (map.is_null()) {
+        return;
+    }
+    Callable callback = callable_mp(this, &GameInputMapper::_on_action_map_changed);
+    if (map->is_connected("changed", callback)) {
+        map->disconnect("changed", callback);
+    }
+}
+
+void GameInputMapper::_on_action_map_changed() {
+    _release_held_actions();
+    _forget_pressed_state();
+    _invalidate_native_handles_cache();
+    m_warned_missing_actions.clear();
 }
 
 bool GameInputMapper::_is_pressed_for(int source, float &out_strength,
@@ -152,10 +281,23 @@ bool GameInputMapper::_is_pressed_for(int source, float &out_strength,
 }
 
 void GameInputMapper::_process_bindings() {
-    if (m_action_map.is_null()) return;
+    if (m_action_map.is_null()) {
+        _release_held_actions();
+        return;
+    }
+
+    Engine *engine = Engine::get_singleton();
+    uint64_t frame = engine ? engine->get_process_frames() : 0;
+    if (frame != m_native_handles_cache_frame) {
+        m_native_handles_cache.clear();
+        m_native_handles_cache_frame = frame;
+    }
 
     GameInput *gi = GameInput::get_singleton();
-    if (!gi || !gi->is_initialized()) return;
+    if (!gi || !gi->is_initialized()) {
+        _release_held_actions();
+        return;
+    }
 
     gi->poll(); // idempotent per frame
 
@@ -175,24 +317,64 @@ void GameInputMapper::_process_bindings() {
     }
 
     if (device.is_null() || !device->is_connected()) {
+        _release_held_actions();
         return;
     }
 
     Ref<GameInputReading> reading = gi->get_current_reading(device);
-    if (reading.is_null()) return;
+    if (reading.is_null()) {
+        _release_held_actions();
+        return;
+    }
 
     Input *input = Input::get_singleton();
     InputMap *imap = InputMap::get_singleton();
-    if (!input || !imap) return;
+    if (!input || !imap) {
+        _release_held_actions();
+        return;
+    }
 
     int n = m_action_map->get_binding_count();
+    Vector<int> stale_binding_indices;
+    for (const KeyValue<int, bool> &kv : m_prev_pressed) {
+        if (kv.key < 0 || kv.key >= n) {
+            stale_binding_indices.push_back(kv.key);
+        }
+    }
+    for (int i = 0; i < stale_binding_indices.size(); ++i) {
+        _release_held_action_for(stale_binding_indices[i]);
+    }
+
     for (int i = 0; i < n; ++i) {
         Ref<GameInputBinding> b = m_action_map->get_binding(i);
-        if (b.is_null()) continue;
+        if (b.is_null()) {
+            _release_held_action_for(i);
+            continue;
+        }
 
         StringName action = b->get_action();
-        if (action == StringName()) continue;
+        if (action == StringName()) {
+            _release_held_action_for(i);
+            continue;
+        }
+
+        bool was_pressed = false;
+        if (HashMap<int, bool>::Iterator it = m_prev_pressed.find(i)) {
+            was_pressed = it->value;
+        }
+        if (was_pressed) {
+            StringName prev_action;
+            if (HashMap<int, StringName>::Iterator ait = m_prev_actions.find(i)) {
+                prev_action = ait->value;
+            }
+            if (prev_action != StringName() && prev_action != action) {
+                _release_held_action_for(i);
+                was_pressed = false;
+            }
+        }
+
         if (!imap->has_action(action)) {
+            _release_held_action_for(i);
             if (!m_warned_missing_actions.has(action)) {
                 m_warned_missing_actions.insert(action);
                 UtilityFunctions::push_warning(
@@ -223,11 +405,6 @@ void GameInputMapper::_process_bindings() {
             float s = 0.0f;
             is_pressed = _is_pressed_for(b->get_source(), s, reading.ptr());
             strength = s;
-        }
-
-        bool was_pressed = false;
-        if (HashMap<int, bool>::Iterator it = m_prev_pressed.find(i)) {
-            was_pressed = it->value;
         }
 
         if (is_pressed) {
@@ -270,6 +447,11 @@ void GameInputMapper::_process_bindings() {
         }
 
         m_prev_pressed[i] = is_pressed;
+        if (is_pressed) {
+            m_prev_actions[i] = action;
+        } else {
+            m_prev_actions.erase(i);
+        }
     }
 }
 

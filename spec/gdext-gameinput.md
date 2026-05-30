@@ -34,7 +34,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Device discovery/lifecycle | Shipped | connected/disconnected device cache, hot-plug signals on the main thread |
 | Polling API | Shipped | `GameInput.poll()` is per-frame idempotent |
 | Reading callbacks | Deferred | event-driven readings — see [§ Deferred to v2](#deferred-to-v2) |
-| Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first |
+| Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first; native failures are surfaced as `false` when the SDK reports them |
 | Force feedback / advanced haptics | Deferred | optional follow-on after basic rumble |
 | Battery state | Removed | GameInput v3 SDK dropped the battery API (`IGameInputDevice::GetBatteryState`, `GameInputBatteryState`) — no replacement upstream |
 | Device info | Shipped | `GameInputDevice.get_device_info()` (issue #23, device-info half) |
@@ -137,7 +137,7 @@ get_timestamp() -> int
 | `GameInput.poll()` | `IGameInput::GetCurrentReading` | Refreshes cached readings for tracked devices in polling mode. |
 | `GameInput.get_devices()` / `GameInput.get_primary_device()` | `IGameInput::RegisterDeviceCallback` | Build a device cache from the initial enumeration delivered by callback registration and keep it current with subsequent device-status callbacks. |
 | `GameInput.get_current_reading()` | `IGameInput::GetCurrentReading` | Returns a wrapped `IGameInputReading` snapshot for the requested device. |
-| `GameInput.set_vibration()` | `IGameInputDevice::SetRumbleState` | v1 haptics path is controller rumble, including trigger rumble when supported. |
+| `GameInput.set_vibration()` | `IGameInputDevice::SetRumbleState` | v1 haptics path is controller rumble, including trigger rumble when supported; returns `false` when preflight fails or an HRESULT-returning SDK reports a native failure. |
 | `GameInput.stop_haptics()` | `IGameInputDevice::SetRumbleState` | Send a zeroed rumble state. Advanced force-feedback work can later layer on the force-feedback APIs. |
 | `GameInput.enable_device_callbacks()` | `IGameInput::RegisterDeviceCallback`, `IGameInput::RegisterReadingCallback`, `IGameInput::UnregisterCallback` | Toggles the event-driven device and reading feed. |
 | `GameInputDevice` getters | `IGameInputDevice::GetDeviceInfo` | Cache display name, kind mask, and vibration/haptics capability flags from `GameInputDeviceInfo`. |
@@ -156,10 +156,12 @@ get_timestamp() -> int
 
 `GameInputMapper` is a `Node` intended to live in the scene tree. It polls `GameInput` or consumes device updates each frame, then emits synthetic `InputEventAction` events against a configured `GameInputActionMap`.
 
-Use it when gameplay code already depends on `Input`, `InputMap`, and project-defined actions. Skip it when a system needs raw per-device state, custom deadzones, or device-specific UX.
+Use it when gameplay code already depends on `Input`, `InputMap`, and project-defined actions. Skip it when a system needs raw per-device state, custom deadzones, or device-specific UX. `GameInputActionMap` mutations, including contained `GameInputBinding` property edits, emit `changed` so active mappers can immediately release held actions before their index-keyed state becomes stale.
 
 - polls `GameInput` each frame
 - translates readings into `InputEventAction`
+- releases every action it previously held when it stops driving a binding (tree exit, action-map swap or mutation, target-device retarget/loss, or a missing reading)
+- refreshes the native-joypad suppression cache at least once per frame so runtime `InputMap` edits cannot stay stale indefinitely
 - lets game code keep using:
 
 ```gdscript

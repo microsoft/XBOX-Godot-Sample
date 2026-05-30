@@ -17,6 +17,11 @@ class GameInputActionMap : public Resource {
 private:
     TypedArray<GameInputBinding> m_bindings;
 
+    void _connect_binding_changed(const Ref<GameInputBinding> &binding);
+    void _disconnect_binding_changed(const Ref<GameInputBinding> &binding);
+    void _disconnect_all_binding_changed();
+    void _on_binding_changed();
+
 protected:
     static void _bind_methods();
 
