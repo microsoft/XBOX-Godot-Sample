@@ -199,6 +199,20 @@ void GameInput::_drain_pending_events() {
         m_pending_events.clear();
     }
 
+    auto release_remaining_events = [&drained](uint32_t p_start_index) {
+        for (uint32_t j = p_start_index; j < drained.size(); ++j) {
+            if (drained[j].native_device != nullptr) {
+                drained[j].native_device->Release();
+                drained[j].native_device = nullptr;
+            }
+        }
+    };
+
+    if (!m_initialized) {
+        release_remaining_events(0);
+        return;
+    }
+
     for (uint32_t i = 0; i < drained.size(); ++i) {
         PendingDeviceEvent &ev = drained[i];
 
@@ -225,6 +239,10 @@ void GameInput::_drain_pending_events() {
                 " name=", device_get_display_name(entry.id));
 
             emit_signal("device_connected", entry.wrapper);
+            if (!m_initialized) {
+                release_remaining_events(i + 1);
+                return;
+            }
         } else { // Disconnected
             int idx = _find_index_by_native(ev.native_device);
             if (idx < 0) {
@@ -240,6 +258,10 @@ void GameInput::_drain_pending_events() {
 
             UtilityFunctions::print("GameInput: device disconnected id=", id);
             emit_signal("device_disconnected", (int64_t)id);
+            if (!m_initialized) {
+                release_remaining_events(i + 1);
+                return;
+            }
         }
     }
 }
