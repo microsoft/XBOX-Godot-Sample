@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  gdkpkg.sh — POSIX shell forwarder for the godot_gdk_packaging runner.
+#  gdkpkg.sh — Bash shell forwarder for the godot_gdk_packaging runner.
 #
 #  Usage:
 #      addons/godot_gdk_packaging/gdkpkg.sh <verb> [--flag value] [...]
@@ -65,7 +65,7 @@ try_candidate() {
 
 if [ -z "$godot_exe" ]; then
     for env_name in GODOT_CONSOLE GODOT_BIN GODOT; do
-        eval "candidate=\${$env_name:-}"
+        candidate="${!env_name:-}"
         if try_candidate "$candidate"; then break; fi
     done
 fi

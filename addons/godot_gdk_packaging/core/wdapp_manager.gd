@@ -39,6 +39,7 @@ signal uninstall_completed(result: Dictionary)
 const GDKToolchainScript = preload("res://addons/godot_gdk_packaging/core/gdk_toolchain.gd")
 
 var _toolchain: RefCounted
+var _taskkill_runner: Callable
 
 # Async dispatch state. _busy / _disposed are only written from the main
 # thread (in _start_async / _join_thread / dispose). The worker thread only
@@ -49,8 +50,9 @@ var _busy: bool = false
 var _disposed: bool = false
 
 
-func _init(toolchain: RefCounted) -> void:
+func _init(toolchain: RefCounted, taskkill_runner: Callable = Callable()) -> void:
 	_toolchain = toolchain
+	_taskkill_runner = taskkill_runner
 
 
 func is_available() -> bool:
@@ -86,19 +88,13 @@ func terminate_app(pfn: String, build_dir: String) -> Dictionary:
 		result["terminated_with"] = "wdapp"
 		return result
 
-	var exe_name: String = _find_primary_executable(build_dir)
+	var exe_name: String = _resolve_taskkill_executable(build_dir)
 	if exe_name == "":
 		result["terminated_with"] = "wdapp"
+		result["taskkill_skipped_reason"] = "no configured executable available"
 		return result
 
-	var output: Array = []
-	var exit_code: int = OS.execute("taskkill", PackedStringArray(["/IM", exe_name, "/F"]), output, true, false)
-	return {
-		"exit_code": exit_code,
-		"stdout": str(output[0]) if output.size() > 0 else "",
-		"stderr": "",
-		"terminated_with": "taskkill",
-	}
+	return _execute_taskkill(exe_name)
 
 
 func install_package(msixvc_path: String) -> Dictionary:
@@ -214,8 +210,13 @@ func _join_thread() -> void:
 # still join the worker before the RefCounted destructor runs to avoid
 # leaking a live Godot Thread.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE:
-		dispose()
+	if what != NOTIFICATION_PREDELETE or _disposed:
+		return
+	_disposed = true
+	if _thread != null and _thread.is_started():
+		_thread.wait_to_finish()
+		_thread = null
+	_busy = false
 
 
 # --- Static helpers --------------------------------------------------------
@@ -239,20 +240,58 @@ func _get_wdapp_path() -> String:
 	return _toolchain.get_bin_dir().path_join("wdapp.exe")
 
 
-func _find_primary_executable(build_dir: String) -> String:
-	if not DirAccess.dir_exists_absolute(build_dir):
+func _execute_taskkill(exe_name: String) -> Dictionary:
+	if _taskkill_runner.is_valid():
+		var custom_result: Variant = _taskkill_runner.call(exe_name)
+		if typeof(custom_result) == TYPE_DICTIONARY:
+			return custom_result as Dictionary
+		return {"exit_code": 1, "stdout": "", "stderr": "taskkill runner did not return a Dictionary", "terminated_with": "taskkill"}
+
+	var output: Array = []
+	var exit_code: int = OS.execute("taskkill", PackedStringArray(["/IM", exe_name, "/F"]), output, true, false)
+	return {
+		"exit_code": exit_code,
+		"stdout": "\n".join(output),
+		"stderr": "",
+		"terminated_with": "taskkill",
+	}
+
+
+static func _resolve_taskkill_executable(build_dir: String) -> String:
+	if build_dir.is_empty() or not DirAccess.dir_exists_absolute(build_dir):
 		return ""
 
-	var dir: DirAccess = DirAccess.open(build_dir)
-	if dir == null:
+	var exe_name: String = _read_config_executable(build_dir.path_join("MicrosoftGame.config"))
+	if not _is_safe_taskkill_image_name(exe_name):
+		return ""
+	if not FileAccess.file_exists(build_dir.path_join(exe_name)):
+		return ""
+	return exe_name
+
+
+static func _read_config_executable(config_path: String) -> String:
+	if config_path.is_empty() or not FileAccess.file_exists(config_path):
 		return ""
 
-	dir.list_dir_begin()
-	var fname: String = dir.get_next()
-	while fname != "":
-		if fname.ends_with(".exe") and not fname.ends_with(".console.exe"):
-			dir.list_dir_end()
-			return fname
-		fname = dir.get_next()
-	dir.list_dir_end()
+	var parser := XMLParser.new()
+	if parser.open(config_path) != OK:
+		return ""
+
+	while parser.read() == OK:
+		if parser.get_node_type() != XMLParser.NODE_ELEMENT or parser.get_node_name() != "Executable":
+			continue
+		for index: int in parser.get_attribute_count():
+			if parser.get_attribute_name(index) == "Name":
+				return parser.get_attribute_value(index).strip_edges()
 	return ""
+
+
+static func _is_safe_taskkill_image_name(exe_name: String) -> bool:
+	if exe_name.is_empty() or exe_name != exe_name.get_file():
+		return false
+	if not exe_name.to_lower().ends_with(".exe"):
+		return false
+	for forbidden: String in ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"]:
+		if exe_name.contains(forbidden):
+			return false
+	return true
