@@ -148,3 +148,42 @@ func test_poll_only_loop_no_crash() -> void:
 	gi.shutdown()
 	assert_eq(gi.is_initialized(), false,
 			"shutdown() after poll loop returns runtime to uninitialized state")
+
+
+func test_live_device_unregister_callback_contract() -> void:
+	if pending_unless_runtime_available():
+		return
+	if pending_unless_live():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var started: bool = gi.initialize()
+	if not started:
+		pending("GameInput.initialize() returned false (no GameInput runtime on host)")
+		return
+
+	var all_mask := _device_constant("DEVICE_ALL")
+	for _frame_index in 5:
+		gi.poll()
+		await get_tree().process_frame
+
+	var devices = gi.get_devices(all_mask)
+	if devices.is_empty():
+		gi.shutdown()
+		pending("No live GameInput device is connected; relying on Microsoft-documented UnregisterCallback contract.")
+		return
+
+	for iteration in 4:
+		gi.shutdown()
+		assert_eq(gi.is_initialized(), false,
+				"UnregisterCallback shutdown completed with live device on iteration %d" % iteration)
+		started = gi.initialize()
+		assert_true(started, "GameInput.initialize() restarts after live-device unregister iteration %d" % iteration)
+		if not started:
+			return
+		gi.poll()
+		await get_tree().process_frame
+
+	gi.shutdown()
+	assert_true(true, "live-device UnregisterCallback cycles completed without crashing")
