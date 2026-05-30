@@ -41,16 +41,9 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_app/*
 
 ## Sample and Workflow
 
-- No PlayFab sample currently ships in `sample/`. The legacy
-  `sample\playfab_demo\` (canonical PlayFab smoke-test sample,
-  depending on the GDK sample bootstrap for Xbox runtime
-  initialization and user sign-in) has been removed; the
-  tutorial-driven sample revamp's PR 3 will reintroduce PlayFab
-  coverage inside `sample/tutorial_app/` (T1 sign-in autoload
-  + per-tutorial scenes for Game Saves, leaderboards, lobby,
-  Party).
+- `sample\tutorial_app\` is the committed PlayFab-facing sample host for the tutorial chain. Use it for docs/spec sample language instead of legacy removed samples.
 - PlayFab GUT suites live under `tests\godot\playfab\tests\` and `extends "res://addons/godot_gdk_tests/playfab_test_base.gd"` (the base is at `addons\godot_gdk\tests_support\bases\playfab_test_base.gd` and is mirrored into the host by CMake). Use custom-ID helpers for default PlayFab sign-in coverage; reserve `ensure_gdk_primary_user_for_playfab()` for optional Xbox-backed compatibility flows. The root CMake option `GODOT_PLAYFAB_TEST_HOST_WITH_GDK` controls whether `godot_gdk` is mirrored into the PlayFab host for those optional flows.
-- When public `godot_playfab` behavior changes, update the docs, spec, and tests in the same change rather than leaving automation follow-up for later. (Sample updates resume once PR 3 lands `sample/tutorial_app/`.)
+- When public `godot_playfab` behavior changes, update the docs, spec, tests, and `sample\tutorial_app\` content in the same change rather than leaving automation follow-up for later.
 - After changing synced addon files under `addons\godot_playfab\`, run:
 
 ```powershell

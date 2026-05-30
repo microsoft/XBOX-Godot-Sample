@@ -16,6 +16,7 @@ docs/
 ├── tutorials/                               — task-oriented walkthroughs
 ├── gdk/                                     — godot_gdk addon
 ├── playfab/                                 — godot_playfab addon
+│   └── async-system.md                      — PlayFab completion/dispatch contract
 ├── gameinput/                               — godot_gameinput addon
 ├── packaging/                               — godot_gdk_packaging addon
 └── platform/                                — Xbox sandbox + test-account setup
@@ -36,23 +37,24 @@ docs/
 - [**Async patterns**](async-patterns.md) — one-page primer on the
   `_async` naming convention, `await`-on-coroutine, Result objects,
   and service-level runtime errors
+- [**PlayFab async system**](playfab/async-system.md) — PlayFab-specific
+  fire-once completion signals, dispatch ownership, and shutdown/cancellation
+  behavior
 - [**Test Pipeline**](gdk/sample-and-tests.md) — repo-wide orchestrator,
   GUT hosts, C++ doctest, live switch, and test baselines
 
 ## Sample projects
 
-> **No sample projects currently.** The repository is mid-revamp;
-> samples are returning in PR 3 of the tutorial-driven sample
-> series:
+> Current committed sample hosts:
 >
 > - `sample/tutorial_app/` — integrated tutorial chain (sign-in,
 >   achievements, leaderboards, game saves, lobby, MPA, Party,
 >   integration tech demo)
 > - `sample/tutorial_gameinput/` — standalone GameInput demo
 >
-> Until then, [the tutorials](../docs/tutorials/README.md) walk
-> through each surface, and the test hosts under `tests/godot/`
-> exercise the addons end-to-end.
+> [The tutorials](../docs/tutorials/README.md) walk through each
+> surface, and the test hosts under `tests/godot/` exercise the
+> addons end-to-end.
 
 ## Godot GDK addon (`godot_gdk`)
 

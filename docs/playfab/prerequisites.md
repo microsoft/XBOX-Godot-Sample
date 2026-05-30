@@ -74,13 +74,20 @@ skipped.
 [Tutorial 3 — Post and query a PlayFab leaderboard](../tutorials/03-playfab-leaderboard.md)
 uses the **statistic-backed** leaderboard pattern: the client writes
 values to a statistic, and a leaderboard sourced from that statistic
-ranks the values. PlayFab's direct leaderboard write endpoint
-(`LeaderboardsV2/UpdateLeaderboardEntries`) is server-only by default
-and is not exposed for client use through the current Game Manager UI;
-a direct `submit_score_async` from a client returns HRESULT
-`0x89235472` (`E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS`,
-errorCode `1082`). The statistic-backed pattern is the supported
-client-driven path.
+ranks the values. This is the recommended client-safe path: enable
+**Allow client to post player stats**, call
+`PlayFab.statistics.update_statistics_async()`, and read the linked
+leaderboard through `PlayFab.leaderboards`.
+
+> **Do not put a PlayFab developer secret key in a Godot client.**
+> PlayFab's direct LeaderboardsV2 write endpoint
+> (`LeaderboardsV2/UpdateLeaderboardEntries`, exposed by
+> `PlayFab.leaderboards.submit_score_async`) is the non-statistic-backed
+> direct write path. Treat it as server/trusted-backend work that holds
+> the developer secret key outside the client. A direct client call returns
+> HRESULT `0x89235472` (`E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS`,
+> errorCode `1082`) on titles where that server path is not enabled for
+> client access.
 
 Two title-side resources are required, plus a title-wide setting that
 enables client writes to statistics:
@@ -130,9 +137,10 @@ After all three steps are complete, the T3 snippets work end-to-end:
   `get_friend_leaderboard_async` against the leaderboard name.
 - The direct-write entry point
   `PlayFab.leaderboards.submit_score_async` is intentionally **not**
-  used by the T3 snippets. Game clients cannot call it; the endpoint
-  is server-only (no Game Manager toggle enables client access) and
-  returns the verbatim service error:
+  used by the T3 snippets. For non-statistic-backed leaderboard writes,
+  run a trusted backend or CloudScript-style flow that holds the developer
+  secret key outside the client. Direct client calls commonly return the
+  verbatim service error:
 
   ```json
   {
@@ -153,7 +161,7 @@ After all three steps are complete, the T3 snippets work end-to-end:
 For production titles that require validated writes (anti-cheat,
 server-authoritative scoring), keep client writes off the direct
 leaderboard endpoint and route the writes through CloudScript, Azure
-Functions, or a trusted backend that holds the title secret. The
+Functions, or a trusted backend that holds the developer secret key. The
 statistic-backed pattern remains appropriate for any value the client
 is trusted to compute.
 
@@ -226,6 +234,10 @@ requires:
 - **The two-process / two-test-account setup described in §2 Lobby.**
   Party's Xbox-shell invites require Xbox-backed sessions on both
   sides.
+
+#### Same-host Party UDP port override
+
+The addon registers `playfab/party/local_udp_socket_bind_port` for `PlayFab.party` initialization. Default `-1` keeps the Party SDK default bind address; valid values are `-1..65535`. Use `0` in same-host development or CI when multiple local Godot processes may otherwise collide on the Party UDP bind port. Values `1..65535` pin a specific local UDP port. `PlayFab.party.initialize_async(..., local_udp_port)` can override the Project Setting for a single initialization.
 
 ### Capstone (T8)
 
@@ -328,7 +340,7 @@ must be treated as production credentials.
 | Title ID set in Project Settings | `Get-Content .\project.godot \| Select-String "title_id"` reports the Title ID under `[playfab]` |
 | `PlayFab.initialize()` succeeds | Bootstrap log line `[PlayFab] Bootstrap: PlayFab.initialize() succeeded.` is emitted at editor or runtime startup |
 | Xbox-backed sign-in succeeds (T1) | T1 log line `[PlayFab] signed in: title_player_account:<entity-id>` is emitted |
-| Leaderboard accepts client writes (T3) | T3 statistic write emits `[Lead] Recorded score …`. HRESULT `0x89235472` on `submit_score_async` indicates the code is calling the direct leaderboard write (server-only) instead of `update_statistics_async`. The same `0x89235472` on `update_statistics_async` indicates the title's **Allow client to post player stats** setting is disabled (see §2 step 3) |
+| Leaderboard accepts client writes (T3) | T3 statistic write emits `[Lead] Recorded score …`. HRESULT `0x89235472` on `submit_score_async` indicates the code is calling the direct leaderboard write path, which should be handled by a trusted backend with a developer secret key for non-statistic-backed leaderboards. Use `update_statistics_async` for client-safe statistic-backed leaderboards. The same `0x89235472` on `update_statistics_async` indicates the title's **Allow client to post player stats** setting is disabled (see §2 step 3) |
 | Game Saves accepts the local user (T4) | T4 add-user emits `[Save] User context registered`. `xbox_user_required` indicates a custom-ID rather than Xbox-backed session |
 | Lobby create succeeds (T5) | T5 host emits `[Lobby] hosting <lobbyId>` |
 | Party create succeeds (T7) | T7 host emits `[Party] network <id> hosted with descriptor <…>` |
@@ -349,6 +361,8 @@ the diagnostic next steps.
   both pages are satisfied.
 - [PlayFab plugin overview](plugin.md) — `godot_playfab` runtime
   configuration, public surface, and architecture notes.
+- [PlayFab async system](async-system.md) — PlayFab completion,
+  dispatch, and shutdown lifecycle contract.
 - [Tutorials index](../tutorials/README.md) — the cumulative T1
   through T8 tutorial chain and the standalone GameInput track.
 - [Async patterns](../async-patterns.md) — one-page primer on the
