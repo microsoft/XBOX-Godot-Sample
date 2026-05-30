@@ -98,7 +98,7 @@ public:
             const Variant key_variant = keys[i];
             if (key_variant.get_type() != Variant::STRING && key_variant.get_type() != Variant::STRING_NAME) {
                 if (r_error_message != nullptr) {
-                    *r_error_message = "PlayFab Multiplayer property dictionaries require String keys.";
+                    *r_error_message = "PlayFab Multiplayer property dictionaries require String or StringName keys.";
                 }
                 return false;
             }
@@ -108,15 +108,15 @@ public:
             const bool value_is_null = value_type == Variant::NIL;
             if (value_is_null && !p_allow_null_delete) {
                 if (r_error_message != nullptr) {
-                    *r_error_message = "PlayFab Multiplayer property dictionaries require String values.";
+                    *r_error_message = "PlayFab Multiplayer property dictionaries require String or StringName values.";
                 }
                 return false;
             }
             if (!value_is_null && value_type != Variant::STRING && value_type != Variant::STRING_NAME) {
                 if (r_error_message != nullptr) {
                     *r_error_message = p_allow_null_delete ?
-                            "PlayFab Multiplayer property dictionaries require String values (or null to delete the entry)." :
-                            "PlayFab Multiplayer property dictionaries require String values.";
+                            "PlayFab Multiplayer property dictionaries require String or StringName values (or null to delete the entry)." :
+                            "PlayFab Multiplayer property dictionaries require String or StringName values.";
                 }
                 return false;
             }
