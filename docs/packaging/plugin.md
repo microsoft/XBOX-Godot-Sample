@@ -55,8 +55,9 @@ Godot discovery order in the forwarders:
 3. `GODOT` env var
 4. Repo-local `sample\Godot*_console.exe` / `sample\Godot*.exe` candidates
 5. Current-working-directory `Godot*_console.exe` / `Godot*.exe` candidates
-6. `where godot` / `where godot4` on Windows, or `which godot` / `which godot4`
-   on POSIX shells
+6. `where godot` / `where godot4` on Windows, or `command -v godot` /
+   `command -v godot4` on POSIX shells (`gdkpkg.sh` uses `command -v` for
+   PATH lookup, not `which`)
 
 Both forwarders accept `--path <project_dir>` to override the project
 root (otherwise the current working directory is used). Pass `--godot

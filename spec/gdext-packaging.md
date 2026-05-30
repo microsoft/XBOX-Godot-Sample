@@ -73,8 +73,9 @@ Layer summary:
   (`GODOT_CONSOLE` -> `GODOT_BIN` -> `GODOT`), fall back to repo-local
   `sample\Godot*_console.exe` / `sample\Godot*.exe` candidates, then the
   current working directory's `Godot*_console.exe` / `Godot*.exe` candidates,
-  then `where godot` / `where godot4` on Windows or `which godot` /
-  `which godot4` on POSIX shells. They forward all remaining args using form
+  then `where godot` / `where godot4` on Windows or `command -v godot` /
+  `command -v godot4` on POSIX shells (`gdkpkg.sh` uses `command -v`, not
+  `which`, for PATH lookup). They forward all remaining args using form
   A (`-s ...`) so they work even
   before a `--import` pass has populated the class registry. The forwarders
   preserve argument boundaries for paths with spaces; `gdkpkg.sh` uses Bash
