@@ -170,13 +170,14 @@ void GameInputMapper::_release_held_action_for(int binding_index) {
         InputMap *imap = InputMap::get_singleton();
         if (input && action != StringName()) {
             input->action_release(action);
-            if (!imap || imap->has_action(action)) {
+            if (imap && imap->has_action(action)) {
                 Ref<InputEventAction> evt;
                 evt.instantiate();
                 evt->set_action(action);
                 evt->set_pressed(false);
                 input->parse_input_event(evt);
             }
+        }
         }
     }
 
