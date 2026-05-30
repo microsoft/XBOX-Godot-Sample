@@ -387,6 +387,37 @@ func test_party_shutdown_cancels_reentrant_pending_operations() -> void:
 	assert_eq(party._test_pending_operation_count(), 0, "Shutdown drains all PlayFab Party pending operations")
 
 
+func test_party_leave_network_completed_classification_uses_state_result() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	if party == null:
+		return
+	if not party.has_method("_test_classify_leave_network_completed"):
+		pending("PlayFab Party leave classification test requires debug test hooks.")
+		return
+
+	# Party SDK enum values from PartyStateChangeResult in Party.h.
+	const PARTY_STATE_CHANGE_SUCCEEDED := 0
+	const PARTY_STATE_CHANGE_CANCELED_BY_TITLE := 2
+	const PARTY_STATE_CHANGE_LEAVE_NETWORK_CALLED := 14
+
+	var succeeded_with_detail: Dictionary = party._test_classify_leave_network_completed(PARTY_STATE_CHANGE_SUCCEEDED, 1)
+	assert_true(bool(succeeded_with_detail.get("ok", false)), "PartyLeaveNetwork treats Succeeded as success even with diagnostic detail")
+
+	var graceful_leave: Dictionary = party._test_classify_leave_network_completed(PARTY_STATE_CHANGE_LEAVE_NETWORK_CALLED, 0)
+	assert_true(bool(graceful_leave.get("ok", false)), "PartyLeaveNetwork treats LeaveNetworkCalled as a successful local leave")
+
+	var canceled_zero_detail: Dictionary = party._test_classify_leave_network_completed(PARTY_STATE_CHANGE_CANCELED_BY_TITLE, 0)
+	assert_false(bool(canceled_zero_detail.get("ok", true)), "PartyLeaveNetwork does not treat every zero errorDetail as success")
+	assert_eq(String(canceled_zero_detail.get("code", "")), "party_resource_not_ready", "Failed PartyLeaveNetwork keeps the expected error code")
+	assert_true(String(canceled_zero_detail.get("message", "")).contains("CanceledByTitle"), "Zero-detail PartyLeaveNetwork failure names the SDK state result")
+	assert_false(String(canceled_zero_detail.get("message", "")).contains("operation succeeded"), "Zero-detail PartyLeaveNetwork failure does not report operation succeeded")
+
+
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
 	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
 	if typeof(async_signal) != TYPE_SIGNAL:
