@@ -62,7 +62,7 @@ func test_create_match_ticket_returns_ticket_id_before_cancel() -> void:
 	assert_eq(String(ticket.get_ticket_id()), ticket_id, "cancel preserves ticket_id")
 	assert_true(ticket.is_cancelled(), "ticket reaches cancelled status")
 
-	await await_completion(playfab.shutdown_async(), MATCH_TEST_TIMEOUT_MSEC)
+	playfab.shutdown()
 
 
 func _begin_match_session(label: String) -> Dictionary:
@@ -89,9 +89,9 @@ func _begin_match_session(label: String) -> Dictionary:
 		pending("PlayFab singleton is not available in this host")
 		return outcome
 
-	var initialize_result = await await_completion(playfab.initialize_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+	var initialize_result = playfab.initialize()
 	if initialize_result == null:
-		pending("%s skipped: PlayFab.initialize_async() timed out." % label)
+		pending("%s skipped: PlayFab.initialize() returned null." % label)
 		return outcome
 	if not initialize_result.ok:
 		pending("%s skipped: %s" % [label, initialize_result.message])
@@ -100,23 +100,23 @@ func _begin_match_session(label: String) -> Dictionary:
 	var sign_in := await sign_in_with_configured_custom_id(playfab, label, DEFAULT_ASYNC_TIMEOUT_MSEC)
 	var playfab_user: Object = sign_in.get("playfab_user", null)
 	if playfab_user == null:
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	var multiplayer: Object = playfab.multiplayer
 	assert_not_null(multiplayer, "PlayFab.multiplayer exists")
 	if multiplayer == null:
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	var multiplayer_result = await await_completion(multiplayer.initialize_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
 	if multiplayer_result == null:
 		pending("%s skipped: PlayFab.multiplayer.initialize_async() timed out." % label)
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 	if not multiplayer_result.ok:
 		pending("%s skipped: %s" % [label, multiplayer_result.message])
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	outcome["playfab"] = playfab
@@ -134,3 +134,4 @@ func _pending_unless_live_write() -> bool:
 
 func _match_queue_name() -> String:
 	return OS.get_environment(MATCH_QUEUE_ENV).strip_edges() if not OS.get_environment(MATCH_QUEUE_ENV).strip_edges().is_empty() else DEFAULT_MATCH_QUEUE
+

@@ -29,6 +29,7 @@ const CONVERGENCE_TIMEOUT_MS := 10_000
 
 var _runtime: PlayFabRuntime = null
 var _lobbies: Dictionary = {}  # handle (String) -> PlayFabLobby (Object)
+var _pending_events: Array[Dictionary] = []
 
 
 func bind(runtime: PlayFabRuntime) -> void:
@@ -74,7 +75,8 @@ func create_lobby(params: Dictionary) -> Dictionary:
 	)
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "create_lobby_async")
-	_lobbies[handle] = result.data
+	_attach_lobby(handle, result.data)
+	_queue_event("lobby.created", { "handle": handle, "lobby": _lobby_snapshot(result.data) })
 	return _ok({ "handle": handle, "lobby": _lobby_snapshot(result.data) })
 
 
@@ -101,7 +103,36 @@ func join_lobby(params: Dictionary) -> Dictionary:
 	)
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "join_lobby_async")
-	_lobbies[handle] = result.data
+	_attach_lobby(handle, result.data)
+	_queue_event("lobby.joined", { "handle": handle, "lobby": _lobby_snapshot(result.data) })
+	return _ok({ "handle": handle, "lobby": _lobby_snapshot(result.data) })
+
+
+func join_arranged_lobby(params: Dictionary) -> Dictionary:
+	var session_err: Dictionary = _require_session("join_arranged_lobby")
+	if not session_err.is_empty():
+		return session_err
+	var handle: String = String(params.get("as", DEFAULT_HANDLE))
+	if has_lobby(handle):
+		return _err("handle_in_use", "lobby handle '%s' is already tracked" % handle)
+	var connection_string: String = String(params.get("connection_string", "")).strip_edges()
+	if connection_string.is_empty():
+		return _err("invalid_connection_string", "join_arranged_lobby requires a non-empty connection_string")
+
+	var join_config: Object = _instantiate("PlayFabLobbyJoinConfig")
+	if join_config == null:
+		return _err("class_unavailable", "PlayFabLobbyJoinConfig not registered in ClassDB")
+	join_config.member_properties = params.get("member_properties", {})
+
+	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
+		func(): return _runtime.get_multiplayer().join_arranged_lobby_async(_runtime.get_user(), connection_string, join_config),
+		"join_arranged_lobby_async",
+		int(params.get("timeout_ms", DEFAULT_TIMEOUT_MS)),
+	)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "join_arranged_lobby_async")
+	_attach_lobby(handle, result.data)
+	_queue_event("lobby.arranged_joined", { "handle": handle, "lobby": _lobby_snapshot(result.data) })
 	return _ok({ "handle": handle, "lobby": _lobby_snapshot(result.data) })
 
 
@@ -260,7 +291,8 @@ func leave_lobby(params: Dictionary) -> Dictionary:
 	# failure would let lobby membership persist into the next scenario.
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "leave_async")
-	_lobbies.erase(handle)
+	_detach_lobby(handle, lobby)
+	_queue_event("lobby.left", { "handle": handle, "left_lobby_id": lobby_id })
 	return _ok({ "handle": handle, "left_lobby_id": lobby_id })
 
 
@@ -284,6 +316,10 @@ func reset(_params: Dictionary = {}) -> Dictionary:
 			var err_details: Dictionary = err_payload.get("error", {})
 			err_details["handle"] = handle
 			failures.append(err_details)
+	for detach_handle in _lobbies.keys():
+		var detach_lobby = _lobbies[detach_handle]
+		if detach_lobby != null:
+			_detach_lobby(String(detach_handle), detach_lobby)
 	_lobbies.clear()
 	if not failures.is_empty():
 		return _err(
@@ -292,6 +328,70 @@ func reset(_params: Dictionary = {}) -> Dictionary:
 			{ "left": left, "failed": failures },
 		)
 	return _ok({ "left": left })
+
+
+func poll_events(emit: Callable) -> void:
+	while not _pending_events.is_empty():
+		var event: Dictionary = _pending_events.pop_front()
+		emit.call(String(event.get("event_type", "")), event.get("payload", {}))
+
+
+func _attach_lobby(handle: String, lobby: Object) -> void:
+	_lobbies[handle] = lobby
+	var cb: Callable = _on_lobby_state_changed.bind(handle)
+	if lobby != null and not lobby.state_changed.is_connected(cb):
+		lobby.state_changed.connect(cb)
+
+
+func _detach_lobby(handle: String, lobby: Object) -> void:
+	var cb: Callable = _on_lobby_state_changed.bind(handle)
+	if lobby != null and lobby.state_changed.is_connected(cb):
+		lobby.state_changed.disconnect(cb)
+	_lobbies.erase(handle)
+
+
+func _on_lobby_state_changed(change: Object, handle: String) -> void:
+	if change == null:
+		return
+	var kind: int = int(change.kind)
+	var event_type: String = _lobby_event_type(kind)
+	var payload: Dictionary = {
+		"handle": handle,
+		"kind": kind,
+		"kind_name": event_type,
+		"lobby": _lobby_snapshot(change.lobby),
+		"properties": change.properties,
+	}
+	if change.member != null:
+		payload["member"] = _member_snapshot(change.member)
+	if change.result != null:
+		payload["result"] = _result_snapshot(change.result)
+	_queue_event(event_type, payload)
+
+
+func _lobby_event_type(kind: int) -> String:
+	match kind:
+		1:
+			return "lobby.member_added"
+		2:
+			return "lobby.member_removed"
+		3:
+			return "lobby.member_updated"
+		4:
+			return "lobby.properties_updated"
+		5:
+			return "lobby.owner_changed"
+		6:
+			return "lobby.disconnected"
+		_:
+			return "lobby.state_changed"
+
+
+func _queue_event(event_type: String, payload: Dictionary) -> void:
+	_pending_events.append({
+		"event_type": event_type,
+		"payload": payload,
+	})
 
 
 # ---------------------------------------------------------------------------
@@ -318,12 +418,7 @@ func _lobby_snapshot(lobby: Object) -> Dictionary:
 		return {}
 	var members: Array = []
 	for member in lobby.get_members():
-		members.append({
-			"user_id": member.get_user_id(),
-			"entity_key": member.get_entity_key(),
-			"properties": member.get_properties(),
-			"is_local": member.is_local_member(),
-		})
+		members.append(_member_snapshot(member))
 	return {
 		"lobby_id": lobby.get_lobby_id(),
 		"connection_string": lobby.get_connection_string(),
@@ -333,6 +428,27 @@ func _lobby_snapshot(lobby: Object) -> Dictionary:
 		"properties": lobby.get_properties(),
 		"search_properties": lobby.get_search_properties(),
 		"members": members,
+	}
+
+
+func _member_snapshot(member: Object) -> Dictionary:
+	if member == null:
+		return {}
+	return {
+		"user_id": member.get_user_id(),
+		"entity_key": member.get_entity_key(),
+		"properties": member.get_properties(),
+		"is_local": member.is_local_member(),
+	}
+
+
+func _result_snapshot(result: Object) -> Dictionary:
+	if result == null:
+		return {}
+	return {
+		"ok": bool(result.ok),
+		"code": String(result.code),
+		"message": String(result.message),
 	}
 
 

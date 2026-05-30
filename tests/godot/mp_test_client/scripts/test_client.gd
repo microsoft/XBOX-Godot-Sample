@@ -226,7 +226,8 @@ func _register_commands() -> void:
 			else:
 				custom_id = _derive_custom_id_for_role()
 		var create_account: bool = bool(params.get("create_account", false))
-		var sign_in_result: Dictionary = await _playfab_runtime.sign_in_with_custom_id(custom_id, create_account)
+		var initialize_multiplayer: bool = bool(params.get("initialize_multiplayer", true))
+		var sign_in_result: Dictionary = await _playfab_runtime.sign_in_with_custom_id(custom_id, create_account, initialize_multiplayer)
 		if not bool(sign_in_result.get("ok", false)):
 			return { "ok": false, "error": sign_in_result.get("error", { "code": "sign_in_failed", "message": "" }) }
 		var data: Dictionary = sign_in_result.duplicate()
@@ -236,6 +237,7 @@ func _register_commands() -> void:
 	# Lobby commands
 	_dispatcher.register("create_lobby", func(params): return await _lobby_ops.create_lobby(params))
 	_dispatcher.register("join_lobby", func(params): return await _lobby_ops.join_lobby(params))
+	_dispatcher.register("join_arranged_lobby", func(params): return await _lobby_ops.join_arranged_lobby(params))
 	_dispatcher.register("search_lobbies", func(params): return await _lobby_ops.search_lobbies(params))
 	_dispatcher.register("set_lobby_properties", func(params): return await _lobby_ops.set_lobby_properties(params))
 	_dispatcher.register("set_member_properties", func(params): return await _lobby_ops.set_member_properties(params))
@@ -253,8 +255,12 @@ func _register_commands() -> void:
 	_dispatcher.register("party_create_network", func(params): return await _party_ops.create_network(params))
 	_dispatcher.register("party_join_network", func(params): return await _party_ops.join_network(params))
 	_dispatcher.register("party_snapshot", func(params): return _party_ops.get_snapshot(params))
+	_dispatcher.register("party_get_network_snapshot", func(params): return _party_ops.get_snapshot(params))
 	_dispatcher.register("party_leave_network", func(params): return await _party_ops.leave_network(params))
+	_dispatcher.register("party_send_rpc_ping", func(params): return _party_ops.send_rpc_ping(params))
 	_dispatcher.register("party_send_chat_text", func(params): return await _party_ops.send_chat_text(params))
+	_dispatcher.register("party_set_peer_muted", func(params): return await _party_ops.set_peer_muted(params))
+	_dispatcher.register("party_set_peer_chat_permissions", func(params): return await _party_ops.set_peer_chat_permissions(params))
 
 	# Lifecycle
 	_dispatcher.register("reset_client", _handle_reset_client)
@@ -264,6 +270,9 @@ func _handle_reset_client(_params: Dictionary) -> Dictionary:
 	var lobby_reset: Dictionary = await _lobby_ops.reset({})
 	var match_reset: Dictionary = await _match_ops.reset({})
 	var party_reset: Dictionary = await _party_ops.reset({})
+	# Drop the test-client's active PlayFab user between scenarios so negative
+	# "unsigned user" scenarios are not order-dependent after earlier sign-ins.
+	_playfab_runtime.clear_session()
 	# Advance the rotation index AFTER releasing handles so the next
 	# scenario's sign_in lands on the next account in the pool. We rotate
 	# unconditionally (not just on rate-limit pressure) so the budget
@@ -317,6 +326,13 @@ func _parse_args() -> void:
 func _pump_io_once() -> void:
 	if _playfab_runtime != null:
 		_playfab_runtime.dispatch()
+	var emit_event := Callable(self, "_send_event")
+	if _lobby_ops != null:
+		_lobby_ops.poll_events(emit_event)
+	if _match_ops != null:
+		_match_ops.poll_events(emit_event)
+	if _party_ops != null:
+		_party_ops.poll_events(emit_event)
 	_peer.poll()
 	var status: int = _peer.get_status()
 	if status != StreamPeerTCP.STATUS_CONNECTED:
@@ -388,6 +404,15 @@ func _handle_request(frame: Dictionary) -> void:
 		"error": dispatch_result.get("error", {}),
 	}
 	_send_frame(response)
+
+
+func _send_event(event_type: String, payload: Dictionary) -> int:
+	return _send_frame({
+		"kind": "event",
+		"event_type": event_type,
+		"payload": payload,
+		"ts_ms": Time.get_ticks_msec(),
+	})
 
 
 func _send_frame(frame: Dictionary) -> int:

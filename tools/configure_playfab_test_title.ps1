@@ -8,8 +8,8 @@
     PlayFab live tests need:
 
       - a custom-ID account used by tests that sign in with create_account=false
-      - four Multiplayer worker custom-ID accounts ({prefix}-{host,client,client2,observer})
-        used by the legacy tools/run_playfab_multiplayer_live.ps1 runner
+      - four unsuffixed Multiplayer worker custom-ID accounts ({prefix}-{host,client,client2,observer})
+        kept for ad-hoc/back-compat smoke scripts
       - sixteen pooled Multiplayer worker custom-ID accounts
         ({prefix}-{host,client,client2,observer}-{1..4}) used by the
         mp_orchestrator harness, which rotates through the pool between
@@ -408,12 +408,10 @@ function Ensure-MultiplayerWorkerAccounts {
         [Parameter(Mandatory = $false)][int]$PoolSize = 4
     )
 
-    # Provision both naming conventions during the transition:
+    # Provision both naming conventions:
     #
-    #   1. Legacy unsuffixed accounts ({prefix}-{role}) — used by the
-    #      retiring `tools/run_playfab_multiplayer_live.ps1` runner and
-    #      by ad-hoc smoke scripts that hard-code a single account per
-    #      role. Removable once C6 retires the old runner.
+    #   1. Unsuffixed accounts ({prefix}-{role}) — retained for ad-hoc
+    #      smoke scripts that hard-code a single account per role.
     #
     #   2. Rotation pool ({prefix}-{role}-{1..PoolSize}) — used by the
     #      new mp_orchestrator test client (tests/godot/mp_test_client/
@@ -1193,7 +1191,7 @@ function Set-LiveTestTitleDataMarker {
     )
 
     $route = 'Admin/SetTitleData'
-    # Legacy unsuffixed list (used by tools/run_playfab_multiplayer_live.ps1).
+    # Unsuffixed list retained for ad-hoc/back-compat smoke scripts.
     $legacyAccounts = @(
         "$MarkerMultiplayerCustomIdPrefix-host",
         "$MarkerMultiplayerCustomIdPrefix-client",

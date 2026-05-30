@@ -313,7 +313,7 @@ C5 ships P0 + P1 (60 scenarios). C2 details the top 25-30 P0/P1 with API sequenc
 
 ## Coverage vs legacy PS runner
 
-The 18 scenarios in `tools/run_playfab_multiplayer_live.ps1` map 1:1 onto the matrix entries marked `Source = P`. C4 lands the harness with the 18 ports + at least 3 new Party scenarios (`party.network.create.smoke`, `party.network.join.smoke`, `party.rpc.round_trip.post_join_first_message`) and proves orchestrator-vs-PS-runner parity on the Lobby + Match ports before C5 begins. C6 retires the PS runner once the orchestrator is wired into `run_all_tests.ps1`.
+The retired 18-scenario PowerShell runner mapped 1:1 onto the matrix entries marked `Source = P`. C5/C6 now carry the full P0/P1 set through `tests/godot/mp_orchestrator/scenarios/`; `tools/run_all_tests.ps1` selects those P0/P1 scenario files for the canonical live MP stage.
 
 ## Out-of-scope (deferred follow-ups)
 
