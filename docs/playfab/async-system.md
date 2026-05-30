@@ -7,7 +7,7 @@ The PlayFab addon exposes native XAsync, Party, and Multiplayer operations as on
 - Every public `*_async` method returns a `Signal` that can be awaited directly.
 - The signal emits exactly once with a `PlayFabResult`.
 - Successful completions set `PlayFabResult.ok` and place Godot-native data in `PlayFabResult.data`.
-- Failures still emit the signal. Check `ok`, `error_code`, `error_message`, and `http_status` instead of waiting for a second callback.
+- Failures still emit the signal. Check `ok` first; on failure inspect `code` (machine-readable error string), `message` (human-readable description), and `hresult` (native HRESULT) on the same `PlayFabResult` instead of waiting for a second callback.
 
 ## Main-thread completion delivery
 
