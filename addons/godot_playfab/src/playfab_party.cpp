@@ -32,6 +32,7 @@ constexpr const char *PARTY_DESCRIPTOR_INVALID = "party_descriptor_invalid";
 constexpr const char *PARTY_TRANSPORT_CREATE_FAILED = "party_transport_create_failed";
 constexpr const char *PARTY_PEER_NOT_CONNECTED = "party_peer_not_connected";
 constexpr const char *PARTY_RESOURCE_NOT_READY = "party_resource_not_ready";
+constexpr const char *PARTY_SHUTTING_DOWN = "party_shutting_down";
 constexpr const char *PARTY_CHAT_CONTROL_CREATE_FAILED = "party_chat_control_create_failed";
 constexpr const char *PARTY_CHAT_PERMISSION_FAILED = "party_chat_permission_failed";
 constexpr const char *PARTY_STATE_FINISH_FAILED = "party_state_finish_failed";
@@ -1265,6 +1266,10 @@ bool PlayFabParty::is_initialized() const {
     return m_initialized;
 }
 
+bool PlayFabParty::has_deferred_shutdown() const {
+    return m_shutdown_deferred_until_dispatch_complete;
+}
+
 PlayFabRuntime *PlayFabParty::_get_runtime() const {
     return m_owner != nullptr ? m_owner->get_runtime() : nullptr;
 }
@@ -1348,6 +1353,9 @@ bool PlayFabParty::_validate_direct_peer_connectivity(int64_t p_options, String 
 }
 
 HRESULT PlayFabParty::_ensure_initialized(int p_local_udp_port_override) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
     if (m_initialized) {
         return S_OK;
     }
@@ -1421,6 +1429,10 @@ HRESULT PlayFabParty::_ensure_initialized(int p_local_udp_port_override) {
 
 Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config, int p_local_udp_port) {
     (void)p_config;
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party.initialize_async() cannot start while PlayFab Party is shutting down.");
+    }
     PlayFabRuntime *runtime = _get_runtime();
     if (runtime == nullptr || !runtime->is_initialized()) {
         return _make_error_signal(E_NOT_VALID_STATE, PARTY_NOT_INITIALIZED,
@@ -1442,24 +1454,37 @@ Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config, i
 Signal PlayFabParty::shutdown_async() {
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     shutdown();
-    pending_signal->complete_deferred(PlayFabResult::ok_result());
+    if (m_shutdown_deferred_until_dispatch_complete) {
+        m_shutdown_pending_signals.push_back(pending_signal);
+    } else {
+        pending_signal->complete_deferred(PlayFabResult::ok_result());
+    }
     return pending_signal->get_completed_signal();
 }
 
 void PlayFabParty::shutdown() {
-    if (!m_initialized && m_pending_operations.empty() && m_networks.empty() && m_local_users.empty()) {
+    if (m_processing_state_changes) {
+        m_shutdown_deferred_until_dispatch_complete = true;
+        if (!m_shutting_down) {
+            m_shutting_down = true;
+            _cancel_active_pending_operations("PlayFab Party is shutting down.");
+        }
+        return;
+    }
+    if (m_shutting_down && !m_shutdown_deferred_until_dispatch_complete) {
+        return;
+    }
+    if (!m_initialized && m_pending_operations.empty() && m_pending_operations_deferred_delete.empty() && m_networks.empty() && m_local_users.empty()) {
         return;
     }
 
+    m_shutdown_deferred_until_dispatch_complete = false;
     m_shutting_down = true;
 
-    for (PendingOperation *operation : m_pending_operations) {
-        if (operation != nullptr && operation->pending_signal.is_valid()) {
-            operation->pending_signal->complete(PlayFabResult::cancelled("PlayFab Party is shutting down."));
-        }
-    }
+    _cancel_active_pending_operations("PlayFab Party is shutting down.");
 
-    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+    std::vector<Ref<PlayFabPartyNetwork>> networks_to_leave = m_networks;
+    for (const Ref<PlayFabPartyNetwork> &network : networks_to_leave) {
         if (network.is_valid() && network->get_native_handle() != nullptr) {
             network->get_native_handle()->LeaveNetwork(nullptr);
         }
@@ -1467,8 +1492,10 @@ void PlayFabParty::shutdown() {
 
     for (int attempt = 0; attempt < 50 && m_initialized; ++attempt) {
         dispatch();
+        _cancel_active_pending_operations("PlayFab Party is shutting down.");
         bool any_active = false;
-        for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+        std::vector<Ref<PlayFabPartyNetwork>> networks_snapshot = m_networks;
+        for (const Ref<PlayFabPartyNetwork> &network : networks_snapshot) {
             if (network.is_valid() && network->get_native_handle() != nullptr) {
                 any_active = true;
                 break;
@@ -1480,12 +1507,10 @@ void PlayFabParty::shutdown() {
         Sleep(10);
     }
 
-    for (PendingOperation *operation : m_pending_operations) {
-        delete operation;
-    }
-    m_pending_operations.clear();
+    _cancel_active_pending_operations("PlayFab Party is shutting down.");
 
-    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
+    std::vector<Ref<PlayFabPartyNetwork>> networks_to_detach = m_networks;
+    for (const Ref<PlayFabPartyNetwork> &network : networks_to_detach) {
         if (network.is_valid()) {
             network->detach_native();
             network->set_owner(nullptr);
@@ -1506,8 +1531,14 @@ void PlayFabParty::shutdown() {
         m_initialized = false;
     }
 
+    _delete_deferred_pending_operations();
+
     m_processing_state_changes = false;
     m_shutting_down = false;
+    _complete_shutdown_pending_signals();
+    if (m_owner != nullptr) {
+        m_owner->finish_deferred_shutdown_if_ready();
+    }
 }
 
 int PlayFabParty::dispatch() {
@@ -1528,6 +1559,17 @@ Array PlayFabParty::get_networks() const {
     }
     return networks;
 }
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+Signal PlayFabParty::_test_enqueue_shutdown_pending() {
+    PendingOperation *operation = _create_pending(PENDING_NONE);
+    return operation->pending_signal->get_completed_signal();
+}
+
+int64_t PlayFabParty::_test_pending_operation_count() const {
+    return static_cast<int64_t>(m_pending_operations.size() + m_pending_operations_deferred_delete.size());
+}
+#endif
 
 void PlayFabParty::_track_network(const Ref<PlayFabPartyNetwork> &p_network) {
     if (!p_network.is_valid()) {
@@ -1660,6 +1702,58 @@ PlayFabParty::PendingOperation *PlayFabParty::_create_pending(int32_t p_kind) {
     return operation;
 }
 
+void PlayFabParty::_cancel_active_pending_operations(const String &p_cancel_message) {
+    while (!m_pending_operations.empty()) {
+        std::vector<PendingOperation *> pending_operations;
+        pending_operations.swap(m_pending_operations);
+        for (PendingOperation *operation : pending_operations) {
+            _defer_pending_delete(operation);
+        }
+        for (PendingOperation *operation : pending_operations) {
+            if (operation != nullptr && operation->pending_signal.is_valid()) {
+                operation->pending_signal->complete(PlayFabResult::cancelled(p_cancel_message));
+            }
+        }
+    }
+}
+
+void PlayFabParty::_defer_pending_delete(PendingOperation *p_operation) {
+    if (p_operation == nullptr) {
+        return;
+    }
+    auto active_it = std::find(m_pending_operations.begin(), m_pending_operations.end(), p_operation);
+    if (active_it != m_pending_operations.end()) {
+        m_pending_operations.erase(active_it);
+    }
+    auto deferred_it = std::find(m_pending_operations_deferred_delete.begin(), m_pending_operations_deferred_delete.end(), p_operation);
+    if (deferred_it == m_pending_operations_deferred_delete.end()) {
+        m_pending_operations_deferred_delete.push_back(p_operation);
+    }
+}
+
+void PlayFabParty::_delete_deferred_pending_operations() {
+    std::vector<PendingOperation *> active_operations;
+    active_operations.swap(m_pending_operations);
+    for (PendingOperation *operation : active_operations) {
+        _defer_pending_delete(operation);
+    }
+
+    for (PendingOperation *operation : m_pending_operations_deferred_delete) {
+        delete operation;
+    }
+    m_pending_operations_deferred_delete.clear();
+}
+
+void PlayFabParty::_complete_shutdown_pending_signals() {
+    std::vector<Ref<PlayFabPendingSignal>> pending_signals;
+    pending_signals.swap(m_shutdown_pending_signals);
+    for (const Ref<PlayFabPendingSignal> &pending_signal : pending_signals) {
+        if (pending_signal.is_valid()) {
+            pending_signal->complete(PlayFabResult::ok_result());
+        }
+    }
+}
+
 void PlayFabParty::_release_pending(PendingOperation *p_operation) {
     if (p_operation == nullptr) {
         return;
@@ -1668,6 +1762,10 @@ void PlayFabParty::_release_pending(PendingOperation *p_operation) {
     if (it != m_pending_operations.end()) {
         m_pending_operations.erase(it);
     }
+    if (m_shutting_down) {
+        _defer_pending_delete(p_operation);
+        return;
+    }
     delete p_operation;
 }
 
@@ -1675,6 +1773,9 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
     if (p_operation == nullptr) {
         return;
     }
+
+    m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
+
     if (p_operation->pending_signal.is_valid()) {
         Ref<PlayFabResult> final_result = p_result;
         if (p_operation->pending_signal->was_cancel_requested()) {
@@ -1682,7 +1783,16 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
         }
         p_operation->pending_signal->complete(final_result);
     }
-    _release_pending(p_operation);
+
+    // Deferring after complete() (rather than both before and after) keeps the
+    // operation alive across the complete() call without double-tracking it.
+    // The check is re-read here in case complete() re-entrantly flipped
+    // m_shutting_down (e.g. an awaiter calling PlayFab.shutdown()).
+    if (m_shutting_down) {
+        _defer_pending_delete(p_operation);
+    } else {
+        delete p_operation;
+    }
 }
 
 PlayFabParty::PendingOperation *PlayFabParty::_find_pending(int32_t p_kind, Party::PartyNetwork *p_native_network) {
@@ -1737,6 +1847,10 @@ bool PlayFabParty::_abort_join_op_if_network_dead(PendingOperation *p_operation)
 // PlayFabParty (network operations)
 
 Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party.create_and_join_network_async() cannot start while PlayFab Party is shutting down.");
+    }
     // Validate the caller-supplied config bitmask first so the error
     // message points at a static, code-authored mistake instead of a
     // transient sign-in / initialization state issue.
@@ -1836,6 +1950,10 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
 }
 
 Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const String &p_descriptor, const Ref<PlayFabPartyConfig> &p_config) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party.join_network_async() cannot start while PlayFab Party is shutting down.");
+    }
     Ref<PlayFabResult> validation = _validate_user(p_user);
     if (validation.is_valid() && !validation->is_ok()) {
         if (_get_runtime() != nullptr) {
@@ -1907,6 +2025,10 @@ Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const St
 }
 
 Signal PlayFabParty::leave_network_async(const Ref<PlayFabPartyNetwork> &p_network) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party.leave_network_async() cannot start while PlayFab Party is shutting down.");
+    }
     if (!p_network.is_valid()) {
         return _make_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS,
                 "PlayFab.party.leave_network_async() requires a non-null network.");
@@ -1976,6 +2098,9 @@ int PlayFabParty::_pump_state_changes() {
         return processed;
     }
     m_processing_state_changes = false;
+    if (m_shutdown_deferred_until_dispatch_complete) {
+        shutdown();
+    }
     return processed;
 }
 
@@ -2797,6 +2922,10 @@ void PlayFabParty::_process_voice_chat_transcription_received(const Party::Party
 // PlayFabParty (chat helpers)
 
 Signal PlayFabParty::_send_text_via_chat_control(Party::PartyLocalChatControl *p_local_chat_control, const std::vector<Party::PartyChatControl *> &p_targets, const String &p_message, const Ref<PlayFabPartyTextMessageConfig> &p_config) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat operations cannot start while PlayFab Party is shutting down.");
+    }
     if (p_local_chat_control == nullptr) {
         return _make_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
                 "PlayFab.party._send_text_via_chat_control() requires a connected local chat control.");
@@ -2823,6 +2952,10 @@ Signal PlayFabParty::_send_text_via_chat_control(Party::PartyLocalChatControl *p
 }
 
 Signal PlayFabParty::_set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat permission operations cannot start while PlayFab Party is shutting down.");
+    }
     if (r_succeeded != nullptr) {
         *r_succeeded = false;
     }
@@ -2843,6 +2976,10 @@ Signal PlayFabParty::_set_chat_permissions(Party::PartyLocalChatControl *p_local
 }
 
 Signal PlayFabParty::_set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat mute operations cannot start while PlayFab Party is shutting down.");
+    }
     if (r_succeeded != nullptr) {
         *r_succeeded = false;
     }
@@ -2862,6 +2999,10 @@ Signal PlayFabParty::_set_incoming_audio_muted(Party::PartyLocalChatControl *p_l
 }
 
 Signal PlayFabParty::_destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat control destruction cannot start while PlayFab Party is shutting down.");
+    }
     if (!p_chat_control.is_valid() || p_chat_control->get_native_handle() == nullptr || !p_chat_control->is_local()) {
         return _make_ok_signal();
     }
@@ -2886,6 +3027,9 @@ Signal PlayFabParty::_destroy_chat_control(const Ref<PlayFabPartyChatControl> &p
 // PlayFabParty (network step starters)
 
 HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
     if (p_operation == nullptr || p_operation->native_network == nullptr || p_operation->native_user == nullptr) {
         return E_INVALIDARG;
     }
@@ -2905,6 +3049,9 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
 }
 
 HRESULT PlayFabParty::_start_create_chat_control_step(PendingOperation *p_operation) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
     if (p_operation == nullptr || p_operation->native_user == nullptr) {
         return E_INVALIDARG;
     }
@@ -2923,6 +3070,9 @@ HRESULT PlayFabParty::_start_create_chat_control_step(PendingOperation *p_operat
 }
 
 HRESULT PlayFabParty::_start_handshake_step(PendingOperation *p_operation) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
     if (p_operation == nullptr || p_operation->network.is_null() || p_operation->user.is_null()) {
         return E_INVALIDARG;
     }
@@ -2960,6 +3110,9 @@ HRESULT PlayFabParty::_start_handshake_step(PendingOperation *p_operation) {
 }
 
 HRESULT PlayFabParty::_send_handshake_request_to(PendingOperation *p_operation, Party::PartyEndpoint *p_target) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
     if (p_operation == nullptr || p_operation->network.is_null() || p_operation->user.is_null() || p_target == nullptr) {
         return E_INVALIDARG;
     }
@@ -2995,6 +3148,9 @@ HRESULT PlayFabParty::_send_handshake_request_to(PendingOperation *p_operation, 
 }
 
 void PlayFabParty::_send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id) {
+    if (m_shutting_down) {
+        return;
+    }
     if (p_peer == nullptr || p_target_endpoint == nullptr) {
         return;
     }
@@ -3189,6 +3345,10 @@ void PlayFabParty::_bind_methods() {
     ClassDB::bind_method(D_METHOD("leave_network_async", "network"), &PlayFabParty::leave_network_async);
     ClassDB::bind_method(D_METHOD("get_chat"), &PlayFabParty::get_chat);
     ClassDB::bind_method(D_METHOD("get_networks"), &PlayFabParty::get_networks);
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabParty::_test_enqueue_shutdown_pending);
+    ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabParty::_test_pending_operation_count);
+#endif
 
     ADD_SIGNAL(MethodInfo("party_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabResult")));
 

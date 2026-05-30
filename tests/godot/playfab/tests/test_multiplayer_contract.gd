@@ -176,6 +176,38 @@ func test_multiplayer_not_initialized_failures() -> void:
 		await _assert_signal_error(detached_ticket.cancel_async(), "invalid_match_ticket", "Detached PlayFabMatchTicket.cancel_async() reports invalid_match_ticket")
 
 
+func test_multiplayer_shutdown_cancels_reentrant_pending_operations() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var multiplayer = playfab.get_multiplayer()
+	if multiplayer == null:
+		return
+	if not multiplayer.has_method("_test_enqueue_shutdown_pending"):
+		pending("PlayFab Multiplayer shutdown re-entry test requires debug test hooks.")
+		return
+
+	var completion_state := {
+		"first": false,
+		"reentrant": false,
+	}
+	var first_signal = multiplayer._test_enqueue_shutdown_pending()
+	first_signal.connect(func(_result):
+		completion_state["first"] = true
+		var reentrant_signal = multiplayer._test_enqueue_shutdown_pending()
+		reentrant_signal.connect(func(_reentrant_result):
+			completion_state["reentrant"] = true
+		)
+	)
+
+	assert_playfab_result_ok(await await_completion(multiplayer.shutdown_async()), "PlayFab.multiplayer.shutdown_async() with re-entrant pending completion")
+	assert_true(completion_state["first"], "Initial pending operation completed during shutdown")
+	assert_true(completion_state["reentrant"], "Re-entrant pending operation completed during the same shutdown")
+	assert_eq(multiplayer._test_pending_operation_count(), 0, "Shutdown drains all PlayFab Multiplayer pending operations")
+
+
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
 	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
 	if typeof(async_signal) != TYPE_SIGNAL:

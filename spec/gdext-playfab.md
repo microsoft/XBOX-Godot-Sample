@@ -94,6 +94,7 @@ Rules:
 4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
 5. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
 6. `PlayFab.dispatch()` also pumps PlayFab Multiplayer lobby and matchmaking state changes after `PlayFab.multiplayer.initialize_async()`.
+7. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
 
 ## User/session model
 
@@ -177,6 +178,8 @@ Match tickets report `match_id` and `arranged_lobby_connection_string` through `
 Failed lobby create/join completions are terminal for their temporary wrapper: the wrapper is removed from `PlayFab.multiplayer.get_lobbies()` and marked disconnected before the failure result is surfaced. If `PFLobbyFinishStateChanges` or `PFMatchmakingFinishStateChanges` fails, the service emits `multiplayer_error`, tears down native Multiplayer state (including the task queue), marks wrappers detached, and returns to `is_initialized() == false`; titles must call `initialize_async()` before issuing more Multiplayer calls.
 
 `PlayFab.party` follows the same fail-closed recovery contract for `PartyManager::FinishProcessingStateChanges`: it emits `party_error`, detaches active network/chat wrappers, resets `PartyManager`, and requires `initialize_async()` before further Party calls.
+
+Party and Multiplayer shutdown paths are cancellation-first: they emit cancelled `PlayFabResult`s for pending operations, tolerate handlers that re-enter the addon, defer native teardown until any active SDK state-change batch has unwound, then keep native async context storage alive until after the relevant SDK cleanup call completes.
 
 ## Samples
 

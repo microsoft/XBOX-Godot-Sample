@@ -1,6 +1,7 @@
 #include "playfab_runtime.h"
 
 #include <algorithm>
+#include <atomic>
 
 #include <godot_cpp/classes/project_settings.hpp>
 
@@ -16,6 +17,10 @@ constexpr bool PLAYFAB_GDK_PLATFORM = true;
 #else
 constexpr bool PLAYFAB_GDK_PLATFORM = false;
 #endif
+
+struct RuntimeQueueTerminateContext {
+    std::atomic<bool> terminated{false};
+};
 
 void wait_for_async_completion(HRESULT p_start_hr, XAsyncBlock *p_async_block) {
     if (SUCCEEDED(p_start_hr)) {
@@ -210,12 +215,27 @@ void PlayFabRuntime::shutdown() {
     wait_for_async_completion(PFUninitializeAsync(&core_async), &core_async);
 
     if (m_task_queue != nullptr) {
-        bool terminated = false;
-        HRESULT terminate_hr = XTaskQueueTerminate(m_task_queue, false, &terminated, _queue_terminated);
+        // Heap-allocate the terminate context so the wait can safely give up
+        // without a stack UAF if the SDK callback fires later. Context is
+        // freed only when the callback observably completes; otherwise it is
+        // intentionally leaked.
+        auto *ctx = new RuntimeQueueTerminateContext();
+        HRESULT terminate_hr = XTaskQueueTerminate(m_task_queue, false, ctx, _queue_terminated);
         if (SUCCEEDED(terminate_hr)) {
-            while (!terminated) {
+            constexpr int kMaxDispatchIterations = 500; // ~5 seconds at 10ms each.
+            int iterations = 0;
+            while (!ctx->terminated.load(std::memory_order_acquire) && iterations < kMaxDispatchIterations) {
                 XTaskQueueDispatch(m_task_queue, XTaskQueuePort::Completion, 10);
+                ++iterations;
             }
+            if (ctx->terminated.load(std::memory_order_acquire)) {
+                delete ctx;
+            } else {
+                WARN_PRINT("PlayFabRuntime: XTaskQueueTerminate did not complete within 5s; leaking terminate context to avoid UAF if the SDK callback fires later.");
+                // ctx intentionally leaked.
+            }
+        } else {
+            delete ctx;
         }
 
         XTaskQueueCloseHandle(m_task_queue);
@@ -319,9 +339,9 @@ Signal PlayFabRuntime::make_error_signal(HRESULT p_hresult, const String &p_code
 }
 
 void CALLBACK PlayFabRuntime::_queue_terminated(void *p_context) {
-    bool *terminated = static_cast<bool *>(p_context);
-    if (terminated != nullptr) {
-        *terminated = true;
+    auto *ctx = static_cast<RuntimeQueueTerminateContext *>(p_context);
+    if (ctx != nullptr) {
+        ctx->terminated.store(true, std::memory_order_release);
     }
 }
 
