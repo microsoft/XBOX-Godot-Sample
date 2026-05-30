@@ -94,7 +94,7 @@ GameInput.initialize() -> bool
 GameInput.shutdown() -> void
 GameInput.is_initialized() -> bool
 GameInput.poll() -> void
-GameInput.get_devices(kind_mask := DEVICE_ALL) -> Array[GameInputDevice]
+GameInput.get_devices(kind_mask := DEVICE_GAMEPAD) -> Array[GameInputDevice]
 GameInput.get_primary_device(kind_mask := DEVICE_GAMEPAD) -> GameInputDevice
 GameInput.get_current_reading(device: GameInputDevice) -> GameInputReading
 GameInput.set_vibration(device: GameInputDevice, low_freq: float, high_freq: float, left_trigger := 0.0, right_trigger := 0.0) -> bool
@@ -226,7 +226,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
 | 3 | Device info (issue #23) | Shipped (battery half removed — GameInput v3 dropped the API) |
-| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample\tutorial_gameinput\` action-bridge sample is shipped; a GameInput panel inside `sample\tutorial_app\` remains deferred. |
+| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample/tutorial_gameinput/` action-bridge sample is shipped; a GameInput panel inside `sample/tutorial_app/` remains deferred. |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
 
