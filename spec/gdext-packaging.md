@@ -89,8 +89,8 @@ Every verb returns a `PackagingResult` dictionary:
     "ok":          true,       # exit_code == 0
     "message":     "Packed ... -> ...",
     "details":     {...},      # verb-specific (artifact paths, parsed config, etc.)
-    "stdout":      "...",      # forwarded from underlying tool, may be ""
-    "stderr":      "...",      # forwarded from underlying tool, may be ""
+    "stdout":      "...",      # forwarded from underlying tool stdout, may be ""
+    "stderr":      "...",      # forwarded from underlying tool stderr, may be ""
     "duration_ms": 1234
 }
 ```
@@ -178,7 +178,9 @@ Derived rules:
 - `content_id` falls back to `product_id` if neither CLI nor settings file
   supplied one.
 - `--encrypt=key:<ekb>` is split into `encrypt="key"` + `encrypt_key="<ekb>"`
-  unless `--encrypt-key` is also passed (CLI wins).
+  unless `--encrypt-key` is also passed (CLI wins). A resolved `encrypt="key"`
+  with no non-empty `encrypt_key` fails with `EXIT_CONFIG`; the service never
+  silently drops the requested encryption mode.
 - `config_template --output <path>` writes to the requested path; `--overwrite`
   removes and recreates that same resolved output file.
 

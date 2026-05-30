@@ -49,6 +49,10 @@ func run_pack(resolved: Dictionary) -> Dictionary:
 	var missing: String = _missing_required(resolved, ["source_dir", "output_dir"])
 	if not missing.is_empty():
 		return PackagingResult.fail(verb, missing, PackagingResult.EXIT_USAGE)
+	if _encrypt_key_missing(resolved):
+		var message: String = "--encrypt=key requires --encrypt-key to point at an EKB file"
+		push_error("[GDK Packaging] " + message)
+		return PackagingResult.fail(verb, message, PackagingResult.EXIT_CONFIG)
 	if not _toolchain.is_gdk_available():
 		return PackagingResult.fail(verb, "GDK tools not found (set GDK_BIN or install the GDK)",
 			PackagingResult.EXIT_CONFIG)
@@ -611,6 +615,15 @@ static func _missing_required(resolved: Dictionary, keys: Array) -> String:
 	if missing.is_empty():
 		return ""
 	return "Missing required value(s): %s" % ", ".join(missing)
+
+
+static func _encrypt_key_missing(resolved: Dictionary) -> bool:
+	if str(resolved.get("encrypt", "none")) != "key":
+		return false
+	var raw_key: Variant = resolved.get("encrypt_key", "")
+	if raw_key == null:
+		return true
+	return str(raw_key).strip_edges().is_empty()
 
 
 static func _content_prep_error(prefix: String, logs: Array[String]) -> String:

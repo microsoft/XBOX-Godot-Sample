@@ -134,16 +134,32 @@ before committing.
 
 ## Tests
 
+- `tests/godot/gdk/tests/packaging/test_config_import_plugin.gd` — import
+  plugin file classification.
+- `tests/godot/gdk/tests/packaging/test_game_config_xml_rewriting.gd` —
+  MicrosoftGame.config logo rewriting and encryption-key safety pins.
+- `tests/godot/gdk/tests/packaging/test_gdk_toolchain.gd` — GDK discovery,
+  execute_tool result shape, and stdout/stderr capture.
 - `tests/godot/gdk/tests/packaging/test_packaging_cli.gd` — argv parsing
   and verb-flag matrix.
 - `tests/godot/gdk/tests/packaging/test_gdkpkg_forwarder.gd` — shell
   forwarder argument-preservation regressions.
 - `tests/godot/gdk/tests/packaging/test_packaging_config_resolver.gd` —
   precedence chain + key remap + encrypt key:<path> split.
+- `tests/godot/gdk/tests/packaging/test_packaging_content_preparer.gd` —
+  content-prep XML helpers and runtime DLL refresh behavior.
+- `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — dock
+  presenter helper behavior.
+- `tests/godot/gdk/tests/packaging/test_packaging_plugin_lifecycle.gd` —
+  editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
   builder shape, exit-code constants, JSON round trip.
 - `tests/godot/gdk/tests/packaging/test_packaging_service.gd` — verb-facade
   regressions for headless-only behaviours.
+- `tests/godot/gdk/tests/packaging/test_tutorial_wizard_state.gd` — tutorial
+  wizard state transitions.
+- `tests/godot/gdk/tests/packaging/test_wdapp_manager.gd` — wdapp
+  install/uninstall verb wiring + cancellation/early-return guards.
 - Pre-existing helper suites (`test_packaging.gd`,
   `test_packaging_panel_logic.gd`, `test_packaging_content_preparer.gd`,
   `test_gdk_toolchain.gd`, `test_packaging_settings_store.gd`,

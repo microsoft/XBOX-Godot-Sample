@@ -378,9 +378,9 @@ func relocate_logos_to_storelogos() -> int:
 		"splash_screen": "SplashScreenImage",
 	}
 
-	# Build a mapping of root files that need to move
+	# Build a mapping of root files that need to move.
 	var files_to_move: Dictionary = {}  # src_abs -> dest_filename
-	var path_replacements: Dictionary = {}  # old_config_value -> new_config_value
+	var logo_attr_replacements: Dictionary = {}  # ShellVisuals attr -> { old, new }
 
 	for key: String in config_logos:
 		var rel_path: String = info.get(key, "")
@@ -394,15 +394,17 @@ func relocate_logos_to_storelogos() -> int:
 		if not FileAccess.file_exists(src_abs):
 			continue
 		var dest_filename: String = normalized.get_file()
+		var attr_name: String = config_logos[key]
 		files_to_move[src_abs] = dest_filename
-		path_replacements[rel_path] = "storelogos\\" + dest_filename
+		logo_attr_replacements[attr_name] = {"old": rel_path, "new": "storelogos\\" + dest_filename}
 
 	# Also check for standard GameConfigEditor output names at root
 	for filename: String in logo_files:
 		var src_abs: String = project_dir.path_join(filename)
 		if FileAccess.file_exists(src_abs) and not files_to_move.has(src_abs):
+			var attr_name: String = logo_files[filename]
 			files_to_move[src_abs] = filename
-			path_replacements[filename] = "storelogos\\" + filename
+			logo_attr_replacements[attr_name] = {"old": filename, "new": "storelogos\\" + filename}
 
 	if files_to_move.is_empty():
 		return 0
@@ -424,15 +426,13 @@ func relocate_logos_to_storelogos() -> int:
 			push_warning("[GDK Packaging] Failed to move " + src_abs.get_file() + ": " + error_string(err))
 
 	# Update MicrosoftGame.config with new paths
-	if moved > 0 and not path_replacements.is_empty():
+	if moved > 0 and not logo_attr_replacements.is_empty():
 		var config_path: String = get_config_path()
 		var file: FileAccess = FileAccess.open(config_path, FileAccess.READ)
 		if file != null:
 			var content: String = file.get_as_text()
 			file.close()
-			for old_val: String in path_replacements:
-				var new_val: String = path_replacements[old_val]
-				content = content.replace('"' + old_val + '"', '"' + new_val + '"')
+			content = _replace_shell_visuals_logo_attributes(content, logo_attr_replacements)
 			file = FileAccess.open(config_path, FileAccess.WRITE)
 			if file != null:
 				file.store_string(content)
@@ -449,6 +449,79 @@ func relocate_logos_to_storelogos() -> int:
 ## Escapes special characters for safe use in XML attribute values.
 static func _escape_xml_attr(value: String) -> String:
 	return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+static func _replace_shell_visuals_logo_attributes(content: String, attr_replacements: Dictionary) -> String:
+	var shell_visuals: RegEx = RegEx.new()
+	shell_visuals.compile('(?s)<ShellVisuals\\b[^>]*>')
+	var shell_match: RegExMatch = shell_visuals.search(content)
+	if shell_match == null:
+		return content
+
+	var patched: String = ""
+	var cursor: int = 0
+	while shell_match != null:
+		patched += content.substr(cursor, shell_match.get_start() - cursor)
+		patched += _replace_logo_attrs_in_tag(shell_match.get_string(), attr_replacements)
+		cursor = shell_match.get_end()
+		shell_match = shell_visuals.search(content, cursor)
+	return patched + content.substr(cursor)
+
+
+static func _replace_logo_attrs_in_tag(tag: String, attr_replacements: Dictionary) -> String:
+	var patched: String = tag
+	for attr_name: String in attr_replacements:
+		var replacement: Dictionary = attr_replacements[attr_name]
+		patched = _replace_xml_attribute_value(
+			patched,
+			attr_name,
+			str(replacement.get("old", "")),
+			str(replacement.get("new", "")))
+	return patched
+
+
+static func _replace_xml_attribute_value(tag: String, attr_name: String,
+		expected_old_value: String, new_value: String) -> String:
+	if expected_old_value.is_empty():
+		return tag
+	var attr_regex: RegEx = RegEx.new()
+	attr_regex.compile('(\\b' + attr_name + '\\s*=\\s*")[^"]*(")')
+	var attr_match: RegExMatch = attr_regex.search(tag)
+	if attr_match == null:
+		return tag
+
+	var escaped_old: String = _escape_xml_attr(expected_old_value)
+	var escaped_new: String = _escape_xml_attr(new_value)
+	var patched: String = ""
+	var cursor: int = 0
+	while attr_match != null:
+		var original: String = attr_match.get_string()
+		var prefix: String = attr_match.get_string(1)
+		var suffix: String = attr_match.get_string(2)
+		var current_value: String = original.substr(prefix.length(),
+			original.length() - prefix.length() - suffix.length())
+		patched += tag.substr(cursor, attr_match.get_start() - cursor)
+		if current_value == expected_old_value or current_value == escaped_old:
+			patched += prefix + escaped_new + suffix
+		else:
+			patched += original
+		cursor = attr_match.get_end()
+		attr_match = attr_regex.search(tag, cursor)
+	return patched + tag.substr(cursor)
+
+
+static func _find_shell_visuals_attr(content: String, attr_name: String) -> String:
+	var shell_visuals: RegEx = RegEx.new()
+	shell_visuals.compile('(?s)<ShellVisuals\\b[^>]*>')
+	var shell_match: RegExMatch = shell_visuals.search(content)
+	while shell_match != null:
+		var attr_regex: RegEx = RegEx.new()
+		attr_regex.compile('\\b' + attr_name + '\\s*=\\s*"([^"]*)"')
+		var attr_match: RegExMatch = attr_regex.search(shell_match.get_string())
+		if attr_match != null:
+			return attr_match.get_string(1)
+		shell_match = shell_visuals.search(content, shell_match.get_end())
+	return ""
 
 
 ## Strips characters disallowed in MicrosoftGame.config Identity/@Name (spaces
@@ -500,22 +573,16 @@ func _rewrite_config_paths_to_storelogos() -> void:
 		"SplashScreenImage",
 	]
 
-	var changed: bool = false
+	var logo_attr_replacements: Dictionary = {}
 	for attr: String in logo_attrs:
-		# Match attr="something.png" where something.png doesn't already start with storelogos
-		var regex: RegEx = RegEx.new()
-		regex.compile(attr + '="(?!storelogos[/\\\\])([^"]+)"')
-		var result: RegExMatch = regex.search(content)
-		if result:
-			var old_path: String = result.get_string(1)
-			var filename: String = old_path.replace("\\", "/").get_file()
-			var new_path: String = "storelogos\\" + filename
-			content = content.replace(
-				attr + '="' + old_path + '"',
-				attr + '="' + new_path + '"')
-			changed = true
+		var old_path: String = _find_shell_visuals_attr(content, attr)
+		if old_path.is_empty() or old_path.replace("/", "\\").begins_with("storelogos\\"):
+			continue
+		var filename: String = old_path.replace("\\", "/").get_file()
+		logo_attr_replacements[attr] = {"old": old_path, "new": "storelogos\\" + filename}
 
-	if changed:
+	if not logo_attr_replacements.is_empty():
+		content = _replace_shell_visuals_logo_attributes(content, logo_attr_replacements)
 		file = FileAccess.open(config_path, FileAccess.WRITE)
 		if file != null:
 			file.store_string(content)

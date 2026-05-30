@@ -104,6 +104,9 @@ Additional verb-specific flags:
   `--overwrite` replaces that same resolved output file when it already
   exists.
 
+`--encrypt=key` without a non-empty `--encrypt-key` fails with `EXIT_CONFIG`;
+the pack verb never silently downgrades a key-encrypted build to unencrypted.
+
 Per-verb help is always reachable as `<verb> --help`:
 
 ```pwsh
@@ -122,7 +125,8 @@ PACKAGING_RESULT_JSON:{"verb":"pack","exit_code":0,"ok":true,"message":"...","de
 ```
 
 Pass `--no-json` to suppress the marker line for terminal use. The
-process exit code mirrors the `exit_code` field.
+process exit code mirrors the `exit_code` field. Underlying tool diagnostics
+are reported in `stderr` instead of being merged into `stdout`.
 
 ### Exit-code reference
 

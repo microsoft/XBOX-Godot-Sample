@@ -143,7 +143,7 @@ func _copy_addon_runtime_dlls(content_dir: String, logger: Callable) -> int:
 						if not bin.current_is_dir() and fname.ends_with(".dll") and skip_re.search(fname) == null:
 							var src: String = bin_dir.path_join(fname)
 							var dest: String = content_dir.path_join(fname)
-							if not FileAccess.file_exists(dest):
+							if _should_copy_runtime_dll(src, dest):
 								if copy_dir.copy(src, dest) == OK:
 									copied += 1
 									_call_logger(logger, "Copied runtime DLL: addons/%s/bin/%s" % [addon_name, fname])
@@ -195,32 +195,79 @@ static func _normalize_path(path: String) -> String:
 
 
 static func inject_vc14_dependency(content: String) -> String:
-	if content.contains('<KnownDependency Name="VC14"/>') or not content.contains("</Game>"):
+	if not content.contains("</Game>"):
 		return content
 
-	var dep_inner: String = '    <DependencyList>\n      <KnownDependency Name="VC14"/>\n    </DependencyList>\n'
+	var dep_entry: String = '      <KnownDependency Name="VC14"/>\n'
 	var existing_dr: RegEx = RegEx.new()
-	# Match an existing <DesktopRegistration>...</DesktopRegistration> block (non-greedy, DOTALL so
-	# it can span newlines). If found, merge the DependencyList into it instead of appending a new
-	# DesktopRegistration block — GDK rejects configs with more than one DesktopRegistration.
-	existing_dr.compile('(?s)<DesktopRegistration>(.*?)</DesktopRegistration>')
-	var match: RegExMatch = existing_dr.search(content)
-	if match:
-		var inner: String = match.get_string(1)
-		var trimmed: String = inner.strip_edges(false, true)
-		var merged: String = "<DesktopRegistration>%s\n%s  </DesktopRegistration>" % [trimmed, dep_inner]
-		return content.substr(0, match.get_start()) + merged + content.substr(match.get_end())
+	existing_dr.compile('(?s)(<DesktopRegistration\\b[^>]*>)(.*?)(</DesktopRegistration>)')
+	var desktop_match: RegExMatch = existing_dr.search(content)
+	if desktop_match:
+		var inner: String = desktop_match.get_string(2)
+		var dependency_list: RegEx = RegEx.new()
+		dependency_list.compile('(?s)(<DependencyList\\b[^>]*>)(.*?)(</DependencyList>)')
+		var list_match: RegExMatch = dependency_list.search(inner)
+		var new_inner: String = inner
+		if list_match:
+			if _dependency_list_has_name(list_match.get_string(), "VC14"):
+				return content
+			var list_body: String = list_match.get_string(2).strip_edges(false, true)
+			if list_body.is_empty():
+				list_body = "\n"
+			elif not list_body.ends_with("\n"):
+				list_body += "\n"
+			var merged_list: String = list_match.get_string(1) + list_body + dep_entry + "    " + list_match.get_string(3)
+			new_inner = inner.substr(0, list_match.get_start()) + merged_list + inner.substr(list_match.get_end())
+		else:
+			new_inner = inner.strip_edges(false, true)
+			if new_inner.is_empty():
+				new_inner = "\n"
+			elif not new_inner.ends_with("\n"):
+				new_inner += "\n"
+			new_inner += '    <DependencyList>\n' + dep_entry + '    </DependencyList>\n  '
+		var merged_desktop: String = desktop_match.get_string(1) + new_inner + desktop_match.get_string(3)
+		return content.substr(0, desktop_match.get_start()) + merged_desktop + content.substr(desktop_match.get_end())
 
-	var dep_xml: String = '  <DesktopRegistration>\n' + dep_inner + '  </DesktopRegistration>\n'
+	var dep_xml: String = '  <DesktopRegistration>\n    <DependencyList>\n' + dep_entry + '    </DependencyList>\n  </DesktopRegistration>\n'
 	return content.replace("</Game>", dep_xml + "</Game>")
 
 
 static func patch_executable_name(content: String, executable_name: String) -> String:
 	var regex: RegEx = RegEx.new()
-	regex.compile('Executable Name="[^"]*"')
-	if regex.search(content):
-		return regex.sub(content, 'Executable Name="%s"' % executable_name)
-	return content
+	regex.compile('(<Executable\\b[^>]*\\bName=")[^"]*(")')
+	var executable_match: RegExMatch = regex.search(content)
+	if executable_match == null:
+		return content
+
+	var escaped_name: String = GameConfigManagerScript._escape_xml_attr(executable_name)
+	var patched: String = ""
+	var cursor: int = 0
+	while executable_match != null:
+		patched += content.substr(cursor, executable_match.get_start() - cursor)
+		patched += executable_match.get_string(1) + escaped_name + executable_match.get_string(2)
+		cursor = executable_match.get_end()
+		executable_match = regex.search(content, cursor)
+	return patched + content.substr(cursor)
+
+
+static func _should_copy_runtime_dll(src_path: String, dest_path: String) -> bool:
+	if not FileAccess.file_exists(dest_path):
+		return true
+	var src_hash: String = FileAccess.get_sha256(src_path)
+	var dest_hash: String = FileAccess.get_sha256(dest_path)
+	if not src_hash.is_empty() and not dest_hash.is_empty():
+		return src_hash != dest_hash
+	var src_time: int = FileAccess.get_modified_time(src_path)
+	var dest_time: int = FileAccess.get_modified_time(dest_path)
+	if src_time <= 0 or dest_time <= 0:
+		return true
+	return src_time > dest_time
+
+
+static func _dependency_list_has_name(dependency_list_xml: String, dependency_name: String) -> bool:
+	var regex: RegEx = RegEx.new()
+	regex.compile("\\bName\\s*=\\s*[\"']" + dependency_name + "[\"']")
+	return regex.search(dependency_list_xml) != null
 
 
 func _find_primary_executable(content_dir: String) -> String:
