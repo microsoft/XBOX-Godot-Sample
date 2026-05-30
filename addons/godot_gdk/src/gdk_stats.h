@@ -6,6 +6,8 @@
 #endif
 #include <windows.h>
 
+#include <atomic>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -51,12 +53,24 @@ private:
     };
 
     struct TrackingState {
+        struct CallbackContext {
+            GDKStats *stats = nullptr;
+            std::atomic_bool active = true;
+            std::mutex mutex;
+        };
+
+        struct CallbackToken {
+            std::weak_ptr<CallbackContext> context;
+        };
+
         Ref<GDKUser> user;
         XUserLocalId local_id = {};
         uint64_t xbox_user_id = 0;
         XblContextHandle context = nullptr;
         XblFunctionContext handler_token = {};
         bool handler_registered = false;
+        std::shared_ptr<CallbackContext> callback_context;
+        std::shared_ptr<CallbackToken> callback_token;
     };
 
     struct PendingStatChange {
@@ -73,6 +87,7 @@ private:
     std::vector<TrackingState> m_tracking_states;
     std::vector<PendingStatChange> m_pending_stat_changes;
     mutable std::mutex m_pending_stat_changes_mutex;
+    std::vector<std::shared_ptr<TrackingState::CallbackToken>> m_retired_callback_tokens;
 
     static void CALLBACK _statistic_changed_handler(XblStatisticChangeEventArgs p_args, void *p_context);
 

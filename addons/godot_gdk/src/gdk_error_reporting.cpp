@@ -34,16 +34,20 @@ void GDKErrorReporting::set_owner(GDK *p_owner) {
 }
 
 Ref<GDKResult> GDKErrorReporting::on_runtime_initialized() {
+    XErrorSetCallback(nullptr, nullptr);
+    _clear_callback_context();
+
     std::lock_guard<std::mutex> lock(m_pending_errors_mutex);
     m_pending_errors.clear();
     m_runtime_ready = true;
     m_callback_enabled = false;
-    XErrorSetCallback(nullptr, nullptr);
     return GDKResult::ok_result();
 }
 
 void GDKErrorReporting::shutdown() {
-    XErrorSetCallback(nullptr, nullptr);
+    if (m_runtime_ready) {
+        _set_callback(nullptr);
+    }
 
     std::lock_guard<std::mutex> lock(m_pending_errors_mutex);
     m_pending_errors.clear();
@@ -111,24 +115,48 @@ Ref<GDKResult> GDKErrorReporting::configure_options(
 
 Ref<GDKResult> GDKErrorReporting::set_callback_enabled(bool p_enabled) {
     XErrorCallback *callback = p_enabled ? _error_callback : nullptr;
-    void *context = p_enabled ? this : nullptr;
-    Ref<GDKResult> result = _set_callback(callback, context);
+    Ref<GDKResult> result = _set_callback(callback);
     if (result->is_ok()) {
         m_callback_enabled = p_enabled;
     }
     return result;
 }
 
-Ref<GDKResult> GDKErrorReporting::_set_callback(XErrorCallback *p_callback, void *p_context) {
+void GDKErrorReporting::_clear_callback_context() {
+    if (m_callback_context) {
+        std::lock_guard<std::mutex> lock(m_callback_context->mutex);
+        m_callback_context->active.store(false, std::memory_order_release);
+        m_callback_context->service = nullptr;
+    }
+
+    if (m_callback_token) {
+        constexpr size_t MAX_RETIRED_CALLBACK_TOKENS = 16;
+        m_retired_callback_tokens.push_back(m_callback_token);
+        if (m_retired_callback_tokens.size() > MAX_RETIRED_CALLBACK_TOKENS) {
+            m_retired_callback_tokens.erase(m_retired_callback_tokens.begin());
+        }
+        m_callback_token.reset();
+    }
+    m_callback_context.reset();
+}
+
+Ref<GDKResult> GDKErrorReporting::_set_callback(XErrorCallback *p_callback) {
     if (!m_runtime_ready) {
         return GDKResult::error_result(E_FAIL, "runtime_not_initialized", RUNTIME_NOT_INITIALIZED_ERROR_MESSAGE);
     }
 
-    XErrorSetCallback(p_callback, p_context);
-
-    GDKRuntime *runtime = get_runtime_internal();
-    if (runtime != nullptr) {
+    if (p_callback == nullptr) {
+        _clear_callback_context();
+        XErrorSetCallback(nullptr, nullptr);
+        return GDKResult::ok_result();
     }
+
+    _clear_callback_context();
+    m_callback_context = std::make_shared<CallbackContext>();
+    m_callback_context->service = this;
+    m_callback_token = std::make_shared<CallbackToken>();
+    m_callback_token->context = m_callback_context;
+    XErrorSetCallback(p_callback, m_callback_token.get());
 
     return GDKResult::ok_result();
 }
@@ -150,10 +178,19 @@ void GDKErrorReporting::push_error_internal(HRESULT p_hr, const char *p_message)
 }
 
 bool GDKErrorReporting::_error_callback(HRESULT p_hr, const char *p_message, void *p_context) {
-    GDKErrorReporting *service = static_cast<GDKErrorReporting *>(p_context);
-    if (service != nullptr) {
-        service->push_error_internal(p_hr, p_message);
+    CallbackToken *token = static_cast<CallbackToken *>(p_context);
+    std::shared_ptr<CallbackContext> callback_context = token != nullptr ? token->context.lock() : nullptr;
+    if (!callback_context || !callback_context->active.load(std::memory_order_acquire)) {
+        return true;
     }
+
+    std::lock_guard<std::mutex> context_lock(callback_context->mutex);
+    GDKErrorReporting *service = callback_context->service;
+    if (!callback_context->active.load(std::memory_order_acquire) || service == nullptr) {
+        return true;
+    }
+
+    service->push_error_internal(p_hr, p_message);
     return true;
 }
 
