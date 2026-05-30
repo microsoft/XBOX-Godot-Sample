@@ -165,7 +165,7 @@ const VERBS := {
 		"positional": [],
 	},
 	"config_template": {
-		"doc": "Write a starter MicrosoftGame.config into the project root.",
+		"doc": "Write a starter MicrosoftGame.config.",
 		"flags": {
 			"output":    {"type": _TYPE_PATH,
 						  "doc": "Output path. Defaults to res://MicrosoftGame.config."},

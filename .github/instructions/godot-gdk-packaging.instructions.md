@@ -142,6 +142,8 @@ before committing.
   precedence chain + key remap + encrypt key:<path> split.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
   builder shape, exit-code constants, JSON round trip.
+- `tests/godot/gdk/tests/packaging/test_packaging_service.gd` — verb-facade
+  regressions for headless-only behaviours.
 - Pre-existing helper suites (`test_packaging.gd`,
   `test_packaging_panel_logic.gd`, `test_packaging_content_preparer.gd`,
   `test_gdk_toolchain.gd`, `test_packaging_settings_store.gd`,

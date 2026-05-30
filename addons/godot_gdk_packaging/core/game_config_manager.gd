@@ -28,13 +28,34 @@ func config_exists() -> bool:
 	return FileAccess.file_exists("res://" + CONFIG_FILENAME)
 
 
+## Normalizes a Godot path to a filesystem-absolute path so it can safely be
+## passed to [code]DirAccess.*_absolute()[/code] and [code]DirAccess.remove_absolute()[/code]:
+## - [code]res://[/code] / [code]user://[/code] paths are globalized.
+## - Already-absolute filesystem paths are returned unchanged.
+## - Relative paths (e.g. [code]Configs/Alt.config[/code] from a headless
+##   [code]--output[/code] flag) are resolved against the project root so the
+##   write target lands inside the project rather than CWD-dependent
+##   unpredictability.
+## Empty input is returned unchanged.
+static func to_filesystem_path(p: String) -> String:
+	if p.is_empty():
+		return p
+	if p.begins_with("res://") or p.begins_with("user://"):
+		return ProjectSettings.globalize_path(p)
+	if p.is_absolute_path():
+		return p
+	return ProjectSettings.globalize_path("res://").path_join(p)
+
+
 # ── Parsing ─────────────────────────────────────────────────────────────────
 
 ## Parses MicrosoftGame.config and returns identity info as a Dictionary:
 ##   { name, publisher, version, product_id, executable, display_name, description }
 ## Returns an empty dictionary on failure.
-func parse_config() -> Dictionary:
-	var path: String = get_config_path()
+func parse_config(config_path: String = "") -> Dictionary:
+	var path: String = config_path
+	if path.is_empty():
+		path = get_config_path()
 	if not FileAccess.file_exists(path):
 		return {}
 
@@ -134,7 +155,8 @@ func parse_config() -> Dictionary:
 
 # ── Template Generation ─────────────────────────────────────────────────────
 
-## Creates a template MicrosoftGame.config in the project root.
+## Creates a template MicrosoftGame.config. If [param output_path] is empty,
+## writes to the project-root `res://MicrosoftGame.config`.
 ## [param game_name] becomes the Executable Name (must match the exported .exe);
 ## a sanitized form (spaces and underscores stripped) is used for the Identity
 ## Name, since MicrosoftGame.config rejects those characters there.
@@ -143,10 +165,14 @@ func parse_config() -> Dictionary:
 ## Returns OK on success, or an error code.
 func create_template(game_name: String = "MyGodotGame",
 		publisher: String = "CN=Publisher",
-		display_name: String = "My Godot Game") -> Error:
-	var res_path: String = get_config_res_path()
+		display_name: String = "My Godot Game",
+		output_path: String = "") -> Error:
+	var target_path: String = output_path
+	if target_path.is_empty():
+		target_path = get_config_res_path()
+	var fs_target: String = to_filesystem_path(target_path)
 
-	if FileAccess.file_exists(res_path):
+	if FileAccess.file_exists(fs_target):
 		push_warning("[GDK Packaging] MicrosoftGame.config already exists — not overwriting.")
 		return ERR_ALREADY_EXISTS
 
@@ -177,26 +203,39 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '  <AdvancedUserModel>false</AdvancedUserModel>\n'
 	xml += '</Game>\n'
 
-	var file: FileAccess = FileAccess.open(res_path, FileAccess.WRITE)
+	var target_dir: String = fs_target.get_base_dir()
+	if not target_dir.is_empty() and not DirAccess.dir_exists_absolute(target_dir):
+		DirAccess.make_dir_recursive_absolute(target_dir)
+
+	var file: FileAccess = FileAccess.open(fs_target, FileAccess.WRITE)
 	if file == null:
 		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(FileAccess.get_open_error()))
 		return FileAccess.get_open_error()
 
 	file.store_string(xml)
 	file.close()
-	print("[GDK Packaging] Created template MicrosoftGame.config at: ", res_path)
+	print("[GDK Packaging] Created template MicrosoftGame.config at: ", fs_target)
 
-	# Generate placeholder logo images so GameConfigEditor doesn't error
-	_ensure_placeholder_images()
+	# Generate placeholder logo images so GameConfigEditor doesn't error.
+	# Pass the config's base dir so the storelogos/ folder is created next to
+	# the config file (not under res://) when output_path lands outside the
+	# project root; the config's relative "storelogos\..." attributes resolve
+	# against the config's parent directory.
+	_ensure_placeholder_images(target_dir)
 
 	return OK
 
 
 ## Copies the GDK default 480x480 PNG and resizes it to create all placeholder
-## images referenced by the MicrosoftGame.config template.
-func _ensure_placeholder_images() -> void:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var logos_dir: String = project_dir.path_join("storelogos")
+## images referenced by the MicrosoftGame.config template. Writes them under
+## a "storelogos/" folder inside [param base_dir] (defaults to the project
+## root for backward compatibility) so the relative paths the template
+## embeds resolve next to the config file.
+func _ensure_placeholder_images(base_dir: String = "") -> void:
+	var logos_root: String = base_dir
+	if logos_root.is_empty():
+		logos_root = ProjectSettings.globalize_path("res://")
+	var logos_dir: String = logos_root.path_join("storelogos")
 	var default_png: String = _toolchain.get_bin_dir().path_join(
 		"GameConfigEditorDependencies/default480x480.png")
 

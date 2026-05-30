@@ -14,6 +14,81 @@ extends GutTest
 ##     no `</Game>` tag).
 
 const PackagingContentPreparerScript = preload("res://addons/godot_gdk_packaging/core/packaging_content_preparer.gd")
+const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
+
+const _FIXTURE_DIR := "user://test_packaging_content_preparer"
+
+class _FakeToolchain extends RefCounted:
+	func get_bin_dir() -> String:
+		return ProjectSettings.globalize_path("user://missing_gdk_bin")
+
+
+func before_each() -> void:
+	_reset_fixture()
+	DirAccess.make_dir_recursive_absolute(_fixture_root())
+
+
+func after_each() -> void:
+	_reset_fixture()
+
+
+func _fixture_root() -> String:
+	return ProjectSettings.globalize_path(_FIXTURE_DIR)
+
+
+func _fixture_path(relative_path: String) -> String:
+	return _fixture_root().path_join(relative_path)
+
+
+func _reset_fixture() -> void:
+	_remove_tree(_fixture_root())
+
+
+func _remove_tree(path: String) -> void:
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	for file_name: String in DirAccess.get_files_at(path):
+		DirAccess.remove_absolute(path.path_join(file_name))
+	for dir_name: String in DirAccess.get_directories_at(path):
+		_remove_tree(path.path_join(dir_name))
+	DirAccess.remove_absolute(path)
+
+
+func _write_text(path: String, content: String) -> void:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(content)
+	file.close()
+
+
+func _read_text(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var content: String = file.get_as_text()
+	file.close()
+	return content
+
+
+func _config_xml(identity_name: String, executable: String, shell_attrs: Dictionary = {}) -> String:
+	var attrs: String = ""
+	for key: String in shell_attrs:
+		attrs += ' %s="%s"' % [key, shell_attrs[key]]
+	var xml: String = ""
+	xml += '<?xml version="1.0" encoding="utf-8"?>\n'
+	xml += '<Game configVersion="1">\n'
+	xml += '  <Identity Name="%s" Publisher="CN=Acme" Version="1.0.0.0" />\n' % identity_name
+	xml += '  <ExecutableList>\n'
+	xml += '    <Executable Name="%s" Id="Game" />\n' % executable
+	xml += '  </ExecutableList>\n'
+	xml += '  <ShellVisuals DefaultDisplayName="%s"%s />\n' % [identity_name, attrs]
+	xml += '  <MSStore ProductId="TEST-PRODUCT" />\n'
+	xml += '</Game>\n'
+	return xml
+
+
+func _new_preparer() -> RefCounted:
+	return PackagingContentPreparerScript.new(GameConfigManagerScript.new(_FakeToolchain.new()))
 
 
 # ── patch_executable_name ─────────────────────────────────────────────────
@@ -126,3 +201,40 @@ func test_pipeline_inject_then_patch_matches_caller_order() -> void:
 	var step2: String = PackagingContentPreparerScript.patch_executable_name(step1, "RealGame.exe")
 	assert_string_contains(step2, 'Executable Name="RealGame.exe"', "exe patched after inject")
 	assert_string_contains(step2, '<KnownDependency Name="VC14"/>', "VC14 still present after patch")
+
+
+func test_ensure_content_dir_uses_config_override() -> void:
+	var content_dir: String = _fixture_path("content")
+	DirAccess.make_dir_recursive_absolute(content_dir)
+	_write_text(content_dir.path_join("RealGame.exe"), "")
+	var config_path: String = _fixture_path("override/MicrosoftGame.config")
+	_write_text(config_path, _config_xml("OverrideGame", "Placeholder.exe"))
+
+	var ok: bool = _new_preparer().ensure_content_dir_ready(content_dir, Callable(), config_path)
+	assert_true(ok, "content prep succeeds with explicit config path")
+	var staged_config: String = _read_text(content_dir.path_join("MicrosoftGame.config"))
+	assert_string_contains(staged_config, 'Identity Name="OverrideGame"',
+		"staged config comes from the --config target")
+	assert_string_contains(staged_config, 'Executable Name="RealGame.exe"',
+		"staged config is still patched to the exported executable")
+
+
+func test_ensure_content_dir_rejects_logo_path_outside_content_dir() -> void:
+	var content_dir: String = _fixture_path("content")
+	DirAccess.make_dir_recursive_absolute(content_dir)
+	var config_path: String = _fixture_path("attack/MicrosoftGame.config")
+	_write_text(config_path, _config_xml("AttackGame", "Attack.exe", {
+		"Square150x150Logo": "..\\..\\outside.png",
+	}))
+	var outside_path: String = content_dir.path_join("..\\..\\outside.png").simplify_path()
+	var logs: Array[String] = []
+	var logger := func(message: String) -> void:
+		logs.append(message)
+
+	var ok: bool = _new_preparer().ensure_content_dir_ready(content_dir, logger, config_path)
+	assert_false(ok, "escaping logo destination is rejected")
+	assert_false(FileAccess.file_exists(outside_path), "no file is written outside the content dir")
+	assert_false(FileAccess.file_exists(content_dir.path_join("MicrosoftGame.config")),
+		"content prep aborts before staging config")
+	assert_string_contains("\n".join(logs), "outside content directory",
+		"error explains the content-dir safety rule")
