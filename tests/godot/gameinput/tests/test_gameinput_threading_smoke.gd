@@ -7,7 +7,8 @@ extends "res://addons/godot_gdk_tests/gameinput_test_base.gd"
 ## drains the pending queue inside `poll()` and is the only mutator of the
 ## device cache. This test exercises the no-hardware steady-state by hammering
 ## the public API across 100 frames and asserting:
-##   * `get_devices()` always returns an `Array` (no nulls / crashes / leaks).
+##   * `get_devices(DEVICE_ALL)` returns a coherent device cache and real
+##     `GameInputDevice` payloads when hardware is present.
 ##   * `get_current_reading(device)` is safe with a freshly instantiated bare
 ##     `GameInputDevice` (id `0`) — it must return null without dereferencing
 ##     into the worker's pending queue.
@@ -29,6 +30,22 @@ func _await_frames(n: int) -> void:
 		await tree.process_frame
 
 
+func _device_constant(name: String) -> int:
+	return ClassDB.class_get_integer_constant("GameInput", name)
+
+
+func _assert_device_payload(device: Object, label: String) -> void:
+	assert_not_null(device, "%s is non-null" % label)
+	if device == null:
+		return
+	assert_true(device.has_method("get_device_id"), "%s exposes get_device_id()" % label)
+	assert_true(device.has_method("get_kind_mask"), "%s exposes get_kind_mask()" % label)
+	assert_true(device.has_method("is_connected"), "%s exposes is_connected()" % label)
+	assert_true(device.call("is_connected"), "%s reports connected" % label)
+	assert_true(device.get_device_id() > 0, "%s has a positive session id" % label)
+	assert_true(device.get_kind_mask() != 0, "%s has a non-zero kind mask" % label)
+
+
 func test_repeated_get_devices_no_hardware() -> void:
 	if pending_unless_runtime_available():
 		return
@@ -41,20 +58,24 @@ func test_repeated_get_devices_no_hardware() -> void:
 		return
 
 	# Hammer get_devices() across many frames. With no device connected the
-	# returned Array must always be empty; the mapper API and threaded device
-	# callback queue must stay healthy under the repetition.
+	# returned Array must stay empty; if hardware is present, assert the content
+	# too so this test cannot pass on Array shape alone.
 	var saw_non_array := false
+	var all_mask := _device_constant("DEVICE_ALL")
 	for i in ITERATIONS:
-		var devices = gi.get_devices()
+		gi.poll()
+		var devices = gi.get_devices(all_mask)
 		if not (devices is Array):
 			saw_non_array = true
 			break
-		# The Array may grow if a device is plugged in mid-test; we only
-		# assert the type contract, not the count, to stay headless-safe.
+		assert_eq(devices.size(), gi.get_connected_device_count(),
+				"DEVICE_ALL count matches connected count on frame %d" % i)
+		for device in devices:
+			_assert_device_payload(device, "threading smoke device")
 		await get_tree().process_frame
 
 	assert_eq(saw_non_array, false,
-			"get_devices() always returned Array across %d frames" % ITERATIONS)
+			"get_devices(DEVICE_ALL) always returned Array across %d frames" % ITERATIONS)
 
 	gi.shutdown()
 	assert_eq(gi.is_initialized(), false,
@@ -75,6 +96,15 @@ func test_repeated_get_current_reading_no_hardware() -> void:
 	var bare_device = ClassDB.instantiate("GameInputDevice")
 	var saw_unexpected := false
 	for i in ITERATIONS:
+		# Poll before the bare-id check so the worker -> main queue drain is
+		# exercised even when the id-0 wrapper short-circuits to null.
+		gi.poll()
+		var devices = gi.get_devices(_device_constant("DEVICE_ALL"))
+		assert_eq(devices.size(), gi.get_connected_device_count(),
+				"worker queue drain keeps device cache count coherent on frame %d" % i)
+		for device in devices:
+			_assert_device_payload(device, "queue-drained device")
+
 		# null device → null reading. Bare wrapper (id 0) → null reading
 		# because no entry exists for id 0 in the cache.
 		var r_null = gi.get_current_reading(null)
@@ -84,7 +114,6 @@ func test_repeated_get_current_reading_no_hardware() -> void:
 			break
 		# Defensive: poll() is per-frame idempotent. Calling it twice on the
 		# same frame must not crash and must not re-drain the worker queue.
-		gi.poll()
 		gi.poll()
 		await get_tree().process_frame
 
