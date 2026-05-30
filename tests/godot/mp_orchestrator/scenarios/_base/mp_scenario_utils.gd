@@ -66,7 +66,12 @@ func requires_live_write(orch) -> Variant:
 
 
 func _is_failure(value: Variant) -> bool:
-	return typeof(value) == TYPE_DICTIONARY and value.has("failure_reason")
+	# ok() returns { ok: true, failure_reason: "" } and fail() returns
+	# { ok: false, failure_reason: reason }, so a presence check on
+	# "failure_reason" alone treats every helper result (including
+	# successes) as a failure. Check the "ok" flag instead, defaulting to
+	# true for command-result payloads that don't include the flag.
+	return typeof(value) == TYPE_DICTIONARY and not bool(value.get("ok", true))
 
 
 func _is_skip(value: Variant) -> bool:

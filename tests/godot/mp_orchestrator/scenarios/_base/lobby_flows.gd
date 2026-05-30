@@ -334,7 +334,13 @@ func run_lobby_state_owner_migration_event_ordering(orch) -> Dictionary:
 	if _is_failure(owner): return owner
 	var guest_lobby: Variant = await _wait_lobby_owner_role(orch, "guest", "main", "guest")
 	if _is_failure(guest_lobby): return guest_lobby
-	return ok({ "removed_ts": removed.get("ts_ms", 0), "owner_ts": owner.get("ts_ms", 0) })
+	# _wait_event returns the waiter result shape { ok, event, timed_out }
+	# (see _wait_event in mp_scenario_utils.gd); ts_ms lives on the inner
+	# "event" dict, not the top-level waiter result.
+	return ok({
+		"removed_ts": int(removed.get("event", {}).get("ts_ms", 0)),
+		"owner_ts": int(owner.get("event", {}).get("ts_ms", 0)),
+	})
 
 
 func run_lobby_chaos_host_kill_owner_migration(orch) -> Dictionary:
