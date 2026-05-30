@@ -9,9 +9,8 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ##
 ## Eventual consistency: PlayFab leaderboards do not always reflect a freshly
 ## submitted score on the next read. We use `TestEnv.poll_until` with the
-## `playfab/tests/leaderboard_settle_msec` budget. On timeout we report
-## `pending(...)` rather than failing so transient propagation delays don't
-## churn the orchestrator.
+## `playfab/tests/leaderboard_settle_msec` budget; if that budget expires under
+## live coverage, the timeout is a real failure.
 ##
 ## Cleanup: client-side leaderboard deletion is not part of the public API,
 ## so live write tests rely on per-run unique tags (via metadata) and unique
@@ -77,7 +76,7 @@ func test_get_leaderboard_async_live() -> void:
 
 	var result = await await_completion(leaderboard_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if result == null:
-		pending("get_leaderboard_async timed out.")
+		fail("get_leaderboard_async timed out.")
 		playfab.shutdown()
 		return
 	if not result.ok:
@@ -111,7 +110,7 @@ func test_get_leaderboard_around_user_async_live() -> void:
 
 	var result = await await_completion(around_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if result == null:
-		pending("get_leaderboard_around_user_async timed out.")
+		fail("get_leaderboard_around_user_async timed out.")
 		playfab.shutdown()
 		return
 	if not result.ok:
@@ -141,7 +140,7 @@ func test_get_friend_leaderboard_async_live() -> void:
 
 	var result = await await_completion(friend_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if result == null:
-		pending("get_friend_leaderboard_async timed out.")
+		fail("get_friend_leaderboard_async timed out.")
 		playfab.shutdown()
 		return
 	if not result.ok:
@@ -180,7 +179,7 @@ func test_submit_score_settles_in_around_user_query() -> void:
 
 	var submit_result = await await_completion(submit_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if submit_result == null:
-		pending("submit_score_async timed out.")
+		fail("submit_score_async timed out.")
 		playfab.shutdown()
 		return
 	if not submit_result.ok:
@@ -216,7 +215,7 @@ func test_submit_score_settles_in_around_user_query() -> void:
 	if settled == null:
 		var settle_budget := int(ProjectSettings.get_setting(
 			"playfab/tests/leaderboard_settle_msec", 30000))
-		pending("leaderboard did not settle within %dms" % settle_budget)
+		fail("leaderboard did not settle within %dms" % settle_budget)
 		playfab.shutdown()
 		return
 

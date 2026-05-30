@@ -77,6 +77,8 @@ func test_multiplayer_service_contract() -> void:
 	var detached_lobby = instantiate_class("PlayFabLobby")
 	if detached_lobby != null:
 		assert_has_signal_named(detached_lobby, "state_changed")
+		assert_has_method_named(detached_lobby, "is_owner")
+		assert_false(detached_lobby.is_owner(null), "Detached PlayFabLobby.is_owner(null) returns false")
 	assert_false(multiplayer.is_initialized(), "PlayFab.multiplayer starts uninitialized")
 	assert_eq(multiplayer.get_lobbies().size(), 0, "PlayFab.multiplayer starts with no tracked lobbies")
 	assert_eq(multiplayer.get_match_tickets().size(), 0, "PlayFab.multiplayer starts with no tracked tickets")
@@ -88,12 +90,18 @@ func test_multiplayer_config_and_wrapper_contract() -> void:
 	if lobby_config != null:
 		assert_eq(lobby_config.max_players, 8, "PlayFabLobbyConfig.max_players default")
 		assert_eq(lobby_config.access_policy, get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE"), "PlayFabLobbyConfig.access_policy default")
+		assert_eq(lobby_config.owner_migration_policy, get_class_constant("PlayFabLobbyConfig", "OWNER_MIGRATION_AUTOMATIC"), "PlayFabLobbyConfig.owner_migration_policy default")
+		assert_false(lobby_config.restrict_invites_to_lobby_owner, "PlayFabLobbyConfig.restrict_invites_to_lobby_owner default")
 		lobby_config.max_players = 4
 		lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PUBLIC")
+		lobby_config.owner_migration_policy = get_class_constant("PlayFabLobbyConfig", "OWNER_MIGRATION_MANUAL")
+		lobby_config.restrict_invites_to_lobby_owner = true
 		lobby_config.search_properties = {"string_key1": "contract"}
 		lobby_config.lobby_properties = {"map": "arena"}
 		lobby_config.member_properties = {"display_name": "tester"}
 		assert_eq(lobby_config.max_players, 4, "PlayFabLobbyConfig.max_players setter")
+		assert_eq(lobby_config.owner_migration_policy, get_class_constant("PlayFabLobbyConfig", "OWNER_MIGRATION_MANUAL"), "PlayFabLobbyConfig.owner_migration_policy setter")
+		assert_true(lobby_config.restrict_invites_to_lobby_owner, "PlayFabLobbyConfig.restrict_invites_to_lobby_owner setter")
 		assert_eq(lobby_config.search_properties.get("string_key1"), "contract", "PlayFabLobbyConfig.search_properties setter")
 
 	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
@@ -174,6 +182,59 @@ func test_multiplayer_not_initialized_failures() -> void:
 		assert_has_method_named(detached_ticket, "cancel_async")
 		await _assert_signal_error(detached_ticket.refresh_async(), "invalid_match_ticket", "Detached PlayFabMatchTicket.refresh_async() reports invalid_match_ticket")
 		await _assert_signal_error(detached_ticket.cancel_async(), "invalid_match_ticket", "Detached PlayFabMatchTicket.cancel_async() reports invalid_match_ticket")
+
+
+func test_multiplayer_shutdown_async_explicit_await_uninitialized() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var multiplayer = playfab.get_multiplayer()
+	if multiplayer == null:
+		return
+
+	assert_playfab_result_ok(await await_completion(multiplayer.shutdown_async()), "await PlayFab.multiplayer.shutdown_async() while uninitialized")
+	assert_false(multiplayer.is_initialized(), "PlayFab.multiplayer remains uninitialized after explicit awaited shutdown")
+
+
+func test_multiplayer_initialize_reports_already_initialized() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var multiplayer = playfab.get_multiplayer()
+	if multiplayer == null:
+		return
+
+	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
+	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, "00000")
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, "")
+
+	var init_result = playfab.initialize()
+	if init_result == null or not init_result.ok:
+		pending("PlayFab.multiplayer already_initialized branch skipped: PlayFab.initialize() failed: %s" % (init_result.message if init_result != null else "null"))
+		ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+		ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+		reset_playfab_runtime()
+		return
+
+	var first_mp_init = await await_completion(multiplayer.initialize_async())
+	if first_mp_init == null or not first_mp_init.ok:
+		pending("PlayFab.multiplayer already_initialized branch skipped: initialize_async() failed: %s" % (first_mp_init.message if first_mp_init != null else "null"))
+		playfab.shutdown()
+		ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+		ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+		reset_playfab_runtime()
+		return
+
+	await _assert_signal_error(multiplayer.initialize_async(), "already_initialized", "PlayFab.multiplayer.initialize_async() second call")
+	playfab.shutdown()
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+	reset_playfab_runtime()
 
 
 func test_multiplayer_shutdown_cancels_reentrant_pending_operations() -> void:

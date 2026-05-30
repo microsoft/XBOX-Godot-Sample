@@ -226,6 +226,28 @@ func test_initialize_rejects_blank_title_id() -> void:
 		playfab.initialized.disconnect(initialized_handler)
 
 
+func test_initialize_reports_already_initialized() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+
+	reset_playfab_runtime()
+
+	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
+	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, REARM_TEST_TITLE_ID)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, "")
+
+	var first_result = playfab.initialize()
+	assert_playfab_result_ok(first_result, "PlayFab.initialize() first call for already_initialized branch")
+	if first_result != null and first_result.ok:
+		assert_playfab_result_error(playfab.initialize(), "already_initialized", "PlayFab.initialize() second call reports already_initialized")
+		playfab.shutdown()
+
+	_restore_playfab_runtime_settings(original_title_id, original_endpoint)
+	reset_playfab_runtime()
+
+
 func test_initialize_shutdown_rearms_runtime_lifecycle() -> void:
 	if pending_unless_playfab_available():
 		return
