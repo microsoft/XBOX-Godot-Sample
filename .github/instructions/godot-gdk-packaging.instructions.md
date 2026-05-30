@@ -136,6 +136,8 @@ before committing.
 
 - `tests/godot/gdk/tests/packaging/test_packaging_cli.gd` — argv parsing
   and verb-flag matrix.
+- `tests/godot/gdk/tests/packaging/test_gdkpkg_forwarder.gd` — shell
+  forwarder argument-preservation regressions.
 - `tests/godot/gdk/tests/packaging/test_packaging_config_resolver.gd` —
   precedence chain + key remap + encrypt key:<path> split.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result

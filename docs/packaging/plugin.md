@@ -57,7 +57,9 @@ Godot discovery order in the forwarders:
 
 Both forwarders accept `--path <project_dir>` to override the project
 root (otherwise the current working directory is used). Pass `--godot
-<exe>` to override discovery.
+<exe>` to override discovery. The Windows forwarder preserves each
+forwarded argument as a separate token, so Godot paths and packaging flags
+may contain spaces (for example under `C:\Program Files (x86)\...`).
 
 ## Verbs
 
@@ -76,7 +78,7 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 | `install`          | `--package`                          | wdapp install on an .msixvc file.                                 |
 | `uninstall`        | `--package-name`                     | wdapp uninstall by package full name.                             |
 | `launch`           | `--package-name` or `--aumid`        | wdapp launch. Resolves AUMID from PFN when needed.                |
-| `terminate`        | `--package-name`                     | wdapp terminate; falls back to taskkill on the build's `.exe`.    |
+| `terminate`        | `--package-name`                     | wdapp terminate; taskkill fallback is limited to the build's config-named `.exe`. |
 | `sandbox`          | `--action {get,set,retail}`          | `set` additionally requires `--sandbox-id`.                       |
 | `config_template`  | (none)                               | Writes a starter MicrosoftGame.config (use `--overwrite` to replace). |
 | `config_editor`    | (none)                               | Detached GameConfigEditor.exe launch on the current config.       |
@@ -184,6 +186,11 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 - **`EXIT_CONFIG: wdapp.exe not found`.** Set `GDK_BIN` to point at your
   GDK install's `bin\` directory, or install the GDK to the default
   location.
+- **`terminate` falls back to `wdapp` failure instead of `taskkill`.** The
+  fallback only targets the exact executable named by `MicrosoftGame.config`
+  and only when that file exists in the build directory. The config value
+  must be a bare `.exe` file name (no path separators, drive prefixes,
+  quotes, or wildcards); extra `.exe` files are intentionally ignored.
 - **`PACKAGING_RESULT_JSON:` line missing.** You passed `--no-json`. Drop
   it to re-enable the marker.
 - **Form B (`--main-loop GdkPackagingRunner`) reports unknown class.** The
