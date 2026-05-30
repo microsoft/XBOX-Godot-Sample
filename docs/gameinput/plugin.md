@@ -140,17 +140,14 @@ physical press instead of twice.
 ### Soft-fail behaviour
 
 `GameInput.set_vibration()` returns `false` when preflight fails (null or
-disconnected device, no rumble motors, uninitialized runtime). The native
-`SetRumbleState` call is fire-and-forget on GameInput v3, so a `true`
-return only confirms the request was issued, not that it actually played.
+disconnected device, no rumble motors, uninitialized runtime) and also when an
+HRESULT-returning GameInput SDK reports a native `SetRumbleState` failure, so
+callers can skip timers or surface diagnostics.
 
 Every public method on `GameInput`, `GameInputDevice`, and `GameInputReading`
 returns a safe default and emits a single `push_warning` if called before
 `initialize()`, after `shutdown()`, or on a host where GameInput is
-unavailable — with one exception: `get_connected_device_count()` returns
-`0` silently in those states (no warning), since it is intended for tests
-and diagnostics that may legitimately poll before initialization. Your
-scene won't crash if the addon isn't ready yet — checks like
+unavailable. Your scene won't crash if the addon isn't ready yet — checks like
 `if gi.is_initialized():` are optional, just preferred for clarity.
 
 ## Hot-plug / threading model

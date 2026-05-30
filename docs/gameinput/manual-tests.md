@@ -76,7 +76,7 @@ With a vibration-capable controller connected:
 - [ ] **Rumble Pulse** scenario causes the controller to vibrate for ~0.4 s.
 - [ ] **Stop Rumble** ends any in-flight rumble immediately.
 - [ ] Event log records both events.
-- [ ] Disconnect or disable the target device and confirm `GameInput.set_vibration()` returns `false` instead of reporting success. (Native `SetRumbleState` is fire-and-forget on GameInput v3, so only preflight failures surface as `false`; once the request is issued, a `true` return does not guarantee the motors actually moved.)
+- [ ] Disconnect or disable the target device and confirm `GameInput.set_vibration()` returns `false` (or logs the native HRESULT on SDKs that report one) instead of reporting success.
 
 ### Vibration — two controllers
 

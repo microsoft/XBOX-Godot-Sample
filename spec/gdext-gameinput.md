@@ -35,7 +35,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Device discovery/lifecycle | Shipped | connected/disconnected device cache, hot-plug signals on the main thread |
 | Polling API | Shipped | `GameInput.poll()` is per-frame idempotent |
 | Reading callbacks | Deferred | event-driven readings — see [§ Deferred to v2](#deferred-to-v2) |
-| Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first; native call is fire-and-forget on GameInput v3, so the boolean return only reflects preflight |
+| Vibration/rumble | Shipped | `SetRumbleState`-backed; `supportedRumbleMotors` checked first; native failures are surfaced as `false` when the SDK reports them |
 | Force feedback / advanced haptics | Deferred | optional follow-on after basic rumble |
 | Battery state | Removed | GameInput v3 SDK dropped the battery API (`IGameInputDevice::GetBatteryState`, `GameInputBatteryState`) — no replacement upstream |
 | Device info | Shipped | `GameInputDevice.get_device_info()` (issue #23, device-info half) |
@@ -146,7 +146,7 @@ get_timestamp() -> int
 | `GameInput.get_devices()` / `GameInput.get_primary_device()` | `IGameInput::RegisterDeviceCallback` | Build a device cache from the initial enumeration delivered by callback registration and keep it current with subsequent device-status callbacks. |
 | `GameInput.get_connected_device_count()` | Device cache | Returns the current cached device count for diagnostics and sample UI. |
 | `GameInput.get_current_reading()` | `IGameInput::GetCurrentReading` | Returns a wrapped `IGameInputReading` snapshot for the requested device. |
-| `GameInput.set_vibration()` | `IGameInputDevice::SetRumbleState` | v1 haptics path is controller rumble, including trigger rumble when supported; returns `false` only when preflight fails (null device, disconnected, no rumble motors, runtime not initialized). The native call is fire-and-forget on GameInput v3, so a `true` return only confirms the request was issued. |
+| `GameInput.set_vibration()` | `IGameInputDevice::SetRumbleState` | v1 haptics path is controller rumble, including trigger rumble when supported; returns `false` when preflight fails or an HRESULT-returning SDK reports a native failure. |
 | `GameInput.stop_haptics()` | `IGameInputDevice::SetRumbleState` | Send a zeroed rumble state. Advanced force-feedback work can later layer on the force-feedback APIs. |
 | `GameInputDevice` getters | `IGameInputDevice::GetDeviceInfo` | Cache display name, kind mask, and vibration/haptics capability flags from `GameInputDeviceInfo`. |
 | `GameInputReading` getters | `IGameInputReading::GetGamepadState`, `IGameInputReading::GetKeyState`, `IGameInputReading::GetMouseState`, `IGameInputReading::GetTimestamp` | Normalize native readings into one Godot-facing wrapper without exposing raw GameInput structs. |
@@ -226,7 +226,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
 | 3 | Device info (issue #23) | Shipped (battery half removed — GameInput v3 dropped the API) |
-| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample/tutorial_gameinput/` action-bridge sample is shipped; a GameInput panel inside `sample/tutorial_app/` remains deferred. |
+| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample\tutorial_gameinput\` action-bridge sample is shipped; a GameInput panel inside `sample\tutorial_app\` remains deferred. |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
 
