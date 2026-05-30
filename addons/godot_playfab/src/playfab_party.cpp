@@ -2081,12 +2081,28 @@ int PlayFabParty::_pump_state_changes() {
         return 0;
     }
 
+    std::vector<const Party::PartyStateChange *> deferred_network_destroys;
     int processed = 0;
     for (uint32_t i = 0; i < change_count; ++i) {
         const Party::PartyStateChange *change = changes[i];
         if (change == nullptr) {
             continue;
         }
+        if (change->stateChangeType == Party::PartyStateChangeType::NetworkDestroyed) {
+            const auto *destroyed = static_cast<const Party::PartyNetworkDestroyedStateChange *>(change);
+            if (_find_pending_join(destroyed->network) != nullptr) {
+                // Same-host joins can receive NetworkDestroyed before the
+                // completion/message that resolves the join later in this
+                // DoWork batch. Hold destruction until the rest of the batch
+                // has had a chance to deliver the pending join result.
+                deferred_network_destroys.push_back(change);
+                continue;
+            }
+        }
+        _process_state_change(change);
+        ++processed;
+    }
+    for (const Party::PartyStateChange *change : deferred_network_destroys) {
         _process_state_change(change);
         ++processed;
     }
