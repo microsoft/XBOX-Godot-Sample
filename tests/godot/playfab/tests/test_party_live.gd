@@ -22,8 +22,8 @@ func test_party_create_and_leave_single_host_reports_success_without_resource_no
 	var sign_in = await sign_in_with_configured_custom_id(playfab, "PlayFab Party create/leave regression", _PARTY_INIT_TIMEOUT_MSEC)
 	var playfab_user = sign_in.get("playfab_user")
 	if playfab_user == null:
+		playfab.shutdown()
 		return
-
 	var party = playfab.get_party()
 	assert_object_is(party, "PlayFabParty", "PlayFab.get_party() returns PlayFabParty for live Party regression")
 	if party == null:
