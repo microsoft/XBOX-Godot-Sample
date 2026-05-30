@@ -66,14 +66,14 @@ func before_each() -> void:
 | `run_all_tests.ps1 -Live`                        |    `1`       |         —          | `contract` and `live_read` run. `live_write` marks pending.    |
 | `run_all_tests.ps1 -Live -AllowLiveWrites`       |    `1`       |       `1`          | All three tiers run. Banner prints the active title id.        |
 
-`-AllowLiveWrites` without `-Live` is invalid — the orchestrator should refuse it.
+`-AllowLiveWrites` without `-Live` is invalid — the orchestrator refuses it.
 
 ## Authoring a New Test
 
 1. Pick the tier honestly. Default to `contract`; promote to `live_read` only if the test cannot be meaningfully asserted offline; promote to `live_write` only if persistent state mutation is the point.
 2. Place the test under `tests\godot\<addon>\tests\` as `test_<scenario>.gd`.
 3. `extends` the matching base — `gdk_test_base.gd` / `playfab_test_base.gd` / `gameinput_test_base.gd`.
-4. For `live_read` and `live_write` tests, call `requires_live()` / `requires_live_write()` at the top of `before_all` (or `before_each` for per-test gating) and short-circuit on `false`.
+4. For `live_read` and `live_write` tests, call the matching helper at the top of `before_all` (or `before_each` for per-test gating) and return when it reports the test pending. The GDK and PlayFab bases expose `requires_live()` / `requires_live_write()` (and the equivalent `pending_unless_live()` / `pending_unless_live_write()` aliases for legacy callers); the GameInput base currently exposes only `pending_unless_live()` / `pending_unless_live_write()` — use those there.
 5. Run the orchestrator at least once offline (`tools\run_all_tests.ps1`) to confirm the new test marks pending instead of failing when live access is missing.
 
 ## PlayFab Multiplayer Orchestrator

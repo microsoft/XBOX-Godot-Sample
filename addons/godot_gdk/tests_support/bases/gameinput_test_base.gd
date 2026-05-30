@@ -74,5 +74,10 @@ func pending_unless_live() -> bool:
 	return not requires_live()
 
 
+func pending_unless_live_write() -> bool:
+	return not requires_live_write()
+
+
+
 func with_unique_id(prefix: String) -> String:
 	return prefix + "-" + TestEnv.unique_run_id()

@@ -245,10 +245,14 @@ func test_capture_metadata_operations_reject_empty_name() -> void:
 
 func test_capture_metadata_start_stop_flow() -> void:
 	## Validates that start_string_state + stop_all_states round-trips with live
-	## capture services available.
+	## capture services available. These native calls can hang on automation
+	## machines without the diagnostic metadata pipeline enabled.
 	if pending_unless_runtime_available():
 		return
 	if not requires_live():
+		return
+	if OS.get_environment("GDK_CAPTURE_METADATA_STATE_TESTS") != "1":
+		pending("Skipped without GDK_CAPTURE_METADATA_STATE_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()
@@ -302,9 +306,14 @@ func test_capture_metadata_start_stop_flow() -> void:
 # ── Capture state (enable / disable — live capture service) ──────────────
 
 func test_capture_enable_disable_after_init() -> void:
+	## enable_capture()/disable_capture() can block on automation machines
+	## without a ready Game Bar capture pipeline.
 	if pending_unless_runtime_available():
 		return
 	if not requires_live():
+		return
+	if OS.get_environment("GDK_CAPTURE_STATE_TESTS") != "1":
+		pending("Skipped without GDK_CAPTURE_STATE_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()
@@ -354,6 +363,9 @@ func test_capture_record_clip_live() -> void:
 		return
 	if not requires_live():
 		return
+	if OS.get_environment("GDK_CAPTURE_DIAGNOSTIC_TESTS") != "1":
+		pending("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
+		return
 
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
@@ -391,6 +403,9 @@ func test_capture_take_screenshot_live() -> void:
 	if pending_unless_runtime_available():
 		return
 	if not requires_live():
+		return
+	if OS.get_environment("GDK_CAPTURE_DIAGNOSTIC_TESTS") != "1":
+		pending("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()

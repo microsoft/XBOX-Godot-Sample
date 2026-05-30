@@ -73,7 +73,10 @@ func setup(toolchain: RefCounted) -> void:
 		_wdapp_manager.uninstall_completed.connect(_on_uninstall_completed)
 	if get_child_count() == 0:
 		_build_ui()
-	refresh()
+	# Avoid shelling out to wdapp during editor/plugin import; the visible dialog refreshes on popup.
+	_install_btn.disabled = _wdapp_manager == null or not _wdapp_manager.is_available()
+	_refresh_btn.disabled = false
+	_set_status("Open the package manager to list registered packages.")
 
 
 func _notification(what: int) -> void:

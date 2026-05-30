@@ -200,6 +200,10 @@ func ensure_primary_user(timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dict
 
 # ── GDKResult / signal-result assertions ─────────────────────────────────
 
+func fail(message: String = "Test failed") -> void:
+	assert_true(false, message)
+
+
 func assert_result_ok(result, name: String) -> void:
 	assert_not_null(result, "%s returns GDKResult" % name)
 	if result == null:

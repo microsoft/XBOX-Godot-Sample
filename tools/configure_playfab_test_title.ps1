@@ -1208,6 +1208,8 @@ function Set-LiveTestTitleDataMarker {
     $marker = [ordered]@{
         repository                         = 'gaming-microsoft/godot-public-gdk-ext'
         title_id                           = $script:TitleIdForRequests
+        sandbox_only                       = $true
+        purpose                            = 'Dedicated sandbox for Godot live/write tests; never use a shared or production title.'
         custom_id                          = $MarkerCustomId
         multiplayer_custom_ids             = $legacyAccounts
         multiplayer_custom_id_pool_size    = $MarkerMultiplayerPoolSize
