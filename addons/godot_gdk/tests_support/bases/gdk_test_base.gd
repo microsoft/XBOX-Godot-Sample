@@ -291,10 +291,25 @@ func disconnect_signal_handlers(obj: Object, signal_names: Array) -> void:
 # Pending the current test unless LIVE_TESTS=1 is set. Returns true when
 # the test was marked pending (caller should `return` immediately after).
 func pending_unless_live() -> bool:
-	if not TestEnv.live_tests_enabled():
-		pending("Skipped without LIVE_TESTS=1")
+	if not requires_live():
 		return true
 	return false
+
+
+func requires_live() -> bool:
+	if not TestEnv.live_tests_enabled():
+		pending("Skipped without LIVE_TESTS=1")
+		return false
+	return true
+
+
+func requires_live_write() -> bool:
+	if not requires_live():
+		return false
+	if not TestEnv.live_write_tests_enabled():
+		pending("Skipped without LIVE_WRITE_TESTS=1")
+		return false
+	return true
 
 
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive

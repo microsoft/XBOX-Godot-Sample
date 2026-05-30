@@ -10,6 +10,7 @@ extends RefCounted
 ## `addons/godot_gdk/tests_support/bases/test_env.gd`.
 
 const LIVE_TESTS_ENV := "LIVE_TESTS"
+const LIVE_WRITE_TESTS_ENV := "LIVE_WRITE_TESTS"
 const LEADERBOARD_SETTLE_MSEC_SETTING := "playfab/tests/leaderboard_settle_msec"
 const DEFAULT_SETTLE_MSEC := 30000
 const DEFAULT_POLL_INTERVAL_MSEC := 250
@@ -24,6 +25,12 @@ static var _cached_run_id := ""
 # count stays meaningful.
 static func live_tests_enabled() -> bool:
 	return OS.get_environment(LIVE_TESTS_ENV) == "1"
+
+
+# True if LIVE_WRITE_TESTS=1 in the process environment. Use in addition to
+# LIVE_TESTS for tests that create or mutate persistent live-service state.
+static func live_write_tests_enabled() -> bool:
+	return OS.get_environment(LIVE_WRITE_TESTS_ENV) == "1"
 
 
 # Generate a unique-per-run id of the form `gdkfleet-YYYYMMDDHHmmss-XXXX`.

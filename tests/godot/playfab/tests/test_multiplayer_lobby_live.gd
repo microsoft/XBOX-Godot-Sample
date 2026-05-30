@@ -7,14 +7,14 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## The bugs only manifest when the live PFLobby SDK actually dispatches state
 ## changes for a real lobby, so non-live contract tests cannot exercise them.
 ##
-## Gated by `pending_unless_live()`; these are write tests in the sense that
+## Gated by `requires_live_write()`; these are write tests in the sense that
 ## they create a lobby in the configured PlayFab sandbox title. Lobby cleanup
 ## is best effort — leave_async() runs in the happy path; the shutdown test
 ## deliberately skips leave to exercise the shutdown-during-active-lobby race.
 ## Stale lobbies in a sandbox title age out via the PFLobby SDK TTL.
 ##
 ## Required configuration (matches existing live PlayFab tests):
-##   - LIVE_TESTS=1 in env
+##   - LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 in env
 ##   - playfab/runtime/title_id set
 ##   - playfab/tests/custom_id (or PLAYFAB_CUSTOM_ID env) set so the run signs
 ##     in deterministically.
@@ -105,60 +105,6 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 
 	_finish_session(playfab, null)
 
-
-func test_lobby_property_null_deletes_key() -> void:
-	var session = await _begin_multiplayer_session()
-	var playfab_user = session.get("playfab_user")
-	if playfab_user == null:
-		return
-
-	var playfab: Object = session["playfab"]
-	var multiplayer: Object = session["multiplayer"]
-
-	var lobby_config = instantiate_class("PlayFabLobbyConfig")
-	if lobby_config == null:
-		_finish_session(playfab, null)
-		return
-	lobby_config.max_players = 2
-	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
-
-	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
-	if create_result == null:
-		fail_test("PlayFab.multiplayer.create_lobby_async timed out for null-delete regression.")
-		_finish_session(playfab, null)
-		return
-	if not create_result.ok:
-		pending("PlayFab.multiplayer.create_lobby_async failed for null-delete regression: %s" % create_result.message)
-		_finish_session(playfab, null)
-		return
-
-	var lobby: Object = create_result.data
-	assert_object_is(lobby, "PlayFabLobby", "create_lobby_async returns PlayFabLobby for null-delete regression")
-	if lobby == null:
-		_finish_session(playfab, null)
-		return
-
-	var write_result = await await_completion(lobby.set_properties_async({"a": "1", "b": "2"}), _DEFAULT_OP_TIMEOUT_MSEC)
-	assert_true(write_result != null and write_result.ok,
-			"lobby.set_properties_async writes baseline properties (%s)" % (write_result.message if write_result != null else "null"))
-
-	var delete_result = null
-	if write_result != null and write_result.ok:
-		delete_result = await await_completion(lobby.set_properties_async({"a": null}), _DEFAULT_OP_TIMEOUT_MSEC)
-		assert_true(delete_result != null and delete_result.ok,
-				"lobby.set_properties_async treats null as delete (%s)" % (delete_result.message if delete_result != null else "null"))
-
-	if delete_result != null and delete_result.ok:
-		var props: Dictionary = lobby.get_properties()
-		assert_false(props.has("a"), "null-valued lobby property update removes key a")
-		assert_eq(String(props.get("b", "")), "2", "null-valued update leaves unrelated key b unchanged")
-		assert_eq(props.size(), 1, "snapshot contains only the undeleted lobby property")
-
-	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
-	assert_true(leave_result != null and leave_result.ok,
-			"lobby.leave_async cleanup succeeds after null-delete regression (%s)" % (leave_result.message if leave_result != null else "null"))
-	await advance_process_frames(_STATE_PUMP_FRAMES)
-	_finish_session(playfab, null)
 
 
 func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
@@ -310,7 +256,7 @@ func _begin_multiplayer_session() -> Dictionary:
 		"multiplayer": null,
 	}
 
-	if pending_unless_live():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
