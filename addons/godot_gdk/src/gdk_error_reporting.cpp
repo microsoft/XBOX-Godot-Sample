@@ -69,6 +69,7 @@ int GDKErrorReporting::dispatch() {
         pending_errors.swap(m_pending_errors);
     }
 
+    int64_t handled = 0;
     for (const PendingError &pending_error : pending_errors) {
         const char *native_message_chars = pending_error.message.empty() ? nullptr : pending_error.message.c_str();
         const String native_message = native_message_chars != nullptr ? String::utf8(native_message_chars) : String();
@@ -88,12 +89,13 @@ int GDKErrorReporting::dispatch() {
             break;
         }
         emit_signal("error_reported", result);
+        ++handled;
         if (!m_runtime_ready) {
             break;
         }
     }
 
-    return static_cast<int>(pending_errors.size());
+    return static_cast<int>(handled);
 }
 
 Ref<GDKResult> GDKErrorReporting::configure_options(
