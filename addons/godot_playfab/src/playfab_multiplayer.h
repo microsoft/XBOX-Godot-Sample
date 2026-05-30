@@ -6,6 +6,7 @@
 #endif
 #include <windows.h>
 
+#include <cstdint>
 #include <map>
 #include <vector>
 
@@ -431,6 +432,7 @@ private:
     bool m_initialized = false;
     bool m_processing_state_changes = false;
     bool m_shutting_down = false;
+    uint64_t m_dispatch_generation = 0;
     std::vector<Ref<PlayFabLobby>> m_lobbies;
     std::vector<Ref<PlayFabMatchTicket>> m_tickets;
     std::vector<PendingOperation *> m_pending_operations;
@@ -445,7 +447,10 @@ private:
     Ref<PlayFabLobby> _find_lobby(PFLobbyHandle p_lobby_handle) const;
     Ref<PlayFabMatchTicket> _find_ticket(PFMatchmakingTicketHandle p_ticket_handle) const;
     void _track_lobby(const Ref<PlayFabLobby> &p_lobby);
+    void _untrack_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
+    void _terminate_multiplayer_queue();
+    void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
     int _dispatch_lobby_state_changes();
     int _dispatch_matchmaking_state_changes();
     void _emit_lobby_change(

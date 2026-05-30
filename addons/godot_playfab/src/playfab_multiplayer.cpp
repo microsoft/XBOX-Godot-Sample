@@ -914,12 +914,77 @@ void PlayFabMultiplayer::_track_lobby(const Ref<PlayFabLobby> &p_lobby) {
     }
 }
 
+void PlayFabMultiplayer::_untrack_lobby(const Ref<PlayFabLobby> &p_lobby) {
+    if (!p_lobby.is_valid()) {
+        return;
+    }
+    m_lobbies.erase(std::remove(m_lobbies.begin(), m_lobbies.end(), p_lobby), m_lobbies.end());
+}
+
 void PlayFabMultiplayer::_track_ticket(const Ref<PlayFabMatchTicket> &p_ticket) {
     if (!p_ticket.is_valid() || !p_ticket->get_native_handle()) {
         return;
     }
     if (_find_ticket(p_ticket->get_native_handle()).is_null()) {
         m_tickets.push_back(p_ticket);
+    }
+}
+
+void PlayFabMultiplayer::_terminate_multiplayer_queue() {
+    if (m_multiplayer_queue == nullptr) {
+        return;
+    }
+
+    const HRESULT terminate_hr = XTaskQueueTerminate(m_multiplayer_queue, true, nullptr, nullptr);
+    if (FAILED(terminate_hr)) {
+        WARN_PRINT(vformat("PlayFabMultiplayer: XTaskQueueTerminate(wait=true) failed during shutdown/reset: %s", PlayFabResult::format_hresult(terminate_hr)));
+    }
+    XTaskQueueCloseHandle(m_multiplayer_queue);
+    m_multiplayer_queue = nullptr;
+}
+
+void PlayFabMultiplayer::_reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result) {
+    Ref<PlayFabResult> result = p_result;
+    if (result.is_null()) {
+        result = PlayFabResult::error_result(E_FAIL, "state_changes_finish_failed", "PlayFab Multiplayer failed to finish state change processing.");
+    }
+
+    m_initialized = false;
+    ++m_dispatch_generation;
+
+    if (m_handle != nullptr) {
+        PFMultiplayerUninitialize(m_handle);
+        m_handle = nullptr;
+    }
+    _terminate_multiplayer_queue();
+
+    for (const Ref<PlayFabLobby> &lobby : m_lobbies) {
+        if (lobby.is_valid()) {
+            lobby->mark_disconnected();
+        }
+    }
+    m_lobbies.clear();
+
+    for (const Ref<PlayFabMatchTicket> &ticket : m_tickets) {
+        if (ticket.is_valid()) {
+            ticket->mark_destroyed();
+        }
+    }
+    m_tickets.clear();
+
+    std::vector<PendingOperation *> pending_operations;
+    pending_operations.swap(m_pending_operations);
+
+    ERR_PRINT(vformat(
+            "PlayFabMultiplayer: FinishStateChanges failed with %s; Multiplayer was reset. Call PlayFab.multiplayer.initialize_async() before using it again.",
+            PlayFabResult::format_hresult(static_cast<HRESULT>(result->get_hresult()))));
+    emit_signal("multiplayer_error", result);
+
+    for (PendingOperation *operation : pending_operations) {
+        if (operation != nullptr && operation->pending_signal.is_valid()) {
+            operation->pending_signal->complete(result);
+        }
+        delete operation;
     }
 }
 
@@ -958,6 +1023,7 @@ Signal PlayFabMultiplayer::initialize_async(const Ref<PlayFabMultiplayerConfig> 
 
     m_initialized = true;
     m_shutting_down = false;
+    ++m_dispatch_generation;
     pending_signal->complete_deferred(PlayFabResult::ok_result());
     return pending_signal->get_completed_signal();
 }
@@ -1035,12 +1101,7 @@ void PlayFabMultiplayer::shutdown() {
         m_handle = nullptr;
     }
 
-    if (m_multiplayer_queue != nullptr) {
-        HRESULT terminate_hr = XTaskQueueTerminate(m_multiplayer_queue, false, nullptr, nullptr);
-        (void)terminate_hr;
-        XTaskQueueCloseHandle(m_multiplayer_queue);
-        m_multiplayer_queue = nullptr;
-    }
+    _terminate_multiplayer_queue();
 
     for (const Ref<PlayFabLobby> &lobby : m_lobbies) {
         if (lobby.is_valid()) {
@@ -1053,6 +1114,7 @@ void PlayFabMultiplayer::shutdown() {
     m_initialized = false;
     m_processing_state_changes = false;
     m_shutting_down = false;
+    ++m_dispatch_generation;
 }
 
 int PlayFabMultiplayer::dispatch() {
@@ -1067,9 +1129,12 @@ int PlayFabMultiplayer::dispatch() {
         }
     }
 
+    const uint64_t dispatch_generation = m_dispatch_generation;
     m_processing_state_changes = true;
     dispatched += _dispatch_lobby_state_changes();
-    dispatched += _dispatch_matchmaking_state_changes();
+    if (m_dispatch_generation == dispatch_generation && m_initialized && m_handle != nullptr) {
+        dispatched += _dispatch_matchmaking_state_changes();
+    }
     m_processing_state_changes = false;
     return dispatched;
 }
@@ -1676,53 +1741,68 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
         switch (state_change->stateChangeType) {
             case PFLobbyStateChangeType::CreateAndJoinLobbyCompleted: {
                 const auto *change = static_cast<const PFLobbyCreateAndJoinLobbyCompletedStateChange *>(state_change);
+                const bool succeeded = SUCCEEDED(change->result);
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
-                if (lobby.is_valid() && lobby->get_native_handle() == nullptr) {
+                if (lobby.is_valid() && lobby->get_native_handle() == nullptr && change->lobby != nullptr) {
                     lobby->adopt_handle(change->lobby, operation != nullptr ? operation->user : Ref<PlayFabUser>());
                     _track_lobby(lobby);
                 }
-                if (lobby.is_valid()) {
+                if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
                 }
-                Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby creation failed.", "lobby_create_failed");
+                Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby creation failed.", "lobby_create_failed");
+                if (!succeeded && lobby.is_valid()) {
+                    _untrack_lobby(lobby);
+                    lobby->mark_disconnected();
+                }
                 _complete_pending_operation(operation, result);
                 _emit_lobby_change(PlayFabLobby::PROPERTIES_UPDATED, lobby, result);
             } break;
             case PFLobbyStateChangeType::JoinLobbyCompleted: {
                 const auto *change = static_cast<const PFLobbyJoinLobbyCompletedStateChange *>(state_change);
+                const bool succeeded = SUCCEEDED(change->result);
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
-                if (lobby.is_valid() && lobby->get_native_handle() == nullptr) {
+                if (lobby.is_valid() && lobby->get_native_handle() == nullptr && change->lobby != nullptr) {
                     lobby->adopt_handle(change->lobby, operation != nullptr ? operation->user : Ref<PlayFabUser>());
                     _track_lobby(lobby);
                 }
-                if (lobby.is_valid()) {
+                if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
                 }
-                Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby join failed.", "lobby_join_failed");
+                Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab lobby join failed.", "lobby_join_failed");
                 Ref<PlayFabLobbyMember> joined_member;
-                if (lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
+                if (succeeded && lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
                     joined_member = lobby->find_member(operation->user->get_entity_key());
+                }
+                if (!succeeded && lobby.is_valid()) {
+                    _untrack_lobby(lobby);
+                    lobby->mark_disconnected();
                 }
                 _complete_pending_operation(operation, result);
                 _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result, joined_member);
             } break;
             case PFLobbyStateChangeType::JoinArrangedLobbyCompleted: {
                 const auto *change = static_cast<const PFLobbyJoinArrangedLobbyCompletedStateChange *>(state_change);
+                const bool succeeded = SUCCEEDED(change->result);
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
-                if (lobby.is_valid() && lobby->get_native_handle() == nullptr) {
+                if (lobby.is_valid() && lobby->get_native_handle() == nullptr && change->lobby != nullptr) {
                     lobby->adopt_handle(change->lobby, operation != nullptr ? operation->user : Ref<PlayFabUser>());
                     _track_lobby(lobby);
                 }
-                if (lobby.is_valid()) {
+                if (lobby.is_valid() && succeeded) {
                     lobby->refresh_snapshot();
                 }
-                Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab arranged lobby join failed.", "arranged_lobby_join_failed");
+                Ref<PlayFabResult> result = succeeded ? PlayFabResult::ok_result(lobby) : multiplayer_hresult_error(change->result, "PlayFab arranged lobby join failed.", "arranged_lobby_join_failed");
                 Ref<PlayFabLobbyMember> joined_member;
-                if (lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
+                if (succeeded && lobby.is_valid() && operation != nullptr && operation->user.is_valid()) {
                     joined_member = lobby->find_member(operation->user->get_entity_key());
+                }
+                if (!succeeded && lobby.is_valid()) {
+                    _untrack_lobby(lobby);
+                    lobby->mark_disconnected();
                 }
                 _complete_pending_operation(operation, result);
                 _emit_lobby_change(PlayFabLobby::MEMBER_ADDED, lobby, result, joined_member);
@@ -1887,9 +1967,7 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
     HRESULT finish_hr = PFMultiplayerFinishProcessingLobbyStateChanges(m_handle, state_change_count, state_changes);
     if (FAILED(finish_hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(finish_hr, "Failed to finish PlayFab lobby state changes.", "lobby_state_finish_failed");
-        if (_get_runtime() != nullptr) {
-        }
-        emit_signal("multiplayer_error", result);
+        _reset_after_state_change_finish_failure(result);
     }
     return static_cast<int>(state_change_count);
 }
@@ -1966,9 +2044,8 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
     HRESULT finish_hr = PFMultiplayerFinishProcessingMatchmakingStateChanges(m_handle, state_change_count, state_changes);
     if (FAILED(finish_hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(finish_hr, "Failed to finish PlayFab matchmaking state changes.", "matchmaking_state_finish_failed");
-        if (_get_runtime() != nullptr) {
-        }
-        emit_signal("multiplayer_error", result);
+        _reset_after_state_change_finish_failure(result);
+        return static_cast<int>(state_change_count);
     }
 
     for (const Ref<PlayFabMatchTicket> &ticket : terminal_tickets) {
