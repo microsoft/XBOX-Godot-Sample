@@ -49,7 +49,7 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
 		multiplayer.state_changed.disconnect(on_service_change)
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -106,6 +106,61 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	_finish_session(playfab, null)
 
 
+func test_lobby_property_null_deletes_key() -> void:
+	var session = await _begin_multiplayer_session()
+	var playfab_user = session.get("playfab_user")
+	if playfab_user == null:
+		return
+
+	var playfab: Object = session["playfab"]
+	var multiplayer: Object = session["multiplayer"]
+
+	var lobby_config = instantiate_class("PlayFabLobbyConfig")
+	if lobby_config == null:
+		_finish_session(playfab, null)
+		return
+	lobby_config.max_players = 2
+	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
+
+	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
+	if create_result == null:
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out for null-delete regression.")
+		_finish_session(playfab, null)
+		return
+	if not create_result.ok:
+		pending("PlayFab.multiplayer.create_lobby_async failed for null-delete regression: %s" % create_result.message)
+		_finish_session(playfab, null)
+		return
+
+	var lobby: Object = create_result.data
+	assert_object_is(lobby, "PlayFabLobby", "create_lobby_async returns PlayFabLobby for null-delete regression")
+	if lobby == null:
+		_finish_session(playfab, null)
+		return
+
+	var write_result = await await_completion(lobby.set_properties_async({"a": "1", "b": "2"}), _DEFAULT_OP_TIMEOUT_MSEC)
+	assert_true(write_result != null and write_result.ok,
+			"lobby.set_properties_async writes baseline properties (%s)" % (write_result.message if write_result != null else "null"))
+
+	var delete_result = null
+	if write_result != null and write_result.ok:
+		delete_result = await await_completion(lobby.set_properties_async({"a": null}), _DEFAULT_OP_TIMEOUT_MSEC)
+		assert_true(delete_result != null and delete_result.ok,
+				"lobby.set_properties_async treats null as delete (%s)" % (delete_result.message if delete_result != null else "null"))
+
+	if delete_result != null and delete_result.ok:
+		var props: Dictionary = lobby.get_properties()
+		assert_false(props.has("a"), "null-valued lobby property update removes key a")
+		assert_eq(String(props.get("b", "")), "2", "null-valued update leaves unrelated key b unchanged")
+		assert_eq(props.size(), 1, "snapshot contains only the undeleted lobby property")
+
+	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
+	assert_true(leave_result != null and leave_result.ok,
+			"lobby.leave_async cleanup succeeds after null-delete regression (%s)" % (leave_result.message if leave_result != null else "null"))
+	await advance_process_frames(_STATE_PUMP_FRAMES)
+	_finish_session(playfab, null)
+
+
 func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	var session = await _begin_multiplayer_session()
 	var playfab_user = session.get("playfab_user")
@@ -124,7 +179,7 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -173,7 +228,7 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -189,7 +244,7 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 	var stale_connection_string := str(lobby.get_connection_string())
 	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 	if leave_result == null:
-		fail("PlayFabLobby.leave_async timed out before stale-join regression check.")
+		fail_test("PlayFabLobby.leave_async timed out before stale-join regression check.")
 		_finish_session(playfab, null)
 		return
 	if not leave_result.ok:
@@ -198,11 +253,11 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 		return
 	await advance_process_frames(_STATE_PUMP_FRAMES)
 
-	var before_count := multiplayer.get_lobbies().size()
+	var before_count: int = multiplayer.get_lobbies().size()
 	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
 	var join_result = await await_completion(multiplayer.join_lobby_async(playfab_user, stale_connection_string, join_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if join_result == null:
-		fail("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
+		fail_test("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
 		_finish_session(playfab, null)
 		return
 	if join_result.ok:
@@ -285,7 +340,7 @@ func _begin_multiplayer_session() -> Dictionary:
 
 	var mp_init = await await_completion(multiplayer.initialize_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 	if mp_init == null:
-		fail("PlayFab.multiplayer.initialize_async timed out.")
+		fail_test("PlayFab.multiplayer.initialize_async timed out.")
 		return outcome
 	if not mp_init.ok:
 		pending("PlayFab.multiplayer.initialize_async failed: %s" % mp_init.message)
@@ -314,7 +369,7 @@ func _sign_in_with_or_create_custom_id(playfab: Object, label: String) -> Dictio
 		return outcome
 	var sign_in_result = await await_completion(sign_in_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if sign_in_result == null:
-		fail("%s sign_in_with_custom_id_async timed out." % label)
+		fail_test("%s sign_in_with_custom_id_async timed out." % label)
 		return outcome
 	if not sign_in_result.ok:
 		pending("%s skipped: %s" % [label, sign_in_result.message])
