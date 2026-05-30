@@ -30,6 +30,10 @@
     Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
     talk to services and mutate online state.
 
+.PARAMETER AllowLiveWrites
+    Requires -Live. Sets LIVE_WRITE_TESTS=1 and prints a sandbox-only warning
+    with the active PlayFab title id before any test stage runs.
+
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
     must already exist from a prior build.
@@ -77,6 +81,7 @@
 [CmdletBinding()]
 param(
     [switch]$Live,
+    [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
     [string]$OutDir = 'build/test-results',
     [string[]]$Hosts,
@@ -387,6 +392,29 @@ function Resolve-CMakeExecutable {
         throw 'cmake not found on PATH; cannot run the build stage.'
     }
     return $cmd.Source
+}
+
+function Resolve-ParameterOrEnvironmentValue {
+    param(
+        [AllowNull()][string]$ExplicitValue,
+        [Parameter(Mandatory = $true)][string]$EnvironmentName
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitValue)) {
+        return $ExplicitValue.Trim()
+    }
+
+    foreach ($target in @(
+            [System.EnvironmentVariableTarget]::Process,
+            [System.EnvironmentVariableTarget]::User,
+            [System.EnvironmentVariableTarget]::Machine)) {
+        $value = [Environment]::GetEnvironmentVariable($EnvironmentName, $target)
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value.Trim()
+        }
+    }
+
+    return ''
 }
 
 function ConvertTo-ParseGateFilterList {
@@ -828,16 +856,28 @@ function Main {
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
+    $activePlayFabTitleId = Resolve-ParameterOrEnvironmentValue -ExplicitValue $PlayFabTitleId -EnvironmentName 'PLAYFAB_TITLE_ID'
+    $activePlayFabCustomId = Resolve-ParameterOrEnvironmentValue -ExplicitValue $PlayFabCustomId -EnvironmentName 'PLAYFAB_CUSTOM_ID'
+    $activePlayFabMatchmakingQueue = Resolve-ParameterOrEnvironmentValue -ExplicitValue $PlayFabMatchmakingQueue -EnvironmentName 'PLAYFAB_MULTIPLAYER_MATCH_QUEUE'
+
+    if ($AllowLiveWrites -and -not $Live) {
+        throw '-AllowLiveWrites requires -Live.'
+    }
+    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($activePlayFabTitleId)) {
+        throw '-AllowLiveWrites requires a sandbox PlayFab title id via -PlayFabTitleId or PLAYFAB_TITLE_ID.'
+    }
+
     $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
-        $childEnv['PLAYFAB_TITLE_ID'] = $PlayFabTitleId.Trim()
+    if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
+    if (-not [string]::IsNullOrWhiteSpace($activePlayFabTitleId)) {
+        $childEnv['PLAYFAB_TITLE_ID'] = $activePlayFabTitleId
     }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
-        $childEnv['PLAYFAB_CUSTOM_ID'] = $PlayFabCustomId.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($activePlayFabCustomId)) {
+        $childEnv['PLAYFAB_CUSTOM_ID'] = $activePlayFabCustomId
     }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) {
-        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $PlayFabMatchmakingQueue.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($activePlayFabMatchmakingQueue)) {
+        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $activePlayFabMatchmakingQueue
     }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
@@ -853,8 +893,12 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   SkipBuild = $SkipBuild" -ForegroundColor Cyan
-    Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
+    Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { $activePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { $activePlayFabMatchmakingQueue } else { 'unset' })" -ForegroundColor Cyan
+    if ($AllowLiveWrites) {
+        Write-Host '                   LIVE WRITE TESTS ENABLED: sandbox-only title required.' -ForegroundColor Yellow
+        Write-Host "                   Sandbox PlayFab title id verified by caller: $activePlayFabTitleId" -ForegroundColor Yellow
+    }
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan

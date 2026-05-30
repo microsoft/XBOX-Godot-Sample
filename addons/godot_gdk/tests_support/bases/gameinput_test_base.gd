@@ -63,5 +63,12 @@ func pending_unless_live() -> bool:
 	return false
 
 
+func pending_unless_live_write() -> bool:
+	if not TestEnv.live_write_tests_enabled():
+		pending("Skipped without LIVE_TESTS=1 and LIVE_WRITE_TESTS=1")
+		return true
+	return false
+
+
 func with_unique_id(prefix: String) -> String:
 	return prefix + "-" + TestEnv.unique_run_id()

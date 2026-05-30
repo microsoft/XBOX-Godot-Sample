@@ -8,8 +8,6 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
-> **Status: contract being implemented.** This document specifies the test-tier contract, but the `requires_live()` / `requires_live_write()` helpers on the test bases and the `-AllowLiveWrites` switch on `tools\run_all_tests.ps1` are added in a companion tooling PR. Until that PR lands, the only environment variable the orchestrator currently sets is `LIVE_TESTS` (via `-Live`); `LIVE_WRITE_TESTS` and the `-AllowLiveWrites` flag are forthcoming. Read this file now to understand the target contract; do not run the new commands until the companion PR is merged.
-
 ## Test Tiers
 
 Every GUT test belongs to exactly one tier. The tier governs how the test is selected and what external state it may touch.
@@ -29,7 +27,7 @@ No declaration needed — tests default to this tier. Most tests should be `cont
 - May read live state (signed-in user profile, leaderboard entries, lobby queries, …) but may not write state that persists in the title.
 - Declares the tier by calling `requires_live()` at the top of `before_all` (or `before_each` for per-test gating). When `LIVE_TESTS` is not set, the helper marks the test pending and the rest of the test short-circuits.
 
-Example (helper ships with the companion tooling PR):
+Example:
 
 ```gdscript
 func before_all() -> void:
@@ -64,14 +62,14 @@ func before_each() -> void:
 | `run_all_tests.ps1 -Live`                        |    `1`       |         —          | `contract` and `live_read` run. `live_write` marks pending.    |
 | `run_all_tests.ps1 -Live -AllowLiveWrites`       |    `1`       |       `1`          | All three tiers run. Banner prints the active title id.        |
 
-`-AllowLiveWrites` without `-Live` is invalid — the orchestrator should refuse it.
+`-AllowLiveWrites` without `-Live` is invalid — the orchestrator refuses it.
 
 ## Authoring a New Test
 
 1. Pick the tier honestly. Default to `contract`; promote to `live_read` only if the test cannot be meaningfully asserted offline; promote to `live_write` only if persistent state mutation is the point.
 2. Place the test under `tests\godot\<addon>\tests\` as `test_<scenario>.gd`.
 3. `extends` the matching base — `gdk_test_base.gd` / `playfab_test_base.gd` / `gameinput_test_base.gd`.
-4. For `live_read` and `live_write` tests, call `requires_live()` / `requires_live_write()` at the top of `before_all` (or `before_each` for per-test gating) and short-circuit on `false`.
+4. For `live_read` and `live_write` tests, call `requires_live()` / `requires_live_write()` at the top of `before_all` (or `before_each` for per-test gating) and return when it reports the test pending.
 5. Run the orchestrator at least once offline (`tools\run_all_tests.ps1`) to confirm the new test marks pending instead of failing when live access is missing.
 
 ## Why This Matters

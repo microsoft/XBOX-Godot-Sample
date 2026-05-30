@@ -27,6 +27,7 @@ static func live_tests_enabled() -> bool:
 	return OS.get_environment(LIVE_TESTS_ENV) == "1"
 
 
+# True only when both live reads and persistent live writes were explicitly enabled.
 static func live_write_tests_enabled() -> bool:
 	return live_tests_enabled() and OS.get_environment(LIVE_WRITE_TESTS_ENV) == "1"
 

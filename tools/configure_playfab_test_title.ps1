@@ -1210,6 +1210,8 @@ function Set-LiveTestTitleDataMarker {
     $marker = [ordered]@{
         repository                         = 'gaming-microsoft/godot-public-gdk-ext'
         title_id                           = $script:TitleIdForRequests
+        sandbox_only                       = $true
+        purpose                            = 'Dedicated sandbox for Godot live/write tests; never use a shared or production title.'
         custom_id                          = $MarkerCustomId
         multiplayer_custom_ids             = $legacyAccounts
         multiplayer_custom_id_pool_size    = $MarkerMultiplayerPoolSize
@@ -1291,9 +1293,9 @@ if (-not $SkipTitleDataMarker) {
 Write-Host ''
 Write-Host 'Live test command:'
 $liveTestCommand = if ($SkipCustomIdAccount) {
-    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`""
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId `"$TitleId`""
 } else {
-    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
 }
 if (-not $SkipMultiplayerMatchmakingQueue) {
     $liveTestCommand = "$liveTestCommand -PlayFabMatchmakingQueue `"$MatchmakingQueueName`""

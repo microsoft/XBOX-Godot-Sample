@@ -200,6 +200,10 @@ func ensure_primary_user(timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dict
 
 # ── GDKResult / signal-result assertions ─────────────────────────────────
 
+func fail(message: String = "Test failed") -> void:
+	assert_true(false, message)
+
+
 func assert_result_ok(result, name: String) -> void:
 	assert_not_null(result, "%s returns GDKResult" % name)
 	if result == null:
@@ -308,6 +312,15 @@ func requires_live_write() -> bool:
 # the test was marked pending (caller should `return` immediately after).
 func pending_unless_live() -> bool:
 	return not requires_live()
+
+
+# Pending the current test unless LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 are set.
+# Returns true when the test was marked pending (caller should return immediately).
+func pending_unless_live_write() -> bool:
+	if not TestEnv.live_write_tests_enabled():
+		pending("Skipped without LIVE_TESTS=1 and LIVE_WRITE_TESTS=1")
+		return true
+	return false
 
 
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive
