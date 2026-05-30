@@ -11,18 +11,17 @@ See also:
 
 ## Sample projects
 
-> **No sample projects currently.** The repository is mid-revamp;
-> samples are returning in PR 3 of the tutorial-driven sample
-> series:
->
-> - `sample/tutorial_app/` — integrated tutorial chain (sign-in,
->   achievements, leaderboards, game saves, lobby, MPA, Party,
->   integration tech demo)
-> - `sample/tutorial_gameinput/` — standalone GameInput demo
->
-> Until then, [the tutorials](../tutorials/README.md) walk
-> through each surface in your own Godot project, and the test
-> hosts under `tests/godot/` exercise the addons end-to-end.
+The repository currently ships two tutorial-driven sample projects:
+
+- `sample\tutorial_app\` — integrated tutorial chain (sign-in, achievements,
+  leaderboards, game saves, lobby, Multiplayer Activity, Party, and the final
+  integration tech demo). The CMake build mirrors `godot_gdk`, `godot_playfab`,
+  and `godot_gdk_packaging` into this project.
+- `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
+  wired for the GameInput addon rather than the GDK runtime addon.
+
+The test hosts under `tests\godot\` remain the automated coverage projects;
+the sample projects are reader-facing tutorial references, not GUT hosts.
 
 ## Overview
 

@@ -158,10 +158,10 @@ Current public methods:
 - `start_social_graph(user) -> GDKResult`
 - `stop_social_graph(user) -> void`
 - `get_friends_async(user) -> Signal`
-- `create_social_group(user, filter := null) -> GDKSocialGroup`
-- `create_social_group_from_xuids(user, xuids) -> GDKSocialGroup`
+- `create_social_group(user, filter := null) -> GDKResult` (`data` is the `GDKSocialGroup`)
+- `create_social_group_from_xuids(user, xuids) -> GDKResult` (`data` is the `GDKSocialGroup`)
 - `destroy_social_group(group) -> void`
-- `get_group_users(group) -> Array`
+- `get_group_users(group) -> GDKResult` (`data` is an `Array[GDKSocialUser]`)
 
 Current public signals:
 
@@ -487,9 +487,9 @@ That is the concrete example of the "manager state instead of a classic async re
 4. dispatches the completion port until the queue termination callback fires
 5. closes the queue handle
 6. clears retained pending requests
-7. calls `XGameRuntimeUninitialize()`
+7. leaves `XGameRuntimeUninitialize()` to the process-lifetime teardown in `~GDKRuntime()`
 
-Because the runtime sets `m_shutting_down` first, service finalizers can refuse to mutate state during teardown.
+Because the runtime sets `m_shutting_down` first, service finalizers can refuse to mutate state during teardown. `GDK.shutdown()` intentionally does not call `XGameRuntimeUninitialize()`; tests and games may cycle initialize/shutdown multiple times in one process, while the matching native uninitialize runs once when the extension is torn down.
 
 ## Why the base bridge does not use generic `XAsyncGetStatus`
 
