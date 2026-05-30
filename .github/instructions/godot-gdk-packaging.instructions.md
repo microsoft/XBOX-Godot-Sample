@@ -89,8 +89,8 @@ collapses every source into one flat dict with precedence:
 
 If you add a new CLI flag whose key differs from the resolver field name,
 add the kebab -> snake mapping to `_CLI_KEY_REMAP`. Do not rename
-existing CLI keys without updating the docs and the dock alike — they
-were chosen to match dock field names verbatim.
+existing CLI keys without updating the docs and editor UI alike — they
+were chosen to match editor field names verbatim.
 
 ## Where to put new behaviour
 
@@ -120,17 +120,14 @@ shortcuts.
 
 ## Sample mirrors
 
-`addons/godot_gdk_packaging/` is mirrored into the GDK test host
-via `godot_addon_sync_directory` in the root CMakeLists. (Sample
-mirror targets will return when PR 3 of the tutorial-driven
-sample revamp adds `sample/tutorial_app/`.) The sync uses
-`copy_if_different` — **it does not delete stale mirror files.**
-When you remove or rename a file in `addons/godot_gdk_packaging/`,
-run `cmake --build build --preset debug` once, then manually
-delete the stale mirror files under
-`tests/godot/gdk/addons/godot_gdk_packaging/` (and, once
-samples land, under each `sample/*/addons/godot_gdk_packaging/`)
-before committing.
+`addons/godot_gdk_packaging/` is mirrored into the GDK test host and
+`sample/tutorial_app/` via `godot_addon_sync_directory` in the root
+CMakeLists. The sync uses `copy_if_different` — **it does not delete
+stale mirror files.** When you remove or rename a file in
+`addons/godot_gdk_packaging/`, run `cmake --build build --preset debug`
+once, then manually delete the stale mirror files under
+`tests/godot/gdk/addons/godot_gdk_packaging/` and
+`sample/tutorial_app/addons/godot_gdk_packaging/` before committing.
 
 ## Tests
 
@@ -148,8 +145,8 @@ before committing.
   precedence chain + key remap + encrypt key:<path> split.
 - `tests/godot/gdk/tests/packaging/test_packaging_content_preparer.gd` —
   content-prep XML helpers and runtime DLL refresh behavior.
-- `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — dock
-  presenter helper behavior.
+- `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — editor
+  panel helper behavior.
 - `tests/godot/gdk/tests/packaging/test_packaging_plugin_lifecycle.gd` —
   editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
@@ -174,8 +171,8 @@ them here.
 ## Anti-patterns specific to this addon
 
 - **No new top-level singleton.** This addon never registers an autoload.
-  All entry points are explicit (the dock for editor mode; `run.gd` for
-  headless mode).
+  All entry points are explicit (the `GDK` menu/dialogs for editor mode;
+  `run.gd` for headless mode).
 - **No verb-side IO in `packaging_cli.gd`.** It is pure. Coercion and
   schema enforcement only; reading files belongs in
   `packaging_config.gd`.
