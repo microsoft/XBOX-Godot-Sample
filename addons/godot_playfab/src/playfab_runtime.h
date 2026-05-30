@@ -26,6 +26,7 @@ class PlayFabResult;
 class PlayFabRuntime {
     bool m_initialized = false;
     bool m_shutting_down = false;
+    bool m_xgame_runtime_initialized = false;
     bool m_game_save_files_initialized = false;
     XTaskQueueHandle m_task_queue = nullptr;
     PFServiceConfigHandle m_service_config_handle = nullptr;

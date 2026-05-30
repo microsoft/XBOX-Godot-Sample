@@ -9,7 +9,7 @@ This is the landing page for the `godot_playfab` docs set.
 ### Implemented now
 
 - root singleton registration through `PlayFab`
-- shared PlayFab runtime lifecycle through `XGameRuntimeInitialize`, `PFInitialize`, and `PFServicesInitialize`
+- shared PlayFab runtime lifecycle with a process-lifetime `XGameRuntimeInitialize` reference and re-armable `PFInitialize` / `PFServicesInitialize` cycles
 - shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
 - project-settings-backed PlayFab config through `playfab/runtime/title_id` and `playfab/runtime/endpoint`
@@ -55,6 +55,8 @@ The PlayFab runtime reads these settings from Project Settings:
 - `playfab/runtime/embed_dispatch` — defaults to `true`; disable only when you want to pump completions manually with `PlayFab.dispatch()`
 
 The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
+
+`PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled when returning to a title screen or changing test fixtures: shutdown tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached users, then a later initialize recreates them. The underlying GDK `XGameRuntimeInitialize` reference is process-lifetime state, so the first successful runtime initialization acquires it and extension teardown releases it once. This mirrors `godot_gdk` and lets both addons coexist safely; each addon owns exactly one matching GDK runtime reference.
 
 ## Public GDScript surface
 
