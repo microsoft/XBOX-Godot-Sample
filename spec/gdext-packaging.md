@@ -74,7 +74,9 @@ Layer summary:
   (`GODOT_CONSOLE` -> `GODOT_BIN` -> `GODOT`), fall back to the repo-local
   `sample\Godot*_console.exe` for dev use, then `where godot` / `which godot`.
   They forward all remaining args using form A (`-s ...`) so they work even
-  before a `--import` pass has populated the class registry.
+  before a `--import` pass has populated the class registry. The forwarders
+  preserve argument boundaries for paths with spaces; `gdkpkg.sh` uses Bash
+  arrays and `gdkpkg.cmd` invokes Godot through a PowerShell argument array.
 
 ## Verb contract
 
@@ -150,7 +152,7 @@ Verb list (14):
 | `install`          | `--package`                   | wdapp install.                                         |
 | `uninstall`        | `--package-name`              | wdapp uninstall.                                       |
 | `launch`           | `--package-name` or `--aumid` | Resolves AUMID via `wdapp list` when only PFN given.   |
-| `terminate`        | `--package-name`              | Falls back to taskkill on the build's primary .exe.    |
+| `terminate`        | `--package-name`              | Falls back to taskkill only for the exact bare `.exe` basename named by MicrosoftGame.config, with path/wildcard/quote characters rejected and the file required in the build dir. |
 | `sandbox`          | `--action {get,set,retail}`   | `set` also requires `--sandbox-id`.                    |
 | `config_template`  | (none)                        | Writes a starter MicrosoftGame.config.                 |
 | `config_editor`    | (none)                        | Detached GameConfigEditor.exe launch.                  |
