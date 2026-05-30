@@ -1,6 +1,7 @@
 #include "playfab_multiplayer.h"
 
 #include <algorithm>
+#include <atomic>
 #include <string>
 
 #include <godot_cpp/classes/json.hpp>
@@ -54,10 +55,14 @@ Ref<PlayFabResult> multiplayer_hresult_error(HRESULT p_hresult, const String &p_
             p_data);
 }
 
+struct MultiplayerQueueTerminateContext {
+    std::atomic<bool> terminated{false};
+};
+
 void CALLBACK multiplayer_queue_terminated(void *p_context) {
-    bool *terminated = static_cast<bool *>(p_context);
-    if (terminated != nullptr) {
-        *terminated = true;
+    auto *ctx = static_cast<MultiplayerQueueTerminateContext *>(p_context);
+    if (ctx != nullptr) {
+        ctx->terminated.store(true, std::memory_order_release);
     }
 }
 
@@ -920,9 +925,6 @@ void PlayFabMultiplayer::_complete_pending_operation(PendingOperation *p_operati
     }
 
     m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
-    if (m_shutting_down) {
-        _defer_pending_delete(p_operation);
-    }
 
     if (p_operation->pending_signal.is_valid()) {
         Ref<PlayFabResult> final_result = p_result;
@@ -932,6 +934,10 @@ void PlayFabMultiplayer::_complete_pending_operation(PendingOperation *p_operati
         p_operation->pending_signal->complete(final_result);
     }
 
+    // Deferring after complete() (rather than both before and after) keeps the
+    // operation alive across the complete() call without double-tracking it.
+    // The check is re-read here in case complete() re-entrantly flipped
+    // m_shutting_down (e.g. an awaiter calling PlayFab.shutdown()).
     if (m_shutting_down) {
         _defer_pending_delete(p_operation);
     } else {
@@ -1008,14 +1014,29 @@ void PlayFabMultiplayer::_terminate_multiplayer_queue() {
         return;
     }
 
-    bool terminated = false;
-    const HRESULT terminate_hr = XTaskQueueTerminate(m_multiplayer_queue, false, &terminated, multiplayer_queue_terminated);
+    // Heap-allocate the terminate context so we can safely give up the wait
+    // without risking a use-after-free if the SDK callback fires later. The
+    // context is freed by us if termination completes within the deadline,
+    // otherwise it is intentionally leaked to let the eventual callback land
+    // on valid memory.
+    auto *ctx = new MultiplayerQueueTerminateContext();
+    const HRESULT terminate_hr = XTaskQueueTerminate(m_multiplayer_queue, false, ctx, multiplayer_queue_terminated);
     if (SUCCEEDED(terminate_hr)) {
-        while (!terminated) {
+        constexpr int kMaxDispatchIterations = 500; // ~5 seconds at 10ms per dispatch
+        int iterations = 0;
+        while (!ctx->terminated.load(std::memory_order_acquire) && iterations < kMaxDispatchIterations) {
             XTaskQueueDispatch(m_multiplayer_queue, XTaskQueuePort::Completion, 10);
+            ++iterations;
+        }
+        if (ctx->terminated.load(std::memory_order_acquire)) {
+            delete ctx;
+        } else {
+            WARN_PRINT("PlayFabMultiplayer: XTaskQueueTerminate did not complete within 5s; leaking terminate context to avoid UAF if the SDK callback fires later.");
+            // ctx intentionally leaked.
         }
     } else {
         WARN_PRINT(vformat("PlayFabMultiplayer: XTaskQueueTerminate failed during shutdown/reset: %s", PlayFabResult::format_hresult(terminate_hr)));
+        delete ctx;
     }
     XTaskQueueCloseHandle(m_multiplayer_queue);
     m_multiplayer_queue = nullptr;

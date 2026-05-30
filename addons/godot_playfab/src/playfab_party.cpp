@@ -1775,9 +1775,6 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
     }
 
     m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
-    if (m_shutting_down) {
-        _defer_pending_delete(p_operation);
-    }
 
     if (p_operation->pending_signal.is_valid()) {
         Ref<PlayFabResult> final_result = p_result;
@@ -1787,6 +1784,10 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
         p_operation->pending_signal->complete(final_result);
     }
 
+    // Deferring after complete() (rather than both before and after) keeps the
+    // operation alive across the complete() call without double-tracking it.
+    // The check is re-read here in case complete() re-entrantly flipped
+    // m_shutting_down (e.g. an awaiter calling PlayFab.shutdown()).
     if (m_shutting_down) {
         _defer_pending_delete(p_operation);
     } else {

@@ -70,6 +70,40 @@ PlayFab::PlayFab() {
 PlayFab::~PlayFab() {
     m_destroying = true;
     shutdown();
+
+    // If shutdown was deferred because Party/Multiplayer were mid-batch when the
+    // singleton tore down, drain their state changes here BEFORE tearing down
+    // the shared services (m_users entity tokens, m_runtime queues, XGameRuntime).
+    // Without this drain, queued Party/Multiplayer callbacks may dereference
+    // invalidated entity handles or runtime task-queue state during their own
+    // destructor-driven cleanup. We cap the wait to avoid hanging the editor
+    // tear-down on a wedged SDK callback.
+    if (m_shutdown_deferred_until_services_complete) {
+        constexpr int kMaxDrainAttempts = 200; // ~1 second total at 5ms apart
+        int drain_attempt = 0;
+        while (m_shutdown_deferred_until_services_complete && drain_attempt < kMaxDrainAttempts) {
+            if (m_multiplayer.is_valid()) {
+                m_multiplayer->dispatch();
+            }
+            if (m_party.is_valid()) {
+                m_party->dispatch();
+            }
+            // Retry shutdown to let subsystems re-evaluate now that pending
+            // state-change batches have had a chance to complete.
+            if (m_party.is_valid()) {
+                m_party->shutdown();
+            }
+            if (m_multiplayer.is_valid()) {
+                m_multiplayer->shutdown();
+            }
+            finish_deferred_shutdown_if_ready();
+            ++drain_attempt;
+        }
+        if (m_shutdown_deferred_until_services_complete) {
+            WARN_PRINT("PlayFab destructor: Party/Multiplayer shutdown did not drain in time; proceeding with service teardown anyway.");
+        }
+    }
+
     if (m_party.is_valid()) {
         m_party->set_owner(nullptr);
     }
