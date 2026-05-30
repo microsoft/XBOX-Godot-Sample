@@ -60,11 +60,14 @@ func test_dispatch_returns_number_of_drained_completion_events() -> void:
 	if states.size() != DISPATCH_COMPLETION_COUNT:
 		return
 
-	OS.delay_msec(1500)
-	var drained = gdk.dispatch()
-	if drained != DISPATCH_COMPLETION_COUNT:
-		pending("Expected %d queued completion events, but dispatch() drained %d in this environment." % [DISPATCH_COMPLETION_COUNT, drained])
-		return
+	var drained := 0
+	var max_wait_ms := 5000
+	var poll_interval_ms := 100
+	var elapsed := 0
+	while drained < DISPATCH_COMPLETION_COUNT and elapsed < max_wait_ms:
+		OS.delay_msec(poll_interval_ms)
+		drained += gdk.dispatch()
+		elapsed += poll_interval_ms
 
 	assert_eq(drained, DISPATCH_COMPLETION_COUNT, "dispatch() returns the exact number of queued completion events it drained")
 	for state in states:
