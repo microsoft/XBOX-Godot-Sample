@@ -24,8 +24,44 @@ void GameInputActionMap::_bind_methods() {
                  "set_bindings", "get_bindings");
 }
 
+void GameInputActionMap::_connect_binding_changed(const Ref<GameInputBinding> &binding) {
+    if (binding.is_null()) {
+        return;
+    }
+    Callable callback = callable_mp(this, &GameInputActionMap::_on_binding_changed);
+    if (!binding->is_connected("changed", callback)) {
+        binding->connect("changed", callback);
+    }
+}
+
+void GameInputActionMap::_disconnect_binding_changed(const Ref<GameInputBinding> &binding) {
+    if (binding.is_null()) {
+        return;
+    }
+    Callable callback = callable_mp(this, &GameInputActionMap::_on_binding_changed);
+    if (binding->is_connected("changed", callback)) {
+        binding->disconnect("changed", callback);
+    }
+}
+
+void GameInputActionMap::_disconnect_all_binding_changed() {
+    for (int i = 0; i < (int)m_bindings.size(); ++i) {
+        Ref<GameInputBinding> binding = m_bindings[i];
+        _disconnect_binding_changed(binding);
+    }
+}
+
+void GameInputActionMap::_on_binding_changed() {
+    emit_changed();
+}
+
 void GameInputActionMap::set_bindings(const TypedArray<GameInputBinding> &p_bindings) {
+    _disconnect_all_binding_changed();
     m_bindings = p_bindings;
+    for (int i = 0; i < (int)m_bindings.size(); ++i) {
+        Ref<GameInputBinding> binding = m_bindings[i];
+        _connect_binding_changed(binding);
+    }
     emit_changed();
 }
 
@@ -46,11 +82,13 @@ Ref<GameInputBinding> GameInputActionMap::get_binding(int index) const {
 
 void GameInputActionMap::add_binding(const Ref<GameInputBinding> &binding) {
     if (binding.is_null()) return;
+    _connect_binding_changed(binding);
     m_bindings.push_back(binding);
     emit_changed();
 }
 
 void GameInputActionMap::clear() {
+    _disconnect_all_binding_changed();
     m_bindings.clear();
     emit_changed();
 }

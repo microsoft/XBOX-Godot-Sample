@@ -65,6 +65,7 @@ private:
 
     IGameInput *m_game_input = nullptr;
     GameInputCallbackToken m_device_callback_token = 0;
+    std::atomic_bool m_accepting_callbacks{false};
     bool m_initialized = false;
     bool m_warned_uninitialized = false;
     bool m_warned_create_failed = false;
@@ -97,6 +98,8 @@ private:
     };
     Vector<DeviceEntry> m_devices;
 
+    void _release_pending_events_locked();
+    void _clear_pending_events();
     void _drain_pending_events();
     void _real_poll();
     int _find_index_by_id(int64_t id) const;

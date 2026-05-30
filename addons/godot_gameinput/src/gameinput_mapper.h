@@ -7,6 +7,8 @@
 #include <godot_cpp/templates/hash_set.hpp>
 #include <godot_cpp/variant/string_name.hpp>
 
+#include <cstdint>
+
 namespace godot {
 
 class GameInputActionMap;
@@ -29,7 +31,8 @@ class GameInputActionMap;
 // InputMap once, caches the result per binding, and skips its own
 // InputEventAction emit when a matching native event exists. The polled
 // action_press path keeps running either way; only the synthetic event is
-// suppressed. The cache is invalidated whenever the action_map changes.
+// suppressed. The cache is invalidated whenever the action_map changes and
+// refreshed per frame so runtime InputMap edits are stale for at most one frame.
 //
 // Action names must already exist in Godot's InputMap for the standard
 // Input.is_action_pressed("jump") API to work; the Mapper warns once per
@@ -56,16 +59,16 @@ private:
     // Per-binding press state from the previous frame so we can emit
     // press/release on the right edges. Keyed by binding index in the map.
     HashMap<int, bool> m_prev_pressed;
+    HashMap<int, StringName> m_prev_actions;
 
     // Per-binding cache: does Godot's built-in joypad backend already drive
     // this binding's action via an equivalent InputEventJoypadButton /
     // InputEventJoypadMotion in the project's InputMap? When true, we skip
     // emitting our own InputEventAction for the same press to avoid every
     // ui_accept / ui_up / etc. firing twice. The polled state (action_press)
-    // still gets refreshed every frame either way. Cache is invalidated when
-    // the action map changes; rare runtime InputMap edits are tolerated as
-    // single-frame staleness.
+    // still gets refreshed every frame either way.
     HashMap<int, bool> m_native_handles_cache;
+    uint64_t m_native_handles_cache_frame = UINT64_MAX;
 
     // Action names we've already warned about being missing from InputMap.
     HashSet<StringName> m_warned_missing_actions;
@@ -75,6 +78,13 @@ private:
                          class GameInputReading *reading) const;
     bool _native_path_handles_binding(const Ref<class GameInputBinding> &binding,
                                       const StringName &action) const;
+    void _release_held_actions();
+    void _release_held_action_for(int binding_index);
+    void _forget_pressed_state();
+    void _invalidate_native_handles_cache();
+    void _connect_action_map_changed(const Ref<GameInputActionMap> &map);
+    void _disconnect_action_map_changed(const Ref<GameInputActionMap> &map);
+    void _on_action_map_changed();
 
     static int _source_to_joy_button(int source);
     static int _source_to_joy_axis(int source);
@@ -85,7 +95,7 @@ protected:
 
 public:
     GameInputMapper();
-    ~GameInputMapper() = default;
+    ~GameInputMapper();
 
     void set_action_map(const Ref<GameInputActionMap> &map);
     Ref<GameInputActionMap> get_action_map() const;
@@ -98,6 +108,11 @@ public:
 
     // For tests / inspection.
     int get_active_binding_count() const;
+#ifndef NDEBUG
+    void _test_mark_binding_pressed(int binding_index);
+    void _test_prime_native_handles_cache(int binding_index, bool native_handles);
+    int _test_get_native_handles_cache_count() const;
+#endif
 };
 
 } // namespace godot
