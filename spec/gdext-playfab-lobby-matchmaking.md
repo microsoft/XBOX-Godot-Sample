@@ -125,7 +125,7 @@ func set_member_properties_async(properties: Dictionary) -> Signal
 func leave_async() -> Signal
 ```
 
-Lobby updates are object-scoped. When a lobby state change arrives, the addon updates the cached snapshot before emitting `PlayFabLobby.state_changed(change)`. The MLP also emits `PlayFab.multiplayer.state_changed(change)` as an aggregate signal for titles that prefer one service-level subscription.
+Lobby updates are object-scoped. When a lobby state change arrives, the addon updates the cached snapshot before emitting `PlayFabLobby.state_changed(change)`. The MLP also emits `PlayFab.multiplayer.state_changed(change)` as an aggregate signal for titles that prefer one service-level subscription. `PlayFabLobby.set_member_properties_async()` is local-member-only; after a successful local write, the addon eagerly patches that local member's snapshot before settling the completion signal and emitting `MEMBER_UPDATED`, because the native SDK may only report remote member-property changes through SDK-driven update callbacks.
 
 ### Lobby configs
 

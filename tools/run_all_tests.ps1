@@ -32,9 +32,10 @@
     -AllowLiveWrites is also specified.
 
 .PARAMETER AllowLiveWrites
-    Requires -Live. Sets LIVE_WRITE_TESTS=1 in the child env for every Godot
-    stage and prints the active PlayFab title id so live writes are visibly
-    scoped to a sandbox title.
+    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for live tests
+    that create lobbies, write leaderboards, save Game Saves, or otherwise
+    mutate the configured sandbox title. Prints the active PlayFab title id so
+    live writes are visibly scoped to an explicit sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
