@@ -475,8 +475,13 @@ await GDK.presence.set_presence_async(user, "InGame")
 # Query presence for a list of XUIDs
 var result = await GDK.presence.get_presence_async(["1234567890123456"])
 if result.ok:
-    var record = GDK.presence.get_cached_presence("1234567890123456")
-    print(record.gamertag, " is ", record.presence_text)
+    var record: GDKPresenceRecord = GDK.presence.get_cached_presence("1234567890123456")
+    if record != null:
+        print("%s is %s" % [record.xuid, record.get_user_state_name()])
+        for title in record.title_records:
+            var title_name = str(title.get("title_name", ""))
+            var rich_presence = str(title.get("rich_presence_string", ""))
+            print("%s: %s" % [title_name, rich_presence])
 ```
 
 ## `GDKPresenceRecord`
@@ -488,9 +493,19 @@ Script-visible wrapper around a cached Xbox presence record.
 | Property | Type | Description |
 |----------|------|-------------|
 | `xuid` | `String` | Xbox User ID |
-| `gamertag` | `String` | Gamertag |
-| `online` | `bool` | Whether the user is online |
-| `presence_text` | `String` | Human-readable presence string |
+| `user_state` | `GDKPresenceRecord.UserState` | `USER_STATE_UNKNOWN`, `USER_STATE_ONLINE`, `USER_STATE_AWAY`, or `USER_STATE_OFFLINE` |
+| `title_records` | `Array[Dictionary]` | Title/device presence records translated from Xbox Services |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_online()` | `bool` | `true` when `user_state` is `USER_STATE_ONLINE` |
+| `get_user_state_name()` | `String` | Human-readable state string: `unknown`, `online`, `away`, or `offline` |
+
+`title_records` dictionaries can include `title_id`, `title_name`,
+`title_active`, `rich_presence_string`, `device_type`, `device_type_name`,
+and broadcast fields when Xbox Services reports them.
 
 ## Social service: `GDK.social`
 
@@ -549,13 +564,31 @@ Script-visible wrapper around a tracked social user.
 | Property | Type | Description |
 |----------|------|-------------|
 | `xuid` | `String` | Xbox User ID |
-| `gamertag` | `String` | Gamertag |
+| `favorite` | `bool` | Whether the user is a favorite of the local user |
+| `friend` | `bool` | Whether the user is a friend of the local user |
 | `display_name` | `String` | Display name |
 | `real_name` | `String` | Real name (if available) |
-| `online` | `bool` | Whether the user is online |
-| `playing_title_id` | `int` | Title ID the user is currently playing |
-| `title_name` | `String` | Name of the title being played |
-| `presence_text` | `String` | Human-readable presence string |
+| `display_picture_url` | `String` | Raw display-picture URL |
+| `gamerscore` | `String` | Gamerscore string |
+| `gamertag` | `String` | Classic gamertag |
+| `presence` | `GDKPresenceRecord` | Current Social Manager presence snapshot |
+| `title_history` | `Dictionary` | Title-history fields reported by Social Manager |
+| `preferred_color` | `Dictionary` | Preferred color fields reported by Social Manager |
+
+### Additional getters
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_following_user()` | `bool` | Whether the local user follows this user |
+| `is_followed_by_caller()` | `bool` | Whether this user is followed by the caller |
+| `uses_avatar()` | `bool` | Whether the display picture uses an avatar |
+| `get_modern_gamertag()` | `String` | Modern gamertag |
+| `get_modern_gamertag_suffix()` | `String` | Modern gamertag suffix |
+| `get_unique_modern_gamertag()` | `String` | Modern gamertag including suffix |
+
+Use `presence.user_state` and `presence.title_records` for online state,
+current-title, and rich-presence details; those are not direct `GDKSocialUser`
+properties.
 
 ## `GDKSocialGroup`
 
@@ -576,21 +609,24 @@ Namespace for social filter enums.
 
 **`PresenceFilter`**
 
-| Value | Description |
-|-------|-------------|
-| `UNKNOWN` | Unknown |
-| `TITLE_ONLINE` | Online in this title |
-| `TITLE_ALL_USERS` | All users for this title |
-| `ALL_ONLINE` | All online users |
-| `ALL_DEVICES` | All users on any device |
-| `ALL_USERS` | All users |
+| GDScript constant | Enum value | Description |
+|-------------------|------------|-------------|
+| `PRESENCE_FILTER_UNKNOWN` | `UNKNOWN` | Unknown |
+| `PRESENCE_FILTER_TITLE_ONLINE` | `TITLE_ONLINE` | Users online in the current title |
+| `PRESENCE_FILTER_TITLE_OFFLINE` | `TITLE_OFFLINE` | Users offline in the current title |
+| `PRESENCE_FILTER_TITLE_ONLINE_OUTSIDE_TITLE` | `TITLE_ONLINE_OUTSIDE_TITLE` | Users online but outside the current title |
+| `PRESENCE_FILTER_ALL_ONLINE` | `ALL_ONLINE` | All online users |
+| `PRESENCE_FILTER_ALL_OFFLINE` | `ALL_OFFLINE` | All offline users |
+| `PRESENCE_FILTER_ALL_TITLE` | `ALL_TITLE` | All users associated with the current title |
+| `PRESENCE_FILTER_ALL` | `ALL` | All users regardless of presence or title |
 
 **`RelationshipFilter`**
 
-| Value | Description |
-|-------|-------------|
-| `FRIENDS` | Friends only |
-| `FAVORITE` | Favorite friends only |
+| GDScript constant | Enum value | Description |
+|-------------------|------------|-------------|
+| `RELATIONSHIP_FILTER_UNKNOWN` | `UNKNOWN` | Unknown |
+| `RELATIONSHIP_FILTER_FRIENDS` | `FRIENDS` | Friends only |
+| `RELATIONSHIP_FILTER_FAVORITE` | `FAVORITE` | Favorite friends only |
 
 ## Store service: `GDK.store`
 

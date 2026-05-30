@@ -1,7 +1,7 @@
 # `godot_gdk_packaging` — Headless Packaging Surface
 
-Status: **Phase 1 in flight** (this PR ships the headless workflow layer; the
-dock UI stays on the existing helpers and is rewired in a follow-on PR).
+Status: **Headless workflow implemented**. The editor plugin exposes a
+top-level `GDK` menu and modal dialogs; it does not register an editor dock.
 
 ## Overview
 
@@ -10,11 +10,10 @@ Microsoft Game Config, makepkg.exe (genmap / pack / validate), wdapp.exe
 (register / install / launch / terminate / uninstall), XblPCSandbox.exe, and
 the GameConfigEditor / Store Association wizard launches.
 
-Up to this point all of it was reachable only from the editor dock under
-`editor\packaging_tabs\`. This spec defines a headless-first surface so
-automation (`tools\run_all_tests.ps1`, sample-export CI, cloud agents) can
-drive every verb without a human at the dock, and so the dock (in Phase 2)
-can be rewritten as a thin presenter over the same service.
+Editor access is through the top-level `GDK` menu and modal dialogs under
+`editor\`. This spec defines a headless-first surface so automation
+(`tools\run_all_tests.ps1`, sample-export CI, cloud agents) can drive every
+verb without a human clicking through editor UI.
 
 The headless surface is intentionally **GDScript-only** and lives entirely
 under `addons\godot_gdk_packaging\`. There is no new PowerShell wrapper
@@ -39,11 +38,11 @@ addons\godot_gdk_packaging\
     wdapp_manager.gd                     # wraps wdapp register/install/launch/terminate/uninstall
     packaging_settings_store.gd          # reads/writes res://.gdk_packaging.cfg
     export_preset_catalog.gd             # enumerates Windows export presets
-    packaging_panel_logic.gd             # dock helpers (still editor-shaped)
+    packaging_panel_logic.gd             # editor panel helpers (not an active dock)
   editor\                                # UI-only — preloads from core\
-    gdk_packaging_plugin.gd              # EditorPlugin entry
-    packaging_panel.gd                   # dock root
-    packaging_tabs\*.gd                  # tab views
+    gdk_packaging_plugin.gd              # EditorPlugin entry; top-level GDK menu
+    packaging_panel.gd                   # legacy panel root (not registered)
+    packaging_tabs\*.gd                  # legacy tab views (not registered)
     gdk_tutorial_wizard.gd, tutorial_wizard_state.gd
     gdk_sandbox_dialog.gd                # GDK Sandbox Switcher popup
     gdk_package_manager_dialog.gd        # machine-wide Package Manager popup
@@ -71,9 +70,13 @@ Layer summary:
   prints a one-line summary plus a `PACKAGING_RESULT_JSON:` line (unless
   `--no-json` is supplied), then `quit(exit_code)`.
 - `gdkpkg.cmd` / `gdkpkg.sh` locate Godot via env vars
-  (`GODOT_CONSOLE` -> `GODOT_BIN` -> `GODOT`), fall back to the repo-local
-  `sample\Godot*_console.exe` for dev use, then `where godot` / `which godot`.
-  They forward all remaining args using form A (`-s ...`) so they work even
+  (`GODOT_CONSOLE` -> `GODOT_BIN` -> `GODOT`), fall back to repo-local
+  `sample\Godot*_console.exe` / `sample\Godot*.exe` candidates, then the
+  current working directory's `Godot*_console.exe` / `Godot*.exe` candidates,
+  then `where godot` / `where godot4` on Windows or `command -v godot` /
+  `command -v godot4` on POSIX shells (`gdkpkg.sh` uses `command -v`, not
+  `which`, for PATH lookup). They forward all remaining args using form
+  A (`-s ...`) so they work even
   before a `--import` pass has populated the class registry. The forwarders
   preserve argument boundaries for paths with spaces; `gdkpkg.sh` uses Bash
   arrays and `gdkpkg.cmd` invokes Godot through a PowerShell argument array.
@@ -195,9 +198,11 @@ logo bytes are written to the staging directory.
 
 ## Plan
 
-Headless first. UI rewire is a separate PR.
+Headless workflows are the supported automation contract. Editor access stays
+explicit through the top-level `GDK` menu and modal dialogs; this spec does not
+plan a separate editor-panel rewrite.
 
-### Phase 1 — headless workflows (this PR)
+### Shipped — headless workflows
 
 1. Move 8 headless-safe helpers from `editor\` to `core\`; update preloads.
 2. Add `core\packaging_result.gd` (typed dict + exit-code constants).
@@ -206,47 +211,32 @@ Headless first. UI rewire is a separate PR.
 5. Add `core\packaging_service.gd` (verb facade; one method per verb).
 6. Add `addons\godot_gdk_packaging\run.gd` (`class_name GdkPackagingRunner`).
 7. Add `gdkpkg.cmd` / `gdkpkg.sh` shell forwarders.
-8. GUT coverage under `tests\godot\gdk\tests\packaging\` for the CLI parser,
-   config resolver, and result builder plus the pre-existing helper suites
-   updated to the new `core\` paths.
-9. Spec (this file), user-facing reference (`docs\packaging\plugin.md`),
-   and path-scoped instructions
-   (`.github\instructions\godot-gdk-packaging.instructions.md`).
+8. Add GUT coverage under `tests\godot\gdk\tests\packaging\` for the CLI
+   parser, config resolver, and result builder plus the helper suites that
+   target the moved `core\` paths.
+9. Keep the spec, user-facing reference (`docs\packaging\plugin.md`), editor
+   menu reference (`docs\packaging\editor-menu.md`), and path-scoped
+   instructions aligned with the live implementation.
 
-### Phase 2 — dock rewrite (separate PR)
+### Future — service hardening and editor UX
 
-12. Migrate each `editor\packaging_tabs\*.gd` tab to call `PackagingService`
-    instead of the helpers directly. Each tab becomes a thin presenter
-    (collect input -> call service -> render result).
-13. Consolidate the duplicated orchestration in
-    `_on_export_and_package` / `_post_export_prepare` / the menu handler in
-    `gdk_packaging_plugin.gd` to a single `service.run_export` call.
-14. UX pass: tab layout, button placement, refresh behaviour, dialog
-    ergonomics. Audit what's left in `packaging_panel_logic.gd` and
-    promote anything truly headless-safe back into `core\` if needed.
-
-### Phase 3 — wider integrations (separate PRs)
-
-15. Optional: a thin `tools\run_packaging.ps1` if usage patterns demand it
-    (skipped for now per user preference).
-16. Re-evaluate orchestrator coverage of the headless runner against the
-    real GDK toolchain (gated on `is_gdk_available()`).
+10. Add targeted service and runner coverage for behaviours that require the
+    real GDK toolchain, gated on `is_gdk_available()`.
+11. Keep editor entry points menu/dialog based unless a future design explicitly
+    changes the editor model.
+12. Optional: add a thin `tools\run_packaging.ps1` only if usage patterns demand
+    it; the addon-local forwarders remain the supported wrapper today.
 
 ## Progress
 
-- **Phase 1**: implemented in branch `packaging-headless-revamp`. All eight
-  pre-existing source modules moved into `core\`; new `packaging_result.gd`,
-  `packaging_cli.gd`, `packaging_config.gd`, `packaging_service.gd`,
-  `run.gd`, `gdkpkg.cmd`, and `gdkpkg.sh` ship with the PR. GUT coverage
-  under `tests\godot\gdk\tests\packaging\` covers the resolver, CLI parser,
-  and result builder; pre-existing helper suites for the moved modules were
-  preserved and re-pointed at `core\`. Verb-level service coverage is
-  intentionally not shipped in this PR — the dock UI is the only consumer
-  driving the service end-to-end until Phase 2 (and that work will land
-  alongside its own coverage strategy against the real toolchain).
-  Spec, `docs\packaging\plugin.md`, and
-  `.github\instructions\godot-gdk-packaging.instructions.md` land in the
-  same PR.
+- **Headless workflow**: shipped in branch `packaging-headless-revamp`. All
+  eight pre-existing source modules moved into `core\`; new
+  `packaging_result.gd`, `packaging_cli.gd`, `packaging_config.gd`,
+  `packaging_service.gd`, `run.gd`, `gdkpkg.cmd`, and `gdkpkg.sh` shipped with
+  that work. GUT coverage under `tests\godot\gdk\tests\packaging\` covers the
+  resolver, CLI parser, result builder, and helper suites for the moved
+  `core\` paths. Verb-level service coverage continues to expand alongside
+  real-toolchain validation.
 - **Known orchestrator flake (not blocking)**: `tools\run_all_tests.ps1`
   occasionally crashes the `tests\godot\gdk` GUT host with signal 11 after
   ~194/205 passing tests and 0 failures. The backtrace points at
@@ -256,6 +246,5 @@ Headless first. UI rewire is a separate PR.
   changes stashed. Direct GUT invocations and isolated host runs are clean;
   re-running the orchestrator typically passes on retry. Tracking
   separately; do not gate packaging work on this flake.
-- **Phase 2**: not started. Dock still imports helpers directly; behaviour
-  unchanged.
-- **Phase 3**: not started.
+- **Editor UX / service hardening**: ongoing. The current editor surface is the
+  top-level `GDK` menu plus dialogs; no dock is registered.

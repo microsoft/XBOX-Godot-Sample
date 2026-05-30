@@ -4,10 +4,11 @@
 Godot — Microsoft Game Config, makepkg (genmap / pack / validate), wdapp
 (register / install / launch / terminate / uninstall), XblPCSandbox, and
 the GameConfigEditor / Store Association wizard. It works as a **headless**
-runner you can drive from scripts and CI, with a small editor menu for
-Game Config and documentation shortcuts.
+runner you can drive from scripts and CI, with a top-level editor `GDK` menu
+for Game Config, sandbox/package management, and documentation shortcuts.
 
-This page is the headless-surface reference.
+This page is the headless-surface reference. For editor UI coverage, see
+[Godot GDK Packaging — Editor `GDK` Menu](editor-menu.md).
 
 ## Invocation
 
@@ -52,8 +53,11 @@ Godot discovery order in the forwarders:
 1. `GODOT_CONSOLE` env var (full path to a console-enabled Godot binary)
 2. `GODOT_BIN` env var
 3. `GODOT` env var
-4. Repo-local `sample\Godot*_console.exe` (highest version wins; for dev hosts)
-5. `where godot` / `which godot`
+4. Repo-local `sample\Godot*_console.exe` / `sample\Godot*.exe` candidates
+5. Current-working-directory `Godot*_console.exe` / `Godot*.exe` candidates
+6. `where godot` / `where godot4` on Windows, or `command -v godot` /
+   `command -v godot4` on POSIX shells (`gdkpkg.sh` uses `command -v` for
+   PATH lookup, not `which`)
 
 Both forwarders accept `--path <project_dir>` to override the project
 root (otherwise the current working directory is used). Pass `--godot
@@ -67,42 +71,22 @@ The runner dispatches one verb per invocation. Common runner flags accepted
 on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 `--verbose` (`-v`).
 
-| Verb               | Required flags                       | Description                                                       |
-|--------------------|--------------------------------------|-------------------------------------------------------------------|
-| `pack`             | `--source-dir`, `--output-dir`       | makepkg pack. Auto-genmap when `--map-file` is omitted.           |
-| `genmap`           | `--source-dir`, `--map-file`         | makepkg genmap.                                                   |
-| `validate`         | `--source-dir`, `--map-file`         | makepkg validate; optional `--output-dir` selects `/pd`.          |
-| `prepare_content`  | `--content-dir`                      | Copies MicrosoftGame.config + logos into a content directory.     |
-| `export`           | `--preset`, `--output-dir`           | Godot Windows-Desktop export; `--release`; optional `--no-prepare`. |
-| `register_loose`   | `--content-dir`                      | wdapp register (loose-files build).                               |
-| `install`          | `--package`                          | wdapp install on an .msixvc file.                                 |
-| `uninstall`        | `--package-name`                     | wdapp uninstall by package full name.                             |
-| `launch`           | `--package-name` or `--aumid`        | wdapp launch. Resolves AUMID from PFN when needed.                |
-| `terminate`        | `--package-name`                     | wdapp terminate; taskkill fallback is limited to the build's config-named `.exe`. |
-| `sandbox`          | `--action {get,set,retail}`          | `set` additionally requires `--sandbox-id`.                       |
-| `config_template`  | (none)                               | Writes a starter MicrosoftGame.config; optional `--output`, `--overwrite`. |
-| `config_editor`    | (none)                               | Detached GameConfigEditor.exe launch on the current config.       |
-| `store_wizard`     | (none)                               | Detached GameConfigEditor.exe `/StoreAssociation`.                |
-
-`pack`-specific flags:
-
-| Flag              | Default  | Description                                                            |
-|-------------------|----------|------------------------------------------------------------------------|
-| `--content-id`    | `product_id` | Override the `/contentid` value.                                   |
-| `--product-id`    |          | Override the `/productid` value (otherwise MicrosoftGame.config wins).|
-| `--encrypt`       | `none`   | `none`, `license`, or `key:<ekb-path>`.                                |
-| `--encrypt-key`   |          | EKB path (required when `--encrypt=key`).                              |
-| `--updcompat`     | `3`      | makepkg `/updcompat` level (1, 2, or 3).                               |
-| `--no-prepare`    | off      | Skip the content-prep step before pack.                                |
-
-Additional verb-specific flags:
-
-- `validate --output-dir <dir>` chooses the makepkg validation output `/pd`
-  directory (otherwise a `validate-out` sibling is created).
-- `export --no-prepare` skips the post-export content preparation step.
-- `config_template --output <path>` writes the template at that path;
-  `--overwrite` replaces that same resolved output file when it already
-  exists.
+| Verb               | Required flags                 | Optional flags                                                                 | Description                                                       |
+|--------------------|--------------------------------|---------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| `pack`             | `--source-dir`, `--output-dir` | `--map-file`, `--content-id`, `--product-id`, `--encrypt`, `--encrypt-key`, `--updcompat`, `--no-prepare` | makepkg pack. Auto-generates a map file when `--map-file` is omitted; `--no-prepare` only skips content prep. |
+| `genmap`           | `--source-dir`, `--map-file`   | (none)                                                                          | makepkg genmap.                                                   |
+| `validate`         | `--source-dir`, `--map-file`   | `--output-dir`                                                                  | makepkg validate; `--output-dir` selects `/pd`, otherwise a `validate-out` sibling is created. |
+| `prepare_content`  | `--content-dir`                | (none)                                                                          | Copies MicrosoftGame.config + logos into a content directory.     |
+| `export`           | `--preset`, `--output-dir`     | `--release`, `--no-prepare`                                                     | Godot Windows-Desktop export; `--no-prepare` skips post-export content preparation. |
+| `register_loose`   | `--content-dir`                | (none)                                                                          | wdapp register (loose-files build).                               |
+| `install`          | `--package`                    | (none)                                                                          | wdapp install on an .msixvc file.                                 |
+| `uninstall`        | `--package-name`               | (none)                                                                          | wdapp uninstall by package full name.                             |
+| `launch`           | `--package-name`               | `--aumid`                                                                       | wdapp launch. The CLI parser requires `--package-name`; `--aumid` overrides the AUMID resolved from `wdapp list`. |
+| `terminate`        | `--package-name`               | (none)                                                                          | wdapp terminate; taskkill fallback is limited to the build's config-named `.exe`. |
+| `sandbox`          | (none)                         | `--action {get,set,retail}`, `--sandbox-id`                                     | Defaults to `get`; `--action set` also requires `--sandbox-id`.   |
+| `config_template`  | (none)                         | `--output`, `--overwrite`                                                       | Writes a starter MicrosoftGame.config; `--output` redirects the template path (relative paths resolve under the project root) and `--overwrite` replaces that same file. |
+| `config_editor`    | (none)                         | (none)                                                                          | Detached GameConfigEditor.exe launch on the current config.       |
+| `store_wizard`     | (none)                         | (none)                                                                          | Detached GameConfigEditor.exe `/StoreAssociation`.                |
 
 `--encrypt=key` without a non-empty `--encrypt-key` fails with `EXIT_CONFIG`;
 the pack verb never silently downgrades a key-encrypted build to unencrypted.
@@ -145,8 +129,13 @@ are reported in `stderr` instead of being merged into `stdout`.
 (highest precedence wins):
 
 1. **CLI flags** (kebab-case). E.g. `--source-dir C:\Build\content`.
-2. **`res://.gdk_packaging.cfg`** — written by the dock. Empty strings
-   here do not blow away values from lower layers.
+2. **`res://.gdk_packaging.cfg`** — persisted editor settings. Empty strings
+   here do not blow away values from lower layers. The settings file contains:
+   - `[packaging]`: `source_dir`, `map_file`, `auto_genmap`, `output_dir`,
+     `content_id`, `product_id`, `encrypt_option`, `encrypt_key`,
+     `updcompat_option`
+   - `[sandbox]`: `sandbox_id`, `test_account`
+   - `[export]`: `preset_name`, `clean_build`
 3. **`MicrosoftGame.config`** at `<project>\MicrosoftGame.config` (override
    with the runner's `--config <path>` flag) — provides `product_id`,
    identity fields, and the executable name.
@@ -162,6 +151,12 @@ Derived rules:
 - `--config <path>` is honored by the resolver and by content preparation, so
   `prepare_content`, `pack`, and post-export prep stage the selected config
   instead of implicitly reading `res://MicrosoftGame.config`.
+- `config_template --output <path>` writes to that path; relative paths are
+  resolved under the project root, and `--overwrite` removes and recreates that
+  same resolved file.
+- `auto_genmap`, `test_account`, and `clean_build` are persisted editor UI
+  state. They are listed here for completeness, but the headless resolver does
+  not treat them as CLI-equivalent overrides.
 
 ## Content-directory safety
 
@@ -229,6 +224,8 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 
 ## See also
 
+- [Godot GDK Packaging — Editor `GDK` Menu](editor-menu.md) — what each
+  editor menu item does and what prerequisites it needs.
 - `.github\instructions\godot-gdk-packaging.instructions.md` — repo-wide
   rules for contributors editing the addon.
 - `docs\gdk\editor-tools.md` — broader editor-tooling notes.
