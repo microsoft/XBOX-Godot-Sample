@@ -605,6 +605,12 @@ void GDKPresence::shutdown() {
     }
     m_runtime_ready = false;
     m_cached_presence.clear();
+    // Drop every retired callback token at shutdown. _close_handler_state has
+    // already called XblPresenceRemove*ChangedHandler for each state, and
+    // shutdown is invoked after the owning GDK runtime's task queue has been
+    // drained, so no in-flight XSAPI worker callback can still hold a raw
+    // pointer to any of these tokens.
+    m_retired_callback_tokens.clear();
 }
 
 int GDKPresence::dispatch() {
@@ -1206,7 +1212,18 @@ void GDKPresence::_close_handler_state(HandlerState &p_state) {
     }
 
     if (p_state.callback_token) {
+        // Retain the token briefly so any XSAPI worker callback that captured
+        // its raw pointer before Remove*Handler returned can finish dereferencing
+        // safely. Bound the retention to a small FIFO ring so long-running
+        // sessions with repeated track/stop cycles do not leak indefinitely;
+        // tokens this far back have outlived many dispatch cycles, and the
+        // XSAPI Remove*Handler contract guarantees no NEW callbacks reference
+        // them.
+        constexpr size_t MAX_RETIRED_CALLBACK_TOKENS = 16;
         m_retired_callback_tokens.push_back(p_state.callback_token);
+        if (m_retired_callback_tokens.size() > MAX_RETIRED_CALLBACK_TOKENS) {
+            m_retired_callback_tokens.erase(m_retired_callback_tokens.begin());
+        }
         p_state.callback_token.reset();
     }
     p_state.callback_context.reset();

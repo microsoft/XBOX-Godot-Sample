@@ -73,9 +73,36 @@ func test_runtime_shutdown_completes_cancelled_pending_signals() -> void:
 		return
 
 	var cancel_index := source.find("pending_signal->cancel()")
-	var complete_index := source.find("pending_signal->complete_deferred(GDKResult::cancelled", cancel_index)
+	# Shutdown must use synchronous complete(), not complete_deferred(). When
+	# shutdown runs from SceneTree teardown there may be no idle frame left to
+	# drain a deferred call, which would strand any awaiters whose signals were
+	# already returned to callers.
+	var complete_index := source.find("pending_signal->complete(GDKResult::cancelled", cancel_index)
 	var terminate_index := source.find("XTaskQueueTerminate", cancel_index)
 	assert_true(cancel_index >= 0, "runtime shutdown cancels active pending signals")
-	assert_true(complete_index >= 0, "runtime shutdown queues cancelled completions for pending signals")
+	assert_true(complete_index >= 0, "runtime shutdown synchronously completes cancelled pending signals (not deferred)")
 	assert_true(terminate_index >= 0, "runtime shutdown terminates the task queue")
 	assert_true(complete_index >= 0 and terminate_index >= 0 and complete_index < terminate_index, "pending signals complete before queue termination can strand awaiters")
+	# Negative pin: complete_deferred at this site would re-introduce the
+	# strand-during-_exit_tree bug Copilot flagged on PR #17. Look for the
+	# actual function call (with paren) rather than the word in comments, so
+	# explanatory comments mentioning the deprecated path do not break the pin.
+	var deferred_call_idx := -1
+	if cancel_index >= 0 and terminate_index > cancel_index:
+		deferred_call_idx = source.find("pending_signal->complete_deferred(", cancel_index)
+		if deferred_call_idx >= terminate_index:
+			deferred_call_idx = -1
+	assert_true(deferred_call_idx < 0, "shutdown cancel loop does not call pending_signal->complete_deferred() (would strand awaiters during SceneTree teardown)")
+
+
+func test_presence_retired_callback_tokens_are_bounded() -> void:
+	var source := _read_repo_source("addons/godot_gdk/src/gdk_presence.cpp")
+	if source.is_empty():
+		return
+
+	# Long-running sessions repeatedly call track_presence/stop_tracking_presence,
+	# each cycle retiring one callback token. Without a bound the vector grows
+	# indefinitely. PR #17 review (Copilot) flagged the unbounded growth path.
+	_assert_contains(source, "MAX_RETIRED_CALLBACK_TOKENS", "presence retired-token retention is explicitly bounded")
+	_assert_contains(source, "m_retired_callback_tokens.erase(m_retired_callback_tokens.begin())", "presence FIFO-evicts the oldest retired token once the bound is reached")
+	_assert_contains(source, "m_retired_callback_tokens.clear()", "presence drops every retired token at shutdown")
