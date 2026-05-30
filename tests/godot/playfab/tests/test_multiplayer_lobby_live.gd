@@ -138,12 +138,26 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 		_finish_session(playfab, null)
 		return
 
+	# Subscribe BEFORE the local-self write so the MEMBER_UPDATED change the
+	# dispatcher emits for the patched local snapshot lands in our buffer.
+	# Copilot review (PR #30) flagged that the offline contract test exercised
+	# the helper directly; this section asserts the production
+	# PostUpdateCompleted dispatcher path drives the same merge by inspecting
+	# the change.member it emits.
+	var lobby_changes: Array = []
+	var on_lobby_change = func(change): lobby_changes.append(change)
+	lobby.state_changed.connect(on_lobby_change)
+
 	var props_result = await await_completion(lobby.set_member_properties_async({"ready": "true", "team": "blue", "role": null}), _DEFAULT_OP_TIMEOUT_MSEC)
 	assert_true(props_result != null and props_result.ok,
 			"lobby.set_member_properties_async succeeds for local member snapshot convergence (%s)" % (props_result.message if props_result != null else "null"))
 	if props_result == null or not props_result.ok:
+		if lobby.is_connected("state_changed", on_lobby_change):
+			lobby.state_changed.disconnect(on_lobby_change)
 		_finish_session(playfab, lobby)
 		return
+
+	await advance_process_frames(_STATE_PUMP_FRAMES)
 
 	var local_props: Variant = _get_local_member_properties(lobby)
 	assert_eq(typeof(local_props), TYPE_DICTIONARY, "local member properties are available immediately after set_member_properties_async")
@@ -151,6 +165,20 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 		assert_eq(String(local_props.get("ready", "")), "true", "local ready property converged after live write")
 		assert_eq(String(local_props.get("team", "")), "blue", "local team property converged after live write")
 		assert_false(local_props.has("role"), "local role property deletion converged after live write")
+
+	# Dispatcher-path coverage: the MEMBER_UPDATED change the addon emits for
+	# the local self after the write completes must carry change.member with the
+	# patched properties. If a future refactor severs the
+	# PostUpdateCompleted → _apply_local_member_property_update wiring the
+	# convergence helpers above could still pass via SDK snapshot, but this
+	# block would fail because the dispatched change.member would not reflect
+	# the local-side merge.
+	_assert_member_updated_carries_local_properties(lobby_changes, playfab_user,
+			{"ready": "true", "team": "blue"}, ["role"],
+			"set_member_properties_async dispatcher")
+
+	if lobby.is_connected("state_changed", on_lobby_change):
+		lobby.state_changed.disconnect(on_lobby_change)
 
 	_finish_session(playfab, lobby)
 
@@ -453,3 +481,44 @@ func _assert_member_removed_count_at_most_one(changes: Array, playfab_user, op_l
 			count += 1
 	assert_true(count <= 1,
 			"%s emitted MEMBER_REMOVED for the local user at most once (saw %d). >1 would indicate the LeaveLobbyCompleted duplicate-signal regression." % [op_label, count])
+
+
+func _assert_member_updated_carries_local_properties(changes: Array, playfab_user, expected_present: Dictionary, expected_absent: Array, op_label: String) -> void:
+	# Look for a MEMBER_UPDATED for the local user whose change.member snapshot
+	# reflects the patched properties (Copilot review on PR #30: the live
+	# dispatcher path must carry the local-side merge through to
+	# change.member.properties, not just into the lobby's member list).
+	var member_updated = get_class_constant("PlayFabLobby", "MEMBER_UPDATED")
+	var expected_id := str(playfab_user.entity_key.get("id", ""))
+	for i in range(changes.size() - 1, -1, -1):
+		var change = changes[i]
+		if change.get_kind() != member_updated:
+			continue
+		var member = change.get_member()
+		if member == null:
+			continue
+		var member_id := str(member.entity_key.get("id", ""))
+		if member_id != expected_id:
+			continue
+		var props: Variant = member.get_properties()
+		if typeof(props) != TYPE_DICTIONARY:
+			continue
+		var matches := true
+		for k in expected_present.keys():
+			if String(props.get(k, "")) != String(expected_present[k]):
+				matches = false
+				break
+		if not matches:
+			continue
+		for k in expected_absent:
+			if props.has(k):
+				matches = false
+				break
+		if not matches:
+			continue
+		assert_true(true,
+				"%s emitted MEMBER_UPDATED whose change.member.properties carries the patched local-self snapshot" % op_label)
+		return
+	assert_true(false,
+			"%s did not emit MEMBER_UPDATED carrying the patched local-self snapshot (recorded %d changes; expected present=%s absent=%s)" %
+					[op_label, changes.size(), str(expected_present), str(expected_absent)])
