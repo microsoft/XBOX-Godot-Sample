@@ -7,8 +7,8 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## The bugs only manifest when the live PFLobby SDK actually dispatches state
 ## changes for a real lobby, so non-live contract tests cannot exercise them.
 ##
-## Gated by `pending_unless_live()`; these are write tests in the sense that
-## they create a lobby in the configured PlayFab sandbox title. Lobby cleanup
+## Gated by `requires_live_write()` because these tests create and mutate
+## lobbies in the configured PlayFab sandbox title. Lobby cleanup
 ## is best effort — leave_async() runs in the happy path; the shutdown test
 ## deliberately skips leave to exercise the shutdown-during-active-lobby race.
 ## Stale lobbies in a sandbox title age out via the PFLobby SDK TTL.
@@ -104,6 +104,55 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 		multiplayer.state_changed.disconnect(on_service_change)
 
 	_finish_session(playfab, null)
+
+
+func test_lobby_local_member_properties_converge_after_live_write() -> void:
+	var session = await _begin_multiplayer_session()
+	var playfab_user = session.get("playfab_user")
+	if playfab_user == null:
+		return
+
+	var playfab: Object = session["playfab"]
+	var multiplayer: Object = session["multiplayer"]
+
+	var lobby_config = instantiate_class("PlayFabLobbyConfig")
+	if lobby_config == null:
+		_finish_session(playfab, null)
+		return
+	lobby_config.max_players = 2
+	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
+	lobby_config.member_properties = {"ready": "false", "role": "owner"}
+
+	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
+	if create_result == null:
+		fail("PlayFab.multiplayer.create_lobby_async timed out before local member property convergence check.")
+		_finish_session(playfab, null)
+		return
+	if not create_result.ok:
+		pending("PlayFab.multiplayer.create_lobby_async failed before local member property convergence check: %s" % create_result.message)
+		_finish_session(playfab, null)
+		return
+
+	var lobby: Object = create_result.data
+	if lobby == null:
+		_finish_session(playfab, null)
+		return
+
+	var props_result = await await_completion(lobby.set_member_properties_async({"ready": "true", "team": "blue", "role": null}), _DEFAULT_OP_TIMEOUT_MSEC)
+	assert_true(props_result != null and props_result.ok,
+			"lobby.set_member_properties_async succeeds for local member snapshot convergence (%s)" % (props_result.message if props_result != null else "null"))
+	if props_result == null or not props_result.ok:
+		_finish_session(playfab, lobby)
+		return
+
+	var local_props: Variant = _get_local_member_properties(lobby)
+	assert_eq(typeof(local_props), TYPE_DICTIONARY, "local member properties are available immediately after set_member_properties_async")
+	if typeof(local_props) == TYPE_DICTIONARY:
+		assert_eq(String(local_props.get("ready", "")), "true", "local ready property converged after live write")
+		assert_eq(String(local_props.get("team", "")), "blue", "local team property converged after live write")
+		assert_false(local_props.has("role"), "local role property deletion converged after live write")
+
+	_finish_session(playfab, lobby)
 
 
 func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
@@ -255,7 +304,7 @@ func _begin_multiplayer_session() -> Dictionary:
 		"multiplayer": null,
 	}
 
-	if pending_unless_live():
+	if requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
@@ -371,6 +420,15 @@ func _assert_kind_emitted_with_member(changes: Array, expected_kind: int, playfa
 			return
 	assert_true(false,
 			"%s did not emit kind=%d with non-null change.member matching local user (recorded %d changes)" % [op_label, expected_kind, changes.size()])
+
+
+func _get_local_member_properties(lobby: Object) -> Variant:
+	if lobby == null:
+		return null
+	for member in lobby.get_members():
+		if member != null and bool(member.is_local_member()):
+			return member.get_properties()
+	return null
 
 
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:

@@ -297,6 +297,19 @@ func pending_unless_live() -> bool:
 	return false
 
 
+func requires_live() -> bool:
+	return pending_unless_live()
+
+
+func requires_live_write() -> bool:
+	if requires_live():
+		return true
+	if not TestEnv.live_write_tests_enabled():
+		pending("Skipped without LIVE_WRITE_TESTS=1")
+		return true
+	return false
+
+
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive
 # correlated, run-stable ids from one shared run id.
 func with_unique_id(prefix: String) -> String:

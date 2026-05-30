@@ -84,6 +84,28 @@ func test_multiplayer_service_contract() -> void:
 	assert_eq(multiplayer.get_match_tickets().size(), 0, "PlayFab.multiplayer starts with no tracked tickets")
 
 
+func test_lobby_local_member_property_snapshot_converges_after_local_write() -> void:
+	var lobby = instantiate_class("PlayFabLobby")
+	assert_object_is(lobby, "PlayFabLobby", "PlayFabLobby can be instantiated")
+	if lobby == null:
+		return
+	if not lobby.has_method("_test_seed_local_member") or not lobby.has_method("_test_apply_local_member_property_update"):
+		pending("PlayFabLobby local-member snapshot convergence coverage requires GODOT_PLAYFAB_TEST_HOOKS")
+		return
+
+	lobby._test_seed_local_member({"id": "local-player", "type": "title_player_account"}, {"ready": "false", "role": "captain"})
+	lobby._test_apply_local_member_property_update({"ready": "true", "team": "blue", "role": null})
+
+	var local_member = _find_local_lobby_member(lobby)
+	assert_not_null(local_member, "Local member remains present after local property write")
+	if local_member == null:
+		return
+	var properties: Dictionary = local_member.properties
+	assert_eq(properties.get("ready"), "true", "Local self ready property is patched eagerly")
+	assert_eq(properties.get("team"), "blue", "Local self team property is patched eagerly")
+	assert_false(properties.has("role"), "Local self property deletions are patched eagerly")
+
+
 func test_multiplayer_config_and_wrapper_contract() -> void:
 	var lobby_config = instantiate_class("PlayFabLobbyConfig")
 	assert_object_is(lobby_config, "PlayFabLobbyConfig", "PlayFabLobbyConfig can be instantiated")
@@ -267,6 +289,13 @@ func test_multiplayer_shutdown_cancels_reentrant_pending_operations() -> void:
 	assert_true(completion_state["first"], "Initial pending operation completed during shutdown")
 	assert_true(completion_state["reentrant"], "Re-entrant pending operation completed during the same shutdown")
 	assert_eq(multiplayer._test_pending_operation_count(), 0, "Shutdown drains all PlayFab Multiplayer pending operations")
+
+
+func _find_local_lobby_member(lobby: Object) -> Object:
+	for member in lobby.members:
+		if member != null and member.is_local:
+			return member
+	return null
 
 
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
