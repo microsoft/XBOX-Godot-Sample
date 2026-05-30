@@ -191,6 +191,9 @@ func test_party_peer_contract() -> void:
 	assert_eq(peer.get_unique_id(), 0, "Detached PlayFabPartyPeer.get_unique_id() == 0")
 	assert_eq(peer.get_connection_status(), MultiplayerPeer.CONNECTION_DISCONNECTED, "Detached PlayFabPartyPeer.get_connection_status() == DISCONNECTED")
 	assert_eq(peer.get_available_packet_count(), 0, "Detached PlayFabPartyPeer.get_available_packet_count() == 0")
+	peer.close_with_reason("audit-detached-close")
+	assert_eq(peer.get_connection_status(), MultiplayerPeer.CONNECTION_DISCONNECTED, "Detached PlayFabPartyPeer.close_with_reason() keeps peer disconnected")
+	assert_eq(peer.get_peers().size(), 0, "Detached PlayFabPartyPeer.close_with_reason() leaves peer list empty")
 
 
 func test_party_network_detached_helpers() -> void:
@@ -332,6 +335,24 @@ func test_party_chat_control_helpers() -> void:
 	await _assert_signal_error(control.send_text_async([], "hello"), "party_resource_not_ready", "Detached PlayFabPartyChatControl.send_text_async() reports party_resource_not_ready")
 	await _assert_signal_error(control.set_permissions_async(null, get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_permissions_async() reports party_chat_permission_failed")
 	await _assert_signal_error(control.set_muted_async(null, true), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_muted_async() reports party_chat_permission_failed")
+	var destroy_signal = control.destroy_async()
+	assert_eq(typeof(destroy_signal), TYPE_SIGNAL, "Detached PlayFabPartyChatControl.destroy_async() returns completion Signal")
+	if typeof(destroy_signal) == TYPE_SIGNAL:
+		assert_playfab_result_ok(await await_completion(destroy_signal), "Detached PlayFabPartyChatControl.destroy_async()")
+
+
+func test_party_shutdown_async_explicit_await_uninitialized() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	if party == null:
+		return
+
+	assert_playfab_result_ok(await await_completion(party.shutdown_async()), "await PlayFab.party.shutdown_async() while uninitialized")
+	assert_false(party.is_initialized(), "PlayFab.party remains uninitialized after explicit awaited shutdown")
 
 
 func test_party_shutdown_cancels_reentrant_pending_operations() -> void:
