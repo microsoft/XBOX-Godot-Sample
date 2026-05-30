@@ -1,6 +1,6 @@
 # Godot GDK async system
 
-This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
+This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.activation`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`gdk/plugin.md`](plugin.md).
 
@@ -56,6 +56,7 @@ Current public methods:
 - `get_launcher() -> GDKLauncher`
 - `get_multiplayer_activity() -> GDKMultiplayerActivity`
 - `get_capture() -> GDKCapture`
+- `get_activation() -> GDKActivation`
 
 Current public signals:
 
@@ -177,6 +178,7 @@ Important behaviors:
 - callers `await service.method_async()` directly
 - immediate failures still return a completion signal
 - same-turn completion is deferred so the returned signal cannot be missed
+- runtime shutdown queues a cancelled completion for still-pending one-shot signals before the shared task queue is terminated
 
 ### `GDKResult`
 
@@ -201,11 +203,10 @@ Fields:
   service (`GDKUsers`, `GDKSystem`, `GDKGameUI`, `GDKAccessibility`,
   `GDKAchievements`, `GDKPackage`, `GDKStats`, `GDKLeaderboards`,
   `GDKPrivacy`, `GDKPresence`, `GDKSocial`, `GDKStore`, `GDKProfile`,
-  `GDKStringVerify`, `GDKTitleStorage`, `GDKErrorReporting`, `GDKLauncher`,
+  `GDKStringVerify`, `GDKTitleStorage`,   `GDKErrorReporting`, `GDKLauncher`, `GDKActivation`,
   `GDKMultiplayerActivity`, and `GDKCapture`).
-
 - `gdk_runtime.cpp` / `gdk_runtime.h`  
-  Shared GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely.
+  Shared GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely. During shutdown it cancels every retained pending signal and queues a cancelled completion so GDScript `await` sites are not stranded by queue teardown.
 
 - `gdk_xbox_services.cpp` / `gdk_xbox_services.h`
   Shared Xbox services bootstrap. Derives the current-title SCID from `XGameGetXboxTitleId()`, initializes XSAPI, and caches per-user `XblContextHandle` objects.
@@ -274,8 +275,11 @@ Fields:
 - `gdk_launcher.cpp` / `gdk_launcher.h`  
   `GDKLauncher` `XLaunchUri`-only launcher with destination validation.
 
+- `gdk_activation.cpp` / `gdk_activation.h`
+  `GDKActivation` owns the single native `XGameActivationRegisterForEvent` subscription and fans out activation dictionaries to internal service listeners.
+
 - `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h`  
-  `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, MPA cache, recent-players staging, and pending-invite queue.
+  `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, MPA cache, recent-players staging, and invite signals forwarded from `GDKActivation`.
 
 - `gdk_capture.cpp` / `gdk_capture.h`  
   `GDKCapture`, `GDKCaptureMetaData`, and the PC-supported `XAppCapture` capture-state and metadata flows.

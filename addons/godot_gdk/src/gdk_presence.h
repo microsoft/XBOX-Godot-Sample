@@ -6,6 +6,8 @@
 #endif
 #include <windows.h>
 
+#include <atomic>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -73,6 +75,12 @@ class GDKPresence : public RefCounted {
         struct CallbackContext {
             GDKPresence *presence = nullptr;
             XUserLocalId local_id = {};
+            std::atomic_bool active = true;
+            std::mutex mutex;
+        };
+
+        struct CallbackToken {
+            std::weak_ptr<CallbackContext> context;
         };
 
         Ref<GDKUser> user;
@@ -82,7 +90,8 @@ class GDKPresence : public RefCounted {
         XblFunctionContext title_token = {};
         bool device_registered = false;
         bool title_registered = false;
-        CallbackContext *callback_context = nullptr;
+        std::shared_ptr<CallbackContext> callback_context;
+        std::shared_ptr<CallbackToken> callback_token;
         std::vector<uint64_t> tracked_xuids;
         std::vector<uint32_t> tracked_title_ids;
     };
@@ -105,6 +114,7 @@ class GDKPresence : public RefCounted {
     std::vector<HandlerState> m_handler_states;
     std::vector<PendingPresenceEvent> m_pending_presence_events;
     mutable std::mutex m_pending_presence_events_mutex;
+    std::vector<std::shared_ptr<HandlerState::CallbackToken>> m_retired_callback_tokens;
 
     GDKRuntime *_get_runtime() const;
     GDKXboxServices *_get_xbox_services() const;

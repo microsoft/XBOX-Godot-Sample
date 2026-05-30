@@ -6,6 +6,7 @@
 #endif
 #include <windows.h>
 
+#include <cstdint>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -16,7 +17,6 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
-#include <XGameActivation.h>
 #include <xsapi-c/services_c.h>
 
 namespace godot {
@@ -72,11 +72,8 @@ class GDKMultiplayerActivity : public RefCounted {
 
     GDK *m_owner = nullptr;
     bool m_runtime_ready = false;
-    bool m_activation_registered = false;
-    XTaskQueueRegistrationToken m_activation_token = {};
+    uint64_t m_activation_listener_id = 0;
     std::vector<CachedActivityState> m_cached_activities;
-
-    static void CALLBACK _activation_callback(void *p_context, const XGameActivationInfo *p_activation_info);
 
 protected:
     static void _bind_methods();
@@ -127,7 +124,7 @@ public:
     Ref<GDKMultiplayerActivityInfo> cache_activity_internal(const Ref<GDKMultiplayerActivityInfo> &p_info);
     void remove_cached_activity_internal(const String &p_xuid);
     void emit_activities_updated_internal(const std::vector<String> &p_xuids);
-    void handle_activation_internal(const XGameActivationInfo *p_activation_info);
+    void handle_activation_internal(const Dictionary &p_activation_info);
 
     static String join_restriction_to_string_internal(XblMultiplayerActivityJoinRestriction p_join_restriction);
     static bool try_parse_join_restriction_internal(
