@@ -28,11 +28,13 @@
 
 .PARAMETER Live
     Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
-    talk to services.
+    talk to services. Live tests that write persistent online state also require
+    -AllowLiveWrites.
 
 .PARAMETER AllowLiveWrites
-    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for tests that
-    persist state in a dedicated sandbox PlayFab title.
+    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for live tests
+    that create lobbies, write leaderboards, save Game Saves, or otherwise
+    mutate the configured sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
@@ -841,7 +843,7 @@ function Main {
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
     if ($AllowLiveWrites -and -not $Live) {
-        throw '-AllowLiveWrites requires -Live.'
+        throw '-AllowLiveWrites requires -Live so writes only run in an explicit live-test session.'
     }
 
     $childEnv = @{}
