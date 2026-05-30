@@ -67,16 +67,17 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 - `PlayFab.title_data`
 - `PlayFab.party` for Party network host/join, peer transport (a Godot `MultiplayerPeerExtension`), chat controls, mute, and permissions. See `spec\gdext-playfab-party.md`.
 
-## Runtime configuration
+## Project Settings
 
-The runtime reads these Project Settings keys:
+The addon registers these Project Settings, but they are consumed by different layers. Only `playfab/runtime/title_id` and `playfab/runtime/endpoint` are read by `PlayFabRuntime::initialize()`.
 
-- `playfab/runtime/title_id`
-- `playfab/runtime/endpoint`
-- `playfab/runtime/initialize_on_startup`
-- `playfab/runtime/embed_dispatch`
-
-The endpoint setting is optional. When blank, the runtime derives the default endpoint from the title id.
+| Setting | Default | Consumed by | Notes |
+| --- | --- | --- | --- |
+| `playfab/runtime/title_id` | `""` | `PlayFabRuntime::initialize()` | Required PlayFab Title ID. |
+| `playfab/runtime/endpoint` | `""` | `PlayFabRuntime::initialize()` | Optional; when blank, the runtime derives `https://<titleid>.playfabapi.com`. |
+| `playfab/runtime/initialize_on_startup` | `false` | `PlayFabBootstrap` autoload | When `true`, the autoload calls `PlayFab.initialize()` during `_ready`; sign-in remains title-owned. |
+| `playfab/runtime/embed_dispatch` | `true` | extension frame callback | On Godot builds with frame-callback support, auto-pumps `PlayFab.dispatch()` each process frame while initialized. |
+| `playfab/party/local_udp_socket_bind_port` | `-1` | `PlayFab.party` | Valid range `-1..65535`. `-1` keeps the SDK default bind address; `0` asks the OS for an ephemeral port to avoid same-host Party UDP collisions in dev/CI; `1..65535` pins a port. `PlayFabParty.initialize_async(..., local_udp_port)` can override it per call. |
 
 ## Runtime lifecycle
 
@@ -84,17 +85,18 @@ The endpoint setting is optional. When blank, the runtime derives the default en
 
 ## Async model
 
-The addon uses one shared task queue owned by the PlayFab runtime. Native completion stays inside the extension until it is converted into Godot-friendly state and emitted through completion signals.
+The addon uses one shared task queue owned by the PlayFab runtime. Native completion stays inside the extension until it is converted into Godot-friendly state and emitted through completion signals. See `docs/playfab/async-system.md` for the user-facing contract.
 
 Rules:
 
-1. `PlayFab.users.sign_in_with_xuser_async()`, `PlayFab.users.sign_in_with_custom_id_async()`, Game Saves calls, leaderboard calls, and PlayFab service calls all return completion signals awaited directly.
-2. Completion data is delivered through `PlayFabResult`.
+1. `PlayFab.users.sign_in_with_xuser_async()`, `PlayFab.users.sign_in_with_custom_id_async()`, Game Saves calls, leaderboard calls, Party calls, Multiplayer calls, and PlayFab service calls all return completion signals awaited directly.
+2. Each completion signal is one-shot: it resolves at most once, always with a `PlayFabResult`.
 3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
-4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
-5. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
-6. `PlayFab.dispatch()` also pumps PlayFab Multiplayer lobby and matchmaking state changes after `PlayFab.multiplayer.initialize_async()`.
-7. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
+4. Completions are main-thread work. SDK callbacks are drained by the manual completion queue when `PlayFab.dispatch()` runs; immediate and synchronous completion paths use Godot `call_deferred` before emitting.
+5. With `playfab/runtime/embed_dispatch = true`, the extension frame callback pumps `PlayFab.dispatch()` automatically each process frame.
+6. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
+7. `PlayFab.dispatch()` pumps the shared PlayFab runtime queue, PlayFab Multiplayer lobby/matchmaking state changes, and PlayFab Party state changes.
+8. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
 
 ## User/session model
 
@@ -138,6 +140,8 @@ Supported calls:
 - `get_leaderboard_async(user, leaderboard_name, start_position := 1, page_size := 10, version := -1)`
 - `get_leaderboard_around_user_async(user, leaderboard_name, max_surrounding_entries := 10, version := -1)`
 - `get_friend_leaderboard_async(user, leaderboard_name, include_xbox_friends := true, version := -1)`
+
+Recommended client writes use `PlayFab.statistics.update_statistics_async()` against a statistic-backed leaderboard, then read through `PlayFab.leaderboards`. `submit_score_async()` maps to the direct LeaderboardsV2 update path; treat non-statistic-backed direct writes as server/trusted-backend work that uses a developer secret key outside the Godot client. Never ship a PlayFab developer secret in a Godot project.
 
 ## PlayFab Services SDK wrappers
 
@@ -183,10 +187,12 @@ Party and Multiplayer shutdown paths are cancellation-first: they emit cancelled
 
 ## Samples
 
-- `sample\playfab_demo` (now removed) demonstrated settings-backed init plus manual PlayFab sign-in
-- `sample\multiplayer_pong` (now removed) demonstrated a sample-local wrapper that signs the
-  active Xbox user into PlayFab, persists save JSON through Game Saves, and
-  submits and queries the roguelike leaderboard
+Current `sample\` contents:
+
+- `sample\tutorial_app\` — committed integrated tutorial sample for the GDK + PlayFab chain, including PlayFab sign-in, statistic-backed leaderboards, Game Saves, Lobby, Multiplayer Activity, Party, and the integration tech demo.
+- `sample\tutorial_gameinput\` — committed standalone GameInput sample; it does not exercise PlayFab.
+
+Use `sample\tutorial_app\` and `tests\godot\playfab\` for PlayFab reference behavior.
 
 ## Tests
 
