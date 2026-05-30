@@ -3,12 +3,68 @@ extends GutTest
 ## advertises directly.
 
 const PackagingServiceScript = preload("res://addons/godot_gdk_packaging/core/packaging_service.gd")
+const PackagingCli = preload("res://addons/godot_gdk_packaging/core/packaging_cli.gd")
+const PackagingResult = preload("res://addons/godot_gdk_packaging/core/packaging_result.gd")
 
 const _FIXTURE_DIR := "user://test_packaging_service"
 
 class _FakeToolchain extends RefCounted:
+	var bin_dir: String = ProjectSettings.globalize_path("user://missing_gdk_bin")
+	var gdk_available: bool = true
+	var default_exit_code: int = 0
+	var calls: Array[Dictionary] = []
+	var detached_calls: Array[Dictionary] = []
+	var operation_exit_codes: Dictionary = {}
+	var detached_fail_operations: Dictionary = {}
+
+	func _init(p_bin_dir: String = "") -> void:
+		if not p_bin_dir.is_empty():
+			bin_dir = p_bin_dir
+
 	func get_bin_dir() -> String:
-		return ProjectSettings.globalize_path("user://missing_gdk_bin")
+		return bin_dir
+
+	func get_makepkg_path() -> String:
+		return bin_dir.path_join("makepkg.exe")
+
+	func get_sandbox_path() -> String:
+		return bin_dir.path_join("XblPCSandbox.exe")
+
+	func get_game_config_editor_path() -> String:
+		return bin_dir.path_join("MicrosoftGameConfigEditor.exe")
+
+	func is_gdk_available() -> bool:
+		return gdk_available
+
+	func execute_tool(exe_path: String, args: PackedStringArray) -> Dictionary:
+		var operation: String = _operation_for(exe_path, args)
+		calls.append({"operation": operation, "exe_path": exe_path, "args": PackedStringArray(args)})
+		var exit_code: int = int(operation_exit_codes.get(operation, default_exit_code))
+		var stdout: String = "Current sandbox: D5SANDBOX" if operation == "sandbox" else "stdout:%s" % operation
+		var stderr: String = "stderr:%s" % operation if exit_code != 0 else ""
+		return {"exit_code": exit_code, "stdout": stdout, "stderr": stderr}
+
+	func launch_detached(exe_path: String, args: PackedStringArray) -> int:
+		var operation: String = "store_wizard" if args.size() > 1 else "config_editor"
+		detached_calls.append({"operation": operation, "exe_path": exe_path, "args": PackedStringArray(args)})
+		if bool(detached_fail_operations.get(operation, false)):
+			return -1
+		return 4321
+
+	func _operation_for(exe_path: String, args: PackedStringArray) -> String:
+		var exe_name: String = exe_path.get_file().to_lower()
+		if exe_name == "xblpcsandbox.exe":
+			return "sandbox"
+		if exe_name == "wdapp.exe" and not args.is_empty():
+			var wdapp_op: String = args[0]
+			return "register_loose" if wdapp_op == "register" else wdapp_op
+		if not args.is_empty():
+			var first: String = args[0]
+			if ["pack", "genmap", "validate"].has(first):
+				return first
+			if args.has("--export-debug") or args.has("--export-release"):
+				return "export"
+		return "tool"
 
 
 func before_each() -> void:
@@ -78,6 +134,124 @@ func _config_xml(identity_name: String, executable: String,
 
 func _new_service() -> RefCounted:
 	return PackagingServiceScript.new(_FakeToolchain.new())
+
+
+func test_method_for_verb_returns_expected_method_names() -> void:
+	var service = _new_service()
+	assert_eq(PackagingCli.VERBS.size(), 14, "PackagingService exposes the full CLI verb set")
+	for verb: String in PackagingCli.VERBS:
+		assert_eq(service.method_for_verb(verb), "run_" + verb, "method_for_verb maps %s" % verb)
+	assert_eq(service.method_for_verb("missing_verb"), "", "unknown verbs do not invent a method")
+
+
+func test_dispatch_routes_every_cli_verb_to_a_result_shaped_run_method() -> void:
+	var root: String = _fixture_path("verb_shapes")
+	var fake := _make_ready_toolchain(root)
+	var service = PackagingServiceScript.new(fake)
+
+	for verb: String in PackagingCli.VERBS:
+		var result: Dictionary = service.dispatch(verb, _resolved_for_verb(verb, root))
+		assert_true(PackagingResult.is_valid_shape(result), "%s result has PackagingResult shape" % verb)
+		assert_eq(result["verb"], verb, "dispatch(%s) reaches run_%s" % [verb, verb])
+		assert_eq(result["exit_code"], PackagingResult.EXIT_OK, "%s succeeds with the fake toolchain" % verb)
+
+
+func test_dispatch_unknown_verb_returns_unimplemented_result() -> void:
+	var result: Dictionary = _new_service().dispatch("missing_verb", {})
+
+	assert_true(PackagingResult.is_valid_shape(result))
+	assert_eq(result["verb"], "missing_verb")
+	assert_eq(result["exit_code"], PackagingResult.EXIT_UNIMPLEMENTED)
+	assert_false(result["ok"], "unknown dispatch does not report success")
+
+
+func test_tool_backed_verbs_normalize_underlying_failures_to_exit_tool() -> void:
+	var operations := [
+		"pack",
+		"genmap",
+		"validate",
+		"export",
+		"register_loose",
+		"install",
+		"uninstall",
+		"launch",
+		"terminate",
+		"sandbox",
+		"config_editor",
+		"store_wizard",
+	]
+	for verb: String in operations:
+		var root: String = _fixture_path("tool_failure/%s" % verb)
+		var fake := _make_ready_toolchain(root)
+		if verb == "config_editor" or verb == "store_wizard":
+			fake.detached_fail_operations[verb] = true
+		else:
+			fake.operation_exit_codes[verb] = 9
+		var result: Dictionary = PackagingServiceScript.new(fake).dispatch(verb, _resolved_for_verb(verb, root))
+
+		assert_true(PackagingResult.is_valid_shape(result), "%s failure still has PackagingResult shape" % verb)
+		assert_eq(result["verb"], verb)
+		assert_eq(result["exit_code"], PackagingResult.EXIT_TOOL, "%s maps dependency failure to EXIT_TOOL" % verb)
+		assert_false(result["ok"], "%s failure reports ok=false" % verb)
+
+
+func _make_ready_toolchain(root: String) -> _FakeToolchain:
+	var bin_dir: String = root.path_join("GDK Bin")
+	DirAccess.make_dir_recursive_absolute(bin_dir)
+	_write_text(bin_dir.path_join("wdapp.exe"), "")
+	_write_text(bin_dir.path_join("makepkg.exe"), "")
+	_write_text(bin_dir.path_join("XblPCSandbox.exe"), "")
+	_write_text(bin_dir.path_join("MicrosoftGameConfigEditor.exe"), "")
+	_prepare_common_files(root)
+	return _FakeToolchain.new(bin_dir)
+
+
+func _prepare_common_files(root: String) -> void:
+	var content_dir: String = root.path_join("content")
+	DirAccess.make_dir_recursive_absolute(content_dir)
+	_write_text(content_dir.path_join("VerbGame.exe"), "")
+	_write_text(content_dir.path_join("MicrosoftGame.config"), _config_xml("VerbGame", "Placeholder.exe"))
+	_write_text(root.path_join("config/MicrosoftGame.config"), _config_xml("VerbGame", "Placeholder.exe"))
+	_write_text(root.path_join("layout.xml"), "<Package></Package>")
+	_write_text(root.path_join("packages/Game.msixvc"), "package")
+	DirAccess.make_dir_recursive_absolute(root.path_join("out"))
+	DirAccess.make_dir_recursive_absolute(root.path_join("export_out"))
+
+
+func _resolved_for_verb(verb: String, root: String) -> Dictionary:
+	var content_dir: String = root.path_join("content")
+	var config_path: String = root.path_join("config/MicrosoftGame.config")
+	match verb:
+		"pack":
+			return {"source_dir": content_dir, "output_dir": root.path_join("out"), "map_file": root.path_join("layout.xml"), "no_prepare": true, "encrypt": "none", "updcompat": 3}
+		"genmap":
+			return {"source_dir": content_dir, "map_file": root.path_join("layout.xml")}
+		"validate":
+			return {"source_dir": content_dir, "map_file": root.path_join("layout.xml"), "output_dir": root.path_join("validate_out")}
+		"prepare_content":
+			return {"content_dir": content_dir, "config_path": config_path}
+		"export":
+			return {"preset_name": "Windows Desktop", "output_dir": root.path_join("export_out"), "no_prepare": true, "project_dir": root, "app_name": "VerbGame"}
+		"register_loose":
+			return {"content_dir": content_dir}
+		"install":
+			return {"package_path": root.path_join("packages/Game.msixvc")}
+		"uninstall":
+			return {"package_name": "Publisher.VerbGame_1.0.0.0_x64__abc123"}
+		"launch":
+			return {"package_name": "Publisher.VerbGame_1.0.0.0_x64__abc123", "aumid": "Publisher.VerbGame!Game"}
+		"terminate":
+			return {"package_name": "Publisher.VerbGame_1.0.0.0_x64__abc123"}
+		"sandbox":
+			return {"action": "get"}
+		"config_template":
+			return {"output": root.path_join("generated/Template.config"), "overwrite": true, "app_name": "VerbGame", "identity_publisher": "Acme"}
+		"config_editor":
+			return {"config_path": config_path}
+		"store_wizard":
+			return {"config_path": config_path}
+		_:
+			return {}
 
 
 func test_prepare_content_reports_logo_escape_in_result_message() -> void:
