@@ -569,6 +569,8 @@ Ref<GDKResult> GDKStats::on_runtime_initialized() {
 }
 
 void GDKStats::shutdown() {
+    m_runtime_ready = false;
+
     for (TrackingState &state : m_tracking_states) {
         _close_tracking_state(state);
     }
@@ -581,10 +583,13 @@ void GDKStats::shutdown() {
         m_pending_stat_changes.clear();
     }
 
-    m_runtime_ready = false;
 }
 
 int GDKStats::dispatch() {
+    if (!m_runtime_ready) {
+        return 0;
+    }
+
     std::vector<PendingStatChange> changes;
     {
         std::lock_guard<std::mutex> lock(m_pending_stat_changes_mutex);
@@ -609,8 +614,14 @@ int GDKStats::dispatch() {
 
         CachedStats *cached_stats = _find_cached_stats(xuid);
         emit_signal("stat_changed", user, stat_name, value);
+        if (!m_runtime_ready) {
+            break;
+        }
         emit_signal("stats_updated", user, cached_stats == nullptr ? Dictionary() : cached_stats->stats.duplicate(true));
         ++dispatched;
+        if (!m_runtime_ready) {
+            break;
+        }
     }
 
     return dispatched;

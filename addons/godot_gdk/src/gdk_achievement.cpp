@@ -630,6 +630,9 @@ int GDKAchievements::dispatch() {
                 }
 
                 emit_signal("achievements_updated", state->user);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 _complete_pending_queries(*state);
                 _submit_waiting_updates(*state);
             } break;
@@ -642,6 +645,9 @@ int GDKAchievements::dispatch() {
                 }
 
                 emit_signal("achievements_updated", state->user);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 _complete_pending_updates(*state, achievement_id);
             } break;
             case XblAchievementsManagerEventType::AchievementUnlocked: {
@@ -653,7 +659,13 @@ int GDKAchievements::dispatch() {
                 }
 
                 emit_signal("achievements_updated", state->user);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 emit_signal("achievement_unlocked", state->user, achievement_id);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 _complete_pending_updates(*state, achievement_id);
             } break;
             default:
