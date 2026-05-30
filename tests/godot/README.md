@@ -8,6 +8,20 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
+<<<<<<< HEAD
+||||||| 1032906
+> **Status: contract being implemented.** This document specifies the test-tier contract, but the `requires_live()` / `requires_live_write()` helpers on the test bases and the `-AllowLiveWrites` switch on `tools\run_all_tests.ps1` are added in a companion tooling PR. Until that PR lands, the only environment variable the orchestrator currently sets is `LIVE_TESTS` (via `-Live`); `LIVE_WRITE_TESTS` and the `-AllowLiveWrites` flag are forthcoming. Read this file now to understand the target contract; do not run the new commands until the companion PR is merged.
+
+=======
+<<<<<<< HEAD
+||||||| 1032906
+> **Status: contract being implemented.** This document specifies the test-tier contract, but the `requires_live()` / `requires_live_write()` helpers on the test bases and the `-AllowLiveWrites` switch on `tools\run_all_tests.ps1` are added in a companion tooling PR. Until that PR lands, the only environment variable the orchestrator currently sets is `LIVE_TESTS` (via `-Live`); `LIVE_WRITE_TESTS` and the `-AllowLiveWrites` flag are forthcoming. Read this file now to understand the target contract; do not run the new commands until the companion PR is merged.
+
+=======
+> `requires_live()` / `requires_live_write()` helpers gate live and live-write GUT tests. The repo orchestrator forwards `LIVE_TESTS=1` via `-Live` and `LIVE_WRITE_TESTS=1` via `-AllowLiveWrites`; only use live writes against a dedicated sandbox PlayFab title.
+
+>>>>>>> public/main
+>>>>>>> public/main
 ## Test Tiers
 
 Every GUT test belongs to exactly one tier. The tier governs how the test is selected and what external state it may touch.

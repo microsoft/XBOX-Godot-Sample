@@ -9,7 +9,7 @@
 	<members>
 		<member name="user_id" type="String" setter="" getter="get_user_id">Entity id for this member.</member>
 		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">Entity key dictionary with [code]id[/code] and [code]type[/code].</member>
-		<member name="properties" type="Dictionary" setter="" getter="get_properties">Member string properties.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Member string properties. For the local member, successful [method PlayFabLobby.set_member_properties_async] writes are reflected eagerly in this snapshot; remote member updates arrive through SDK-driven [code]MEMBER_UPDATED[/code] changes.</member>
 		<member name="is_local" type="bool" setter="" getter="is_local_member">Whether this is the local user for the lobby handle.</member>
 	</members>
 	<signals></signals>
