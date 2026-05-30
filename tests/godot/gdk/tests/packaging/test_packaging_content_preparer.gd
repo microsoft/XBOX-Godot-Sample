@@ -26,11 +26,13 @@ func before_each() -> void:
 	_reset_fixture()
 	DirAccess.make_dir_recursive_absolute(_fixture_root())
 	_cleanup_runtime_copy_fixture()
+	_cleanup_logo_fixture_sources()
 
 
 func after_each() -> void:
 	_reset_fixture()
 	_cleanup_runtime_copy_fixture()
+	_cleanup_logo_fixture_sources()
 
 
 func _fixture_root() -> String:
@@ -94,6 +96,13 @@ func _new_preparer() -> RefCounted:
 const _RUNTIME_ADDON_NAME := "_copy_refresh_probe"
 const _RUNTIME_DLL := "ProbeRuntime.dll"
 const _RUNTIME_CONTENT_DIR := "user://packaging_runtime_copy"
+const _LOGO_FIXTURE_FILES := [
+	"D5StoreLogo.png",
+	"D5Square150.png",
+	"D5Square44.png",
+	"D5Square480.png",
+	"D5Splash.png",
+]
 
 
 # ── patch_executable_name ─────────────────────────────────────────────────
@@ -260,6 +269,20 @@ func _cleanup_runtime_copy_fixture() -> void:
 	_remove_tree(ProjectSettings.globalize_path(_RUNTIME_CONTENT_DIR))
 
 
+func _write_logo_sources() -> void:
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	for file_name: String in _LOGO_FIXTURE_FILES:
+		_write_text(project_dir.path_join(file_name), file_name)
+
+
+func _cleanup_logo_fixture_sources() -> void:
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	for file_name: String in _LOGO_FIXTURE_FILES:
+		var path: String = project_dir.path_join(file_name)
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+
 func test_ensure_content_dir_uses_config_override() -> void:
 	var content_dir: String = _fixture_path("content")
 	DirAccess.make_dir_recursive_absolute(content_dir)
@@ -295,3 +318,54 @@ func test_ensure_content_dir_rejects_logo_path_outside_content_dir() -> void:
 		"content prep aborts before staging config")
 	assert_string_contains("\n".join(logs), "outside content directory",
 		"error explains the content-dir safety rule")
+
+
+func test_ensure_content_dir_ready_stages_config_logos_and_is_idempotent() -> void:
+	var content_dir: String = _fixture_path("prepared_content")
+	DirAccess.make_dir_recursive_absolute(content_dir)
+	_write_text(content_dir.path_join("Real Game.exe"), "binary")
+	_write_logo_sources()
+	var config_path: String = _fixture_path("config/MicrosoftGame.config")
+	_write_text(config_path, _config_xml("PreparedGame", "Placeholder.exe", {
+		"StoreLogo": "assets\\D5StoreLogo.png",
+		"Square150x150Logo": "assets\\D5Square150.png",
+		"Square44x44Logo": "assets\\D5Square44.png",
+		"Square480x480Logo": "assets\\D5Square480.png",
+		"SplashScreenImage": "assets\\D5Splash.png",
+	}))
+	var logs: Array[String] = []
+	var logger := func(message: String) -> void:
+		logs.append(message)
+
+	var first_ok: bool = _new_preparer().ensure_content_dir_ready(content_dir, logger, config_path)
+	var staged_config_path: String = content_dir.path_join("MicrosoftGame.config")
+	var staged_config: String = _read_text(staged_config_path)
+	var staged_logo_count: int = DirAccess.get_files_at(content_dir.path_join("assets")).size()
+	var second_ok: bool = _new_preparer().ensure_content_dir_ready(content_dir, logger, config_path)
+
+	assert_true(first_ok, "first prepare succeeds")
+	assert_true(second_ok, "second prepare is idempotent")
+	assert_true(FileAccess.file_exists(staged_config_path), "MicrosoftGame.config is staged into content dir")
+	assert_string_contains(staged_config, 'Executable Name="Real Game.exe"', "exported executable name is patched")
+	assert_string_contains(staged_config, '<KnownDependency Name="VC14"/>', "VC14 dependency is injected")
+	assert_true(DirAccess.dir_exists_absolute(content_dir.path_join("assets")), "logo subdirectory is created")
+	assert_eq(staged_logo_count, _LOGO_FIXTURE_FILES.size(), "exactly one copy of each logo is staged")
+	assert_eq(DirAccess.get_files_at(content_dir.path_join("assets")).size(), staged_logo_count, "re-running does not duplicate staged logos")
+	assert_eq(_read_text(content_dir.path_join("assets/D5StoreLogo.png")), "D5StoreLogo.png", "logo payload copied from project root")
+	assert_string_contains("\n".join(logs), "Copied MicrosoftGame.config", "content-prep logs describe staged config")
+
+
+func test_ensure_content_dir_ready_fails_when_target_path_is_a_file() -> void:
+	var file_path: String = _fixture_path("not_a_directory")
+	_write_text(file_path, "I am a file, not a directory")
+	var config_path: String = _fixture_path("config/MicrosoftGame.config")
+	_write_text(config_path, _config_xml("FileTarget", "FileTarget.exe"))
+	var logs: Array[String] = []
+	var logger := func(message: String) -> void:
+		logs.append(message)
+
+	var ok: bool = _new_preparer().ensure_content_dir_ready(file_path, logger, config_path)
+
+	assert_false(ok, "file path cannot be used as a content directory")
+	assert_true(FileAccess.file_exists(file_path), "the file target is left in place")
+	assert_string_contains("\n".join(logs), "Cannot write to content directory", "failure mode explains write target")

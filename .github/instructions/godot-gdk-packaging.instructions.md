@@ -132,37 +132,48 @@ once, then manually delete the stale mirror files under
 ## Tests
 
 - `tests/godot/gdk/tests/packaging/test_config_import_plugin.gd` — import
-  plugin file classification.
+  plugin file classification and fixture XML sanity checks.
+- `tests/godot/gdk/tests/packaging/test_export_preset_catalog.gd` — export
+  preset parsing and Windows Desktop preset filtering.
+- `tests/godot/gdk/tests/packaging/test_game_config_manager.gd` —
+  MicrosoftGame.config detection/path helpers plus fixture-driven
+  `parse_config()` shape coverage.
 - `tests/godot/gdk/tests/packaging/test_game_config_xml_rewriting.gd` —
   MicrosoftGame.config logo rewriting and encryption-key safety pins.
 - `tests/godot/gdk/tests/packaging/test_gdk_toolchain.gd` — GDK discovery,
   execute_tool result shape, and stdout/stderr capture.
+- `tests/godot/gdk/tests/packaging/test_gdkpkg_forwarder.gd` — shell
+  forwarder discovery order and argument-preservation regressions.
+- `tests/godot/gdk/tests/packaging/test_headless_runner.gd` — `run.gd`
+  parse → resolve → dispatch pipeline, JSON suppression, and exit-code
+  propagation.
+- `tests/godot/gdk/tests/packaging/test_makepkg_executor.gd` — makepkg argv
+  construction and tool-result propagation.
+- `tests/godot/gdk/tests/packaging/test_packaging.gd` — packaging helper-suite
+  inventory and CLI/service public-surface contract.
 - `tests/godot/gdk/tests/packaging/test_packaging_cli.gd` — argv parsing
   and verb-flag matrix.
-- `tests/godot/gdk/tests/packaging/test_gdkpkg_forwarder.gd` — shell
-  forwarder argument-preservation regressions.
 - `tests/godot/gdk/tests/packaging/test_packaging_config_resolver.gd` —
   precedence chain + key remap + encrypt key:<path> split.
 - `tests/godot/gdk/tests/packaging/test_packaging_content_preparer.gd` —
-  content-prep XML helpers and runtime DLL refresh behavior.
+  content-prep XML helpers, `ensure_content_dir_ready()`, and runtime DLL
+  refresh behavior.
 - `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — editor
   panel helper behavior.
 - `tests/godot/gdk/tests/packaging/test_packaging_plugin_lifecycle.gd` —
   editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
   builder shape, exit-code constants, JSON round trip.
-- `tests/godot/gdk/tests/packaging/test_packaging_service.gd` — verb-facade
-  regressions for headless-only behaviours.
+- `tests/godot/gdk/tests/packaging/test_packaging_service.gd` — all CLI
+  verbs, `dispatch()`, `method_for_verb()`, and failure-normalization
+  coverage using a fake toolchain.
+- `tests/godot/gdk/tests/packaging/test_packaging_settings_store.gd` — dock
+  settings defaults plus ConfigFile save/load round trips.
 - `tests/godot/gdk/tests/packaging/test_tutorial_wizard_state.gd` — tutorial
   wizard state transitions.
 - `tests/godot/gdk/tests/packaging/test_wdapp_manager.gd` — wdapp
-  install/uninstall verb wiring + cancellation/early-return guards.
-- Pre-existing helper suites (`test_packaging.gd`,
-  `test_packaging_panel_logic.gd`, `test_packaging_content_preparer.gd`,
-  `test_gdk_toolchain.gd`, `test_packaging_settings_store.gd`,
-  `test_export_preset_catalog.gd`, `test_game_config_manager.gd`,
-  `test_makepkg_executor.gd`, `test_wdapp_manager.gd`) — preserved as-is,
-  preloads updated to `core/`.
+  availability, direct verb argv, list parsing, termination, and async
+  cancellation/early-return guards.
 
 GUT base class for packaging tests: just `extends GutTest`. The shared
 service bases (`gdk_test_base.gd`, …) are for runtime addons; do not use
