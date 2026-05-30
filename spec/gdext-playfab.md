@@ -21,7 +21,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 
 | Domain | Included | Notes |
 | --- | --- | --- |
-| Runtime init/shutdown | Yes | `XGameRuntimeInitialize`, PlayFab init, shared queue |
+| Runtime init/shutdown | Yes | Process-lifetime `XGameRuntimeInitialize` reference, re-armable PlayFab init/shutdown, shared queue |
 | Manual sign-in | Yes | `GDKUser` object and custom-ID entry points |
 | Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id or custom id |
 | Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
@@ -77,6 +77,10 @@ The runtime reads these Project Settings keys:
 - `playfab/runtime/embed_dispatch`
 
 The endpoint setting is optional. When blank, the runtime derives the default endpoint from the title id.
+
+## Runtime lifecycle
+
+`PlayFab.initialize()` acquires this addon's GDK `XGameRuntimeInitialize` reference the first time the runtime initializes successfully and keeps it for the process lifetime. `PlayFab.shutdown()` tears down PlayFab-owned state (`PFGameSaveFiles`, service config, `PFServices`, `PFInitialize`, pending signals, cached users, and the shared task queue) but deliberately does not call `XGameRuntimeUninitialize`; the matching GDK runtime release happens once during extension teardown. This mirrors the `godot_gdk` singleton/runtime pattern and allows titles or tests to cycle `initialize() -> shutdown() -> initialize()` without racing the process-wide Gaming Runtime, even when both addons are loaded.
 
 ## Async model
 
@@ -181,7 +185,7 @@ Match tickets report `match_id` and `arranged_lobby_connection_string` through `
 
 - `tests\godot\playfab\tests\` is the PlayFab contract suite.
 - It should keep the root singleton, settings registration, deterministic
-  validation errors, API service contracts, Multiplayer class contracts, custom-ID sign-in, and optional live smoke flows aligned
+  validation errors, runtime lifecycle re-arm behavior, API service contracts, Multiplayer class contracts, custom-ID sign-in, and optional live smoke flows aligned
   with the shipped addon behavior.
 - `tools\configure_playfab_test_title.ps1` prepares the current sandbox title (`10D176` by default) for live coverage by ensuring the custom-ID account, Multiplayer worker accounts, a two-player matchmaking queue with a `run_id` equality rule, leaderboard/statistic definitions, and API-service fixtures used by the tests exist. It reads the developer secret from `PLAYFAB_DEVELOPER_SECRET_KEY` and never forwards the secret to Godot child processes.
 - `tools\run_all_tests.ps1 -Live -Hosts tests\godot\playfab -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"` also runs the opt-in PlayFab Multiplayer multi-client lobby orchestration plus matchmaking create/cancel, two-player match completion, explicit arranged-lobby join, and arranged-lobby cleanup coverage.

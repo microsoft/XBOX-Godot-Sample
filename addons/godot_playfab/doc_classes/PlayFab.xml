@@ -4,20 +4,20 @@
 		Root singleton for PlayFab services integration.
 	</brief_description>
 	<description>
-		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, Multiplayer lobby/matchmaking, and client-safe PlayFab service surfaces. Configure [code]playfab/runtime/title_id[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
+		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, leaderboards, Multiplayer lobby/matchmaking, and client-safe PlayFab service surfaces. Configure [code]playfab/runtime/title_id[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled. [method initialize] and [method shutdown] can be cycled to re-arm PlayFab Core, Services, Game Save Files, and the task queue; the underlying XGameRuntime reference is process-lifetime state released once when the extension singleton is torn down.
 	</description>
 	<tutorials></tutorials>
 	<methods>
 		<method name="initialize">
 			<return type="PlayFabResult" />
 			<description>
-				Initializes the PlayFab runtime using [code]playfab/runtime/title_id[/code] and [code]playfab/runtime/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure.
+				Initializes PlayFab Core, Services, Game Save Files, and the shared task queue using [code]playfab/runtime/title_id[/code] and [code]playfab/runtime/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure. The first successful XGameRuntime initialization also acquires this addon's process-lifetime XGameRuntime reference.
 			</description>
 		</method>
 		<method name="shutdown">
 			<return type="void" />
 			<description>
-				Shuts down the PlayFab runtime and clears cached user state.
+				Shuts down PlayFab Core, Services, Game Save Files, the shared task queue, and cached user state. This is safe to call before another [method initialize]; it does not release the process-lifetime XGameRuntime reference.
 			</description>
 		</method>
 		<method name="is_available" qualifiers="const">
