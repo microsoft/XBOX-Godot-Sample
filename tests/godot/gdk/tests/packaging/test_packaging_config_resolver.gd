@@ -30,7 +30,7 @@ func _project_dir() -> String:
 	return ProjectSettings.globalize_path(_FIXTURE_DIR)
 
 
-func _write_config_xml(extra_attrs: Dictionary = {}) -> String:
+func _write_config_xml(extra_attrs: Dictionary = {}, filename: String = _CONFIG_XML) -> String:
 	# Minimal MicrosoftGame.config the resolver knows how to read.
 	var product_id: String = extra_attrs.get("product_id", "PROD12345")
 	var ident_name: String = extra_attrs.get("name", "MyGame")
@@ -48,7 +48,7 @@ func _write_config_xml(extra_attrs: Dictionary = {}) -> String:
 	xml += '  </ExecutableList>\n'
 	xml += '  <MSStore ProductId="%s" />\n' % product_id
 	xml += '</Game>\n'
-	var path: String = _project_dir().path_join(_CONFIG_XML)
+	var path: String = _project_dir().path_join(filename)
 	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(xml)
 	f.close()
@@ -100,6 +100,23 @@ func test_microsoftgame_config_supplies_identity_fields() -> void:
 	assert_eq(resolved["identity_name"], "MyGame", "identity name pulled")
 	assert_eq(resolved["identity_publisher"], "CN=Acme", "publisher pulled")
 	assert_eq(resolved["executable"], "MyGame.exe", "executable pulled")
+
+
+func test_cli_config_flag_redirects_config_parsing() -> void:
+	_write_config_xml({"product_id": "DEFAULT", "name": "DefaultGame"})
+	var override_path: String = _write_config_xml({
+		"product_id": "OVERRIDE",
+		"name": "OverrideGame",
+		"executable": "Override.exe",
+	}, "AltGame.config")
+	var resolved: Dictionary = PackagingConfig.resolve(
+		{"config": override_path}, _project_dir(), "", "")
+	assert_eq(resolved["config_path"], override_path, "--config becomes config_path")
+	assert_eq(resolved["product_id"], "OVERRIDE", "--config supplies product_id")
+	assert_eq(resolved["identity_name"], "OverrideGame", "--config supplies identity")
+	assert_eq(resolved["executable"], "Override.exe", "--config supplies executable")
+	assert_eq(resolved["raw_config_info"].get("product_id", ""), "OVERRIDE",
+		"raw_config_info comes from --config")
 
 
 func test_content_id_defaults_to_product_id_when_unset() -> void:

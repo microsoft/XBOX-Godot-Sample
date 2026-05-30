@@ -154,10 +154,18 @@ before committing.
   editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
   builder shape, exit-code constants, JSON round trip.
+- `tests/godot/gdk/tests/packaging/test_packaging_service.gd` — verb-facade
+  regressions for headless-only behaviours.
 - `tests/godot/gdk/tests/packaging/test_tutorial_wizard_state.gd` — tutorial
   wizard state transitions.
 - `tests/godot/gdk/tests/packaging/test_wdapp_manager.gd` — wdapp
   install/uninstall verb wiring + cancellation/early-return guards.
+- Pre-existing helper suites (`test_packaging.gd`,
+  `test_packaging_panel_logic.gd`, `test_packaging_content_preparer.gd`,
+  `test_gdk_toolchain.gd`, `test_packaging_settings_store.gd`,
+  `test_export_preset_catalog.gd`, `test_game_config_manager.gd`,
+  `test_makepkg_executor.gd`, `test_wdapp_manager.gd`) — preserved as-is,
+  preloads updated to `core/`.
 
 GUT base class for packaging tests: just `extends GutTest`. The shared
 service bases (`gdk_test_base.gd`, …) are for runtime addons; do not use

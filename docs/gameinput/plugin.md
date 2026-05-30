@@ -147,8 +147,11 @@ callers can skip timers or surface diagnostics.
 Every public method on `GameInput`, `GameInputDevice`, and `GameInputReading`
 returns a safe default and emits a single `push_warning` if called before
 `initialize()`, after `shutdown()`, or on a host where GameInput is
-unavailable. Your scene won't crash if the addon isn't ready yet — checks like
-`if gi.is_initialized():` are optional, just preferred for clarity.
+unavailable. `GameInput.get_connected_device_count()` is the exception —
+it reports the cached device count (or `0`) without warning, so polling it
+from a HUD does not spam the log. Your scene won't crash if the addon
+isn't ready yet — checks like `if gi.is_initialized():` are optional, just
+preferred for clarity.
 
 ## Hot-plug / threading model
 
@@ -168,15 +171,14 @@ press F1 on any `GameInput*` symbol to see the full class reference.
 
 ## Sample integration
 
-> **No sample projects currently.** PR 3 of the tutorial-driven
-> sample revamp will add a GameInput scenario panel inside
-> `sample/tutorial_app/` (Initialize / Shutdown / List Devices /
-> Inspect Primary / Rumble Pulse / Stop Rumble, with live device
-> count and hot-plug events in an event log), plus the standalone
-> `sample/tutorial_gameinput/` project that builds the action
-> bridge from scratch. Until then, follow
-> [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md)
-> in your own project.
+The standalone `sample/tutorial_gameinput/` project demonstrates the action
+bridge end-to-end (initialize / shutdown / list devices / inspect primary /
+rumble pulse / stop rumble, with a live device count and a hot-plug event
+log). See its `README.md` for the walkthrough. The GameInput scenario panel
+inside `sample/tutorial_app/` is deferred to a follow-up PR; until then,
+the standalone sample and the
+[Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md)
+are the recommended entry points.
 
 ## Testing this addon
 

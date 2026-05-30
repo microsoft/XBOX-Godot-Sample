@@ -383,7 +383,9 @@ results. Storage types accepted are `trusted_platform`, `global`, and
 ## Multiplayer activity service
 
 `GDKMultiplayerActivity` is the XSAPI-backed Multiplayer Activity (MPA) layer
-plus a pending-invite queue and recent-players staging.
+plus recent-players staging. Invite launch notifications are forwarded from
+`GDKActivation`, which owns the single native `XGameActivationRegisterForEvent`
+subscription for the addon.
 
 It currently exposes:
 
@@ -404,8 +406,9 @@ It emits:
 - `invite_accepted`
 
 `GDKMultiplayerActivityInfo` is the script-visible wrapper around one cached
-activity snapshot. Pending invites are surfaced when an invite URI is detected
-on launch.
+activity snapshot. Pending invites are surfaced when `GDKActivation` receives an
+invite URI on launch; `GDK.activation` and `GDK.multiplayer_activity` emit the
+same parsed invite dictionary.
 
 ## Package service
 

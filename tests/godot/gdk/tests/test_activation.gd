@@ -11,6 +11,16 @@ func after_each() -> void:
 	reset_runtime()
 
 
+func _signal_arg_type(obj: Object, signal_name: String, arg_index: int) -> int:
+	for signal_info in obj.get_signal_list():
+		if signal_info.get("name", "") != signal_name:
+			continue
+		var args: Array = signal_info.get("args", [])
+		if arg_index >= 0 and arg_index < args.size():
+			return int(args[arg_index].get("type", TYPE_NIL))
+	return TYPE_NIL
+
+
 func test_activation_surface_and_validation_paths() -> void:
 	if pending_unless_runtime_available():
 		return
@@ -32,6 +42,9 @@ func test_activation_surface_and_validation_paths() -> void:
 		"activated",
 	]:
 		assert_has_signal_named(activation, signal_name)
+	assert_eq(_signal_arg_type(activation, "pending_invite_received", 0), TYPE_DICTIONARY, "pending_invite_received emits parsed invite Dictionary")
+	assert_eq(_signal_arg_type(activation, "invite_accepted", 0), TYPE_DICTIONARY, "invite_accepted emits parsed invite Dictionary")
+	assert_eq(_signal_arg_type(activation, "activated", 0), TYPE_DICTIONARY, "activated emits info Dictionary")
 
 	for constant_name in [
 		"ACTIVATION_TYPE_PROTOCOL",

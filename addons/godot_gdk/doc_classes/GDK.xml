@@ -18,7 +18,7 @@
 		<method name="shutdown">
 			<return type="void" />
 			<description>
-				Shuts down the GDK runtime and releases all resources.
+				Shuts down the GDK runtime and releases all resources. Pending one-shot async signals are completed with [code]GDKResult.code == "cancelled"[/code] so awaiting scripts resume.
 			</description>
 		</method>
 		<method name="is_available" qualifiers="const">

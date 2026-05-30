@@ -7,8 +7,8 @@ extends SceneTree
 ## want to load the project without booting the GDK runtime).
 ##
 ## We pin the contract by loading the bootstrap source script and asserting:
-##   * GD_SCRIPT_CHECK_FLAG and TEST_SCRIPT_PATH constants are present and
-##     match the documented values;
+##   * GD_SCRIPT_CHECK_FLAG, TEST_SCRIPT_PATH, and GUT_COMMAND_SCRIPT_PATH
+##     constants are present and match the documented values;
 ##   * `_should_skip_bootstrap()` exists, returns `bool`, and returns
 ##     `false` when the cmdline does NOT contain the check-only flag (the
 ##     negative case — pinning that the skip path is fenced behind the user
@@ -51,29 +51,39 @@ func _initialize() -> void:
 		quit(7)
 		return
 
+	if not constants.has("GUT_COMMAND_SCRIPT_PATH"):
+		printerr("BOOTSTRAP_FAIL: %s -- bootstrap script missing GUT_COMMAND_SCRIPT_PATH constant" % SCENARIO)
+		quit(8)
+		return
+	var gut_path = constants.get("GUT_COMMAND_SCRIPT_PATH", "")
+	if str(gut_path) != "res://addons/gut/gut_cmdln.gd":
+		printerr("BOOTSTRAP_FAIL: %s -- GUT_COMMAND_SCRIPT_PATH is %s; expected 'res://addons/gut/gut_cmdln.gd'" % [SCENARIO, str(gut_path)])
+		quit(9)
+		return
+
 	var bootstrap_instance: Node = bootstrap_script.new()
 	if bootstrap_instance == null:
 		printerr("BOOTSTRAP_FAIL: %s -- bootstrap_script.new() returned null" % SCENARIO)
-		quit(8)
+		quit(10)
 		return
 	if not bootstrap_instance.has_method("_should_skip_bootstrap"):
 		printerr("BOOTSTRAP_FAIL: %s -- bootstrap autoload missing _should_skip_bootstrap()" % SCENARIO)
 		bootstrap_instance.queue_free()
-		quit(9)
+		quit(11)
 		return
 
 	var skip_value = bootstrap_instance._should_skip_bootstrap()
 	if typeof(skip_value) != TYPE_BOOL:
 		printerr("BOOTSTRAP_FAIL: %s -- _should_skip_bootstrap() returned non-bool" % SCENARIO)
 		bootstrap_instance.queue_free()
-		quit(10)
+		quit(12)
 		return
 	if skip_value:
 		printerr("BOOTSTRAP_FAIL: %s -- _should_skip_bootstrap() returned true without check-only flag in cmdline" % SCENARIO)
 		bootstrap_instance.queue_free()
-		quit(11)
+		quit(13)
 		return
 
 	bootstrap_instance.queue_free()
-	print("BOOTSTRAP_OK: %s (GD_SCRIPT_CHECK_FLAG, TEST_SCRIPT_PATH, _should_skip_bootstrap() pinned)" % SCENARIO)
+	print("BOOTSTRAP_OK: %s (GD_SCRIPT_CHECK_FLAG, TEST_SCRIPT_PATH, GUT_COMMAND_SCRIPT_PATH, _should_skip_bootstrap() pinned)" % SCENARIO)
 	quit(0)

@@ -101,16 +101,14 @@ applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/tutorial_g
 
 ## Sample Integration
 
-- No GameInput samples currently ship in `sample/`. The legacy
-  `sample/gdk_launch_point` (full scenario panel) and
-  `sample/multiplayer_pong` (rumble on hit, controller hot-plug
-  surface in the lobby) have been removed; the tutorial-driven
-  sample revamp's PR 3 will reintroduce a GameInput scenario
-  panel inside `sample/tutorial_app/` and a standalone
-  action-bridge demo at `sample/tutorial_gameinput/`. Until
-  those land, manual rumble + hot-plug verification follows the
-  [GameInput manual-test checklist](../../docs/gameinput/manual-tests.md)
-  in any GameInput-using Godot project.
+- `sample/tutorial_gameinput/` ships as the standalone GameInput action-bridge
+  sample. It uses the `GameInputBootstrap` autoload, displays connected-device
+  count and hot-plug events, and is the canonical manual host for mapper,
+  device discovery, and hot-plug checks.
+- A GameInput scenario panel inside `sample/tutorial_app/` is not present yet.
+  Until that lands, raw rumble verification follows the
+  [GameInput manual-test checklist](../../docs/gameinput/manual-tests.md) using
+  a small local scene or other GameInput-enabled project.
 - The headless test entry point for GameInput is the repo-root orchestrator:
 
 ```powershell

@@ -52,7 +52,9 @@ func _execute() -> int:
 		print(PackagingCli.render_verb_usage(str(parsed["verb"])))
 		return PackagingResult.EXIT_OK
 
-	var resolved: Dictionary = PackagingConfig.resolve(parsed["options"])
+	var config_override: String = str(parsed["options"].get("config", ""))
+	var resolved: Dictionary = PackagingConfig.resolve(parsed["options"], "",
+		PackagingConfig.PACKAGING_SETTINGS_PATH, config_override)
 	var service: RefCounted = PackagingService.new()
 	var result: Dictionary = service.dispatch(str(parsed["verb"]), resolved)
 	_print_summary(result)

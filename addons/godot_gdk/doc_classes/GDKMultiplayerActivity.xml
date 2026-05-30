@@ -4,7 +4,7 @@
 		Multiplayer activity service accessed via GDK.multiplayer_activity.
 	</brief_description>
 	<description>
-		Manages Xbox multiplayer activities, invites, and recent players. Set your game's activity with [method set_activity_async], send invites with [method send_invites_async], and handle incoming invites via signals.
+		Manages Xbox multiplayer activities, invites, and recent players. Set your game's activity with [method set_activity_async], send invites with [method send_invites_async], and handle incoming invites via signals. Invite signals are forwarded from [GDKActivation]'s single native activation subscription so payloads match [signal GDKActivation.pending_invite_received] and [signal GDKActivation.invite_accepted].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -97,13 +97,13 @@
 		<signal name="pending_invite_received">
 			<param index="0" name="invite" type="Dictionary" />
 			<description>
-				Emitted when a pending multiplayer invite has been received.
+				Emitted when a pending multiplayer invite has been received. The parsed [param invite] dictionary includes [code]raw_uri[/code], [code]activation_type[/code], [code]scheme[/code], [code]action[/code], and decoded query fields such as [code]sender_xuid[/code].
 			</description>
 		</signal>
 		<signal name="invite_accepted">
 			<param index="0" name="invite" type="Dictionary" />
 			<description>
-				Emitted when a multiplayer invite has been accepted.
+				Emitted when a multiplayer invite has been accepted. The dictionary shape matches [signal pending_invite_received].
 			</description>
 		</signal>
 	</signals>

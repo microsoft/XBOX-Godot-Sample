@@ -11,18 +11,46 @@ func _init(config_mgr: RefCounted) -> void:
 	_config_mgr = config_mgr
 
 
-func ensure_content_dir_ready(content_dir: String, logger: Callable = Callable()) -> bool:
+func ensure_content_dir_ready(content_dir: String, logger: Callable = Callable(),
+		config_path: String = "") -> bool:
 	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var config_src: String = _config_mgr.get_config_path()
+	var config_src: String = config_path
+	if config_src.is_empty():
+		config_src = _config_mgr.get_config_path()
 	var config_dest: String = content_dir.path_join("MicrosoftGame.config")
 
 	if not FileAccess.file_exists(config_src):
-		_call_logger(logger, "❌ MicrosoftGame.config not found — create one first.")
+		_call_logger(logger, "❌ MicrosoftGame.config not found at %s." % config_src)
 		return false
+
+	var info: Dictionary = _config_mgr.parse_config(config_src)
+	var logo_keys: Dictionary = {
+		"store_logo": "StoreLogo",
+		"logo_150": "Square150x150Logo",
+		"logo_44": "Square44x44Logo",
+		"logo_480": "Square480x480Logo",
+		"splash_screen": "SplashScreenImage",
+	}
+	var logo_destinations: Dictionary = {}
+	for key: String in logo_keys:
+		var rel_path: String = str(info.get(key, ""))
+		if rel_path.is_empty():
+			rel_path = str(logo_keys[key]) + ".png"
+		var dest_path: String = _resolve_logo_destination(content_dir, rel_path)
+		if dest_path.is_empty():
+			_call_logger(logger,
+				"❌ Refusing logo path outside content directory for %s: %s" % [
+					str(logo_keys[key]), rel_path,
+				])
+			return false
+		logo_destinations[key] = {
+			"dest_path": dest_path,
+			"normalized": _normalize_logo_relative_path(rel_path),
+		}
 
 	var file: FileAccess = FileAccess.open(config_src, FileAccess.READ)
 	if file == null:
-		_call_logger(logger, "❌ Cannot read MicrosoftGame.config")
+		_call_logger(logger, "❌ Cannot read MicrosoftGame.config at %s" % config_src)
 		return false
 	var content: String = file.get_as_text()
 	file.close()
@@ -42,21 +70,10 @@ func ensure_content_dir_ready(content_dir: String, logger: Callable = Callable()
 	file.close()
 	_call_logger(logger, "Copied MicrosoftGame.config to content directory")
 
-	var info: Dictionary = _config_mgr.parse_config()
-	var logo_keys: Dictionary = {
-		"store_logo": "StoreLogo",
-		"logo_150": "Square150x150Logo",
-		"logo_44": "Square44x44Logo",
-		"logo_480": "Square480x480Logo",
-		"splash_screen": "SplashScreenImage",
-	}
-
 	for key: String in logo_keys:
-		var rel_path: String = info.get(key, "")
-		if rel_path == "":
-			rel_path = logo_keys[key] + ".png"
-		var normalized: String = rel_path.replace("\\", "/")
-		var dest_path: String = content_dir.path_join(normalized)
+		var destination: Dictionary = logo_destinations[key]
+		var normalized: String = str(destination["normalized"])
+		var dest_path: String = str(destination["dest_path"])
 
 		var src_path: String = ""
 		var filename: String = normalized.get_file()
@@ -137,6 +154,44 @@ func _copy_addon_runtime_dlls(content_dir: String, logger: Callable) -> int:
 		addon_name = addons.get_next()
 	addons.list_dir_end()
 	return copied
+
+
+static func _resolve_logo_destination(content_dir: String, rel_path: String) -> String:
+	var raw: String = rel_path.replace("\\", "/").strip_edges()
+	if raw.is_empty() or raw.begins_with("/") or raw.contains("://") or _has_windows_drive(raw):
+		return ""
+	var normalized: String = _normalize_logo_relative_path(raw)
+	if normalized.is_empty() or normalized == ".":
+		return ""
+	var dest_path: String = content_dir.path_join(normalized).replace("\\", "/").simplify_path()
+	if not _is_path_inside_dir(dest_path, content_dir):
+		return ""
+	return dest_path
+
+
+static func _normalize_logo_relative_path(rel_path: String) -> String:
+	return rel_path.replace("\\", "/").strip_edges().simplify_path()
+
+
+static func _has_windows_drive(path: String) -> bool:
+	return path.length() >= 2 and path.substr(1, 1) == ":"
+
+
+static func _is_path_inside_dir(candidate_path: String, root_dir: String) -> bool:
+	var candidate: String = _normalize_path(candidate_path).to_lower()
+	var root: String = _normalize_path(root_dir).to_lower()
+	if candidate == root:
+		return true
+	if not root.ends_with("/"):
+		root += "/"
+	return candidate.begins_with(root)
+
+
+static func _normalize_path(path: String) -> String:
+	var normalized: String = path.replace("\\", "/").simplify_path()
+	while normalized.ends_with("/") and normalized.length() > 1 and not normalized.ends_with(":/"):
+		normalized = normalized.substr(0, normalized.length() - 1)
+	return normalized
 
 
 static func inject_vc14_dependency(content: String) -> String:
