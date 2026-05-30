@@ -79,6 +79,9 @@ void GDKRuntime::shutdown() {
     for (const Ref<GDKPendingSignal> &pending_signal : active_pending_signals) {
         if (pending_signal.is_valid()) {
             pending_signal->cancel();
+            if (!pending_signal->is_done()) {
+                pending_signal->complete_deferred(GDKResult::cancelled("GDK runtime shutdown cancelled the async request."));
+            }
         }
     }
 

@@ -216,14 +216,14 @@ const GDKInitStep INIT_STEPS[] = {
       [](GDK *g) { g->get_error_reporting()->shutdown(); } },
     { [](GDK *g) { return g->get_launcher()->on_runtime_initialized(); },
       [](GDK *g) { g->get_launcher()->shutdown(); } },
+    { [](GDK *g) { return g->get_activation()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_activation()->shutdown(); } },
     { [](GDK *g) { return g->get_multiplayer_activity()->on_runtime_initialized(); },
       [](GDK *g) { g->get_multiplayer_activity()->shutdown(); } },
     { [](GDK *g) { return g->get_capture()->on_runtime_initialized(); },
       [](GDK *g) { g->get_capture()->shutdown(); } },
     { [](GDK *g) { return g->get_display()->on_runtime_initialized(); },
       [](GDK *g) { g->get_display()->shutdown(); } },
-    { [](GDK *g) { return g->get_activation()->on_runtime_initialized(); },
-      [](GDK *g) { g->get_activation()->shutdown(); } },
 };
 
 struct GDKDispatchStep {

@@ -36,7 +36,7 @@
 			<return type="Signal" />
 			<param index="0" name="package_identifier" type="String" />
 			<description>
-				Mounts a content package asynchronously using the GDK UI-capable mount flow. Await the returned completion [Signal] to receive a [GDKResult] whose [code]data[/code] contains a [GDKPackageMount]. The returned mount owns the native mount handle; close it or release the object when loose-file access is done.
+				Mounts a content package asynchronously using the GDK UI-capable mount flow. Await the returned completion [Signal] to receive a [GDKResult] whose [code]data[/code] contains a [GDKPackageMount]. The returned mount owns the native mount handle; close it or release the object when loose-file access is done. If the runtime shuts down while the mount is pending, the completion resolves with [code]GDKResult.code == "cancelled"[/code].
 			</description>
 		</method>
 		<method name="load_resource_pack_async">
@@ -46,7 +46,7 @@
 			<param index="2" name="replace_files" type="bool" default="false" />
 			<param index="3" name="offset" type="int" default="0" />
 			<description>
-				Mounts a content package, resolves a package-relative [code].pck[/code] or [code].zip[/code] file, and calls [method ProjectSettings.load_resource_pack]. Await the returned completion [Signal] to receive a [GDKResult]. On success, [code]GDKResult.data[/code] is a [Dictionary] with [code]resource_pack[/code] ([GDKPackageResourcePack]) and [code]already_loaded[/code] ([bool]). The service retains the backing package mount until [method GDK.shutdown] because Godot exposes resource-pack loading but no matching unload API.
+				Mounts a content package, resolves a package-relative [code].pck[/code] or [code].zip[/code] file, and calls [method ProjectSettings.load_resource_pack]. Await the returned completion [Signal] to receive a [GDKResult]. On success, [code]GDKResult.data[/code] is a [Dictionary] with [code]resource_pack[/code] ([GDKPackageResourcePack]) and [code]already_loaded[/code] ([bool]). The service retains the backing package mount until [method GDK.shutdown] because Godot exposes resource-pack loading but no matching unload API. If the runtime shuts down while the mount is pending, the completion resolves with [code]GDKResult.code == "cancelled"[/code].
 			</description>
 		</method>
 		<method name="get_loaded_resource_packs" qualifiers="const">

@@ -57,7 +57,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | `GDK.profile` | `XblProfileGetUserProfileAsync`, `XblProfileGetUserProfileResult`, `XblProfileGetUserProfilesAsync`, `XblProfileGetUserProfilesResultCount`, `XblProfileGetUserProfilesResult`, `XblProfileGetUserProfilesForSocialGroupAsync`, `XblProfileGetUserProfilesForSocialGroupResultCount`, `XblProfileGetUserProfilesForSocialGroupResult` | Query one profile, multiple profiles by XUID list, or profiles for a named social group. |
 | `GDK.string_verify` | `XblStringVerifyStringAsync`, `XblStringVerifyStringResultSize`, `XblStringVerifyStringResult`, `XblStringVerifyStringsAsync`, `XblStringVerifyStringsResultSize`, `XblStringVerifyStringsResult` | Verify one string or a batch of strings and return per-string result dictionaries. |
 | `GDK.title_storage` | `XblTitleStorageGetQuotaAsync`, `XblTitleStorageGetQuotaResult`, `XblTitleStorageGetBlobMetadataAsync`, `XblTitleStorageGetBlobMetadataResult`, `XblTitleStorageBlobMetadataResultGetItems`, `XblTitleStorageBlobMetadataResultHasNext`, `XblTitleStorageBlobMetadataResultGetNextAsync`, `XblTitleStorageBlobMetadataResultGetNextResult`, `XblTitleStorageBlobMetadataResultDuplicateHandle`, `XblTitleStorageBlobMetadataResultCloseHandle`, `XblTitleStorageDownloadBlobAsync`, `XblTitleStorageDownloadBlobResult`, `XblTitleStorageUploadBlobAsync`, `XblTitleStorageUploadBlobResult`, `XblTitleStorageDeleteBlobAsync` | Query quota, list paged metadata, download blobs via metadata discovery, upload bytes, and delete blobs. |
-| `GDK.multiplayer_activity` | `XblMultiplayerActivityUpdateRecentPlayers`, `XblMultiplayerActivityFlushRecentPlayersAsync`, `XblMultiplayerActivitySetActivityAsync`, `XblMultiplayerActivityGetActivityAsync`, `XblMultiplayerActivityGetActivityResultSize`, `XblMultiplayerActivityGetActivityResult`, `XblMultiplayerActivityDeleteActivityAsync`, `XblMultiplayerActivitySendInvitesAsync`, `XblMultiplayerActivityAddInviteHandler`, `XblMultiplayerActivityRemoveInviteHandler` | This is the only multiplayer-related Xbox Services surface. |
+| `GDK.multiplayer_activity` | `XblMultiplayerActivityUpdateRecentPlayers`, `XblMultiplayerActivityFlushRecentPlayersAsync`, `XblMultiplayerActivitySetActivityAsync`, `XblMultiplayerActivityGetActivityAsync`, `XblMultiplayerActivityGetActivityResultSize`, `XblMultiplayerActivityGetActivityResult`, `XblMultiplayerActivityDeleteActivityAsync`, `XblMultiplayerActivitySendInvitesAsync` | This is the only multiplayer-related Xbox Services surface. Invite launch events are forwarded from `GDK.activation`'s single `XGameActivationRegisterForEvent` owner rather than registering another native activation callback. |
 
 #### Accepted Xbox Services wrappers
 
@@ -69,7 +69,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 Do not expose wrappers for:
 
 - `XGameProtocol.h` — both `XGameProtocolRegisterForActivation` and `XGameProtocolUnregisterForActivation` are explicitly `__declspec(deprecated)` in the SDK and are superseded by `XGameActivationRegisterForEvent` / `XGameActivationUnregisterForEvent`. Use `GDK.activation.protocol_activated` for the modern protocol-activation event.
-- `XGameInvite.h` — every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK explicitly points each one at the `XGameActivation*` equivalent. Use `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` likewise registers via `XGameActivationRegisterForEvent`, never via `XGameInvite`.
+- `XGameInvite.h` — every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK explicitly points each one at the `XGameActivation*` equivalent. Use `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` subscribes to `GDK.activation`'s internal event fan-out and must not register its own native activation callback.
 - `XGameEvent.h` — the per-title `XGameEventWrite` writer ships in PC GDK but is part of the broader Xbox Services events pipeline that this addon does not cover. Titles that need event telemetry should either author it through PlayFab (see the `godot_playfab` addon) or integrate a separate analytics SDK.
 
 #### Explicit no-wrap Xbox Services APIs
@@ -379,6 +379,7 @@ GDK.title_storage: GDKTitleStorage
 GDK.error_reporting: GDKErrorReporting
 GDK.launcher: GDKLauncher
 GDK.capture: GDKCapture
+GDK.activation: GDKActivation
 GDK.multiplayer_activity: GDKMultiplayerActivity
 ```
 
@@ -414,7 +415,7 @@ and `GDK.achievements.runtime_error`).
 | `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
 | per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `GDKUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
 
-Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared queue and complete it only after the Godot-side cache and wrapper state are current.
+Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared queue and complete it only after the Godot-side cache and wrapper state are current. Shutdown cancellation is terminal: retained pending signals must queue exactly one completion with `GDKResult.code == "cancelled"` before the shared queue is terminated.
 
 ### Service specifications
 
