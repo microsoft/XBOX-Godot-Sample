@@ -83,3 +83,28 @@ func test_game_ui_surface_and_validation() -> void:
 
 	var invalid_user_privilege_signal = game_ui.resolve_privilege_with_ui_async(blank_user, 254)
 	await assert_signal_result_error(invalid_user_privilege_signal, "invalid_user", "resolve_privilege_with_ui_async() rejects invalid users")
+
+
+func test_game_ui_show_method_fails_after_shutdown() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() for post-shutdown Game UI coverage returns GDKResult")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Game UI post-shutdown behavior: %s" % init_result.message)
+		return
+
+	var gdk = get_gdk()
+	var game_ui = gdk.get_game_ui()
+	assert_not_null(game_ui, "GDK.game_ui reference remains available before shutdown")
+	if game_ui == null:
+		return
+
+	gdk.shutdown()
+	assert_eq(gdk.is_initialized(), false, "GDK reports uninitialized after shutdown")
+
+	var stale_show_signal = game_ui.show_message_dialog_async("Post-shutdown", "This should fail instead of using stale runtime state.")
+	await assert_signal_result_error(stale_show_signal, "not_initialized", "show_message_dialog_async() fails cleanly after shutdown")

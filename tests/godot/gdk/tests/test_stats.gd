@@ -89,3 +89,50 @@ func test_stats_surface_and_validation() -> void:
 
 	var no_staged_signal = stats.flush_stats_async(user)
 	await assert_signal_result_error(no_staged_signal, "no_staged_stats", "flush_stats_async() rejects empty staged-stat batches")
+
+
+func test_set_stat_integer_live_stages_value() -> void:
+	if pending_unless_runtime_available():
+		return
+	if not requires_live():
+		return
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() for set_stat_integer live coverage returns GDKResult")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("set_stat_integer live coverage: %s" % init_result.message)
+		return
+
+	var gdk = get_gdk()
+	var stats = gdk.get_stats()
+	assert_not_null(stats, "GDK.stats is available for set_stat_integer live coverage")
+	if stats == null:
+		return
+
+	var sign_in = await ensure_primary_user()
+	var sign_in_signal = sign_in["signal"]
+	var sign_in_result = sign_in["result"]
+	var user = sign_in["user"]
+	if typeof(sign_in_signal) == TYPE_SIGNAL and sign_in_result == null:
+		assert_true(false, "Default-user flow for set_stat_integer live coverage completes")
+		return
+	if user == null:
+		if sign_in_result != null and not sign_in_result.ok:
+			assert_true(sign_in_result.code.length() > 0, "failed stats live sign-in exposes an error code")
+			assert_true(sign_in_result.message.length() > 0, "failed stats live sign-in exposes an error message")
+			pending("set_stat_integer live coverage: %s" % sign_in_result.message)
+		else:
+			pending("set_stat_integer live coverage: No signed-in user is available on this machine.")
+		return
+
+	var stat_name = with_unique_id("gdk_b3_integer_stat")
+	var set_result = stats.set_stat_integer(user, stat_name, 42)
+	assert_result_ok(set_result, "set_stat_integer() stages an integer value for a signed-in user")
+	if set_result == null or not set_result.ok:
+		return
+	assert_true(set_result.data is Dictionary, "set_stat_integer() returns staged stat metadata")
+	if set_result.data is Dictionary:
+		assert_eq(set_result.data["name"], stat_name, "set_stat_integer() result echoes stat name")
+		assert_eq(int(set_result.data["value"]), 42, "set_stat_integer() result echoes integer value")
