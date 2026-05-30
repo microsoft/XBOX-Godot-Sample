@@ -60,6 +60,12 @@ class PlayFab : public Object {
     Ref<PlayFabPlayerData> m_player_data;
     Ref<PlayFabStatistics> m_statistics;
     Ref<PlayFabTitleData> m_title_data;
+    bool m_shutdown_deferred_until_services_complete = false;
+    bool m_shutdown_in_progress = false;
+    bool m_destroying = false;
+
+    bool _has_deferred_service_shutdown() const;
+    void _finish_shutdown_after_services(bool p_emit_signal);
 
 protected:
     static void _bind_methods();
@@ -72,6 +78,7 @@ public:
 
     Ref<PlayFabResult> initialize();
     void shutdown();
+    void finish_deferred_shutdown_if_ready();
     bool is_available() const;
     bool is_initialized() const;
     int64_t dispatch();

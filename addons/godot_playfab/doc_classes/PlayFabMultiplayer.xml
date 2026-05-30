@@ -9,7 +9,7 @@
 	<tutorials></tutorials>
 	<methods>
 		<method name="initialize_async"><return type="Signal" /><param index="0" name="config" type="PlayFabMultiplayerConfig" default="null" /><description>Initializes PlayFab Multiplayer after [PlayFab] is initialized.</description></method>
-		<method name="shutdown_async"><return type="Signal" /><description>Shuts down Multiplayer resources.</description></method>
+		<method name="shutdown_async"><return type="Signal" /><description>Shuts down Multiplayer resources. In-flight lobby and matchmaking operations complete with cancellation before SDK teardown begins; if shutdown is requested from a state-change handler, native teardown is deferred until the current SDK state-change batch is finished. Operation storage is retained until after [code]PFMultiplayerUninitialize()[/code], so handlers may safely call back into PlayFab without invalidating shutdown iteration.</description></method>
 		<method name="is_initialized" qualifiers="const"><return type="bool" /><description>Returns whether PlayFab Multiplayer is initialized.</description></method>
 		<method name="create_lobby_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="config" type="PlayFabLobbyConfig" default="null" /><description>Creates and joins a lobby for [param user].</description></method>
 		<method name="join_lobby_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="connection_string" type="String" /><param index="2" name="config" type="PlayFabLobbyJoinConfig" default="null" /><description>Joins a lobby using a connection string.</description></method>

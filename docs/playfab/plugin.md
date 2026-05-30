@@ -93,6 +93,10 @@ All PlayFab one-shot async methods now return completion signals that you await 
 
 Service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted. The service contract test in `tests\godot\playfab\tests\test_api_services.gd` is the source of truth for the expected Godot-facing method matrix.
 
+## Async shutdown lifecycle
+
+`PlayFab.shutdown()`, `PlayFab.party.shutdown_async()`, and `PlayFab.multiplayer.shutdown_async()` cancel outstanding Party, lobby, and matchmaking completion signals before native SDK teardown, but retain the native async context pointers until after `PartyManager::Cleanup()` or `PFMultiplayerUninitialize()`. If shutdown is requested from inside a Party or Multiplayer state-change handler, native teardown is deferred until the current SDK state-change batch has been finished. If a cancellation handler calls back into Party or Multiplayer while shutdown is in progress, new operations fail with a shutdown-in-progress error instead of mutating SDK state.
+
 ## Sample usage
 
 ```gdscript

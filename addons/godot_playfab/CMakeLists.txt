@@ -37,7 +37,14 @@ target_link_libraries(godot_playfab PRIVATE
     Xbox::PlayFabGameSave
 )
 
-target_compile_definitions(godot_playfab PRIVATE _GAMING_DESKTOP)
+option(GODOT_PLAYFAB_TEST_HOOKS_ENABLED
+    "Expose internal test-only methods on PlayFab classes (used by the GUT test host)."
+    ON)
+
+target_compile_definitions(godot_playfab PRIVATE
+    _GAMING_DESKTOP
+    $<$<BOOL:${GODOT_PLAYFAB_TEST_HOOKS_ENABLED}>:GODOT_PLAYFAB_TEST_HOOKS>
+)
 
 godot_addon_configure_target(
     TARGET godot_playfab

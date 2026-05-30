@@ -554,11 +554,14 @@ private:
     bool m_initialized = false;
     bool m_processing_state_changes = false;
     bool m_shutting_down = false;
+    bool m_shutdown_deferred_until_dispatch_complete = false;
     XTaskQueueHandle m_task_queue = nullptr;
     Ref<PlayFabPartyChat> m_chat;
     std::vector<Ref<PlayFabPartyNetwork>> m_networks;
     std::map<PFEntityHandle, Party::PartyLocalUser *> m_local_users;
     std::vector<PendingOperation *> m_pending_operations;
+    std::vector<PendingOperation *> m_pending_operations_deferred_delete;
+    std::vector<Ref<PlayFabPendingSignal>> m_shutdown_pending_signals;
     // Chat controls that arrived via PartyChatControlCreated before the
     // matching peer was registered (handshake race). Drained by
     // _attach_orphan_chat_controls() after every register_peer.
@@ -580,6 +583,10 @@ private:
     Ref<PlayFabPartyNetwork> _find_network_by_native(Party::PartyNetwork *p_native) const;
 
     PendingOperation *_create_pending(int32_t p_kind);
+    void _cancel_active_pending_operations(const String &p_cancel_message);
+    void _defer_pending_delete(PendingOperation *p_operation);
+    void _delete_deferred_pending_operations();
+    void _complete_shutdown_pending_signals();
     void _release_pending(PendingOperation *p_operation);
     void _complete_pending(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
     PendingOperation *_find_pending(int32_t p_kind, Party::PartyNetwork *p_native_network);
@@ -616,6 +623,11 @@ private:
     // once the peer mapping exists.
     void _attach_orphan_chat_controls();
 
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    Signal _test_enqueue_shutdown_pending();
+    int64_t _test_pending_operation_count() const;
+#endif
+
     void _emit_network_state(const Ref<PlayFabPartyNetwork> &p_network, int64_t p_kind, int64_t p_peer_id, const Ref<PlayFabResult> &p_result, const String &p_reason);
     void _emit_chat_state(const Ref<PlayFabPartyChatControl> &p_chat_control, int64_t p_kind, const Ref<PlayFabResult> &p_result, const String &p_reason);
 
@@ -651,6 +663,7 @@ public:
     void set_owner(PlayFab *p_owner);
 
     bool is_initialized() const;
+    bool has_deferred_shutdown() const;
     Signal initialize_async(const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>(), int p_local_udp_port = -1);
     Signal shutdown_async();
     void shutdown();

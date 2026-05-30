@@ -334,6 +334,38 @@ func test_party_chat_control_helpers() -> void:
 	await _assert_signal_error(control.set_muted_async(null, true), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_muted_async() reports party_chat_permission_failed")
 
 
+func test_party_shutdown_cancels_reentrant_pending_operations() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	if party == null:
+		return
+	if not party.has_method("_test_enqueue_shutdown_pending"):
+		pending("PlayFab Party shutdown re-entry test requires debug test hooks.")
+		return
+
+	var completion_state := {
+		"first": false,
+		"reentrant": false,
+	}
+	var first_signal = party._test_enqueue_shutdown_pending()
+	first_signal.connect(func(_result):
+		completion_state["first"] = true
+		var reentrant_signal = party._test_enqueue_shutdown_pending()
+		reentrant_signal.connect(func(_reentrant_result):
+			completion_state["reentrant"] = true
+		)
+	)
+
+	assert_playfab_result_ok(await await_completion(party.shutdown_async()), "PlayFab.party.shutdown_async() with re-entrant pending completion")
+	assert_true(completion_state["first"], "Initial pending operation completed during shutdown")
+	assert_true(completion_state["reentrant"], "Re-entrant pending operation completed during the same shutdown")
+	assert_eq(party._test_pending_operation_count(), 0, "Shutdown drains all PlayFab Party pending operations")
+
+
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
 	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
 	if typeof(async_signal) != TYPE_SIGNAL:
