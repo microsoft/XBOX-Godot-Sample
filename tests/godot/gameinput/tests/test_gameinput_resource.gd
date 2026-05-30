@@ -35,6 +35,27 @@ func test_binding_defaults_and_setters() -> void:
 	assert_eq_approx(binding.get("deadzone"), 0.1, "binding.deadzone setter")
 
 
+func test_binding_clamps_axis_threshold_and_deadzone() -> void:
+	if not ClassDB.class_exists("GameInputBinding"):
+		pending("GameInputBinding missing")
+		return
+
+	var binding = ClassDB.instantiate("GameInputBinding")
+	binding.set("axis_threshold", -1.0)
+	binding.set("deadzone", -0.25)
+	assert_eq_approx(binding.get("axis_threshold"), 0.0,
+			"axis_threshold clamps negative values to 0.0")
+	assert_eq_approx(binding.get("deadzone"), 0.0,
+			"deadzone clamps negative values to 0.0")
+
+	binding.set("axis_threshold", 2.0)
+	binding.set("deadzone", 1.5)
+	assert_eq_approx(binding.get("axis_threshold"), 1.0,
+			"axis_threshold clamps values above 1.0")
+	assert_eq_approx(binding.get("deadzone"), 1.0,
+			"deadzone clamps values above 1.0")
+
+
 func test_binding_save_load_roundtrip() -> void:
 	if not ClassDB.class_exists("GameInputBinding"):
 		pending("GameInputBinding missing")
@@ -94,6 +115,39 @@ func test_action_map_typed_array() -> void:
 	assert_eq(bindings.size(), 2, "action_map.bindings holds 2 entries")
 	assert_eq(bindings[0].get("action"), &"move_left", "first binding action preserved")
 	assert_eq(bindings[1].get("action"), &"move_right", "second binding action preserved")
+
+
+func test_action_map_add_get_binding_and_clear_methods() -> void:
+	if not ClassDB.class_exists("GameInputActionMap") or not ClassDB.class_exists("GameInputBinding"):
+		pending("GameInputActionMap / GameInputBinding missing")
+		return
+
+	var action_map = ClassDB.instantiate("GameInputActionMap")
+	assert_eq(action_map.get_binding_count(), 0, "new action map count starts at 0")
+	assert_true(action_map.get_binding(0) == null,
+			"get_binding(0) returns null for an empty map")
+	assert_true(action_map.get_binding(-1) == null,
+			"get_binding(-1) returns null for an empty map")
+
+	var b1 = ClassDB.instantiate("GameInputBinding")
+	b1.set("action", &"jump")
+	var b2 = ClassDB.instantiate("GameInputBinding")
+	b2.set("action", &"fire")
+	action_map.add_binding(b1)
+	action_map.add_binding(null)
+	action_map.add_binding(b2)
+
+	assert_eq(action_map.get_binding_count(), 2,
+			"add_binding ignores null and counts real bindings")
+	assert_eq(action_map.get_binding(0), b1, "get_binding(0) returns first binding")
+	assert_eq(action_map.get_binding(1), b2, "get_binding(1) returns second binding")
+	assert_true(action_map.get_binding(2) == null,
+			"get_binding(out-of-range) returns null")
+
+	action_map.clear()
+	assert_eq(action_map.get_binding_count(), 0, "clear() removes all bindings")
+	assert_true(action_map.get_binding(0) == null,
+			"get_binding(0) returns null after clear()")
 
 
 func test_action_map_save_load_roundtrip() -> void:
