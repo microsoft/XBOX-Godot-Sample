@@ -29,7 +29,7 @@ No declaration needed — tests default to this tier. Most tests should be `cont
 - May read live state (signed-in user profile, leaderboard entries, lobby queries, …) but may not write state that persists in the title.
 - Declares the tier by calling `requires_live()` at the top of `before_all` (or `before_each` for per-test gating). When `LIVE_TESTS` is not set, the helper marks the test pending and the rest of the test short-circuits.
 
-Example (helper ships with the companion tooling PR):
+Example:
 
 ```gdscript
 func before_all() -> void:

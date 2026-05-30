@@ -27,8 +27,8 @@ static func live_tests_enabled() -> bool:
 	return OS.get_environment(LIVE_TESTS_ENV) == "1"
 
 
-# True when both live tests and live writes have been explicitly enabled for
-# this Godot child process.
+# True if LIVE_WRITE_TESTS=1 in the process environment. Use in addition to
+# LIVE_TESTS for tests that create or mutate persistent live-service state.
 static func live_write_tests_enabled() -> bool:
 	return live_tests_enabled() and OS.get_environment(LIVE_WRITE_TESTS_ENV) == "1"
 

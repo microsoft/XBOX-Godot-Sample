@@ -121,12 +121,10 @@ class StringPairList {
 public:
     // Builds parallel key/value char* arrays for the PlayFab Multiplayer SDK.
     //
-    // A NIL value entry is preserved as a nullptr pointer in `values()`, which
-    // the SDK interprets as "delete this property" (see PFLobby.h:
-    // PFLobbyDataUpdate / PFLobbyMemberDataUpdate — "To delete a value,
-    // provide nullptr as its new value"). String / StringName values are
-    // copied into char* storage.
-    bool assign(const Dictionary &p_dictionary, String *r_error_message) {
+    // Update calls can opt into null-as-delete. In the public GDK headers this
+    // is represented by the SDK's documented nullptr property value in
+    // PFLobbyDataUpdate / PFLobbyMemberDataUpdate.
+    bool assign(const Dictionary &p_dictionary, bool p_allow_null_delete, String *r_error_message) {
         m_key_strings.clear();
         m_value_strings.clear();
         m_value_is_null.clear();
@@ -138,7 +136,7 @@ public:
             const Variant key_variant = keys[i];
             if (key_variant.get_type() != Variant::STRING && key_variant.get_type() != Variant::STRING_NAME) {
                 if (r_error_message != nullptr) {
-                    *r_error_message = "PlayFab Multiplayer property dictionaries require String keys.";
+                    *r_error_message = "PlayFab Multiplayer property dictionaries require String or StringName keys.";
                 }
                 return false;
             }
@@ -146,9 +144,17 @@ public:
             const Variant value_variant = p_dictionary[key_variant];
             const Variant::Type value_type = value_variant.get_type();
             const bool value_is_null = value_type == Variant::NIL;
+            if (value_is_null && !p_allow_null_delete) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFab Multiplayer property dictionaries require String or StringName values.";
+                }
+                return false;
+            }
             if (!value_is_null && value_type != Variant::STRING && value_type != Variant::STRING_NAME) {
                 if (r_error_message != nullptr) {
-                    *r_error_message = "PlayFab Multiplayer property dictionaries require String values (or null to delete the entry).";
+                    *r_error_message = p_allow_null_delete ?
+                            "PlayFab Multiplayer property dictionaries require String or StringName values (or null to delete the entry)." :
+                            "PlayFab Multiplayer property dictionaries require String or StringName values.";
                 }
                 return false;
             }
@@ -1483,9 +1489,9 @@ Signal PlayFabMultiplayer::create_lobby_async(const Ref<PlayFabUser> &p_user, co
     StringPairList search_properties;
     StringPairList lobby_properties;
     StringPairList member_properties;
-    if (!search_properties.assign(config->get_search_properties(), &error_message) ||
-            !lobby_properties.assign(config->get_lobby_properties(), &error_message) ||
-            !member_properties.assign(config->get_member_properties(), &error_message)) {
+    if (!search_properties.assign(config->get_search_properties(), false, &error_message) ||
+            !lobby_properties.assign(config->get_lobby_properties(), false, &error_message) ||
+            !member_properties.assign(config->get_member_properties(), false, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
@@ -1563,7 +1569,7 @@ Signal PlayFabMultiplayer::join_lobby_async(const Ref<PlayFabUser> &p_user, cons
     }
 
     StringPairList member_properties;
-    if (!member_properties.assign(config->get_member_properties(), &error_message)) {
+    if (!member_properties.assign(config->get_member_properties(), false, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
@@ -1630,7 +1636,7 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
     }
 
     StringPairList member_properties;
-    if (!member_properties.assign(config->get_member_properties(), &error_message)) {
+    if (!member_properties.assign(config->get_member_properties(), false, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
@@ -1740,7 +1746,7 @@ Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &
 
     String error_message;
     StringPairList lobby_properties;
-    if (!lobby_properties.assign(p_properties, &error_message)) {
+    if (!lobby_properties.assign(p_properties, true, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
@@ -1781,7 +1787,7 @@ Signal PlayFabMultiplayer::_set_member_properties_async(const Ref<PlayFabLobby> 
 
     String error_message;
     StringPairList member_properties;
-    if (!member_properties.assign(p_properties, &error_message)) {
+    if (!member_properties.assign(p_properties, true, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
