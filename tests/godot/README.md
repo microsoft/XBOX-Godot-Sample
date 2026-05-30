@@ -8,7 +8,7 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
-> `requires_live()` / `requires_live_write()` helpers gate live and live-write GUT tests. The repo orchestrator forwards `LIVE_TESTS=1` via `-Live` and `LIVE_WRITE_TESTS=1` via `-AllowLiveWrites`; only use live writes against a dedicated sandbox PlayFab title.
+> **Status:** the test-tier contract is documented and in active rollout. The Party single-leave regression suite already uses `requires_live_write()`; the helpers (`requires_live()` / `requires_live_write()`) are available on every test base, and `tools\run_all_tests.ps1 -Live -AllowLiveWrites` forwards both `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` to Godot children. Older live-write suites that still call `pending_unless_live()` are being migrated to `requires_live_write()` so the orchestrator's `-AllowLiveWrites` gate covers every mutating suite.
 
 ## Test Tiers
 
