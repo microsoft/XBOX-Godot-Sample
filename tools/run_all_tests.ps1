@@ -661,6 +661,7 @@ function Invoke-PlayFabMultiplayerLive {
         [Parameter(Mandatory = $true)][hashtable]$ChildEnv,
         [Parameter(Mandatory = $true)][string[]]$HostList,
         [Parameter(Mandatory = $true)][bool]$LiveEnabled,
+        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesEnabled,
         [Parameter(Mandatory = $true)][string]$OutDirAbsolute
     )
 
@@ -668,6 +669,15 @@ function Invoke-PlayFabMultiplayerLive {
     if (-not $LiveEnabled) {
         $rec.status = 'skip'
         $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
+        return $rec
+    }
+    if (-not $AllowLiveWritesEnabled) {
+        # Every scenario in the live Multiplayer runner creates / updates /
+        # leaves lobbies (and optionally match tickets) so the entire stage
+        # is gated behind -AllowLiveWrites / LIVE_WRITE_TESTS=1 to keep
+        # default -Live runs read-only.
+        $rec.status = 'skip'
+        $rec.message = 'Skipped without -AllowLiveWrites / LIVE_WRITE_TESTS=1 (live Multiplayer orchestration mutates lobbies).'
         return $rec
     }
     if (-not ($HostList -contains 'tests\godot\playfab')) {
@@ -935,7 +945,7 @@ function Main {
     # 5. PlayFab Multiplayer live orchestration
     if (-not $abort) {
         Write-Host '== [5/7] PlayFab Multiplayer live orchestration ==' -ForegroundColor Cyan
-        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -OutDirAbsolute $outDirAbsolute
+        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
         if ($stage.status -eq 'fail') { $abort = $true }
