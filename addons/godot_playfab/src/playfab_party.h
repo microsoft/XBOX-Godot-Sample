@@ -32,6 +32,7 @@ class PartyLocalChatControl;
 class PartyLocalEndpoint;
 class PartyLocalUser;
 class PartyNetwork;
+enum class PartyStateChangeResult;
 struct PartyStateChange;
 }
 
@@ -626,6 +627,7 @@ private:
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Signal _test_enqueue_shutdown_pending();
     int64_t _test_pending_operation_count() const;
+    Dictionary _test_classify_leave_network_completed(int64_t p_state_change_result, int64_t p_error_detail) const;
 #endif
 
     void _emit_network_state(const Ref<PlayFabPartyNetwork> &p_network, int64_t p_kind, int64_t p_peer_id, const Ref<PlayFabResult> &p_result, const String &p_reason);
@@ -651,7 +653,10 @@ private:
     int64_t _translate_chat_permissions_from_native(int32_t p_native) const;
 
     Ref<PlayFabResult> _party_error_result(uint32_t p_party_error, const String &p_code, const String &p_action) const;
+    Ref<PlayFabResult> _party_state_change_error_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error, const String &p_code, const String &p_action) const;
+    Ref<PlayFabResult> _party_leave_network_completed_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error) const;
     static String _party_error_message(uint32_t p_party_error);
+    static String _party_state_change_result_name(Party::PartyStateChangeResult p_result);
 
 protected:
     static void _bind_methods();
