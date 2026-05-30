@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 7 — PlayFab Party panel.
 ##
 ## Peer roster + broadcast text chat + per-peer mute toggle on top of
@@ -22,8 +24,8 @@ extends VBoxContainer
 
 var _auth: Node = null
 var _party_node: Node = null
-var _network: PlayFabPartyNetwork = null
-var _peer: PlayFabPartyPeer = null
+var _network = null
+var _peer = null
 var _initialized: bool = false
 
 func _ready() -> void:
@@ -86,7 +88,7 @@ func _initialize_after_sign_in() -> void:
 	var label: String = "connected" if _network != null else "idle — no network"
 	print("[Pty] party panel ready (%s)" % label)
 
-func _attach_network(network: PlayFabPartyNetwork) -> void:
+func _attach_network(network) -> void:
 	if network == _network:
 		return
 	if _network != null and _network.state_changed.is_connected(_on_network_state_changed):
@@ -136,7 +138,7 @@ func _on_send_pressed() -> void:
 	var text: String = _chat_input.text.strip_edges()
 	if text.is_empty() or _peer == null:
 		return
-	var result: PlayFabResult = await _peer.send_text_async(text)
+	var result = await _peer.send_text_async(text)
 	if not is_inside_tree():
 		return
 	if result.ok:
@@ -151,16 +153,16 @@ func _on_mute_remotes_toggled(button_pressed: bool) -> void:
 	for peer_id in _peer.get_peers():
 		_peer.set_peer_muted_async(peer_id, button_pressed)
 
-func _on_network_state_changed(_change: PlayFabPartyNetworkStateChange) -> void:
+func _on_network_state_changed(_change) -> void:
 	_refresh_peers()
 
-func _on_chat_control_added(_peer_id: int, _control: PlayFabPartyChatControl) -> void:
+func _on_chat_control_added(_peer_id: int, _control) -> void:
 	_refresh_peers()
 
 func _on_chat_control_removed(_peer_id: int) -> void:
 	_refresh_peers()
 
-func _on_text_received(peer_id: int, message: PlayFabPartyChatMessage) -> void:
+func _on_text_received(peer_id: int, message) -> void:
 	var label: String = "?"
 	if _peer != null:
 		var entity: Dictionary = _peer.get_peer_entity_key(peer_id)

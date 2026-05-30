@@ -1,5 +1,7 @@
 extends Node
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 7 — PlayFab Party network for voice + text chat + RPC.
 ##
 ## Stands up a peer-to-peer transport layered on top of the T5/T6 lobby.
@@ -55,7 +57,7 @@ enum State {
 }
 
 signal state_changed(state: State)
-signal network_joined(network: PlayFabPartyNetwork)
+signal network_joined(network)
 signal network_left           ## Voluntary teardown (leave_party).
 signal network_destroyed      ## Involuntary teardown (NETWORK_CHANGE_DESTROYED / lobby drop / shutdown).
 signal peer_connected(peer_id: int)
@@ -66,8 +68,8 @@ signal rpc_received(peer_id: int, text: String) ## ping RPC received from a peer
 var _state: State = State.UNINITIALIZED
 var _auth: Node = null
 var _lobby_node: Node = null
-var _lobby: PlayFabLobby = null
-var _network: PlayFabPartyNetwork = null
+var _lobby = null
+var _network = null
 var _is_host: bool = false
 var _gdk_lobby_signals_connected: bool = false
 var _pf_party_signals_connected: bool = false
@@ -82,7 +84,7 @@ var _teardown_in_progress: bool = false ## True while leave_party is unwinding v
 ## Guarded accessor — returns null unless we are actually in a network.
 ## Callers that need the network across teardown should listen for
 ## network_left / network_destroyed and capture the payload there.
-var network: PlayFabPartyNetwork:
+var network:
 	get:
 		return _network if _state == State.IN_NETWORK else null
 
@@ -116,7 +118,7 @@ func is_busy() -> bool:
 
 # Kept for back-compat with sample / test code that called the getter
 # directly. New consumers should use the `network` property.
-func get_current_network() -> PlayFabPartyNetwork:
+func get_current_network():
 	return network
 
 func _set_state(next: State) -> void:
@@ -167,22 +169,22 @@ func _ensure_pf_party_initialized() -> bool:
 		push_error("[Party] PlayFab extension not loaded")
 		return false
 
-	if not PlayFab.party.is_initialized():
-		var cfg := PlayFabPartyConfig.new()
+	if not AddonApi.singleton("PlayFab").party.is_initialized():
+		var cfg := AddonApi.instantiate("PlayFabPartyConfig")
 		cfg.max_players = 8
-		cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY
+		cfg.direct_peer_connectivity = AddonApi.constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY")
 		cfg.enable_voice_chat = true
 		cfg.enable_text_chat = true
 		cfg.enable_transcription = false
 
-		var init: PlayFabResult = await PlayFab.party.initialize_async(cfg)
+		var init = await AddonApi.singleton("PlayFab").party.initialize_async(cfg)
 		if not init.ok:
 			push_warning("[Party] PlayFab.party init failed: %s (%s)" % [init.message, init.code])
 			return false
 		print("[Party] PlayFab.party initialized lazily (voice=true text=true transcription=false)")
 
 	if not _pf_party_signals_connected:
-		PlayFab.party.party_error.connect(_on_party_error)
+		AddonApi.singleton("PlayFab").party.party_error.connect(_on_party_error)
 		_pf_party_signals_connected = true
 
 	return true
@@ -206,10 +208,10 @@ func host_party() -> bool:
 
 	var caps: Dictionary = await resolve_chat_capabilities()
 
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var cfg := PlayFabPartyConfig.new()
+	var user = _auth.get("playfab_user")
+	var cfg := AddonApi.instantiate("PlayFabPartyConfig")
 	cfg.max_players = 4
-	cfg.direct_peer_connectivity = PlayFabParty.DIRECT_PEER_CONNECTIVITY_ANY
+	cfg.direct_peer_connectivity = AddonApi.constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY")
 	cfg.set_voice_chat_enabled(caps.voice)
 	cfg.set_text_chat_enabled(caps.text)
 	# Microsoft Party requires every user to authenticate with the same
@@ -221,7 +223,7 @@ func host_party() -> bool:
 	# under Party's c_maxInvitationIdentifierStringLength (127).
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
 
-	var result: PlayFabResult = await PlayFab.party.create_and_join_network_async(user, cfg)
+	var result = await AddonApi.singleton("PlayFab").party.create_and_join_network_async(user, cfg)
 
 	# Rubber-duck issue #1 — the lobby may have disappeared while we were
 	# awaiting create_and_join. Bail out without binding the multiplayer
@@ -229,7 +231,7 @@ func host_party() -> bool:
 	if _abort_party_op or _state != State.HOSTING:
 		if result.ok:
 			print("[Party] Aborting orphaned host network (lobby left mid-await)")
-			var orphan: PlayFabPartyNetwork = result.data
+			var orphan = result.data
 			orphan.leave_async()
 		_abort_party_op = false
 		_is_host = false
@@ -243,7 +245,7 @@ func host_party() -> bool:
 		_set_state(State.READY)
 		return false
 
-	var net: PlayFabPartyNetwork = result.data
+	var net = result.data
 	_attach_network(net)
 	_set_state(State.IN_NETWORK)
 	print("[Party] Network created — waiting for descriptor…")
@@ -273,8 +275,8 @@ func _join_party_network(descriptor: String) -> bool:
 
 	var caps: Dictionary = await resolve_chat_capabilities()
 
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var cfg := PlayFabPartyConfig.new()
+	var user = _auth.get("playfab_user")
+	var cfg := AddonApi.instantiate("PlayFabPartyConfig")
 	cfg.set_voice_chat_enabled(caps.voice)
 	cfg.set_text_chat_enabled(caps.text)
 	# Mirror host_party — Party.AuthenticateLocalUser requires the same
@@ -282,13 +284,13 @@ func _join_party_network(descriptor: String) -> bool:
 	# known to host and client once the lobby is joined, so use it.
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
 
-	var result: PlayFabResult = await PlayFab.party.join_network_async(user, descriptor, cfg)
+	var result = await AddonApi.singleton("PlayFab").party.join_network_async(user, descriptor, cfg)
 
 	# Same abort-after-await guard as host_party.
 	if _abort_party_op or _state != State.JOINING:
 		if result.ok:
 			print("[Party] Aborting orphaned join network (lobby left mid-await)")
-			var orphan: PlayFabPartyNetwork = result.data
+			var orphan = result.data
 			orphan.leave_async()
 		_abort_party_op = false
 		if _state == State.JOINING:
@@ -318,13 +320,13 @@ func leave_party() -> bool:
 	# Clear the descriptor we published if we're the host leaving the
 	# network. Best-effort: a failure here is logged and ignored.
 	if _is_host and _lobby != null:
-		var pf_user: PlayFabUser = _auth.get("playfab_user")
+		var pf_user = _auth.get("playfab_user")
 		if pf_user != null and _lobby.is_owner(pf_user):
-			var clear: PlayFabResult = await _lobby.set_properties_async({PARTY_DESCRIPTOR_KEY: ""})
+			var clear = await _lobby.set_properties_async({PARTY_DESCRIPTOR_KEY: ""})
 			if not clear.ok:
 				push_warning("[Party] descriptor clear failed: %s" % clear.message)
 
-	var pf: PlayFabResult = await _network.leave_async()
+	var pf = await _network.leave_async()
 	if not pf.ok:
 		push_warning("[Party] leave failed: %s" % pf.message)
 
@@ -348,8 +350,8 @@ func toggle_mute(peer_id: int, muted: bool) -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] toggle_mute rejected — not in a network (state=%d)" % _state)
 		return false
-	var peer: PlayFabPartyPeer = _network.local_peer
-	var pf: PlayFabResult = await peer.set_peer_muted_async(peer_id, muted)
+	var peer = _network.local_peer
+	var pf = await peer.set_peer_muted_async(peer_id, muted)
 	if not pf.ok:
 		push_warning("[Party] mute toggle failed: %s" % pf.message)
 	return pf.ok
@@ -361,8 +363,8 @@ func send_chat(text: String) -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] send_chat rejected — not in a network (state=%d)" % _state)
 		return false
-	var peer: PlayFabPartyPeer = _network.local_peer
-	var pf: PlayFabResult = await peer.send_text_async(text)
+	var peer = _network.local_peer
+	var pf = await peer.send_text_async(text)
 	if not pf.ok:
 		push_warning("[Party] send_text failed: %s" % pf.message)
 	return pf.ok
@@ -415,24 +417,24 @@ func ping_message(text: String) -> void:
 # --- Internal helpers ---
 
 func _has_privilege(privilege: int) -> bool:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return false
-	var pf: GDKResult = await GDK.users.check_privilege_async(user, privilege)
+	var pf = await AddonApi.singleton("GDK").users.check_privilege_async(user, privilege)
 	return pf.ok and bool(pf.data.get("has_privilege", false))
 
 func _check_permission(permission: String, peer_xuid: String) -> bool:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return false
-	var pf: GDKResult = await GDK.privacy.check_permission_async(
+	var pf = await AddonApi.singleton("GDK").privacy.check_permission_async(
 			user, permission, peer_xuid)
 	return pf.ok and bool(pf.data.get("allowed", false))
 
 # Publishes the network descriptor on the lobby. Rubber-duck issue #3 —
 # re-check before writing so we don't publish a stale descriptor after
 # the host already tore the network down (or the lobby flipped owners).
-func _publish_descriptor_on_lobby(descriptor: String, expected_network: PlayFabPartyNetwork) -> void:
+func _publish_descriptor_on_lobby(descriptor: String, expected_network) -> void:
 	if _state != State.IN_NETWORK:
 		return
 	if not _is_host:
@@ -442,11 +444,11 @@ func _publish_descriptor_on_lobby(descriptor: String, expected_network: PlayFabP
 	if _lobby == null:
 		push_warning("[Party] No lobby to publish descriptor on")
 		return
-	var pf_user: PlayFabUser = _auth.get("playfab_user")
+	var pf_user = _auth.get("playfab_user")
 	if pf_user == null or not _lobby.is_owner(pf_user):
 		return
 	print("[Party] Descriptor ready, publishing on the lobby")
-	var pf: PlayFabResult = await _lobby.set_properties_async({
+	var pf = await _lobby.set_properties_async({
 		PARTY_DESCRIPTOR_KEY: descriptor,
 	})
 	# Re-check after the await so we don't warn about a failure that
@@ -457,7 +459,7 @@ func _publish_descriptor_on_lobby(descriptor: String, expected_network: PlayFabP
 # Rubber-duck issue #4 — centralize lobby signal lifetime so a stale
 # PlayFabLobby ref can't keep delivering PROPERTIES_UPDATED events that
 # trigger a join on the wrong lobby.
-func _attach_lobby(lobby: PlayFabLobby) -> void:
+func _attach_lobby(lobby) -> void:
 	if _lobby == lobby:
 		return
 	_detach_lobby()
@@ -474,13 +476,13 @@ func _detach_lobby() -> void:
 
 # Rubber-duck issue #5 — centralize network signal lifetime + the
 # multiplayer-peer binding so leave/destroy paths share one teardown.
-func _attach_network(net: PlayFabPartyNetwork) -> void:
+func _attach_network(net) -> void:
 	_detach_network()
 	_network = net
 	if _network == null:
 		return
 	_network.state_changed.connect(_on_network_state_changed)
-	var peer: PlayFabPartyPeer = _network.local_peer
+	var peer = _network.local_peer
 	if peer == null:
 		return
 	multiplayer.multiplayer_peer = peer
@@ -514,7 +516,7 @@ func _detach_network() -> void:
 	if _network != null:
 		if _network.state_changed.is_connected(_on_network_state_changed):
 			_network.state_changed.disconnect(_on_network_state_changed)
-		var peer: PlayFabPartyPeer = _network.local_peer
+		var peer = _network.local_peer
 		if peer != null:
 			if peer.text_message_received.is_connected(_on_party_text_received):
 				peer.text_message_received.disconnect(_on_party_text_received)
@@ -527,7 +529,7 @@ func _detach_network() -> void:
 
 # --- Signal handlers ---
 
-func _on_lobby_joined_from_lobby_autoload(lobby: PlayFabLobby) -> void:
+func _on_lobby_joined_from_lobby_autoload(lobby) -> void:
 	_attach_lobby(lobby)
 
 	# Client side: descriptor may already be on the lobby snapshot (host
@@ -553,8 +555,8 @@ func _on_lobby_left_from_lobby_autoload() -> void:
 	if _state == State.IN_NETWORK:
 		await leave_party()
 
-func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
-	if change.kind != PlayFabLobby.PROPERTIES_UPDATED:
+func _on_lobby_state_changed(change) -> void:
+	if change.kind != AddonApi.constant("PlayFabLobby", "PROPERTIES_UPDATED"):
 		return
 	# Only the not-yet-joined client side cares about descriptor updates.
 	if _is_host or _state != State.READY:
@@ -566,26 +568,26 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
 
 	await _join_party_network(descriptor)
 
-func _on_network_state_changed(change: PlayFabPartyNetworkStateChange) -> void:
-	match change.kind:
-		PlayFabParty.NETWORK_CHANGE_DESCRIPTOR_UPDATED:
-			if _is_host and _state == State.IN_NETWORK and _network != null and not _network.descriptor.is_empty():
-				await _publish_descriptor_on_lobby(_network.descriptor, _network)
-		PlayFabParty.NETWORK_CHANGE_PEER_JOINED:
-			var entity := ""
-			if _network != null and _network.local_peer != null:
-				entity = str(_network.local_peer.get_peer_entity_key(change.peer_id))
-			print("[Party] Peer connected: id=%d entity=%s" % [change.peer_id, entity])
-			peer_connected.emit(change.peer_id)
-		PlayFabParty.NETWORK_CHANGE_PEER_LEFT:
-			print("[Party] Peer %d left" % change.peer_id)
-			peer_disconnected.emit(change.peer_id)
-		PlayFabParty.NETWORK_CHANGE_STATE:
-			print("[Party] State → %d (%s)" % [change.state, change.reason])
-		PlayFabParty.NETWORK_CHANGE_ERROR:
-			push_warning("[Party] network error: %s" % change.reason)
-		PlayFabParty.NETWORK_CHANGE_DESTROYED:
-			_handle_network_destroyed(change.reason)
+func _on_network_state_changed(change) -> void:
+	var kind: int = change.kind
+	if kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_DESCRIPTOR_UPDATED"):
+		if _is_host and _state == State.IN_NETWORK and _network != null and not _network.descriptor.is_empty():
+			await _publish_descriptor_on_lobby(_network.descriptor, _network)
+	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_PEER_JOINED"):
+		var entity := ""
+		if _network != null and _network.local_peer != null:
+			entity = str(_network.local_peer.get_peer_entity_key(change.peer_id))
+		print("[Party] Peer connected: id=%d entity=%s" % [change.peer_id, entity])
+		peer_connected.emit(change.peer_id)
+	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_PEER_LEFT"):
+		print("[Party] Peer %d left" % change.peer_id)
+		peer_disconnected.emit(change.peer_id)
+	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_STATE"):
+		print("[Party] State → %d (%s)" % [change.state, change.reason])
+	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_ERROR"):
+		push_warning("[Party] network error: %s" % change.reason)
+	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_DESTROYED"):
+		_handle_network_destroyed(change.reason)
 
 # Rubber-duck issue #2 — centralized DESTROYED dispatch. The destroyed
 # event may arrive:
@@ -627,7 +629,7 @@ func _clear_multiplayer_peer() -> void:
 		return
 	api.multiplayer_peer = null
 
-func _on_party_text_received(peer_id: int, message: PlayFabPartyChatMessage) -> void:
+func _on_party_text_received(peer_id: int, message) -> void:
 	print("[Party] Text from peer %d: \"%s\"" % [peer_id, message.text])
 	chat_received.emit(peer_id, message.text)
 
@@ -654,7 +656,7 @@ func _on_chat_control_added(peer_id: int, _control) -> void:
 	# Re-check after the await — the network may have torn down.
 	if _state != State.IN_NETWORK or _network == null:
 		return
-	var pf: PlayFabResult = await _network.local_peer.set_peer_chat_permissions_async(
+	var pf = await _network.local_peer.set_peer_chat_permissions_async(
 			peer_id, permissions)
 	if not pf.ok:
 		push_warning("[Party] chat permissions for peer %d failed: %s" % [peer_id, pf.message])
@@ -692,5 +694,5 @@ func _xuid_for_peer(peer_id: int) -> String:
 			return String(member.properties.get("xuid", ""))
 	return ""
 
-func _on_party_error(result: PlayFabResult) -> void:
+func _on_party_error(result) -> void:
 	push_warning("[Party] party error: %s (%s)" % [result.message, result.code])

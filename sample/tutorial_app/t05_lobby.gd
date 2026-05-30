@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 5 reference scene — host / join / leave a PlayFab lobby.
 ##
 ## Demonstrates the Lobby autoload's host/join/leave flow with manual
@@ -55,7 +57,7 @@ func _ready() -> void:
 	_set_buttons_enabled(true)
 	_leave_btn.disabled = true
 
-func _on_lobby_joined(lobby: PlayFabLobby) -> void:
+func _on_lobby_joined(lobby) -> void:
 	_append("[color=green]Joined lobby %s[/color]" % lobby.lobby_id)
 	# Surface the connection string in the same LineEdit the client
 	# pastes into, so the host can select-and-copy it (Ctrl+C) and hand
@@ -104,9 +106,9 @@ func _on_lobby_state_changed(state) -> void:
 	_loadout_btn.disabled = not in_lobby
 	_map_btn.disabled = not in_lobby
 
-func _refresh_members(lobby: PlayFabLobby) -> void:
+func _refresh_members(lobby) -> void:
 	_members.clear()
-	for member: PlayFabLobbyMember in lobby.members:
+	for member in lobby.members:
 		var marker := " (local)" if member.is_local else ""
 		_members.add_item("%s%s" % [member.user_id, marker])
 
