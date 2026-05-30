@@ -288,13 +288,26 @@ func disconnect_signal_handlers(obj: Object, signal_names: Array) -> void:
 
 # ── TestEnv convenience wrappers ─────────────────────────────────────────
 
+# Returns true when LIVE_TESTS=1 is set; otherwise marks the current test pending.
+func requires_live() -> bool:
+	if TestEnv.live_tests_enabled():
+		return true
+	pending("Skipped without LIVE_TESTS=1")
+	return false
+
+
+# Returns true when both LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 are set.
+func requires_live_write() -> bool:
+	if TestEnv.live_write_tests_enabled():
+		return true
+	pending("Skipped without LIVE_TESTS=1 and LIVE_WRITE_TESTS=1")
+	return false
+
+
 # Pending the current test unless LIVE_TESTS=1 is set. Returns true when
 # the test was marked pending (caller should `return` immediately after).
 func pending_unless_live() -> bool:
-	if not TestEnv.live_tests_enabled():
-		pending("Skipped without LIVE_TESTS=1")
-		return true
-	return false
+	return not requires_live()
 
 
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive

@@ -42,6 +42,9 @@ func test_error_reporting_validation_is_deterministic() -> void:
 	var invalid_option_result = error_reporting.configure_options(999, error_reporting.ERROR_OPTIONS_NONE)
 	assert_result_error(invalid_option_result, "invalid_error_reporting_options", "configure_options() rejects unsupported option flags")
 
+	var invalid_second_option_result = error_reporting.configure_options(error_reporting.ERROR_OPTIONS_NONE, 999)
+	assert_result_error(invalid_second_option_result, "invalid_error_reporting_options", "configure_options() validates debugger_not_present_options independently")
+
 	var pre_init_callback_result = error_reporting.set_callback_enabled(true)
 	assert_result_error(pre_init_callback_result, "runtime_not_initialized", "set_callback_enabled() requires initialized runtime")
 
