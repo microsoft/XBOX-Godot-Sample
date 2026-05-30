@@ -98,6 +98,8 @@ Rules:
 7. `PlayFab.dispatch()` pumps the shared PlayFab runtime queue, PlayFab Multiplayer lobby/matchmaking state changes, and PlayFab Party state changes.
 8. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
 
+For Multiplayer lobbies, successful local `PlayFabLobby.set_member_properties_async()` writes update the local member snapshot eagerly before the completion signal settles; remote member-property changes continue to arrive through SDK-driven `MEMBER_UPDATED` state changes.
+
 ## User/session model
 
 `PlayFabUser` represents one signed-in PlayFab session associated with either a local Xbox user id or a title-defined custom id.
@@ -176,6 +178,8 @@ Service buckets:
 ## Multiplayer lobbies and matchmaking
 
 The MLP `PlayFab.multiplayer` service supports PlayFab Multiplayer initialization, lobby create/join/search, matchmaking ticket create, ticket enumeration, and explicit arranged-lobby joins. `PlayFabLobby` owns lobby leave and lobby/member property updates. `PlayFabMatchTicket` owns ticket cancellation and status refresh. User-owned native calls use the signed-in `PlayFabUser`'s internal `PFEntityHandle` overloads.
+
+`PlayFabLobby.set_properties_async()` and `set_member_properties_async()` accept String / StringName property values, with `null` meaning "delete this key" for update calls. The addon translates those null entries to the public GDK SDK's documented delete representation in `PFLobbyDataUpdate` / `PFLobbyMemberDataUpdate`; keys omitted from the dictionary remain unchanged. Initial create/join property dictionaries accept String / StringName values only (null is rejected).
 
 `create_match_ticket_async` resolves only after the SDK assigns a non-empty `ticket_id` to the returned `PlayFabMatchTicket`; half-created local handles remain internal. Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
 

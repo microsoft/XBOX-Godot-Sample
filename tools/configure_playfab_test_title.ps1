@@ -1291,9 +1291,9 @@ if (-not $SkipTitleDataMarker) {
 Write-Host ''
 Write-Host 'Live test command:'
 $liveTestCommand = if ($SkipCustomIdAccount) {
-    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`""
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId `"$TitleId`""
 } else {
-    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
+    "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId `"$TitleId`" -PlayFabCustomId `"$CustomId`""
 }
 if (-not $SkipMultiplayerMatchmakingQueue) {
     $liveTestCommand = "$liveTestCommand -PlayFabMatchmakingQueue `"$MatchmakingQueueName`""
