@@ -81,6 +81,18 @@ func test_multiplayer_activity_full_flow() -> void:
 		pending("Multiplayer activity runtime behavior: %s" % init_result.message)
 		return
 
+	var activities_null_user_signal = multiplayer_activity.get_activities_async(null, PackedStringArray(["1"]))
+	await assert_signal_result_error(activities_null_user_signal, "invalid_user", "get_activities_async() rejects null users after initialize")
+
+	var invite_ui_null_user_signal = multiplayer_activity.show_invite_ui_async(null)
+	await assert_signal_result_error(invite_ui_null_user_signal, "invalid_user", "show_invite_ui_async() rejects null users after initialize")
+
+	var recent_players_null_user_result = multiplayer_activity.update_recent_players(null, PackedStringArray(["1"]))
+	assert_result_error(recent_players_null_user_result, "invalid_user", "update_recent_players() rejects null users after initialize")
+
+	var flush_recent_null_user_signal = multiplayer_activity.flush_recent_players_async(null)
+	await assert_signal_result_error(flush_recent_null_user_signal, "invalid_user", "flush_recent_players_async() rejects null users after initialize")
+
 	var invalid_restriction_signal = multiplayer_activity.set_activity_async(blank_user, "join-token", "not-a-restriction")
 	await assert_signal_result_error(invalid_restriction_signal, "invalid_join_restriction", "set_activity_async() rejects unknown join_restriction values")
 

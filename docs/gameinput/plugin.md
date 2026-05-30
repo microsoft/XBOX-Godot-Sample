@@ -162,6 +162,11 @@ preferred for clarity.
   raw `IGameInputDevice*`. Stale wrappers stay alive but `is_connected()`
   starts returning `false` and other methods return safe defaults.
 * Device ids are never recycled within a session.
+* Shutdown uses `IGameInput::UnregisterCallback` rather than `StopCallback`:
+  Microsoft documents `UnregisterCallback` as the point after which callback
+  resources may be removed, while `StopCallback` only prevents future dispatch.
+  This keeps the raw callback context, cached devices, and pending-event queue
+  alive until any in-flight GameInput worker callback has finished.
 
 ## In-editor docs
 

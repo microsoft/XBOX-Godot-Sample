@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 4 reference scene — PlayFab Game Saves.
 ##
 ## Buttons drive each tutorial step:
@@ -65,14 +67,14 @@ func _ready() -> void:
 				_auth.call("get_last_error_message")])
 
 func _add_to_game_saves() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
 	if not user.has_local_user_handle:
 		_append("[color=red][Save] PlayFab session is custom-id; Game Saves needs Xbox.[/color]")
 		return
 
-	var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(user)
+	var result = await AddonApi.singleton("PlayFab").game_saves.add_user_with_ui_async(user)
 	if not result.ok:
 		_append("[color=orange][Save] Add user failed: %s (%s)[/color]" % [result.message, result.code])
 		return
@@ -106,35 +108,35 @@ func _write_save(highscore: int) -> void:
 	_append("[Save] Wrote save: highscore=%d" % highscore)
 
 func _upload(description: String) -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
 
 	if not description.is_empty():
-		var desc_result: PlayFabResult = await PlayFab.game_saves.set_save_description_async(user, description)
+		var desc_result = await AddonApi.singleton("PlayFab").game_saves.set_save_description_async(user, description)
 		if not desc_result.ok:
 			_append("[color=orange][Save] Description set failed: %s[/color]" % desc_result.message)
 
-	var result: PlayFabResult = await PlayFab.game_saves.upload_with_ui_async(user, false)
+	var result = await AddonApi.singleton("PlayFab").game_saves.upload_with_ui_async(user, false)
 	if result.ok:
 		_append("[Save] Upload complete")
 	else:
 		_append("[color=orange][Save] Upload failed: %s (%s)[/color]" % [result.message, result.code])
 
 func _print_cloud_state() -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
 
-	var connected: PlayFabResult = PlayFab.game_saves.is_connected_to_cloud(user)
+	var connected = AddonApi.singleton("PlayFab").game_saves.is_connected_to_cloud(user)
 	if connected.ok:
 		_append("[Save] Cloud connected: %s" % str(connected.data))
 
-	var folder_size: PlayFabResult = PlayFab.game_saves.get_folder_size(user)
+	var folder_size = AddonApi.singleton("PlayFab").game_saves.get_folder_size(user)
 	if folder_size.ok:
 		_append("[Save] Folder size on disk: %d bytes" % int(folder_size.data))
 
-	var quota: PlayFabResult = PlayFab.game_saves.get_remaining_quota(user)
+	var quota = AddonApi.singleton("PlayFab").game_saves.get_remaining_quota(user)
 	if quota.ok:
 		_append("[Save] Remaining quota: %d bytes" % int(quota.data))
 
@@ -143,7 +145,7 @@ func _on_resolve_pressed() -> void:
 	# as a single chooser instead of a hard-wired "rollback" button.
 	# Pre-flight: refuse to open if PlayFab isn't ready or the session
 	# isn't Xbox-backed (Game Saves only supports Xbox sign-ins).
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null or not user.has_local_user_handle:
 		_append("[color=red][Save] Resolve unavailable — sign in with an Xbox account first.[/color]")
 		return
@@ -151,27 +153,27 @@ func _on_resolve_pressed() -> void:
 
 func _on_resolve_action(action: StringName) -> void:
 	_resolve_dialog.hide()
-	var option: int = PlayFabGameSaves.ADD_USER_OPTION_NONE
+	var option: int = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_NONE")
 	var label := ""
 	match str(action):
 		ACTION_KEEP_CLOUD:
-			option = PlayFabGameSaves.ADD_USER_OPTION_NONE
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_NONE")
 			label = "keep cloud version"
 		ACTION_LAST_KNOWN_GOOD:
-			option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD")
 			label = "rolled back to last known good"
 		ACTION_LAST_CONFLICT:
-			option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT")
 			label = "rolled back to last conflict"
 		_:
 			return
 	await _apply_resolution(option, label)
 
 func _apply_resolution(option: int, label: String) -> void:
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(user, option)
+	var result = await AddonApi.singleton("PlayFab").game_saves.add_user_with_ui_async(user, option)
 	if not result.ok:
 		_append("[color=orange][Save] Resolution failed (%s): %s[/color]" % [label, result.message])
 		return

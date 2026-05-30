@@ -30,7 +30,7 @@ static func live_tests_enabled() -> bool:
 # True if LIVE_WRITE_TESTS=1 in the process environment. Use in addition to
 # LIVE_TESTS for tests that create or mutate persistent live-service state.
 static func live_write_tests_enabled() -> bool:
-	return OS.get_environment(LIVE_WRITE_TESTS_ENV) == "1"
+	return live_tests_enabled() and OS.get_environment(LIVE_WRITE_TESTS_ENV) == "1"
 
 
 # Generate a unique-per-run id of the form `gdkfleet-YYYYMMDDHHmmss-XXXX`.

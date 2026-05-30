@@ -178,7 +178,6 @@ void GameInputMapper::_release_held_action_for(int binding_index) {
                 input->parse_input_event(evt);
             }
         }
-        }
     }
 
     m_prev_pressed.erase(binding_index);

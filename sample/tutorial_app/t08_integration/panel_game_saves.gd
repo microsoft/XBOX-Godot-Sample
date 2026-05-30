@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 4 — Game Saves panel.
 ##
 ## Adds the local PlayFab user to Game Saves, writes a timestamped blob
@@ -63,8 +65,8 @@ func _initialize_after_sign_in() -> void:
 		return
 	_initialized = true
 
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(user)
+	var user = _auth.get("playfab_user")
+	var result = await AddonApi.singleton("PlayFab").game_saves.add_user_with_ui_async(user)
 	if not is_inside_tree():
 		return
 	if not result.ok:
@@ -84,7 +86,7 @@ func _on_write_pressed() -> void:
 	if _save_folder.is_empty():
 		return
 	var path: String = "%s/%s" % [_save_folder, SAVE_FILE]
-	var xbox: GDKUser = _auth.get("xbox_user")
+	var xbox = _auth.get("xbox_user")
 	var gamertag: String = xbox.gamertag if xbox != null else "(unknown)"
 	var payload: String = "saved=%s timestamp=%s" % [
 			gamertag, Time.get_datetime_string_from_system()]
@@ -95,8 +97,8 @@ func _on_write_pressed() -> void:
 	f.store_string(payload)
 	f.close()
 	var bytes: int = payload.length()
-	var user: PlayFabUser = _auth.get("playfab_user")
-	var upload: PlayFabResult = await PlayFab.game_saves.upload_with_ui_async(user, false)
+	var user = _auth.get("playfab_user")
+	var upload = await AddonApi.singleton("PlayFab").game_saves.upload_with_ui_async(user, false)
 	if not is_inside_tree():
 		return
 	if upload.ok:
@@ -125,24 +127,24 @@ func _on_resolve_pressed() -> void:
 
 func _on_resolve_action(action: StringName) -> void:
 	_resolve_dialog.hide()
-	var option: int = PlayFabGameSaves.ADD_USER_OPTION_NONE
+	var option: int = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_NONE")
 	var label := ""
 	match str(action):
 		ACTION_KEEP_CLOUD:
-			option = PlayFabGameSaves.ADD_USER_OPTION_NONE
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_NONE")
 			label = "keep cloud version"
 		ACTION_LAST_KNOWN_GOOD:
-			option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD")
 			label = "rolled back to last known good"
 		ACTION_LAST_CONFLICT:
-			option = PlayFabGameSaves.ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT
+			option = AddonApi.constant("PlayFabGameSaves", "ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT")
 			label = "rolled back to last conflict"
 		_:
 			return
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	var result: PlayFabResult = await PlayFab.game_saves.add_user_with_ui_async(user, option)
+	var result = await AddonApi.singleton("PlayFab").game_saves.add_user_with_ui_async(user, option)
 	if not is_inside_tree():
 		return
 	if not result.ok:

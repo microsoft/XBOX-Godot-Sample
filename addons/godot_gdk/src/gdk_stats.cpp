@@ -535,6 +535,12 @@ void GDKStats::_apply_staged_stats_to_cache(const Ref<GDKUser> &p_user, const st
 }
 
 void GDKStats::_close_tracking_state(TrackingState &p_state) {
+    if (p_state.callback_context) {
+        std::lock_guard<std::mutex> lock(p_state.callback_context->mutex);
+        p_state.callback_context->active.store(false, std::memory_order_release);
+        p_state.callback_context->stats = nullptr;
+    }
+
     if (p_state.handler_registered && p_state.context != nullptr) {
         XblUserStatisticsRemoveStatisticChangedHandler(p_state.context, p_state.handler_token);
     }
@@ -545,6 +551,16 @@ void GDKStats::_close_tracking_state(TrackingState &p_state) {
         XblContextCloseHandle(p_state.context);
         p_state.context = nullptr;
     }
+
+    if (p_state.callback_token) {
+        constexpr size_t MAX_RETIRED_CALLBACK_TOKENS = 16;
+        m_retired_callback_tokens.push_back(p_state.callback_token);
+        if (m_retired_callback_tokens.size() > MAX_RETIRED_CALLBACK_TOKENS) {
+            m_retired_callback_tokens.erase(m_retired_callback_tokens.begin());
+        }
+        p_state.callback_token.reset();
+    }
+    p_state.callback_context.reset();
 }
 
 Ref<GDKResult> GDKStats::on_runtime_initialized() {
@@ -840,7 +856,11 @@ Ref<GDKResult> GDKStats::track_stats(const Ref<GDKUser> &p_user, const PackedStr
             return GDKResult::hresult_error(context_hr, "Failed to create an Xbox services context for statistics tracking.", "xbox_context_unavailable");
         }
 
-        new_state.handler_token = XblUserStatisticsAddStatisticChangedHandler(new_state.context, _statistic_changed_handler, this);
+        new_state.callback_context = std::make_shared<TrackingState::CallbackContext>();
+        new_state.callback_context->stats = this;
+        new_state.callback_token = std::make_shared<TrackingState::CallbackToken>();
+        new_state.callback_token->context = new_state.callback_context;
+        new_state.handler_token = XblUserStatisticsAddStatisticChangedHandler(new_state.context, _statistic_changed_handler, new_state.callback_token.get());
         new_state.handler_registered = true;
         m_tracking_states.push_back(new_state);
         state = &m_tracking_states.back();
@@ -961,8 +981,15 @@ void GDKStats::on_user_removed(const Ref<GDKUser> &p_user) {
 }
 
 void CALLBACK GDKStats::_statistic_changed_handler(XblStatisticChangeEventArgs p_args, void *p_context) {
-    GDKStats *stats = static_cast<GDKStats *>(p_context);
-    if (stats == nullptr) {
+    TrackingState::CallbackToken *token = static_cast<TrackingState::CallbackToken *>(p_context);
+    std::shared_ptr<TrackingState::CallbackContext> callback_context = token != nullptr ? token->context.lock() : nullptr;
+    if (!callback_context || !callback_context->active.load(std::memory_order_acquire)) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> context_lock(callback_context->mutex);
+    GDKStats *stats = callback_context->stats;
+    if (!callback_context->active.load(std::memory_order_acquire) || stats == nullptr) {
         return;
     }
 

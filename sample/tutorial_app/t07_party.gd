@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 7 — PlayFab Party demo scene.
 ##
 ## Demonstrates the Party autoload's host/join/leave flow on top of the
@@ -139,7 +141,7 @@ func _on_ping_pressed() -> void:
 	else:
 		_append_log("[ping failed — not in a network]")
 
-func _on_lobby_joined(lobby: PlayFabLobby) -> void:
+func _on_lobby_joined(lobby) -> void:
 	_status_label.text = "Lobby ready: %s" % lobby.lobby_id
 	# Surface the connection string in the same LineEdit the client
 	# pastes into so the host can select-and-copy it (Ctrl+C) and hand
@@ -152,7 +154,7 @@ func _on_lobby_joined(lobby: PlayFabLobby) -> void:
 	_join_lobby_id.grab_focus()
 	_leave_button.disabled = false
 	# Host: trigger Party network create now that the lobby owns us.
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 	if user != null and lobby.is_owner(user):
 		await _party_node.host_party()
 
@@ -174,7 +176,7 @@ func _on_lobby_disconnected() -> void:
 	_ping_button.disabled = true
 	_network_label.text = "Network: (none)"
 
-func _on_network_joined(network: PlayFabPartyNetwork) -> void:
+func _on_network_joined(network) -> void:
 	_network_label.text = "Network: %s" % network.network_id
 	_send_button.disabled = false
 	_ping_button.disabled = false

@@ -179,7 +179,7 @@ The MLP `PlayFab.multiplayer` service supports PlayFab Multiplayer initializatio
 
 `PlayFabLobby.set_properties_async()` and `set_member_properties_async()` accept String / StringName property values, with `null` meaning "delete this key" for update calls. The addon translates those null entries to the public GDK SDK's documented delete representation in `PFLobbyDataUpdate` / `PFLobbyMemberDataUpdate`; keys omitted from the dictionary remain unchanged. Initial create/join property dictionaries accept String / StringName values only (null is rejected).
 
-Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
+`create_match_ticket_async` resolves only after the SDK assigns a non-empty `ticket_id` to the returned `PlayFabMatchTicket`; half-created local handles remain internal. Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
 
 Failed lobby create/join completions are terminal for their temporary wrapper: the wrapper is removed from `PlayFab.multiplayer.get_lobbies()` and marked disconnected before the failure result is surfaced. If `PFLobbyFinishStateChanges` or `PFMatchmakingFinishStateChanges` fails, the service emits `multiplayer_error`, tears down native Multiplayer state (including the task queue), marks wrappers detached, and returns to `is_initialized() == false`; titles must call `initialize_async()` before issuing more Multiplayer calls.
 

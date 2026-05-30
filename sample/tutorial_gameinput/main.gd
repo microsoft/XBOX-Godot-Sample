@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://addon_api.gd")
+
 ## GameInput action bridge — standalone tutorial sample.
 ##
 ## Builds a GameInputActionMap programmatically (matching the Step 2
@@ -23,7 +25,7 @@ const PLAYER_GRAVITY := 1200.0
 const PLAYER_FLOOR_Y := 320.0
 
 var _player_velocity_y: float = 0.0
-var _mapper: GameInputMapper = null
+var _mapper = null
 
 func _ready() -> void:
 	if not Engine.has_singleton("GameInput"):
@@ -33,50 +35,50 @@ func _ready() -> void:
 		_action_state.text = ""
 		return
 
-	if not GameInput.is_initialized():
+	if not AddonApi.singleton("GameInput").is_initialized():
 		push_warning("[Pad] GameInput runtime not available — gamepad input disabled.")
 		_runtime_status.text = "GameInput runtime NOT initialized (set game_input/runtime/initialize_on_startup=true)."
 	else:
 		_runtime_status.text = "GameInput runtime initialized."
 
-	_mapper = GameInputMapper.new()
+	_mapper = AddonApi.instantiate("GameInputMapper")
 	_mapper.name = "GamepadMapper"
 	_mapper.action_map = _build_default_map()
 	add_child(_mapper)
 
-	GameInput.device_connected.connect(_on_device_connected)
-	GameInput.device_disconnected.connect(_on_device_disconnected)
+	AddonApi.singleton("GameInput").device_connected.connect(_on_device_connected)
+	AddonApi.singleton("GameInput").device_disconnected.connect(_on_device_disconnected)
 
 	# Seed the UI with whatever was connected before _ready.
 	_refresh_devices()
-	_append_hotplug("Seeded with %d device(s) at startup" % GameInput.get_connected_device_count())
+	_append_hotplug("Seeded with %d device(s) at startup" % AddonApi.singleton("GameInput").get_connected_device_count())
 
 	# Position the player on the floor.
 	_player.position = Vector2(get_viewport_rect().size.x * 0.5, PLAYER_FLOOR_Y)
 
-func _build_default_map() -> GameInputActionMap:
-	var map := GameInputActionMap.new()
+func _build_default_map():
+	var map := AddonApi.instantiate("GameInputActionMap")
 
-	var accept := GameInputBinding.new()
+	var accept := AddonApi.instantiate("GameInputBinding")
 	accept.action = &"ui_accept"
-	accept.source = GameInputDevice.SRC_BTN_A
+	accept.source = AddonApi.constant("GameInputDevice", "SRC_BTN_A")
 	map.add_binding(accept)
 
-	var jump := GameInputBinding.new()
+	var jump := AddonApi.instantiate("GameInputBinding")
 	jump.action = &"jump"
-	jump.source = GameInputDevice.SRC_BTN_A
+	jump.source = AddonApi.constant("GameInputDevice", "SRC_BTN_A")
 	map.add_binding(jump)
 
-	var left := GameInputBinding.new()
+	var left := AddonApi.instantiate("GameInputBinding")
 	left.action = &"move_left"
-	left.source = GameInputDevice.SRC_AXIS_LEFT_X
+	left.source = AddonApi.constant("GameInputDevice", "SRC_AXIS_LEFT_X")
 	left.is_axis = true
 	left.axis_invert = true
 	map.add_binding(left)
 
-	var right := GameInputBinding.new()
+	var right := AddonApi.instantiate("GameInputBinding")
 	right.action = &"move_right"
-	right.source = GameInputDevice.SRC_AXIS_LEFT_X
+	right.source = AddonApi.constant("GameInputDevice", "SRC_AXIS_LEFT_X")
 	right.is_axis = true
 	map.add_binding(right)
 
@@ -113,7 +115,7 @@ func _process(_delta: float) -> void:
 			]
 	)
 
-func _on_device_connected(device: GameInputDevice) -> void:
+func _on_device_connected(device) -> void:
 	_append_hotplug("connected: id=%d (%s)" % [device.get_device_id(), device.get_display_name()])
 	_refresh_devices()
 
@@ -122,11 +124,11 @@ func _on_device_disconnected(device_id: int) -> void:
 	_refresh_devices()
 
 func _refresh_devices() -> void:
-	var count: int = GameInput.get_connected_device_count()
+	var count: int = AddonApi.singleton("GameInput").get_connected_device_count()
 	_device_count.text = "Connected gamepads: %d" % count
 
 	var lines := PackedStringArray()
-	for device in GameInput.get_devices(GameInput.DEVICE_GAMEPAD):
+	for device in AddonApi.singleton("GameInput").get_devices(AddonApi.constant("GameInput", "DEVICE_GAMEPAD")):
 		lines.append("- id=%d %s" % [device.get_device_id(), device.get_display_name()])
 	if lines.is_empty():
 		lines.append("- (none — plug in a gamepad)")

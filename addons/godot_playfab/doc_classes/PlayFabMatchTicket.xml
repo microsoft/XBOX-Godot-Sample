@@ -4,7 +4,7 @@
 		Tracked PlayFab matchmaking ticket wrapper.
 	</brief_description>
 	<description>
-		Returned by [method PlayFabMultiplayer.create_match_ticket_async]. Ticket progress is pushed through [signal state_changed].
+		Returned by [method PlayFabMultiplayer.create_match_ticket_async]. That async method resolves only after [member ticket_id] is assigned, so a surfaced ticket can be cancelled by id immediately. Ticket progress is pushed through [signal state_changed].
 	</description>
 	<tutorials></tutorials>
 	<methods>

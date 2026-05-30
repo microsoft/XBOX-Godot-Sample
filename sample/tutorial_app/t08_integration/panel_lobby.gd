@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 5 — Lobby panel.
 ##
 ## Host / join (from a pasted connection string) / leave with member
@@ -44,8 +46,8 @@ func _exit_tree() -> void:
 	if not _initialized:
 		return
 	if Engine.has_singleton("PlayFab"):
-		if PlayFab.multiplayer.state_changed.is_connected(_refresh):
-			PlayFab.multiplayer.state_changed.disconnect(_refresh)
+		if AddonApi.singleton("PlayFab").multiplayer.state_changed.is_connected(_refresh):
+			AddonApi.singleton("PlayFab").multiplayer.state_changed.disconnect(_refresh)
 	if _lobby_node != null and _lobby_node.lobby_disconnected.is_connected(_on_lobby_disconnected):
 		_lobby_node.lobby_disconnected.disconnect(_on_lobby_disconnected)
 	if _lobby_node != null and _lobby_node.state_changed.is_connected(_on_lobby_state_changed):
@@ -64,7 +66,7 @@ func _initialize_after_sign_in() -> void:
 	_host.pressed.connect(_on_host_pressed)
 	_join.pressed.connect(_on_join_pressed)
 	_leave.pressed.connect(_on_leave_pressed)
-	PlayFab.multiplayer.state_changed.connect(_refresh)
+	AddonApi.singleton("PlayFab").multiplayer.state_changed.connect(_refresh)
 	_lobby_node.lobby_disconnected.connect(_on_lobby_disconnected)
 	# Drive in-progress feedback off the Lobby autoload so the status
 	# label flips to "Hosting…" / "Joining…" / "Leaving…" the moment the
@@ -78,7 +80,7 @@ func _on_host_pressed() -> void:
 	await _lobby_node.host_lobby()
 	if not is_inside_tree():
 		return
-	var current: PlayFabLobby = _lobby_node.call("get_current_lobby")
+	var current = _lobby_node.call("get_current_lobby")
 	if current != null:
 		_connection_string.text = current.connection_string
 	_refresh()
@@ -100,7 +102,7 @@ func _on_leave_pressed() -> void:
 	_refresh()
 
 func _refresh(_change = null) -> void:
-	var current: PlayFabLobby = _lobby_node.call("get_current_lobby")
+	var current = _lobby_node.call("get_current_lobby")
 	if current == null:
 		_status.text = "Not in a lobby"
 		_members.text = ""
@@ -110,7 +112,7 @@ func _refresh(_change = null) -> void:
 			current.member_count,
 			current.max_member_count]
 	var lines := PackedStringArray()
-	for member: PlayFabLobbyMember in current.members:
+	for member in current.members:
 		lines.append("- %s%s" % [member.user_id, " (you)" if member.is_local else ""])
 	_members.text = "\n".join(lines)
 

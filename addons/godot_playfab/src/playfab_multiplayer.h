@@ -456,6 +456,7 @@ private:
     void _track_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _untrack_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
+    void _complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket);
     void _terminate_multiplayer_queue();
     void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
     int _dispatch_lobby_state_changes();
