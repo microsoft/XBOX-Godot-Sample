@@ -292,6 +292,19 @@ func _assert_cloud_script_reaches_service(playfab: Object, playfab_user, api_fix
 			"generate_play_stream_event": false,
 		},
 		"PlayFab.cloud_script.execute_cloud_script_async")
+	assert_not_null(result, "PlayFab.cloud_script.execute_cloud_script_async returns PlayFabResult")
+	if result == null:
+		return
+	assert_ne(result.code, "playfab_api_start_failed", "CloudScript request reached PlayFab service instead of failing at API start")
+	assert_ne(result.code, "invalid_request", "CloudScript request marshalled before reaching PlayFab service")
+	if result.ok:
+		assert_true(result.data is Dictionary, "CloudScript service response includes data Dictionary")
+		if result.data is Dictionary:
+			var response: Dictionary = result.data
+			assert_eq(str(response.get("function_name", "")), function_name, "CloudScript response echoes requested function_name")
+			assert_true(response.has("error") or response.has("function_result") or response.has("logs"), "CloudScript response includes service payload fields")
+	else:
+		assert_true(str(result.message).length() > 0, "CloudScript service failure includes message")
 
 func _assert_api_ok(service: Object, method_name: String, playfab_user, request, label: String):
 	var result = await _call_api(service, method_name, playfab_user, request, label)

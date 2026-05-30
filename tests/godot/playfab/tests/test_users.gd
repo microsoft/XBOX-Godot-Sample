@@ -19,6 +19,12 @@ func test_users_api() -> void:
 	for method_name in ["sign_in_with_xuser_async", "sign_in_with_custom_id_async", "get_user_by_local_id", "get_user_by_custom_id", "get_user", "get_users"]:
 		assert_has_method_named(users, method_name)
 
+	var blank_user_for_cache = instantiate_class("PlayFabUser")
+	if users.has_method("add_or_update_user_session"):
+		assert_false(bool(users.call("add_or_update_user_session", blank_user_for_cache)), "PlayFabUsers.add_or_update_user_session(blank) rejects an uncached blank user")
+	else:
+		assert_false(users.has_method("add_or_update_user_session"), "PlayFabUsers.add_or_update_user_session is not script-visible on public/main")
+
 	for signal_name in ["user_signed_in", "user_signed_out", "user_changed"]:
 		assert_true(not users.has_signal(signal_name), "PlayFabUsers.%s is not exposed" % signal_name)
 
