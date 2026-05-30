@@ -325,6 +325,7 @@ void GameInput::shutdown() {
     m_accepting_callbacks.store(false, std::memory_order_release);
 
     if (m_game_input && m_device_callback_token) {
+        // UnregisterCallback blocks until in-flight callbacks finish; StopCallback does not.
         bool unregistered = m_game_input->UnregisterCallback(m_device_callback_token);
         if (!unregistered) {
             UtilityFunctions::push_warning(
