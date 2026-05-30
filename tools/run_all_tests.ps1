@@ -208,6 +208,13 @@ function Invoke-ChildProcess {
         $psi.EnvironmentVariables[[string]$entry.Key] = [string]$entry.Value
     }
     $psi.EnvironmentVariables.Remove('PLAYFAB_DEVELOPER_SECRET_KEY')
+    # Scrub ambient LIVE_TESTS / LIVE_WRITE_TESTS so they can only reach
+    # children via $EnvOverrides (which the orchestrator only populates when
+    # -Live / -AllowLiveWrites are explicitly passed). Without this, a user
+    # who has LIVE_WRITE_TESTS=1 in their shell env would bypass the
+    # -AllowLiveWrites gate and silently drive live-write tests.
+    $psi.EnvironmentVariables.Remove('LIVE_TESTS')
+    $psi.EnvironmentVariables.Remove('LIVE_WRITE_TESTS')
     foreach ($k in $EnvOverrides.Keys) {
         $psi.EnvironmentVariables[[string]$k] = [string]$EnvOverrides[$k]
     }
