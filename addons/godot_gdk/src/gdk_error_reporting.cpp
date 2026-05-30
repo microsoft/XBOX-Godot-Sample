@@ -56,6 +56,10 @@ void GDKErrorReporting::shutdown() {
 }
 
 int GDKErrorReporting::dispatch() {
+    if (!m_runtime_ready) {
+        return 0;
+    }
+
     std::vector<PendingError> pending_errors;
     {
         std::lock_guard<std::mutex> lock(m_pending_errors_mutex);
@@ -80,7 +84,13 @@ int GDKErrorReporting::dispatch() {
         if (m_owner != nullptr) {
             m_owner->emit_runtime_error(result);
         }
+        if (!m_runtime_ready) {
+            break;
+        }
         emit_signal("error_reported", result);
+        if (!m_runtime_ready) {
+            break;
+        }
     }
 
     return static_cast<int>(pending_errors.size());
