@@ -153,6 +153,10 @@ void GDKActivation::remove_activation_listener(uint64_t p_listener_id) {
 }
 
 void GDKActivation::notify_activation_listeners_internal(const Dictionary &p_info) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
     std::vector<std::function<void(const Dictionary &)>> callbacks;
     callbacks.reserve(m_activation_listeners.size());
     for (const ActivationListener &listener : m_activation_listeners) {
@@ -162,6 +166,9 @@ void GDKActivation::notify_activation_listeners_internal(const Dictionary &p_inf
     }
 
     for (const std::function<void(const Dictionary &)> &callback : callbacks) {
+        if (!m_runtime_ready) {
+            break;
+        }
         callback(p_info);
     }
 }
@@ -245,7 +252,7 @@ Ref<GDKResult> GDKActivation::accept_pending_invite(const String &p_invite_uri) 
 }
 
 void GDKActivation::handle_activation_internal(const XGameActivationInfo *p_activation_info) {
-    if (p_activation_info == nullptr) {
+    if (!m_runtime_ready || p_activation_info == nullptr) {
         return;
     }
 
@@ -285,7 +292,15 @@ void GDKActivation::handle_activation_internal(const XGameActivationInfo *p_acti
             break;
     }
 
+    if (!m_runtime_ready) {
+        return;
+    }
+
     notify_activation_listeners_internal(info);
+    if (!m_runtime_ready) {
+        return;
+    }
+
     emit_signal("activated", info);
 }
 

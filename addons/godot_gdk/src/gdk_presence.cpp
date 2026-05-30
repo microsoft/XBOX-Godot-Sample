@@ -595,6 +595,8 @@ Ref<GDKResult> GDKPresence::on_runtime_initialized() {
 }
 
 void GDKPresence::shutdown() {
+    m_runtime_ready = false;
+
     for (HandlerState &state : m_handler_states) {
         _close_handler_state(state);
     }
@@ -603,7 +605,6 @@ void GDKPresence::shutdown() {
         std::lock_guard<std::mutex> lock(m_pending_presence_events_mutex);
         m_pending_presence_events.clear();
     }
-    m_runtime_ready = false;
     m_cached_presence.clear();
     // Drop every retired callback token at shutdown. _close_handler_state has
     // already called XblPresenceRemove*ChangedHandler for each state, and
@@ -614,6 +615,10 @@ void GDKPresence::shutdown() {
 }
 
 int GDKPresence::dispatch() {
+    if (!m_runtime_ready) {
+        return 0;
+    }
+
     std::vector<PendingPresenceEvent> events;
     {
         std::lock_guard<std::mutex> lock(m_pending_presence_events_mutex);
@@ -629,6 +634,9 @@ int GDKPresence::dispatch() {
             emit_signal("title_presence_changed", xuid, static_cast<int64_t>(event.title_id));
         }
         ++dispatched;
+        if (!m_runtime_ready) {
+            break;
+        }
     }
     return dispatched;
 }
@@ -996,7 +1004,7 @@ Ref<GDKPresenceRecord> GDKPresence::get_cached_presence(const String &p_xuid) co
 }
 
 void GDKPresence::cache_presence_record(const Ref<GDKPresenceRecord> &p_record, bool p_emit_signal) {
-    if (!p_record.is_valid()) {
+    if (!m_runtime_ready || !p_record.is_valid()) {
         return;
     }
 

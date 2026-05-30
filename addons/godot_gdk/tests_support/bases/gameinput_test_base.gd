@@ -56,11 +56,22 @@ func assert_has_signal_named(obj: Object, signal_name: String, test_name: String
 
 # ── TestEnv convenience wrappers ─────────────────────────────────────────
 
-func pending_unless_live() -> bool:
-	if not TestEnv.live_tests_enabled():
-		pending("Skipped without LIVE_TESTS=1")
+func requires_live() -> bool:
+	if TestEnv.live_tests_enabled():
 		return true
+	pending("Skipped without LIVE_TESTS=1")
 	return false
+
+
+func requires_live_write() -> bool:
+	if TestEnv.live_write_tests_enabled():
+		return true
+	pending("Skipped without LIVE_TESTS=1 and LIVE_WRITE_TESTS=1")
+	return false
+
+
+func pending_unless_live() -> bool:
+	return not requires_live()
 
 
 func with_unique_id(prefix: String) -> String:
