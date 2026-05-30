@@ -56,16 +56,23 @@ can share one script while still choosing automatic or manual startup.
 - `editor\gdk_export_platform.gd`
 - `editor\gdk_setup_panel.gd`
 
-These files are still shipped and synced, but the repo's active packaging UI now
-lives in the separate `godot_gdk_packaging` addon. The current
-`gdk_editor_plugin.gd` no longer registers the previous custom export platform.
+These files are still shipped and synced. The current `gdk_editor_plugin.gd`
+registers the custom `Xbox GDK (PC)` export platform and keeps the runtime
+autoload installed, but it no longer docks `gdk_setup_panel.gd`. The repo's
+broader packaging UI lives in the separate `godot_gdk_packaging` addon.
 
-### Sample project
+### Sample projects
 
-> **No sample projects currently.** The repository is mid-revamp;
-> samples are returning in PR 3 of the tutorial-driven sample
-> series (`sample/tutorial_app/` and
-> `sample/tutorial_gameinput/`).
+The repository currently ships two tutorial-driven sample projects:
+
+- `sample\tutorial_app\` — integrated tutorial chain (GDK runtime/sign-in,
+  achievements, PlayFab-backed flows, Multiplayer Activity, Party, and the
+  final integration scene). This project receives `godot_gdk`, `godot_playfab`,
+  and `godot_gdk_packaging` mirrors from the CMake build.
+- `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
+  wired for the GameInput addon and does not consume the GDK runtime addon.
+
+Related GDK runtime/test surfaces:
 
 - `addons\godot_gdk\runtime\gdk_bootstrap.gd`
 - `tests\godot\gdk\tests\`
@@ -97,8 +104,8 @@ The effective runtime artifact chain is:
 ```text
 native C++ sources
   -> godot_gdk.windows.<config>.x86_64.dll
-  -> addons/godot_gdk/bin/
-  -> sample/*/addons/godot_gdk/bin/
+  -> addons\godot_gdk\bin\
+  -> sample\tutorial_app\addons\godot_gdk\bin\
 ```
 
 > **Note:** vcpkg only provides the build-time dependencies. Consumers who
@@ -162,4 +169,5 @@ In practice:
 
 - `tests\godot\gdk\` is the canonical GDK test harness
 - `tests\godot\playfab\` receives `godot_gdk` when `GODOT_PLAYFAB_TEST_HOST_WITH_GDK=ON` so optional Xbox-backed PlayFab compatibility tests can run; turn the option off to keep the PlayFab host custom-ID-only
-- Sample projects are temporarily absent. PR 3 of the tutorial-driven sample revamp will reintroduce `sample\tutorial_app\` (integrated chain) and `sample\tutorial_gameinput\` (standalone GameInput demo), wiring them into the same addon-sync infrastructure described above.
+- `sample\tutorial_app\` receives the GDK runtime addon and is the integrated tutorial sample for GDK + PlayFab flows
+- `sample\tutorial_gameinput\` is a standalone GameInput sample and is not a GDK runtime consumer

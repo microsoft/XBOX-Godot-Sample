@@ -227,7 +227,7 @@ Shutdown must be queue-safe and op-safe:
 - active one-shot requests should be retained by the runtime until they reach a terminal state
 - queue termination should surface cancellation as failed `GDKResult` values rather than silently dropping callbacks
 - no service cache or Godot object should be mutated after the runtime starts teardown
-- `GDK.shutdown()` should clean up services first, then terminate and close the shared queue, then uninitialize the GDK runtime
+- `GDK.shutdown()` should clean up services first, then terminate and close the shared queue. `XGameRuntimeUninitialize()` is process-lifetime cleanup that runs once when the extension is torn down.
 
 #### Core behavior
 
@@ -410,7 +410,7 @@ and `GDK.achievements.runtime_error`).
 | Public surface | Native API(s) | Notes |
 | --- | --- | --- |
 | `GDK.initialize()` | `XGameRuntimeInitialize`, `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. |
-| `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle`, `XGameRuntimeUninitialize` | Service and user cleanup should run first; queue/runtime teardown happens last. |
+| `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle` | Service and user cleanup runs first; queue teardown happens last. `XGameRuntimeUninitialize()` is intentionally reserved for extension teardown (`~GDKRuntime()`), not each shutdown cycle. |
 | `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork`, `XErrorSetCallback` callback-drain bridge | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
 | `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
 | per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `GDKUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
@@ -1023,19 +1023,10 @@ error_reported(result: GDKResult)
 | `gdk/runtime/embed_dispatch` | `true` | Dispatches GDK completions automatically from the main thread each frame. |
 | `gdk/runtime/auto_add_primary_user` | `false` | Starts a default local-user flow after initialization. |
 
-### Service flags
-
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `gdk/services/enable_achievements` | `true` | Registers and initializes the achievements service. |
-| `gdk/services/enable_stats` | `true` | Registers and initializes the stats service. |
-| `gdk/services/enable_leaderboards` | `true` | Registers and initializes the leaderboards service. |
-| `gdk/services/enable_privacy` | `true` | Registers and initializes the privacy service. |
-| `gdk/services/enable_presence` | `true` | Registers and initializes the presence service. |
-| `gdk/services/enable_social` | `true` | Registers and initializes the social service. |
-| `gdk/services/enable_profile` | `true` | Registers and initializes the profile service. |
-| `gdk/services/enable_string_verify` | `true` | Registers and initializes the string verification service. |
-| `gdk/services/enable_title_storage` | `true` | Registers and initializes the Title Storage service. |
+There are no `gdk/services/enable_*` Project Settings. The runtime settings
+above are the only `godot_gdk` settings registered by the addon; public service
+objects are constructed as part of the single `GDK` root singleton and are not
+gated by per-service enable flags.
 
 ## Build and packaging rules
 

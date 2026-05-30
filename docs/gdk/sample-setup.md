@@ -1,8 +1,10 @@
 # Godot GDK sample project setup
 
-The sample project needs your **Partner Center** credentials to work with
-Xbox Live services. You can configure everything through the in-editor
-**GDK Setup panel** or via a CLI script.
+The integrated tutorial sample needs your **Partner Center** credentials to
+work with Xbox Live services. The supported setup paths are the repo CLI script
+or manually editing the local config files and Project Settings. The
+`godot_gdk` editor plugin no longer docks a **GDK Setup** panel; it keeps the
+runtime autoload installed and registers the `Xbox GDK (PC)` export platform.
 
 ## Prerequisites
 
@@ -32,31 +34,41 @@ Xbox Live services. You can configure everything through the in-editor
 | Sandbox ID | Xbox Live Setup | `XDKS.1` |
 | Publisher CN | Product identity page | `CN=XXXXXXXX-XXXX-...` |
 
-## Option A: Configure in the Godot editor (recommended)
+## Option A: Configure via CLI (recommended)
 
-1. Build the addon and open your Godot project in the editor:
-   ```powershell
-   cmake --build build --preset debug
-   ```
-   Then launch your Godot 4.x editor and **Project → Open** the
-   `project.godot` of the project you are configuring.
-2. Find the **GDK Setup** panel in the bottom-right dock
-3. Enter your Partner Center values
-4. Click **Save Configuration** — this writes `sample_config.cfg` (used at
-   runtime by the sample's GDScript)
-5. Click **Apply to Export Preset** — this pushes the same values into the
-   export preset (used when packaging for distribution)
-
-The config file is gitignored, so your credentials stay local.
-
-## Option B: Configure via CLI
+From the repository root, build the mirrored sample addons and run the setup
+script:
 
 ```powershell
-.\tools\setup_sample.ps1
+cmake --build build --preset debug
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\setup_sample.ps1
 ```
 
-This prompts for each value and generates `sample_config.cfg`,
-`MicrosoftGame.config`, and updates `export_presets.cfg` in one step.
+The script prompts for each Partner Center value, derives the current-title
+SCID, then writes `sample\tutorial_app\sample_config.cfg` and
+`sample\tutorial_app\MicrosoftGame.config`. If `export_presets.cfg` already
+exists in that project, the script also updates the matching export-preset
+fields.
+
+The generated files are gitignored, so your credentials stay local.
+
+## Option B: Configure manually in the project
+
+1. Copy `sample\tutorial_app\sample_config.cfg.template` to
+   `sample\tutorial_app\sample_config.cfg` and fill in the Partner Center
+   values used by the tutorial scripts.
+2. Copy `sample\tutorial_app\MicrosoftGame.config.template` to
+   `sample\tutorial_app\MicrosoftGame.config` and replace the Title ID,
+   MSA App ID, Store ID, identity, publisher, and visual placeholders.
+3. Open `sample\tutorial_app\project.godot` in Godot. The committed project
+   already enables the `godot_gdk`, `godot_playfab`, and `godot_gdk_packaging`
+   plugins after the CMake build mirrors them into `sample\tutorial_app\addons\`.
+4. Review **Project → Project Settings** for `gdk/runtime/*` startup settings
+   and any PlayFab runtime values needed by the tutorial scenes.
+5. For editor-driven packaging, use **Project → Export… → Add… → Xbox GDK (PC)**.
+   For scripted packaging and sandbox actions, use the separate
+   `godot_gdk_packaging` addon (`addons\godot_gdk_packaging\gdkpkg.cmd` or its
+   top-level **GDK** editor menu).
 
 ## Set your PC sandbox
 
@@ -93,15 +105,17 @@ project.godot
   └─► addons/godot_gdk/runtime/gdk_bootstrap.gd
          reads gdk/runtime/* startup flags → initializes GDK / silent sign-in
 
-sample_config.cfg (single source of truth)
-  ├─► main.gd              reads achievement ID at runtime → unlock button
-  ├─► export preset        auto-populates defaults → used during export
-  └─► MicrosoftGame.config generated at export time from preset values
+sample_config.cfg (local tutorial values)
+  └─► tutorial scenes read achievement and sandbox-related sample settings
+
+MicrosoftGame.config
+  └─► packaging/export flows read title identity and shell visuals
 ```
 
-The **GDK Setup panel** and **export dialog** both read from
-`sample_config.cfg`. If a value is set in the export preset, it takes priority.
-If it's blank, the config file value is used as a fallback.
+The CLI script writes both generated files from the same prompts. When you edit
+manually, keep `sample_config.cfg`, `MicrosoftGame.config`, and any export
+preset values aligned yourself; there is no docked `GDK Setup` panel in the
+current runtime addon.
 
 ## Testing achievements
 

@@ -11,17 +11,11 @@ See also:
 
 ## Runtime structure
 
-The current native implementation is the runtime/users/accessibility/achievements/presence/social/store/launcher baseline:
+The current native implementation has one root singleton and 21 public service namespaces:
 
 - root singleton: `GDK`
-- service namespace: `GDK.users`
-- service namespace: `GDK.accessibility`
-- service namespace: `GDK.achievements`
-- service namespace: `GDK.presence`
-- service namespace: `GDK.social`
-- service namespace: `GDK.store`
-- service namespace: `GDK.launcher`
-- wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKAccessibility`, `GDKClosedCaptionProperties`, `GDKAchievements`, `GDKAchievement`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKStore`, `GDKStoreLicenseStatus`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`
+- service namespaces: `GDK.users`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.store`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.launcher`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.system`, `GDK.display`, and `GDK.activation`
+- wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKGameUI`, `GDKAccessibility`, `GDKClosedCaptionProperties`, `GDKAchievements`, `GDKAchievement`, `GDKPackage`, `GDKPackageMount`, `GDKPackageResourcePack`, `GDKStats`, `GDKLeaderboards`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow`, `GDKPrivacy`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKStore`, `GDKStoreLicenseStatus`, `GDKProfile`, `GDKUserProfile`, `GDKStringVerify`, `GDKTitleStorage`, `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult`, `GDKErrorReporting`, `GDKLauncher`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, `GDKCapture`, `GDKCaptureMetaData`, `GDKSystem`, `GDKDisplay`, `GDKDisplayTimeoutDeferral`, and `GDKActivation`
 - internal direct-await helpers: `GDKPendingSignal`, `GDKSignalXAsyncContext`
 - internal Xbox services scaffold: `GDKXboxServices`
 
@@ -32,22 +26,15 @@ The current native implementation is the runtime/users/accessibility/achievement
 It owns:
 
 - `GDKRuntime`
-- `GDKUsers`
-- `GDKAccessibility`
-- `GDKAchievements`
-- `GDKPresence`
-- `GDKSocial`
-- `GDKStore`
-- `GDKLauncher`
 - `GDKXboxServices`
+- service objects for `GDKUsers`, `GDKGameUI`, `GDKAccessibility`, `GDKAchievements`, `GDKPackage`, `GDKStats`, `GDKLeaderboards`, `GDKPrivacy`, `GDKPresence`, `GDKSocial`, `GDKStore`, `GDKProfile`, `GDKStringVerify`, `GDKTitleStorage`, `GDKErrorReporting`, `GDKLauncher`, `GDKMultiplayerActivity`, `GDKCapture`, `GDKSystem`, `GDKDisplay`, and `GDKActivation`
 
 Its responsibilities are:
 
 - runtime initialization
 - runtime shutdown
 - queue dispatch
-- service access
-- last-error exposure
+- service access through the 21 public namespaces
 - root-level runtime signals
 
 Current public shape:
@@ -58,12 +45,26 @@ Current public shape:
 - `is_initialized() -> bool`
 - `dispatch() -> int`
 - `get_users() -> GDKUsers`
+- `get_game_ui() -> GDKGameUI`
 - `get_accessibility() -> GDKAccessibility`
 - `get_achievements() -> GDKAchievements`
+- `get_package() -> GDKPackage`
+- `get_stats() -> GDKStats`
+- `get_leaderboards() -> GDKLeaderboards`
+- `get_privacy() -> GDKPrivacy`
 - `get_presence() -> GDKPresence`
 - `get_social() -> GDKSocial`
 - `get_store() -> GDKStore`
+- `get_profile() -> GDKProfile`
+- `get_string_verify() -> GDKStringVerify`
+- `get_title_storage() -> GDKTitleStorage`
+- `get_error_reporting() -> GDKErrorReporting`
 - `get_launcher() -> GDKLauncher`
+- `get_multiplayer_activity() -> GDKMultiplayerActivity`
+- `get_capture() -> GDKCapture`
+- `get_system() -> GDKSystem`
+- `get_display() -> GDKDisplay`
+- `get_activation() -> GDKActivation`
 
 ## Shared runtime: `GDKRuntime`
 
@@ -514,6 +515,40 @@ It currently exposes:
 The service has no native handle of its own; reads are direct calls to
 `XGameGetXboxTitleId`, `XSystemGetXboxLiveSandboxId`, and the Xbox services
 scaffold's cached SCID.
+
+## Display service
+
+`GDKDisplay` wraps PC-supported `XDisplay.h` display helpers.
+
+It currently exposes:
+
+- `try_enable_hdr_mode(preference)`
+- `acquire_timeout_deferral()`
+
+`try_enable_hdr_mode()` returns a `GDKResult` with HDR mode details. A
+successful `acquire_timeout_deferral()` returns a `GDKDisplayTimeoutDeferral`
+in `GDKResult.data`; releasing that wrapper calls the native timeout-deferral
+release path.
+
+## Activation service
+
+`GDKActivation` owns the addon's single native
+`XGameActivationRegisterForEvent` registration and fans protocol, file, and
+invite activation dictionaries out to script and interested services.
+
+It currently exposes:
+
+- `accept_pending_invite(invite_uri)`
+
+It emits:
+
+- `protocol_activated`
+- `file_activated`
+- `pending_invite_received`
+- `invite_accepted`
+
+`GDKMultiplayerActivity` listens to this service instead of registering a
+second native activation callback.
 
 ## Request flow
 
