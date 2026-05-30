@@ -79,6 +79,17 @@ void GDKRuntime::shutdown() {
     for (const Ref<GDKPendingSignal> &pending_signal : active_pending_signals) {
         if (pending_signal.is_valid()) {
             pending_signal->cancel();
+            if (!pending_signal->is_done()) {
+                // Complete synchronously. `complete_deferred` would queue via
+                // call_deferred(), but when shutdown is invoked from SceneTree
+                // teardown (e.g. the bootstrap _exit_tree path) there may be
+                // no idle frame left to drain the deferred call, leaving
+                // awaiters stranded. Calling `complete` here resolves them
+                // immediately; any deferred emit that was already queued by
+                // the cancel handler no-ops via GDKPendingSignal::complete's
+                // m_done check.
+                pending_signal->complete(GDKResult::cancelled("GDK runtime shutdown cancelled the async request."));
+            }
         }
     }
 

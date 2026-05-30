@@ -1,7 +1,6 @@
 #include "gdk_multiplayer_activity.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -9,9 +8,8 @@
 
 #include <XGameUI.h>
 
-#include <godot_cpp/variant/utility_functions.hpp>
-
 #include "gdk.h"
+#include "gdk_activation.h"
 #include "gdk_pending_signal.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
@@ -25,32 +23,6 @@ namespace {
 
 String _utf8_or_empty(const char *p_value) {
     return p_value != nullptr ? String::utf8(p_value) : String();
-}
-
-String _normalize_invite_action(const String &p_action) {
-    if (p_action == "inviteHandleAccept") {
-        return "invite_handle_accept";
-    }
-    if (p_action == "activityHandleJoin") {
-        return "activity_handle_join";
-    }
-    return p_action.to_lower();
-}
-
-String _normalize_invite_key(const String &p_key) {
-    if (p_key == "invitedXuid") {
-        return "invited_xuid";
-    }
-    if (p_key == "senderXuid") {
-        return "sender_xuid";
-    }
-    if (p_key == "joinerXuid") {
-        return "joiner_xuid";
-    }
-    if (p_key == "joineeXuid") {
-        return "joinee_xuid";
-    }
-    return p_key.to_lower();
 }
 
 Ref<GDKResult> _parse_xuids(
@@ -562,46 +534,28 @@ Ref<GDKResult> GDKMultiplayerActivity::on_runtime_initialized() {
                 "Cannot initialize the multiplayer activity service before the GDK runtime.");
     }
 
-    if (m_activation_registered) {
-        m_runtime_ready = true;
-        return GDKResult::ok_result();
-    }
-
-    HRESULT hr = XGameActivationRegisterForEvent(
-            runtime->get_task_queue(),
-            this,
-            _activation_callback,
-            &m_activation_token);
-    if (FAILED(hr)) {
-        // Activation registration is an optional inbound-event listener.
-        // On PC GDK with strict GamingServices builds (>=35.112.23xxx) it
-        // can return ERROR_NOT_SUPPORTED (0x80070032) when the title is
-        // not running inside a fully-registered package context (notably
-        // F5-from-editor and partially-registered loose builds). The
-        // outbound multiplayer activity APIs (set/clear/get) still work,
-        // so degrade gracefully instead of failing the entire GDK init.
-        char hr_buf[16];
-        std::snprintf(hr_buf, sizeof(hr_buf), "0x%08X", static_cast<unsigned int>(hr));
-        UtilityFunctions::push_warning(
-                String("[GDK] XGameActivationRegisterForEvent failed (HRESULT ") +
-                String(hr_buf) +
-                ") — multiplayer activity inbound events disabled, outbound API still available.");
-        m_activation_registered = false;
-        m_runtime_ready = true;
-        return GDKResult::ok_result();
+    if (m_activation_listener_id == 0 && m_owner != nullptr) {
+        Ref<GDKActivation> activation = m_owner->get_activation();
+        if (activation.is_valid()) {
+            m_activation_listener_id = activation->add_activation_listener([this](const Dictionary &p_info) {
+                handle_activation_internal(p_info);
+            });
+        }
     }
 
     m_runtime_ready = true;
-    m_activation_registered = true;
     return GDKResult::ok_result();
 }
 
 void GDKMultiplayerActivity::shutdown() {
     m_runtime_ready = false;
 
-    if (m_activation_registered) {
-        XGameActivationUnregisterForEvent(m_activation_token, true);
-        m_activation_registered = false;
+    if (m_activation_listener_id != 0 && m_owner != nullptr) {
+        Ref<GDKActivation> activation = m_owner->get_activation();
+        if (activation.is_valid()) {
+            activation->remove_activation_listener(m_activation_listener_id);
+        }
+        m_activation_listener_id = 0;
     }
 
     m_cached_activities.clear();
@@ -1189,22 +1143,26 @@ void GDKMultiplayerActivity::emit_activities_updated_internal(const std::vector<
     }
 }
 
-void GDKMultiplayerActivity::handle_activation_internal(const XGameActivationInfo *p_activation_info) {
-    if (p_activation_info == nullptr) {
-        return;
+void GDKMultiplayerActivity::handle_activation_internal(const Dictionary &p_activation_info) {
+    const int64_t activation_type = static_cast<int64_t>(p_activation_info.get("type", static_cast<int64_t>(-1)));
+    const String invite_uri = p_activation_info.get("invite_uri", String());
+    Dictionary invite = p_activation_info.get("invite", Dictionary());
+
+    if (invite.is_empty() && !invite_uri.is_empty()) {
+        if (activation_type == static_cast<int64_t>(XGameActivationType::PendingGameInvite)) {
+            invite = parse_invite_uri_internal(invite_uri, "pending_game_invite");
+        } else if (activation_type == static_cast<int64_t>(XGameActivationType::AcceptedGameInvite)) {
+            invite = parse_invite_uri_internal(invite_uri, "accepted_game_invite");
+        }
     }
 
-    switch (p_activation_info->type) {
-        case XGameActivationType::PendingGameInvite: {
-            const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
-            emit_signal("pending_invite_received", parse_invite_uri_internal(invite_uri, "pending_game_invite"));
+    switch (static_cast<XGameActivationType>(activation_type)) {
+        case XGameActivationType::PendingGameInvite:
+            emit_signal("pending_invite_received", invite);
             break;
-        }
-        case XGameActivationType::AcceptedGameInvite: {
-            const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
-            emit_signal("invite_accepted", parse_invite_uri_internal(invite_uri, "accepted_game_invite"));
+        case XGameActivationType::AcceptedGameInvite:
+            emit_signal("invite_accepted", invite);
             break;
-        }
         default:
             break;
     }
@@ -1305,48 +1263,7 @@ bool GDKMultiplayerActivity::try_parse_encounter_type_internal(
 }
 
 Dictionary GDKMultiplayerActivity::parse_invite_uri_internal(const String &p_uri, const String &p_activation_type) {
-    Dictionary data;
-    data["raw_uri"] = p_uri;
-    data["activation_type"] = p_activation_type;
-
-    const String uri = p_uri.strip_edges();
-    const int64_t scheme_separator = uri.find("://");
-    String remainder = uri;
-    if (scheme_separator >= 0) {
-        data["scheme"] = uri.substr(0, scheme_separator);
-        remainder = uri.substr(scheme_separator + 3);
-    } else {
-        data["scheme"] = String();
-    }
-
-    const int64_t query_separator = remainder.find("?");
-    String action = remainder;
-    String query;
-    if (query_separator >= 0) {
-        action = remainder.substr(0, query_separator);
-        query = remainder.substr(query_separator + 1);
-    }
-
-    data["action"] = _normalize_invite_action(action);
-
-    if (query.begins_with("&")) {
-        query = query.substr(1);
-    }
-
-    PackedStringArray query_parts = query.split("&", false);
-    for (int64_t i = 0; i < query_parts.size(); ++i) {
-        const String pair = query_parts[i];
-        if (pair.is_empty()) {
-            continue;
-        }
-
-        const int64_t equals_index = pair.find("=");
-        const String key = equals_index >= 0 ? pair.substr(0, equals_index) : pair;
-        const String value = equals_index >= 0 ? pair.substr(equals_index + 1) : String();
-        data[_normalize_invite_key(key)] = value.uri_decode();
-    }
-
-    return data;
+    return GDKActivation::make_invite_dictionary_internal(p_uri, p_activation_type);
 }
 
 bool GDKMultiplayerActivity::try_parse_xuid_internal(const String &p_xuid, uint64_t *r_xuid) {
@@ -1371,13 +1288,6 @@ bool GDKMultiplayerActivity::try_parse_xuid_internal(const String &p_xuid, uint6
 
     *r_xuid = static_cast<uint64_t>(parsed);
     return true;
-}
-
-void CALLBACK GDKMultiplayerActivity::_activation_callback(void *p_context, const XGameActivationInfo *p_activation_info) {
-    auto *service = static_cast<GDKMultiplayerActivity *>(p_context);
-    if (service != nullptr) {
-        service->handle_activation_internal(p_activation_info);
-    }
 }
 
 } // namespace godot

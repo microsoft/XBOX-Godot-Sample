@@ -605,6 +605,12 @@ void GDKPresence::shutdown() {
     }
     m_runtime_ready = false;
     m_cached_presence.clear();
+    // Drop every retired callback token at shutdown. _close_handler_state has
+    // already called XblPresenceRemove*ChangedHandler for each state, and
+    // shutdown is invoked after the owning GDK runtime's task queue has been
+    // drained, so no in-flight XSAPI worker callback can still hold a raw
+    // pointer to any of these tokens.
+    m_retired_callback_tokens.clear();
 }
 
 int GDKPresence::dispatch() {
@@ -1170,11 +1176,13 @@ Ref<GDKResult> GDKPresence::_ensure_handler_state(const Ref<GDKUser> &p_user, Ha
         return GDKResult::hresult_error(hr, "Failed to resolve the Xbox services context for presence tracking.", "presence_context_failed");
     }
 
-    state.callback_context = new HandlerState::CallbackContext();
+    state.callback_context = std::make_shared<HandlerState::CallbackContext>();
     state.callback_context->presence = this;
     state.callback_context->local_id = local_id;
-    state.device_token = XblPresenceAddDevicePresenceChangedHandler(state.context, _device_presence_changed_handler, state.callback_context);
-    state.title_token = XblPresenceAddTitlePresenceChangedHandler(state.context, _title_presence_changed_handler, state.callback_context);
+    state.callback_token = std::make_shared<HandlerState::CallbackToken>();
+    state.callback_token->context = state.callback_context;
+    state.device_token = XblPresenceAddDevicePresenceChangedHandler(state.context, _device_presence_changed_handler, state.callback_token.get());
+    state.title_token = XblPresenceAddTitlePresenceChangedHandler(state.context, _title_presence_changed_handler, state.callback_token.get());
     state.device_registered = true;
     state.title_registered = true;
 
@@ -1184,6 +1192,12 @@ Ref<GDKResult> GDKPresence::_ensure_handler_state(const Ref<GDKUser> &p_user, Ha
 }
 
 void GDKPresence::_close_handler_state(HandlerState &p_state) {
+    if (p_state.callback_context) {
+        std::lock_guard<std::mutex> lock(p_state.callback_context->mutex);
+        p_state.callback_context->active.store(false, std::memory_order_release);
+        p_state.callback_context->presence = nullptr;
+    }
+
     if (p_state.context != nullptr) {
         if (p_state.device_registered) {
             XblPresenceRemoveDevicePresenceChangedHandler(p_state.context, p_state.device_token);
@@ -1197,13 +1211,28 @@ void GDKPresence::_close_handler_state(HandlerState &p_state) {
         p_state.context = nullptr;
     }
 
-    delete p_state.callback_context;
-    p_state.callback_context = nullptr;
+    if (p_state.callback_token) {
+        // Retain the token briefly so any XSAPI worker callback that captured
+        // its raw pointer before Remove*Handler returned can finish dereferencing
+        // safely. Bound the retention to a small FIFO ring so long-running
+        // sessions with repeated track/stop cycles do not leak indefinitely;
+        // tokens this far back have outlived many dispatch cycles, and the
+        // XSAPI Remove*Handler contract guarantees no NEW callbacks reference
+        // them.
+        constexpr size_t MAX_RETIRED_CALLBACK_TOKENS = 16;
+        m_retired_callback_tokens.push_back(p_state.callback_token);
+        if (m_retired_callback_tokens.size() > MAX_RETIRED_CALLBACK_TOKENS) {
+            m_retired_callback_tokens.erase(m_retired_callback_tokens.begin());
+        }
+        p_state.callback_token.reset();
+    }
+    p_state.callback_context.reset();
 }
 
 void CALLBACK GDKPresence::_device_presence_changed_handler(void *p_context, uint64_t p_xuid, XblPresenceDeviceType p_device_type, bool p_is_user_logged_on_device) {
-    HandlerState::CallbackContext *callback_context = static_cast<HandlerState::CallbackContext *>(p_context);
-    if (callback_context == nullptr || callback_context->presence == nullptr) {
+    HandlerState::CallbackToken *token = static_cast<HandlerState::CallbackToken *>(p_context);
+    std::shared_ptr<HandlerState::CallbackContext> callback_context = token != nullptr ? token->context.lock() : nullptr;
+    if (!callback_context || !callback_context->active.load(std::memory_order_acquire)) {
         return;
     }
 
@@ -1214,13 +1243,20 @@ void CALLBACK GDKPresence::_device_presence_changed_handler(void *p_context, uin
     event.device_type = p_device_type;
     event.device_logged_on = p_is_user_logged_on_device;
 
-    std::lock_guard<std::mutex> lock(callback_context->presence->m_pending_presence_events_mutex);
-    callback_context->presence->m_pending_presence_events.push_back(event);
+    std::lock_guard<std::mutex> context_lock(callback_context->mutex);
+    GDKPresence *presence = callback_context->presence;
+    if (!callback_context->active.load(std::memory_order_acquire) || presence == nullptr) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> queue_lock(presence->m_pending_presence_events_mutex);
+    presence->m_pending_presence_events.push_back(event);
 }
 
 void CALLBACK GDKPresence::_title_presence_changed_handler(void *p_context, uint64_t p_xuid, uint32_t p_title_id, XblPresenceTitleState p_title_state) {
-    HandlerState::CallbackContext *callback_context = static_cast<HandlerState::CallbackContext *>(p_context);
-    if (callback_context == nullptr || callback_context->presence == nullptr) {
+    HandlerState::CallbackToken *token = static_cast<HandlerState::CallbackToken *>(p_context);
+    std::shared_ptr<HandlerState::CallbackContext> callback_context = token != nullptr ? token->context.lock() : nullptr;
+    if (!callback_context || !callback_context->active.load(std::memory_order_acquire)) {
         return;
     }
 
@@ -1231,8 +1267,14 @@ void CALLBACK GDKPresence::_title_presence_changed_handler(void *p_context, uint
     event.title_id = p_title_id;
     event.title_state = p_title_state;
 
-    std::lock_guard<std::mutex> lock(callback_context->presence->m_pending_presence_events_mutex);
-    callback_context->presence->m_pending_presence_events.push_back(event);
+    std::lock_guard<std::mutex> context_lock(callback_context->mutex);
+    GDKPresence *presence = callback_context->presence;
+    if (!callback_context->active.load(std::memory_order_acquire) || presence == nullptr) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> queue_lock(presence->m_pending_presence_events_mutex);
+    presence->m_pending_presence_events.push_back(event);
 }
 
 } // namespace godot

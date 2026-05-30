@@ -7,11 +7,13 @@ extends Node
 ##  * Starts `GDK.users.add_default_user_async()` when
 ##    `gdk/runtime/auto_add_primary_user` is true.
 ##  * Skips headless validation and sample test runs.
+##  * Suppresses expected silent sign-in cancellation warnings under GUT.
 ##  * Shuts the runtime down when the SceneTree is torn down.
 
 const GDK_EXTENSION_PATH := "res://addons/godot_gdk/godot_gdk.gdextension"
 const GD_SCRIPT_CHECK_FLAG := "--gd-script-check"
 const TEST_SCRIPT_PATH := "res://tests/run_tests.gd"
+const GUT_COMMAND_SCRIPT_PATH := "res://addons/gut/gut_cmdln.gd"
 const SETTING_INITIALIZE_ON_STARTUP := "gdk/runtime/initialize_on_startup"
 const SETTING_AUTO_ADD_PRIMARY_USER := "gdk/runtime/auto_add_primary_user"
 
@@ -123,13 +125,19 @@ func _maybe_start_default_user(gdk: Object) -> void:
 	startup_user_signal.connect(Callable(self, "_on_startup_user_completed"), CONNECT_ONE_SHOT)
 
 
+func _is_gut_command() -> bool:
+	var args: PackedStringArray = OS.get_cmdline_args()
+	return (args.has("--script") or args.has("-s")) and args.has(GUT_COMMAND_SCRIPT_PATH)
+
+
 func _should_skip_bootstrap() -> bool:
 	var user_args: PackedStringArray = OS.get_cmdline_user_args()
 	if user_args.has(GD_SCRIPT_CHECK_FLAG):
 		return true
 
 	var args: PackedStringArray = OS.get_cmdline_args()
-	if args.has("--script") and args.has(TEST_SCRIPT_PATH):
+	var running_script := args.has("--script") or args.has("-s")
+	if running_script and args.has(TEST_SCRIPT_PATH):
 		print("[GDK] Bootstrap skipped for headless tests")
 		return true
 
@@ -168,6 +176,8 @@ func _on_startup_user_completed(result: Variant) -> void:
 		return
 
 	if not result.ok:
+		if _is_gut_command() and str(result.code) == "cancelled":
+			return
 		push_warning("[GDK] Bootstrap: silent sign-in did not complete successfully: %s" % result.message)
 
 

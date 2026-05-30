@@ -4,7 +4,7 @@
 		Game activation event service accessed via GDK.activation.
 	</brief_description>
 	<description>
-		Wraps the [code]XGameActivation[/code] APIs so titles can react to URI/protocol launches, file-association launches, and pending/accepted invites. The deprecated [code]XGameProtocol[/code] APIs are not wrapped; use [signal protocol_activated] instead.
+		Wraps the [code]XGameActivation[/code] APIs so titles can react to URI/protocol launches, file-association launches, and pending/accepted invites. The deprecated [code]XGameProtocol[/code] APIs are not wrapped; use [signal protocol_activated] instead. This service owns the single native activation subscription; [GDKMultiplayerActivity] receives invite events through the same internal event fan-out.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -33,21 +33,21 @@
 			</description>
 		</signal>
 		<signal name="pending_invite_received">
-			<param index="0" name="invite_uri" type="String" />
+			<param index="0" name="invite" type="Dictionary" />
 			<description>
-				Emitted when an invite is pending acceptance for this title. Pass the URI to [method accept_pending_invite] to accept.
+				Emitted when an invite is pending acceptance for this title. The parsed [param invite] dictionary includes [code]raw_uri[/code], [code]activation_type[/code], [code]scheme[/code], [code]action[/code], and decoded query fields such as [code]sender_xuid[/code]. Pass [code]invite.raw_uri[/code] to [method accept_pending_invite] to accept.
 			</description>
 		</signal>
 		<signal name="invite_accepted">
-			<param index="0" name="invite_uri" type="String" />
+			<param index="0" name="invite" type="Dictionary" />
 			<description>
-				Emitted when an invite has been accepted (the title was launched or resumed via an accepted invite URI).
+				Emitted when an invite has been accepted (the title was launched or resumed via an accepted invite URI). The dictionary shape matches [signal pending_invite_received].
 			</description>
 		</signal>
 		<signal name="activated">
 			<param index="0" name="info" type="Dictionary" />
 			<description>
-				Generic catch-all emitted in addition to the typed signal above. [code]info[/code] is a [Dictionary] with [code]type: int[/code] (one of [enum ActivationType]) and one of [code]uri[/code]/[code]file[/code]/[code]invite_uri[/code] depending on the type.
+				Generic catch-all emitted in addition to the typed signal above. [code]info[/code] is a [Dictionary] with [code]type: int[/code] (one of [enum ActivationType]) and one of [code]uri[/code]/[code]file[/code]/[code]invite_uri[/code] depending on the type. Invite activations also include [code]invite[/code], the same parsed dictionary emitted by [signal pending_invite_received] and [signal invite_accepted].
 			</description>
 		</signal>
 	</signals>

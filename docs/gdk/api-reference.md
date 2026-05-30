@@ -287,6 +287,7 @@ Script-visible wrapper around a cached achievement.
 
 - `mount_package_async()` is the loose-file path; callers are responsible for closing the returned mount.
 - `load_resource_pack_async()` is the Godot-native DLC path; mounts for loaded resource packs stay service-owned until `GDK.shutdown()`.
+- If shutdown cancels an in-flight package mount/resource-pack load, the completion signal resolves with `GDKResult.code == "cancelled"`.
 
 ## Stats service: `GDK.stats`
 
@@ -829,6 +830,8 @@ on callback events, your title owns privacy/compliance review for that metadata.
 | `pending_invite_received(invite: Dictionary)` | A pending invite was received at startup |
 | `invite_accepted(invite: Dictionary)` | The user accepted a multiplayer invite |
 
+Invite dictionaries match `GDK.activation` and include `raw_uri`, `activation_type`, `scheme`, `action`, and decoded query fields such as `sender_xuid`.
+
 ### Usage
 
 ```gdscript
@@ -1048,7 +1051,9 @@ Construction is internal — instances are produced by
 `GDK.get_activation()`. It wraps `XGameActivation.h`, the modern replacement for
 the deprecated `XGameProtocol.h` registration. Subscribe to the typed signals to
 react to protocol launches, file launches, pending invites, and accepted
-invites.
+invites. `GDK.activation` owns the single native activation registration;
+`GDK.multiplayer_activity` receives invite events through the same internal
+fan-out so both services see the same parsed invite dictionary.
 
 ### Methods
 
@@ -1062,9 +1067,9 @@ invites.
 |--------|-----------|-------------|
 | `protocol_activated` | `uri: String` | The title was launched via a protocol URI |
 | `file_activated` | `file: String` | The title was launched with a file association |
-| `pending_invite_received` | `invite_uri: String` | A multiplayer invite is pending; pair with `accept_pending_invite` |
-| `invite_accepted` | `invite_uri: String` | An invite was accepted (typically by the system) |
-| `activated` | `info: Dictionary` | Catch-all event; `info.type` is one of `ACTIVATION_TYPE_*` and includes `uri`/`file`/`invite_uri` matching the typed signal |
+| `pending_invite_received` | `invite: Dictionary` | A multiplayer invite is pending; pass `invite.raw_uri` to `accept_pending_invite` |
+| `invite_accepted` | `invite: Dictionary` | An invite was accepted (typically by the system) |
+| `activated` | `info: Dictionary` | Catch-all event; `info.type` is one of `ACTIVATION_TYPE_*` and includes `uri`/`file`/`invite_uri` matching the typed signal. Invite events also include `info.invite`. |
 
 ### Constants
 

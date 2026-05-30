@@ -1,7 +1,10 @@
 #include "gdk_activation.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <utility>
 
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
@@ -20,6 +23,32 @@ String _utf8_or_empty(const char *p_value) {
     return String::utf8(p_value);
 }
 
+String _normalize_invite_action(const String &p_action) {
+    if (p_action == "inviteHandleAccept") {
+        return "invite_handle_accept";
+    }
+    if (p_action == "activityHandleJoin") {
+        return "activity_handle_join";
+    }
+    return p_action.to_lower();
+}
+
+String _normalize_invite_key(const String &p_key) {
+    if (p_key == "invitedXuid") {
+        return "invited_xuid";
+    }
+    if (p_key == "senderXuid") {
+        return "sender_xuid";
+    }
+    if (p_key == "joinerXuid") {
+        return "joiner_xuid";
+    }
+    if (p_key == "joineeXuid") {
+        return "joinee_xuid";
+    }
+    return p_key.to_lower();
+}
+
 } // namespace
 
 void GDKActivation::_bind_methods() {
@@ -27,8 +56,8 @@ void GDKActivation::_bind_methods() {
 
     ADD_SIGNAL(MethodInfo("protocol_activated", PropertyInfo(Variant::STRING, "uri")));
     ADD_SIGNAL(MethodInfo("file_activated", PropertyInfo(Variant::STRING, "file")));
-    ADD_SIGNAL(MethodInfo("pending_invite_received", PropertyInfo(Variant::STRING, "invite_uri")));
-    ADD_SIGNAL(MethodInfo("invite_accepted", PropertyInfo(Variant::STRING, "invite_uri")));
+    ADD_SIGNAL(MethodInfo("pending_invite_received", PropertyInfo(Variant::DICTIONARY, "invite")));
+    ADD_SIGNAL(MethodInfo("invite_accepted", PropertyInfo(Variant::DICTIONARY, "invite")));
     ADD_SIGNAL(MethodInfo("activated", PropertyInfo(Variant::DICTIONARY, "info")));
 
     BIND_ENUM_CONSTANT(ACTIVATION_TYPE_PROTOCOL);
@@ -92,6 +121,94 @@ void GDKActivation::shutdown() {
         m_activation_registered = false;
         m_activation_token = {};
     }
+
+    m_activation_listeners.clear();
+}
+
+uint64_t GDKActivation::add_activation_listener(std::function<void(const Dictionary &)> p_callback) {
+    if (!p_callback) {
+        return 0;
+    }
+
+    ActivationListener listener;
+    listener.id = m_next_activation_listener_id++;
+    listener.callback = std::move(p_callback);
+    m_activation_listeners.push_back(std::move(listener));
+    return m_activation_listeners.back().id;
+}
+
+void GDKActivation::remove_activation_listener(uint64_t p_listener_id) {
+    if (p_listener_id == 0) {
+        return;
+    }
+
+    m_activation_listeners.erase(
+            std::remove_if(
+                    m_activation_listeners.begin(),
+                    m_activation_listeners.end(),
+                    [p_listener_id](const ActivationListener &p_listener) {
+                        return p_listener.id == p_listener_id;
+                    }),
+            m_activation_listeners.end());
+}
+
+void GDKActivation::notify_activation_listeners_internal(const Dictionary &p_info) {
+    std::vector<std::function<void(const Dictionary &)>> callbacks;
+    callbacks.reserve(m_activation_listeners.size());
+    for (const ActivationListener &listener : m_activation_listeners) {
+        if (listener.callback) {
+            callbacks.push_back(listener.callback);
+        }
+    }
+
+    for (const std::function<void(const Dictionary &)> &callback : callbacks) {
+        callback(p_info);
+    }
+}
+
+Dictionary GDKActivation::make_invite_dictionary_internal(const String &p_uri, const String &p_activation_type) {
+    Dictionary data;
+    data["raw_uri"] = p_uri;
+    data["activation_type"] = p_activation_type;
+
+    const String uri = p_uri.strip_edges();
+    const int64_t scheme_separator = uri.find("://");
+    String remainder = uri;
+    if (scheme_separator >= 0) {
+        data["scheme"] = uri.substr(0, scheme_separator);
+        remainder = uri.substr(scheme_separator + 3);
+    } else {
+        data["scheme"] = String();
+    }
+
+    const int64_t query_separator = remainder.find("?");
+    String action = remainder;
+    String query;
+    if (query_separator >= 0) {
+        action = remainder.substr(0, query_separator);
+        query = remainder.substr(query_separator + 1);
+    }
+
+    data["action"] = _normalize_invite_action(action);
+
+    if (query.begins_with("&")) {
+        query = query.substr(1);
+    }
+
+    PackedStringArray query_parts = query.split("&", false);
+    for (int64_t i = 0; i < query_parts.size(); ++i) {
+        const String pair = query_parts[i];
+        if (pair.is_empty()) {
+            continue;
+        }
+
+        const int64_t equals_index = pair.find("=");
+        const String key = equals_index >= 0 ? pair.substr(0, equals_index) : pair;
+        const String value = equals_index >= 0 ? pair.substr(equals_index + 1) : String();
+        data[_normalize_invite_key(key)] = value.uri_decode();
+    }
+
+    return data;
 }
 
 Ref<GDKResult> GDKActivation::accept_pending_invite(const String &p_invite_uri) {
@@ -150,20 +267,25 @@ void GDKActivation::handle_activation_internal(const XGameActivationInfo *p_acti
         }
         case XGameActivationType::PendingGameInvite: {
             const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
+            Dictionary invite = make_invite_dictionary_internal(invite_uri, "pending_game_invite");
             info["invite_uri"] = invite_uri;
-            emit_signal("pending_invite_received", invite_uri);
+            info["invite"] = invite;
+            emit_signal("pending_invite_received", invite);
             break;
         }
         case XGameActivationType::AcceptedGameInvite: {
             const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
+            Dictionary invite = make_invite_dictionary_internal(invite_uri, "accepted_game_invite");
             info["invite_uri"] = invite_uri;
-            emit_signal("invite_accepted", invite_uri);
+            info["invite"] = invite;
+            emit_signal("invite_accepted", invite);
             break;
         }
         default:
             break;
     }
 
+    notify_activation_listeners_internal(info);
     emit_signal("activated", info);
 }
 

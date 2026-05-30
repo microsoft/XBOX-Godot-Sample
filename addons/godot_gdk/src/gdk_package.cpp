@@ -181,6 +181,11 @@ class PackageMountAsyncContext : public GDKSignalXAsyncContext {
 
 protected:
     void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Package mount cancelled."));
+            return;
+        }
+
         XPackageMountHandle mount_handle = nullptr;
         HRESULT hr = XPackageMountWithUiResult(p_async_block, &mount_handle);
         if (FAILED(hr)) {
