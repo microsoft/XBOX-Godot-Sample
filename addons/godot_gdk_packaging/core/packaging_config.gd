@@ -138,8 +138,11 @@ static func resolve(
 	resolved["app_name"] = str(ProjectSettings.get_setting("application/config/name", ""))
 	resolved["app_version"] = str(ProjectSettings.get_setting("application/config/version", ""))
 
-	# Layer 3: MicrosoftGame.config.
+	# Layer 3: MicrosoftGame.config. CLI --config selects the file used by
+	# this lower-precedence layer as well as the final resolved config_path.
 	var config_path: String = config_path_override
+	if config_path.is_empty():
+		config_path = str(cli_options.get("config", ""))
 	if config_path.is_empty():
 		config_path = project_root.path_join("MicrosoftGame.config")
 	resolved["config_path"] = config_path

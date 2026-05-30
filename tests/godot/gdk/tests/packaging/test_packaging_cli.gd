@@ -32,6 +32,15 @@ func test_every_verb_entry_has_doc_and_flags() -> void:
 			"verb '%s' flags is a Dictionary" % verb)
 
 
+func test_verb_table_pins_documented_non_required_flags() -> void:
+	assert_true(PackagingCli.VERBS["validate"]["flags"].has("output-dir"),
+		"validate documents --output-dir")
+	assert_true(PackagingCli.VERBS["export"]["flags"].has("no-prepare"),
+		"export documents --no-prepare")
+	assert_true(PackagingCli.VERBS["config_template"]["flags"].has("output"),
+		"config_template documents --output")
+
+
 # ── Empty argv ─────────────────────────────────────────────────────────────
 
 func test_empty_argv_requests_help() -> void:
