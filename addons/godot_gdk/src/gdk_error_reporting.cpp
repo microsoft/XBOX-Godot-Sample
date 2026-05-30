@@ -85,11 +85,11 @@ int GDKErrorReporting::dispatch() {
         if (m_owner != nullptr) {
             m_owner->emit_runtime_error(result);
         }
+        ++handled;
         if (!m_runtime_ready) {
             break;
         }
         emit_signal("error_reported", result);
-        ++handled;
         if (!m_runtime_ready) {
             break;
         }

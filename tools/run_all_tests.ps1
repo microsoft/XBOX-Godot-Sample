@@ -840,9 +840,19 @@ function Main {
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
-    $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) { $PlayFabTitleId.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID') ?? '').Trim() }
-    $effectivePlayFabCustomId = if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) { $PlayFabCustomId.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID') ?? '').Trim() }
-    $effectivePlayFabMatchmakingQueue = if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) { $PlayFabMatchmakingQueue.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') ?? '').Trim() }
+    function Resolve-EffectiveEnvValue {
+        param([string]$Override, [string]$EnvName)
+        if (-not [string]::IsNullOrWhiteSpace($Override)) {
+            return $Override.Trim()
+        }
+        $envValue = [Environment]::GetEnvironmentVariable($EnvName)
+        if ($null -eq $envValue) { return '' }
+        return $envValue.Trim()
+    }
+
+    $effectivePlayFabTitleId          = Resolve-EffectiveEnvValue -Override $PlayFabTitleId          -EnvName 'PLAYFAB_TITLE_ID'
+    $effectivePlayFabCustomId         = Resolve-EffectiveEnvValue -Override $PlayFabCustomId         -EnvName 'PLAYFAB_CUSTOM_ID'
+    $effectivePlayFabMatchmakingQueue = Resolve-EffectiveEnvValue -Override $PlayFabMatchmakingQueue -EnvName 'PLAYFAB_MULTIPLAYER_MATCH_QUEUE'
 
     if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
         throw '-AllowLiveWrites requires PLAYFAB_TITLE_ID or -PlayFabTitleId so the live-write title is explicit in logs.'
