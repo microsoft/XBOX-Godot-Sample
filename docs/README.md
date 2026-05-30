@@ -109,9 +109,11 @@ docs/
 
 ## Packaging addon (`godot_gdk_packaging`)
 
-- [**Packaging Plugin**](packaging/plugin.md) — editor tooling for PC
-  packaging: Create Game Config, Sandbox dialog, export platform, and
-  the Package Manager (install/uninstall/run loose builds)
+- [**Packaging Plugin**](packaging/plugin.md) — headless runner and CLI
+  reference for PC packaging verbs
+- [**Editor `GDK` menu**](packaging/editor-menu.md) — Create/Edit
+  MicrosoftGame.config, sandbox switching, Package Manager, and documentation
+  shortcuts
 
 ## Platform setup
 

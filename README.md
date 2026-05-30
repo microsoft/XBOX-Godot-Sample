@@ -23,7 +23,7 @@ This is the **first step** in our Godot for XBOX on PC integration journey. We p
 
 ## Addons
 
-The addons are designed to be dropped into any Godot 4.5+ project — most developers will consume them as a prebuilt addon zip. This repository is where the addons are authored, built, tested, and (once the tutorial-driven sample revamp's PR 3 lands) demonstrated through a small set of tutorial sample projects. Sample projects are temporarily absent while that revamp lands; follow the [tutorials](docs/tutorials/README.md) in your own project in the meantime.
+The addons are designed to be dropped into any Godot 4.5+ project — most developers will consume them as a prebuilt addon zip. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_app/` and `sample/tutorial_gameinput/`.
 
 | Addon | Description |
 |-------|-------------|
@@ -49,7 +49,7 @@ Per-addon documentation:
 - [`godot_gdk`](docs/gdk/plugin.md) — runtime, services, async system, build, editor tooling
 - [`godot_playfab`](docs/playfab/plugin.md) — runtime configuration, user sessions, Game Saves, leaderboards, client services
 - [`godot_gameinput`](docs/gameinput/plugin.md) — devices, polling, vibration, action bridge
-- [`godot_gdk_packaging`](docs/packaging/plugin.md) — Create Game Config, Sandbox dialog, export platform, Package Manager
+- [`godot_gdk_packaging`](docs/packaging/plugin.md) — headless packaging runner; see also the [editor `GDK` menu](docs/packaging/editor-menu.md)
 
 Platform setup:
 
