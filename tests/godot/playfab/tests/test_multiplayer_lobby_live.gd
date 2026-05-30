@@ -7,14 +7,14 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## The bugs only manifest when the live PFLobby SDK actually dispatches state
 ## changes for a real lobby, so non-live contract tests cannot exercise them.
 ##
-## Gated by `pending_unless_live()`; these are write tests in the sense that
-## they create a lobby in the configured PlayFab sandbox title. Lobby cleanup
+## Gated by `requires_live_write()` because these tests create and mutate
+## lobbies in the configured PlayFab sandbox title. Lobby cleanup
 ## is best effort — leave_async() runs in the happy path; the shutdown test
 ## deliberately skips leave to exercise the shutdown-during-active-lobby race.
 ## Stale lobbies in a sandbox title age out via the PFLobby SDK TTL.
 ##
 ## Required configuration (matches existing live PlayFab tests):
-##   - LIVE_TESTS=1 in env
+##   - LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 in env
 ##   - playfab/runtime/title_id set
 ##   - playfab/tests/custom_id (or PLAYFAB_CUSTOM_ID env) set so the run signs
 ##     in deterministically.
@@ -49,7 +49,7 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
 		multiplayer.state_changed.disconnect(on_service_change)
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -106,6 +106,82 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	_finish_session(playfab, null)
 
 
+func test_lobby_local_member_properties_converge_after_live_write() -> void:
+	var session = await _begin_multiplayer_session()
+	var playfab_user = session.get("playfab_user")
+	if playfab_user == null:
+		return
+
+	var playfab: Object = session["playfab"]
+	var multiplayer: Object = session["multiplayer"]
+
+	var lobby_config = instantiate_class("PlayFabLobbyConfig")
+	if lobby_config == null:
+		_finish_session(playfab, null)
+		return
+	lobby_config.max_players = 2
+	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
+	lobby_config.member_properties = {"ready": "false", "role": "owner"}
+
+	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
+	if create_result == null:
+		fail("PlayFab.multiplayer.create_lobby_async timed out before local member property convergence check.")
+		_finish_session(playfab, null)
+		return
+	if not create_result.ok:
+		pending("PlayFab.multiplayer.create_lobby_async failed before local member property convergence check: %s" % create_result.message)
+		_finish_session(playfab, null)
+		return
+
+	var lobby: Object = create_result.data
+	if lobby == null:
+		_finish_session(playfab, null)
+		return
+
+	# Subscribe BEFORE the local-self write so the MEMBER_UPDATED change the
+	# dispatcher emits for the patched local snapshot lands in our buffer.
+	# Copilot review (PR #30) flagged that the offline contract test exercised
+	# the helper directly; this section asserts the production
+	# PostUpdateCompleted dispatcher path drives the same merge by inspecting
+	# the change.member it emits.
+	var lobby_changes: Array = []
+	var on_lobby_change = func(change): lobby_changes.append(change)
+	lobby.state_changed.connect(on_lobby_change)
+
+	var props_result = await await_completion(lobby.set_member_properties_async({"ready": "true", "team": "blue", "role": null}), _DEFAULT_OP_TIMEOUT_MSEC)
+	assert_true(props_result != null and props_result.ok,
+			"lobby.set_member_properties_async succeeds for local member snapshot convergence (%s)" % (props_result.message if props_result != null else "null"))
+	if props_result == null or not props_result.ok:
+		if lobby.is_connected("state_changed", on_lobby_change):
+			lobby.state_changed.disconnect(on_lobby_change)
+		_finish_session(playfab, lobby)
+		return
+
+	await advance_process_frames(_STATE_PUMP_FRAMES)
+
+	var local_props: Variant = _get_local_member_properties(lobby)
+	assert_eq(typeof(local_props), TYPE_DICTIONARY, "local member properties are available immediately after set_member_properties_async")
+	if typeof(local_props) == TYPE_DICTIONARY:
+		assert_eq(String(local_props.get("ready", "")), "true", "local ready property converged after live write")
+		assert_eq(String(local_props.get("team", "")), "blue", "local team property converged after live write")
+		assert_false(local_props.has("role"), "local role property deletion converged after live write")
+
+	# Dispatcher-path coverage: the MEMBER_UPDATED change the addon emits for
+	# the local self after the write completes must carry change.member with the
+	# patched properties. If a future refactor severs the
+	# PostUpdateCompleted → _apply_local_member_property_update wiring the
+	# convergence helpers above could still pass via SDK snapshot, but this
+	# block would fail because the dispatched change.member would not reflect
+	# the local-side merge.
+	_assert_member_updated_carries_local_properties(lobby_changes, playfab_user,
+			{"ready": "true", "team": "blue"}, ["role"],
+			"set_member_properties_async dispatcher")
+
+	if lobby.is_connected("state_changed", on_lobby_change):
+		lobby.state_changed.disconnect(on_lobby_change)
+
+	_finish_session(playfab, lobby)
+
 func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	var session = await _begin_multiplayer_session()
 	var playfab_user = session.get("playfab_user")
@@ -124,7 +200,7 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -173,7 +249,7 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
-		fail("PlayFab.multiplayer.create_lobby_async timed out.")
+		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
 		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
@@ -189,7 +265,7 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 	var stale_connection_string := str(lobby.get_connection_string())
 	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 	if leave_result == null:
-		fail("PlayFabLobby.leave_async timed out before stale-join regression check.")
+		fail_test("PlayFabLobby.leave_async timed out before stale-join regression check.")
 		_finish_session(playfab, null)
 		return
 	if not leave_result.ok:
@@ -198,11 +274,11 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 		return
 	await advance_process_frames(_STATE_PUMP_FRAMES)
 
-	var before_count := multiplayer.get_lobbies().size()
+	var before_count: int = multiplayer.get_lobbies().size()
 	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
 	var join_result = await await_completion(multiplayer.join_lobby_async(playfab_user, stale_connection_string, join_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if join_result == null:
-		fail("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
+		fail_test("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
 		_finish_session(playfab, null)
 		return
 	if join_result.ok:
@@ -255,7 +331,7 @@ func _begin_multiplayer_session() -> Dictionary:
 		"multiplayer": null,
 	}
 
-	if pending_unless_live():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
@@ -285,7 +361,7 @@ func _begin_multiplayer_session() -> Dictionary:
 
 	var mp_init = await await_completion(multiplayer.initialize_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 	if mp_init == null:
-		fail("PlayFab.multiplayer.initialize_async timed out.")
+		fail_test("PlayFab.multiplayer.initialize_async timed out.")
 		return outcome
 	if not mp_init.ok:
 		pending("PlayFab.multiplayer.initialize_async failed: %s" % mp_init.message)
@@ -314,7 +390,7 @@ func _sign_in_with_or_create_custom_id(playfab: Object, label: String) -> Dictio
 		return outcome
 	var sign_in_result = await await_completion(sign_in_signal, _DEFAULT_OP_TIMEOUT_MSEC)
 	if sign_in_result == null:
-		fail("%s sign_in_with_custom_id_async timed out." % label)
+		fail_test("%s sign_in_with_custom_id_async timed out." % label)
 		return outcome
 	if not sign_in_result.ok:
 		pending("%s skipped: %s" % [label, sign_in_result.message])
@@ -373,6 +449,15 @@ func _assert_kind_emitted_with_member(changes: Array, expected_kind: int, playfa
 			"%s did not emit kind=%d with non-null change.member matching local user (recorded %d changes)" % [op_label, expected_kind, changes.size()])
 
 
+func _get_local_member_properties(lobby: Object) -> Variant:
+	if lobby == null:
+		return null
+	for member in lobby.get_members():
+		if member != null and bool(member.is_local_member()):
+			return member.get_properties()
+	return null
+
+
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
 	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
 	if typeof(async_signal) != TYPE_SIGNAL:
@@ -395,3 +480,44 @@ func _assert_member_removed_count_at_most_one(changes: Array, playfab_user, op_l
 			count += 1
 	assert_true(count <= 1,
 			"%s emitted MEMBER_REMOVED for the local user at most once (saw %d). >1 would indicate the LeaveLobbyCompleted duplicate-signal regression." % [op_label, count])
+
+
+func _assert_member_updated_carries_local_properties(changes: Array, playfab_user, expected_present: Dictionary, expected_absent: Array, op_label: String) -> void:
+	# Look for a MEMBER_UPDATED for the local user whose change.member snapshot
+	# reflects the patched properties (Copilot review on PR #30: the live
+	# dispatcher path must carry the local-side merge through to
+	# change.member.properties, not just into the lobby's member list).
+	var member_updated = get_class_constant("PlayFabLobby", "MEMBER_UPDATED")
+	var expected_id := str(playfab_user.entity_key.get("id", ""))
+	for i in range(changes.size() - 1, -1, -1):
+		var change = changes[i]
+		if change.get_kind() != member_updated:
+			continue
+		var member = change.get_member()
+		if member == null:
+			continue
+		var member_id := str(member.entity_key.get("id", ""))
+		if member_id != expected_id:
+			continue
+		var props: Variant = member.get_properties()
+		if typeof(props) != TYPE_DICTIONARY:
+			continue
+		var matches := true
+		for k in expected_present.keys():
+			if String(props.get(k, "")) != String(expected_present[k]):
+				matches = false
+				break
+		if not matches:
+			continue
+		for k in expected_absent:
+			if props.has(k):
+				matches = false
+				break
+		if not matches:
+			continue
+		assert_true(true,
+				"%s emitted MEMBER_UPDATED whose change.member.properties carries the patched local-self snapshot" % op_label)
+		return
+	assert_true(false,
+			"%s did not emit MEMBER_UPDATED carrying the patched local-self snapshot (recorded %d changes; expected present=%s absent=%s)" %
+					[op_label, changes.size(), str(expected_present), str(expected_absent)])

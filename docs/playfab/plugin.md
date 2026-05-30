@@ -136,6 +136,8 @@ For Godot clients, prefer the statistic-backed leaderboard path: write scores wi
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
 
+Lobby and member property update dictionaries use [String] or [StringName] values; on `PlayFabLobby.set_properties_async()` / `set_member_properties_async()`, a `null` value deletes that key through the SDK's native delete representation while omitted keys stay unchanged. Initial create/join property dictionaries accept [String]/[StringName] values only (null is rejected).
+
 ```gdscript
 var mp_result = await PlayFab.multiplayer.initialize_async()
 if not mp_result.ok:
@@ -150,6 +152,8 @@ var lobby_result = await PlayFab.multiplayer.create_lobby_async(playfab_user, lo
 if lobby_result.ok:
     var lobby: PlayFabLobby = lobby_result.data
     print("Join with: ", lobby.get_connection_string())
+    await lobby.set_properties_async({"score": "42", "round": "1"})
+    await lobby.set_properties_async({"score": null}) # deletes score; round is unchanged
 ```
 
 Use `tools\configure_playfab_test_title.ps1` with a PlayFab developer secret in `PLAYFAB_DEVELOPER_SECRET_KEY` to provision a sandbox title for live coverage. The script creates the custom-ID smoke account, Multiplayer worker accounts, a two-player matchmaking queue keyed by a `run_id` equality rule, leaderboard/statistic definitions, service fixture accounts, title/publisher/player data keys, a catalog draft item, and a title-data marker describing those resources.

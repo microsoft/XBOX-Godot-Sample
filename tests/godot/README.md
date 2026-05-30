@@ -8,6 +8,8 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
+> `requires_live()` / `requires_live_write()` helpers gate live and live-write GUT tests. The repo orchestrator forwards `LIVE_TESTS=1` via `-Live` and `LIVE_WRITE_TESTS=1` via `-AllowLiveWrites`; only use live writes against a dedicated sandbox PlayFab title.
+
 The repo-root orchestrator now owns both GUT hosts and the PlayFab Multiplayer multi-process orchestrator. Use `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>` for the full live MP sweep.
 
 ## Test Tiers
