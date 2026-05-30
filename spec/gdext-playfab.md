@@ -205,4 +205,9 @@ Use `sample\tutorial_app\` and `tests\godot\playfab\` for PlayFab reference beha
   validation errors, runtime lifecycle re-arm behavior, API service contracts, Multiplayer class contracts, custom-ID sign-in, and optional live smoke flows aligned
   with the shipped addon behavior.
 - `tools\configure_playfab_test_title.ps1` prepares the current sandbox title (`10D176` by default) for live coverage by ensuring the custom-ID account, Multiplayer worker accounts, a two-player matchmaking queue with a `run_id` equality rule, leaderboard/statistic definitions, and API-service fixtures used by the tests exist. It reads the developer secret from `PLAYFAB_DEVELOPER_SECRET_KEY` and never forwards the secret to Godot child processes.
-- `tools\run_all_tests.ps1 -Live -Hosts tests\godot\playfab -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"` also runs the opt-in PlayFab Multiplayer multi-client lobby orchestration plus matchmaking create/cancel, two-player match completion, explicit arranged-lobby join, and arranged-lobby cleanup coverage.
+- `tools\run_all_tests.ps1 -Live -AllowLiveWrites -Hosts tests\godot\playfab -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"` also runs the opt-in PlayFab Multiplayer multi-client orchestrator across the C1 P0/P1 lobby, matchmaking, arranged-lobby, Party, and end-to-end scenarios. Persistent writes stay gated behind `-AllowLiveWrites` and a sandbox title.
+
+## Progress
+
+- MP-test-automation: ✅ complete in the `feat/mpta-c5-c6-finalize` line. The C1 P0/P1 matrix is represented as one `mp_orchestrator` scenario file per scenario, P2/P3 remain deferred, and `tools\run_all_tests.ps1` is wired to run the P0/P1 set under `-Live` with live writes gated by `-AllowLiveWrites`.
+- Legacy PlayFab Multiplayer live harness: ✅ retired. `tools\run_playfab_multiplayer_live.ps1` and `tests\godot\playfab_multiplayer_worker\` have been removed; `tools\run_mp_orchestrator.ps1` is the canonical direct entry point.

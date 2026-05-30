@@ -43,7 +43,7 @@ Custom-id resolution (in priority order):
 
 The per-process prefix comes from `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` (if set) or `<PLAYFAB_CUSTOM_ID>-multiplayer`, last-resort `godot-gdk-ext-live-smoke-multiplayer`. `tools/configure_playfab_test_title.ps1::Ensure-MultiplayerWorkerAccounts` provisions both naming styles per title:
 
-- **Legacy unsuffixed** (one per role): `<prefix>-host`, `<prefix>-client`, `<prefix>-client2`, `<prefix>-observer`. Used by the retiring `tools/run_playfab_multiplayer_live.ps1` runner.
+- **Unsuffixed** (one per role): `<prefix>-host`, `<prefix>-client`, `<prefix>-client2`, `<prefix>-observer`. Retained for ad-hoc/back-compat smoke scripts.
 - **Rotation pool** (POOL_SIZE per role, default 4): `<prefix>-host-1` … `<prefix>-host-4`, plus the same `-1..4` suffixes for client / client2 / observer. Total: 4 roles × POOL_SIZE = 16 pooled accounts. Used by `tests/godot/mp_test_client/scripts/test_client.gd::_derive_custom_id_for_role`.
 
 #### Sign-in pool rotation — why

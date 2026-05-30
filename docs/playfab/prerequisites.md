@@ -274,18 +274,14 @@ is idempotent and creates:
   `WARN` pointing at the Game Manager toggle when the setting is still
   disabled.
 - a custom-ID account `godot-gdk-ext-live-smoke` and the
-  Multiplayer worker accounts used by both live runners:
-  - **Legacy runner** (`tools\run_playfab_multiplayer_live.ps1`) —
-    four unsuffixed accounts: `...-host`, `...-client`,
-    `...-client2`, `...-observer`.
-  - **mp_orchestrator harness** (`tests/godot/mp_orchestrator/`) —
-    sixteen pooled accounts named `...-{host,client,client2,observer}-{1..4}`.
-    The harness rotates through the pool between scenarios to
-    spread the per-(title_player_account) PlayFab rate limits
-    (e.g. `createlobby` is capped at 6 calls per account per 120
-    seconds; four pooled accounts give 24 creates per window of
-    headroom per role). The pool size is captured in the title-
-    data marker under `multiplayer_custom_id_pool_size`.
+  Multiplayer worker account pool used by `tests\godot\mp_orchestrator\`:
+  sixteen pooled accounts named `...-{host,client,client2,observer}-{1..4}`.
+  The harness rotates through the pool between scenarios to
+  spread the per-(title_player_account) PlayFab rate limits
+  (e.g. `createlobby` is capped at 6 calls per account per 120
+  seconds; four pooled accounts give 24 creates per window of
+  headroom per role). The pool size is captured in the title-
+  data marker under `multiplayer_custom_id_pool_size`.
 - a Multiplayer matchmaking queue `godot_gdk_ext_live_smoke_queue`
 - API-service fixtures (accounts, friends, player data, title data,
   publisher data, a statistic, a catalog draft item) used by the

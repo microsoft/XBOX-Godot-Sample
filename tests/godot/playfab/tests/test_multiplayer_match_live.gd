@@ -124,3 +124,4 @@ func _begin_match_session(label: String) -> Dictionary:
 
 func _match_queue_name() -> String:
 	return OS.get_environment(MATCH_QUEUE_ENV).strip_edges() if not OS.get_environment(MATCH_QUEUE_ENV).strip_edges().is_empty() else DEFAULT_MATCH_QUEUE
+

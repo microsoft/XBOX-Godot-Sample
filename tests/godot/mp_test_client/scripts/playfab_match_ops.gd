@@ -22,9 +22,11 @@ const DEFAULT_CANCEL_TIMEOUT_MS := 30_000
 const DEFAULT_QUEUE_TIMEOUT_SEC := 60
 const POLL_INTERVAL_MS := 25
 const TERMINAL_STATUSES: PackedStringArray = ["cancelled", "failed"]
+const TICKET_ID_POPULATE_TIMEOUT_MS := 20_000
 
 var _runtime: PlayFabRuntime = null
 var _tickets: Dictionary = {}  # handle (String) -> PlayFabMatchTicket (Object)
+var _pending_events: Array[Dictionary] = []
 
 
 func bind(runtime: PlayFabRuntime) -> void:
@@ -78,9 +80,25 @@ func create_match_ticket(params: Dictionary) -> Dictionary:
 	var ticket: Object = result.data
 	if ticket == null:
 		return _err("invalid_response", "create_match_ticket_async returned ok with null ticket")
-	if String(ticket.get_ticket_id()).is_empty():
-		return _err("invalid_response", "create_match_ticket_async returned ok with an empty ticket_id")
-	_tickets[handle] = ticket
+	# create_match_ticket_async resolves as soon as the local handle is
+	# allocated; ticket_id is filled in asynchronously by the SDK's first
+	# TicketStatusChanged dispatch. Block until it populates so scenarios
+	# always see a non-empty id in the response payload.
+	var populate_timeout_ms: int = int(params.get("ticket_id_timeout_ms", TICKET_ID_POPULATE_TIMEOUT_MS))
+	var populated: bool = await _runtime.wait_until(
+		func(): return not String(ticket.get_ticket_id()).is_empty(),
+		populate_timeout_ms,
+	)
+	if not populated:
+		# Roll back the local allocation so reset_client doesn't try to
+		# cancel a half-formed ticket whose handle never carried an id.
+		await _runtime.await_completion(ticket.cancel_async(), DEFAULT_CANCEL_TIMEOUT_MS)
+		return _err(
+			"match_ticket_id_timeout",
+			"PFMatchmakingTicket id did not populate within %dms" % populate_timeout_ms,
+		)
+	_attach_ticket(handle, ticket)
+	_queue_event("match.ticket_created", { "handle": handle, "ticket": _ticket_snapshot(ticket) })
 	return _ok({ "handle": handle, "ticket": _ticket_snapshot(ticket) })
 
 
@@ -136,7 +154,8 @@ func cancel_match_ticket(params: Dictionary) -> Dictionary:
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "PlayFabMatchTicket.cancel_async")
 	var snapshot: Dictionary = _ticket_snapshot(ticket)
-	_tickets.erase(handle)
+	_detach_ticket(handle, ticket)
+	_queue_event("match.ticket_cancelled", { "handle": handle, "ticket": snapshot })
 	return _ok({ "handle": handle, "ticket": snapshot })
 
 
@@ -163,6 +182,10 @@ func reset(_params: Dictionary) -> Dictionary:
 			var err_details: Dictionary = err_payload.get("error", {})
 			err_details["handle"] = handle
 			failures.append(err_details)
+	for detach_handle in _tickets.keys():
+		var detach_ticket: Object = _tickets[detach_handle]
+		if detach_ticket != null:
+			_detach_ticket(String(detach_handle), detach_ticket)
 	_tickets.clear()
 	if not failures.is_empty():
 		return _err(
@@ -171,6 +194,74 @@ func reset(_params: Dictionary) -> Dictionary:
 			{ "cancelled": cancelled, "failed": failures },
 		)
 	return _ok({ "cancelled": cancelled })
+
+
+func poll_events(emit: Callable) -> void:
+	while not _pending_events.is_empty():
+		var event: Dictionary = _pending_events.pop_front()
+		emit.call(String(event.get("event_type", "")), event.get("payload", {}))
+
+
+func _attach_ticket(handle: String, ticket: Object) -> void:
+	_tickets[handle] = ticket
+	var cb: Callable = _on_ticket_state_changed.bind(handle)
+	if ticket != null and not ticket.state_changed.is_connected(cb):
+		ticket.state_changed.connect(cb)
+
+
+func _detach_ticket(handle: String, ticket: Object) -> void:
+	var cb: Callable = _on_ticket_state_changed.bind(handle)
+	if ticket != null and ticket.state_changed.is_connected(cb):
+		ticket.state_changed.disconnect(cb)
+	_tickets.erase(handle)
+
+
+func _on_ticket_state_changed(change: Object, handle: String) -> void:
+	if change == null:
+		return
+	var event_type: String = _match_event_type(int(change.kind))
+	_queue_event(event_type, {
+		"handle": handle,
+		"kind": int(change.kind),
+		"status": int(change.status),
+		"match_id": String(change.match_id),
+		"arranged_lobby_connection_string": String(change.arranged_lobby_connection_string),
+		"ticket": _ticket_snapshot(change.ticket),
+		"result": _result_snapshot(change.result),
+	})
+
+
+func _match_event_type(kind: int) -> String:
+	match kind:
+		100:
+			return "match.ticket_created"
+		101:
+			return "match.status_changed"
+		102:
+			return "match.ticket_completed"
+		103:
+			return "match.ticket_cancelled"
+		104:
+			return "match.ticket_failed"
+		_:
+			return "match.state_changed"
+
+
+func _queue_event(event_type: String, payload: Dictionary) -> void:
+	_pending_events.append({
+		"event_type": event_type,
+		"payload": payload,
+	})
+
+
+func _result_snapshot(result: Object) -> Dictionary:
+	if result == null:
+		return {}
+	return {
+		"ok": bool(result.ok),
+		"code": String(result.code),
+		"message": String(result.message),
+	}
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +295,9 @@ func _ticket_snapshot(ticket: Object) -> Dictionary:
 	if ticket == null:
 		return {}
 	var properties: Dictionary = ticket.get_properties()
+	var members: Array = []
+	for member in ticket.get_members():
+		members.append(_user_snapshot(member))
 	return {
 		"ticket_id": ticket.get_ticket_id(),
 		"queue_name": ticket.get_queue_name(),
@@ -213,8 +307,23 @@ func _ticket_snapshot(ticket: Object) -> Dictionary:
 		"arranged_lobby_connection_string": ticket.get_arranged_lobby_connection_string(),
 		"is_complete": ticket.is_complete(),
 		"is_cancelled": ticket.is_cancelled(),
+		"members": members,
+		"member_count": members.size(),
 		"properties": properties,
 	}
+
+
+func _user_snapshot(user: Object) -> Dictionary:
+	if user == null:
+		return {}
+	var payload: Dictionary = {}
+	if user.has_method("get_entity_key"):
+		payload["entity_key"] = user.get_entity_key()
+	if user.has_method("get_title_player_account_id"):
+		payload["title_player_account_id"] = user.get_title_player_account_id()
+	if user.has_method("get_custom_id"):
+		payload["custom_id"] = user.get_custom_id()
+	return payload
 
 
 func _runtime_tree() -> SceneTree:
