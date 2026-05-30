@@ -35,7 +35,6 @@ func _init(toolchain: RefCounted = null) -> void:
 	_makepkg = MakePkgExecutorScript.new(_toolchain)
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
 	_preparer = PackagingContentPreparerScript.new(_config_mgr)
-	_wdapp = WdappManagerScript.new(_toolchain)
 
 
 func get_toolchain() -> RefCounted:
@@ -66,11 +65,16 @@ func run_pack(resolved: Dictionary) -> Dictionary:
 
 	# Optional content prep.
 	if not skip_prepare:
-		var ok: bool = _preparer.ensure_content_dir_ready(source_dir)
+		var prep_logs: Array[String] = []
+		var ok: bool = _preparer.ensure_content_dir_ready(source_dir,
+			func(message: String) -> void:
+				prep_logs.append(message),
+			str(resolved.get("config_path", "")))
 		if not ok:
-			return PackagingResult.fail(verb, "Content prep failed for %s" % source_dir,
+			return PackagingResult.fail(verb,
+				_content_prep_error("Content prep failed for %s" % source_dir, prep_logs),
 				PackagingResult.EXIT_TOOL,
-				"", {"phase": "prepare_content"}, "",
+				"", {"phase": "prepare_content", "logs": prep_logs}, "",
 				Time.get_ticks_msec() - t0)
 
 	# Auto-genmap when --map-file wasn't supplied.
@@ -197,12 +201,16 @@ func run_prepare_content(resolved: Dictionary) -> Dictionary:
 	if not DirAccess.dir_exists_absolute(content_dir):
 		return PackagingResult.fail(verb, "Content directory does not exist: %s" % content_dir,
 			PackagingResult.EXIT_CONFIG)
-	var ok: bool = _preparer.ensure_content_dir_ready(content_dir)
+	var prep_logs: Array[String] = []
+	var ok: bool = _preparer.ensure_content_dir_ready(content_dir,
+		func(message: String) -> void:
+			prep_logs.append(message),
+		str(resolved.get("config_path", "")))
 	var duration: int = Time.get_ticks_msec() - t0
 	if not ok:
-		return PackagingResult.fail(verb, "Content prep failed",
+		return PackagingResult.fail(verb, _content_prep_error("Content prep failed", prep_logs),
 			PackagingResult.EXIT_TOOL,
-			"", {"content_dir": content_dir}, "", duration)
+			"", {"content_dir": content_dir, "logs": prep_logs}, "", duration)
 	return PackagingResult.ok(verb, "Prepared %s" % content_dir,
 		{"content_dir": content_dir}, "", duration)
 
@@ -246,11 +254,16 @@ func run_export(resolved: Dictionary) -> Dictionary:
 			Time.get_ticks_msec() - t0)
 
 	if not skip_prepare:
-		var ok: bool = _preparer.ensure_content_dir_ready(output_dir)
+		var prep_logs: Array[String] = []
+		var ok: bool = _preparer.ensure_content_dir_ready(output_dir,
+			func(message: String) -> void:
+				prep_logs.append(message),
+			str(resolved.get("config_path", "")))
 		if not ok:
-			return PackagingResult.fail(verb, "Post-export content prep failed",
+			return PackagingResult.fail(verb,
+				_content_prep_error("Post-export content prep failed", prep_logs),
 				PackagingResult.EXIT_TOOL,
-				"", {"phase": "prepare_content", "output_dir": output_dir},
+				"", {"phase": "prepare_content", "output_dir": output_dir, "logs": prep_logs},
 				"", Time.get_ticks_msec() - t0)
 	return PackagingResult.ok(verb,
 		"Exported %s → %s" % [preset, executable_path],
@@ -268,13 +281,13 @@ func run_register_loose(resolved: Dictionary) -> Dictionary:
 	var missing: String = _missing_required(resolved, ["content_dir"])
 	if not missing.is_empty():
 		return PackagingResult.fail(verb, missing, PackagingResult.EXIT_USAGE)
-	if not _wdapp.is_available():
+	if not _get_wdapp().is_available():
 		return PackagingResult.fail(verb, "wdapp.exe not found", PackagingResult.EXIT_CONFIG)
 	var content_dir: String = str(resolved["content_dir"])
 	if not DirAccess.dir_exists_absolute(content_dir):
 		return PackagingResult.fail(verb, "Content directory does not exist: %s" % content_dir,
 			PackagingResult.EXIT_CONFIG)
-	var result: Dictionary = _wdapp.register_loose(content_dir)
+	var result: Dictionary = _get_wdapp().register_loose(content_dir)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	if exit_code != 0:
@@ -297,13 +310,13 @@ func run_install(resolved: Dictionary) -> Dictionary:
 	var missing: String = _missing_required(resolved, ["package_path"])
 	if not missing.is_empty():
 		return PackagingResult.fail(verb, missing, PackagingResult.EXIT_USAGE)
-	if not _wdapp.is_available():
+	if not _get_wdapp().is_available():
 		return PackagingResult.fail(verb, "wdapp.exe not found", PackagingResult.EXIT_CONFIG)
 	var package_path: String = str(resolved["package_path"])
 	if not FileAccess.file_exists(package_path):
 		return PackagingResult.fail(verb, "Package file does not exist: %s" % package_path,
 			PackagingResult.EXIT_CONFIG)
-	var result: Dictionary = _wdapp.install_package(package_path)
+	var result: Dictionary = _get_wdapp().install_package(package_path)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	if exit_code != 0:
@@ -326,10 +339,10 @@ func run_uninstall(resolved: Dictionary) -> Dictionary:
 	var missing: String = _missing_required(resolved, ["package_name"])
 	if not missing.is_empty():
 		return PackagingResult.fail(verb, missing, PackagingResult.EXIT_USAGE)
-	if not _wdapp.is_available():
+	if not _get_wdapp().is_available():
 		return PackagingResult.fail(verb, "wdapp.exe not found", PackagingResult.EXIT_CONFIG)
 	var package_name: String = str(resolved["package_name"])
-	var result: Dictionary = _wdapp.uninstall_package(package_name)
+	var result: Dictionary = _get_wdapp().uninstall_package(package_name)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	if exit_code != 0:
@@ -349,7 +362,7 @@ func run_uninstall(resolved: Dictionary) -> Dictionary:
 func run_launch(resolved: Dictionary) -> Dictionary:
 	var t0: int = Time.get_ticks_msec()
 	var verb: String = "launch"
-	if not _wdapp.is_available():
+	if not _get_wdapp().is_available():
 		return PackagingResult.fail(verb, "wdapp.exe not found", PackagingResult.EXIT_CONFIG)
 	var aumid: String = str(resolved.get("aumid", ""))
 	if aumid.is_empty():
@@ -359,7 +372,7 @@ func run_launch(resolved: Dictionary) -> Dictionary:
 			return PackagingResult.fail(verb,
 				"Either --aumid or --package-name is required",
 				PackagingResult.EXIT_USAGE)
-		var listing: Dictionary = _wdapp.list_registered_apps()
+		var listing: Dictionary = _get_wdapp().list_registered_apps()
 		for app: Dictionary in listing.get("apps", []):
 			if str(app.get("pfn", "")) == package_name:
 				aumid = str(app.get("aumid", ""))
@@ -368,7 +381,7 @@ func run_launch(resolved: Dictionary) -> Dictionary:
 			return PackagingResult.fail(verb,
 				"Could not find AUMID for package '%s'" % package_name,
 				PackagingResult.EXIT_CONFIG)
-	var result: Dictionary = _wdapp.launch_app(aumid)
+	var result: Dictionary = _get_wdapp().launch_app(aumid)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	if exit_code != 0:
@@ -390,11 +403,11 @@ func run_terminate(resolved: Dictionary) -> Dictionary:
 	var missing: String = _missing_required(resolved, ["package_name"])
 	if not missing.is_empty():
 		return PackagingResult.fail(verb, missing, PackagingResult.EXIT_USAGE)
-	if not _wdapp.is_available():
+	if not _get_wdapp().is_available():
 		return PackagingResult.fail(verb, "wdapp.exe not found", PackagingResult.EXIT_CONFIG)
 	var package_name: String = str(resolved["package_name"])
 	var build_dir: String = str(resolved.get("content_dir", resolved.get("source_dir", "")))
-	var result: Dictionary = _wdapp.terminate_app(package_name, build_dir)
+	var result: Dictionary = _get_wdapp().terminate_app(package_name, build_dir)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	var terminated_with: String = str(result.get("terminated_with", "wdapp"))
@@ -472,30 +485,34 @@ func run_config_template(resolved: Dictionary) -> Dictionary:
 	var output: String = str(resolved.get("output", ""))
 	if output.is_empty():
 		output = _config_mgr.get_config_path()
+	var fs_output: String = GameConfigManagerScript.to_filesystem_path(output)
 	var overwrite: bool = bool(resolved.get("overwrite", false))
-	if FileAccess.file_exists(output) and not overwrite:
+	if FileAccess.file_exists(fs_output) and not overwrite:
 		return PackagingResult.fail(verb,
-			"%s already exists (pass --overwrite to replace it)" % output,
+			"%s already exists (pass --overwrite to replace it)" % fs_output,
 			PackagingResult.EXIT_CONFIG,
-			"", {"output": output})
-	if FileAccess.file_exists(output) and overwrite:
-		var dir: DirAccess = DirAccess.open(output.get_base_dir())
-		if dir != null:
-			dir.remove(output.get_file())
+			"", {"output": fs_output})
+	if FileAccess.file_exists(fs_output) and overwrite:
+		var remove_err: Error = DirAccess.remove_absolute(fs_output)
+		if remove_err != OK and FileAccess.file_exists(fs_output):
+			return PackagingResult.fail(verb,
+				"Failed to remove existing output %s (%s)" % [fs_output, error_string(remove_err)],
+				PackagingResult.EXIT_CONFIG,
+				"", {"output": fs_output, "err": remove_err})
 
 	var app_name: String = str(resolved.get("app_name", "MyGodotGame"))
 	var publisher: String = "CN=" + str(resolved.get("identity_publisher", "Publisher"))
 	if publisher == "CN=":
 		publisher = "CN=Publisher"
-	var err: int = _config_mgr.create_template(app_name, publisher, app_name)
+	var err: int = _config_mgr.create_template(app_name, publisher, app_name, output)
 	var duration: int = Time.get_ticks_msec() - t0
 	if err != OK:
 		return PackagingResult.fail(verb,
 			"Failed to create template (%s)" % error_string(err),
 			PackagingResult.EXIT_TOOL,
-			"", {"output": output, "err": err}, "", duration)
-	return PackagingResult.ok(verb, "Created template at %s" % output,
-		{"output": output}, "", duration)
+			"", {"output": fs_output, "err": err}, "", duration)
+	return PackagingResult.ok(verb, "Created template at %s" % fs_output,
+		{"output": fs_output}, "", duration)
 
 
 # ── config_editor ───────────────────────────────────────────────────────────
@@ -579,6 +596,12 @@ func dispatch(verb: String, resolved: Dictionary) -> Dictionary:
 
 # ── internal ────────────────────────────────────────────────────────────────
 
+func _get_wdapp() -> RefCounted:
+	if _wdapp == null:
+		_wdapp = WdappManagerScript.new(_toolchain)
+	return _wdapp
+
+
 static func _missing_required(resolved: Dictionary, keys: Array) -> String:
 	var missing: PackedStringArray = PackedStringArray()
 	for key: String in keys:
@@ -588,3 +611,12 @@ static func _missing_required(resolved: Dictionary, keys: Array) -> String:
 	if missing.is_empty():
 		return ""
 	return "Missing required value(s): %s" % ", ".join(missing)
+
+
+static func _content_prep_error(prefix: String, logs: Array[String]) -> String:
+	if logs.is_empty():
+		return prefix
+	var parts: PackedStringArray = PackedStringArray()
+	for log: String in logs:
+		parts.append(log)
+	return "%s: %s" % [prefix, "; ".join(parts)]

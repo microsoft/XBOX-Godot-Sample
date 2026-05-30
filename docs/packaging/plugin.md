@@ -71,16 +71,16 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 |--------------------|--------------------------------------|-------------------------------------------------------------------|
 | `pack`             | `--source-dir`, `--output-dir`       | makepkg pack. Auto-genmap when `--map-file` is omitted.           |
 | `genmap`           | `--source-dir`, `--map-file`         | makepkg genmap.                                                   |
-| `validate`         | `--source-dir`, `--map-file`         | makepkg validate.                                                 |
+| `validate`         | `--source-dir`, `--map-file`         | makepkg validate; optional `--output-dir` selects `/pd`.          |
 | `prepare_content`  | `--content-dir`                      | Copies MicrosoftGame.config + logos into a content directory.     |
-| `export`           | `--preset`, `--output-dir`           | Godot Windows-Desktop export; `--release` toggles release mode.   |
+| `export`           | `--preset`, `--output-dir`           | Godot Windows-Desktop export; `--release`; optional `--no-prepare`. |
 | `register_loose`   | `--content-dir`                      | wdapp register (loose-files build).                               |
 | `install`          | `--package`                          | wdapp install on an .msixvc file.                                 |
 | `uninstall`        | `--package-name`                     | wdapp uninstall by package full name.                             |
 | `launch`           | `--package-name` or `--aumid`        | wdapp launch. Resolves AUMID from PFN when needed.                |
 | `terminate`        | `--package-name`                     | wdapp terminate; taskkill fallback is limited to the build's config-named `.exe`. |
 | `sandbox`          | `--action {get,set,retail}`          | `set` additionally requires `--sandbox-id`.                       |
-| `config_template`  | (none)                               | Writes a starter MicrosoftGame.config (use `--overwrite` to replace). |
+| `config_template`  | (none)                               | Writes a starter MicrosoftGame.config; optional `--output`, `--overwrite`. |
 | `config_editor`    | (none)                               | Detached GameConfigEditor.exe launch on the current config.       |
 | `store_wizard`     | (none)                               | Detached GameConfigEditor.exe `/StoreAssociation`.                |
 
@@ -94,6 +94,15 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 | `--encrypt-key`   |          | EKB path (required when `--encrypt=key`).                              |
 | `--updcompat`     | `3`      | makepkg `/updcompat` level (1, 2, or 3).                               |
 | `--no-prepare`    | off      | Skip the content-prep step before pack.                                |
+
+Additional verb-specific flags:
+
+- `validate --output-dir <dir>` chooses the makepkg validation output `/pd`
+  directory (otherwise a `validate-out` sibling is created).
+- `export --no-prepare` skips the post-export content preparation step.
+- `config_template --output <path>` writes the template at that path;
+  `--overwrite` replaces that same resolved output file when it already
+  exists.
 
 Per-verb help is always reachable as `<verb> --help`:
 
@@ -146,6 +155,17 @@ Derived rules:
 - `content_id` falls back to `product_id` when neither CLI nor settings
   supplied one.
 - `--encrypt=key:<ekb>` is shorthand for `--encrypt key --encrypt-key <ekb>`.
+- `--config <path>` is honored by the resolver and by content preparation, so
+  `prepare_content`, `pack`, and post-export prep stage the selected config
+  instead of implicitly reading `res://MicrosoftGame.config`.
+
+## Content-directory safety
+
+`prepare_content`, `pack`, and `export` validate every logo destination path
+read from MicrosoftGame.config before copying logo bytes. Relative paths such
+as `storelogos\Square150x150Logo.png` are staged under the content directory;
+absolute paths or paths that simplify outside the content directory (for
+example `..\..\outside.png`) are refused with an error before staging begins.
 
 ## Environment variables
 
@@ -158,8 +178,9 @@ Derived rules:
 ## Examples
 
 ```pwsh
-# Drop a starter MicrosoftGame.config in the current project.
+# Drop a starter MicrosoftGame.config in the current project, or redirect it.
 addons\godot_gdk_packaging\gdkpkg.cmd config_template
+addons\godot_gdk_packaging\gdkpkg.cmd config_template --output Configs\Alt.config
 
 # Get the current sandbox.
 addons\godot_gdk_packaging\gdkpkg.cmd sandbox --action get
@@ -169,8 +190,8 @@ addons\godot_gdk_packaging\gdkpkg.cmd sandbox --action set --sandbox-id XDKS.1
 
 # Export, prepare, and pack in three steps.
 addons\godot_gdk_packaging\gdkpkg.cmd export --preset "Windows Desktop" --output-dir Build\content
-addons\godot_gdk_packaging\gdkpkg.cmd prepare_content --content-dir Build\content
-addons\godot_gdk_packaging\gdkpkg.cmd pack --source-dir Build\content --output-dir Build\out
+addons\godot_gdk_packaging\gdkpkg.cmd prepare_content --content-dir Build\content --config Configs\Alt.config
+addons\godot_gdk_packaging\gdkpkg.cmd pack --source-dir Build\content --output-dir Build\out --config Configs\Alt.config
 
 # Register a loose-files build, launch, then terminate.
 addons\godot_gdk_packaging\gdkpkg.cmd register_loose --content-dir Build\content

@@ -145,16 +145,16 @@ Verb list (14):
 |--------------------|-------------------------------|--------------------------------------------------------|
 | `pack`             | `--source-dir`, `--output-dir`| Auto-genmaps if `--map-file` omitted; honours `--no-prepare`. |
 | `genmap`           | `--source-dir`, `--map-file`  |                                                        |
-| `validate`         | `--source-dir`, `--map-file`  |                                                        |
-| `prepare_content`  | `--content-dir`               | Standalone content-prep step.                          |
-| `export`           | `--preset`, `--output-dir`    | `--release` toggles `--export-release`.                |
+| `validate`         | `--source-dir`, `--map-file`  | Optional `--output-dir` selects makepkg `/pd`.          |
+| `prepare_content`  | `--content-dir`               | Standalone content-prep step; honors `--config`.        |
+| `export`           | `--preset`, `--output-dir`    | `--release`; optional `--no-prepare`.                  |
 | `register_loose`   | `--content-dir`               | wdapp register.                                        |
 | `install`          | `--package`                   | wdapp install.                                         |
 | `uninstall`        | `--package-name`              | wdapp uninstall.                                       |
 | `launch`           | `--package-name` or `--aumid` | Resolves AUMID via `wdapp list` when only PFN given.   |
 | `terminate`        | `--package-name`              | Falls back to taskkill only for the exact bare `.exe` basename named by MicrosoftGame.config, with path/wildcard/quote characters rejected and the file required in the build dir. |
 | `sandbox`          | `--action {get,set,retail}`   | `set` also requires `--sandbox-id`.                    |
-| `config_template`  | (none)                        | Writes a starter MicrosoftGame.config.                 |
+| `config_template`  | (none)                        | Writes a starter MicrosoftGame.config; optional `--output`, `--overwrite`. |
 | `config_editor`    | (none)                        | Detached GameConfigEditor.exe launch.                  |
 | `store_wizard`     | (none)                        | Detached GameConfigEditor.exe `/StoreAssociation`.     |
 
@@ -167,7 +167,9 @@ collapses every source into a single flat dict. Precedence (highest wins):
    `_CLI_KEY_REMAP`).
 2. `res://.gdk_packaging.cfg` (via `PackagingSettingsStore`). Empty strings
    here do **not** clobber values pulled from lower layers.
-3. `MicrosoftGame.config` (identity / product / executable fields).
+3. `MicrosoftGame.config` (identity / product / executable fields). The
+   common `--config <path>` flag selects this config file and is carried into
+   `prepare_content`, `pack`, and post-export prep.
 4. `project.godot` (only `application/config/name` and `version`).
 5. Built-in defaults (`encrypt="none"`, `updcompat=3`, `action="get"`, ...).
 
@@ -177,6 +179,17 @@ Derived rules:
   supplied one.
 - `--encrypt=key:<ekb>` is split into `encrypt="key"` + `encrypt_key="<ekb>"`
   unless `--encrypt-key` is also passed (CLI wins).
+- `config_template --output <path>` writes to the requested path; `--overwrite`
+  removes and recreates that same resolved output file.
+
+## Content preparation safety
+
+`PackagingContentPreparer.ensure_content_dir_ready()` validates logo
+destination attributes from MicrosoftGame.config after path simplification and
+before staging. Relative paths inside the content directory are allowed;
+absolute paths, Godot URI paths, and paths that resolve outside the content
+directory are rejected with a content-dir safety error before any config or
+logo bytes are written to the staging directory.
 
 ## Plan
 
