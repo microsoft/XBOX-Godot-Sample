@@ -404,7 +404,14 @@ func relocate_logos_to_storelogos() -> int:
 		if FileAccess.file_exists(src_abs) and not files_to_move.has(src_abs):
 			var attr_name: String = logo_files[filename]
 			files_to_move[src_abs] = filename
-			logo_attr_replacements[attr_name] = {"old": filename, "new": "storelogos\\" + filename}
+			# Only register the attribute replacement if the config-referenced
+			# loop above did not already register one for this attribute. If we
+			# overwrote that entry, the XML rewrite below would look for the
+			# standard filename in the attribute, miss the config's actual
+			# custom filename, and leave MicrosoftGame.config pointing at the
+			# now-moved root file.
+			if not logo_attr_replacements.has(attr_name):
+				logo_attr_replacements[attr_name] = {"old": filename, "new": "storelogos\\" + filename}
 
 	if files_to_move.is_empty():
 		return 0
@@ -449,6 +456,14 @@ func relocate_logos_to_storelogos() -> int:
 ## Escapes special characters for safe use in XML attribute values.
 static func _escape_xml_attr(value: String) -> String:
 	return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+## Decodes XML attribute entity references back to their literal characters.
+## Order matters: decode &amp; LAST so that doubly-escaped sequences such as
+## &amp;lt; round-trip back to &lt; (the literal 4-character string the user
+## intended), rather than being collapsed to a single < character.
+static func _unescape_xml_attr(value: String) -> String:
+	return value.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&amp;", "&")
 
 
 static func _replace_shell_visuals_logo_attributes(content: String, attr_replacements: Dictionary) -> String:
@@ -510,6 +525,10 @@ static func _replace_xml_attribute_value(tag: String, attr_name: String,
 	return patched + tag.substr(cursor)
 
 
+## Returns the value of the named attribute from the first <ShellVisuals>
+## element in [param content], with XML entities decoded. The returned string
+## holds the literal filename / value (so callers can do filesystem operations
+## and re-escape exactly once when writing the result back).
 static func _find_shell_visuals_attr(content: String, attr_name: String) -> String:
 	var shell_visuals: RegEx = RegEx.new()
 	shell_visuals.compile('(?s)<ShellVisuals\\b[^>]*>')
@@ -519,7 +538,7 @@ static func _find_shell_visuals_attr(content: String, attr_name: String) -> Stri
 		attr_regex.compile('\\b' + attr_name + '\\s*=\\s*"([^"]*)"')
 		var attr_match: RegExMatch = attr_regex.search(shell_match.get_string())
 		if attr_match != null:
-			return attr_match.get_string(1)
+			return _unescape_xml_attr(attr_match.get_string(1))
 		shell_match = shell_visuals.search(content, shell_match.get_end())
 	return ""
 
