@@ -33,6 +33,14 @@ PlayFabRuntime::PlayFabRuntime() {
 
 PlayFabRuntime::~PlayFabRuntime() {
     shutdown();
+
+    // XGameRuntime is process-lifetime state. Keep initialize()/shutdown()
+    // re-armable and release this addon's runtime reference only when the
+    // extension singleton is torn down.
+    if (m_xgame_runtime_initialized) {
+        XGameRuntimeUninitialize();
+        m_xgame_runtime_initialized = false;
+    }
 }
 
 Ref<PlayFabResult> PlayFabRuntime::initialize() {
@@ -63,25 +71,24 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         endpoint = "https://" + title_id + ".playfabapi.com";
     }
 
-    bool xgame_runtime_initialized = false;
     bool playfab_core_initialized = false;
     bool playfab_services_initialized = false;
     bool game_save_files_initialized = false;
 
-    HRESULT hr = XGameRuntimeInitialize();
-    if (FAILED(hr)) {
-        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize the Gaming Runtime.", "runtime_initialize_failed");
-        return result;
+    if (!m_xgame_runtime_initialized) {
+        HRESULT runtime_hr = XGameRuntimeInitialize();
+        if (FAILED(runtime_hr)) {
+            Ref<PlayFabResult> result = PlayFabResult::hresult_error(runtime_hr, "Failed to initialize the Gaming Runtime.", "runtime_initialize_failed");
+            return result;
+        }
+        m_xgame_runtime_initialized = true;
     }
-    xgame_runtime_initialized = true;
 
-    hr = XTaskQueueCreate(
+    HRESULT hr = XTaskQueueCreate(
             XTaskQueueDispatchMode::ThreadPool,
             XTaskQueueDispatchMode::Manual,
             &m_task_queue);
     if (FAILED(hr)) {
-        XGameRuntimeUninitialize();
-
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to create the shared XTaskQueue.", "task_queue_create_failed");
         return result;
     }
@@ -90,7 +97,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     if (FAILED(hr)) {
         XTaskQueueCloseHandle(m_task_queue);
         m_task_queue = nullptr;
-        XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Core.", "playfab_core_initialize_failed");
         return result;
@@ -104,7 +110,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
 
         XTaskQueueCloseHandle(m_task_queue);
         m_task_queue = nullptr;
-        XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Services.", "playfab_services_initialize_failed");
         return result;
@@ -129,7 +134,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
 
         XTaskQueueCloseHandle(m_task_queue);
         m_task_queue = nullptr;
-        XGameRuntimeUninitialize();
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Game Save Files.", "playfab_gamesave_initialize_failed");
         return result;
@@ -163,9 +167,6 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         m_task_queue = nullptr;
         m_title_id = "";
         m_endpoint = "";
-        if (xgame_runtime_initialized) {
-            XGameRuntimeUninitialize();
-        }
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to create the PlayFab service configuration.", "service_config_create_failed");
         return result;
@@ -229,7 +230,9 @@ void PlayFabRuntime::shutdown() {
     }
     m_active_pending_signals.clear();
 
-    XGameRuntimeUninitialize();
+    // XGameRuntimeUninitialize intentionally does not run here. It is paired
+    // with the first successful XGameRuntimeInitialize and released once from
+    // ~PlayFabRuntime() during extension teardown.
 
     m_initialized = false;
     m_shutting_down = false;
