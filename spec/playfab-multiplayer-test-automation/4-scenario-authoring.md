@@ -333,7 +333,7 @@ func run(orch: TestOrchestrator) -> Dictionary:
         "status": "cancelled",
     })
 
-    var cancel := await host.send("cancel_match_ticket", { "handle": "smoke_ticket" })
+    var cancel := await host.send("cancel_match_ticket", { "ticket_id": create.result.ticket.ticket_id })
     err = assert_ok(cancel, "cancel_match_ticket")
     if err: return err
 
@@ -341,7 +341,7 @@ func run(orch: TestOrchestrator) -> Dictionary:
     if evt.timed_out:
         return fail("did not observe match.status_changed=cancelled within 10s")
 
-    return ok({ "ticket_id": create.result.ticket_id })
+    return ok({ "ticket_id": create.result.ticket.ticket_id })
 ```
 
 ### 4. Party RPC round-trip (regression coverage for PR #132 / issue #133)

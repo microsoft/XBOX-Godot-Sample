@@ -1,7 +1,6 @@
 extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 
 const MATCH_QUEUE_ENV := "PLAYFAB_MULTIPLAYER_MATCH_QUEUE"
-const LIVE_WRITE_ENV := "LIVE_WRITE_TESTS"
 const MATCH_TEST_TIMEOUT_MSEC := 60_000
 const DEFAULT_MATCH_QUEUE := "godot_gdk_ext_live_smoke_queue"
 
@@ -71,9 +70,7 @@ func _begin_match_session(label: String) -> Dictionary:
 		"multiplayer": null,
 		"playfab_user": null,
 	}
-	if pending_unless_live():
-		return outcome
-	if _pending_unless_live_write():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
@@ -123,13 +120,6 @@ func _begin_match_session(label: String) -> Dictionary:
 	outcome["multiplayer"] = multiplayer
 	outcome["playfab_user"] = playfab_user
 	return outcome
-
-
-func _pending_unless_live_write() -> bool:
-	if OS.get_environment(LIVE_WRITE_ENV) != "1":
-		pending("Skipped without LIVE_WRITE_TESTS=1")
-		return true
-	return false
 
 
 func _match_queue_name() -> String:

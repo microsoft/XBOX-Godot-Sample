@@ -77,7 +77,7 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 | --- | --- | --- |
 | `create_match_ticket` | `{ as: String, queue_name: String, timeout_seconds?: int, attributes?: Dictionary }` | `{ handle, ticket_id }` |
 | `get_match_ticket_snapshot` | `{ handle: String }` | `{ ticket_id, status, members, match? }` |
-| `cancel_match_ticket` | `{ handle: String }` | `{}` |
+| `cancel_match_ticket` | `{ handle?: String, ticket_id?: String }` | `{}` |
 
 ### Party
 
@@ -289,9 +289,9 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 - **Goal**: Create a ticket, cancel it, observe `cancelled` status.
 - **Steps**:
   1. `send(host, create_match_ticket, { as: "ticket", queue_name: orch.env("PLAYFAB_MULTIPLAYER_MATCH_QUEUE"), timeout_seconds: 60, attributes: { skill: 1 } })`.
-  2. Assert `response.result.ticket_id != ""`.
+  2. Assert `response.result.ticket.ticket_id != ""`.
   3. Subscribe `cancelled = expect_event(host, match.status_changed, { handle: "ticket", status: "cancelled" })`.
-  4. `send(host, cancel_match_ticket, { handle: "ticket" })`.
+  4. `send(host, cancel_match_ticket, { ticket_id: response.result.ticket.ticket_id })`.
   5. `await cancelled.wait(15000)`; assert not timed out.
 - **Notes**: Port of legacy `match ticket create and cancel`.
 
