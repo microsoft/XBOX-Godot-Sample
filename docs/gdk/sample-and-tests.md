@@ -70,7 +70,8 @@ A local run is green when all of the following are true:
 
 | Var | Effect | Default |
 |---|---|---|
-| `LIVE_TESTS=1` | Enables tests that need a live GDK or PlayFab session, including tests that write online state. | unset |
+| `LIVE_TESTS=1` | Enables tests that need a live GDK or PlayFab session. | unset |
+| `LIVE_WRITE_TESTS=1` | Enables sandbox-only tests that write online state. Use only with sandbox titles. | unset |
 | `PLAYFAB_TITLE_ID` | Overrides `playfab/runtime/title_id` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
 | `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. | unset |
 | `PLAYFAB_DEVELOPER_SECRET_KEY` | Supplies the PlayFab title developer secret key to `tools\configure_playfab_test_title.ps1` only. The script reads it from the process, user, or machine environment. Never forwarded to Godot child processes. | unset |
@@ -81,6 +82,7 @@ The orchestrator forwards the live/test variables to child Godot processes and s
 | Switch | Effect |
 |--------|--------|
 | `-Live` | Sets `LIVE_TESTS=1` for every Godot child process. |
+| `-AllowLiveWrites` | Sets `LIVE_WRITE_TESTS=1` for every Godot child process. Use only with sandbox titles. |
 | `-PlayFabTitleId <id>` | Sets `PLAYFAB_TITLE_ID` for Godot child processes; the PlayFab test base applies it to `playfab/runtime/title_id`. |
 | `-PlayFabCustomId <id>` | Sets `PLAYFAB_CUSTOM_ID` for Godot child processes; PlayFab live tests use it with `create_account=false`. |
 | `-SkipBuild` | Skips the CMake build stage. Use only when the debug build and mirrored GUT support are already current. |
@@ -100,7 +102,7 @@ The script reads the secret from the process, user, or machine environment witho
 After setup, run the PlayFab live suite with:
 
 ```powershell
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
 ```
 
 ## Live test settings
