@@ -2,13 +2,13 @@
 
 This is the landing page for the `godot_playfab` docs set.
 
-`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single `PlayFab` root singleton, manual user sign-in keyed by a `GDKUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, client-safe PlayFab Services SDK wrappers, and an MLP PlayFab Multiplayer lobby/matchmaking surface.
+`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single abstract `PlayFab` root singleton, manual user sign-in keyed by a `GDKUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, client-safe PlayFab Services SDK wrappers, and an MLP PlayFab Multiplayer lobby/matchmaking surface. Access the engine singleton as `PlayFab` (or `Engine.get_singleton("PlayFab")`); do not call `PlayFab.new()`.
 
 ## Current implementation status
 
 ### Implemented now
 
-- root singleton registration through `PlayFab`
+- abstract root singleton registration through `PlayFab`
 - shared PlayFab runtime lifecycle with a process-lifetime `XGameRuntimeInitialize` reference and re-armable `PFInitialize` / `PFServicesInitialize` cycles
 - shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
@@ -42,17 +42,20 @@ This is the landing page for the `godot_playfab` docs set.
 >
 > For the full per-tutorial walkthrough — sign-in mode selection, the
 > Game Manager fixtures required by each tutorial (the "Allow client
-> to update entries" leaderboard toggle, the Lobby and Party feature
-> switches, the `CloudSaves` block in `MicrosoftGame.config`), and the
-> `configure_playfab_test_title.ps1` helper — see
-> [PlayFab title prerequisites](prerequisites.md).
+> to post player stats" statistic toggle, statistic-backed leaderboard,
+> the Lobby and Party feature switches, the `CloudSaves` block in
+> `MicrosoftGame.config`), and the `configure_playfab_test_title.ps1`
+> helper — see [PlayFab title prerequisites](prerequisites.md).
 
-The PlayFab runtime reads these settings from Project Settings:
+The addon registers these Project Settings. Only the first two are read by `PlayFabRuntime::initialize()`; the other settings are consumed by the plugin bootstrap, embedded dispatch callback, or Party service.
 
-- `playfab/runtime/title_id` — required; the PlayFab title id
-- `playfab/runtime/endpoint` — optional; leave blank to derive `https://<titleid>.playfabapi.com`
-- `playfab/runtime/initialize_on_startup` — defaults to `false`; when `true`, the `PlayFabBootstrap` autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code.
-- `playfab/runtime/embed_dispatch` — defaults to `true`; disable only when you want to pump completions manually with `PlayFab.dispatch()`
+| Setting | Default | Consumer | Notes |
+|---|---|---|---|
+| `playfab/runtime/title_id` | `""` | `PlayFabRuntime::initialize()` | Required PlayFab title id. |
+| `playfab/runtime/endpoint` | `""` | `PlayFabRuntime::initialize()` | Optional; leave blank to derive `https://<titleid>.playfabapi.com`. |
+| `playfab/runtime/initialize_on_startup` | `false` | `PlayFabBootstrap` autoload | When `true`, the autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code. |
+| `playfab/runtime/embed_dispatch` | `true` | extension frame callback | Auto-pumps `PlayFab.dispatch()` each process frame while initialized; disable only when you pump manually. |
+| `playfab/party/local_udp_socket_bind_port` | `-1` | `PlayFab.party` | Valid range `-1..65535`. Leave `-1` for the SDK default; use `0` in same-host dev/CI to request an ephemeral UDP port and avoid Party bind collisions; use `1..65535` to pin a port. |
 
 The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
 
@@ -89,7 +92,7 @@ The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `re
 - `PlayFabUser`
 - `PlayFabResult`
 
-All PlayFab one-shot async methods now return completion signals that you await directly. `PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals.
+All PlayFab one-shot async methods return completion signals that you await directly. Each completion fires at most once with a `PlayFabResult`; embedded dispatch or explicit `PlayFab.dispatch()` delivers queued completions on the main thread. See [PlayFab async system](async-system.md) for the full lifecycle contract. `PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals.
 
 Service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted. The service contract test in `tests\godot\playfab\tests\test_api_services.gd` is the source of truth for the expected Godot-facing method matrix.
 
@@ -126,6 +129,10 @@ if title_data_result.ok:
 ```
 
 Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Use `PlayFab.users.sign_in_with_xuser_async(GDK.users.get_primary_user())` before calling `PlayFab.game_saves`; custom-ID users return `xbox_user_required` from Game Saves methods.
+
+## Leaderboard write path
+
+For Godot clients, prefer the statistic-backed leaderboard path: write scores with `PlayFab.statistics.update_statistics_async()` after enabling **Allow client to post player stats**, then query the linked leaderboard through `PlayFab.leaderboards`. `PlayFab.leaderboards.submit_score_async()` is the direct LeaderboardsV2 update path; for non-statistic-backed leaderboards, treat that as server/trusted-backend work that uses a PlayFab developer secret key outside the Godot client. Never ship a PlayFab developer secret in a Godot project.
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
 
@@ -180,5 +187,6 @@ See [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) for the orchestrator
 
 ## Reference
 
+- [`async-system.md`](async-system.md) — PlayFab completion, dispatch, and shutdown contract
 - [`gdk/sample-and-tests.md`](../gdk/sample-and-tests.md) — repo-wide test pipeline
 - [`troubleshooting.md#tests`](../troubleshooting.md#tests) — common test issues
