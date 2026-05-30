@@ -83,3 +83,31 @@ func test_error_reporting_runtime_configuration() -> void:
 	var disable_result = error_reporting.set_callback_enabled(false)
 	assert_result_ok(disable_result, "set_callback_enabled(false)")
 	assert_eq(error_reporting.is_callback_enabled(), false, "callback forwarding toggles off")
+
+
+func test_error_reporting_live_register_unregister_shutdown_callback_context() -> void:
+	if pending_unless_runtime_available():
+		return
+	if pending_unless_live():
+		return
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() returns GDKResult for live XError callback-lifetime test")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Live XError callback-lifetime test: %s" % init_result.message)
+		return
+
+	var gdk = get_gdk()
+	var error_reporting = gdk.get_error_reporting()
+	for iteration in 8:
+		var enable_result = error_reporting.set_callback_enabled(true)
+		assert_result_ok(enable_result, "set_callback_enabled(true) registers XError callback context on iteration %d" % iteration)
+		var disable_result = error_reporting.set_callback_enabled(false)
+		assert_result_ok(disable_result, "set_callback_enabled(false) unregisters XError callback context on iteration %d" % iteration)
+
+	var final_enable_result = error_reporting.set_callback_enabled(true)
+	assert_result_ok(final_enable_result, "set_callback_enabled(true) before shutdown")
+	gdk.shutdown()
+	assert_eq(gdk.is_initialized(), false, "GDK.shutdown() clears XError callback context without crashing")

@@ -652,6 +652,9 @@ int GDKSocial::dispatch() {
         if (FAILED(event.hr)) {
             Ref<GDKResult> result = GDKResult::hresult_error(event.hr, "A Social Manager event failed.", "social_event_failed");
             emit_signal("runtime_error", result);
+            if (!m_runtime_ready) {
+                return handled_events;
+            }
             if (event.eventType == XblSocialManagerEventType::LocalUserAdded) {
                 _fail_pending_friend_ops(local_id, result);
             }
@@ -677,11 +680,20 @@ int GDKSocial::dispatch() {
                 if (!refresh_result->is_ok()) {
                     _fail_pending_friend_ops(local_id, refresh_result);
                     emit_signal("runtime_error", refresh_result);
+                    if (!m_runtime_ready) {
+                        return handled_events;
+                    }
                     continue;
                 }
 
                 _get_group_users_internal(group, false, false);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 emit_signal("social_group_updated", group);
+                if (!m_runtime_ready) {
+                    return handled_events;
+                }
                 _complete_pending_friend_ops(group->get_handle());
             } break;
             case XblSocialManagerEventType::UsersAddedToSocialGraph:
@@ -697,6 +709,9 @@ int GDKSocial::dispatch() {
 
                     const bool emit_presence_signal = event.eventType == XblSocialManagerEventType::PresenceChanged;
                     _cache_social_user(*affected_user, true, emit_presence_signal);
+                    if (!m_runtime_ready) {
+                        return handled_events;
+                    }
                 }
 
                 if (event.eventType == XblSocialManagerEventType::UsersAddedToSocialGraph ||
@@ -718,11 +733,17 @@ int GDKSocial::dispatch() {
     }
 
     for (uint64_t local_id_value : filter_group_updates) {
+        if (!m_runtime_ready) {
+            return handled_events;
+        }
         XUserLocalId local_id = {};
         local_id.value = local_id_value;
         _emit_filter_group_updates(local_id);
     }
     for (uint64_t local_id_value : graph_changed_users) {
+        if (!m_runtime_ready) {
+            return handled_events;
+        }
         XUserLocalId local_id = {};
         local_id.value = local_id_value;
         _emit_social_graph_changed(local_id);
@@ -1255,6 +1276,10 @@ Ref<GDKSocialUser> GDKSocial::_find_cached_user(const String &p_xuid) const {
 }
 
 Ref<GDKSocialUser> GDKSocial::_cache_social_user(const XblSocialManagerUser &p_social_user, bool p_emit_social_signal, bool p_emit_presence_signal) {
+    if (!m_runtime_ready) {
+        return Ref<GDKSocialUser>();
+    }
+
     const String xuid = String::num_uint64(p_social_user.xboxUserId);
     Ref<GDKSocialUser> social_user = _find_cached_user(xuid);
     if (social_user.is_null()) {
@@ -1267,6 +1292,9 @@ Ref<GDKSocialUser> GDKSocial::_cache_social_user(const XblSocialManagerUser &p_s
     GDKPresence *presence = _get_presence_service();
     if (presence != nullptr && social_user->get_presence().is_valid()) {
         presence->cache_presence_record(social_user->get_presence(), p_emit_presence_signal);
+        if (!m_runtime_ready) {
+            return social_user;
+        }
     }
 
     if (p_emit_social_signal) {
@@ -1302,10 +1330,16 @@ Array GDKSocial::_get_group_users_internal(const Ref<GDKSocialGroup> &p_group, b
     }
 
     for (size_t i = 0; i < native_user_count; ++i) {
+        if (!m_runtime_ready) {
+            break;
+        }
         if (native_users[i] == nullptr) {
             continue;
         }
-        users.push_back(_cache_social_user(*native_users[i], p_emit_social_signal, p_emit_presence_signal));
+        Ref<GDKSocialUser> user = _cache_social_user(*native_users[i], p_emit_social_signal, p_emit_presence_signal);
+        if (user.is_valid()) {
+            users.push_back(user);
+        }
     }
 
     return users;
@@ -1467,8 +1501,15 @@ void GDKSocial::_erase_local_user_state(XUserLocalId p_local_id) {
 }
 
 void GDKSocial::_emit_filter_group_updates(XUserLocalId p_local_id) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
     std::vector<Ref<GDKSocialGroup>> groups = m_groups;
     for (const Ref<GDKSocialGroup> &group : groups) {
+        if (!m_runtime_ready) {
+            return;
+        }
         if (!group.is_valid() || !group->is_loaded() || group->get_handle() == nullptr) {
             continue;
         }
@@ -1484,14 +1525,24 @@ void GDKSocial::_emit_filter_group_updates(XUserLocalId p_local_id) {
         Ref<GDKResult> refresh_result = _refresh_group_metadata(group);
         if (!refresh_result->is_ok()) {
             emit_signal("runtime_error", refresh_result);
+            if (!m_runtime_ready) {
+                return;
+            }
             continue;
         }
 
         emit_signal("social_group_updated", group);
+        if (!m_runtime_ready) {
+            return;
+        }
     }
 }
 
 void GDKSocial::_emit_social_graph_changed(XUserLocalId p_local_id) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
     LocalUserState *state = _find_local_user_state(p_local_id);
     if (state != nullptr && state->user.is_valid()) {
         emit_signal("social_graph_changed", state->user);

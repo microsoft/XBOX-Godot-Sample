@@ -1144,6 +1144,10 @@ void GDKMultiplayerActivity::emit_activities_updated_internal(const std::vector<
 }
 
 void GDKMultiplayerActivity::handle_activation_internal(const Dictionary &p_activation_info) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
     const int64_t activation_type = static_cast<int64_t>(p_activation_info.get("type", static_cast<int64_t>(-1)));
     const String invite_uri = p_activation_info.get("invite_uri", String());
     Dictionary invite = p_activation_info.get("invite", Dictionary());

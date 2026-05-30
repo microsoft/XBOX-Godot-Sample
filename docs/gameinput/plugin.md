@@ -164,9 +164,11 @@ preferred for clarity.
 * Device ids are never recycled within a session.
 * Shutdown uses `IGameInput::UnregisterCallback` rather than `StopCallback`:
   Microsoft documents `UnregisterCallback` as the point after which callback
-  resources may be removed, while `StopCallback` only prevents future dispatch.
-  This keeps the raw callback context, cached devices, and pending-event queue
-  alive until any in-flight GameInput worker callback has finished.
+  resources may be removed, while `StopCallback` only prevents future dispatch
+  (see Microsoft Learn for `IGameInput::UnregisterCallback` and
+  `IGameInput::StopCallback`). This keeps the raw callback context, cached
+  devices, and pending-event queue alive until any in-flight GameInput worker
+  callback has finished.
 
 ## In-editor docs
 

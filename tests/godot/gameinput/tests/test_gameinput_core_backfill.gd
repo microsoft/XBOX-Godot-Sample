@@ -215,7 +215,7 @@ func test_live_vibration_success_path_and_stop_haptics() -> void:
 
 
 func test_live_device_connected_signal_emits_device_payload() -> void:
-	if pending_unless_live():
+	if not requires_live():
 		return
 	if pending_unless_runtime_available():
 		return
@@ -241,3 +241,48 @@ func test_live_device_connected_signal_emits_device_payload() -> void:
 	assert_true(params is Array, "device_connected parameters are captured")
 	if params is Array and params.size() == 1:
 		_assert_device_payload(params[0], "device_connected payload")
+
+
+func test_live_device_connected_handler_can_shutdown_reentrantly() -> void:
+	if not requires_live():
+		return
+	if pending_unless_runtime_available():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var handler_state := { "count": 0 }
+	var shutdown_handler: Callable = func(_device: Object) -> void:
+		handler_state["count"] = int(handler_state["count"]) + 1
+		gi.shutdown()
+	gi.device_connected.connect(shutdown_handler)
+
+	var started: bool = gi.initialize()
+	if not started:
+		if gi.device_connected.is_connected(shutdown_handler):
+			gi.device_connected.disconnect(shutdown_handler)
+		pending("GameInput.initialize() returned false (no GameInput on host)")
+		return
+
+	gi.poll()
+	await get_tree().process_frame
+	gi.poll()
+	if int(handler_state["count"]) == 0:
+		if gi.device_connected.is_connected(shutdown_handler):
+			gi.device_connected.disconnect(shutdown_handler)
+		if gi.get_connected_device_count() == 0:
+			pending("No live GameInput devices connected to exercise re-entrant shutdown")
+		else:
+			assert_true(false, "device_connected should reach the re-entrant shutdown handler")
+		return
+
+	assert_eq(int(handler_state["count"]), 1,
+			"device_connected stops draining after the handler re-enters shutdown")
+	assert_eq(gi.is_initialized(), false,
+			"re-entrant shutdown leaves GameInput uninitialized")
+	assert_eq(gi.get_connected_device_count(), 0,
+			"re-entrant shutdown clears the device cache")
+	gi.poll()
+	assert_true(true, "poll() after re-entrant shutdown is safe")
+	if gi.device_connected.is_connected(shutdown_handler):
+		gi.device_connected.disconnect(shutdown_handler)

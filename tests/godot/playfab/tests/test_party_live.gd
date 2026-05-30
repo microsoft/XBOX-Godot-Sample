@@ -1,7 +1,7 @@
 extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## Live regression coverage for PlayFab Party network leave completion.
 ##
-## Gated by `pending_unless_live()` because it signs in to the configured
+## Gated by `requires_live_write()` because it signs in to the configured
 ## PlayFab sandbox and creates a transient Party network before leaving it.
 
 const _PARTY_INIT_TIMEOUT_MSEC := 60_000
@@ -11,19 +11,24 @@ const _STATE_PUMP_FRAMES := 30
 
 
 func test_party_create_and_leave_single_host_reports_success_without_resource_not_ready() -> void:
-	if pending_unless_live():
+	if not requires_live_write():
 		return
 	if pending_unless_playfab_available():
 		return
 
 	var playfab = get_playfab()
 	reset_playfab_runtime()
+	var runtime_init = playfab.initialize()
+	if runtime_init == null or not runtime_init.ok:
+		pending("PlayFab.initialize() live setup skipped: %s" % (runtime_init.message if runtime_init != null else "null result"))
+		return
 
 	var sign_in = await sign_in_with_configured_custom_id(playfab, "PlayFab Party create/leave regression", _PARTY_INIT_TIMEOUT_MSEC)
 	var playfab_user = sign_in.get("playfab_user")
 	if playfab_user == null:
 		playfab.shutdown()
 		return
+
 	var party = playfab.get_party()
 	assert_object_is(party, "PlayFabParty", "PlayFab.get_party() returns PlayFabParty for live Party regression")
 	if party == null:

@@ -56,6 +56,10 @@ void GDKErrorReporting::shutdown() {
 }
 
 int GDKErrorReporting::dispatch() {
+    if (!m_runtime_ready) {
+        return 0;
+    }
+
     std::vector<PendingError> pending_errors;
     {
         std::lock_guard<std::mutex> lock(m_pending_errors_mutex);
@@ -65,6 +69,7 @@ int GDKErrorReporting::dispatch() {
         pending_errors.swap(m_pending_errors);
     }
 
+    int64_t handled = 0;
     for (const PendingError &pending_error : pending_errors) {
         const char *native_message_chars = pending_error.message.empty() ? nullptr : pending_error.message.c_str();
         const String native_message = native_message_chars != nullptr ? String::utf8(native_message_chars) : String();
@@ -80,10 +85,17 @@ int GDKErrorReporting::dispatch() {
         if (m_owner != nullptr) {
             m_owner->emit_runtime_error(result);
         }
+        ++handled;
+        if (!m_runtime_ready) {
+            break;
+        }
         emit_signal("error_reported", result);
+        if (!m_runtime_ready) {
+            break;
+        }
     }
 
-    return static_cast<int>(pending_errors.size());
+    return static_cast<int>(handled);
 }
 
 Ref<GDKResult> GDKErrorReporting::configure_options(
