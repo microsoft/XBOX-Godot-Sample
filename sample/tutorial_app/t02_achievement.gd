@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 2 reference scene — unlock an Xbox achievement.
 ##
 ## Buttons drive each tutorial step in turn:
@@ -38,8 +40,8 @@ func _ready() -> void:
 		_set_buttons_enabled(false)
 		return
 
-	GDK.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
-	GDK.achievements.runtime_error.connect(_on_achievements_runtime_error)
+	AddonApi.singleton("GDK").achievements.achievement_unlocked.connect(_on_achievement_unlocked)
+	AddonApi.singleton("GDK").achievements.runtime_error.connect(_on_achievements_runtime_error)
 
 	_set_buttons_enabled(false)
 	_append("Waiting for sign-in…")
@@ -59,43 +61,43 @@ func _on_push_pressed() -> void:
 	await _push_progress(100)
 
 func _print_cached_achievements() -> void:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
 
-	var result: GDKResult = await GDK.achievements.query_player_achievements_async(user)
+	var result = await AddonApi.singleton("GDK").achievements.query_player_achievements_async(user)
 	if not result.ok:
 		_append("[color=orange][Ach] query failed: %s[/color]" % result.message)
 		return
 
-	var cache: Array = GDK.achievements.get_cached_achievements(user)
+	var cache: Array = AddonApi.singleton("GDK").achievements.get_cached_achievements(user)
 	_append("[Ach] %d achievement(s) declared for this title" % cache.size())
 	for entry in cache:
-		var ach: GDKAchievement = entry
+		var ach = entry
 		_append("[Ach]   %s (%s) — %d%%" % [ach.id, ach.name, ach.progress_percent])
 
 func _push_progress(percent: int) -> void:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
-	var result: GDKResult = await GDK.achievements.update_achievement_async(
+	var result = await AddonApi.singleton("GDK").achievements.update_achievement_async(
 		user, FIRST_SCORE_ID, percent)
 	if result.ok:
 		_append("[Ach] Updated to %d%% — result ok" % percent)
 	else:
 		_append("[color=orange][Ach] Update to %d%% failed: %s (%s)[/color]" % [percent, result.message, result.code])
 
-func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
+func _on_achievement_unlocked(user, achievement_id: String) -> void:
 	_unlocked[achievement_id] = true
-	var cache: Array = GDK.achievements.get_cached_achievements(user)
+	var cache: Array = AddonApi.singleton("GDK").achievements.get_cached_achievements(user)
 	for entry in cache:
-		var ach: GDKAchievement = entry
+		var ach = entry
 		if ach.id == achievement_id:
 			_append("[color=green][Ach] Unlocked: %s[/color]" % ach.name)
 			return
 	_append("[color=green][Ach] Unlocked id=%s (not in cache yet)[/color]" % achievement_id)
 
-func _on_achievements_runtime_error(result: GDKResult) -> void:
+func _on_achievements_runtime_error(result) -> void:
 	_append("[color=orange][Ach] Achievements subsystem error: %s (0x%08X)[/color]" % [result.message, result.hresult])
 
 func _set_buttons_enabled(enabled: bool) -> void:

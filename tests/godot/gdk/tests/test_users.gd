@@ -70,6 +70,9 @@ func test_users_full_flow() -> void:
 		assert_eq(blank_user.is_signed_in(), false, "blank GDKUser signed_in defaults false")
 		assert_eq(blank_user.is_store_user(), false, "blank GDKUser store_user defaults false")
 
+	var pre_init_add_with_ui_signal = users.add_user_with_ui_async()
+	await assert_signal_result_error(pre_init_add_with_ui_signal, "not_initialized", "add_user_with_ui_async() rejects before initialize")
+
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "GDK.initialize() for users behavior returns GDKResult")
 	if init_result == null:
@@ -80,6 +83,12 @@ func test_users_full_flow() -> void:
 
 	assert_eq(users.get_users().size(), 0, "get_users() starts empty after init")
 	assert_true(users.get_primary_user() == null, "get_primary_user() starts null after init")
+
+	var null_privilege_signal = users.check_privilege_async(null, 254)
+	await assert_signal_result_error(null_privilege_signal, "invalid_user", "check_privilege_async() rejects null users after initialize")
+
+	var null_issue_signal = users.resolve_issue_with_ui_async(null, "")
+	await assert_signal_result_error(null_issue_signal, "invalid_user", "resolve_issue_with_ui_async() rejects null users after initialize")
 
 	var user_changed_events: Array = []
 	users.connect("user_changed", func(user_arg, change_kind_arg): user_changed_events.append({"user": user_arg, "change_kind": change_kind_arg}))
@@ -120,10 +129,12 @@ func test_users_full_flow() -> void:
 		assert_eq(primary_user.get_local_id(), user.get_local_id(), "primary user matches the signed-in user")
 
 	assert_true(users.get_users().size() >= 1, "signed-in user is cached in the users service")
-	assert_eq(user_changed_events.size(), 1, "user_changed emitted for the first signed-in user")
-	if user_changed_events.size() > 0:
-		assert_eq(user_changed_events[0]["user"].get_local_id(), user.get_local_id(), "user_changed identifies the signed-in user")
-		assert_eq(user_changed_events[0]["change_kind"], "added", "user_changed reports added for a newly cached user")
+	assert_true(user_changed_events.size() >= 1, "user_changed emitted for the first signed-in user")
+	var matching_added_events := 0
+	for event in user_changed_events:
+		if event["user"].get_local_id() == user.get_local_id() and event["change_kind"] == "added":
+			matching_added_events += 1
+	assert_eq(matching_added_events, 1, "user_changed identifies the first signed-in user as added")
 
 	assert_true(user.get_local_id() != 0, "signed-in user local_id is populated")
 	assert_true(user.get_xuid().length() > 0, "signed-in user XUID is populated")

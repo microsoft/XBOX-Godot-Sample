@@ -491,6 +491,12 @@ That is the concrete example of the "manager state instead of a classic async re
 
 Because the runtime sets `m_shutting_down` first, service finalizers can refuse to mutate state during teardown. `GDK.shutdown()` intentionally does not call `XGameRuntimeUninitialize()`; tests and games may cycle initialize/shutdown multiple times in one process, while the matching native uninitialize runs once when the extension is torn down.
 
+### Finalizer contract
+
+Every `GDKSignalXAsyncContext::finalize(XAsyncBlock *)` implementation must short-circuit before result extraction or service/cache mutation when `get_runtime()->is_shutting_down()` or `get_pending_signal()->was_cancel_requested()` is true. The finalizer completes its pending signal with `GDKResult::cancelled(...)` and returns, so shutdown and explicit cancellation do not continue the success path after the runtime has started tearing down.
+
+If a future finalizer must perform native cleanup during shutdown, keep the cancelled-result gate first and document the cleanup-only exception both inline and in this section.
+
 ## Why the base bridge does not use generic `XAsyncGetStatus`
 
 This is the most important implementation rule for future work.
@@ -517,12 +523,13 @@ When adding a new one-shot wrapper, follow this checklist:
 1. Decide whether the wrapper is `XAsync`-backed or manager/dispatch-backed.
 2. Add the public service method that returns a completion `Signal`.
 3. For `XAsync`-backed work, create a service-specific context derived from `GDKSignalXAsyncContext`.
-4. In `finalize(XAsyncBlock *p_async_block)`, call the API-specific result functions.
-5. Translate native payloads into Godot wrappers or Variants.
-6. Update service-owned cache/state first.
-7. Emit service-level signals next.
-8. Complete the returned signal last.
-9. Use `GDKRuntime::make_error_signal()` for immediate startup/availability failures.
+4. In `finalize(XAsyncBlock *p_async_block)`, first apply the [finalizer contract](#finalizer-contract) shutdown/cancellation gate.
+5. Call the API-specific result functions.
+6. Translate native payloads into Godot wrappers or Variants.
+7. Update service-owned cache/state first.
+8. Emit service-level signals next.
+9. Complete the returned signal last.
+10. Use `GDKRuntime::make_error_signal()` for immediate startup/availability failures.
 
 For manager/event-driven waits like achievements and social friends queries, store a retained `GDKPendingSignal` in service-owned pending state and use a cancel handler that unregisters it immediately if the request is cancelled during teardown.
 

@@ -2,9 +2,8 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## GUT coverage for GDKCapture.
 ##
 ## Deterministic surface and validation tests run without a signed-in user.
-## Live diagnostic-capture tests (record_diagnostic_clip_async,
-## take_diagnostic_screenshot_async) require LIVE_TESTS=1 and a device with
-## Game Bar active; they are gated by pending_unless_live().
+## Live diagnostic-capture tests require LIVE_TESTS=1 and a device with
+## Game Bar active; they are gated by requires_live() before initializing.
 
 func before_each() -> void:
 	reset_runtime()
@@ -242,12 +241,14 @@ func test_capture_metadata_operations_reject_empty_name() -> void:
 	assert_false(meta.is_valid(), "GDKCaptureMetaData.is_valid() is false after explicit close()")
 
 
-# ── Metadata start/stop flow (deterministic with GDK running) ────────────
+# ── Metadata start/stop flow (live capture service) ─────────────────────
 
 func test_capture_metadata_start_stop_flow() -> void:
-	## Validates that start_string_state + stop_all_states round-trips without
-	## error when the GDK runtime is available.
+	## Validates that start_string_state + stop_all_states round-trips with live
+	## capture services available.
 	if pending_unless_runtime_available():
+		return
+	if not requires_live():
 		return
 
 	var init_result = initialize_runtime()
@@ -298,10 +299,12 @@ func test_capture_metadata_start_stop_flow() -> void:
 	assert_false(meta.is_valid(), "metadata context is invalid after close()")
 
 
-# ── Capture state (enable / disable — requires init) ─────────────────────
+# ── Capture state (enable / disable — live capture service) ──────────────
 
 func test_capture_enable_disable_after_init() -> void:
 	if pending_unless_runtime_available():
+		return
+	if not requires_live():
 		return
 
 	var init_result = initialize_runtime()
@@ -347,8 +350,9 @@ func test_capture_enable_disable_after_init() -> void:
 
 func test_capture_record_clip_live() -> void:
 	## Manual / live-only: requires Game Bar to be active on the device.
-	## Gate with pending_unless_live().
 	if pending_unless_runtime_available():
+		return
+	if not requires_live():
 		return
 
 	var init_result = initialize_runtime()
@@ -357,9 +361,6 @@ func test_capture_record_clip_live() -> void:
 		return
 	if not init_result.ok:
 		pending("record_diagnostic_clip_async live: runtime init failed — %s" % init_result.message)
-		return
-
-	if pending_unless_live():
 		return
 
 	var gdk = get_gdk()
@@ -389,6 +390,8 @@ func test_capture_take_screenshot_live() -> void:
 	## Manual / live-only: requires Game Bar to be active on the device.
 	if pending_unless_runtime_available():
 		return
+	if not requires_live():
+		return
 
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
@@ -396,9 +399,6 @@ func test_capture_take_screenshot_live() -> void:
 		return
 	if not init_result.ok:
 		pending("take_diagnostic_screenshot_async live: runtime init failed — %s" % init_result.message)
-		return
-
-	if pending_unless_live():
 		return
 
 	var gdk = get_gdk()

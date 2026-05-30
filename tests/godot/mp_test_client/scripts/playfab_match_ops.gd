@@ -22,14 +22,6 @@ const DEFAULT_CANCEL_TIMEOUT_MS := 30_000
 const DEFAULT_QUEUE_TIMEOUT_SEC := 60
 const POLL_INTERVAL_MS := 25
 const TERMINAL_STATUSES: PackedStringArray = ["cancelled", "failed"]
-# PFMultiplayerCreateMatchmakingTicket returns synchronously with a ticket
-# handle still in `Creating` state. The ticket_id is populated when the
-# first PFMatchmakingStateChangeType::TicketStatusChanged event arrives
-# (typically within 1-2s). Scenarios need the ticket_id to address the
-# ticket externally, so create_match_ticket waits for it to populate before
-# returning — independent of the longer match-found wait gated by
-# wait_match_ticket().
-const TICKET_ID_POPULATE_TIMEOUT_MS := 20_000
 
 var _runtime: PlayFabRuntime = null
 var _tickets: Dictionary = {}  # handle (String) -> PlayFabMatchTicket (Object)
@@ -86,23 +78,8 @@ func create_match_ticket(params: Dictionary) -> Dictionary:
 	var ticket: Object = result.data
 	if ticket == null:
 		return _err("invalid_response", "create_match_ticket_async returned ok with null ticket")
-	# create_match_ticket_async resolves as soon as the local handle is
-	# allocated; ticket_id is filled in asynchronously by the SDK's first
-	# TicketStatusChanged dispatch. Block until it populates so scenarios
-	# always see a non-empty id in the response payload.
-	var populate_timeout_ms: int = int(params.get("ticket_id_timeout_ms", TICKET_ID_POPULATE_TIMEOUT_MS))
-	var populated: bool = await _runtime.wait_until(
-		func(): return not String(ticket.get_ticket_id()).is_empty(),
-		populate_timeout_ms,
-	)
-	if not populated:
-		# Roll back the local allocation so reset_client doesn't try to
-		# cancel a half-formed ticket whose handle never carried an id.
-		await _runtime.await_completion(ticket.cancel_async(), DEFAULT_CANCEL_TIMEOUT_MS)
-		return _err(
-			"match_ticket_id_timeout",
-			"PFMatchmakingTicket id did not populate within %dms" % populate_timeout_ms,
-		)
+	if String(ticket.get_ticket_id()).is_empty():
+		return _err("invalid_response", "create_match_ticket_async returned ok with an empty ticket_id")
 	_tickets[handle] = ticket
 	return _ok({ "handle": handle, "ticket": _ticket_snapshot(ticket) })
 

@@ -16,15 +16,14 @@ const SCENARIO_NAME: String = "Host creates a ticket, cancels it, ticket reaches
 const CATEGORY: String = "match"
 const PRIORITY: String = "P0"
 const REQUIRED_ROLES: Array[String] = ["host"]
-const REQUIRED_CAPABILITIES: Array[String] = ["playfab_multiplayer_available"]
+const REQUIRED_CAPABILITIES: Array[String] = ["playfab_multiplayer_available", "live_write_allowed"]
 const TIMEOUT_SEC: int = 180
 
 
 func run(orch) -> Dictionary:
-	if orch.env("LIVE_TESTS", "") != "1":
-		return skip("LIVE_TESTS != 1")
-	if orch.env("PLAYFAB_TITLE_ID", "").is_empty():
-		return skip("PLAYFAB_TITLE_ID not set")
+	var live_gate: Variant = requires_live_write(orch)
+	if live_gate != null:
+		return live_gate
 
 	# Custom id derived in the test client from --role + env (see
 	# tests/godot/mp_test_client/scripts/test_client.gd::_derive_custom_id_for_role).

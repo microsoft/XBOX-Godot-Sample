@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 8 Step 6 — Multiplayer Activity panel.
 ##
 ## Reactive view of the activity advertised by the Lobby autoload.
@@ -50,13 +52,13 @@ func _exit_tree() -> void:
 	if not _initialized:
 		return
 	if Engine.has_singleton("GDK"):
-		if GDK.multiplayer_activity.invite_accepted.is_connected(_on_invite_accepted):
-			GDK.multiplayer_activity.invite_accepted.disconnect(_on_invite_accepted)
-		if GDK.multiplayer_activity.pending_invite_received.is_connected(_on_pending_invite):
-			GDK.multiplayer_activity.pending_invite_received.disconnect(_on_pending_invite)
+		if AddonApi.singleton("GDK").multiplayer_activity.invite_accepted.is_connected(_on_invite_accepted):
+			AddonApi.singleton("GDK").multiplayer_activity.invite_accepted.disconnect(_on_invite_accepted)
+		if AddonApi.singleton("GDK").multiplayer_activity.pending_invite_received.is_connected(_on_pending_invite):
+			AddonApi.singleton("GDK").multiplayer_activity.pending_invite_received.disconnect(_on_pending_invite)
 	if Engine.has_singleton("PlayFab"):
-		if PlayFab.multiplayer.state_changed.is_connected(_refresh_state):
-			PlayFab.multiplayer.state_changed.disconnect(_refresh_state)
+		if AddonApi.singleton("PlayFab").multiplayer.state_changed.is_connected(_refresh_state):
+			AddonApi.singleton("PlayFab").multiplayer.state_changed.disconnect(_refresh_state)
 	if _lobby_node != null:
 		if _lobby_node.invite_pending_confirmation.is_connected(_on_invite_pending_confirmation):
 			_lobby_node.invite_pending_confirmation.disconnect(_on_invite_pending_confirmation)
@@ -78,9 +80,9 @@ func _initialize_after_sign_in() -> void:
 	_picker.pressed.connect(_on_picker_pressed)
 	_invite_dialog.confirmed.connect(_on_invite_dialog_confirmed)
 	_invite_dialog.canceled.connect(_on_invite_dialog_canceled)
-	GDK.multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
-	GDK.multiplayer_activity.pending_invite_received.connect(_on_pending_invite)
-	PlayFab.multiplayer.state_changed.connect(_refresh_state)
+	AddonApi.singleton("GDK").multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
+	AddonApi.singleton("GDK").multiplayer_activity.pending_invite_received.connect(_on_pending_invite)
+	AddonApi.singleton("PlayFab").multiplayer.state_changed.connect(_refresh_state)
 	# Item 3 / B3 — prompt before MPA invite tears down current session.
 	_lobby_node.invite_pending_confirmation.connect(_on_invite_pending_confirmation)
 	_lobby_node.invite_pending_cleared.connect(_on_invite_pending_cleared)
@@ -89,7 +91,7 @@ func _initialize_after_sign_in() -> void:
 	await _on_refresh_pressed()
 
 func _refresh_state(_change = null) -> void:
-	var current: PlayFabLobby = _lobby_node.call("get_current_lobby")
+	var current = _lobby_node.call("get_current_lobby")
 	if current == null:
 		_state.text = "No lobby — activity not advertised"
 		return
@@ -111,8 +113,8 @@ func _on_refresh_pressed() -> void:
 		_friends.add_item("(no friends found)")
 		_friends.set_item_disabled(0, true)
 		return
-	for friend: GDKSocialUser in list:
-		var label := friend.gamertag if not friend.gamertag.is_empty() else friend.display_name
+	for friend in list:
+		var label: String = friend.gamertag if not friend.gamertag.is_empty() else friend.display_name
 		if label.is_empty():
 			label = friend.xuid
 		var idx := _friends.item_count
