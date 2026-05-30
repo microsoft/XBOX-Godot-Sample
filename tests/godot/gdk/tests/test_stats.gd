@@ -136,3 +136,101 @@ func test_set_stat_integer_live_stages_value() -> void:
 	if set_result.data is Dictionary:
 		assert_eq(set_result.data["name"], stat_name, "set_stat_integer() result echoes stat name")
 		assert_eq(int(set_result.data["value"]), 42, "set_stat_integer() result echoes integer value")
+
+func test_stats_live_track_stop_shutdown_callback_context() -> void:
+	if pending_unless_runtime_available():
+		return
+	if pending_unless_live():
+		return
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() returns GDKResult for live stats callback-lifetime test")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Live stats callback-lifetime test: %s" % init_result.message)
+		return
+
+	var gdk = get_gdk()
+	var stats = gdk.get_stats()
+	var sign_in = await ensure_primary_user(10000)
+	var sign_in_result = sign_in["result"]
+	var user = sign_in["user"]
+	if user == null:
+		if sign_in_result != null and not sign_in_result.ok:
+			pending("Live stats callback-lifetime sign-in: %s" % sign_in_result.message)
+		else:
+			pending("Live stats callback-lifetime test: no signed-in Xbox user is available.")
+		return
+
+	var stat_names := PackedStringArray(["high_score"])
+	var registered_once := false
+	for iteration in 4:
+		var track_result = stats.track_stats(user, stat_names)
+		if track_result == null or not track_result.ok:
+			pending("Live stats track_stats() could not subscribe: %s" % (track_result.message if track_result != null else "missing result"))
+			return
+		registered_once = true
+		for _frame_index in 3:
+			gdk.dispatch()
+			await get_tree().process_frame
+		var stop_result = stats.stop_tracking_stats(user, PackedStringArray())
+		assert_result_ok(stop_result, "stop_tracking_stats() unregisters live callback context on iteration %d" % iteration)
+
+	var final_track_result = stats.track_stats(user, stat_names)
+	if final_track_result != null and final_track_result.ok:
+		gdk.shutdown()
+		assert_eq(gdk.is_initialized(), false, "GDK.shutdown() unregisters live stats callback context")
+	else:
+		pending("Live stats final track_stats() could not subscribe before shutdown: %s" % (final_track_result.message if final_track_result != null else "missing result"))
+		return
+
+	assert_true(registered_once, "live stats callback context registered and unregistered without crashing")
+
+
+func test_stats_live_write_tracked_callback_context() -> void:
+	if pending_unless_runtime_available():
+		return
+	if pending_unless_live_write():
+		return
+
+	var init_result = initialize_runtime()
+	if init_result == null or not init_result.ok:
+		pending("Live-write stats callback-lifetime test: %s" % (init_result.message if init_result != null else "initialize returned null"))
+		return
+
+	var gdk = get_gdk()
+	var stats = gdk.get_stats()
+	var sign_in = await ensure_primary_user(10000)
+	var user = sign_in["user"]
+	if user == null:
+		pending("Live-write stats callback-lifetime test: no signed-in Xbox user is available.")
+		return
+
+	var stat_names := PackedStringArray(["high_score"])
+	var track_result = stats.track_stats(user, stat_names)
+	if track_result == null or not track_result.ok:
+		pending("Live-write stats track_stats() could not subscribe: %s" % (track_result.message if track_result != null else "missing result"))
+		return
+
+	var staged_result = stats.set_stat_integer(user, "high_score", int(Time.get_unix_time_from_system()) % 100000)
+	if staged_result == null or not staged_result.ok:
+		stats.stop_tracking_stats(user, PackedStringArray())
+		pending("Live-write stats set_stat_integer() could not stage a write: %s" % (staged_result.message if staged_result != null else "missing result"))
+		return
+
+	var flush_signal = stats.flush_stats_async(user)
+	var flush_result = await await_completion(flush_signal, 15000)
+	if flush_result == null or not flush_result.ok:
+		stats.stop_tracking_stats(user, PackedStringArray())
+		pending("Live-write stats flush could not complete: %s" % (flush_result.message if flush_result != null else "timed out"))
+		return
+
+	for _frame_index in 5:
+		gdk.dispatch()
+		await get_tree().process_frame
+
+	var stop_result = stats.stop_tracking_stats(user, PackedStringArray())
+	assert_result_ok(stop_result, "stop_tracking_stats() unregisters after live write callback exercise")
+	gdk.shutdown()
+	assert_eq(gdk.is_initialized(), false, "GDK.shutdown() after live write callback exercise does not crash")
