@@ -50,19 +50,46 @@ func execute_tool(exe_path: String, args: PackedStringArray) -> Dictionary:
 	if not FileAccess.file_exists(exe_path):
 		return { "exit_code": -1, "stdout": "", "stderr": "Tool not found: " + exe_path }
 
-	var output: Array = []
-	# read_stderr=false: Godot merges stderr into stdout in output[0]
-	var exit_code: int = OS.execute(exe_path, args, output, true, false)
+	var pipes: Dictionary = OS.execute_with_pipe(exe_path, args, false)
+	if pipes.is_empty():
+		return { "exit_code": -1, "stdout": "", "stderr": "Failed to execute tool: " + exe_path }
 
+	var pid: int = int(pipes.get("pid", -1))
+	var stdout_pipe: FileAccess = pipes.get("stdio", null) as FileAccess
+	var stderr_pipe: FileAccess = pipes.get("stderr", null) as FileAccess
 	var stdout_text: String = ""
-	if output.size() > 0:
-		stdout_text = str(output[0])
+	var stderr_text: String = ""
+
+	while pid >= 0 and OS.is_process_running(pid):
+		stdout_text += _drain_pipe_text(stdout_pipe)
+		stderr_text += _drain_pipe_text(stderr_pipe)
+		OS.delay_msec(10)
+	stdout_text += _drain_pipe_text(stdout_pipe)
+	stderr_text += _drain_pipe_text(stderr_pipe)
+
+	var exit_code: int = OS.get_process_exit_code(pid) if pid >= 0 else -1
+	if stdout_pipe != null:
+		stdout_pipe.close()
+	if stderr_pipe != null:
+		stderr_pipe.close()
 
 	return {
 		"exit_code": exit_code,
 		"stdout": stdout_text,
-		"stderr": ""  # stderr is merged into stdout by OS.execute
+		"stderr": stderr_text
 	}
+
+
+static func _drain_pipe_text(pipe: FileAccess) -> String:
+	if pipe == null or not pipe.is_open():
+		return ""
+	var bytes: PackedByteArray = PackedByteArray()
+	while true:
+		var chunk: PackedByteArray = pipe.get_buffer(4096)
+		if chunk.is_empty():
+			break
+		bytes.append_array(chunk)
+	return bytes.get_string_from_utf8()
 
 
 ## Launches an executable as a detached process (fire-and-forget).

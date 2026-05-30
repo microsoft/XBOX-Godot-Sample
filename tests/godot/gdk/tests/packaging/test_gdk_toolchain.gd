@@ -65,6 +65,29 @@ func test_execute_tool_result_dict_shape() -> void:
 	assert_eq(typeof(result["stderr"]), TYPE_STRING, "stderr is String")
 
 
+func test_execute_tool_captures_stderr_separately() -> void:
+	var shell_path: String = ""
+	var args: PackedStringArray = PackedStringArray()
+	if OS.get_name() == "Windows":
+		shell_path = OS.get_environment("ComSpec")
+		if shell_path.is_empty():
+			shell_path = "C:\\Windows\\System32\\cmd.exe"
+		args = PackedStringArray(["/C", "echo tool_stdout && echo tool_stderr 1>&2"])
+	else:
+		shell_path = "/bin/sh"
+		args = PackedStringArray(["-c", "printf 'tool_stdout\\n'; printf 'tool_stderr\\n' >&2"])
+	if not FileAccess.file_exists(shell_path):
+		pending("No shell executable available for stderr capture test")
+		return
+
+	var tc = GDKToolchainScript.new()
+	var result: Dictionary = tc.execute_tool(shell_path, args)
+	assert_eq(int(result.get("exit_code", -1)), 0, "shell command exits cleanly")
+	assert_string_contains(str(result.get("stdout", "")), "tool_stdout", "stdout captured")
+	assert_string_contains(str(result.get("stderr", "")), "tool_stderr", "stderr captured")
+	assert_false(str(result.get("stdout", "")).contains("tool_stderr"), "stderr is not merged into stdout")
+
+
 # ── launch_detached — missing executable soft-fail ────────────────────────
 
 func test_launch_detached_missing_exe_returns_negative() -> void:

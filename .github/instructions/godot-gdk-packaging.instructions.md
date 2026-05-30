@@ -134,20 +134,28 @@ before committing.
 
 ## Tests
 
+- `tests/godot/gdk/tests/packaging/test_config_import_plugin.gd` — import
+  plugin file classification.
+- `tests/godot/gdk/tests/packaging/test_game_config_xml_rewriting.gd` —
+  MicrosoftGame.config logo rewriting and encryption-key safety pins.
+- `tests/godot/gdk/tests/packaging/test_gdk_toolchain.gd` — GDK discovery,
+  execute_tool result shape, and stdout/stderr capture.
 - `tests/godot/gdk/tests/packaging/test_packaging_cli.gd` — argv parsing
   and verb-flag matrix.
 - `tests/godot/gdk/tests/packaging/test_gdkpkg_forwarder.gd` — shell
   forwarder argument-preservation regressions.
 - `tests/godot/gdk/tests/packaging/test_packaging_config_resolver.gd` —
   precedence chain + key remap + encrypt key:<path> split.
+- `tests/godot/gdk/tests/packaging/test_packaging_content_preparer.gd` —
+  content-prep XML helpers and runtime DLL refresh behavior.
+- `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — dock
+  presenter helper behavior.
+- `tests/godot/gdk/tests/packaging/test_packaging_plugin_lifecycle.gd` —
+  editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result
   builder shape, exit-code constants, JSON round trip.
-- Pre-existing helper suites (`test_packaging.gd`,
-  `test_packaging_panel_logic.gd`, `test_packaging_content_preparer.gd`,
-  `test_gdk_toolchain.gd`, `test_packaging_settings_store.gd`,
-  `test_export_preset_catalog.gd`, `test_game_config_manager.gd`,
-  `test_makepkg_executor.gd`, `test_wdapp_manager.gd`) — preserved as-is,
-  preloads updated to `core/`.
+- `tests/godot/gdk/tests/packaging/test_tutorial_wizard_state.gd` — tutorial
+  wizard state transitions.
 
 GUT base class for packaging tests: just `extends GutTest`. The shared
 service bases (`gdk_test_base.gd`, …) are for runtime addons; do not use

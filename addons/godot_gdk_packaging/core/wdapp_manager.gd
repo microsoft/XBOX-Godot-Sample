@@ -214,6 +214,7 @@ func _notification(what: int) -> void:
 		return
 	_disposed = true
 	if _thread != null and _thread.is_started():
+		push_warning("[GDK Packaging] Waiting for in-flight wdapp operation to finish before shutdown...")
 		_thread.wait_to_finish()
 		_thread = null
 	_busy = false
