@@ -67,7 +67,7 @@ func test_device_defaults_before_init() -> void:
 			"get_display_name() == \"\" before init")
 	assert_eq(device.get_kind_mask(), 0,
 			"get_kind_mask() == 0 (DEVICE_UNKNOWN) before init")
-	assert_eq(device.is_connected(), false,
+	assert_eq(device.call("is_connected"), false,
 			"is_connected() == false before init")
 	assert_eq(device.supports_vibration(), false,
 			"supports_vibration() == false before init")
@@ -104,7 +104,7 @@ func test_device_defaults_after_shutdown() -> void:
 			"get_display_name() == \"\" after shutdown()")
 	assert_eq(device.get_kind_mask(), 0,
 			"get_kind_mask() == 0 after shutdown()")
-	assert_eq(device.is_connected(), false,
+	assert_eq(device.call("is_connected"), false,
 			"is_connected() == false after shutdown()")
 	assert_eq(device.supports_vibration(), false,
 			"supports_vibration() == false after shutdown()")

@@ -68,9 +68,9 @@ func test_action_map_swap_releases_previous_held_action() -> void:
 	_ensure_action(old_action)
 	_ensure_action(new_action)
 
-	var mapper := _new_mapper()
-	var first := _new_action_map_with(old_action)
-	var second := _new_action_map_with(new_action)
+	var mapper = _new_mapper()
+	var first = _new_action_map_with(old_action)
+	var second = _new_action_map_with(new_action)
 	if mapper == null or first == null or second == null:
 		if mapper != null: mapper.free()
 		pending("GameInputMapper test hooks or action-map classes missing")
@@ -112,8 +112,8 @@ func test_active_map_mutations_release_held_actions_and_invalidate_cache() -> vo
 		_ensure_action(held)
 		_ensure_action(replacement)
 
-		var mapper := _new_mapper()
-		var action_map := _new_action_map_with(held)
+		var mapper = _new_mapper()
+		var action_map = _new_action_map_with(held)
 		if mapper == null or action_map == null:
 			if mapper != null: mapper.free()
 			pending("GameInputMapper test hooks or action-map classes missing")
@@ -148,8 +148,8 @@ func test_binding_property_mutation_releases_held_action() -> void:
 	_ensure_action(held)
 	_ensure_action(replacement)
 
-	var mapper := _new_mapper()
-	var action_map := _new_action_map_with(held)
+	var mapper = _new_mapper()
+	var action_map = _new_action_map_with(held)
 	if mapper == null or action_map == null:
 		if mapper != null: mapper.free()
 		pending("GameInputMapper test hooks or action-map classes missing")
@@ -174,8 +174,8 @@ func test_uninitialized_runtime_early_return_releases_held_action() -> void:
 	var held := &"test_gi_stuck_runtime_unavailable"
 	_ensure_action(held)
 
-	var mapper := _new_mapper()
-	var action_map := _new_action_map_with(held)
+	var mapper = _new_mapper()
+	var action_map = _new_action_map_with(held)
 	if mapper == null or action_map == null:
 		if mapper != null: mapper.free()
 		pending("GameInputMapper test hooks or action-map classes missing")
@@ -214,8 +214,8 @@ func test_missing_target_device_releases_held_action() -> void:
 	var held := &"test_gi_stuck_missing_device"
 	_ensure_action(held)
 
-	var mapper := _new_mapper()
-	var action_map := _new_action_map_with(held)
+	var mapper = _new_mapper()
+	var action_map = _new_action_map_with(held)
 	if mapper == null or action_map == null:
 		if mapper != null: mapper.free()
 		gi.shutdown()
@@ -262,8 +262,8 @@ func test_non_gamepad_target_without_reading_releases_held_action() -> void:
 	var held := &"test_gi_stuck_null_reading"
 	_ensure_action(held)
 
-	var mapper := _new_mapper()
-	var action_map := _new_action_map_with(held)
+	var mapper = _new_mapper()
+	var action_map = _new_action_map_with(held)
 	if mapper == null or action_map == null:
 		if mapper != null: mapper.free()
 		gi.shutdown()
