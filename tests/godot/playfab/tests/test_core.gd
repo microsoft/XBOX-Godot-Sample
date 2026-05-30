@@ -34,6 +34,7 @@ const PLAYFAB_ROOT_METHODS := [
 ]
 
 const PLAYFAB_ROOT_SIGNALS := ["initialized", "shutdown_completed"]
+const REARM_TEST_TITLE_ID := "00000"
 
 const REGISTERED_CLASSES := [
 	"PlayFab",
@@ -83,6 +84,18 @@ const REGISTERED_CLASSES := [
 	"PlayFabTitleData",
 	"PlayFabResult",
 ]
+
+
+func _restore_playfab_runtime_settings(original_title_id, original_endpoint) -> void:
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+
+
+func _disconnect_playfab_lifecycle_handlers(playfab, initialized_handler: Callable, shutdown_handler: Callable) -> void:
+	if playfab.initialized.is_connected(initialized_handler):
+		playfab.initialized.disconnect(initialized_handler)
+	if playfab.shutdown_completed.is_connected(shutdown_handler):
+		playfab.shutdown_completed.disconnect(shutdown_handler)
 
 
 func test_singleton_availability() -> void:
@@ -211,3 +224,54 @@ func test_initialize_rejects_blank_title_id() -> void:
 
 	if playfab.initialized.is_connected(initialized_handler):
 		playfab.initialized.disconnect(initialized_handler)
+
+
+func test_initialize_shutdown_rearms_runtime_lifecycle() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+
+	reset_playfab_runtime()
+
+	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
+	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, REARM_TEST_TITLE_ID)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, "")
+
+	var initialized_events: Array = []
+	var shutdown_events: Array = []
+	var initialized_handler := func() -> void:
+		initialized_events.append(true)
+	var shutdown_handler := func() -> void:
+		shutdown_events.append(true)
+
+	playfab.initialized.connect(initialized_handler)
+	playfab.shutdown_completed.connect(shutdown_handler)
+
+	var lifecycle_failed := false
+	for cycle_index in range(3):
+		var init_result = playfab.initialize()
+		if init_result == null:
+			assert_not_null(init_result, "PlayFab.initialize() returns a result on cycle %d" % (cycle_index + 1))
+			lifecycle_failed = true
+			break
+		if not init_result.is_ok():
+			assert_playfab_result_ok(init_result, "PlayFab.initialize() re-arms after shutdown on cycle %d" % (cycle_index + 1))
+			lifecycle_failed = true
+			break
+
+		assert_true(playfab.is_initialized(), "PlayFab is initialized on cycle %d" % (cycle_index + 1))
+		if cycle_index < 2:
+			playfab.shutdown()
+			assert_false(playfab.is_initialized(), "PlayFab shuts down cleanly on cycle %d" % (cycle_index + 1))
+
+	if not lifecycle_failed:
+		assert_eq(initialized_events.size(), 3, "PlayFab.initialized emits for each re-arm initialize")
+		assert_eq(shutdown_events.size(), 2, "PlayFab.shutdown_completed emits for the two explicit shutdowns before the third initialize")
+		assert_true(playfab.is_initialized(), "PlayFab remains initialized after the third re-arm initialize")
+
+	if playfab.is_initialized():
+		playfab.shutdown()
+	_restore_playfab_runtime_settings(original_title_id, original_endpoint)
+	reset_playfab_runtime()
+	_disconnect_playfab_lifecycle_handlers(playfab, initialized_handler, shutdown_handler)
