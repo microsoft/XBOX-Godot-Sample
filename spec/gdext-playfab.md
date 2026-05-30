@@ -177,7 +177,7 @@ Service buckets:
 
 The MLP `PlayFab.multiplayer` service supports PlayFab Multiplayer initialization, lobby create/join/search, matchmaking ticket create, ticket enumeration, and explicit arranged-lobby joins. `PlayFabLobby` owns lobby leave and lobby/member property updates. `PlayFabMatchTicket` owns ticket cancellation and status refresh. User-owned native calls use the signed-in `PlayFabUser`'s internal `PFEntityHandle` overloads.
 
-Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
+`create_match_ticket_async` resolves only after the SDK assigns a non-empty `ticket_id` to the returned `PlayFabMatchTicket`; half-created local handles remain internal. Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
 
 Failed lobby create/join completions are terminal for their temporary wrapper: the wrapper is removed from `PlayFab.multiplayer.get_lobbies()` and marked disconnected before the failure result is surfaced. If `PFLobbyFinishStateChanges` or `PFMatchmakingFinishStateChanges` fails, the service emits `multiplayer_error`, tears down native Multiplayer state (including the task queue), marks wrappers detached, and returns to `is_initialized() == false`; titles must call `initialize_async()` before issuing more Multiplayer calls.
 

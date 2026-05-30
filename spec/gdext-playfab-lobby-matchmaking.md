@@ -302,7 +302,7 @@ var user: PlayFabUser
 var attributes: Dictionary = {}
 ```
 
-`create_match_ticket_async(user, config)` uses the `user` argument as the local ticket owner/requester. If `config.members` is empty, the implementation creates a single matchmaking member from that user's `PFEntityHandle` with empty attributes. If members are supplied, each configured member supplies its own `PlayFabUser`, which is converted to its internal `PFEntityHandle`, plus per-member attributes.
+`create_match_ticket_async(user, config)` uses the `user` argument as the local ticket owner/requester. If `config.members` is empty, the implementation creates a single matchmaking member from that user's `PFEntityHandle` with empty attributes. If members are supplied, each configured member supplies its own `PlayFabUser`, which is converted to its internal `PFEntityHandle`, plus per-member attributes. The returned completion signal resolves only after the SDK assigns a non-empty `ticket_id`; until then, the half-created native handle remains internal and is not returned by `get_match_tickets()`.
 
 ### Match ticket state changes
 
