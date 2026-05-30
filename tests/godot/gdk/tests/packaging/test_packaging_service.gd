@@ -137,3 +137,64 @@ func test_config_template_overwrite_recreates_requested_output() -> void:
 	assert_false(content.contains("old requested output"), "old requested output was replaced")
 	assert_string_contains(content, 'Executable Name="OverwriteGame.exe"',
 		"new template is written at the requested output")
+
+
+# ── path normalization (PR #13 review follow-up) ────────────────────────────
+
+const _ConfigMgr = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
+
+
+func test_to_filesystem_path_passes_through_empty_string() -> void:
+	assert_eq(_ConfigMgr.to_filesystem_path(""), "",
+		"empty input is returned unchanged")
+
+
+func test_to_filesystem_path_globalizes_res_paths() -> void:
+	var normalized: String = _ConfigMgr.to_filesystem_path("res://Configs/Alt.config")
+	assert_eq(normalized, ProjectSettings.globalize_path("res://Configs/Alt.config"),
+		"res:// paths are globalized to filesystem-absolute form")
+
+
+func test_to_filesystem_path_globalizes_user_paths() -> void:
+	var normalized: String = _ConfigMgr.to_filesystem_path("user://test_packaging_service/some.config")
+	assert_eq(normalized, ProjectSettings.globalize_path("user://test_packaging_service/some.config"),
+		"user:// paths are globalized to filesystem-absolute form")
+
+
+func test_to_filesystem_path_preserves_absolute_paths() -> void:
+	var absolute_input: String = _fixture_path("custom/Already.config")
+	assert_eq(_ConfigMgr.to_filesystem_path(absolute_input), absolute_input,
+		"already-absolute filesystem paths are returned unchanged")
+
+
+func test_to_filesystem_path_resolves_relative_paths_against_project_root() -> void:
+	var relative: String = "Configs/Alt.config"
+	var expected: String = ProjectSettings.globalize_path("res://").path_join(relative)
+	assert_eq(_ConfigMgr.to_filesystem_path(relative), expected,
+		"relative --output paths are resolved against the project root, not CWD")
+
+
+func test_config_template_accepts_res_output_path() -> void:
+	# res://test_packaging_service/ResOut.config — write under user-test fixture
+	# tree by globalizing a unique res-rooted path.
+	var res_out: String = "res://test_packaging_service_res_out.config"
+	var fs_out: String = ProjectSettings.globalize_path(res_out)
+	# Clean any stale artefact from a previous run before / after the test.
+	if FileAccess.file_exists(fs_out):
+		DirAccess.remove_absolute(fs_out)
+
+	var result: Dictionary = _new_service().run_config_template({
+		"output": res_out,
+		"overwrite": true,
+		"app_name": "ResGame",
+		"identity_publisher": "Acme",
+	})
+
+	assert_true(result["ok"], "res:// --output succeeds (regression: PR #13 review)")
+	assert_true(FileAccess.file_exists(fs_out),
+		"res:// --output writes to its globalized filesystem path")
+	assert_string_contains(_read_text(fs_out), 'Executable Name="ResGame.exe"',
+		"template content lands at the res:// destination")
+	# Cleanup
+	if FileAccess.file_exists(fs_out):
+		DirAccess.remove_absolute(fs_out)

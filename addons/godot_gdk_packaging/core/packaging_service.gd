@@ -485,19 +485,20 @@ func run_config_template(resolved: Dictionary) -> Dictionary:
 	var output: String = str(resolved.get("output", ""))
 	if output.is_empty():
 		output = _config_mgr.get_config_path()
+	var fs_output: String = GameConfigManagerScript.to_filesystem_path(output)
 	var overwrite: bool = bool(resolved.get("overwrite", false))
-	if FileAccess.file_exists(output) and not overwrite:
+	if FileAccess.file_exists(fs_output) and not overwrite:
 		return PackagingResult.fail(verb,
-			"%s already exists (pass --overwrite to replace it)" % output,
+			"%s already exists (pass --overwrite to replace it)" % fs_output,
 			PackagingResult.EXIT_CONFIG,
-			"", {"output": output})
-	if FileAccess.file_exists(output) and overwrite:
-		var remove_err: Error = DirAccess.remove_absolute(output)
-		if remove_err != OK and FileAccess.file_exists(output):
+			"", {"output": fs_output})
+	if FileAccess.file_exists(fs_output) and overwrite:
+		var remove_err: Error = DirAccess.remove_absolute(fs_output)
+		if remove_err != OK and FileAccess.file_exists(fs_output):
 			return PackagingResult.fail(verb,
-				"Failed to remove existing output %s (%s)" % [output, error_string(remove_err)],
+				"Failed to remove existing output %s (%s)" % [fs_output, error_string(remove_err)],
 				PackagingResult.EXIT_CONFIG,
-				"", {"output": output, "err": remove_err})
+				"", {"output": fs_output, "err": remove_err})
 
 	var app_name: String = str(resolved.get("app_name", "MyGodotGame"))
 	var publisher: String = "CN=" + str(resolved.get("identity_publisher", "Publisher"))
@@ -509,9 +510,9 @@ func run_config_template(resolved: Dictionary) -> Dictionary:
 		return PackagingResult.fail(verb,
 			"Failed to create template (%s)" % error_string(err),
 			PackagingResult.EXIT_TOOL,
-			"", {"output": output, "err": err}, "", duration)
-	return PackagingResult.ok(verb, "Created template at %s" % output,
-		{"output": output}, "", duration)
+			"", {"output": fs_output, "err": err}, "", duration)
+	return PackagingResult.ok(verb, "Created template at %s" % fs_output,
+		{"output": fs_output}, "", duration)
 
 
 # ── config_editor ───────────────────────────────────────────────────────────

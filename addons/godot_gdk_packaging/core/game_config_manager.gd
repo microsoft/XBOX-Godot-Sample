@@ -28,6 +28,25 @@ func config_exists() -> bool:
 	return FileAccess.file_exists("res://" + CONFIG_FILENAME)
 
 
+## Normalizes a Godot path to a filesystem-absolute path so it can safely be
+## passed to [code]DirAccess.*_absolute()[/code] and [code]DirAccess.remove_absolute()[/code]:
+## - [code]res://[/code] / [code]user://[/code] paths are globalized.
+## - Already-absolute filesystem paths are returned unchanged.
+## - Relative paths (e.g. [code]Configs/Alt.config[/code] from a headless
+##   [code]--output[/code] flag) are resolved against the project root so the
+##   write target lands inside the project rather than CWD-dependent
+##   unpredictability.
+## Empty input is returned unchanged.
+static func to_filesystem_path(p: String) -> String:
+	if p.is_empty():
+		return p
+	if p.begins_with("res://") or p.begins_with("user://"):
+		return ProjectSettings.globalize_path(p)
+	if p.is_absolute_path():
+		return p
+	return ProjectSettings.globalize_path("res://").path_join(p)
+
+
 # ── Parsing ─────────────────────────────────────────────────────────────────
 
 ## Parses MicrosoftGame.config and returns identity info as a Dictionary:
@@ -151,8 +170,9 @@ func create_template(game_name: String = "MyGodotGame",
 	var target_path: String = output_path
 	if target_path.is_empty():
 		target_path = get_config_res_path()
+	var fs_target: String = to_filesystem_path(target_path)
 
-	if FileAccess.file_exists(target_path):
+	if FileAccess.file_exists(fs_target):
 		push_warning("[GDK Packaging] MicrosoftGame.config already exists — not overwriting.")
 		return ERR_ALREADY_EXISTS
 
@@ -183,18 +203,18 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '  <AdvancedUserModel>false</AdvancedUserModel>\n'
 	xml += '</Game>\n'
 
-	var target_dir: String = target_path.get_base_dir()
+	var target_dir: String = fs_target.get_base_dir()
 	if not target_dir.is_empty() and not DirAccess.dir_exists_absolute(target_dir):
 		DirAccess.make_dir_recursive_absolute(target_dir)
 
-	var file: FileAccess = FileAccess.open(target_path, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(fs_target, FileAccess.WRITE)
 	if file == null:
 		push_error("[GDK Packaging] Failed to create MicrosoftGame.config: " + error_string(FileAccess.get_open_error()))
 		return FileAccess.get_open_error()
 
 	file.store_string(xml)
 	file.close()
-	print("[GDK Packaging] Created template MicrosoftGame.config at: ", target_path)
+	print("[GDK Packaging] Created template MicrosoftGame.config at: ", fs_target)
 
 	# Generate placeholder logo images so GameConfigEditor doesn't error
 	_ensure_placeholder_images()
