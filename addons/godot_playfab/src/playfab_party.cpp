@@ -34,6 +34,7 @@ constexpr const char *PARTY_PEER_NOT_CONNECTED = "party_peer_not_connected";
 constexpr const char *PARTY_RESOURCE_NOT_READY = "party_resource_not_ready";
 constexpr const char *PARTY_CHAT_CONTROL_CREATE_FAILED = "party_chat_control_create_failed";
 constexpr const char *PARTY_CHAT_PERMISSION_FAILED = "party_chat_permission_failed";
+constexpr const char *PARTY_STATE_FINISH_FAILED = "party_state_finish_failed";
 
 // Reserved transport-control packet protocol marker. The first byte of every
 // envelope identifies the packet kind; gameplay packets are forwarded to
@@ -1608,6 +1609,49 @@ void PlayFabParty::_release_all_local_users() {
     m_local_users.clear();
 }
 
+void PlayFabParty::_reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result) {
+    Ref<PlayFabResult> result = p_result;
+    if (result.is_null()) {
+        result = PlayFabResult::error_result(E_FAIL, PARTY_STATE_FINISH_FAILED, "PartyManager::FinishProcessingStateChanges failed.");
+    }
+
+    if (m_initialized) {
+        Party::PartyManager::GetSingleton().Cleanup();
+        m_initialized = false;
+    }
+    m_local_users.clear();
+    m_orphan_chat_controls.clear();
+    if (m_chat.is_valid()) {
+        m_chat->clear();
+    }
+
+    std::vector<Ref<PlayFabPartyNetwork>> networks;
+    networks.swap(m_networks);
+    for (const Ref<PlayFabPartyNetwork> &network : networks) {
+        if (!network.is_valid()) {
+            continue;
+        }
+        network->set_state_value(NETWORK_STATE_FAILED);
+        network->detach_native();
+        _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, result, "PlayFab Party state processing failed; PlayFab.party was reset.");
+        network->set_owner(nullptr);
+    }
+
+    std::vector<PendingOperation *> pending_operations;
+    pending_operations.swap(m_pending_operations);
+    for (PendingOperation *operation : pending_operations) {
+        if (operation != nullptr && operation->pending_signal.is_valid()) {
+            operation->pending_signal->complete(result);
+        }
+        delete operation;
+    }
+
+    ERR_PRINT("PlayFab.party: FinishProcessingStateChanges failed; Party was reset. Call PlayFab.party.initialize_async() before using it again.");
+    emit_signal("party_error", result);
+    m_processing_state_changes = false;
+    m_shutting_down = false;
+}
+
 PlayFabParty::PendingOperation *PlayFabParty::_create_pending(int32_t p_kind) {
     PendingOperation *operation = new PendingOperation;
     operation->kind = p_kind;
@@ -1925,7 +1969,12 @@ int PlayFabParty::_pump_state_changes() {
         ++processed;
     }
 
-    Party::PartyManager::GetSingleton().FinishProcessingStateChanges(change_count, changes);
+    err = Party::PartyManager::GetSingleton().FinishProcessingStateChanges(change_count, changes);
+    if (PARTY_FAILED(err)) {
+        Ref<PlayFabResult> result = _party_error_result(err, PARTY_STATE_FINISH_FAILED, "PartyManager::FinishProcessingStateChanges");
+        _reset_after_state_change_finish_failure(result);
+        return processed;
+    }
     m_processing_state_changes = false;
     return processed;
 }
