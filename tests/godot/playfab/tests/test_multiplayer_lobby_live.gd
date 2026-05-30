@@ -145,6 +145,63 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	# The lobby reference is now detached; no further teardown needed.
 
 
+func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
+	var session = await _begin_multiplayer_session()
+	var playfab_user = session.get("playfab_user")
+	if playfab_user == null:
+		return
+
+	var playfab: Object = session["playfab"]
+	var multiplayer: Object = session["multiplayer"]
+
+	var lobby_config = instantiate_class("PlayFabLobbyConfig")
+	if lobby_config == null:
+		_finish_session(playfab, null)
+		return
+	lobby_config.max_players = 2
+	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
+
+	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
+	if create_result == null or not create_result.ok:
+		pending("PlayFab.multiplayer.create_lobby_async failed: %s" % (create_result.message if create_result != null else "null result"))
+		_finish_session(playfab, null)
+		return
+
+	var lobby: Object = create_result.data
+	if lobby == null:
+		_finish_session(playfab, null)
+		return
+
+	var stale_connection_string := str(lobby.get_connection_string())
+	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
+	if leave_result == null or not leave_result.ok:
+		pending("PlayFabLobby.leave_async failed before stale-join regression check: %s" % (leave_result.message if leave_result != null else "null result"))
+		_finish_session(playfab, null)
+		return
+	await advance_process_frames(_STATE_PUMP_FRAMES)
+
+	var before_count := multiplayer.get_lobbies().size()
+	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
+	var join_result = await await_completion(multiplayer.join_lobby_async(playfab_user, stale_connection_string, join_config), _DEFAULT_OP_TIMEOUT_MSEC)
+	if join_result == null:
+		pending("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
+		_finish_session(playfab, null)
+		return
+	if join_result.ok:
+		var joined_lobby = join_result.data
+		if joined_lobby != null:
+			await await_completion(joined_lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
+		pending("PlayFab service accepted a stale lobby connection string; failure-cleanup path was not exercised.")
+		_finish_session(playfab, null)
+		return
+
+	await advance_process_frames(_STATE_PUMP_FRAMES)
+	assert_eq(multiplayer.get_lobbies().size(), before_count,
+			"failed join completion does not leave its PlayFabLobby wrapper tracked")
+
+	_finish_session(playfab, null)
+
+
 # ── Live setup helpers ────────────────────────────────────────────────────
 
 func _begin_multiplayer_session() -> Dictionary:

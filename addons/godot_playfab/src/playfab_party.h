@@ -590,6 +590,7 @@ private:
     // batch). Callers should bail out when this returns true to avoid touching
     // the dead native network handle.
     bool _abort_join_op_if_network_dead(PendingOperation *p_operation);
+    void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
 
     int _pump_state_changes();
     void _process_state_change(const Party::PartyStateChange *p_change);

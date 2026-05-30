@@ -4,7 +4,7 @@
 		PlayFab Multiplayer lobby and matchmaking service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.multiplayer[/code]. All user-owned calls require a signed-in [PlayFabUser] and use that user's native entity handle. Matchmaking completion reports arranged-lobby connection strings but never auto-joins them.
+		Accessed through [code]PlayFab.multiplayer[/code]. All user-owned calls require a signed-in [PlayFabUser] and use that user's native entity handle. Matchmaking completion reports arranged-lobby connection strings but never auto-joins them. Failed lobby create/join completions detach their temporary [PlayFabLobby] wrapper and do not appear in [method get_lobbies]. If finishing lobby or matchmaking state changes fails, [signal multiplayer_error] is emitted and the service resets to an uninitialized state; call [method initialize_async] again before issuing more Multiplayer calls.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -16,7 +16,7 @@
 		<method name="join_arranged_lobby_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="connection_string" type="String" /><param index="2" name="config" type="PlayFabLobbyJoinConfig" default="null" /><description>Explicitly joins an arranged lobby using a connection string from a matched ticket.</description></method>
 		<method name="find_lobbies_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="search" type="PlayFabLobbySearchConfig" default="null" /><description>Searches lobbies for [param user].</description></method>
 		<method name="create_match_ticket_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="config" type="PlayFabMatchmakingTicketConfig" /><description>Creates a matchmaking ticket.</description></method>
-		<method name="get_lobbies" qualifiers="const"><return type="Array" /><description>Returns tracked, connected lobbies.</description></method>
+		<method name="get_lobbies" qualifiers="const"><return type="Array" /><description>Returns tracked, connected lobbies. Failed create/join attempts are removed before their failure signal completes.</description></method>
 		<method name="get_lobby" qualifiers="const"><return type="PlayFabLobby" /><param index="0" name="lobby_id" type="String" /><description>Returns a tracked lobby by id.</description></method>
 		<method name="get_match_tickets" qualifiers="const"><return type="Array" /><description>Returns tracked tickets.</description></method>
 	</methods>
@@ -24,7 +24,7 @@
 	<signals>
 		<signal name="state_changed"><param index="0" name="change" type="PlayFabMultiplayerStateChange" /><description>Aggregate lobby and matchmaking state signal.</description></signal>
 		<signal name="invite_received"><param index="0" name="invite" type="PlayFabLobbyInvite" /><description>Emitted when a lobby invite arrives.</description></signal>
-		<signal name="multiplayer_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted for Multiplayer dispatch errors.</description></signal>
+		<signal name="multiplayer_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted for Multiplayer dispatch errors. A [code]lobby_state_finish_failed[/code] or [code]matchmaking_state_finish_failed[/code] result means the native dispatcher was reset and [method initialize_async] must succeed before further Multiplayer use.</description></signal>
 	</signals>
 	<constants></constants>
 </class>

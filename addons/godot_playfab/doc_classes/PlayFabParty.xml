@@ -4,7 +4,7 @@
 		PlayFab Party network and chat service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.party[/code]. Owns PlayFab Party initialization, network host/join flows, descriptor serialization, and chat-control integration. The title-facing transport object is [PlayFabPartyPeer], assigned to [code]multiplayer.multiplayer_peer[/code] for RPC traffic and exposing peer-id helpers for text chat, mute, and permissions. PlayFab Multiplayer lobbies and matchmaking are handled separately by [PlayFabMultiplayer].
+		Accessed through [code]PlayFab.party[/code]. Owns PlayFab Party initialization, network host/join flows, descriptor serialization, and chat-control integration. The title-facing transport object is [PlayFabPartyPeer], assigned to [code]multiplayer.multiplayer_peer[/code] for RPC traffic and exposing peer-id helpers for text chat, mute, and permissions. PlayFab Multiplayer lobbies and matchmaking are handled separately by [PlayFabMultiplayer]. If [code]PartyManager::FinishProcessingStateChanges[/code] fails, [signal party_error] is emitted, active wrappers are detached, and the service resets to an uninitialized state; call [method initialize_async] before using Party again.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -19,7 +19,7 @@
 	</methods>
 	<members></members>
 	<signals>
-		<signal name="party_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted for Party dispatch errors.</description></signal>
+		<signal name="party_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted for Party dispatch errors. A [code]party_state_finish_failed[/code] result means Party was reset and must be initialized again before further use.</description></signal>
 	</signals>
 	<constants>
 		<constant name="DIRECT_PEER_CONNECTIVITY_NONE" value="0" enum="DirectPeerConnectivity">No direct peer connectivity; all traffic relays through PlayFab Party. This is the default and is always valid by itself.</constant>

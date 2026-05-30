@@ -174,6 +174,10 @@ The MLP `PlayFab.multiplayer` service supports PlayFab Multiplayer initializatio
 
 Match tickets report `match_id` and `arranged_lobby_connection_string` through `PlayFabMatchTicketStateChange`; title code decides whether to call `join_arranged_lobby_async(...)`. The addon does not automatically join arranged lobbies.
 
+Failed lobby create/join completions are terminal for their temporary wrapper: the wrapper is removed from `PlayFab.multiplayer.get_lobbies()` and marked disconnected before the failure result is surfaced. If `PFLobbyFinishStateChanges` or `PFMatchmakingFinishStateChanges` fails, the service emits `multiplayer_error`, tears down native Multiplayer state (including the task queue), marks wrappers detached, and returns to `is_initialized() == false`; titles must call `initialize_async()` before issuing more Multiplayer calls.
+
+`PlayFab.party` follows the same fail-closed recovery contract for `PartyManager::FinishProcessingStateChanges`: it emits `party_error`, detaches active network/chat wrappers, resets `PartyManager`, and requires `initialize_async()` before further Party calls.
+
 ## Samples
 
 - `sample\playfab_demo` (now removed) demonstrated settings-backed init plus manual PlayFab sign-in
