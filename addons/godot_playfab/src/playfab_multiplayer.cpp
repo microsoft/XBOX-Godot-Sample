@@ -684,7 +684,7 @@ Ref<PlayFabLobbyMember> PlayFabLobby::_find_local_member() const {
     return Ref<PlayFabLobbyMember>();
 }
 
-void PlayFabLobby::_apply_local_member_properties_to_snapshot() {
+void PlayFabLobby::_apply_local_member_properties_to_snapshot(bool p_allow_synthetic_create) {
     if (!m_local_member_properties_known) {
         return;
     }
@@ -697,6 +697,16 @@ void PlayFabLobby::_apply_local_member_properties_to_snapshot() {
                 entity_key,
                 copy_dictionary(m_local_member_properties),
                 true);
+        return;
+    }
+
+    // Update path (apply_local_member_property_update): when the SDK snapshot
+    // no longer contains the local user — for example during the local
+    // MemberRemoved state change that precedes LeaveLobbyCompleted, or after
+    // _refresh_snapshot drops a leaving user — do NOT synthesize a stale
+    // local member. The leave/remove flow expects the refreshed snapshot to
+    // be authoritative.
+    if (!p_allow_synthetic_create) {
         return;
     }
 
@@ -719,7 +729,10 @@ void PlayFabLobby::_apply_local_member_properties_to_snapshot() {
 void PlayFabLobby::replace_local_member_properties(const Dictionary &p_properties) {
     m_local_member_properties = normalize_property_dictionary(p_properties);
     m_local_member_properties_known = true;
-    _apply_local_member_properties_to_snapshot();
+    // Create/join seeding: the SDK has not necessarily emitted a MemberAdded
+    // callback for the local user yet, so allow the synthetic-create
+    // fallback to seed the snapshot.
+    _apply_local_member_properties_to_snapshot(true);
 }
 
 void PlayFabLobby::apply_local_member_property_update(const Dictionary &p_update) {
@@ -730,7 +743,9 @@ void PlayFabLobby::apply_local_member_property_update(const Dictionary &p_update
     }
 
     apply_property_update(m_local_member_properties, p_update);
-    _apply_local_member_properties_to_snapshot();
+    // Update path: do NOT synthesize a stale local member if the SDK
+    // snapshot has already dropped the local user (mid-leave/remove).
+    _apply_local_member_properties_to_snapshot(false);
 }
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
@@ -809,7 +824,14 @@ HRESULT PlayFabLobby::refresh_snapshot() {
             member_wrappers.push_back(member);
         }
         m_members = member_wrappers;
-        _apply_local_member_properties_to_snapshot();
+        // refresh_snapshot is authoritative: if the SDK has dropped the local
+        // user (mid-leave / MemberRemoved), do NOT synthesize a stale local
+        // member here. Callers that want to seed the local snapshot from a
+        // pending operation (CreateAndJoinLobbyCompleted /
+        // JoinLobbyCompleted / JoinArrangedLobbyCompleted) follow this call
+        // with replace_local_member_properties(), which is allowed to
+        // synthesize because the local user has just joined.
+        _apply_local_member_properties_to_snapshot(false);
     }
 
     return S_OK;

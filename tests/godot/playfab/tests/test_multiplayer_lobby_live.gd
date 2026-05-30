@@ -332,7 +332,7 @@ func _begin_multiplayer_session() -> Dictionary:
 		"multiplayer": null,
 	}
 
-	if requires_live_write():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome

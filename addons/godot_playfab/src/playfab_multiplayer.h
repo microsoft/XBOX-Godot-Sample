@@ -338,7 +338,7 @@ class PlayFabLobby : public RefCounted {
 
     bool _is_local_entity_key(const Dictionary &p_entity_key) const;
     Ref<PlayFabLobbyMember> _find_local_member() const;
-    void _apply_local_member_properties_to_snapshot();
+    void _apply_local_member_properties_to_snapshot(bool p_allow_synthetic_create = true);
 
 protected:
     static void _bind_methods();
