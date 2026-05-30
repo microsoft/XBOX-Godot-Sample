@@ -43,6 +43,20 @@ const _AXIS_NAMES := [
 ]
 
 
+func after_each() -> void:
+	var gi = get_gameinput()
+	if gi != null:
+		gi.shutdown()
+
+
+func _device_constant(name: String) -> int:
+	return ClassDB.class_get_integer_constant("GameInput", name)
+
+
+func _gameinput_device_constant(name: String) -> int:
+	return ClassDB.class_get_integer_constant("GameInputDevice", name)
+
+
 func _new_reading() -> Object:
 	if not ClassDB.class_exists("GameInputReading"):
 		return null
@@ -127,3 +141,45 @@ func test_reading_unknown_button_axis_safe() -> void:
 			"get_axis(-1) ≈ 0.0")
 	assert_eq_approx(reading.get_axis(99999), 0.0,
 			"get_axis(99999) ≈ 0.0")
+
+
+func test_live_second_reading_exercises_previous_state_branch() -> void:
+	if pending_unless_live():
+		return
+	if pending_unless_runtime_available():
+		return
+
+	var gi = get_gameinput()
+	gi.shutdown()
+	var started: bool = gi.initialize()
+	if not started:
+		pending("GameInput.initialize() returned false (no GameInput on host)")
+		return
+
+	gi.poll()
+	await get_tree().process_frame
+	gi.poll()
+	var device = gi.get_primary_device(_device_constant("DEVICE_GAMEPAD"))
+	if device == null:
+		pending("No live GameInput gamepad connected for previous-state reading coverage")
+		return
+
+	var first_reading = gi.get_current_reading(device)
+	if first_reading == null:
+		pending("Live GameInput device did not produce an initial reading")
+		return
+
+	await get_tree().process_frame
+	gi.poll()
+	var second_reading = gi.get_current_reading(device)
+	assert_not_null(second_reading, "second live reading is available")
+	if second_reading == null:
+		return
+
+	var button_a := _gameinput_device_constant("BUTTON_A")
+	assert_true(second_reading.was_button_pressed(button_a) is bool,
+			"was_button_pressed() returns bool after a previous reading exists")
+	assert_true(second_reading.was_button_released(button_a) is bool,
+			"was_button_released() returns bool after a previous reading exists")
+	assert_true(second_reading.get_buttons_mask() is int,
+			"second reading exposes buttons mask while previous state is populated")
