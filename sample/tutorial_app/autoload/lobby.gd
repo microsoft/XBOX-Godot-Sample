@@ -1,5 +1,7 @@
 extends Node
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorials 5 + 6 — Lobby + Multiplayer Activity + Presence + privilege gates.
 ##
 ## Owns the live PlayFabLobby reference, mirrors lobby state into the Xbox
@@ -60,7 +62,7 @@ enum State {
 }
 
 signal state_changed(state: State)
-signal lobby_joined(lobby: PlayFabLobby)
+signal lobby_joined(lobby)
 signal lobby_left
 signal lobby_disconnected  ## PlayFab fired DISCONNECTED firehose; involuntary.
 
@@ -76,7 +78,7 @@ signal invite_pending_confirmation(invite_id: int, connection_string: String)
 signal invite_pending_cleared(invite_id: int)
 
 var _state: State = State.UNINITIALIZED
-var _lobby: PlayFabLobby = null
+var _lobby = null
 var _auth: Node = null
 var _gdk_signals_connected: bool = false
 var _pf_multiplayer_signals_connected: bool = false
@@ -85,7 +87,7 @@ var _watched_xuids: PackedStringArray = PackedStringArray()
 # first get_friends_async() call and torn down in _exit_tree so the
 # Social Manager doesn't keep tracking after the autoload is gone.
 var _social_graph_started: bool = false
-var _friends_group: GDKSocialGroup = null
+var _friends_group = null
 # Item 3 / B3 — pending-invite slot. Only populated while IN_LOBBY and
 # waiting for a UI confirmation. _pending_invite_id is a token bound
 # to the emitted signal so confirm/reject calls from a stale dialog
@@ -98,7 +100,7 @@ var _pending_invite_confirming: bool = false
 ## actually in IN_LOBBY. During LEAVING / on disconnect callers should
 ## listen for lobby_left / lobby_disconnected to do their cleanup, not
 ## poke this getter for a stale ref.
-var current_lobby: PlayFabLobby:
+var current_lobby:
 	get:
 		return _lobby if _state == State.IN_LOBBY else null
 
@@ -119,12 +121,12 @@ func _exit_tree() -> void:
 	# the graph itself is a no-op if start_social_graph was never called.
 	if Engine.has_singleton("GDK"):
 		if _friends_group != null:
-			GDK.social.destroy_social_group(_friends_group)
+			AddonApi.singleton("GDK").social.destroy_social_group(_friends_group)
 			_friends_group = null
 		if _social_graph_started:
-			var user: GDKUser = _auth.get("xbox_user") if _auth != null else null
+			var user = _auth.get("xbox_user") if _auth != null else null
 			if user != null:
-				GDK.social.stop_social_graph(user)
+				AddonApi.singleton("GDK").social.stop_social_graph(user)
 			_social_graph_started = false
 
 func get_state() -> State:
@@ -141,7 +143,7 @@ func is_busy() -> bool:
 
 # Kept for back-compat with sample / test code that called the getter
 # directly. New consumers should use the `current_lobby` property.
-func get_current_lobby() -> PlayFabLobby:
+func get_current_lobby():
 	return current_lobby
 
 func _set_state(next: State) -> void:
@@ -186,12 +188,12 @@ func _ensure_ready() -> bool:
 		# don't require PlayFab to be initialized, and
 		# pending_invite_received needs to be wired before the engine can
 		# hand us a deferred launch-with-invite.
-		GDK.multiplayer_activity.pending_invite_received.connect(_on_pending_invite_received)
-		GDK.multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
-		GDK.multiplayer_activity.activities_updated.connect(_on_activities_updated)
-		GDK.presence.device_presence_changed.connect(_on_device_presence_changed)
-		GDK.presence.title_presence_changed.connect(_on_title_presence_changed)
-		GDK.presence.presence_changed.connect(_on_presence_changed)
+		AddonApi.singleton("GDK").multiplayer_activity.pending_invite_received.connect(_on_pending_invite_received)
+		AddonApi.singleton("GDK").multiplayer_activity.invite_accepted.connect(_on_invite_accepted)
+		AddonApi.singleton("GDK").multiplayer_activity.activities_updated.connect(_on_activities_updated)
+		AddonApi.singleton("GDK").presence.device_presence_changed.connect(_on_device_presence_changed)
+		AddonApi.singleton("GDK").presence.title_presence_changed.connect(_on_title_presence_changed)
+		AddonApi.singleton("GDK").presence.presence_changed.connect(_on_presence_changed)
 		_gdk_signals_connected = true
 		print("[Lobby] GDK MPA + presence handlers connected. PlayFab Multiplayer init is lazy.")
 
@@ -207,17 +209,17 @@ func _ensure_pf_multiplayer_initialized() -> bool:
 		push_error("[Lobby] PlayFab extension not loaded")
 		return false
 
-	if not PlayFab.multiplayer.is_initialized():
-		var init: PlayFabResult = await PlayFab.multiplayer.initialize_async()
+	if not AddonApi.singleton("PlayFab").multiplayer.is_initialized():
+		var init = await AddonApi.singleton("PlayFab").multiplayer.initialize_async()
 		if not init.ok:
 			push_warning("[Lobby] PlayFab.multiplayer init failed: %s" % init.message)
 			return false
 		print("[Lobby] PlayFab.multiplayer initialized lazily")
 
 	if not _pf_multiplayer_signals_connected:
-		PlayFab.multiplayer.state_changed.connect(_on_state_changed)
-		PlayFab.multiplayer.invite_received.connect(_on_pf_invite_received)
-		PlayFab.multiplayer.multiplayer_error.connect(_on_multiplayer_error)
+		AddonApi.singleton("PlayFab").multiplayer.state_changed.connect(_on_state_changed)
+		AddonApi.singleton("PlayFab").multiplayer.invite_received.connect(_on_pf_invite_received)
+		AddonApi.singleton("PlayFab").multiplayer.multiplayer_error.connect(_on_multiplayer_error)
 		_pf_multiplayer_signals_connected = true
 
 	return true
@@ -225,7 +227,7 @@ func _ensure_pf_multiplayer_initialized() -> bool:
 ## Centralized lobby-firehose lifetime. Always go through these helpers
 ## instead of touching `_lobby` directly; a stale lobby with a still-
 ## connected signal will keep delivering events to us.
-func _attach_lobby(lobby: PlayFabLobby) -> void:
+func _attach_lobby(lobby) -> void:
 	_detach_lobby()
 	_lobby = lobby
 	_lobby.state_changed.connect(_on_lobby_state_changed)
@@ -244,24 +246,24 @@ func _detach_lobby() -> void:
 # Returns "" for non-Xbox sign-ins (the per-peer check is skipped in
 # that case — the privilege gate already filtered out non-comms users).
 func _local_xuid() -> String:
-	var user: GDKUser = _auth.get("xbox_user") if _auth != null else null
+	var user = _auth.get("xbox_user") if _auth != null else null
 	if user == null:
 		return ""
 	return user.xuid
 
 # Tutorial 5 Step 2 — Multiplayer privilege gate.
 func can_use_multiplayer() -> bool:
-	var user: GDKUser = _auth.get("xbox_user") if _auth != null else null
+	var user = _auth.get("xbox_user") if _auth != null else null
 	if user == null:
 		return false
 
-	var pf: GDKResult = await GDK.users.check_privilege_async(
+	var pf = await AddonApi.singleton("GDK").users.check_privilege_async(
 			user, XUSER_PRIVILEGE_MULTIPLAYER)
 	if pf.ok and bool(pf.data.get("has_privilege", false)):
 		return true
 
 	print("[Lobby] multiplayer denied (%s) — resolving with UI" % pf.data.get("deny_reason", ""))
-	var resolved: GDKResult = await GDK.users.resolve_privilege_with_ui_async(
+	var resolved = await AddonApi.singleton("GDK").users.resolve_privilege_with_ui_async(
 			user, XUSER_PRIVILEGE_MULTIPLAYER)
 	if not resolved.ok:
 		push_warning("[Lobby] resolve_privilege_with_ui failed: %s" % resolved.message)
@@ -270,10 +272,10 @@ func can_use_multiplayer() -> bool:
 
 # Tutorial 5 Step 2 (filter helper) / Tutorial 6 Step 5 (cert).
 func filter_invitable(xuids: PackedStringArray) -> PackedStringArray:
-	var user: GDKUser = _auth.get("xbox_user") if _auth != null else null
+	var user = _auth.get("xbox_user") if _auth != null else null
 	if user == null or xuids.is_empty():
 		return PackedStringArray()
-	var pf: GDKResult = await GDK.privacy.batch_check_permission_async(
+	var pf = await AddonApi.singleton("GDK").privacy.batch_check_permission_async(
 			user, "play_multiplayer", xuids)
 	if not pf.ok:
 		push_warning("[Lobby] permission batch failed: %s" % pf.message)
@@ -296,22 +298,22 @@ func filter_invitable(xuids: PackedStringArray) -> PackedStringArray:
 # leave, or change presence — callers wanting live updates should
 # connect to that signal and re-call this method.
 func get_friends_async() -> Array:
-	var user: GDKUser = _auth.get("xbox_user") if _auth != null else null
+	var user = _auth.get("xbox_user") if _auth != null else null
 	if user == null or not Engine.has_singleton("GDK"):
 		return []
 	if not _social_graph_started:
-		var sg: GDKResult = GDK.social.start_social_graph(user)
+		var sg = AddonApi.singleton("GDK").social.start_social_graph(user)
 		if not sg.ok:
 			push_warning("[Lobby] start_social_graph failed: %s" % sg.message)
 			return []
 		_social_graph_started = true
 	if _friends_group == null:
-		var f: GDKResult = await GDK.social.get_friends_async(user)
+		var f = await AddonApi.singleton("GDK").social.get_friends_async(user)
 		if not f.ok:
 			push_warning("[Lobby] get_friends failed: %s" % f.message)
 			return []
 		_friends_group = f.data
-	var users: GDKResult = GDK.social.get_group_users(_friends_group)
+	var users = AddonApi.singleton("GDK").social.get_group_users(_friends_group)
 	if not users.ok:
 		push_warning("[Lobby] get_group_users failed: %s" % users.message)
 		return []
@@ -339,12 +341,12 @@ func host_lobby() -> bool:
 		_set_state(State.READY)
 		return false
 
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 
-	var config := PlayFabLobbyConfig.new()
+	var config := AddonApi.instantiate("PlayFabLobbyConfig")
 	config.max_players = 4
-	config.access_policy = PlayFabLobbyConfig.ACCESS_POLICY_PUBLIC
-	config.owner_migration_policy = PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC
+	config.access_policy = AddonApi.constant("PlayFabLobbyConfig", "ACCESS_POLICY_PUBLIC")
+	config.owner_migration_policy = AddonApi.constant("PlayFabLobbyConfig", "OWNER_MIGRATION_AUTOMATIC")
 	# Item 12 / C1 — property scopes:
 	#   search_properties: indexed for find_lobbies_async; reserved
 	#     key namespace (string_keyN / number_keyN). Visible to anyone
@@ -367,7 +369,7 @@ func host_lobby() -> bool:
 		"xuid": _local_xuid(),
 	}
 
-	var result: PlayFabResult = await PlayFab.multiplayer.create_lobby_async(user, config)
+	var result = await AddonApi.singleton("PlayFab").multiplayer.create_lobby_async(user, config)
 	if not result.ok:
 		push_warning("[Lobby] create_lobby failed: %s (%s)" % [result.message, result.code])
 		_set_state(State.READY)
@@ -415,15 +417,15 @@ func join_lobby(connection_string: String) -> bool:
 		_set_state(State.READY)
 		return false
 
-	var user: PlayFabUser = _auth.get("playfab_user")
+	var user = _auth.get("playfab_user")
 
-	var config := PlayFabLobbyJoinConfig.new()
+	var config := AddonApi.instantiate("PlayFabLobbyJoinConfig")
 	config.member_properties = {
 		"loadout": "shotgun",
 		"xuid": _local_xuid(),
 	}
 
-	var result: PlayFabResult = await PlayFab.multiplayer.join_lobby_async(user, connection_string, config)
+	var result = await AddonApi.singleton("PlayFab").multiplayer.join_lobby_async(user, connection_string, config)
 	if not result.ok:
 		push_warning("[Lobby] join_lobby failed: %s (%s)" % [result.message, result.code])
 		_set_state(State.READY)
@@ -442,7 +444,7 @@ func join_lobby(connection_string: String) -> bool:
 func push_loadout_change(loadout: String) -> void:
 	if not is_in_lobby():
 		return
-	var pf: PlayFabResult = await _lobby.set_member_properties_async({ "loadout": loadout })
+	var pf = await _lobby.set_member_properties_async({ "loadout": loadout })
 	if not pf.ok:
 		push_warning("[Lobby] member props failed: %s" % pf.message)
 
@@ -450,10 +452,10 @@ func push_loadout_change(loadout: String) -> void:
 func change_map(new_map: String) -> void:
 	if not is_in_lobby():
 		return
-	var pf_user: PlayFabUser = _auth.get("playfab_user")
+	var pf_user = _auth.get("playfab_user")
 	if not _lobby.is_owner(pf_user):
 		return
-	var pf: PlayFabResult = await _lobby.set_properties_async({ "map": new_map })
+	var pf = await _lobby.set_properties_async({ "map": new_map })
 	if not pf.ok:
 		push_warning("[Lobby] lobby props failed: %s" % pf.message)
 
@@ -471,7 +473,7 @@ func leave_lobby() -> bool:
 
 	_set_state(State.LEAVING)
 	await _clear_activity()
-	var pf: PlayFabResult = await _lobby.leave_async()
+	var pf = await _lobby.leave_async()
 	if pf.ok:
 		print("[Lobby] left lobby")
 	else:
@@ -496,7 +498,7 @@ func invite_friend(xuid: String) -> bool:
 		push_warning("[MPA] Invite blocked by play_multiplayer permission for %s" % xuid)
 		return false
 
-	var result: GDKResult = await GDK.multiplayer_activity.send_invites_async(
+	var result = await AddonApi.singleton("GDK").multiplayer_activity.send_invites_async(
 		_auth.get("xbox_user"),
 		allowed,
 		false,
@@ -513,22 +515,22 @@ func open_invite_picker() -> void:
 		push_warning("[MPA] Cannot open picker — not in a lobby")
 		return
 
-	var result: GDKResult = await GDK.multiplayer_activity.show_invite_ui_async(_auth.get("xbox_user"))
+	var result = await AddonApi.singleton("GDK").multiplayer_activity.show_invite_ui_async(_auth.get("xbox_user"))
 	if not result.ok:
 		push_warning("[MPA] show_invite_ui failed: %s" % result.message)
 
 # Tutorial 6 Steps 6 + 7 — friend activity + presence tracking.
 func track_friend_activities(xuids: PackedStringArray) -> void:
 	_watched_xuids = xuids
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 
-	var activities: GDKResult = await GDK.multiplayer_activity.get_activities_async(user, xuids)
+	var activities = await AddonApi.singleton("GDK").multiplayer_activity.get_activities_async(user, xuids)
 	if not activities.ok:
 		push_warning("[MPA] get_activities failed: %s" % activities.message)
 
-	GDK.presence.track_presence(user, xuids)
+	AddonApi.singleton("GDK").presence.track_presence(user, xuids)
 
-	var presence: GDKResult = await GDK.presence.get_presence_async(xuids)
+	var presence = await AddonApi.singleton("GDK").presence.get_presence_async(xuids)
 	if not presence.ok:
 		push_warning("[Pres] get_presence failed: %s" % presence.message)
 
@@ -539,7 +541,7 @@ func track_friend_activities(xuids: PackedStringArray) -> void:
 func stop_tracking_friends() -> void:
 	if _watched_xuids.is_empty():
 		return
-	GDK.presence.stop_tracking_presence(_auth.get("xbox_user"), _watched_xuids)
+	AddonApi.singleton("GDK").presence.stop_tracking_presence(_auth.get("xbox_user"), _watched_xuids)
 	_watched_xuids = PackedStringArray()
 
 # --- Internal: MPA + presence helpers ---
@@ -547,7 +549,7 @@ func stop_tracking_friends() -> void:
 func _publish_activity(allow_cross_platform_join: bool = false) -> void:
 	if _lobby == null:
 		return
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
 
@@ -555,7 +557,7 @@ func _publish_activity(allow_cross_platform_join: bool = false) -> void:
 	var max_players: int = _lobby.max_member_count
 	var connection_string: String = _lobby.connection_string
 
-	var result: GDKResult = await GDK.multiplayer_activity.set_activity_async(
+	var result = await AddonApi.singleton("GDK").multiplayer_activity.set_activity_async(
 		user,
 		connection_string,
 		MPA_JOIN_RESTRICTION_FOLLOWED,
@@ -571,10 +573,10 @@ func _publish_activity(allow_cross_platform_join: bool = false) -> void:
 		max_players, current_players, str(allow_cross_platform_join)])
 
 func _clear_activity() -> void:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
-	var result: GDKResult = await GDK.multiplayer_activity.delete_activity_async(user)
+	var result = await AddonApi.singleton("GDK").multiplayer_activity.delete_activity_async(user)
 	if result.ok:
 		print("[MPA] Activity cleared")
 	else:
@@ -583,23 +585,23 @@ func _clear_activity() -> void:
 func _publish_lobby_presence() -> void:
 	if PRESENCE_IN_LOBBY.is_empty():
 		return
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
-	var pf: GDKResult = await GDK.presence.set_presence_async(user, PRESENCE_IN_LOBBY)
+	var pf = await AddonApi.singleton("GDK").presence.set_presence_async(user, PRESENCE_IN_LOBBY)
 	if not pf.ok:
 		push_warning("[Lobby] presence write failed: %s" % pf.message)
 
 func _clear_lobby_presence() -> void:
-	var user: GDKUser = _auth.get("xbox_user")
+	var user = _auth.get("xbox_user")
 	if user == null:
 		return
-	var pf: GDKResult = await GDK.presence.clear_presence_async(user)
+	var pf = await AddonApi.singleton("GDK").presence.clear_presence_async(user)
 	if not pf.ok:
 		push_warning("[Lobby] presence clear failed: %s" % pf.message)
 
 func _print_activity(xuid: String) -> void:
-	var info: GDKMultiplayerActivityInfo = GDK.multiplayer_activity.get_cached_activity(xuid)
+	var info = AddonApi.singleton("GDK").multiplayer_activity.get_cached_activity(xuid)
 	if info == null:
 		print("[MPA] Friend %s is offline / not in a session" % xuid)
 		return
@@ -610,7 +612,7 @@ func _print_activity(xuid: String) -> void:
 	print("[MPA] Friend %s is in session: %s" % [xuid, conn])
 
 func _print_presence(xuid: String) -> void:
-	var record: GDKPresenceRecord = GDK.presence.get_cached_presence(xuid)
+	var record = AddonApi.singleton("GDK").presence.get_cached_presence(xuid)
 	if record == null:
 		print("[Pres] %s: (unknown)" % xuid)
 		return
@@ -624,34 +626,34 @@ func _print_presence(xuid: String) -> void:
 
 # --- Internal: signal handlers ---
 
-func _on_state_changed(_change: PlayFabMultiplayerStateChange) -> void:
+func _on_state_changed(_change) -> void:
 	pass # Per-lobby changes route to _on_lobby_state_changed below.
 
-func _on_pf_invite_received(invite: PlayFabLobbyInvite) -> void:
+func _on_pf_invite_received(invite) -> void:
 	print("[Lobby] invite from %s: %s" % [invite.sender_entity_key, invite.connection_string])
 
-func _on_multiplayer_error(result: PlayFabResult) -> void:
+func _on_multiplayer_error(result) -> void:
 	push_warning("[Lobby] multiplayer error: %s (%s)" % [result.message, result.code])
 
-func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
-	match change.kind:
-		PlayFabLobby.MEMBER_ADDED:
-			var m: PlayFabLobbyMember = change.member
-			print("[Lobby] member added: %s (local=%s)" % [m.user_id, str(m.is_local)])
-			await _publish_activity()
-		PlayFabLobby.MEMBER_REMOVED:
-			var m: PlayFabLobbyMember = change.member
-			print("[Lobby] member removed: %s" % m.user_id)
-			await _publish_activity()
-		PlayFabLobby.MEMBER_UPDATED:
-			var m: PlayFabLobbyMember = change.member
-			print("[Lobby] member updated: %s" % m.user_id)
-		PlayFabLobby.PROPERTIES_UPDATED:
-			print("[Lobby] lobby properties: %s" % str(change.properties))
-		PlayFabLobby.OWNER_CHANGED:
-			print("[Lobby] owner changed: %s" % str(change.lobby.owner_entity_key))
-		PlayFabLobby.DISCONNECTED:
-			await _handle_pf_disconnected()
+func _on_lobby_state_changed(change) -> void:
+	var kind: int = change.kind
+	if kind == AddonApi.constant("PlayFabLobby", "MEMBER_ADDED"):
+		var m = change.member
+		print("[Lobby] member added: %s (local=%s)" % [m.user_id, str(m.is_local)])
+		await _publish_activity()
+	elif kind == AddonApi.constant("PlayFabLobby", "MEMBER_REMOVED"):
+		var m = change.member
+		print("[Lobby] member removed: %s" % m.user_id)
+		await _publish_activity()
+	elif kind == AddonApi.constant("PlayFabLobby", "MEMBER_UPDATED"):
+		var m = change.member
+		print("[Lobby] member updated: %s" % m.user_id)
+	elif kind == AddonApi.constant("PlayFabLobby", "PROPERTIES_UPDATED"):
+		print("[Lobby] lobby properties: %s" % str(change.properties))
+	elif kind == AddonApi.constant("PlayFabLobby", "OWNER_CHANGED"):
+		print("[Lobby] owner changed: %s" % str(change.lobby.owner_entity_key))
+	elif kind == AddonApi.constant("PlayFabLobby", "DISCONNECTED"):
+		await _handle_pf_disconnected()
 
 # DISCONNECTED is fired by PlayFab when the server kicks us off the lobby
 # (network error, lobby destroyed, evicted). Treat as a transient event:
@@ -777,11 +779,11 @@ func _on_activities_updated(xuids: PackedStringArray) -> void:
 
 func _on_device_presence_changed(xuid: String) -> void:
 	if xuid in _watched_xuids:
-		await GDK.presence.get_presence_async([xuid])
+		await AddonApi.singleton("GDK").presence.get_presence_async([xuid])
 
 func _on_title_presence_changed(xuid: String, _title_id: int) -> void:
 	if xuid in _watched_xuids:
-		await GDK.presence.get_presence_async([xuid])
+		await AddonApi.singleton("GDK").presence.get_presence_async([xuid])
 
 func _on_presence_changed(xuid: String, _record) -> void:
 	_print_presence(xuid)

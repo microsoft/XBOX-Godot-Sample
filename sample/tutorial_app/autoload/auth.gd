@@ -1,5 +1,7 @@
 extends Node
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 1 — Sign in a user (state-machine autoload).
 ##
 ## The `Auth` autoload is the tutorial app's identity service. It runs a
@@ -16,7 +18,7 @@ extends Node
 ##     if not await Auth.sign_in():
 ##         _show_error(Auth.get_last_error_stage(), Auth.get_last_error_message())
 ##         return
-##     var user: GDKUser = Auth.xbox_user
+##     var user = Auth.xbox_user
 ##
 ## Source: docs/tutorials/01-sign-in-user.md
 
@@ -31,22 +33,22 @@ enum State {
 signal state_changed(state: State)
 
 var _state: State = State.UNINITIALIZED
-var _xbox_user: GDKUser = null
-var _playfab_user: PlayFabUser = null
+var _xbox_user = null
+var _playfab_user = null
 var _last_error_stage: String = ""
 var _last_error_message: String = ""
 
-# Read-only typed accessors. xbox_user/playfab_user are intentionally
+# Read-only addon-object accessors. xbox_user/playfab_user are intentionally
 # null unless the full chain reached SIGNED_IN so consumers cannot
 # accidentally use a half-completed session (e.g. Xbox-only without
 # PlayFab) — that ambiguity is the bug item 7 from the sample review.
-var xbox_user: GDKUser:
+var xbox_user:
 	get:
 		return _xbox_user if _state == State.SIGNED_IN else null
 	set(_value):
 		push_error("[Auth] xbox_user is read-only — drive state via sign_in()")
 
-var playfab_user: PlayFabUser:
+var playfab_user:
 	get:
 		return _playfab_user if _state == State.SIGNED_IN else null
 	set(_value):
@@ -101,7 +103,7 @@ func _do_sign_in() -> bool:
 	_playfab_user = null
 
 	_set_state(State.SIGNING_IN_XBOX)
-	var xbox: GDKUser = await _ensure_xbox_user()
+	var xbox = await _ensure_xbox_user()
 	if xbox == null:
 		_set_state(State.FAILED)
 		return false
@@ -109,7 +111,7 @@ func _do_sign_in() -> bool:
 	print("[Auth] Xbox primary user: %s" % xbox.gamertag)
 
 	_set_state(State.SIGNING_IN_PLAYFAB)
-	var pf: PlayFabUser = await _ensure_playfab_user(xbox)
+	var pf = await _ensure_playfab_user(xbox)
 	if pf == null:
 		_set_state(State.FAILED)
 		return false
@@ -133,39 +135,39 @@ func _set_error(stage: String, message: String) -> void:
 	_last_error_message = message
 	push_warning("[Auth] sign-in failed at %s: %s" % [stage, message])
 
-func _ensure_xbox_user() -> GDKUser:
+func _ensure_xbox_user():
 	if not Engine.has_singleton("GDK"):
 		_set_error("gdk.missing", "godot_gdk extension is not loaded")
 		return null
 
-	if not GDK.is_initialized():
-		var init: GDKResult = GDK.initialize()
+	if not AddonApi.singleton("GDK").is_initialized():
+		var init = AddonApi.singleton("GDK").initialize()
 		if not init.ok:
 			_set_error("gdk.initialize", init.message)
 			return null
 
 	# 1. Already have a primary user (auto-init, prior sign-in)? Use it.
-	var primary: GDKUser = GDK.users.get_primary_user()
+	var primary = AddonApi.singleton("GDK").users.get_primary_user()
 	if primary != null and primary.signed_in:
 		return primary
 
 	# 2. Try the silent path. This picks up the Xbox-app account on the
 	#    PC without surfacing any UI. Common failure: no_default_user.
-	var silent: GDKResult = await GDK.users.add_default_user_async()
+	var silent = await AddonApi.singleton("GDK").users.add_default_user_async()
 	if silent.ok and silent.data != null and silent.data.signed_in:
 		return silent.data
 
 	print("[Auth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
 	# 3. UI fallback. Shows the system account picker.
-	var ui: GDKResult = await GDK.users.add_user_with_ui_async()
+	var ui = await AddonApi.singleton("GDK").users.add_user_with_ui_async()
 	if ui.ok and ui.data != null and ui.data.signed_in:
 		return ui.data
 
 	_set_error("gdk.add_user_with_ui", ui.message)
 	return null
 
-func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
+func _ensure_playfab_user(xbox):
 	if not Engine.has_singleton("PlayFab"):
 		_set_error("playfab.missing", "godot_playfab extension is not loaded")
 		return null
@@ -174,8 +176,8 @@ func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
 		_set_error("playfab.sign_in", "Xbox user is not signed in")
 		return null
 
-	if not PlayFab.is_initialized():
-		var init: PlayFabResult = PlayFab.initialize()
+	if not AddonApi.singleton("PlayFab").is_initialized():
+		var init = AddonApi.singleton("PlayFab").initialize()
 		if not init.ok:
 			_set_error("playfab.initialize", init.message)
 			return null
@@ -183,7 +185,7 @@ func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
 	# Pass the GDKUser object directly. The addon reads the local user
 	# handle out of it internally; the boundary is intentionally typed
 	# as Object because Ref<> types cannot cross GDExtension DLLs.
-	var result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox)
+	var result = await AddonApi.singleton("PlayFab").users.sign_in_with_xuser_async(xbox)
 	if not result.ok:
 		_set_error("playfab.sign_in", result.message)
 		return null

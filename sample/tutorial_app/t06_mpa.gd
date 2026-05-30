@@ -1,5 +1,7 @@
 extends Control
 
+const AddonApi = preload("res://shared/addon_api.gd")
+
 ## Tutorial 6 reference scene — Multiplayer Activity + presence + invites.
 ##
 ## Layered on top of the T5 Lobby autoload: pull the live friends list
@@ -71,7 +73,7 @@ func _on_refresh_pressed() -> void:
 		_friends_list.set_item_disabled(0, true)
 		_append("[i]No friends returned by Social Manager. Confirm sign-in and that the title has the Social capability.[/i]")
 		return
-	for friend: GDKSocialUser in friends:
+	for friend in friends:
 		var label := "%s  —  %s" % [_format_gamertag(friend), friend.xuid]
 		var idx := _friends_list.add_item(label)
 		_friends_list.set_item_metadata(idx, friend.xuid)
@@ -100,7 +102,7 @@ func _selected_xuids() -> PackedStringArray:
 			out.append(meta)
 	return out
 
-func _format_gamertag(friend: GDKSocialUser) -> String:
+func _format_gamertag(friend) -> String:
 	if not friend.gamertag.is_empty():
 		return friend.gamertag
 	if not friend.display_name.is_empty():
