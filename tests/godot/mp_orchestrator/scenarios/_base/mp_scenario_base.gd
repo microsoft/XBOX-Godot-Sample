@@ -32,6 +32,23 @@ func skip(reason: String) -> Dictionary:
 	}
 
 
+func requires_live(orch) -> Variant:
+	if orch.env("LIVE_TESTS", "") != "1":
+		return skip("LIVE_TESTS != 1")
+	if orch.env("PLAYFAB_TITLE_ID", "").is_empty():
+		return skip("PLAYFAB_TITLE_ID not set")
+	return null
+
+
+func requires_live_write(orch) -> Variant:
+	var live_gate: Variant = requires_live(orch)
+	if live_gate != null:
+		return live_gate
+	if orch.env("LIVE_WRITE_TESTS", "") != "1":
+		return skip("LIVE_WRITE_TESTS != 1")
+	return null
+
+
 func assert_eq(actual: Variant, expected: Variant, message: String = "") -> Variant:
 	if actual == expected:
 		return null

@@ -1009,6 +1009,25 @@ void PlayFabMultiplayer::_track_ticket(const Ref<PlayFabMatchTicket> &p_ticket) 
     }
 }
 
+void PlayFabMultiplayer::_complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket) {
+    PendingOperation *operation = _find_pending_ticket_operation(p_ticket, PlayFabMatchTicket::CREATED);
+    if (operation == nullptr || p_ticket.is_null()) {
+        return;
+    }
+
+    if (!p_ticket->get_ticket_id().is_empty()) {
+        Ref<PlayFabResult> result = PlayFabResult::ok_result(p_ticket);
+        _complete_pending_operation(operation, result);
+        _emit_ticket_change(PlayFabMatchTicket::CREATED, p_ticket, result, p_ticket->get_status(), p_ticket->get_match_id(), p_ticket->get_arranged_lobby_connection_string());
+        return;
+    }
+
+    if (p_ticket->is_complete()) {
+        Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "match_ticket_create_failed", "The PlayFab matchmaking ticket completed before a ticket_id was assigned.", p_ticket->get_properties());
+        _complete_pending_operation(operation, result);
+    }
+}
+
 void PlayFabMultiplayer::_terminate_multiplayer_queue() {
     if (m_multiplayer_queue == nullptr) {
         return;
@@ -1733,8 +1752,14 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
     _track_ticket(ticket);
 
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
-    pending_signal->complete_deferred(PlayFabResult::ok_result(ticket));
-    _emit_ticket_change(PlayFabMatchTicket::CREATED, ticket, PlayFabResult::ok_result(ticket), ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
+    PendingOperation *operation = _create_pending_operation(PlayFabMatchTicket::CREATED, pending_signal);
+    operation->ticket = ticket;
+    if (!ticket->get_ticket_id().is_empty()) {
+        _release_pending_operation(operation);
+        Ref<PlayFabResult> result = PlayFabResult::ok_result(ticket);
+        pending_signal->complete_deferred(result);
+        _emit_ticket_change(PlayFabMatchTicket::CREATED, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
+    }
     return pending_signal->get_completed_signal();
 }
 
@@ -1805,7 +1830,7 @@ Ref<PlayFabLobby> PlayFabMultiplayer::get_lobby(const String &p_lobby_id) const 
 Array PlayFabMultiplayer::get_match_tickets() const {
     Array tickets;
     for (const Ref<PlayFabMatchTicket> &ticket : m_tickets) {
-        if (ticket.is_valid() && !ticket->is_destroyed()) {
+        if (ticket.is_valid() && !ticket->is_destroyed() && !ticket->get_ticket_id().is_empty()) {
             tickets.push_back(ticket);
         }
     }
@@ -2164,6 +2189,10 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                 Ref<PlayFabMatchTicket> ticket = _find_ticket(change->ticket);
                 if (ticket.is_valid()) {
                     ticket->refresh_snapshot();
+                    _complete_match_ticket_create_if_ready(ticket);
+                    if (_find_pending_ticket_operation(ticket, PlayFabMatchTicket::CREATED) != nullptr && ticket->get_ticket_id().is_empty()) {
+                        break;
+                    }
                     int64_t kind = PlayFabMatchTicket::STATUS_CHANGED;
                     if (ticket->is_cancelled()) {
                         kind = PlayFabMatchTicket::CANCELLED;
@@ -2190,6 +2219,7 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                 Ref<PlayFabMatchTicket> ticket = _find_ticket(change->ticket);
                 if (ticket.is_valid()) {
                     ticket->refresh_snapshot();
+                    _complete_match_ticket_create_if_ready(ticket);
                     Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(ticket) : multiplayer_hresult_error(change->result, "PlayFab matchmaking ticket failed.", "match_ticket_completed_failed");
                     int64_t kind = PlayFabMatchTicket::COMPLETED;
                     if (ticket->is_cancelled()) {
