@@ -28,13 +28,14 @@
 
 .PARAMETER Live
     Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
-    talk to services. Live tests that write persistent online state also require
-    -AllowLiveWrites.
+    talk to services but must not perform persistent writes unless
+    -AllowLiveWrites is also specified.
 
 .PARAMETER AllowLiveWrites
     Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for live tests
     that create lobbies, write leaderboards, save Game Saves, or otherwise
-    mutate the configured sandbox title.
+    mutate the configured sandbox title. Prints the active PlayFab title id so
+    live writes are visibly scoped to an explicit sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
@@ -661,6 +662,7 @@ function Invoke-PlayFabMultiplayerLive {
         [Parameter(Mandatory = $true)][hashtable]$ChildEnv,
         [Parameter(Mandatory = $true)][string[]]$HostList,
         [Parameter(Mandatory = $true)][bool]$LiveEnabled,
+        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesEnabled,
         [Parameter(Mandatory = $true)][string]$OutDirAbsolute
     )
 
@@ -668,6 +670,15 @@ function Invoke-PlayFabMultiplayerLive {
     if (-not $LiveEnabled) {
         $rec.status = 'skip'
         $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
+        return $rec
+    }
+    if (-not $AllowLiveWritesEnabled) {
+        # Every scenario in the live Multiplayer runner creates / updates /
+        # leaves lobbies (and optionally match tickets) so the entire stage
+        # is gated behind -AllowLiveWrites / LIVE_WRITE_TESTS=1 to keep
+        # default -Live runs read-only.
+        $rec.status = 'skip'
+        $rec.message = 'Skipped without -AllowLiveWrites / LIVE_WRITE_TESTS=1 (live Multiplayer orchestration mutates lobbies).'
         return $rec
     }
     if (-not ($HostList -contains 'tests\godot\playfab')) {
@@ -729,6 +740,7 @@ function Write-RunSummary {
         [Parameter(Mandatory = $true)][datetime]$StartedAtUtc,
         [Parameter(Mandatory = $true)][datetime]$FinishedAtUtc,
         [Parameter(Mandatory = $true)][bool]$LiveFlag,
+        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesFlag,
         [Parameter(Mandatory = $true)][string]$GodotVersion
     )
 
@@ -745,6 +757,7 @@ function Write-RunSummary {
         finished_at       = $FinishedAtUtc.ToString("o")
         total_duration_ms = $totalMs
         live              = $LiveFlag
+        live_writes       = $AllowLiveWritesFlag
         godot_version     = $GodotVersion
         stages            = @($Stages)
     }
@@ -761,6 +774,7 @@ function Write-RunSummary {
     [void]$mdLines.Add("- **Finished (UTC)**: $($FinishedAtUtc.ToString('o'))")
     [void]$mdLines.Add("- **Duration**: ${totalMs} ms")
     [void]$mdLines.Add("- **Live**: $LiveFlag")
+    [void]$mdLines.Add("- **Live writes**: $AllowLiveWritesFlag")
     [void]$mdLines.Add("- **Godot**: $GodotVersion")
     [void]$mdLines.Add('')
     [void]$mdLines.Add('| Stage | Status | Duration (ms) | Exit | Tests | Pass | Fail | Pend | Asserts Validated | Asserts Failed |')
@@ -831,19 +845,36 @@ function Write-RunSummary {
 # ------------------------------------------------------------------------
 
 function Main {
+    if ($AllowLiveWrites -and -not $Live) {
+        throw '-AllowLiveWrites requires -Live so LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 travel together.'
+    }
+
     $startedAt = (Get-Date).ToUniversalTime()
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
-    if ($AllowLiveWrites -and -not $Live) {
-        throw '-AllowLiveWrites requires -Live so writes only run in an explicit live-test session.'
+    # Resolve the effective sandbox title id once so -AllowLiveWrites can
+    # require it (otherwise the safety banner could print "<unset>" if the
+    # title id is configured only inside a Godot ProjectSettings).
+    $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
+        $PlayFabTitleId.Trim()
+    } elseif (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID'))) {
+        ([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID')).Trim()
+    } else {
+        ''
+    }
+    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
+        throw '-AllowLiveWrites requires -PlayFabTitleId or PLAYFAB_TITLE_ID so the sandbox title is explicit; refusing to write live state to an unknown title.'
     }
 
     $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
     if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
-        $childEnv['PLAYFAB_TITLE_ID'] = $PlayFabTitleId.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
+        # Propagate the resolved title id so the child env matches the
+        # banner regardless of whether it came from -PlayFabTitleId or the
+        # parent environment.
+        $childEnv['PLAYFAB_TITLE_ID'] = $effectivePlayFabTitleId
     }
     if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
         $childEnv['PLAYFAB_CUSTOM_ID'] = $PlayFabCustomId.Trim()
@@ -867,6 +898,9 @@ function Main {
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
     Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
+    if ($AllowLiveWrites) {
+        Write-Host "                   LIVE WRITE TITLE ID = $effectivePlayFabTitleId" -ForegroundColor Yellow
+    }
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
@@ -927,7 +961,7 @@ function Main {
     # 5. PlayFab Multiplayer live orchestration
     if (-not $abort) {
         Write-Host '== [5/7] PlayFab Multiplayer live orchestration ==' -ForegroundColor Cyan
-        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -OutDirAbsolute $outDirAbsolute
+        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
         if ($stage.status -eq 'fail') { $abort = $true }
@@ -972,7 +1006,7 @@ function Main {
     $overall = if ($stages | Where-Object { $_.status -eq 'fail' }) { 'fail' } else { 'pass' }
     $written = Write-RunSummary -Stages $stages -OutDirAbsolute $outDirAbsolute `
         -OverallStatus $overall -StartedAtUtc $startedAt -FinishedAtUtc $finishedAt `
-        -LiveFlag:([bool]$Live) -GodotVersion $godotVer
+        -LiveFlag:([bool]$Live) -AllowLiveWritesFlag:([bool]$AllowLiveWrites) -GodotVersion $godotVer
     Write-Host "   wrote $($written.JsonPath)"
     Write-Host "   wrote $($written.MdPath)"
     Write-Host ''
