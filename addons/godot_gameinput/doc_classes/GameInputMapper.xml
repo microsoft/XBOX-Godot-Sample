@@ -5,9 +5,9 @@
 	</brief_description>
 	<description>
 		[GameInputMapper] is a [Node] that resolves a target [GameInputDevice] (either by id via [member target_device_id] or as the primary device of [member target_kind_mask]) every [code]_process[/code] frame, fetches its [GameInputReading], and walks [member action_map] calling [code]Input.action_press(action, strength)[/code] or [code]Input.action_release(action)[/code] on each press / release edge so the rest of your game can keep using the standard [code]Input.is_action_pressed("jump")[/code] APIs without knowing GameInput exists. On every press / release transition the mapper additionally pushes an [InputEventAction] through [code]Input.parse_input_event[/code] so event-driven listeners — Viewport GUI focus traversal for [code]ui_*[/code] actions, [code]_gui_input[/code] handlers, [code]_input[/code] / [code]_unhandled_input[/code] — actually see the action fire, since [code]Input.action_press[/code] alone updates polled state but does not deliver an [InputEvent].
-		To avoid double-firing when Godot's built-in joypad backend is already wired to deliver the same action via an [InputEventJoypadButton] / [InputEventJoypadMotion] in the project's [code]InputMap[/code] (e.g., the default [code]ui_accept[/code] mapping that includes joypad button A), the mapper checks each binding once against the action's [code]InputMap[/code] events and skips its own synthetic [InputEventAction] when a matching native joypad event is found. The polled state via [code]Input.action_press[/code] is still refreshed every frame either way. The check is per-binding, cached, and invalidated whenever [member action_map] is reassigned; runtime [code]InputMap[/code] edits made after the cache fills will tolerate one frame of staleness.
+		To avoid double-firing when Godot's built-in joypad backend is already wired to deliver the same action via an [InputEventJoypadButton] / [InputEventJoypadMotion] in the project's [code]InputMap[/code] (e.g., the default [code]ui_accept[/code] mapping that includes joypad button A), the mapper checks each binding once against the action's [code]InputMap[/code] events and skips its own synthetic [InputEventAction] when a matching native joypad event is found. The polled state via [code]Input.action_press[/code] is still refreshed every frame either way. The check is per-binding, cached, invalidated whenever [member action_map] or a binding on that map changes, and refreshed once per frame so runtime [code]InputMap[/code] edits made after the cache fills tolerate at most one frame of staleness.
 		The mapper calls [method GameInput.poll] defensively at the start of each frame; that call is per-frame idempotent so multiple [GameInputMapper] instances in the same scene do not refresh device state more than once per frame.
-		Action names listed in [member GameInputBinding.action] must already exist in the project's [code]InputMap[/code]. Missing actions emit a single [code]push_warning[/code] per [GameInputMapper] instance per action (debounced via an internal set) and the binding is then ignored. On [code]NOTIFICATION_EXIT_TREE[/code], any actions the mapper currently holds pressed are released so freed actions never get stuck.
+		Action names listed in [member GameInputBinding.action] must already exist in the project's [code]InputMap[/code]. Missing actions emit a single [code]push_warning[/code] per [GameInputMapper] instance per action (debounced via an internal set) and the binding is then ignored. Whenever the mapper stops driving a held binding — exiting the tree, swapping or mutating the active map, retargeting the mapper, losing the target device, or failing to obtain a fresh reading — it releases every action it previously held so Godot's polled action state cannot get stuck pressed.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -21,7 +21,7 @@
 			<return type="void" />
 			<param index="0" name="map" type="GameInputActionMap" />
 			<description>
-				Assigns a new action map. Resets the internal "previously pressed" state and the missing-action warning set so the new map gets a clean slate.
+				Assigns a new action map. Any actions held by the previous map are released before the internal previous-pressed state, native-event cache, and missing-action warning set are reset so the new map gets a clean slate.
 			</description>
 		</method>
 		<method name="get_target_kind_mask" qualifiers="const">
@@ -34,7 +34,7 @@
 			<return type="void" />
 			<param index="0" name="mask" type="int" />
 			<description>
-				Sets the kind mask used to pick a primary device. See [member target_kind_mask].
+				Sets the kind mask used to pick a primary device. If the mapper was holding any actions for the previous target scope, they are released before the mask changes. See [member target_kind_mask].
 			</description>
 		</method>
 		<method name="get_target_device_id" qualifiers="const">
@@ -47,7 +47,7 @@
 			<return type="void" />
 			<param index="0" name="id" type="int" />
 			<description>
-				Sets a specific [GameInputDevice] id to drive. Pass [code]-1[/code] to revert to "primary device of [member target_kind_mask]". See [member target_device_id].
+				Sets a specific [GameInputDevice] id to drive. If the mapper was holding any actions for the previous device, they are released before the id changes. Pass [code]-1[/code] to revert to "primary device of [member target_kind_mask]". See [member target_device_id].
 			</description>
 		</method>
 		<method name="get_active_binding_count" qualifiers="const">

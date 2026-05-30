@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <type_traits>
 
 namespace godot {
 
@@ -21,6 +22,33 @@ static inline const GameInputDeviceInfo *_get_device_info(IGameInputDevice *devi
     const GameInputDeviceInfo *info = nullptr;
     HRESULT hr = device->GetDeviceInfo(&info);
     return SUCCEEDED(hr) ? info : nullptr;
+}
+
+template <typename DeviceT>
+static inline HRESULT _set_rumble_state_checked_impl(DeviceT *device,
+                                                     const GameInputRumbleParams *params) {
+    using ReturnT = decltype(device->SetRumbleState(params));
+    if constexpr (std::is_same_v<ReturnT, void>) {
+        device->SetRumbleState(params);
+        return S_OK;
+    } else {
+        ReturnT result = device->SetRumbleState(params);
+        if constexpr (std::is_same_v<ReturnT, HRESULT>) {
+            return result;
+        } else if constexpr (std::is_same_v<ReturnT, bool>) {
+            return result ? S_OK : E_FAIL;
+        } else {
+            return (HRESULT)result;
+        }
+    }
+}
+
+static inline HRESULT _set_rumble_state_checked(IGameInputDevice *device,
+                                                const GameInputRumbleParams *params) {
+    if (!device || !params) {
+        return E_POINTER;
+    }
+    return _set_rumble_state_checked_impl(device, params);
 }
 
 GameInput *GameInput::singleton = nullptr;
@@ -122,7 +150,7 @@ void CALLBACK GameInput::_on_device_callback(
         GameInputDeviceStatus current_status,
         GameInputDeviceStatus previous_status) {
     auto *self = static_cast<GameInput *>(context);
-    if (!self || !device) {
+    if (!self || !device || !self->m_accepting_callbacks.load(std::memory_order_acquire)) {
         return;
     }
 
@@ -141,8 +169,26 @@ void CALLBACK GameInput::_on_device_callback(
 
     {
         std::lock_guard<std::mutex> lock(self->m_event_mutex);
+        if (!self->m_accepting_callbacks.load(std::memory_order_acquire)) {
+            device->Release();
+            return;
+        }
         self->m_pending_events.push_back(ev);
     }
+}
+
+void GameInput::_release_pending_events_locked() {
+    for (uint32_t i = 0; i < m_pending_events.size(); ++i) {
+        if (m_pending_events[i].native_device) {
+            m_pending_events[i].native_device->Release();
+        }
+    }
+    m_pending_events.clear();
+}
+
+void GameInput::_clear_pending_events() {
+    std::lock_guard<std::mutex> lock(m_event_mutex);
+    _release_pending_events_locked();
 }
 
 void GameInput::_drain_pending_events() {
@@ -234,6 +280,7 @@ bool GameInput::initialize() {
     if (m_initialized) {
         return true;
     }
+    m_accepting_callbacks.store(false, std::memory_order_release);
     HRESULT hr = ::GameInputCreate(&m_game_input);
     if (FAILED(hr) || !m_game_input) {
         if (!m_warned_create_failed) {
@@ -246,6 +293,7 @@ bool GameInput::initialize() {
         return false;
     }
 
+    m_accepting_callbacks.store(true, std::memory_order_release);
     hr = m_game_input->RegisterDeviceCallback(
         nullptr,
         (GameInputKind)(GameInputKindGamepad | GameInputKindKeyboard | GameInputKindMouse),
@@ -255,10 +303,13 @@ bool GameInput::initialize() {
         &GameInput::_on_device_callback,
         &m_device_callback_token);
     if (FAILED(hr)) {
+        m_accepting_callbacks.store(false, std::memory_order_release);
         UtilityFunctions::push_warning(
             "GameInput: RegisterDeviceCallback failed (hr=", (int64_t)hr, ")");
+        _clear_pending_events();
         m_game_input->Release();
         m_game_input = nullptr;
+        m_device_callback_token = 0;
         return false;
     }
 
@@ -269,11 +320,16 @@ bool GameInput::initialize() {
 }
 
 void GameInput::shutdown() {
-    if (!m_initialized) return;
+    if (!m_initialized && !m_game_input) return;
+
+    m_accepting_callbacks.store(false, std::memory_order_release);
 
     if (m_game_input && m_device_callback_token) {
-        // GameInput v3 dropped the timeout parameter that v1 accepted here.
-        m_game_input->UnregisterCallback(m_device_callback_token);
+        bool unregistered = m_game_input->UnregisterCallback(m_device_callback_token);
+        if (!unregistered) {
+            UtilityFunctions::push_warning(
+                "GameInput: UnregisterCallback() failed; late callbacks will be ignored.");
+        }
         m_device_callback_token = 0;
     }
 
@@ -284,7 +340,7 @@ void GameInput::shutdown() {
             const GameInputDeviceInfo *info = _get_device_info(d);
             if (info && info->supportedRumbleMotors != GameInputRumbleNone) {
                 GameInputRumbleParams zero{};
-                d->SetRumbleState(&zero);
+                _set_rumble_state_checked(d, &zero);
             }
             d->Release();
         }
@@ -292,15 +348,7 @@ void GameInput::shutdown() {
     m_devices.clear();
 
     // Drain any leftover queued events to release their AddRef.
-    {
-        std::lock_guard<std::mutex> lock(m_event_mutex);
-        for (uint32_t i = 0; i < m_pending_events.size(); ++i) {
-            if (m_pending_events[i].native_device) {
-                m_pending_events[i].native_device->Release();
-            }
-        }
-        m_pending_events.clear();
-    }
+    _clear_pending_events();
 
     if (m_game_input) {
         m_game_input->Release();
@@ -409,7 +457,12 @@ bool GameInput::set_vibration(const Ref<GameInputDevice> &device, float low_freq
     params.highFrequency = std::max(0.0f, std::min(1.0f, high_freq));
     params.leftTrigger   = std::max(0.0f, std::min(1.0f, left_trigger));
     params.rightTrigger  = std::max(0.0f, std::min(1.0f, right_trigger));
-    native->SetRumbleState(&params);
+    HRESULT hr = _set_rumble_state_checked(native, &params);
+    if (FAILED(hr)) {
+        UtilityFunctions::push_warning(
+            "GameInput: SetRumbleState failed (hr=", (int64_t)hr, ")");
+        return false;
+    }
     return true;
 }
 
