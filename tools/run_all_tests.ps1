@@ -30,6 +30,10 @@
     Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
     talk to services and mutate online state.
 
+.PARAMETER AllowLiveWrites
+    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env. Use only with
+    a verified dedicated sandbox PlayFab title.
+
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
     must already exist from a prior build.
@@ -77,6 +81,7 @@
 [CmdletBinding()]
 param(
     [switch]$Live,
+    [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
     [string]$OutDir = 'build/test-results',
     [string[]]$Hosts,
@@ -722,6 +727,7 @@ function Write-RunSummary {
         [Parameter(Mandatory = $true)][datetime]$StartedAtUtc,
         [Parameter(Mandatory = $true)][datetime]$FinishedAtUtc,
         [Parameter(Mandatory = $true)][bool]$LiveFlag,
+        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesFlag,
         [Parameter(Mandatory = $true)][string]$GodotVersion
     )
 
@@ -738,6 +744,7 @@ function Write-RunSummary {
         finished_at       = $FinishedAtUtc.ToString("o")
         total_duration_ms = $totalMs
         live              = $LiveFlag
+        live_write        = $AllowLiveWritesFlag
         godot_version     = $GodotVersion
         stages            = @($Stages)
     }
@@ -754,6 +761,7 @@ function Write-RunSummary {
     [void]$mdLines.Add("- **Finished (UTC)**: $($FinishedAtUtc.ToString('o'))")
     [void]$mdLines.Add("- **Duration**: ${totalMs} ms")
     [void]$mdLines.Add("- **Live**: $LiveFlag")
+    [void]$mdLines.Add("- **Live write**: $AllowLiveWritesFlag")
     [void]$mdLines.Add("- **Godot**: $GodotVersion")
     [void]$mdLines.Add('')
     [void]$mdLines.Add('| Stage | Status | Duration (ms) | Exit | Tests | Pass | Fail | Pend | Asserts Validated | Asserts Failed |')
@@ -824,20 +832,33 @@ function Write-RunSummary {
 # ------------------------------------------------------------------------
 
 function Main {
+    if ($AllowLiveWrites -and -not $Live) {
+        throw '-AllowLiveWrites requires -Live so live-write tests cannot run accidentally.'
+    }
+
     $startedAt = (Get-Date).ToUniversalTime()
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
+    $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) { $PlayFabTitleId.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID') ?? '').Trim() }
+    $effectivePlayFabCustomId = if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) { $PlayFabCustomId.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID') ?? '').Trim() }
+    $effectivePlayFabMatchmakingQueue = if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) { $PlayFabMatchmakingQueue.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') ?? '').Trim() }
+
+    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
+        throw '-AllowLiveWrites requires PLAYFAB_TITLE_ID or -PlayFabTitleId so the live-write title is explicit in logs.'
+    }
+
     $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
-        $childEnv['PLAYFAB_TITLE_ID'] = $PlayFabTitleId.Trim()
+    if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
+    if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
+        $childEnv['PLAYFAB_TITLE_ID'] = $effectivePlayFabTitleId
     }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
-        $childEnv['PLAYFAB_CUSTOM_ID'] = $PlayFabCustomId.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabCustomId)) {
+        $childEnv['PLAYFAB_CUSTOM_ID'] = $effectivePlayFabCustomId
     }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) {
-        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $PlayFabMatchmakingQueue.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabMatchmakingQueue)) {
+        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $effectivePlayFabMatchmakingQueue
     }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
@@ -853,8 +874,11 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   SkipBuild = $SkipBuild" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if ($childEnv.ContainsKey('PLAYFAB_TITLE_ID')) { 'set' } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID')) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')) { 'set' } else { 'unset' })" -ForegroundColor Cyan
+    if ($AllowLiveWrites) {
+        Write-Host "                   LIVE_WRITE_TESTS=1 enabled for PlayFab title '$effectivePlayFabTitleId'" -ForegroundColor Yellow
+    }
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
@@ -960,7 +984,7 @@ function Main {
     $overall = if ($stages | Where-Object { $_.status -eq 'fail' }) { 'fail' } else { 'pass' }
     $written = Write-RunSummary -Stages $stages -OutDirAbsolute $outDirAbsolute `
         -OverallStatus $overall -StartedAtUtc $startedAt -FinishedAtUtc $finishedAt `
-        -LiveFlag:([bool]$Live) -GodotVersion $godotVer
+        -LiveFlag:([bool]$Live) -AllowLiveWritesFlag:([bool]$AllowLiveWrites) -GodotVersion $godotVer
     Write-Host "   wrote $($written.JsonPath)"
     Write-Host "   wrote $($written.MdPath)"
     Write-Host ''
