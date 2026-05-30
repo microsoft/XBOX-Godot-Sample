@@ -68,7 +68,19 @@ PlayFab::PlayFab() {
 }
 
 PlayFab::~PlayFab() {
+    m_destroying = true;
     shutdown();
+    if (m_party.is_valid()) {
+        m_party->set_owner(nullptr);
+    }
+    if (m_multiplayer.is_valid()) {
+        m_multiplayer->set_owner(nullptr);
+    }
+    m_shutdown_deferred_until_services_complete = false;
+    if (m_runtime != nullptr && m_runtime->is_initialized()) {
+        _finish_shutdown_after_services(false);
+    }
+    m_shutdown_in_progress = false;
 
     m_users.unref();
     m_game_saves.unref();
@@ -166,24 +178,69 @@ Ref<PlayFabResult> PlayFab::initialize() {
     return PlayFabResult::ok_result();
 }
 
+bool PlayFab::_has_deferred_service_shutdown() const {
+    return (m_party.is_valid() && m_party->has_deferred_shutdown()) ||
+            (m_multiplayer.is_valid() && m_multiplayer->has_deferred_shutdown());
+}
+
+void PlayFab::_finish_shutdown_after_services(bool p_emit_signal) {
+    if (m_users.is_valid()) {
+        m_users->shutdown();
+    }
+    if (m_runtime != nullptr) {
+        m_runtime->shutdown();
+    }
+    if (p_emit_signal && !m_destroying) {
+        emit_signal("shutdown_completed");
+    }
+}
+
+void PlayFab::finish_deferred_shutdown_if_ready() {
+    if (!m_shutdown_deferred_until_services_complete) {
+        return;
+    }
+    if (_has_deferred_service_shutdown()) {
+        return;
+    }
+    m_shutdown_deferred_until_services_complete = false;
+    m_shutdown_in_progress = false;
+    _finish_shutdown_after_services(true);
+}
+
 void PlayFab::shutdown() {
     if (m_runtime == nullptr) {
         return;
     }
+    if (m_shutdown_deferred_until_services_complete) {
+        finish_deferred_shutdown_if_ready();
+        return;
+    }
+    if (m_shutdown_in_progress) {
+        return;
+    }
 
     const bool was_initialized = m_runtime->is_initialized();
-    if (was_initialized) {
-        if (m_party.is_valid()) {
-            m_party->shutdown();
-        }
-        m_multiplayer->shutdown();
-        m_users->shutdown();
+    if (!was_initialized) {
+        m_runtime->shutdown();
+        return;
     }
-    m_runtime->shutdown();
 
-    if (was_initialized) {
-        emit_signal("shutdown_completed");
+    m_shutdown_in_progress = true;
+
+    if (m_party.is_valid()) {
+        m_party->shutdown();
     }
+    if (m_multiplayer.is_valid()) {
+        m_multiplayer->shutdown();
+    }
+
+    if (_has_deferred_service_shutdown()) {
+        m_shutdown_deferred_until_services_complete = true;
+        return;
+    }
+
+    m_shutdown_in_progress = false;
+    _finish_shutdown_after_services(true);
 }
 
 bool PlayFab::is_available() const {

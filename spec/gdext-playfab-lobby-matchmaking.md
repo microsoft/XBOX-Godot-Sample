@@ -79,7 +79,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | GDScript API | Native ownership / calls | Completion gate |
 | --- | --- | --- |
 | `initialize_async(config)` | `PFMultiplayerInitialize(...)`; attach lobby/matchmaking state processing to PlayFab runtime dispatch | PlayFab Multiplayer initialized and ready to process state changes |
-| `shutdown_async()` | Cancel tracked tickets, leave tracked lobbies, release handles, `PFMultiplayerUninitialize(...)` | Tracked resources settle or shutdown generation closes |
+| `shutdown_async()` | Cancel tracked tickets, leave tracked lobbies, reject new Multiplayer work, release handles, `PFMultiplayerUninitialize(...)`, then free deferred async contexts | Tracked resources settle or shutdown generation closes |
 | `create_lobby_async(user, config)` | `PFMultiplayerCreateAndJoinLobby(...)` entity-handle overload | create/join completed state; `PlayFabLobby` snapshot populated |
 | `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
 | `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
@@ -91,6 +91,8 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `PlayFabMatchTicket.cancel_async()` | `PFMatchmakingTicketCancel(...)` | completion signal settles when the ticket reaches a cancelled or failed terminal state |
 
 Native handles returned synchronously by create/join/find/ticket calls are provisional implementation details. Public wrappers may be allocated for bookkeeping, but externally visible state remains creating, joining, searching, matching, or equivalent until the corresponding completed state change succeeds.
+
+Shutdown is cancellation-first: pending lobby and ticket signals complete with cancelled `PlayFabResult`s from a stable snapshot, re-entrant handlers cannot start new Multiplayer SDK work, native teardown is deferred until any active Multiplayer state-change batch has unwound, and the native async context storage is not freed until after `PFMultiplayerUninitialize(...)` returns.
 
 ## Lobby model
 

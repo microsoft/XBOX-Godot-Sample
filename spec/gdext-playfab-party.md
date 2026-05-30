@@ -115,6 +115,7 @@ Rules:
 4. Auto dispatch may update internal state and complete one-shot operations.
 5. Network-facing emissions are queued until the owning `PlayFabPartyPeer::_poll()` flushes them through Godot's normal multiplayer polling path.
 6. Shutdown closes active Party peers, networks, endpoints, and chat controls before PlayFab Multiplayer, PlayFab Services, and the core runtime are uninitialized.
+7. Shutdown emits cancelled completion results from a snapshot of pending operations, rejects new Party work while the service is shutting down, defers native cleanup until any active Party state-change batch has unwound, and defers freeing native async context storage until after `PartyManager::Cleanup()` returns.
 
 ## Config wrappers
 

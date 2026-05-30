@@ -17,7 +17,7 @@
 		<method name="shutdown">
 			<return type="void" />
 			<description>
-				Shuts down PlayFab Core, Services, Game Save Files, the shared task queue, and cached user state. This is safe to call before another [method initialize]; it does not release the process-lifetime XGameRuntime reference.
+				Shuts down Party and Multiplayer services first, cancels their in-flight operations, then tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached user state. This is safe to call before another [method initialize]; it does not release the process-lifetime XGameRuntime reference. Completion handlers may call back into PlayFab during this cancellation phase; new Party/Multiplayer operations fail with a shutdown-in-progress error instead of mutating native SDK state.
 			</description>
 		</method>
 		<method name="is_available" qualifiers="const">

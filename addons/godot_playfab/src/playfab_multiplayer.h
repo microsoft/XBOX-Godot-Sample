@@ -433,14 +433,21 @@ private:
     bool m_processing_state_changes = false;
     bool m_shutting_down = false;
     uint64_t m_dispatch_generation = 0;
+    bool m_shutdown_deferred_until_dispatch_complete = false;
     std::vector<Ref<PlayFabLobby>> m_lobbies;
     std::vector<Ref<PlayFabMatchTicket>> m_tickets;
     std::vector<PendingOperation *> m_pending_operations;
+    std::vector<PendingOperation *> m_pending_operations_deferred_delete;
+    std::vector<Ref<PlayFabPendingSignal>> m_shutdown_pending_signals;
 
     PlayFabRuntime *_get_runtime() const;
     Ref<PlayFabPendingSignal> _make_pending_signal();
     Signal _make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant());
     PendingOperation *_create_pending_operation(int64_t p_kind, const Ref<PlayFabPendingSignal> &p_pending_signal);
+    void _cancel_active_pending_operations(const String &p_cancel_message);
+    void _defer_pending_delete(PendingOperation *p_operation);
+    void _delete_deferred_pending_operations();
+    void _complete_shutdown_pending_signals();
     void _complete_pending_operation(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
     void _release_pending_operation(PendingOperation *p_operation);
     PendingOperation *_find_pending_ticket_operation(const Ref<PlayFabMatchTicket> &p_ticket, int64_t p_kind) const;
@@ -459,6 +466,11 @@ private:
             const Ref<PlayFabResult> &p_result = Ref<PlayFabResult>(),
             const Ref<PlayFabLobbyMember> &p_member = Ref<PlayFabLobbyMember>(),
             const Dictionary &p_properties = Dictionary());
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    Signal _test_enqueue_shutdown_pending();
+    int64_t _test_pending_operation_count() const;
+#endif
+
     void _emit_ticket_change(
             int64_t p_kind,
             const Ref<PlayFabMatchTicket> &p_ticket,
@@ -480,6 +492,7 @@ public:
 
     void set_owner(PlayFab *p_owner);
     bool is_initialized() const;
+    bool has_deferred_shutdown() const;
     Signal initialize_async(const Ref<PlayFabMultiplayerConfig> &p_config = Ref<PlayFabMultiplayerConfig>());
     Signal shutdown_async();
     void shutdown();

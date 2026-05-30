@@ -37,7 +37,10 @@ target_link_libraries(godot_playfab PRIVATE
     Xbox::PlayFabGameSave
 )
 
-target_compile_definitions(godot_playfab PRIVATE _GAMING_DESKTOP)
+target_compile_definitions(godot_playfab PRIVATE
+    _GAMING_DESKTOP
+    $<$<CONFIG:Debug>:GODOT_PLAYFAB_TEST_HOOKS>
+)
 
 godot_addon_configure_target(
     TARGET godot_playfab
