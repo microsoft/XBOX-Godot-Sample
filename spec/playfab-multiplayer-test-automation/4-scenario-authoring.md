@@ -333,7 +333,7 @@ func run(orch: TestOrchestrator) -> Dictionary:
         "status": "cancelled",
     })
 
-    var cancel := await host.send("cancel_match_ticket", { "handle": "smoke_ticket" })
+    var cancel := await host.send("cancel_match_ticket", { "ticket_id": create.result.ticket_id })
     err = assert_ok(cancel, "cancel_match_ticket")
     if err: return err
 

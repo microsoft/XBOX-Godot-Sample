@@ -1,7 +1,6 @@
 extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 
 const MATCH_QUEUE_ENV := "PLAYFAB_MULTIPLAYER_MATCH_QUEUE"
-const LIVE_WRITE_ENV := "LIVE_WRITE_TESTS"
 const MATCH_TEST_TIMEOUT_MSEC := 60_000
 const DEFAULT_MATCH_QUEUE := "godot_gdk_ext_live_smoke_queue"
 
@@ -62,7 +61,7 @@ func test_create_match_ticket_returns_ticket_id_before_cancel() -> void:
 	assert_eq(String(ticket.get_ticket_id()), ticket_id, "cancel preserves ticket_id")
 	assert_true(ticket.is_cancelled(), "ticket reaches cancelled status")
 
-	await await_completion(playfab.shutdown_async(), MATCH_TEST_TIMEOUT_MSEC)
+	playfab.shutdown()
 
 
 func _begin_match_session(label: String) -> Dictionary:
@@ -71,9 +70,7 @@ func _begin_match_session(label: String) -> Dictionary:
 		"multiplayer": null,
 		"playfab_user": null,
 	}
-	if pending_unless_live():
-		return outcome
-	if _pending_unless_live_write():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
@@ -89,9 +86,9 @@ func _begin_match_session(label: String) -> Dictionary:
 		pending("PlayFab singleton is not available in this host")
 		return outcome
 
-	var initialize_result = await await_completion(playfab.initialize_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+	var initialize_result = playfab.initialize()
 	if initialize_result == null:
-		pending("%s skipped: PlayFab.initialize_async() timed out." % label)
+		pending("%s skipped: PlayFab.initialize() returned null." % label)
 		return outcome
 	if not initialize_result.ok:
 		pending("%s skipped: %s" % [label, initialize_result.message])
@@ -100,36 +97,29 @@ func _begin_match_session(label: String) -> Dictionary:
 	var sign_in := await sign_in_with_configured_custom_id(playfab, label, DEFAULT_ASYNC_TIMEOUT_MSEC)
 	var playfab_user: Object = sign_in.get("playfab_user", null)
 	if playfab_user == null:
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	var multiplayer: Object = playfab.multiplayer
 	assert_not_null(multiplayer, "PlayFab.multiplayer exists")
 	if multiplayer == null:
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	var multiplayer_result = await await_completion(multiplayer.initialize_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
 	if multiplayer_result == null:
 		pending("%s skipped: PlayFab.multiplayer.initialize_async() timed out." % label)
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 	if not multiplayer_result.ok:
 		pending("%s skipped: %s" % [label, multiplayer_result.message])
-		await await_completion(playfab.shutdown_async(), DEFAULT_ASYNC_TIMEOUT_MSEC)
+		playfab.shutdown()
 		return outcome
 
 	outcome["playfab"] = playfab
 	outcome["multiplayer"] = multiplayer
 	outcome["playfab_user"] = playfab_user
 	return outcome
-
-
-func _pending_unless_live_write() -> bool:
-	if OS.get_environment(LIVE_WRITE_ENV) != "1":
-		pending("Skipped without LIVE_WRITE_TESTS=1")
-		return true
-	return false
 
 
 func _match_queue_name() -> String:
