@@ -727,24 +727,44 @@ function Invoke-PlayFabMultiplayerOrchestrator {
         $rec.message = "PlayFab Multiplayer orchestrator failed (exit $($r.ExitCode))."
     } else {
         $resultJson = Join-Path $resultsDir 'mp-test-results.json'
-        if (Test-Path $resultJson) {
-            try {
-                $mp = Get-Content -Path $resultJson -Raw -Encoding UTF8 | ConvertFrom-Json
-                if ($null -ne $mp.summary) {
-                    $rec.tests = [int]$mp.summary.total
-                    $rec.passing = [int]$mp.summary.passed
-                    $rec.failing = [int]$mp.summary.failed
-                    $rec.pending = [int]$mp.summary.skipped
-                    $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
-                }
-            } catch {
-                $rec.message = "OK (could not parse MP results: $($_.Exception.Message))"
-            }
+        if (-not (Test-Path $resultJson)) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator produced no mp-test-results.json at '$resultJson' (scenario scan may have failed or the runner exited early). Refusing to report PASS without scenario evidence."
+            $rec.details = $combined
+            return $rec
+        }
+        try {
+            $mp = Get-Content -Path $resultJson -Raw -Encoding UTF8 | ConvertFrom-Json
+        } catch {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator wrote mp-test-results.json but it failed to parse: $($_.Exception.Message)"
+            $rec.details = $combined
+            return $rec
+        }
+        if ($null -eq $mp.summary) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator wrote mp-test-results.json with no .summary block."
+            $rec.details = $combined
+            return $rec
+        }
+        $rec.tests = [int]$mp.summary.total
+        $rec.passing = [int]$mp.summary.passed
+        $rec.failing = [int]$mp.summary.failed
+        $rec.pending = [int]$mp.summary.skipped
+        if ($rec.tests -le 0) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator discovered no scenarios (total=0). Check the scenario filter or scan paths."
+            $rec.details = $combined
+            return $rec
+        }
+        if ($rec.failing -gt 0) {
+            $rec.status = 'fail'
+            $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
+            $rec.details = $combined
+            return $rec
         }
         $rec.status = 'pass'
-        if ([string]::IsNullOrWhiteSpace($rec.message)) {
-            $rec.message = if ([string]::IsNullOrWhiteSpace($combined)) { 'OK' } else { ($combined -split "`r?`n" | Select-Object -Last 1) }
-        }
+        $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
     }
     return $rec
 }
