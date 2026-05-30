@@ -216,17 +216,26 @@ func create_template(game_name: String = "MyGodotGame",
 	file.close()
 	print("[GDK Packaging] Created template MicrosoftGame.config at: ", fs_target)
 
-	# Generate placeholder logo images so GameConfigEditor doesn't error
-	_ensure_placeholder_images()
+	# Generate placeholder logo images so GameConfigEditor doesn't error.
+	# Pass the config's base dir so the storelogos/ folder is created next to
+	# the config file (not under res://) when output_path lands outside the
+	# project root; the config's relative "storelogos\..." attributes resolve
+	# against the config's parent directory.
+	_ensure_placeholder_images(target_dir)
 
 	return OK
 
 
 ## Copies the GDK default 480x480 PNG and resizes it to create all placeholder
-## images referenced by the MicrosoftGame.config template.
-func _ensure_placeholder_images() -> void:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var logos_dir: String = project_dir.path_join("storelogos")
+## images referenced by the MicrosoftGame.config template. Writes them under
+## a "storelogos/" folder inside [param base_dir] (defaults to the project
+## root for backward compatibility) so the relative paths the template
+## embeds resolve next to the config file.
+func _ensure_placeholder_images(base_dir: String = "") -> void:
+	var logos_root: String = base_dir
+	if logos_root.is_empty():
+		logos_root = ProjectSettings.globalize_path("res://")
+	var logos_dir: String = logos_root.path_join("storelogos")
 	var default_png: String = _toolchain.get_bin_dir().path_join(
 		"GameConfigEditorDependencies/default480x480.png")
 
