@@ -2,26 +2,10 @@
 ##
 ## Mirrors the patterns from sample/tutorial_app/autoload/party.gd
 ## (initialize → create_and_join_network_async → leave_async → send_text_async)
-## but tracks networks by orchestrator-supplied handle instead of a singleton
-## `_network`, and skips the lobby-descriptor publishing (the orchestrator
-## brokers the descriptor between host and guest directly via response
-## payloads + scenario params, no live lobby required for the Party-only
-## scenarios).
-##
-## Handle addressing (per spec/playfab-multiplayer-test-automation/4-scenario-authoring.md):
-##   * `params.as` on party_create_network / party_join_network names the new
-##     network (default "main").
-##   * `params.handle` on subsequent ops addresses a tracked network (default "main").
-##
-## Each command returns the CommandDispatcher shape:
-##   { ok: bool, result?: Dictionary, error?: Dictionary }
-##
-## Deferred for a follow-up: RPC over the Godot MultiplayerAPI binding
-## (requires wiring `multiplayer.multiplayer_peer = network.local_peer`),
-## chat-control event streaming back to the orchestrator (requires the
-## `event` frame kind), and the per-peer mute / set_peer_chat_permissions
-## surfaces. The minimal set here is enough to validate that same-host
-## Party can stand up at all post PR #132.
+## but tracks networks by orchestrator-supplied handle instead of a singleton.
+## Event frames expose Party network, peer, RPC-packet, and chat-control changes
+## so mp_orchestrator scenarios can validate the C1 P0/P1 matrix without the
+## retired legacy worker harness.
 extends RefCounted
 
 const PlayFabRuntime := preload("res://scripts/playfab_runtime.gd")
@@ -30,18 +14,17 @@ const DEFAULT_HANDLE := "main"
 const DEFAULT_AWAIT_TIMEOUT_MS := 60_000
 const LEAVE_TIMEOUT_MS := 30_000
 const SEND_TEXT_TIMEOUT_MS := 10_000
-# Bounded retry for the join chain when the host's network races us. The
-# typical surface here is `party_resource_not_ready: Network destroyed
-# during join.` (or, post addon improvements, the underlying Party
-# errorDetail message), which is transient — the host's network is alive
-# at this point, but a same-host Party DoWork batch can collide with the
-# guest's join when both processes share one machine.
 const JOIN_RETRY_ATTEMPTS := 3
 const JOIN_RETRY_BACKOFF_MS := 1_500
+const CONNECTED_STATE := 3
+const DISCONNECTED_STATE := 5
+const FAILED_STATE := 6
 
 var _runtime: PlayFabRuntime = null
 var _party_initialized: bool = false
 var _networks: Dictionary = {}  # handle (String) -> PlayFabPartyNetwork (Object)
+var _peer_sets: Dictionary = {}  # handle (String) -> Array[int]
+var _pending_events: Array[Dictionary] = []
 
 
 func bind(runtime: PlayFabRuntime) -> void:
@@ -78,9 +61,6 @@ func initialize_party(params: Dictionary) -> Dictionary:
 	var connectivity: int = int(params.get("direct_peer_connectivity",
 		ClassDB.class_get_integer_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY")))
 	config.direct_peer_connectivity = connectivity
-	# Default text-only to keep scenarios deterministic — voice depends on
-	# audio device probing which is noisy in headless CI. Scenarios can
-	# explicitly pass enable_voice_chat to override.
 	config.enable_voice_chat = bool(params.get("enable_voice_chat", false))
 	config.enable_text_chat = bool(params.get("enable_text_chat", true))
 	config.enable_transcription = bool(params.get("enable_transcription", false))
@@ -115,10 +95,7 @@ func create_network(params: Dictionary) -> Dictionary:
 		ClassDB.class_get_integer_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_ANY")))
 	config.enable_voice_chat = bool(params.get("enable_voice_chat", false))
 	config.enable_text_chat = bool(params.get("enable_text_chat", true))
-	# Microsoft Party requires every user to authenticate with the same
-	# invitation_id the host created the network with. Default to a stable
-	# string derived from the handle so the host/guest scenario can pass
-	# the same value on both sides without needing a lobby.
+	config.enable_transcription = bool(params.get("enable_transcription", false))
 	config.invitation_id = String(params.get("invitation_id", "mp-test-invite-%s" % handle))
 
 	var result: Variant = await _runtime.await_completion(party.create_and_join_network_async(user, config), DEFAULT_AWAIT_TIMEOUT_MS)
@@ -128,7 +105,8 @@ func create_network(params: Dictionary) -> Dictionary:
 	var network: Object = result.data
 	if network == null:
 		return _err("invalid_response", "create_and_join_network_async returned ok with null network")
-	_networks[handle] = network
+	_attach_network(handle, network)
+	_queue_event("party.network_ready", { "handle": handle, "network": _network_snapshot(network) })
 	return _ok({
 		"handle": handle,
 		"invitation_id": String(config.invitation_id),
@@ -163,13 +141,9 @@ func join_network(params: Dictionary) -> Dictionary:
 		return _err("class_unavailable", "PlayFabPartyConfig not registered in ClassDB")
 	config.enable_voice_chat = bool(params.get("enable_voice_chat", false))
 	config.enable_text_chat = bool(params.get("enable_text_chat", true))
+	config.enable_transcription = bool(params.get("enable_transcription", false))
 	config.invitation_id = invitation_id
 
-	# Bounded retry for the transient `party_resource_not_ready` family
-	# observed in same-host Party scenarios (host network already alive +
-	# the addon already surfaces the real PartyNetworkDestroyed reason via
-	# _abort_join_op_if_network_dead, so persistent failures are propagated
-	# verbatim after the retries are exhausted).
 	var attempts: int = max(1, int(params.get("retry_attempts", JOIN_RETRY_ATTEMPTS)))
 	var backoff_ms: int = max(0, int(params.get("retry_backoff_ms", JOIN_RETRY_BACKOFF_MS)))
 	var result: Variant = null
@@ -184,8 +158,6 @@ func join_network(params: Dictionary) -> Dictionary:
 			return last_err
 		if attempt + 1 >= attempts:
 			return last_err
-		# Sleep + pump the SDK so any pending NetworkDestroyed/state-change
-		# events get drained before the next attempt re-issues join.
 		await _runtime.wait_until(func(): return false, backoff_ms)
 	if result == null or not bool(result.ok):
 		return last_err if not last_err.is_empty() else _err_from_result(result, "PlayFabParty.join_network_async")
@@ -193,7 +165,8 @@ func join_network(params: Dictionary) -> Dictionary:
 	var network: Object = result.data
 	if network == null:
 		return _err("invalid_response", "join_network_async returned ok with null network")
-	_networks[handle] = network
+	_attach_network(handle, network)
+	_queue_event("party.network_ready", { "handle": handle, "network": _network_snapshot(network) })
 	return _ok({
 		"handle": handle,
 		"invitation_id": invitation_id,
@@ -218,13 +191,32 @@ func leave_network(params: Dictionary) -> Dictionary:
 	var network: Object = lookup.get("network")
 	var network_id: String = String(network.network_id) if "network_id" in network else ""
 	var result: Variant = await _runtime.await_completion(network.leave_async(), LEAVE_TIMEOUT_MS)
-	# Only release the handle on a successful leave so reset_client can retry.
-	# Leaking the handle on failure would let Party membership persist into
-	# the next scenario.
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "PlayFabPartyNetwork.leave_async")
-	_networks.erase(handle)
+	_detach_network(handle, network)
+	_queue_event("party.network_destroyed", { "handle": handle, "left_network_id": network_id })
 	return _ok({ "handle": handle, "left_network_id": network_id })
+
+
+func send_rpc_ping(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_network(params, "party_send_rpc_ping")
+	if not lookup.has("network"):
+		return lookup
+	var network: Object = lookup.get("network")
+	var peer: Object = network.local_peer if "local_peer" in network else null
+	if peer == null:
+		return _err("peer_not_ready", "PartyNetwork.local_peer is null (still connecting?)")
+	var correlation_id: String = String(params.get("correlation_id", "rpc-%d" % Time.get_ticks_msec()))
+	var payload: Dictionary = params.get("payload", {})
+	var err: int = _send_rpc_frame(peer, {
+		"kind": "mp_test_rpc",
+		"type": "ping",
+		"correlation_id": correlation_id,
+		"payload": payload,
+	})
+	if err != OK:
+		return _err("party_rpc_send_failed", "put_packet failed: %s" % error_string(err), { "error_code": err })
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "correlation_id": correlation_id })
 
 
 func send_chat_text(params: Dictionary) -> Dictionary:
@@ -238,15 +230,49 @@ func send_chat_text(params: Dictionary) -> Dictionary:
 	var peer: Object = network.local_peer if "local_peer" in network else null
 	if peer == null:
 		return _err("peer_not_ready", "PartyNetwork.local_peer is null (still connecting?)")
-	var result: Variant = await _runtime.await_completion(peer.send_text_async(text), SEND_TEXT_TIMEOUT_MS)
+	var target_peer_ids := PackedInt32Array()
+	for raw_id in params.get("target_peer_ids", []):
+		target_peer_ids.append(int(raw_id))
+	var result: Variant = await _runtime.await_completion(peer.send_text_async(text, target_peer_ids), SEND_TEXT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "PlayFabPartyPeer.send_text_async")
-	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text })
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text, "target_peer_ids": Array(target_peer_ids) })
 
 
-## Leaves every tracked network. Called from reset_client between scenarios
-## so a scenario can't leak a tracked network into the next scenario's
-## lifecycle.
+func set_peer_muted(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_network(params, "party_set_peer_muted")
+	if not lookup.has("network"):
+		return lookup
+	var peer: Object = _network_peer(lookup.get("network"))
+	if peer == null:
+		return _err("peer_not_ready", "PartyNetwork.local_peer is null")
+	var peer_id: int = int(params.get("peer_id", 0))
+	if peer_id <= 0:
+		return _err("invalid_peer_id", "party_set_peer_muted requires peer_id > 0")
+	var muted: bool = bool(params.get("muted", true))
+	var result: Variant = await _runtime.await_completion(peer.set_peer_muted_async(peer_id, muted), DEFAULT_AWAIT_TIMEOUT_MS)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "PlayFabPartyPeer.set_peer_muted_async")
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "muted": muted })
+
+
+func set_peer_chat_permissions(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_network(params, "party_set_peer_chat_permissions")
+	if not lookup.has("network"):
+		return lookup
+	var peer: Object = _network_peer(lookup.get("network"))
+	if peer == null:
+		return _err("peer_not_ready", "PartyNetwork.local_peer is null")
+	var peer_id: int = int(params.get("peer_id", 0))
+	if peer_id <= 0:
+		return _err("invalid_peer_id", "party_set_peer_chat_permissions requires peer_id > 0")
+	var permissions: int = int(params.get("permissions", ClassDB.class_get_integer_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")))
+	var result: Variant = await _runtime.await_completion(peer.set_peer_chat_permissions_async(peer_id, permissions), DEFAULT_AWAIT_TIMEOUT_MS)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "PlayFabPartyPeer.set_peer_chat_permissions_async")
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "permissions": permissions })
+
+
 func reset(_params: Dictionary) -> Dictionary:
 	var left: int = 0
 	var failures: Array = []
@@ -258,18 +284,16 @@ func reset(_params: Dictionary) -> Dictionary:
 		if result != null and bool(result.ok):
 			left += 1
 		else:
-			# Surface failures so reset_client returns an error and the
-			# orchestrator respawns the client. Clearing _networks while
-			# the SDK still tracks the network would let Party membership
-			# (chat, RPC routing, voice) bleed into the next scenario.
 			var err_payload: Dictionary = _err_from_result(result, "PlayFabPartyNetwork.leave_async")
 			var err_details: Dictionary = err_payload.get("error", {})
 			err_details["handle"] = handle
 			failures.append(err_details)
+	for detach_handle in _networks.keys():
+		var detach_network: Object = _networks[detach_handle]
+		if detach_network != null:
+			_detach_network(String(detach_handle), detach_network)
 	_networks.clear()
-	# Intentionally do NOT call PlayFab.party.shutdown_async() between
-	# scenarios — initialization is expensive (audio engine + network
-	# stack) and is meant to be amortized across the client's lifetime.
+	_peer_sets.clear()
 	if not failures.is_empty():
 		return _err(
 			"reset_failed",
@@ -277,6 +301,14 @@ func reset(_params: Dictionary) -> Dictionary:
 			{ "left": left, "failed": failures },
 		)
 	return _ok({ "left": left })
+
+
+func poll_events(emit: Callable) -> void:
+	_update_peer_events()
+	_drain_packets()
+	while not _pending_events.is_empty():
+		var event: Dictionary = _pending_events.pop_front()
+		emit.call(String(event.get("event_type", "")), event.get("payload", {}))
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +337,205 @@ func _lookup_network(params: Dictionary, op: String) -> Dictionary:
 	return { "handle": handle, "network": _networks[handle] }
 
 
+func _attach_network(handle: String, network: Object) -> void:
+	_networks[handle] = network
+	_peer_sets[handle] = []
+	var network_cb: Callable = _on_network_state_changed.bind(handle)
+	if network != null and not network.state_changed.is_connected(network_cb):
+		network.state_changed.connect(network_cb)
+	var peer: Object = _network_peer(network)
+	if peer == null:
+		return
+	_connect_peer_signal(peer, "connection_state_changed", _on_peer_connection_state_changed.bind(handle))
+	_connect_peer_signal(peer, "network_error", _on_peer_network_error.bind(handle))
+	_connect_peer_signal(peer, "chat_control_added", _on_peer_chat_control_added.bind(handle))
+	_connect_peer_signal(peer, "chat_control_removed", _on_peer_chat_control_removed.bind(handle))
+	_connect_peer_signal(peer, "text_message_received", _on_peer_text_message_received.bind(handle))
+	_connect_peer_signal(peer, "transcription_received", _on_peer_transcription_received.bind(handle))
+	_connect_peer_signal(peer, "chat_permissions_changed", _on_peer_chat_permissions_changed.bind(handle))
+	_connect_peer_signal(peer, "peer_muted_changed", _on_peer_muted_changed.bind(handle))
+
+
+func _detach_network(handle: String, network: Object) -> void:
+	var network_cb: Callable = _on_network_state_changed.bind(handle)
+	if network != null and network.state_changed.is_connected(network_cb):
+		network.state_changed.disconnect(network_cb)
+	var peer: Object = _network_peer(network)
+	if peer != null:
+		_disconnect_peer_signal(peer, "connection_state_changed", _on_peer_connection_state_changed.bind(handle))
+		_disconnect_peer_signal(peer, "network_error", _on_peer_network_error.bind(handle))
+		_disconnect_peer_signal(peer, "chat_control_added", _on_peer_chat_control_added.bind(handle))
+		_disconnect_peer_signal(peer, "chat_control_removed", _on_peer_chat_control_removed.bind(handle))
+		_disconnect_peer_signal(peer, "text_message_received", _on_peer_text_message_received.bind(handle))
+		_disconnect_peer_signal(peer, "transcription_received", _on_peer_transcription_received.bind(handle))
+		_disconnect_peer_signal(peer, "chat_permissions_changed", _on_peer_chat_permissions_changed.bind(handle))
+		_disconnect_peer_signal(peer, "peer_muted_changed", _on_peer_muted_changed.bind(handle))
+	_networks.erase(handle)
+	_peer_sets.erase(handle)
+
+
+func _connect_peer_signal(peer: Object, signal_name: String, callable: Callable) -> void:
+	var sig := Signal(peer, signal_name)
+	if not sig.is_connected(callable):
+		sig.connect(callable)
+
+
+func _disconnect_peer_signal(peer: Object, signal_name: String, callable: Callable) -> void:
+	var sig := Signal(peer, signal_name)
+	if sig.is_connected(callable):
+		sig.disconnect(callable)
+
+
+func _on_network_state_changed(change: Object, handle: String) -> void:
+	if change == null:
+		return
+	var payload: Dictionary = {
+		"handle": handle,
+		"kind": int(change.kind),
+		"state": int(change.state),
+		"reason": String(change.reason),
+		"peer_id": int(change.peer_id),
+		"network": _network_snapshot(change.network),
+		"result": _result_snapshot(change.result),
+	}
+	_queue_event("party.network_state_changed", payload)
+	if int(change.state) == CONNECTED_STATE:
+		_queue_event("party.network_ready", payload)
+	elif int(change.state) == DISCONNECTED_STATE or int(change.state) == FAILED_STATE:
+		_queue_event("party.network_destroyed", payload)
+
+
+func _on_peer_connection_state_changed(status: int, handle: String) -> void:
+	_queue_event("party.peer_connection_state_changed", { "handle": handle, "status": status })
+
+
+func _on_peer_network_error(result: Object, handle: String) -> void:
+	_queue_event("party.peer_network_error", { "handle": handle, "result": _result_snapshot(result) })
+
+
+func _on_peer_chat_control_added(peer_id: int, _chat_control: Object, handle: String) -> void:
+	_queue_event("party.chat_control_added", { "handle": handle, "peer_id": peer_id })
+
+
+func _on_peer_chat_control_removed(peer_id: int, handle: String) -> void:
+	_queue_event("party.chat_control_removed", { "handle": handle, "peer_id": peer_id })
+
+
+func _on_peer_text_message_received(peer_id: int, message: Object, handle: String) -> void:
+	_queue_event("party.chat.text_received", _chat_message_payload(handle, peer_id, message))
+
+
+func _on_peer_transcription_received(peer_id: int, message: Object, handle: String) -> void:
+	_queue_event("party.chat.transcription_received", _chat_message_payload(handle, peer_id, message))
+
+
+func _on_peer_chat_permissions_changed(peer_id: int, permissions: int, handle: String) -> void:
+	_queue_event("party.chat_permissions_changed", { "handle": handle, "peer_id": peer_id, "permissions": permissions })
+
+
+func _on_peer_muted_changed(peer_id: int, muted: bool, handle: String) -> void:
+	_queue_event("party.peer_muted_changed", { "handle": handle, "peer_id": peer_id, "muted": muted })
+
+
+func _chat_message_payload(handle: String, peer_id: int, message: Object) -> Dictionary:
+	var payload: Dictionary = { "handle": handle, "peer_id": peer_id }
+	if message != null:
+		payload["text"] = String(message.get_text()) if message.has_method("get_text") else ""
+		payload["sender_entity_key"] = message.get_sender_entity_key() if message.has_method("get_sender_entity_key") else {}
+		payload["language_code"] = String(message.get_language_code()) if message.has_method("get_language_code") else ""
+		payload["metadata"] = message.get_metadata() if message.has_method("get_metadata") else {}
+	return payload
+
+
+func _update_peer_events() -> void:
+	for handle in _networks.keys():
+		var network: Object = _networks[handle]
+		var peer: Object = _network_peer(network)
+		if peer == null:
+			continue
+		if peer.has_method("poll"):
+			peer.poll()
+		var current: Array = _peer_ids(peer)
+		var previous: Array = _peer_sets.get(handle, [])
+		for id in current:
+			if not previous.has(id):
+				_queue_event("party.peer_connected", {
+					"handle": handle,
+					"peer_id": int(id),
+					"network": _network_snapshot(network),
+				})
+		for id in previous:
+			if not current.has(id):
+				_queue_event("party.peer_disconnected", {
+					"handle": handle,
+					"peer_id": int(id),
+					"network": _network_snapshot(network),
+				})
+		_peer_sets[handle] = current
+
+
+func _drain_packets() -> void:
+	for handle in _networks.keys():
+		var network: Object = _networks[handle]
+		var peer: Object = _network_peer(network)
+		if peer == null:
+			continue
+		if peer.has_method("poll"):
+			peer.poll()
+		while peer.get_available_packet_count() > 0:
+			var packet: PackedByteArray = peer.get_packet()
+			var sender_peer_id: int = 0
+			if peer.has_method("get_packet_peer"):
+				sender_peer_id = int(peer.get_packet_peer())
+			var text: String = packet.get_string_from_utf8()
+			var parsed: Variant = JSON.parse_string(text)
+			if typeof(parsed) != TYPE_DICTIONARY:
+				_queue_event("party.rpc.packet_received", { "handle": handle, "peer_id": sender_peer_id, "raw_text": text })
+				continue
+			var frame: Dictionary = parsed
+			if String(frame.get("kind", "")) != "mp_test_rpc":
+				_queue_event("party.rpc.packet_received", { "handle": handle, "peer_id": sender_peer_id, "frame": frame })
+				continue
+			var payload: Dictionary = {
+				"handle": handle,
+				"peer_id": sender_peer_id,
+				"correlation_id": String(frame.get("correlation_id", "")),
+				"payload": frame.get("payload", {}),
+			}
+			match String(frame.get("type", "")):
+				"ping":
+					_queue_event("party.rpc.ping_received", payload)
+					_send_rpc_frame(peer, {
+						"kind": "mp_test_rpc",
+						"type": "pong",
+						"correlation_id": payload["correlation_id"],
+						"payload": payload["payload"],
+					})
+				"pong":
+					_queue_event("party.rpc.pong_received", payload)
+				_:
+					_queue_event("party.rpc.packet_received", payload)
+
+
+func _send_rpc_frame(peer: Object, frame: Dictionary) -> int:
+	var bytes: PackedByteArray = JSON.stringify(frame).to_utf8_buffer()
+	return peer.put_packet(bytes)
+
+
+func _network_peer(network: Object) -> Object:
+	if network == null:
+		return null
+	return network.local_peer if "local_peer" in network else null
+
+
+func _peer_ids(peer: Object) -> Array:
+	var peer_ids: Array = []
+	if peer != null and peer.has_method("get_peers"):
+		for raw_id in peer.get_peers():
+			peer_ids.append(int(raw_id))
+	return peer_ids
+
+
 func _network_snapshot(network: Object) -> Dictionary:
 	if network == null:
 		return {}
@@ -313,20 +544,19 @@ func _network_snapshot(network: Object) -> Dictionary:
 		snap["network_id"] = String(network.network_id)
 	if "descriptor" in network:
 		snap["descriptor"] = String(network.descriptor)
-	var peer: Object = network.local_peer if "local_peer" in network else null
+	if "state" in network:
+		snap["state"] = int(network.state)
+	if "is_host" in network:
+		snap["is_host"] = bool(network.is_host)
+	var peer: Object = _network_peer(network)
 	if peer != null:
 		snap["local_peer_unique_id"] = peer.get_unique_id() if peer.has_method("get_unique_id") else 0
-		if peer.has_method("get_peers"):
-			var raw: Array = peer.get_peers()
-			var peer_ids: Array = []
-			for raw_id in raw:
-				peer_ids.append(int(raw_id))
-			snap["peer_ids"] = peer_ids
-			snap["peer_count"] = peer_ids.size()
-		else:
-			snap["peer_ids"] = []
-			snap["peer_count"] = 0
+		snap["connection_status"] = peer.get_connection_status() if peer.has_method("get_connection_status") else 0
+		snap["peer_ids"] = _peer_ids(peer)
+		snap["peer_count"] = snap["peer_ids"].size()
 	else:
+		snap["local_peer_unique_id"] = 0
+		snap["connection_status"] = 0
 		snap["peer_ids"] = []
 		snap["peer_count"] = 0
 	return snap
@@ -336,6 +566,23 @@ func _instantiate(class_name_str: String) -> Object:
 	if not ClassDB.class_exists(class_name_str) or not ClassDB.can_instantiate(class_name_str):
 		return null
 	return ClassDB.instantiate(class_name_str)
+
+
+func _result_snapshot(result: Object) -> Dictionary:
+	if result == null:
+		return {}
+	return {
+		"ok": bool(result.ok),
+		"code": String(result.code),
+		"message": String(result.message),
+	}
+
+
+func _queue_event(event_type: String, payload: Dictionary) -> void:
+	_pending_events.append({
+		"event_type": event_type,
+		"payload": payload,
+	})
 
 
 func _ok(result: Dictionary) -> Dictionary:

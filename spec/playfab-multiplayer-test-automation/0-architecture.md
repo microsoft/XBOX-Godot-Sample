@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document specifies the architecture of a pure-Godot, scenario-driven live test harness for PlayFab Lobby, Matchmaking, and Party. It replaces the existing `tools\run_playfab_multiplayer_live.ps1` + `tests\godot\playfab_multiplayer_worker\worker.gd` PowerShell + file-IPC harness with two Godot --headless projects communicating over raw TCP, plus a directory of plain GDScript scenario files.
+This document specifies the architecture of a pure-Godot, scenario-driven live test harness for PlayFab Lobby, Matchmaking, and Party. It replaced the former `tools\run_playfab_multiplayer_live.ps1` + `tests\godot\playfab_multiplayer_worker\worker.gd` PowerShell + file-IPC harness with two Godot --headless projects communicating over raw TCP, plus a directory of plain GDScript scenario files.
 
 The harness is patterned on the [`ai-test-orchestrator` replication playbook](https://github.com/gaming-microsoft/ai-test-orchestrator/blob/main/guide/3-replication-playbook.md), adapted for a Godot/GDExtension codebase. Where the playbook reference uses C# .NET + WebSocket + YAML + C++ test apps, this design uses Godot --headless + raw TCP + GDScript scenario files + Godot --headless test clients. The rationale for each deviation is documented in this file.
 
@@ -55,7 +55,7 @@ The companion files in this directory are:
        └─────────────────┘  └────────────┘  └────────────┘
 ```
 
-Both projects are Godot --headless. The orchestrator does not import `godot_playfab`. The test clients import `godot_playfab` (CMake mirrors the addon into `tests\godot\mp_test_client\addons\godot_playfab\` the same way it does for `playfab_multiplayer_worker`).
+Both projects are Godot --headless. The orchestrator does not import `godot_playfab`. The test clients import `godot_playfab` (CMake mirrors the addon into `tests\godot\mp_test_client\addons\godot_playfab\`).
 
 ## Why pure Godot
 
@@ -157,15 +157,15 @@ The full list of decisions and the alternatives ruled out is in `<session-state>
 - AI mass-scenario-generation inside the orchestrator. AI assists scenario authoring at design time (this session and follow-ups); the orchestrator itself does not invoke any LLM at runtime.
 - Multi-host CI deployment. The protocol supports it; CI workflow changes to fan out across runners are deferred to a follow-up.
 
-## Replaces / alongside
+## Replaces
 
-This harness will replace, in C6:
+C6 retired the legacy harness in favor of this orchestrator:
 
 - `tools\run_playfab_multiplayer_live.ps1`
 - `tests\godot\playfab_multiplayer_worker\`
 - The inline 18 lobby + match scenarios encoded in the PowerShell.
 
-Until C6 ships, both harnesses run side-by-side. `tools\run_all_tests.ps1 -Live` invokes both; parity is required before retirement.
+`tools\run_all_tests.ps1 -Live` now invokes `tools\run_mp_orchestrator.ps1` for the C1 P0/P1 scenario set, with persistent writes gated by `-AllowLiveWrites`.
 
 ## Open questions
 

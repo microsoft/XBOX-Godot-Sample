@@ -63,7 +63,6 @@ endif()
 set(GODOT_PLAYFAB_PROJECT_DIRS
     ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
-    "${CMAKE_SOURCE_DIR}/tests/godot/playfab_multiplayer_worker"
     "${CMAKE_SOURCE_DIR}/tests/godot/mp_test_client"
 )
 

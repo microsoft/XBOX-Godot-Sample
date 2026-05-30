@@ -10,6 +10,8 @@ Each host has its addon mirrored in by CMake when you run `cmake --build build -
 
 > **Status:** the test-tier contract is documented and in active rollout. The Party single-leave regression suite already uses `requires_live_write()`; the helpers (`requires_live()` / `requires_live_write()`) are available on every test base, and `tools\run_all_tests.ps1 -Live -AllowLiveWrites` forwards both `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` to Godot children. Older live-write suites that still call `pending_unless_live()` are being migrated to `requires_live_write()` so the orchestrator's `-AllowLiveWrites` gate covers every mutating suite.
 
+The repo-root orchestrator now owns both GUT hosts and the PlayFab Multiplayer multi-process orchestrator. Use `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>` for the full live MP sweep.
+
 ## Test Tiers
 
 Every GUT test belongs to exactly one tier. The tier governs how the test is selected and what external state it may touch.
@@ -56,7 +58,7 @@ func before_each() -> void:
 
 ## How `LIVE_TESTS` and `LIVE_WRITE_TESTS` Flow
 
-`tools\run_all_tests.ps1` is the only place these environment variables are set, and it scrubs unrelated PlayFab secrets from child processes (see existing handling for `PLAYFAB_DEVELOPER_SECRET_KEY`).
+`tools\run_all_tests.ps1` is the only place these environment variables are set for repo-wide validation, and it scrubs unrelated PlayFab secrets from child processes (see existing handling for `PLAYFAB_DEVELOPER_SECRET_KEY`). The multiplayer orchestrator wrapper inherits the same environment and passes it to each spawned `mp_test_client` role.
 
 | Invocation                                       | `LIVE_TESTS` | `LIVE_WRITE_TESTS` | Effect on tests                                                |
 | ------------------------------------------------ | :----------: | :----------------: | :------------------------------------------------------------- |
@@ -73,6 +75,16 @@ func before_each() -> void:
 3. `extends` the matching base — `gdk_test_base.gd` / `playfab_test_base.gd` / `gameinput_test_base.gd`.
 4. For `live_read` and `live_write` tests, call `requires_live()` / `requires_live_write()` at the top of `before_all` (or `before_each` for per-test gating) and short-circuit on `false`.
 5. Run the orchestrator at least once offline (`tools\run_all_tests.ps1`) to confirm the new test marks pending instead of failing when live access is missing.
+
+## PlayFab Multiplayer Orchestrator
+
+`tests\godot\mp_orchestrator\` plus `tests\godot\mp_test_client\` is the canonical live Multiplayer/Party entry point. The retired `tools\run_playfab_multiplayer_live.ps1` and `tests\godot\playfab_multiplayer_worker\` harness are no longer used.
+
+- Repo-wide live read/dry selection: `tools\run_all_tests.ps1 -Live -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>`
+- Full live-write MP sweep: `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>`
+- Direct scenario runs: `tools\run_mp_orchestrator.ps1 -Roles host,guest,guest2,observer -Filter "^party\.network\."`
+
+The repo-wide stage dynamically selects C1 P0/P1 scenario files from `tests\godot\mp_orchestrator\scenarios\`. P2/P3 scenarios stay out of that default sweep until promoted.
 
 ## Why This Matters
 

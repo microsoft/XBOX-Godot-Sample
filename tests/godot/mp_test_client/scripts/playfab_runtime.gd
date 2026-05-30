@@ -1,11 +1,9 @@
 ## PlayFabRuntime — loads the PlayFab GDExtension into the test client
 ## process and exposes a dispatch hook + a sign-in helper.
 ##
-## Mirrors the patterns from
-## tests/godot/playfab_multiplayer_worker/worker.gd (_ensure_playfab,
-## _apply_env_configuration, _await_completion) but factored into a
-## stand-alone RefCounted instead of a SceneTree subclass so the
-## TestClient can compose it.
+## Mirrors the PlayFab host setup patterns (_ensure_playfab,
+## _apply_env_configuration, _await_completion) but factors them into a
+## stand-alone RefCounted so the TestClient can compose it.
 extends RefCounted
 
 const EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdextension"
@@ -20,9 +18,8 @@ const DEFAULT_AWAIT_TIMEOUT_MS := 60_000
 # from the *local SDK* side. See <GDK>/windows/include/playfab/core/PFErrors.h
 # E_PF_API_CLIENT_REQUEST_RATE_LIMIT_EXCEEDED. Sign-in is the most common
 # place we hit this in the orchestrator because every scenario re-enters
-# sign_in across multiple clients; the legacy worker's
-# run_playfab_multiplayer_live.ps1 retried this error specifically and we
-# mirror that behavior here.
+# sign_in across multiple clients; retrying it keeps live MP sweeps from
+# failing on transient SDK-side throttles.
 const RATE_LIMIT_HRESULT := "0x892354DD"
 
 # PlayFab service-side rate-limit signals. These are surfaced by the GDK
@@ -127,6 +124,7 @@ func is_available() -> bool:
 	# fail mid-flight instead of being skipped. We now actually attempt to
 	# load and require the registered singleton to be present.
 	if Engine.has_singleton("PlayFab"):
+		_playfab = Engine.get_singleton("PlayFab")
 		return true
 	if not FileAccess.file_exists(EXTENSION_PATH):
 		return false
@@ -134,7 +132,10 @@ func is_available() -> bool:
 	# it surfaces the singleton if the platform supports it.
 	if _extension_handle == null:
 		_extension_handle = load(EXTENSION_PATH)
-	return Engine.has_singleton("PlayFab")
+	if Engine.has_singleton("PlayFab"):
+		_playfab = Engine.get_singleton("PlayFab")
+		return true
+	return false
 
 
 func ensure_loaded() -> Object:
@@ -166,11 +167,15 @@ func get_user() -> Object:
 	return _playfab_user
 
 
+func clear_session() -> void:
+	_playfab_user = null
+
+
 func get_multiplayer() -> Object:
 	return _multiplayer
 
 
-func sign_in_with_custom_id(custom_id: String, create_account: bool) -> Dictionary:
+func sign_in_with_custom_id(custom_id: String, create_account: bool, initialize_multiplayer: bool = true) -> Dictionary:
 	var pf: Object = ensure_loaded()
 	if pf == null:
 		return _err("playfab_unavailable", "PlayFab singleton not available")
@@ -215,7 +220,7 @@ func sign_in_with_custom_id(custom_id: String, create_account: bool) -> Dictiona
 	_signed_in_custom_id = custom_id
 
 	_multiplayer = pf.get_multiplayer()
-	if _multiplayer != null and not _multiplayer.is_initialized():
+	if initialize_multiplayer and _multiplayer != null and not _multiplayer.is_initialized():
 		var mp_res: Variant = await await_completion(_multiplayer.initialize_async(), DEFAULT_AWAIT_TIMEOUT_MS)
 		if mp_res == null or not bool(mp_res.ok):
 			return _err("multiplayer_init_failed", _describe_result(mp_res, "multiplayer.initialize_async"))

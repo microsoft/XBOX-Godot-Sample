@@ -13,7 +13,7 @@
                                   a. one-time `--headless --import` (marker file)
                                   b. `--headless -s res://addons/gut/gut_cmdln.gd
                                       -gdir=res://tests -gexit`
-      5. PlayFab Multiplayer live orchestration -- opt-in multi-client smoke
+      5. PlayFab Multiplayer orchestrator -- opt-in C1 P0/P1 multi-client scenarios
       6. Bootstrap runners   -- `<host>\tests\bootstrap\*.gd` if present
       7. Aggregate           -- writes <OutDir>\run-summary.{json,md}
 
@@ -112,7 +112,7 @@ $script:DefaultHosts = @(
 )
 $script:DoctestExe = Join-Path $script:RepoRoot 'build\bin\Debug\gdk_unit_tests.exe'
 $script:ParseGate  = Join-Path $script:RepoRoot 'tools\check_gd_scripts_headless.ps1'
-$script:PlayFabMultiplayerLiveRunner = Join-Path $script:RepoRoot 'tools\run_playfab_multiplayer_live.ps1'
+$script:PlayFabMultiplayerOrchestratorRunner = Join-Path $script:RepoRoot 'tools\run_mp_orchestrator.ps1'
 
 # GUT summary line regex. GUT (`addons/gut/summary.gd::_total_fmt`) renders each
 # total as <label rpad 18><value lpad 5>. Values are integers, the literal
@@ -663,7 +663,29 @@ function Invoke-BootstrapRunners {
     return ,$records
 }
 
-function Invoke-PlayFabMultiplayerLive {
+function Get-MpP0P1ScenarioFilter {
+    $scenarioRoot = Join-Path $script:RepoRoot 'tests\godot\mp_orchestrator\scenarios'
+    if (-not (Test-Path $scenarioRoot)) { return '(?!)' }
+    $ids = New-Object System.Collections.Generic.List[string]
+    Get-ChildItem -Path $scenarioRoot -Recurse -Filter '*.gd' -File |
+        Where-Object { $_.FullName -notmatch '\\_base\\' } |
+        ForEach-Object {
+            $text = Get-Content -Path $_.FullName -Raw -Encoding UTF8
+            $idMatch = [regex]::Match($text, 'const\s+SCENARIO_ID:\s*String\s*=\s*"(?<id>[^"]+)"')
+            $priorityMatch = [regex]::Match($text, 'const\s+PRIORITY:\s*String\s*=\s*"P[01]"')
+            if ($idMatch.Success -and $priorityMatch.Success) {
+                $id = $idMatch.Groups['id'].Value
+                if (-not $id.StartsWith('_')) {
+                    [void]$ids.Add($id)
+                }
+            }
+        }
+    if ($ids.Count -eq 0) { return '(?!)' }
+    $escaped = $ids | Sort-Object -Unique | ForEach-Object { [regex]::Escape($_) }
+    return '^(?:' + ($escaped -join '|') + ')$'
+}
+
+function Invoke-PlayFabMultiplayerOrchestrator {
     param(
         [Parameter(Mandatory = $true)][string]$GodotExe,
         [Parameter(Mandatory = $true)][hashtable]$ChildEnv,
@@ -673,7 +695,7 @@ function Invoke-PlayFabMultiplayerLive {
         [Parameter(Mandatory = $true)][string]$OutDirAbsolute
     )
 
-    $rec = New-StageRecord 'playfab-multiplayer-live'
+    $rec = New-StageRecord 'playfab-multiplayer-orchestrator'
     if (-not $LiveEnabled) {
         $rec.status = 'skip'
         $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
@@ -693,27 +715,25 @@ function Invoke-PlayFabMultiplayerLive {
         $rec.message = 'Skipped (-Hosts filter excluded tests\godot\playfab).'
         return $rec
     }
-    if (-not (Test-Path $script:PlayFabMultiplayerLiveRunner)) {
+    if (-not (Test-Path $script:PlayFabMultiplayerOrchestratorRunner)) {
         $rec.status = 'fail'
-        $rec.message = "PlayFab Multiplayer live runner not found at $script:PlayFabMultiplayerLiveRunner."
+        $rec.message = "PlayFab Multiplayer orchestrator runner not found at $script:PlayFabMultiplayerOrchestratorRunner."
         return $rec
     }
 
     $pwsh = Resolve-PwshExecutable
+    $resultsDir = Join-Path $OutDirAbsolute 'mp-orchestrator'
+    $filter = Get-MpP0P1ScenarioFilter
     $args = @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-        '-File', $script:PlayFabMultiplayerLiveRunner,
-        '-RepoRoot', $script:RepoRoot,
-        '-GodotExe', $GodotExe,
-        '-OutDir', $OutDirAbsolute,
-        '-TimeoutSec', ([string]$GutTimeoutSec)
+        '-File', $script:PlayFabMultiplayerOrchestratorRunner,
+        '-Roles', 'host,guest,guest2,observer',
+        '-Filter', $filter,
+        '-ResultsDir', $resultsDir
     )
-    if ($VerboseOutput) {
-        $args += '-VerboseOutput'
-    }
 
     $r = Invoke-ChildProcess -FileName $pwsh -Arguments $args -WorkingDirectory $script:RepoRoot `
-        -EnvOverrides $ChildEnv -TimeoutSec ($GutTimeoutSec * 2) -Stream:$VerboseOutput
+        -EnvOverrides $ChildEnv -TimeoutSec ([Math]::Max($GutTimeoutSec * 3, 900)) -Stream:$VerboseOutput
     $rec.duration_ms = $r.DurationMs
     $rec.exit_code = $r.ExitCode
     $combined = ($r.Stdout + "`n" + $r.Stderr).Trim()
@@ -721,16 +741,50 @@ function Invoke-PlayFabMultiplayerLive {
 
     if ($r.TimedOut) {
         $rec.status = 'fail'
-        $rec.message = "PlayFab Multiplayer live orchestration timed out after $($GutTimeoutSec * 2) s."
+        $rec.message = "PlayFab Multiplayer orchestrator timed out."
     } elseif ($r.ExitCode -ne 0) {
         $rec.status = 'fail'
-        $rec.message = "PlayFab Multiplayer live orchestration failed (exit $($r.ExitCode))."
-    } elseif ($combined -match '(?m)^SKIP:\s*(?<message>.+)$') {
-        $rec.status = 'skip'
-        $rec.message = $Matches['message']
+        $rec.message = "PlayFab Multiplayer orchestrator failed (exit $($r.ExitCode))."
     } else {
+        $resultJson = Join-Path $resultsDir 'mp-test-results.json'
+        if (-not (Test-Path $resultJson)) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator produced no mp-test-results.json at '$resultJson' (scenario scan may have failed or the runner exited early). Refusing to report PASS without scenario evidence."
+            $rec.details = $combined
+            return $rec
+        }
+        try {
+            $mp = Get-Content -Path $resultJson -Raw -Encoding UTF8 | ConvertFrom-Json
+        } catch {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator wrote mp-test-results.json but it failed to parse: $($_.Exception.Message)"
+            $rec.details = $combined
+            return $rec
+        }
+        if ($null -eq $mp.summary) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator wrote mp-test-results.json with no .summary block."
+            $rec.details = $combined
+            return $rec
+        }
+        $rec.tests = [int]$mp.summary.total
+        $rec.passing = [int]$mp.summary.passed
+        $rec.failing = [int]$mp.summary.failed
+        $rec.pending = [int]$mp.summary.skipped
+        if ($rec.tests -le 0) {
+            $rec.status = 'fail'
+            $rec.message = "PlayFab Multiplayer orchestrator discovered no scenarios (total=0). Check the scenario filter or scan paths."
+            $rec.details = $combined
+            return $rec
+        }
+        if ($rec.failing -gt 0) {
+            $rec.status = 'fail'
+            $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
+            $rec.details = $combined
+            return $rec
+        }
         $rec.status = 'pass'
-        $rec.message = if ([string]::IsNullOrWhiteSpace($combined)) { 'OK' } else { ($combined -split "`r?`n" | Select-Object -Last 1) }
+        $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
     }
     return $rec
 }
@@ -916,6 +970,9 @@ function Main {
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
     Write-Host "                   OutDir= $outDirAbsolute" -ForegroundColor Cyan
+    if ($AllowLiveWrites) {
+        Write-Host "                   LIVE WRITES ENABLED for sandbox title $liveWriteTitle" -ForegroundColor Yellow
+    }
     Write-Host ''
 
     $stages = New-Object System.Collections.Generic.List[object]
@@ -969,15 +1026,15 @@ function Main {
         }
     }
 
-    # 5. PlayFab Multiplayer live orchestration
+    # 5. PlayFab Multiplayer orchestrator
     if (-not $abort) {
-        Write-Host '== [5/7] PlayFab Multiplayer live orchestration ==' -ForegroundColor Cyan
-        $stage = Invoke-PlayFabMultiplayerLive -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
+        Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        $stage = Invoke-PlayFabMultiplayerOrchestrator -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
         if ($stage.status -eq 'fail') { $abort = $true }
     } else {
-        $skip = New-StageRecord 'playfab-multiplayer-live'
+        $skip = New-StageRecord 'playfab-multiplayer-orchestrator'
         $skip.message = 'Skipped (upstream stage failed).'
         [void]$stages.Add($skip)
     }
