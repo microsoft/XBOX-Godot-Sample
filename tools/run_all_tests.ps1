@@ -831,6 +831,14 @@ function Write-RunSummary {
 # ------------------------------------------------------------------------
 
 function Main {
+    # Fail fast when -AllowLiveWrites is supplied without -Live so the run
+    # summary cannot report live_writes:true while LIVE_TESTS is unset (which
+    # would cause TestEnv.requires_live_write() to still skip the writes —
+    # producing a misleading "live-write" run that wrote nothing).
+    if ($AllowLiveWrites -and -not $Live) {
+        throw '-AllowLiveWrites requires -Live so LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 travel together.'
+    }
+
     $startedAt = (Get-Date).ToUniversalTime()
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
