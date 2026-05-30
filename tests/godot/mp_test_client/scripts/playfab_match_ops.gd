@@ -186,6 +186,14 @@ func _require_session(op: String) -> Dictionary:
 
 
 func _lookup_ticket(params: Dictionary, op: String) -> Dictionary:
+	var ticket_id: String = String(params.get("ticket_id", "")).strip_edges()
+	if not ticket_id.is_empty():
+		for handle in _tickets.keys():
+			var ticket: Object = _tickets[handle]
+			if ticket != null and String(ticket.get_ticket_id()) == ticket_id:
+				return { "handle": handle, "ticket": ticket }
+		return _err("unknown_ticket_id", "%s: no tracked match ticket for ticket_id '%s'" % [op, ticket_id])
+
 	var handle: String = String(params.get("handle", DEFAULT_HANDLE))
 	if not has_ticket(handle):
 		return _err("unknown_handle", "%s: no tracked match ticket for handle '%s' (have %s)" % [op, handle, str(_tickets.keys())])

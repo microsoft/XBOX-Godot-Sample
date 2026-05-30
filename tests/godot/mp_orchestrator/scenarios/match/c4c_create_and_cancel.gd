@@ -55,7 +55,7 @@ func run(orch) -> Dictionary:
 	# explicit cancel command rather than wait_match_ticket("matched") here —
 	# there's no second peer in the queue, so a "matched" wait would only ever
 	# time out.
-	var cancelled: Dictionary = await host.send("cancel_match_ticket", { "handle": "ticket" }, 30_000)
+	var cancelled: Dictionary = await host.send("cancel_match_ticket", { "ticket_id": ticket_id }, 30_000)
 	err = assert_ok(cancelled, "cancel_match_ticket failed")
 	if err != null:
 		return err
