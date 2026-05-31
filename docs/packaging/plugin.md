@@ -21,7 +21,15 @@ Works in every host, including before a `--import` pass:
 ```pwsh
 godot --headless -s res://addons/godot_gdk_packaging/run.gd -- `
     pack --source-dir Build\content --output-dir Build\out
+
+# Direct form when you want Godot to target a different project root.
+godot --path C:\Repos\MyGame --headless `
+    -s res://addons/godot_gdk_packaging/run.gd -- sandbox
 ```
+
+Form A is the fallback runner only. It does not replace the one-time
+`godot --headless --import` step that form B needs to register
+`GdkPackagingRunner` in that host.
 
 ### B — `--main-loop` class name
 
@@ -33,6 +41,11 @@ place:
 godot --headless --import        # one-time per host
 godot --headless --main-loop GdkPackagingRunner -- `
     pack --source-dir Build\content --output-dir Build\out
+
+# The same form works with Godot's engine-level --path.
+godot --path C:\Repos\MyGame --headless --import
+godot --path C:\Repos\MyGame --headless --main-loop GdkPackagingRunner -- `
+    sandbox
 ```
 
 ### C — Shell forwarders
@@ -81,7 +94,7 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 | `register_loose`   | `--content-dir`                | (none)                                                                          | wdapp register (loose-files build).                               |
 | `install`          | `--package`                    | (none)                                                                          | wdapp install on an .msixvc file.                                 |
 | `uninstall`        | `--package-name`               | (none)                                                                          | wdapp uninstall by package full name.                             |
-| `launch`           | `--package-name`               | `--aumid`                                                                       | wdapp launch. The CLI parser requires `--package-name`; `--aumid` overrides the AUMID resolved from `wdapp list`. |
+| `launch`           | `--package-name`               | `--aumid`                                                                       | wdapp launch. `run_launch()` uses `--aumid` directly when present; otherwise it resolves the AUMID from `wdapp list` by matching `--package-name`. The current verb matrix in `packaging_cli.gd` still marks `--package-name` as required. |
 | `terminate`        | `--package-name`               | (none)                                                                          | wdapp terminate; taskkill fallback is limited to the build's config-named `.exe`. |
 | `sandbox`          | (none)                         | `--action {get,set,retail}`, `--sandbox-id`                                     | Defaults to `get`; `--action set` also requires `--sandbox-id`.   |
 | `config_template`  | (none)                         | `--output`, `--overwrite`                                                       | Writes a starter MicrosoftGame.config; `--output` redirects the template path (relative paths resolve under the project root) and `--overwrite` replaces that same file. |
@@ -158,6 +171,51 @@ Derived rules:
   state. They are listed here for completeness, but the headless resolver does
   not treat them as CLI-equivalent overrides.
 
+### MicrosoftGame.config field mapping
+
+`packaging_config.gd` only pulls the identity, executable, and product fields
+into the resolved dict, but `game_config_manager.gd` parses the wider set below.
+These are the exact XML node and attribute paths the addon reads:
+
+| Field | XML path |
+|-------|----------|
+| `config_version` | `/Game@configVersion` |
+| `identity_name` / `name` | `/Game/Identity@Name` |
+| `identity_publisher` / `publisher` | `/Game/Identity@Publisher` |
+| `identity_version` / `version` | `/Game/Identity@Version` |
+| `executable` | `/Game/ExecutableList/Executable@Name` |
+| `product_id` | `/Game/MSStore@ProductId` |
+| `display_name` | `/Game/ShellVisuals@DefaultDisplayName` |
+| `description` | `/Game/ShellVisuals@Description` |
+| `logo_480` | `/Game/ShellVisuals@Square480x480Logo` |
+| `logo_150` | `/Game/ShellVisuals@Square150x150Logo` |
+| `logo_44` | `/Game/ShellVisuals@Square44x44Logo` |
+| `store_logo` | `/Game/ShellVisuals@StoreLogo` |
+| `splash_screen` | `/Game/ShellVisuals@SplashScreenImage` |
+| `background_color` | `/Game/ShellVisuals@BackgroundColor` |
+| `foreground_text` | `/Game/ShellVisuals@ForegroundText` |
+| `title_id` | `/Game/TitleId` text node |
+| `msa_app_id` | `/Game/MSAAppId` text node |
+| `store_id` | `/Game/StoreId` text node |
+
+### `config_template` output schema
+
+`config_template` writes `MicrosoftGame.config` to `res://MicrosoftGame.config`
+by default, or to the resolved `--output` path when supplied.
+
+| Source | Output |
+|--------|--------|
+| Derived from `app_name` | `Executable@Name="<app_name>.exe"`, `ShellVisuals@DefaultDisplayName="<app_name>"`, and `Identity@Name` set to a sanitized `app_name` with spaces and underscores removed (falling back to `MyGodotGame` if that becomes empty). |
+| Derived from `identity_publisher` | `Identity@Publisher="CN=<identity_publisher>"` (default `CN=Publisher`) and `ShellVisuals@PublisherDisplayName` with the leading `CN=` stripped. |
+| Hardcoded | `Game@configVersion="1"`, `Identity@Version="1.0.0.0"`, `Executable@Id="Game"`, `Executable@TargetDeviceFamily="PC"`, `StoreLogo="storelogos\StoreLogo.png"`, `Square150x150Logo="storelogos\Square150x150Logo.png"`, `Square44x44Logo="storelogos\Square44x44Logo.png"`, `Square480x480Logo="storelogos\Square480x480Logo.png"`, `SplashScreenImage="storelogos\SplashScreenImage.png"`, `Description="A Godot game packaged with GDK"`, `BackgroundColor="#000000"`, `ForegroundText="light"`, and `<AdvancedUserModel>false</AdvancedUserModel>`. |
+| Best-effort side effect | After writing the XML, the addon tries to create sibling `storelogos\*.png` placeholders next to the config file. That step only runs when `<GDK bin>\GameConfigEditorDependencies\default480x480.png` exists and loads successfully; otherwise the config is still created and the addon only warns. |
+
+### Common failure contracts
+
+- `launch`: `run_launch()` fails with `EXIT_USAGE` and `Either --aumid or --package-name is required` when both resolved values are empty. If it has a package name but `wdapp list` cannot resolve an AUMID, it fails with `EXIT_CONFIG` and `Could not find AUMID for package '<package>'`.
+- `sandbox`: `action` defaults to `get`. Only `--action set` requires `--sandbox-id`; otherwise the verb fails with `EXIT_USAGE` and `--sandbox-id is required when --action=set`.
+- `config_template`: if the resolved output already exists and `--overwrite` is absent, the verb fails with `EXIT_CONFIG` and `<path> already exists (pass --overwrite to replace it)`.
+
 ## Content-directory safety
 
 `prepare_content`, `pack`, and `export` validate every logo destination path
@@ -174,12 +232,29 @@ example `..\..\outside.png`) are refused with an error before staging begins.
 | `GDK_BIN`                         | Override the GDK install bin directory (otherwise `C:\Program Files (x86)\Microsoft GDK\bin`). |
 | `GameDKCoreLatest`                | Standard GDK install marker; used to detect the GDK version when present.     |
 
+## GDK tool discovery
+
+`gdk_toolchain.gd` checks `GDK_BIN` first and falls back to
+`C:\Program Files (x86)\Microsoft GDK\bin`. The toolchain is considered
+available only when **both** `makepkg.exe` and `GameConfigEditor.exe` exist in
+that bin directory.
+
+- `XblPCSandbox.exe` and `XblDevAccount.exe` are optional extras. Their paths
+  are recorded only when the files exist, and sandbox/account features fail
+  per-verb when those tools are missing.
+- `wdapp.exe` is also resolved per verb from `<bin>\wdapp.exe`; it is not part
+  of the initial availability gate.
+
 ## Examples
 
 ```pwsh
 # Drop a starter MicrosoftGame.config in the current project, or redirect it.
 addons\godot_gdk_packaging\gdkpkg.cmd config_template
 addons\godot_gdk_packaging\gdkpkg.cmd config_template --output Configs\Alt.config
+
+# Direct-form runner examples with engine-level --path.
+godot --path C:\Repos\MyGame --headless -s res://addons/godot_gdk_packaging/run.gd -- sandbox
+godot --path C:\Repos\MyGame --headless --main-loop GdkPackagingRunner -- config_template --output Configs\Alt.config
 
 # Get the current sandbox.
 addons\godot_gdk_packaging\gdkpkg.cmd sandbox --action get
@@ -200,9 +275,15 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 
 ## Troubleshooting
 
-- **`gdkpkg.cmd` can't find Godot.** Set one of `GODOT_CONSOLE`,
-  `GODOT_BIN`, or `GODOT` to a full path. The forwarder prints which
-  candidate it tried; pass `--godot <path>` to short-circuit discovery.
+- **`gdkpkg.cmd` / `gdkpkg.sh` can't find Godot.** Both forwarders exit with
+  code `3` and print exactly these stderr lines:
+
+  ```text
+  [gdkpkg] error: could not find a Godot 4 executable.
+  [gdkpkg] set GODOT_CONSOLE / GODOT_BIN / GODOT, or pass --godot <path>.
+  ```
+
+  Set one of `GODOT_CONSOLE`, `GODOT_BIN`, or `GODOT`, or pass `--godot <path>`.
 - **`EXIT_CONFIG: wdapp.exe not found`.** Set `GDK_BIN` to point at your
   GDK install's `bin\` directory, or install the GDK to the default
   location.
@@ -215,8 +296,8 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
   it to re-enable the marker.
 - **Form B (`--main-loop GdkPackagingRunner`) reports unknown class.** The
   host project hasn't been imported yet. Run `godot --headless --import`
-  once against the host, or use form A (`-s ...`) — it doesn't require
-  prior import.
+  once against that host. Form A (`-s ...`) still works without prior import,
+  but it does not perform the import or register the class for later form-B use.
 - **GDK runtime warnings on every invocation** (e.g. silent sign-in
   cancellation). Those come from the host project's autoloaded
   `GDKBootstrap`. They are unrelated to the packaging verb result and
