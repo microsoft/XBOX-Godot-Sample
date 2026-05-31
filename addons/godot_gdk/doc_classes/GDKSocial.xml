@@ -68,7 +68,7 @@
 			<param index="3" name="reason" type="String" default="&quot;&quot;" />
 			<param index="4" name="evidence_id" type="String" default="&quot;&quot;" />
 			<description>
-				Submits one Xbox Services reputation feedback item for [param target_xuid]. Await the returned completion [Signal] directly.
+				Submits one Xbox Services reputation feedback item for [param target_xuid]. Supported [param feedback_type] values are [code]fair_play_kills_teammates[/code], [code]fair_play_cheater[/code], [code]fair_play_tampering[/code], [code]fair_play_quitter[/code], [code]fair_play_kicked[/code], [code]communications_inappropriate_video[/code], [code]communications_abusive_voice[/code], [code]inappropriate_user_generated_content[/code], [code]positive_skilled_player[/code], [code]positive_helpful_player[/code], [code]positive_high_quality_user_generated_content[/code], [code]comms_phishing[/code], [code]comms_picture_message[/code], [code]comms_spam[/code], [code]comms_text_message[/code], [code]comms_voice_message[/code], [code]fair_play_console_ban_request[/code], [code]fair_play_idler[/code], [code]fair_play_user_ban_request[/code], [code]user_content_gamerpic[/code], [code]user_content_personal_info[/code], [code]fair_play_unsporting[/code], and [code]fair_play_leaderboard_cheater[/code]. Unknown feedback types fail with [code]invalid_feedback_type[/code]. Await the returned completion [Signal] directly.
 			</description>
 		</method>
 		<method name="submit_batch_reputation_feedback_async">
@@ -76,7 +76,7 @@
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="feedback_items" type="Array" />
 			<description>
-				Submits reputation feedback for multiple users. Each item is a [Dictionary] with [code]target_xuid[/code] and [code]feedback_type[/code], plus optional [code]reason[/code] and [code]evidence_id[/code].
+				Submits reputation feedback for multiple users. Each item is a [Dictionary] with [code]target_xuid[/code] and [code]feedback_type[/code], plus optional [code]reason[/code] and [code]evidence_id[/code]. Empty arrays fail with [code]invalid_feedback_items[/code]; non-dictionary items or dictionaries missing [code]target_xuid[/code]/[code]feedback_type[/code] fail with [code]invalid_feedback_item[/code]; unknown feedback types fail with [code]invalid_feedback_type[/code].
 			</description>
 		</method>
 	</methods>

@@ -37,7 +37,7 @@
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="privilege" type="int" />
 			<description>
-				Checks whether the [param user] has the specified [param privilege]. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the privilege-check dictionary.
+				Checks whether the [param user] has the specified raw [param privilege] integer. The addon forwards that integer directly to the native [code]XUserCheckPrivilege()[/code] call and does not bind named privilege constants. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] contains [code]privilege[/code], [code]has_privilege[/code], [code]deny_reason[/code], [code]deny_reason_value[/code], and [code]needs_user_issue_resolution[/code].
 			</description>
 		</method>
 		<method name="resolve_privilege_with_ui_async">
@@ -45,7 +45,7 @@
 			<param index="0" name="user" type="GDKUser" />
 			<param index="1" name="privilege" type="int" />
 			<description>
-				Attempts to resolve the specified [param privilege] for the [param user] by showing system UI if needed. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the resolution payload.
+				Attempts to resolve the specified raw [param privilege] integer for the [param user] by showing system UI if needed. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] currently echoes [code]privilege[/code].
 			</description>
 		</method>
 		<method name="resolve_issue_with_ui_async">
