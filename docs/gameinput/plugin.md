@@ -2,7 +2,9 @@
 
 `godot_gameinput` is a standalone GDExtension addon that brings the Microsoft
 GameInput API to Godot 4.x on Windows. It works independently of the
-`godot_gdk` addon — you can ship one, both, or neither.
+`godot_gdk` addon — you can ship one, both, or neither. Target machines still
+need a compatible GameInput runtime/redist installed (for example
+`GameInputRedist.msi`).
 
 The addon gives GDScript first-class access to:
 
@@ -24,7 +26,7 @@ The addon gives GDScript first-class access to:
 | `GameInputDevice.get_device_info()` | Shipped (issue #23, device-info half) |
 | `GameInputBinding` / `GameInputActionMap` / `GameInputMapper` | Shipped |
 | `EditorPlugin` autoload installer + Project Settings | Shipped |
-| Sample integration (`sample/tutorial_app/` action-bridge scene + `sample/tutorial_gameinput/`) | Returning in PR 3 of the tutorial-driven sample revamp |
+| Sample integration (`sample/tutorial_gameinput/` standalone sample; `sample/tutorial_app/` panel deferred) | Standalone sample shipped; `tutorial_app` panel deferred |
 | Headless test suite | Shipped |
 | Manual hardware checklist ([docs/gameinput/manual-tests.md](manual-tests.md)) | Shipped |
 | Reading callbacks (event-driven) | Deferred — see issue list |
@@ -53,13 +55,13 @@ project's `addons/godot_gameinput/` by the build's sample-sync step.
 3. Project → Project Settings → Plugins → enable **Godot GameInput**.
 
 Enabling the plugin installs an autoload called `GameInputBootstrap` that
-reads two project settings and runs the lifecycle for you:
+reads project settings and runs the lifecycle for you:
 
 | Setting | Default | Behaviour |
 | --- | --- | --- |
 | `game_input/runtime/initialize_on_startup` | `false` | When `true`, the bootstrap calls `GameInput.initialize()` on `_ready`. |
 | `game_input/runtime/auto_poll` | `true` | When `true`, the bootstrap calls `GameInput.poll()` from `_process`. |
-| `game_input/mapper/default_action_map` | `""` | Path to a `.tres` `GameInputActionMap`. When set, the bootstrap spawns a `GameInputMapper` named `DefaultMapper` as its own child and assigns the loaded resource — so your project's `InputMap` can be driven from a GameInput action map without dropping a Mapper node into any scene. The same path is used as the fallback `action_map` for any user-placed `GameInputMapper` whose `action_map` property is null. |
+| `game_input/mapper/default_action_map` | `""` | Path to a `.tres` `GameInputActionMap`. When set, the bootstrap spawns a `GameInputMapper` named `DefaultMapper` as its own child and assigns the loaded resource — so your project's `InputMap` can be driven from a GameInput action map without dropping a Mapper node into any scene. User-placed `GameInputMapper` nodes do not consult this setting; assign their `action_map` explicitly. |
 
 Disabling the plugin removes the autoload — there is no orphaned state.
 

@@ -5,6 +5,7 @@
 	</brief_description>
 	<description>
 		[GameInputMapper] is a [Node] that resolves a target [GameInputDevice] (either by id via [member target_device_id] or as the primary device of [member target_kind_mask]) every [code]_process[/code] frame, fetches its [GameInputReading], and walks [member action_map] calling [code]Input.action_press(action, strength)[/code] or [code]Input.action_release(action)[/code] on each press / release edge so the rest of your game can keep using the standard [code]Input.is_action_pressed("jump")[/code] APIs without knowing GameInput exists. On every press / release transition the mapper additionally pushes an [InputEventAction] through [code]Input.parse_input_event[/code] so event-driven listeners — Viewport GUI focus traversal for [code]ui_*[/code] actions, [code]_gui_input[/code] handlers, [code]_input[/code] / [code]_unhandled_input[/code] — actually see the action fire, since [code]Input.action_press[/code] alone updates polled state but does not deliver an [InputEvent].
+		Current v1 limitation: the runtime reading path calls [code]GetCurrentReading(GameInputKindGamepad, ...)[/code], so mapper-readable state is gamepad-only today. [constant KIND_KEYBOARD] and [constant KIND_MOUSE] remain reserved for future raw keyboard / mouse support, but they are not yet usable action-bridge targets.
 		To avoid double-firing when Godot's built-in joypad backend is already wired to deliver the same action via an [InputEventJoypadButton] / [InputEventJoypadMotion] in the project's [code]InputMap[/code] (e.g., the default [code]ui_accept[/code] mapping that includes joypad button A), the mapper checks each binding once against the action's [code]InputMap[/code] events and skips its own synthetic [InputEventAction] when a matching native joypad event is found. The polled state via [code]Input.action_press[/code] is still refreshed every frame either way. The check is per-binding, cached, invalidated whenever [member action_map] or a binding on that map changes, and refreshed once per frame so runtime [code]InputMap[/code] edits made after the cache fills tolerate at most one frame of staleness.
 		The mapper calls [method GameInput.poll] defensively at the start of each frame; that call is per-frame idempotent so multiple [GameInputMapper] instances in the same scene do not refresh device state more than once per frame.
 		Action names listed in [member GameInputBinding.action] must already exist in the project's [code]InputMap[/code]. Missing actions emit a single [code]push_warning[/code] per [GameInputMapper] instance per action (debounced via an internal set) and the binding is then ignored. Whenever the mapper stops driving a held binding — exiting the tree, swapping or mutating the active map, retargeting the mapper, losing the target device, or failing to obtain a fresh reading — it releases every action it previously held so Godot's polled action state cannot get stuck pressed.
@@ -62,7 +63,7 @@
 			The [GameInputActionMap] this mapper iterates each frame. When [code]null[/code] the mapper is a no-op.
 		</member>
 		<member name="target_kind_mask" type="int" setter="set_target_kind_mask" getter="get_target_kind_mask" default="1">
-			Bitfield of [enum KindFlags] values used to pick the primary device when [member target_device_id] is [code]-1[/code]. Defaults to [constant KIND_GAMEPAD]. Despite its enum, the field accepts an OR-ed combination so a mapper can be retargeted at, for example, [code]KIND_GAMEPAD | KIND_KEYBOARD[/code].
+			Bitfield of [enum KindFlags] values used to pick the primary device when [member target_device_id] is [code]-1[/code]. Defaults to [constant KIND_GAMEPAD]. Despite its enum, the field accepts an OR-ed combination so a mapper can be retargeted at, for example, [code]KIND_GAMEPAD | KIND_KEYBOARD[/code]. In v1, only gamepad targets currently produce mapper-readable state.
 		</member>
 		<member name="target_device_id" type="int" setter="set_target_device_id" getter="get_target_device_id" default="-1">
 			Specific [GameInputDevice] id to drive, or [code]-1[/code] (the default) to use the primary device matching [member target_kind_mask]. Use this for split-screen / per-player mapper instances by storing the id reported by [signal GameInput.device_connected].
@@ -73,10 +74,10 @@
 			Bit flag for gamepad-style devices. Mirrors [constant GameInput.DEVICE_GAMEPAD] and is the default value of [member target_kind_mask].
 		</constant>
 		<constant name="KIND_KEYBOARD" value="2" enum="KindFlags">
-			Bit flag for keyboard devices. Mirrors [constant GameInput.DEVICE_KEYBOARD].
+			Bit flag for keyboard devices. Mirrors [constant GameInput.DEVICE_KEYBOARD]. Exposed for target selection, but not yet a usable mapper reading target in v1.
 		</constant>
 		<constant name="KIND_MOUSE" value="4" enum="KindFlags">
-			Bit flag for mouse devices. Mirrors [constant GameInput.DEVICE_MOUSE].
+			Bit flag for mouse devices. Mirrors [constant GameInput.DEVICE_MOUSE]. Exposed for target selection, but not yet a usable mapper reading target in v1.
 		</constant>
 	</constants>
 </class>
