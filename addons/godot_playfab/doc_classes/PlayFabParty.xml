@@ -38,6 +38,16 @@
 		<constant name="NETWORK_STATE_DISCONNECTING" value="4" enum="NetworkState">Party network is disconnecting.</constant>
 		<constant name="NETWORK_STATE_DISCONNECTED" value="5" enum="NetworkState">Party network has disconnected.</constant>
 		<constant name="NETWORK_STATE_FAILED" value="6" enum="NetworkState">Party network entered a terminal failure state.</constant>
+		<constant name="NETWORK_CHANGE_STATE" value="0" enum="NetworkChangeKind">Network state changed; inspect [member PlayFabPartyNetworkStateChange.state].</constant>
+		<constant name="NETWORK_CHANGE_PEER_JOINED" value="1" enum="NetworkChangeKind">A Party peer completed the handshake and joined the network; inspect [member PlayFabPartyNetworkStateChange.peer_id].</constant>
+		<constant name="NETWORK_CHANGE_PEER_LEFT" value="2" enum="NetworkChangeKind">A previously known Party peer left or its endpoint was destroyed; inspect [member PlayFabPartyNetworkStateChange.peer_id].</constant>
+		<constant name="NETWORK_CHANGE_DESCRIPTOR_UPDATED" value="3" enum="NetworkChangeKind">The finalized base64 Party descriptor changed; titles that publish descriptors to lobbies should refresh their advertised value.</constant>
+		<constant name="NETWORK_CHANGE_DESTROYED" value="4" enum="NetworkChangeKind">The tracked Party network was destroyed and the wrapper is now detached.</constant>
+		<constant name="NETWORK_CHANGE_ERROR" value="5" enum="NetworkChangeKind">A Party operation or state-change batch failed; inspect [member PlayFabPartyNetworkStateChange.result].</constant>
+		<constant name="CHAT_CHANGE_CREATED" value="0" enum="ChatChangeKind">A local or remote chat control became available.</constant>
+		<constant name="CHAT_CHANGE_DESTROYED" value="1" enum="ChatChangeKind">A tracked chat control was destroyed.</constant>
+		<constant name="CHAT_CHANGE_PERMISSIONS_CHANGED" value="2" enum="ChatChangeKind">Chat permissions changed for the tracked chat-control relationship.</constant>
+		<constant name="CHAT_CHANGE_MUTED_CHANGED" value="3" enum="ChatChangeKind">Mute state changed for the tracked chat-control relationship.</constant>
 		<constant name="CHAT_PERMISSION_NONE" value="0" enum="ChatPermission">No chat permissions granted.</constant>
 		<constant name="CHAT_PERMISSION_SEND_AUDIO" value="1" enum="ChatPermission">Local user may send voice audio to the target peer.</constant>
 		<constant name="CHAT_PERMISSION_RECEIVE_AUDIO" value="2" enum="ChatPermission">Local user may receive voice audio from the target peer.</constant>
