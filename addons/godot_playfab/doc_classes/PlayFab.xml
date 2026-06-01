@@ -35,7 +35,7 @@
 		<method name="dispatch">
 			<return type="int" />
 			<description>
-				Manually pumps the PlayFab async task queue. Use this when [code]playfab/runtime/embed_dispatch[/code] is disabled or when deterministic completion timing is required.
+				Manually pumps the PlayFab async task queue. Use this when [code]playfab/runtime/embed_dispatch[/code] is disabled or when deterministic completion timing is required. Returns the number of completion work items processed during that call.
 			</description>
 		</method>
 		<method name="get_users" qualifiers="const">

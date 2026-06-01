@@ -49,7 +49,7 @@ extends RefCounted
 signal party_error(result: PlayFabResult)
 
 func is_initialized() -> bool
-func initialize_async(config: PlayFabPartyConfig = null) -> Signal
+func initialize_async(config: PlayFabPartyConfig = null, local_udp_port: int = -1) -> Signal
 func shutdown_async() -> Signal
 
 func create_and_join_network_async(user: PlayFabUser, config: PlayFabPartyConfig = null) -> Signal
@@ -211,7 +211,7 @@ signal peer_muted_changed(peer_id: int, muted: bool)
 func get_network() -> PlayFabPartyNetwork
 func get_local_user() -> PlayFabUser
 func get_descriptor() -> String
-func get_peer_entity_key(peer_id: int) -> PlayFabEntityKey
+func get_peer_entity_key(peer_id: int) -> Dictionary
 func get_peer_member(peer_id: int) -> PlayFabPartyMember
 func get_peers() -> Array[int]
 func get_local_chat_control() -> PlayFabPartyChatControl
@@ -242,8 +242,8 @@ func close_with_reason(reason: String = "") -> void
 Peer-id handshake:
 
 1. Host always starts as Godot peer id `1`.
-2. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its `PlayFabEntityKey` and a random join nonce to the host endpoint.
-3. Host allocates the next positive peer id, records `{peer_id, PlayFabEntityKey, Party endpoint}`, and replies with a reserved assignment packet.
+2. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its entity-key `Dictionary` and a random join nonce to the host endpoint.
+3. Host allocates the next positive peer id, records `{peer_id, entity-key Dictionary, Party endpoint}`, and replies with a reserved assignment packet.
 4. Client stores the assigned peer id, transitions to connected, and includes the assigned source peer id in future gameplay packet envelopes.
 5. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the network closes.
 
@@ -313,7 +313,7 @@ class_name PlayFabPartyChatMessage
 extends RefCounted
 
 var sender: PlayFabPartyChatControl
-var sender_entity_key: PlayFabEntityKey
+var sender_entity_key: Dictionary
 var targets: Array[PlayFabPartyChatControl]
 var text: String
 var language_code: String
@@ -330,12 +330,12 @@ class_name PlayFabPartyMember
 extends RefCounted
 
 var peer_id: int
-var entity_key: PlayFabEntityKey
+var entity_key: Dictionary
 var user: PlayFabUser
 var is_local: bool
 
 func get_peer_id() -> int
-func get_entity_key() -> PlayFabEntityKey
+func get_entity_key() -> Dictionary
 func get_user() -> PlayFabUser
 func is_local_member() -> bool
 ```
@@ -496,7 +496,7 @@ Use stable error codes so GDScript callers can branch:
 "party_chat_permission_failed"
 ```
 
-All validation failures must update `PlayFab.last_error` consistently with existing PlayFab services and return a completed `Signal` with a failed `PlayFabResult`.
+All validation failures must return an already-completed `Signal` with a failed `PlayFabResult`.
 
 ## Testing expectations
 

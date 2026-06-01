@@ -4,7 +4,7 @@
 		Manual PlayFab sign-in and cached user lookup service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.users[/code]. Use this service to manually sign a local Xbox user or title-defined custom id into PlayFab and inspect cached [PlayFabUser] sessions.
+		Accessed through [code]PlayFab.users[/code]. Use this service to manually sign a local Xbox user or title-defined custom id into PlayFab and inspect cached [PlayFabUser] sessions. For Xbox-backed sign-in, reuse [code]GDK.users.get_primary_user()[/code] when available or await [code]GDK.users.add_user_with_ui_async()[/code] to acquire a signed-in [code]GDKUser[/code], then pass that object to [method sign_in_with_xuser_async]. Never pass a raw local Xbox user id.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -13,7 +13,7 @@
 			<param index="0" name="user" type="Object" />
 			<param index="1" name="create_account" type="bool" default="true" />
 			<description>
-				Starts PlayFab sign-in for the specified signed-in [code]GDKUser[/code]. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
+				Starts PlayFab sign-in for the specified signed-in [code]GDKUser[/code]. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser]. A typical acquisition path is [code]var gdk_user = GDK.users.get_primary_user()[/code] and, if that returns [code]null[/code], [code]gdk_user = (await GDK.users.add_user_with_ui_async()).data[/code]. Never pass a raw local Xbox user id. Failure codes include [code]not_initialized[/code], [code]platform_unsupported[/code], [code]invalid_xuser[/code], and [code]xuser_not_found[/code].
 			</description>
 		</method>
 		<method name="sign_in_with_custom_id_async">
@@ -21,7 +21,7 @@
 			<param index="0" name="custom_id" type="String" />
 			<param index="1" name="create_account" type="bool" default="true" />
 			<description>
-				Starts PlayFab sign-in using a title-defined custom id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains a [PlayFabUser] with [member PlayFabUser.custom_id] populated and no local Xbox user handle.
+				Starts PlayFab sign-in using a title-defined custom id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains a [PlayFabUser] with [member PlayFabUser.custom_id] populated and no local Xbox user handle. Failure codes include [code]invalid_custom_id[/code] and [code]not_initialized[/code].
 			</description>
 		</method>
 		<method name="get_user_by_local_id" qualifiers="const">

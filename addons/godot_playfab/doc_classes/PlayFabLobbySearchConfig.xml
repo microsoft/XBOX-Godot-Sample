@@ -4,13 +4,13 @@
 		Configuration for searching PlayFab lobbies.
 	</brief_description>
 	<description>
-		Passed to [method PlayFabMultiplayer.find_lobbies_async].
+		Passed to [method PlayFabMultiplayer.find_lobbies_async]. Searchable lobby properties must use PlayFab's service-owned [code]string_key1[/code]...[code]string_keyN[/code] and [code]number_key1[/code]...[code]number_keyN[/code] names. Typical query strings look like [code]string_key1 eq "duos"[/code] for [member filter] and [code]number_key1 desc[/code] for [member order_by].
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
-		<member name="filter" type="String" setter="set_filter" getter="get_filter">PlayFab lobby search filter string.</member>
-		<member name="order_by" type="String" setter="set_order_by" getter="get_order_by">PlayFab lobby search sort string.</member>
+		<member name="filter" type="String" setter="set_filter" getter="get_filter">PlayFab lobby search filter string, for example [code]string_key1 eq "duos"[/code] or [code]number_key1 ge 1000[/code].</member>
+		<member name="order_by" type="String" setter="set_order_by" getter="get_order_by">PlayFab lobby search sort string, for example [code]number_key1 desc[/code].</member>
 		<member name="max_results" type="int" setter="set_max_results" getter="get_max_results">Requested result count, from 1 to 50.</member>
 	</members>
 	<signals></signals>
