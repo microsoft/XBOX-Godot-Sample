@@ -34,6 +34,29 @@ runtime autoload installed and registers the `Xbox GDK (PC)` export platform.
 | Sandbox ID | Xbox Live Setup | `XDKS.1` |
 | Publisher CN | Product identity page | `CN=XXXXXXXX-XXXX-...` |
 
+## Title-owned values checklist
+
+Keep these title-specific values in one place before wiring the sample or your
+own game code:
+
+- **Stats and leaderboard identifiers:** the exact stat names your title writes
+  with `GDK.stats`, plus any leaderboard/stat relationships your gameplay uses.
+- **Rich presence values:** the state/string IDs and token values your title
+  configured for `GDK.presence` or multiplayer activity surfaces.
+- **Store product IDs:** the product IDs you pass to `GDK.store` queries and
+  purchase UI flows.
+- **DLC package layout:** each content package's expected `pack_relative_path`
+  to the `.pck`/`.zip` you load with `GDK.package.load_resource_pack_async()`.
+  The runtime-discovered `package_identifier` comes from
+  `enumerate_packages()`/`find_package_by_identifier()`, but the pack-relative
+  path is title-owned.
+- **Sandbox + test accounts:** the active sandbox ID, the test accounts
+  provisioned into that sandbox, and the PC sandbox currently selected on the
+  development machine.
+- **Peer-XUID prerequisites:** additional signed-in test accounts/XUIDs for
+  invites, recent-player updates, profile-card UI, reputation feedback, and any
+  other peer-targeted Xbox service flow.
+
 ## Option A: Configure via CLI (recommended)
 
 From the repository root, build the mirrored sample addons and run the setup
@@ -48,7 +71,8 @@ The script prompts for each Partner Center value, derives the current-title
 SCID, then writes `sample\tutorial_app\sample_config.cfg` and
 `sample\tutorial_app\MicrosoftGame.config`. If `export_presets.cfg` already
 exists in that project, the script also updates the matching export-preset
-fields.
+fields. The script does not create the preset from scratch; start from the
+sample's checked-in base preset.
 
 The generated files are gitignored, so your credentials stay local.
 

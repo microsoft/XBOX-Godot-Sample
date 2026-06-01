@@ -60,6 +60,25 @@ is held for the process lifetime and released once when the extension unloads.
 > the setting is empty at runtime. See
 > [Troubleshooting → `PlayFab.initialize()` fails with `title_id_required`](../troubleshooting.md#playfabinitialize-fails-with-title_id_required).
 
+### Xbox-backed sign-in prerequisites
+
+`PlayFab.users.sign_in_with_xuser_async(...)` accepts a signed-in `GDKUser`
+object, not a raw local Xbox user id. Reuse `GDK.users.get_primary_user()`
+when a primary user is already present, or prompt for one with
+`await GDK.users.add_user_with_ui_async()`, then pass that returned object to
+`PlayFab.users.sign_in_with_xuser_async(...)`.
+
+```gdscript
+var gdk_user = GDK.users.get_primary_user()
+if gdk_user == null:
+    var add_user_result = await GDK.users.add_user_with_ui_async()
+    if not add_user_result.ok:
+        return
+    gdk_user = add_user_result.data
+
+var sign_in_result = await PlayFab.users.sign_in_with_xuser_async(gdk_user)
+```
+
 ---
 
 ## 2. Per-tutorial title-side fixtures
@@ -283,6 +302,11 @@ is idempotent and creates:
   headroom per role). The pool size is captured in the title-
   data marker under `multiplayer_custom_id_pool_size`.
 - a Multiplayer matchmaking queue `godot_gdk_ext_live_smoke_queue`
+
+When you create a [code]PlayFabMatchmakingTicketConfig[/code], set
+[code]queue_name[/code] to the exact queue configured for the title. For the
+repo's live-test fixtures that value is
+[code]godot_gdk_ext_live_smoke_queue[/code].
 - API-service fixtures (accounts, friends, player data, title data,
   publisher data, a statistic, a catalog draft item) used by the
   PlayFab service-wrapper tests

@@ -106,7 +106,7 @@ signal state_changed(change: PlayFabLobbyStateChange)
 
 var lobby_id: String
 var connection_string: String
-var owner_entity_key: PlayFabEntityKey
+var owner_entity_key: Dictionary
 var max_member_count: int
 var member_count: int
 var properties: Dictionary
@@ -115,7 +115,7 @@ var members: Array[PlayFabLobbyMember]
 
 func get_lobby_id() -> String
 func get_connection_string() -> String
-func get_owner_entity_key() -> PlayFabEntityKey
+func get_owner_entity_key() -> Dictionary
 func get_members() -> Array[PlayFabLobbyMember]
 func get_properties() -> Dictionary
 func get_search_properties() -> Dictionary
@@ -155,7 +155,6 @@ extends RefCounted
 var filter: String = ""
 var order_by: String = ""
 var max_results: int = 10
-var continuation_token: String = ""
 ```
 
 ### Lobby payload wrappers
@@ -165,12 +164,12 @@ class_name PlayFabLobbyMember
 extends RefCounted
 
 var user_id: String
-var entity_key: PlayFabEntityKey
+var entity_key: Dictionary
 var properties: Dictionary
 var is_local: bool
 
 func get_user_id() -> String
-func get_entity_key() -> PlayFabEntityKey
+func get_entity_key() -> Dictionary
 func get_properties() -> Dictionary
 func is_local_member() -> bool
 ```
@@ -182,14 +181,14 @@ extends RefCounted
 var lobby_id: String
 var connection_string: String
 var sender_user_id: String
-var sender_entity_key: PlayFabEntityKey
+var sender_entity_key: Dictionary
 var invite_uri: String
 var properties: Dictionary
 
 func get_lobby_id() -> String
 func get_connection_string() -> String
 func get_sender_user_id() -> String
-func get_sender_entity_key() -> PlayFabEntityKey
+func get_sender_entity_key() -> Dictionary
 func get_invite_uri() -> String
 func get_properties() -> Dictionary
 ```
@@ -211,7 +210,7 @@ extends RefCounted
 
 var lobby_id: String
 var connection_string: String
-var owner_entity_key: PlayFabEntityKey
+var owner_entity_key: Dictionary
 var max_member_count: int
 var member_count: int
 var search_properties: Dictionary
@@ -219,7 +218,7 @@ var lobby_properties: Dictionary
 
 func get_lobby_id() -> String
 func get_connection_string() -> String
-func get_owner_entity_key() -> PlayFabEntityKey
+func get_owner_entity_key() -> Dictionary
 func get_search_properties() -> Dictionary
 func get_lobby_properties() -> Dictionary
 ```
@@ -438,11 +437,22 @@ Recommended conventional title-owned lobby property keys:
 ### Host with lobby discovery
 
 ```gdscript
-func create_party_lobby(playfab_user: PlayFabUser, session: PlayFabPartySession) -> PlayFabLobby:
+func create_party_lobby(playfab_user: PlayFabUser) -> PlayFabLobby:
+    var party_result = await PlayFab.party.create_and_join_network_async(playfab_user)
+    if not party_result.ok:
+        push_warning(party_result.message)
+        return null
+
+    var network: PlayFabPartyNetwork = party_result.data
+    var descriptor := network.get_descriptor()
+    if descriptor.is_empty():
+        push_warning("Party descriptor is not ready yet.")
+        return null
+
     var lobby_config = PlayFabLobbyConfig.new()
     lobby_config.max_players = 4
     lobby_config.access_policy = PlayFabLobbyConfig.ACCESS_POLICY_PUBLIC
-    lobby_config.lobby_properties["party_descriptor"] = session.descriptor
+    lobby_config.lobby_properties["party_descriptor"] = descriptor
     lobby_config.lobby_properties["party_protocol"] = "playfab_party_v1"
     lobby_config.member_properties["display_name"] = "Host"
 
@@ -471,9 +481,13 @@ func join_lobby_party(playfab_user: PlayFabUser, connection_string: String) -> v
         push_warning("Lobby did not include a Party descriptor.")
         return
 
-    var party_result = await PlayFab.party.create_client_peer_async(playfab_user, descriptor)
-    if party_result.ok:
-        multiplayer.multiplayer_peer = party_result.data.peer
+    var party_result = await PlayFab.party.join_network_async(playfab_user, descriptor)
+    if not party_result.ok:
+        push_warning(party_result.message)
+        return
+
+    var network: PlayFabPartyNetwork = party_result.data
+    multiplayer.multiplayer_peer = network.get_local_peer()
 ```
 
 ### Match completion, then explicit title choice
@@ -506,9 +520,10 @@ func join_arranged_match_when_title_decides(playfab_user: PlayFabUser, ticket: P
     var lobby: PlayFabLobby = join_result.data
     var descriptor: String = lobby.get_properties().get("party_descriptor", "")
     if not descriptor.is_empty():
-        var party_result = await PlayFab.party.create_client_peer_async(playfab_user, descriptor)
+        var party_result = await PlayFab.party.join_network_async(playfab_user, descriptor)
         if party_result.ok:
-            multiplayer.multiplayer_peer = party_result.data.peer
+            var network: PlayFabPartyNetwork = party_result.data
+            multiplayer.multiplayer_peer = network.get_local_peer()
 ```
 
 ## Error/result conventions
@@ -535,7 +550,7 @@ Use stable error codes so GDScript callers can branch:
 "match_ticket_completed_failed"
 ```
 
-All validation failures must update `PlayFab.last_error` consistently with existing PlayFab services and return a completed `Signal` with a failed `PlayFabResult`.
+All validation failures must return an already-completed `Signal` with a failed `PlayFabResult`.
 
 ## Testing expectations
 

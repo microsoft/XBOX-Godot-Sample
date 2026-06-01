@@ -85,7 +85,7 @@
 			<param index="0" name="user" type="PlayFabUser" />
 			<param index="1" name="request" type="Dictionary" default="{}" />
 			<description>
-				Starts [code]PFStatisticsUpdateStatistics[/code] for [param user]. The completed result data is a Dictionary returned by the PlayFab SDK.
+				Starts [code]PFStatisticsUpdateStatistics[/code] for [param user]. The canonical request shape is [code]{"statistics": [{"name": "high_score", "scores": ["1234"]}]}[/code], where [code]statistics[/code] is an [Array] of [Dictionary] entries and each [code]scores[/code] value is serialized as a decimal [String]. Individual statistic entries also accept optional [code]metadata[/code] and [code]version[/code] keys. The completed result data is a [Dictionary] returned by the PlayFab SDK.
 			</description>
 		</method>
 	</methods>

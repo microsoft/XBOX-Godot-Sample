@@ -123,7 +123,7 @@ Godot loads the native library through:
 
 - `addons\godot_gdk\godot_gdk.gdextension`
 
-That file maps platform/config combinations to the built DLL path inside `addons\godot_gdk\bin\`.
+That file maps platform/config combinations to the built DLL path inside `addons\godot_gdk\bin\`. At runtime, `GDK.is_available()` simply reflects whether this build was compiled with `_GAMING_DESKTOP`; non-Gaming-Desktop builds return `false`.
 
 ## Editor loading path
 

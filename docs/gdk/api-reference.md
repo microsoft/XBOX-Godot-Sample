@@ -17,9 +17,9 @@ accessed as namespaces under this root.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `initialize(config := null)` | `GDKResult` | Start the GDK runtime. `config` is optional and reserved for future use. |
+| `initialize(config := null)` | `GDKResult` | Start the GDK runtime. See [Initialization config](#initialization-config). Re-initializing returns `already_initialized`; guard repeated startup with `GDK.is_initialized()`. |
 | `shutdown()` | `void` | Clean up the runtime |
-| `is_available()` | `bool` | Whether the GDK runtime is available on this platform |
+| `is_available()` | `bool` | Whether this build was compiled with `_GAMING_DESKTOP` support |
 | `is_initialized()` | `bool` | Whether the runtime has been initialized |
 | `dispatch()` | `int` | Pump async completions and manager state manually when `gdk/runtime/embed_dispatch` is disabled or when deterministic control is needed |
 | `get_users()` | `GDKUsers` | Access the users service |
@@ -72,6 +72,37 @@ func _process(_delta):
     GDK.dispatch()
 ```
 
+### Initialization config
+
+When `config` is a `Dictionary`, the Xbox services bootstrap accepts the first
+matching SCID override it finds in this order:
+
+1. `config["scid"]`
+2. `config["service_configuration_id"]`
+3. `config["xbox_live/scid"]`
+4. `config["xbox_live"]["scid"]`
+
+If no override is supplied, the addon derives the default SCID from
+`XGameGetXboxTitleId()` as the current-title SCID. Calling `initialize()` again
+while the runtime is still active returns `GDKResult.code == "already_initialized"`,
+so repeated startup paths should guard with `GDK.is_initialized()`.
+
+```gdscript
+if not GDK.is_initialized():
+    var init_result: GDKResult = GDK.initialize({
+        "xbox_live": {
+            "scid": "00000000-0000-0000-0000-00001234ABCD"
+        }
+    })
+    if not init_result.ok:
+        push_error(init_result.code)
+```
+
+Before wiring service calls, gather your title-owned stat names, leaderboard
+identifiers, presence string IDs, Store IDs, DLC pack paths, sandbox IDs, and
+peer test-account XUIDs from the checklist in
+[Sample setup](sample-setup.md#title-owned-values-checklist).
+
 ## System service: `GDK.system`
 
 `GDK.system` is a `RefCounted` service object returned by `GDK.get_system()`.
@@ -122,6 +153,26 @@ if sandbox_result.ok:
 |--------|-------------|
 | `user_changed(user: GDKUser, change_kind: String)` | The single user lifecycle/state event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()` |
 
+### Privilege payloads
+
+`check_privilege_async()` passes the raw integer you supply directly to
+`XUserCheckPrivilege()`, and `resolve_privilege_with_ui_async()` forwards it to
+`XUserResolvePrivilegeWithUiAsync()`. The addon does not bind named privilege
+constants.
+
+Successful `check_privilege_async()` payloads use these keys:
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `privilege` | `int` | Echo of the requested privilege id |
+| `has_privilege` | `bool` | Whether the user currently has the privilege |
+| `deny_reason` | `String` | `none`, `purchase_required`, `restricted`, `banned`, or `unknown` |
+| `deny_reason_value` | `int` | Raw native `XUserPrivilegeDenyReason` integer |
+| `needs_user_issue_resolution` | `bool` | `true` when the check returned `user_issue_resolution_required` |
+
+Successful `resolve_privilege_with_ui_async()` payloads currently echo only
+`privilege`.
+
 ### Usage
 
 ```gdscript
@@ -148,6 +199,13 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 | `show_player_profile_card_async(requesting_user, target_xuid)` | `Signal` | Show the profile card UI for a target XUID |
 | `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids, min_selection_count, max_selection_count)` | `Signal` | Show player picker UI; success data includes `selected_xuids` and `selection_count` |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Forward to users-service privilege remediation UI flow |
+
+### Validation
+
+`default_button` and `cancel_button` accept `first`/`0`, `second`/`1`, or
+`third`/`2`. Validation failures return `invalid_title`, `invalid_message`,
+`invalid_button_label`, `invalid_default_button`, `invalid_cancel_button`, or
+`invalid_button_layout`.
 
 ## `GDKUser`
 
@@ -289,6 +347,48 @@ Script-visible wrapper around a cached achievement.
 - `load_resource_pack_async()` is the Godot-native DLC path; mounts for loaded resource packs stay service-owned until `GDK.shutdown()`.
 - If shutdown cancels an in-flight package mount/resource-pack load, the completion signal resolves with `GDKResult.code == "cancelled"`.
 
+### Package dictionary keys
+
+`enumerate_packages()` and `find_package_by_identifier()` return dictionaries
+with these keys:
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `package_identifier` | `String` | Runtime package identifier for follow-up mount/load calls |
+| `store_id` | `String` | Store product ID reported by the package metadata |
+| `display_name` | `String` | Package display name |
+| `description` | `String` | Package description |
+| `publisher` | `String` | Package publisher string |
+| `title_id` | `String` | Title ID string reported by the package metadata |
+| `installing` | `bool` | Whether the package is still installing |
+| `age_restricted` | `bool` | Whether the package is age restricted |
+| `kind` | `int` | Raw native package-kind value |
+| `kind_name` | `String` | `game` or `content` |
+| `index` | `int` | Package index within the current enumeration result |
+| `count` | `int` | Total package count reported for the enumeration result |
+
+### Resource-pack path example
+
+The package dictionary tells you which content package to mount. The
+`pack_relative_path` is still title-owned: it must point to a `.pck` or `.zip`
+inside that mounted package, and the runtime rejects empty paths, absolute
+paths, `.`/`..`, and other extensions.
+
+```gdscript
+var packages_result: GDKResult = GDK.package.enumerate_packages()
+if packages_result.ok and not packages_result.data.is_empty():
+    var package_info: Dictionary = packages_result.data[0]
+    var load_result: GDKResult = await GDK.package.load_resource_pack_async(
+            package_info["package_identifier"],
+            "content/dlc/episode1.pck")
+    if load_result.ok:
+        var pack_info: Dictionary = load_result.data
+        print(pack_info["resource_pack"].pack_path)
+```
+
+See [Sample setup](sample-setup.md#title-owned-values-checklist) for the
+title-owned values you need to supply for DLC/package flows.
+
 ## Stats service: `GDK.stats`
 
 `GDK.stats` is a `RefCounted` service object returned by `GDK.get_stats()`.
@@ -419,7 +519,9 @@ Supported permission strings are normalized case-insensitively and include
 `share_target_content_to_external_networks`.
 
 Anonymous user type values are `cross_network_user` and
-`cross_network_friend`.
+`cross_network_friend`. Invalid permission inputs return
+`GDKResult.code == "invalid_permission"`; invalid anonymous-user inputs return
+`GDKResult.code == "invalid_anonymous_user_type"`.
 
 ### Usage
 
@@ -526,11 +628,37 @@ and broadcast fields when Xbox Services reports them.
 | `submit_batch_reputation_feedback_async(user, feedback_items)` | `Signal` | Submit multiple reputation feedback items |
 
 Batch reputation feedback items are dictionaries with `target_xuid` and
-`feedback_type`, plus optional `reason` and `evidence_id`. Supported feedback
-types are the `XblReputationFeedbackType` names in snake_case, such as
-`fair_play_cheater`, `fair_play_quitter`, `communications_abusive_voice`,
-`comms_text_message`, `positive_skilled_player`, `positive_helpful_player`,
-and `user_content_gamerpic`.
+`feedback_type`, plus optional `reason` and `evidence_id`. Supported
+`feedback_type` values are:
+
+- `fair_play_kills_teammates`
+- `fair_play_cheater`
+- `fair_play_tampering`
+- `fair_play_quitter`
+- `fair_play_kicked`
+- `communications_inappropriate_video`
+- `communications_abusive_voice`
+- `inappropriate_user_generated_content`
+- `positive_skilled_player`
+- `positive_helpful_player`
+- `positive_high_quality_user_generated_content`
+- `comms_phishing`
+- `comms_picture_message`
+- `comms_spam`
+- `comms_text_message`
+- `comms_voice_message`
+- `fair_play_console_ban_request`
+- `fair_play_idler`
+- `fair_play_user_ban_request`
+- `user_content_gamerpic`
+- `user_content_personal_info`
+- `fair_play_unsporting`
+- `fair_play_leaderboard_cheater`
+
+Validation failures return `invalid_feedback_type` for unknown feedback types,
+`invalid_feedback_items` for empty batch arrays, `invalid_feedback_item` when a
+batch item is not a dictionary or is missing `target_xuid`/`feedback_type`, and
+`invalid_xuid` for malformed XUID strings.
 
 ### Signals
 
@@ -662,7 +790,11 @@ Typed wrapper around an `XStore` license-acquire result.
 |----------|------|-------------|
 | `store_id` | `String` | Store product ID used for the query |
 | `licensable_sku` | `String` | SKU value returned by `XStore` |
-| `status` | `int` | Native `XStore` license status enum value |
+| `status` | `int` | Raw `XStoreCanAcquireLicenseResult.status` value returned by `XStoreCanAcquireLicenseForStoreIdResult()` |
+
+The addon stores `status` unchanged from the native `XStoreCanAcquireLicenseResult`
+payload; interpret the integer with the matching GDK SDK enum/reference for
+your installed SDK version.
 
 ## Profile service: `GDK.profile`
 
@@ -868,14 +1000,38 @@ on callback events, your title owns privacy/compliance review for that metadata.
 
 Invite dictionaries match `GDK.activation` and include `raw_uri`, `activation_type`, `scheme`, `action`, and decoded query fields such as `sender_xuid`.
 
+### Invite sequencing
+
+`send_invites_async()` resolves its connection string in this order:
+
+1. Use the explicit `connection_string` argument when it is non-empty.
+2. Otherwise reuse the cached local activity connection string set by
+   `set_activity_async()`.
+3. If neither path yields a non-empty value, the call fails with
+   `GDKResult.code == "missing_connection_string"`.
+
 ### Usage
 
 ```gdscript
 var mpa = GDK.multiplayer_activity
 
-# Set your activity
-await mpa.set_activity_async(user, "myserver://connect?session=abc",
-        "followed", 4, 1)
+# Set your activity first so empty-string invites can reuse the cached
+# connection string for this local user.
+var set_result: GDKResult = await mpa.set_activity_async(
+        user,
+        "myserver://connect?session=abc",
+        "followed",
+        4,
+        1)
+if set_result.ok:
+    await mpa.send_invites_async(user, PackedStringArray([other_xuid]))
+
+# You can also pass an explicit connection string without caching one first.
+await mpa.send_invites_async(
+        user,
+        PackedStringArray([other_xuid]),
+        true,
+        "myserver://connect?session=override")
 
 # Fetch another player's activity
 var result = await mpa.get_activities_async(user, [other_xuid])

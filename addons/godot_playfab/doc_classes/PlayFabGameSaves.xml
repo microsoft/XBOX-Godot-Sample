@@ -13,7 +13,7 @@
 			<param index="0" name="user" type="PlayFabUser" />
 			<param index="1" name="options" type="int" default="0" />
 			<description>
-				Adds the signed-in [param user] to PlayFab Game Saves and performs the initial cloud sync. Use the [code]ADD_USER_OPTION_*[/code] constants for rollback flows when needed. The completed result data contains the synced folder path, folder size, cloud-connection state, the local user id, and the PlayFab entity key. When cloud-connected, the result data also includes [code]remaining_quota[/code].
+				Adds the signed-in [param user] to PlayFab Game Saves and performs the initial cloud sync. Use the [code]ADD_USER_OPTION_*[/code] constants for rollback flows when needed. On success, [code]PlayFabResult.data[/code] is a [Dictionary] with [code]folder[/code], [code]folder_size[/code], [code]connected_to_cloud[/code], [code]local_id[/code], [code]custom_id[/code], and [code]entity_key[/code]. [code]remaining_quota[/code] is included only when [code]connected_to_cloud[/code] is [code]true[/code].
 			</description>
 		</method>
 		<method name="upload_with_ui_async">

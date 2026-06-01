@@ -95,7 +95,7 @@ Rules:
 4. Completions are main-thread work. SDK callbacks are drained by the manual completion queue when `PlayFab.dispatch()` runs; immediate and synchronous completion paths use Godot `call_deferred` before emitting.
 5. With `playfab/runtime/embed_dispatch = true`, the extension frame callback pumps `PlayFab.dispatch()` automatically each process frame.
 6. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
-7. `PlayFab.dispatch()` pumps the shared PlayFab runtime queue, PlayFab Multiplayer lobby/matchmaking state changes, and PlayFab Party state changes.
+7. `PlayFab.dispatch()` pumps the shared PlayFab runtime queue, PlayFab Multiplayer lobby/matchmaking state changes, and PlayFab Party state changes, then returns the number of completion work items processed.
 8. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
 
 For Multiplayer lobbies, successful local `PlayFabLobby.set_member_properties_async()` writes update the local member snapshot eagerly before the completion signal settles; remote member-property changes continue to arrive through SDK-driven `MEMBER_UPDATED` state changes.
@@ -108,7 +108,7 @@ Publicly exposed data is intentionally narrow:
 
 - `local_id`
 - `custom_id`
-- `entity_key`
+- `entity_key` (`Dictionary` with `id` / `type`)
 - `has_local_user_handle`
 
 Xbox-facing identity details do not belong on the PlayFab user wrapper. The wrapper only exposes what higher-level PlayFab systems need. Custom-ID users have `local_id == 0`, a populated `custom_id`, and no local user handle.

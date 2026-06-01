@@ -25,6 +25,15 @@ controller and you're ready to run.
    every process frame — your action map starts firing as soon as
    the mapper picks up the device.
 
+## Producing a packaged build
+
+The sample includes a committed `export_presets.cfg` with a `Windows Desktop`
+preset, so a clean clone can open **Project → Export** and edit or run the
+export without first authoring a preset.
+
+Install the Godot 4.6.1 export templates under
+`%APPDATA%\Godot\export_templates\` before exporting.
+
 ## See also
 
 - [Tutorial — GameInput action bridge](../../docs/tutorials/gameinput-action-bridge.md)

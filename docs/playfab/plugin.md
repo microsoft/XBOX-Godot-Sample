@@ -109,26 +109,37 @@ if not PlayFab.is_initialized():
         push_warning(init_result.message)
         return
 
-var sign_in_result = await PlayFab.users.sign_in_with_custom_id_async("my-title-defined-id", false)
+var gdk_user = GDK.users.get_primary_user()
+if gdk_user == null:
+    var add_user_result = await GDK.users.add_user_with_ui_async()
+    if not add_user_result.ok:
+        push_warning(add_user_result.message)
+        return
+    gdk_user = add_user_result.data
+
+var sign_in_result = await PlayFab.users.sign_in_with_xuser_async(gdk_user)
 if not sign_in_result.ok:
     push_warning(sign_in_result.message)
     return
 
 var playfab_user = sign_in_result.data
-await PlayFab.statistics.update_statistics_async(playfab_user, {
+
+var game_saves_result = await PlayFab.game_saves.add_user_with_ui_async(playfab_user)
+if not game_saves_result.ok:
+    push_warning(game_saves_result.message)
+    return
+print(game_saves_result.data)
+
+var stats_result = await PlayFab.statistics.update_statistics_async(playfab_user, {
     "statistics": [
         {"name": "pong_score", "scores": ["42"]},
     ],
 })
-
-var title_data_result = await PlayFab.title_data.get_title_data_async(playfab_user, {
-    "keys": ["welcome_message"],
-})
-if title_data_result.ok:
-    print(title_data_result.data)
+if not stats_result.ok:
+    push_warning(stats_result.message)
 ```
 
-Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Use `PlayFab.users.sign_in_with_xuser_async(GDK.users.get_primary_user())` before calling `PlayFab.game_saves`; custom-ID users return `xbox_user_required` from Game Saves methods.
+Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `GDKUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
 
 ## Leaderboard write path
 

@@ -29,7 +29,7 @@ func _process(_delta: float) -> void:
         PlayFab.dispatch()
 ```
 
-Do not run `dispatch()` from a worker thread. If dispatch is not pumped, async signals, Party state changes, and Multiplayer lobby/matchmaking events will not be delivered.
+Do not run `dispatch()` from a worker thread. If dispatch is not pumped, async signals, Party state changes, and Multiplayer lobby/matchmaking events will not be delivered. Each call returns the number of completion work items processed, which is useful when a title wants to observe manual pump progress.
 
 ## Matchmaking ticket creation
 

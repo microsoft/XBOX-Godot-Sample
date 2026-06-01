@@ -4,13 +4,13 @@
 		Configuration for creating a matchmaking ticket.
 	</brief_description>
 	<description>
-		Passed to [method PlayFabMultiplayer.create_match_ticket_async]. If [member members] is empty, the requesting [PlayFabUser] is used as the single member.
+		Passed to [method PlayFabMultiplayer.create_match_ticket_async]. Immediate validation failures use [code]invalid_match_ticket_config[/code] when the config is missing, [member queue_name] is blank, or [member timeout_seconds] is less than or equal to zero. If [member members] is empty, the requesting [PlayFabUser] is used as the single member.
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
-		<member name="queue_name" type="String" setter="set_queue_name" getter="get_queue_name">PlayFab matchmaking queue name.</member>
-		<member name="timeout_seconds" type="int" setter="set_timeout_seconds" getter="get_timeout_seconds">Ticket timeout in seconds.</member>
+		<member name="queue_name" type="String" setter="set_queue_name" getter="get_queue_name">PlayFab matchmaking queue name. This must be non-empty and must match a queue configured for the title.</member>
+		<member name="timeout_seconds" type="int" setter="set_timeout_seconds" getter="get_timeout_seconds">Ticket timeout in seconds. Must be greater than zero.</member>
 		<member name="members" type="Array" setter="set_members" getter="get_members">Array of [PlayFabMatchmakingMember] or [PlayFabUser] entries.</member>
 	</members>
 	<signals></signals>

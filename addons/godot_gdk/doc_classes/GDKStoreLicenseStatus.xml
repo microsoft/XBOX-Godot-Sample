@@ -4,7 +4,7 @@
 		Typed wrapper for XStore license-acquire status.
 	</brief_description>
 	<description>
-		Represents one license status record returned by [method GDKStore.query_license_status_async] or [method GDKStore.refresh_entitlements_async].
+		Represents one license status record returned by [method GDKStore.query_license_status_async] or [method GDKStore.refresh_entitlements_async]. The addon copies [code]store_id[/code], [code]licensable_sku[/code], and the raw native [code]XStoreCanAcquireLicenseResult.status[/code] integer into this wrapper without remapping the status value.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -23,7 +23,7 @@
 		<method name="get_status" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the native XStore license status enum value as an integer.
+				Returns the raw [code]XStoreCanAcquireLicenseResult.status[/code] value as an integer.
 			</description>
 		</method>
 	</methods>
@@ -35,7 +35,7 @@
 			SKU value returned by XStore.
 		</member>
 		<member name="status" type="int" setter="" getter="get_status">
-			Native XStore license status enum value.
+			Raw [code]XStoreCanAcquireLicenseResult.status[/code] value.
 		</member>
 	</members>
 	<signals></signals>

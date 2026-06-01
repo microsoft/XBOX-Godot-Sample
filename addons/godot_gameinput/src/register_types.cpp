@@ -71,6 +71,7 @@ void uninitialize_godot_gameinput_extension(ModuleInitializationLevel p_level) {
     Engine::get_singleton()->unregister_singleton("GameInput");
 
     if (gameinput_singleton) {
+        gameinput_singleton->shutdown();
         memdelete(gameinput_singleton);
         gameinput_singleton = nullptr;
     }
