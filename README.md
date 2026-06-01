@@ -23,7 +23,7 @@ This is the **first step** in our Godot for XBOX on PC integration journey. We p
 
 ## Addons
 
-The addons are designed to be dropped into any Godot 4.5+ project — most developers will consume them as a prebuilt addon zip. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_app/` and `sample/tutorial_gameinput/`.
+The addons are designed to be dropped into any Godot 4.5+ project. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_app/` and `sample/tutorial_gameinput/`. Build the addons from source per [Getting started](docs/getting-started.md), then drop the addon folders into your project.
 
 | Addon | Description |
 |-------|-------------|
@@ -40,7 +40,7 @@ Start here:
 
 - [**Documentation index**](docs/README.md) — full doc tree
 - [**Getting started**](docs/getting-started.md) — clone, build, install the addons in your own Godot project, and sign in
-- [**Addons quickstart**](docs/addon-getting-started.md) — drop-in addon zip in an existing project
+- [**Addons quickstart**](docs/addon-getting-started.md) — drop the addons into an existing Godot project
 - [**Tutorials**](docs/tutorials/README.md) — task-oriented walkthroughs (sign-in, achievements, leaderboards, Game Saves, lobbies, Multiplayer Activity, PlayFab Party, integration tech demo) plus a standalone GameInput track
 - [**Troubleshooting**](docs/troubleshooting.md) — common build, runtime, and test issues
 

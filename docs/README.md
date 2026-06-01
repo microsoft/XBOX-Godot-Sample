@@ -10,7 +10,7 @@ Microsoft public GDK.
 docs/
 ├── README.md                                — this index
 ├── getting-started.md                       — onboarding (repo build + first sign-in)
-├── addon-getting-started.md                 — addon-zip quickstart
+├── addon-getting-started.md                 — drop-in addons quickstart
 ├── async-patterns.md                        — one-page async-system primer
 ├── troubleshooting.md                       — common build, runtime, and test issues
 ├── tutorials/                               — task-oriented walkthroughs
@@ -28,8 +28,9 @@ docs/
   project, configuring project settings, getting to user sign-in (XBOX
   + PlayFab), and building from source
 - [**Addons getting started**](addon-getting-started.md) — short
-  quickstart shipped inside the addon zip (enable, set PlayFab title
-  id, create game config, switch sandbox, sign in)
+  quickstart for dropping the addons into an existing Godot project
+  (enable, set PlayFab title id, create game config, switch sandbox,
+  sign in)
 - [**Tutorials**](tutorials/README.md) — task-oriented walkthroughs
   for sign-in, achievements, leaderboards, Game Saves, lobbies,
   Multiplayer Activity, PlayFab Party, the integration tech demo

@@ -43,8 +43,8 @@ account.
   64-bit)
 - [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed
   (`winget install Microsoft.Gaming.GDK`)
-- A built copy of each addon you want to use — either a release zip,
-  or built from source per **Step 1** below
+- A built copy of each addon you want to use — built from source per
+  **Step 1** below
 - For XBOX-services tutorials (T1+): a Partner Center title + SCID +
   sandbox test account
 - For PlayFab tutorials (T1+): a PlayFab title id
@@ -53,8 +53,8 @@ account.
   Godot project)
 
 > **TL;DR**
-> 1. Get the addon binaries (download a release zip, or build one from source).
-> 2. Extract or copy `addons/<addon>/` into your project, including the `bin/` folder.
+> 1. Build the addon binaries from source (Step 1 below).
+> 2. Copy `addons/<addon>/` into your project, including the `bin/` folder.
 > 3. Enable the editor plugin in **Project Settings → Plugins**.
 > 4. Set the `gdk/runtime/*` and `playfab/*` project settings.
 > 5. Subscribe to `GDK.users.user_changed` (XBOX) and call
@@ -150,25 +150,15 @@ for the canonical addon-side walk-through.
 
 ---
 
-## 1. Get the addon binaries
+## 1. Build the addon binaries
 
-You need a built copy of each addon you want to use. Use a tagged release zip
-when one is available, or generate the same drop-in layout from source.
-
-### Option A — Download a release (when available)
-
-If a release zip has been published at
-<https://github.com/gaming-microsoft/godot-public-gdk-ext/releases>, unzip
-the `addons/<addon>/` directory of each addon you want into your project's
-`addons/` folder. Skip ahead to **Step 2 — Copy the addons**.
-
-### Option B — Build a drop-in zip from source
-
-Clone with submodules and run the package helper:
+You need a built copy of each addon you want to use. Build the
+drop-in layout from source: clone with submodules and run the package
+helper.
 
 ```powershell
-git clone --recurse-submodules https://github.com/gaming-microsoft/godot-public-gdk-ext.git
-cd godot-public-gdk-ext
+git clone --recurse-submodules https://github.com/microsoft/Godot-XBOX.git
+cd Godot-XBOX
 
 .\tools\package_addons.ps1
 ```
@@ -176,8 +166,9 @@ cd godot-public-gdk-ext
 The helper configures the `addon-package` CMake preset, builds Debug and
 Release native addon DLLs by default, stages the drop-in addon files under
 `build\dist\godot-gdk-addons\addons\`, and writes
-`build\dist\godot-gdk-addons-debug-release.zip`. Extract that zip into your
-Godot project root, or copy only the addon folders you need.
+`build\dist\godot-gdk-addons-debug-release.zip`. Copy the addon folders
+you need from `build\dist\godot-gdk-addons\addons\` into your Godot
+project's `addons/` folder (or extract the zip there).
 
 The package build:
 
@@ -508,8 +499,8 @@ themselves.
 ### Clone with submodules
 
 ```powershell
-git clone --recurse-submodules https://github.com/gaming-microsoft/godot-public-gdk-ext.git
-cd godot-public-gdk-ext
+git clone --recurse-submodules https://github.com/microsoft/Godot-XBOX.git
+cd Godot-XBOX
 ```
 
 If you've already cloned without submodules:
@@ -520,7 +511,8 @@ git submodule update --init --recursive
 
 ### Build
 
-For a consumer-ready zip:
+For a packaged drop-in build (stages addons under `build\dist\` and
+produces an addons zip):
 
 ```powershell
 .\tools\package_addons.ps1

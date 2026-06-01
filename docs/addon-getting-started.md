@@ -1,14 +1,17 @@
 # Godot XBOX addons — getting started
 
-A quickstart for the addon zip. This walks through enabling the addons,
-setting the PlayFab title id, creating the MicrosoftGame.config, switching
-the XBOX sandbox, and signing a user in — first into XBOX Live, then
-into PlayFab.
+A quickstart for dropping the addons into your Godot project. This
+walks through enabling the addons, setting the PlayFab title id,
+creating the MicrosoftGame.config, switching the XBOX sandbox, and
+signing a user in — first into XBOX Live, then into PlayFab.
 
-For the full repo guide (building from source, samples, deeper API
-notes), see `docs/getting-started.md` in the source repo.
+For the full repo guide (building the addons from source, samples,
+deeper API notes), see [`docs/getting-started.md`](getting-started.md).
 
-## What's in the zip
+## Addon layout
+
+After you've built the addons (see [Getting started](getting-started.md)),
+the staged drop-in layout is:
 
 ```
 addons/
@@ -79,8 +82,8 @@ your Godot project's `addons/` directory.
 
 ## 1. Enable the addons
 
-1. Drop the `addons/` directory from this zip into your Godot project
-   root (so you end up with `your_project/addons/godot_gdk/...`).
+1. Drop the addon folders into your Godot project's `addons/`
+   directory (so you end up with `your_project/addons/godot_gdk/...`).
 2. Open the project in Godot once so it discovers the new
    `plugin.cfg` files.
 3. Go to **Project — Project Settings — Plugins** and tick the box for
@@ -332,5 +335,5 @@ snippets above tells you which step failed.
   Manager…** (list / install / uninstall registered packages) and
   **Project — Export…** integration for building MSIXVC or loose
   packages.
-- For the full source-level guide, see the repo at
-  <https://github.com/gaming-microsoft/godot-public-gdk-ext>.
+- For the full source-level guide, see
+  [`docs/getting-started.md`](getting-started.md).
