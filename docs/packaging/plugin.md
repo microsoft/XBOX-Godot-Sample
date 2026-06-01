@@ -71,6 +71,14 @@ The runner dispatches one verb per invocation. Common runner flags accepted
 on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 `--verbose` (`-v`).
 
+### Export prerequisites
+
+The `export` verb uses Godot's Windows Desktop exporter, so install the Godot
+4.6.1 export templates under `%APPDATA%\Godot\export_templates\` first.
+MSIXVC and loose-registration flows also need the public GDK toolchain on
+`PATH` (`makepkg.exe`, `wdapp.exe`, `XblPCSandbox.exe`), or `GDK_BIN` pointing
+at the GDK `bin\` directory.
+
 | Verb               | Required flags                 | Optional flags                                                                 | Description                                                       |
 |--------------------|--------------------------------|---------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | `pack`             | `--source-dir`, `--output-dir` | `--map-file`, `--content-id`, `--product-id`, `--encrypt`, `--encrypt-key`, `--updcompat`, `--no-prepare` | makepkg pack. Auto-generates a map file when `--map-file` is omitted; `--no-prepare` only skips content prep. |
