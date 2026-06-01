@@ -1,4 +1,4 @@
-# Godot for XBOX on PC Documentation
+# Godot XBOX Documentation
 
 Welcome to the documentation for the Godot for XBOX on PC repository — a collection of
 Godot 4.x GDExtension addons for Windows gaming integrations around the
@@ -25,7 +25,7 @@ docs/
 ## Getting started
 
 - [**Getting Started**](getting-started.md) — adding the addons to your
-  project, configuring project settings, getting to user sign-in (Xbox
+  project, configuring project settings, getting to user sign-in (XBOX
   + PlayFab), and building from source
 - [**Addons getting started**](addon-getting-started.md) — short
   quickstart shipped inside the addon zip (enable, set PlayFab title
@@ -56,7 +56,7 @@ docs/
 > surface, and the test hosts under `tests/godot/` exercise the
 > addons end-to-end.
 
-## Godot GDK addon (`godot_gdk`)
+## Godot Microsoft GDK addon (`godot_gdk`)
 
 ### User guides
 
