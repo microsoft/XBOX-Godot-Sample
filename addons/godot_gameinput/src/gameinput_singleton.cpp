@@ -151,7 +151,7 @@ void CALLBACK GameInput::_on_device_callback(
         GameInputDeviceStatus current_status,
         GameInputDeviceStatus previous_status) {
     auto *self = static_cast<GameInput *>(context);
-    if (!self || !device || !self->m_accepting_callbacks.load(std::memory_order_acquire)) {
+    if (!self || !device) {
         return;
     }
 
@@ -160,7 +160,8 @@ void CALLBACK GameInput::_on_device_callback(
     // releasing IGameInput / freeing the singleton. v3's UnregisterCallback
     // does NOT fence pending callbacks the way v1's timeout parameter did.
     self->m_callbacks_in_flight.fetch_add(1, std::memory_order_acquire);
-    if (self->m_shutting_down.load(std::memory_order_acquire)) {
+    if (!self->m_accepting_callbacks.load(std::memory_order_acquire) ||
+            self->m_shutting_down.load(std::memory_order_acquire)) {
         self->m_callbacks_in_flight.fetch_sub(1, std::memory_order_release);
         return;
     }
