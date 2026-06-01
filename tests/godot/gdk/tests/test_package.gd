@@ -112,10 +112,6 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		pending("Package service runtime behavior: %s" % init_result.message)
 		return
 
-	var packages_result = package_service.enumerate_packages()
-	assert_result_ok(packages_result, "enumerate_packages()")
-	if packages_result != null and packages_result.ok:
-		assert_true(packages_result.data is Array, "enumerate_packages() returns Array payload")
 	assert_result_error(
 		package_service.enumerate_packages(99, get_class_constant("GDKPackage", "ENUMERATION_SCOPE_THIS_AND_RELATED")),
 		"invalid_package_kind",
@@ -144,6 +140,17 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		load_result,
 		"invalid_package_identifier",
 		"load_resource_pack_async() rejects blank identifiers")
+
+	if pending_unless_package_enumeration_available(package_service):
+		return
+	var packages_result = package_service.enumerate_packages()
+	assert_not_null(packages_result, "enumerate_packages() returns GDKResult on packaged host")
+	if packages_result == null:
+		return
+	assert_true(packages_result.ok, "enumerate_packages() succeeds on packaged host: %s" % str(packages_result.message))
+	if not packages_result.ok:
+		return
+	assert_true(packages_result.data is Array, "enumerate_packages() returns Array payload")
 
 	const MISSING_ID := "gdk.tests.missing.id"
 	assert_result_error(

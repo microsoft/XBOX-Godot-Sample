@@ -322,6 +322,32 @@ func pending_unless_live_write() -> bool:
 
 
 
+# Pending the current test unless the host is running with a packaged-app
+# identity. On a loose / unpackaged dev host (no MSIX identity registered),
+# XPackageEnumeratePackages legitimately fails, get_current_process_package_identifier()
+# returns `package_identifier_unavailable`, and the more-specific downstream
+# error codes (package_not_found) cannot be reached.
+#
+# We probe via `get_current_process_package_identifier()` rather than
+# `enumerate_packages()` so that genuine enumeration regressions on packaged
+# hosts continue to surface as test failures instead of being silently
+# converted to PENDING. Any non-identifier-unavailable failure mode (null
+# result, transient enumeration error, etc.) is intentionally left to the
+# caller to assert against and fail loudly.
+#
+# Returns true when the test was marked pending — caller should `return`
+# immediately after.
+func pending_unless_package_enumeration_available(package_service: Object) -> bool:
+	if package_service == null:
+		pending("GDK.package service unavailable")
+		return true
+	var identifier_result = package_service.get_current_process_package_identifier()
+	if identifier_result != null and not identifier_result.ok and str(identifier_result.code) == "package_identifier_unavailable":
+		pending("Skipped: running as loose/unpackaged app (no packaged identity)")
+		return true
+	return false
+
+
 # Returns "<prefix>-<unique_run_id>" so live write tests can derive
 # correlated, run-stable ids from one shared run id.
 func with_unique_id(prefix: String) -> String:
