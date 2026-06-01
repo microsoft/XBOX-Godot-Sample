@@ -4,7 +4,7 @@
 		Xbox Services privacy service accessed via GDK.privacy.
 	</brief_description>
 	<description>
-		Wraps Xbox Services privacy permission checks and avoid/mute list queries. Methods return one-shot completion [Signal] values that emit [GDKResult].
+		Wraps Xbox Services privacy permission checks and avoid/mute list queries. Methods return one-shot completion [Signal] values that emit [GDKResult]. Supported permission strings are [code]communicate_using_text[/code], [code]communicate_using_video[/code], [code]communicate_using_voice[/code], [code]view_target_profile[/code], [code]view_target_game_history[/code], [code]view_target_video_history[/code], [code]view_target_music_history[/code], [code]view_target_exercise_info[/code], [code]view_target_presence[/code], [code]view_target_video_status[/code], [code]view_target_music_status[/code], [code]play_multiplayer[/code], [code]view_target_user_created_content[/code], [code]broadcast_with_twitch[/code], [code]write_comment[/code], [code]share_item[/code], and [code]share_target_content_to_external_networks[/code]. Anonymous user types are [code]cross_network_user[/code] and [code]cross_network_friend[/code].
 	</description>
 	<tutorials>
 	</tutorials>
@@ -15,7 +15,7 @@
 			<param index="1" name="permission" type="String" />
 			<param index="2" name="target_xuid" type="String" />
 			<description>
-				Checks whether [param user] has [param permission] with the target XUID. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [Dictionary] describing the allowed state and deny reasons.
+				Checks whether [param user] has [param permission] with the target XUID. Await the returned completion [Signal] directly; on success, [member GDKResult.data] is a [Dictionary] with [code]allowed[/code], [code]target_xuid[/code], [code]target_user_type[/code], [code]permission[/code], and [code]reasons[/code]. Unknown permission strings fail with [code]GDKResult.code == "invalid_permission"[/code].
 			</description>
 		</method>
 		<method name="check_permission_for_anonymous_user_async">
@@ -24,7 +24,7 @@
 			<param index="1" name="permission" type="String" />
 			<param index="2" name="anonymous_user_type" type="String" />
 			<description>
-				Checks whether [param user] has [param permission] with an anonymous user type such as [code]cross_network_user[/code] or [code]cross_network_friend[/code].
+				Checks whether [param user] has [param permission] with an anonymous user type such as [code]cross_network_user[/code] or [code]cross_network_friend[/code]. Unknown permission strings fail with [code]invalid_permission[/code]; unknown anonymous user types fail with [code]invalid_anonymous_user_type[/code].
 			</description>
 		</method>
 		<method name="batch_check_permission_async">
@@ -33,7 +33,7 @@
 			<param index="1" name="permission" type="String" />
 			<param index="2" name="target_xuids" type="PackedStringArray" />
 			<description>
-				Checks one permission against multiple target XUIDs. On success, [member GDKResult.data] is an [Array] of result dictionaries.
+				Checks one permission against multiple target XUIDs. On success, [member GDKResult.data] is an [Array] of result dictionaries using the same [code]allowed[/code]/[code]reasons[/code] shape as [method check_permission_async]. Unknown permission strings fail with [code]invalid_permission[/code].
 			</description>
 		</method>
 		<method name="get_avoid_list_async">

@@ -51,7 +51,7 @@
 			<param index="2" name="allow_cross_platform_join" type="bool" default="true" />
 			<param index="3" name="connection_string" type="String" default="&quot;&quot;" />
 			<description>
-				Sends multiplayer invites to the specified users.
+				Sends multiplayer invites to the specified users. When [param connection_string] is empty, the service reuses the cached local activity connection string set by [method set_activity_async]. If neither path yields a non-empty value, the completion fails with [code]GDKResult.code == "missing_connection_string"[/code].
 			</description>
 		</method>
 		<method name="show_invite_ui_async">

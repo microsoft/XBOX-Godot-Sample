@@ -12,7 +12,7 @@
 			<return type="GDKResult" />
 			<param index="0" name="config" type="Variant" default="null" />
 			<description>
-				Initializes the GDK runtime. Optionally pass a configuration Variant. Returns a [GDKResult] indicating success or failure.
+				Initializes the GDK runtime. When [param config] is a [Dictionary], the Xbox services bootstrap accepts the first matching SCID override key in this order: [code]scid[/code], [code]service_configuration_id[/code], [code]xbox_live/scid[/code], then nested [code]xbox_live.scid[/code]. If no override is supplied, the addon derives the current-title SCID from [code]XGameGetXboxTitleId()[/code]. Calling this again while the runtime is already active returns [code]GDKResult.code == "already_initialized"[/code], so repeated startup paths should guard with [method is_initialized].
 			</description>
 		</method>
 		<method name="shutdown">
@@ -24,7 +24,7 @@
 		<method name="is_available" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code]true[/code] if the GDK runtime is available on the current platform.
+				Returns [code]true[/code] when this build was compiled with [code]_GAMING_DESKTOP[/code] support. Non-Gaming-Desktop builds return [code]false[/code].
 			</description>
 		</method>
 		<method name="is_initialized" qualifiers="const">

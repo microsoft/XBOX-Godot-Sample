@@ -350,7 +350,7 @@ func _on_social_group_updated(group: GDKSocialGroup) -> void:
 #### Root API
 
 ```gdscript
-GDK.initialize(config: GDKConfig = null) -> GDKResult
+GDK.initialize(config: Variant = null) -> GDKResult
 GDK.shutdown() -> void
 GDK.is_available() -> bool
 GDK.is_initialized() -> bool
@@ -401,7 +401,9 @@ and `GDK.achievements.runtime_error`).
 
 #### Runtime behavior
 
-- `initialize()` sets up the GDK runtime and the shared `XTaskQueue`.
+- `initialize()` sets up the GDK runtime and the shared `XTaskQueue`. When `config` is a `Dictionary`, Xbox services accepts the first SCID override found at `scid`, `service_configuration_id`, `xbox_live/scid`, or nested `xbox_live.scid`; otherwise it derives the current-title SCID from `XGameGetXboxTitleId()`.
+- Calling `initialize()` again without `shutdown()` returns `GDKResult.code == "already_initialized"`, so startup helpers should guard with `GDK.is_initialized()`.
+- `is_available()` reflects the compile-time `_GAMING_DESKTOP` gate exposed by `GDKRuntime::is_available()`.
 - `dispatch()` manually dispatches pending completions when automatic dispatch is disabled or when deterministic control is needed.
 - `gdk/runtime/embed_dispatch` defaults to `true` and enables automatic per-frame dispatch from the main thread.
 

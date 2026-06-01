@@ -18,7 +18,7 @@
 			<param index="5" name="default_button" type="String" default="&quot;first&quot;" />
 			<param index="6" name="cancel_button" type="String" default="&quot;first&quot;" />
 			<description>
-				Shows a system message dialog. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] contains [code]selected_button[/code] and [code]selected_button_index[/code].
+				Shows a system message dialog. [param default_button] and [param cancel_button] accept [code]first[/code]/[code]0[/code], [code]second[/code]/[code]1[/code], or [code]third[/code]/[code]2[/code]. Validation failures return [code]invalid_title[/code], [code]invalid_message[/code], [code]invalid_button_label[/code], [code]invalid_default_button[/code], [code]invalid_cancel_button[/code], or [code]invalid_button_layout[/code]. Await the returned completion [Signal] directly; on success, [code]GDKResult.data[/code] contains [code]selected_button[/code] and [code]selected_button_index[/code].
 			</description>
 		</method>
 		<method name="set_notification_position_hint">

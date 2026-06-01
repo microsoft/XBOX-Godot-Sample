@@ -4,7 +4,7 @@
 		Package and DLC content service accessed via GDK.package.
 	</brief_description>
 	<description>
-		Wraps the PC GDK [code]XPackage[/code] package metadata, install-progress, and content-mounting flows. Use [method enumerate_packages] and [method find_package_by_identifier] to discover content packages. Use [method load_resource_pack_async] for Godot-native DLC packaged as [code].pck[/code] or [code].zip[/code] files; on success the resource pack is loaded into [code]res://[/code] and the backing package mount is retained by the service until [method GDK.shutdown]. Use [method mount_package_async] only for loose package files that must be accessed by absolute paths through [FileAccess], [DirAccess], image loading, or similar Godot runtime APIs.
+		Wraps the PC GDK [code]XPackage[/code] package metadata, install-progress, and content-mounting flows. Use [method enumerate_packages] and [method find_package_by_identifier] to discover content packages; both return dictionaries with [code]package_identifier[/code], [code]store_id[/code], [code]display_name[/code], [code]description[/code], [code]publisher[/code], [code]title_id[/code], [code]installing[/code], [code]age_restricted[/code], [code]kind[/code], [code]kind_name[/code], [code]index[/code], and [code]count[/code]. Use [method load_resource_pack_async] for Godot-native DLC packaged as [code].pck[/code] or [code].zip[/code] files; on success the resource pack is loaded into [code]res://[/code] and the backing package mount is retained by the service until [method GDK.shutdown]. Use [method mount_package_async] only for loose package files that must be accessed by absolute paths through [FileAccess], [DirAccess], image loading, or similar Godot runtime APIs.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -14,7 +14,7 @@
 			<param index="0" name="package_kind" type="int" default="1" />
 			<param index="1" name="scope" type="int" default="1" />
 			<description>
-				Enumerates installed packages and returns them in [code]GDKResult.data[/code] as an [Array] of package [Dictionary] values. Package identifiers are current-session values and should not be persisted.
+				Enumerates installed packages and returns them in [code]GDKResult.data[/code] as an [Array] of package [Dictionary] values. Each dictionary includes [code]package_identifier[/code], [code]store_id[/code], [code]display_name[/code], [code]description[/code], [code]publisher[/code], [code]title_id[/code], [code]installing[/code], [code]age_restricted[/code], [code]kind[/code], [code]kind_name[/code], [code]index[/code], and [code]count[/code]. Package identifiers are current-session values and should not be persisted.
 			</description>
 		</method>
 		<method name="find_package_by_identifier">
@@ -23,7 +23,7 @@
 			<param index="1" name="package_kind" type="int" default="1" />
 			<param index="2" name="scope" type="int" default="1" />
 			<description>
-				Finds one installed package by package identifier. Returns [code]package_not_found[/code] when no package matches.
+				Finds one installed package by package identifier. On success, [code]GDKResult.data[/code] is one package dictionary with the same keys returned by [method enumerate_packages]. Returns [code]package_not_found[/code] when no package matches.
 			</description>
 		</method>
 		<method name="get_current_process_package_identifier">
@@ -46,7 +46,7 @@
 			<param index="2" name="replace_files" type="bool" default="false" />
 			<param index="3" name="offset" type="int" default="0" />
 			<description>
-				Mounts a content package, resolves a package-relative [code].pck[/code] or [code].zip[/code] file, and calls [method ProjectSettings.load_resource_pack]. Await the returned completion [Signal] to receive a [GDKResult]. On success, [code]GDKResult.data[/code] is a [Dictionary] with [code]resource_pack[/code] ([GDKPackageResourcePack]) and [code]already_loaded[/code] ([bool]). The service retains the backing package mount until [method GDK.shutdown] because Godot exposes resource-pack loading but no matching unload API. If the runtime shuts down while the mount is pending, the completion resolves with [code]GDKResult.code == "cancelled"[/code].
+				Mounts a content package, resolves a package-relative [code].pck[/code] or [code].zip[/code] file, and calls [method ProjectSettings.load_resource_pack]. [param pack_relative_path] must stay inside the mounted package; empty paths, absolute paths, [code].[/code]/[code]..[/code] segments, and non-[code].pck[/code]/[code].zip[/code] extensions are rejected. A typical title-owned value is something like [code]content/dlc/episode1.pck[/code]. Await the returned completion [Signal] to receive a [GDKResult]. On success, [code]GDKResult.data[/code] is a [Dictionary] with [code]resource_pack[/code] ([GDKPackageResourcePack]) and [code]already_loaded[/code] ([bool]). The service retains the backing package mount until [method GDK.shutdown] because Godot exposes resource-pack loading but no matching unload API. If the runtime shuts down while the mount is pending, the completion resolves with [code]GDKResult.code == "cancelled"[/code].
 			</description>
 		</method>
 		<method name="get_loaded_resource_packs" qualifiers="const">
