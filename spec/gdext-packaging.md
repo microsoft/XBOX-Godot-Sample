@@ -154,7 +154,7 @@ Verb list (14):
 | `register_loose`   | `--content-dir`               | wdapp register.                                        |
 | `install`          | `--package`                   | wdapp install.                                         |
 | `uninstall`        | `--package-name`              | wdapp uninstall.                                       |
-| `launch`           | `--package-name` or `--aumid` | Resolves AUMID via `wdapp list` when only PFN given.   |
+| `launch`           | `--package-name`              | Optional `--aumid` override; otherwise resolves AUMID via `wdapp list` from the package name. |
 | `terminate`        | `--package-name`              | Falls back to taskkill only for the exact bare `.exe` basename named by MicrosoftGame.config, with path/wildcard/quote characters rejected and the file required in the build dir. |
 | `sandbox`          | `--action {get,set,retail}`   | `set` also requires `--sandbox-id`.                    |
 | `config_template`  | (none)                        | Writes a starter MicrosoftGame.config; optional `--output`, `--overwrite`. |
