@@ -292,20 +292,29 @@ func disconnect_signal_handlers(obj: Object, signal_names: Array) -> void:
 
 # ── TestEnv convenience wrappers ─────────────────────────────────────────
 
-# Returns true when LIVE_TESTS=1 is set; otherwise marks the current test pending.
+# Tier=live_read. Returns true when LIVE_TESTS=1 is set (the test should
+# proceed). Returns false when not set (and marks the current test pending
+# with a clear reason — caller should `return` immediately after).
 func requires_live() -> bool:
-	if TestEnv.live_tests_enabled():
-		return true
-	pending("Skipped without LIVE_TESTS=1")
-	return false
+	if not TestEnv.live_tests_enabled():
+		pending("Tier=live_read: skipped without LIVE_TESTS=1. Run via `tools\\run_all_tests.ps1 -Live`.")
+		return false
+	return true
 
 
-# Returns true when both LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 are set.
+# Tier=live_write. Returns true when both LIVE_TESTS=1 and LIVE_WRITE_TESTS=1
+# are set. Tests that write state persisting in the live PlayFab title
+# (create lobby, post leaderboard entry, save Game Save, …) MUST gate on
+# this rather than on requires_live(), so they only run when the developer
+# has explicitly opted into the live-write tier against a sandbox title.
 func requires_live_write() -> bool:
-	if TestEnv.live_write_tests_enabled():
-		return true
-	pending("Skipped without LIVE_TESTS=1 and LIVE_WRITE_TESTS=1")
-	return false
+	if not TestEnv.live_tests_enabled():
+		pending("Tier=live_write: skipped without LIVE_TESTS=1.")
+		return false
+	if not TestEnv.live_write_tests_enabled():
+		pending("Tier=live_write: skipped without LIVE_WRITE_TESTS=1. Run via `tools\\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox-title>` against a sandbox title.")
+		return false
+	return true
 
 
 # Pending the current test unless LIVE_TESTS=1 is set. Returns true when
