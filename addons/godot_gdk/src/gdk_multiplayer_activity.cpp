@@ -1061,19 +1061,23 @@ Ref<GDKResult> GDKMultiplayerActivity::duplicate_context_for_user_internal(
         return GDKResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
     }
 
+    // Null-user check runs BEFORE the xbox-services check so callers get the
+    // more specific "invalid_user" code on a bare dev box where the runtime
+    // initialized but no Xbox Live user is signed in. Matches the ordering
+    // used by gdk_presence.cpp set_presence_async (runtime -> user -> services).
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
+        return GDKResult::error_result(
+                E_INVALIDARG,
+                "invalid_user",
+                "A signed-in GDKUser is required for multiplayer activity.");
+    }
+
     GDKXboxServices *xbox_services = get_xbox_services_internal();
     if (xbox_services == nullptr || !xbox_services->is_initialized()) {
         return GDKResult::error_result(
                 E_FAIL,
                 "xbox_services_not_initialized",
                 "Xbox services are unavailable. Ensure the title has a TitleId before using multiplayer activity.");
-    }
-
-    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
-        return GDKResult::error_result(
-                E_INVALIDARG,
-                "invalid_user",
-                "A signed-in GDKUser is required for multiplayer activity.");
     }
 
     HRESULT hr = xbox_services->duplicate_context_for_user(p_user, r_context, r_xbox_user_id);
