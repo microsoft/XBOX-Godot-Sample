@@ -2,10 +2,9 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## Wave 4 — Live PlayFab Leaderboards contract with eventual-consistency
 ## settling.
 ##
-## Read-only checks (`get_leaderboard_async`, `get_leaderboard_around_user_async`,
-## `get_friend_leaderboard_async`) are gated by `pending_unless_live()` +
-## `pending_unless_playfab_available()`. The submit + read-back round-trip is
-## live-only because it mutates a backing leaderboard.
+## All checks in this file are gated by `requires_live_write()` +
+## `pending_unless_playfab_available()` because the submit + read-back
+## round-trip mutates a backing leaderboard in the configured PlayFab title.
 ##
 ## Eventual consistency: PlayFab leaderboards do not always reflect a freshly
 ## submitted score on the next read. We use `TestEnv.poll_until` with the
@@ -29,7 +28,7 @@ func _begin_live_session() -> Dictionary:
 		"playfab": null,
 	}
 
-	if pending_unless_live():
+	if not requires_live_write():
 		return outcome
 	if pending_unless_playfab_available():
 		return outcome
