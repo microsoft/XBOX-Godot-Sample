@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <thread>
 #include <type_traits>
 
 namespace godot {
@@ -150,7 +151,18 @@ void CALLBACK GameInput::_on_device_callback(
         GameInputDeviceStatus current_status,
         GameInputDeviceStatus previous_status) {
     auto *self = static_cast<GameInput *>(context);
-    if (!self || !device || !self->m_accepting_callbacks.load(std::memory_order_acquire)) {
+    if (!self || !device) {
+        return;
+    }
+
+    // Hold an in-flight reference for the duration of this callback so
+    // shutdown() can wait until we're out of the singleton's data before
+    // releasing IGameInput / freeing the singleton. v3's UnregisterCallback
+    // does NOT fence pending callbacks the way v1's timeout parameter did.
+    self->m_callbacks_in_flight.fetch_add(1, std::memory_order_acquire);
+    if (!self->m_accepting_callbacks.load(std::memory_order_acquire) ||
+            self->m_shutting_down.load(std::memory_order_acquire)) {
+        self->m_callbacks_in_flight.fetch_sub(1, std::memory_order_release);
         return;
     }
 
@@ -158,23 +170,26 @@ void CALLBACK GameInput::_on_device_callback(
     bool is_connected  = (current_status  & GameInputDeviceConnected) != 0;
 
     if (is_connected == was_connected) {
+        self->m_callbacks_in_flight.fetch_sub(1, std::memory_order_release);
         return;
     }
 
     PendingDeviceEvent ev;
     ev.kind = is_connected ? PendingEventKind::Connected : PendingEventKind::Disconnected;
     ev.native_device = device;
-    // AddRef so the pointer is valid until the main thread processes it.
     device->AddRef();
 
     {
         std::lock_guard<std::mutex> lock(self->m_event_mutex);
         if (!self->m_accepting_callbacks.load(std::memory_order_acquire)) {
             device->Release();
+            self->m_callbacks_in_flight.fetch_sub(1, std::memory_order_release);
             return;
         }
         self->m_pending_events.push_back(ev);
     }
+
+    self->m_callbacks_in_flight.fetch_sub(1, std::memory_order_release);
 }
 
 void GameInput::_release_pending_events_locked() {
@@ -346,14 +361,27 @@ void GameInput::shutdown() {
 
     m_accepting_callbacks.store(false, std::memory_order_release);
 
+    // 1. Signal "no new work" so any callback that observes this bails
+    //    before touching singleton state.
+    m_shutting_down.store(true, std::memory_order_release);
+
+    // 2. Unregister. GameInput v3 dropped the timeout parameter that v1
+    //    accepted here and does not fence in-flight callbacks; the fence is
+    //    enforced below by m_callbacks_in_flight.
     if (m_game_input && m_device_callback_token) {
-        // UnregisterCallback blocks until in-flight callbacks finish; StopCallback does not.
         bool unregistered = m_game_input->UnregisterCallback(m_device_callback_token);
         if (!unregistered) {
             UtilityFunctions::push_warning(
                 "GameInput: UnregisterCallback() failed; late callbacks will be ignored.");
         }
         m_device_callback_token = 0;
+    }
+
+    // 3. Wait for any callback currently inside the body to exit. After
+    //    UnregisterCallback returns, no NEW callbacks will start, so this
+    //    spin is bounded by the longest in-flight body.
+    while (m_callbacks_in_flight.load(std::memory_order_acquire) != 0) {
+        std::this_thread::yield();
     }
 
     // Stop rumble + release every device cleanly.
@@ -380,6 +408,7 @@ void GameInput::shutdown() {
 
     m_initialized = false;
     m_last_polled_frame = UINT64_MAX;
+    m_shutting_down.store(false, std::memory_order_release);
     UtilityFunctions::print("GameInput: shutdown");
 }
 
