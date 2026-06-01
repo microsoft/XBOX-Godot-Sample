@@ -16,7 +16,6 @@ const DOC_MAKEPKG := "https://learn.microsoft.com/en-us/gaming/gdk/docs/features
 const DOC_GAME_CONFIG_EDITOR := "https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-config/microsoftgameconfig-editor"
 const DOC_ACHIEVEMENTS := "https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/tutorials/pc-e2e-guide/e2e-services/e2e-achievements"
 const DOC_PLAYFAB_GAME_MANAGER := "https://developer.playfab.com/en-us/r/sign-in"
-const DOC_PLAYFAB_IDS := "https://learn.microsoft.com/en-us/rest/api/playfab/client/account-management/get-playfab-ids-from-xbox-live-ids"
 const DOC_PLAYFAB_GDK := "https://learn.microsoft.com/en-us/gaming/playfab/sdks/c/quickstart-gdk"
 const DOC_PARTNER_CENTER := "https://partner.microsoft.com/dashboard"
 const DOC_PARTNER_CENTER_PRODUCT_FMT := "https://partner.microsoft.com/dashboard/products/%s"
@@ -30,21 +29,24 @@ var _config_import_plugin: EditorImportPlugin
 var _sandbox_dialog: AcceptDialog
 var _package_manager_dialog: AcceptDialog
 
-# Menu item IDs
+# Menu item IDs — grouped: local tools | web portals | documentation
 enum MenuID {
 	GETTING_STARTED,
 	SEP_0,
+	# Local tools
 	GAME_CONFIG,
 	OPEN_SANDBOX,
 	OPEN_PACKAGE_MANAGER,
 	SEP_1,
+	# Web portals
+	PARTNER_CENTER,
+	PLAYFAB_GAME_MANAGER,
+	SEP_2,
+	# Documentation
 	DOC_PACKAGING,
 	DOC_MAKEPKG,
 	DOC_CONFIG_EDITOR,
 	DOC_ACHIEVEMENTS,
-	PARTNER_CENTER,
-	DOC_PLAYFAB,
-	DOC_PLAYFAB_IDS_LINK,
 	DOC_PLAYFAB_GDK_LINK,
 }
 
@@ -85,17 +87,20 @@ func _enter_tree() -> void:
 		_gdk_popup.name = "GDKMenu"
 		_gdk_popup.add_item("Getting Started", MenuID.GETTING_STARTED)
 		_gdk_popup.add_separator("", MenuID.SEP_0)
+		# Local tools
 		_gdk_popup.add_item(_get_game_config_label(), MenuID.GAME_CONFIG)
 		_gdk_popup.add_item("Change Sandbox…", MenuID.OPEN_SANDBOX)
 		_gdk_popup.add_item("Package Manager…", MenuID.OPEN_PACKAGE_MANAGER)
 		_gdk_popup.add_separator("", MenuID.SEP_1)
+		# Web portals
+		_gdk_popup.add_item("Partner Center", MenuID.PARTNER_CENTER)
+		_gdk_popup.add_item("PlayFab Game Manager", MenuID.PLAYFAB_GAME_MANAGER)
+		_gdk_popup.add_separator("", MenuID.SEP_2)
+		# Documentation
 		_gdk_popup.add_item("PC Packaging Overview", MenuID.DOC_PACKAGING)
 		_gdk_popup.add_item("makepkg Reference", MenuID.DOC_MAKEPKG)
 		_gdk_popup.add_item("GameConfigEditor Reference", MenuID.DOC_CONFIG_EDITOR)
 		_gdk_popup.add_item("Achievements Guide", MenuID.DOC_ACHIEVEMENTS)
-		_gdk_popup.add_item("Partner Center", MenuID.PARTNER_CENTER)
-		_gdk_popup.add_item("PlayFab Game Manager", MenuID.DOC_PLAYFAB)
-		_gdk_popup.add_item("PlayFab IDs from Xbox Live", MenuID.DOC_PLAYFAB_IDS_LINK)
 		_gdk_popup.add_item("PlayFab + GDK Quickstart", MenuID.DOC_PLAYFAB_GDK_LINK)
 		_gdk_popup.id_pressed.connect(_on_menu_item_pressed)
 		_gdk_popup.about_to_popup.connect(_update_game_config_label)
@@ -168,6 +173,12 @@ func _on_menu_item_pressed(id: int) -> void:
 		MenuID.OPEN_PACKAGE_MANAGER:
 			_open_package_manager_dialog()
 
+		MenuID.PARTNER_CENTER:
+			_open_partner_center()
+
+		MenuID.PLAYFAB_GAME_MANAGER:
+			OS.shell_open(DOC_PLAYFAB_GAME_MANAGER)
+
 		MenuID.DOC_PACKAGING:
 			OS.shell_open(DOC_PC_PACKAGING)
 
@@ -179,15 +190,6 @@ func _on_menu_item_pressed(id: int) -> void:
 
 		MenuID.DOC_ACHIEVEMENTS:
 			OS.shell_open(DOC_ACHIEVEMENTS)
-
-		MenuID.PARTNER_CENTER:
-			_open_partner_center()
-
-		MenuID.DOC_PLAYFAB:
-			OS.shell_open(DOC_PLAYFAB_GAME_MANAGER)
-
-		MenuID.DOC_PLAYFAB_IDS_LINK:
-			OS.shell_open(DOC_PLAYFAB_IDS)
 
 		MenuID.DOC_PLAYFAB_GDK_LINK:
 			OS.shell_open(DOC_PLAYFAB_GDK)
