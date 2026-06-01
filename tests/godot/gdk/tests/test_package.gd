@@ -144,6 +144,12 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 	if pending_unless_package_enumeration_available(package_service):
 		return
 	var packages_result = package_service.enumerate_packages()
+	assert_not_null(packages_result, "enumerate_packages() returns GDKResult on packaged host")
+	if packages_result == null:
+		return
+	assert_true(packages_result.ok, "enumerate_packages() succeeds on packaged host: %s" % str(packages_result.message))
+	if not packages_result.ok:
+		return
 	assert_true(packages_result.data is Array, "enumerate_packages() returns Array payload")
 
 	const MISSING_ID := "gdk.tests.missing.id"
