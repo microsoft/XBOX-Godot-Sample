@@ -1,6 +1,6 @@
 # Godot XBOX Documentation
 
-Welcome to the documentation for the Godot for XBOX on PC repository — a collection of
+Welcome to the documentation for the Godot XBOX repository — a collection of
 Godot 4.x GDExtension addons for Windows gaming integrations around the
 Microsoft public GDK.
 
@@ -119,9 +119,9 @@ docs/
 
 ## Platform setup
 
-- [**Xbox Sandbox and Test Accounts**](platform/xbox-sandbox-and-test-accounts.md)
+- [**XBOX Sandbox and Test Accounts**](platform/xbox-sandbox-and-test-accounts.md)
   — switching the PC into a Partner Center sandbox, signing in the
-  Xbox app with a test account, and the error-code lookup table
+  XBOX app with a test account, and the error-code lookup table
 
 ## Troubleshooting
 

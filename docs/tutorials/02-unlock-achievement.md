@@ -2,7 +2,7 @@
 
 ## What you'll build
 
-A scene that watches the player rack up score, then unlocks an Xbox
+A scene that watches the player rack up score, then unlocks an XBOX
 achievement when they cross a threshold. By the end you will:
 
 - Have one achievement declared in Partner Center for your title.
@@ -10,7 +10,7 @@ achievement when they cross a threshold. By the end you will:
   GDScript using `GDK.achievements.update_achievement_async`.
 - React to the unlock by listening to the `achievement_unlocked`
   signal so your HUD / toast popup fires at the right moment.
-- Verify the unlock both in the Output panel and on the Xbox
+- Verify the unlock both in the Output panel and on the XBOX
   achievement viewer for the signed-in test account.
 
 When it works, the editor Output ends with:
@@ -36,7 +36,7 @@ When it works, the editor Output ends with:
     The snippets below use `FIRST_SCORE_ID = "1"`.
   - **Title ID** + **SCID** wired into `MicrosoftGame.config`
     (handled in the quickstart).
-- The PC is in the same Xbox sandbox the achievement was
+- The PC is in the same XBOX sandbox the achievement was
   declared in. New achievement metadata only propagates to the
   sandbox you authored it in until you promote it to retail.
 
@@ -99,7 +99,7 @@ achievement declared for the title, including `FIRST_SCORE_ID`. If
 the list is empty you are either in the wrong sandbox, the
 declaration has not propagated yet, or the test account does not have
 access to the title — fix that before moving on. The PlayFab-side
-sign-in is incidental to this query; only `GDK.users` and the Xbox
+sign-in is incidental to this query; only `GDK.users` and the XBOX
 sandbox matter here.
 
 ## Step 2 — Stage incremental progress
@@ -143,7 +143,7 @@ A couple of notes:
 - Achievement progress is **monotonic** on the service side. Pushing
   `50` after `100` is silently treated as `100`, so guarding for
   re-progress is not required.
-- The `achievement_unlocked` signal is driven by the Xbox
+- The `achievement_unlocked` signal is driven by the XBOX
   Achievements Manager, which dispatches once `GDK.dispatch()` pumps
   it. On Godot 4.5+, the addon does this every process frame by
   default (via `gdk/runtime/embed_dispatch`), so connecting the
@@ -154,7 +154,7 @@ A couple of notes:
 ## Step 3 — Hook unlocks into your real game
 
 In a real game the score update lives at the gameplay layer, not in
-a demo `_ready`. The bridge from "gameplay progress" to "Xbox
+a demo `_ready`. The bridge from "gameplay progress" to "XBOX
 progress" is small enough that it usually fits in one helper on
 your `Auth` autoload or a peer achievements singleton:
 
@@ -228,7 +228,7 @@ A successful run prints, in order:
 [Ach] Unlocked: First Score
 ```
 
-On the Xbox app for the signed-in test account, opening the title's
+On the XBOX app for the signed-in test account, opening the title's
 achievements view should show **First Score** with the unlock
 timestamp.
 
@@ -236,7 +236,7 @@ Common failures:
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| Achievement count is `0` | Wrong sandbox or the achievement has not propagated to your sandbox yet. | Use **GDK → Change Sandbox…** to switch to the sandbox you authored in. |
+| Achievement count is `0` | Wrong sandbox or the achievement has not propagated to your sandbox yet. | Use **Microsoft GDK → Change Sandbox…** to switch to the sandbox you authored in. |
 | `Update to 50% failed: invalid_argument (...)` | The `achievement_id` does not exist in this title's declared list. | Check the id in Partner Center — it is a small integer like `"1"`, not a slug. |
 | `Update to 50% failed: unauthorized (...)` | The signed-in user has no rights to the title (no test-account assignment). | Add the test account to the title's sandbox in Partner Center. |
 | `[Ach] Updated to 100% — result ok` but no `Unlocked` signal | A second copy of the unlock listener already consumed it, or the achievement was previously unlocked for this account. | Check `progress_percent` and `unlocked` on the cached entry; once unlocked the signal stays silent on repeat 100% pushes. |

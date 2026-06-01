@@ -37,7 +37,7 @@ that need a human + hardware in the loop.
 
 ### Device discovery (one controller)
 
-Plug in any GameInput-compatible gamepad (Xbox Series, Xbox One, Elite,
+Plug in any GameInput-compatible gamepad (XBOX Series, XBOX One, Elite,
 Razer Wolverine, etc.) **before** initializing.
 
 - [ ] After **Initialize GameInput**, state panel reports `Devices: 1`.

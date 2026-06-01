@@ -54,7 +54,7 @@ unresolvable during CMake configure.
 **Cause:** vcpkg manifest mode could not resolve the `ms-gdk[playfab]` or
 `gameinput` ports defined in the repo's `vcpkg.json`. (The `installed-gdk`
 preset does not require vcpkg at all — see
-[Source for the GDK dependency](getting-started.md#source-for-the-gdk-dependency).)
+[Source for the Microsoft GDK dependency](getting-started.md#source-for-the-microsoft-gdk-dependency).)
 
 **Fixes:**
 
@@ -324,7 +324,7 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
 `GDKUser` object and reads its `local_id` to find the matching
 `XUserHandle`. Two failure paths show up most often:
 
-- `invalid_xuser` — the GDK user you passed in is `null`, has not
+- `invalid_xuser` — the Microsoft GDK user you passed in is `null`, has not
   finished sign-in (`signed_in == false`), or does not expose a
   non-zero `local_id`. Most common cause: handing `PlayFab` a stale
   `Auth.xbox_user` from before sign-in completed.

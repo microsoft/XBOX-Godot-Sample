@@ -86,7 +86,7 @@ errors in `MicrosoftGame.config`, etc.).
 - [Godot 4.5+](https://godotengine.org/download) (stable, Windows 64-bit)
 - [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed on
   every machine that runs the game (the XBOX runtime DLLs the addons depend
-  on resolve from the GDK install). `winget install Microsoft.Gaming.GDK`.
+  on resolve from the Microsoft GDK install). `winget install Microsoft.Gaming.GDK`.
 
 ### To make XBOX sign-in actually work
 
@@ -282,7 +282,7 @@ runtime/embed_dispatch=true          ; pump async completions in _process (defau
 ```
 
 When `initialize_on_startup` is `true`, the `PlayFabBootstrap` autoload
-calls `PlayFab.initialize()` during `_ready` — the same shape as the GDK
+calls `PlayFab.initialize()` during `_ready` — the same shape as the Microsoft GDK
 bootstrap. Sign-in is still in your code because PlayFab needs a
 per-player key (a `GDKUser` or a custom id).
 
@@ -370,7 +370,7 @@ already signed into the XBOX app on the PC, it returns a non-ok result
 system account picker on screen instead.
 
 For the full method/signal table see
-[GDK API reference → `GDK.users`](gdk/api-reference.md#users-service-gdkusers).
+[Microsoft GDK API reference → `GDK.users`](gdk/api-reference.md#users-service-gdkusers).
 
 > Real XBOX Live sign-in needs Partner Center configuration, the right
 > sandbox set on the PC, and a test account signed into the XBOX app —
@@ -432,7 +432,7 @@ func _sign_in_to_playfab() -> void:
 ```
 
 If you don't have an XBOX account yet (or are testing on a machine
-without GDK Live setup), use the no-XBOX custom-ID path:
+without Microsoft GDK Live setup), use the no-XBOX custom-ID path:
 
 ```gdscript
 var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
@@ -440,7 +440,7 @@ var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
 ```
 
 `sign_in_with_xuser_async` returns `invalid_xuser` if you pass a null or
-signed-out GDK user, so always confirm `XBOX_user.signed_in` first.
+signed-out Microsoft GDK user, so always confirm `XBOX_user.signed_in` first.
 PlayFab Game Saves additionally require an XBOX-backed PlayFab session
 (custom-id users will get `XBOX_user_required` from `PlayFab.game_saves`
 methods).
@@ -472,10 +472,10 @@ test-account guide.
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
-| `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the GDK is installed on the machine that runs the game |
+| `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing Microsoft GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the Microsoft GDK is installed on the machine that runs the game |
 | Silent sign-in returns `no_default_user` | No test account signed in to the XBOX app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the XBOX app — see [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md) |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
-| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `XBOX_user != null and XBOX_user.signed_in` before calling |
+| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out Microsoft GDK user | Verify `XBOX_user != null and XBOX_user.signed_in` before calling |
 | `PlayFab.game_saves` returns `XBOX_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
 
 ---
@@ -485,7 +485,7 @@ test-account guide.
 - [**Tutorials**](tutorials/README.md) — task-oriented walkthroughs
   for sign-in, achievements, leaderboards, Game Saves, lobbies, and
   GameInput. Recommended next stop once you have signed in.
-- [GDK API reference](gdk/api-reference.md) — full list of services
+- [Microsoft GDK API reference](gdk/api-reference.md) — full list of services
   (`GDK.users`, `GDK.achievements`, `GDK.leaderboards`,
   `GDK.multiplayer_activity`, `GDK.store`, `GDK.system`, …)
 - [PlayFab plugin overview](playfab/plugin.md) — `PlayFab.users`,
@@ -561,11 +561,11 @@ cmake --preset gameinput-only
 cmake --build --preset debug-gameinput
 ```
 
-### Source for the GDK dependency
+### Source for the Microsoft GDK dependency
 
-By default, the build resolves the GDK headers and import libs through
+By default, the build resolves the Microsoft GDK headers and import libs through
 the `ms-gdk[playfab]` vcpkg port (`default` preset). This requires only
-a vcpkg checkout — no machine-wide GDK install is needed at build time.
+a vcpkg checkout — no machine-wide Microsoft GDK install is needed at build time.
 
 If you already have a Microsoft GDK installed on disk (most developers
 do, for `makepkg.exe` / `wdapp.exe` / Game Config Editor), the
@@ -582,19 +582,19 @@ cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft
 ```
 
 > **Note:** the `installed-gdk` preset is the only supported way to
-> consume an installed GDK. Setting `-DGDK_DEPENDENCY_SOURCE=installed`
+> consume an installed Microsoft GDK. Setting `-DGDK_DEPENDENCY_SOURCE=installed`
 > on the `default` preset does **not** work — the vcpkg toolchain
 > processes manifest features (and restores `ms-gdk[playfab]`) before
-> the GDK source-selection logic runs. The `installed-gdk` preset
+> the Microsoft GDK source-selection logic runs. The `installed-gdk` preset
 > sidesteps this by not loading the vcpkg toolchain at all.
 
 Installed mode consumes the modern `windows\` subdirectory layout of the
-GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
-`<install>/windows/bin/x64`) that ships in GDK **260400 / April 2026 and
+Microsoft GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
+`<install>/windows/bin/x64`) that ships in Microsoft GDK **260400 / April 2026 and
 later**. The legacy `GRDK\` peer layout is not supported; use the
-`default` preset (vcpkg) for older GDK versions.
+`default` preset (vcpkg) for older Microsoft GDK versions.
 
-**GameInput in installed mode** — the installed GDK ships GameInput v1
+**GameInput in installed mode** — the installed Microsoft GDK ships GameInput v1
 only, but the `godot_gameinput` addon targets v3. The `installed-gdk`
 preset solves this by setting `GAMEINPUT_SOURCE=nuget`, which fetches
 the `Microsoft.GameInput` NuGet package directly from nuget.org via
@@ -622,7 +622,7 @@ Source-selection options:
 The build resolves its native dependencies via vcpkg manifest mode. CMake
 reads `vcpkg.json` + `vcpkg-configuration.json` at the repo root and pulls
 in the `ms-gdk[playfab]` and `gameinput` ports for you. There is no
-machine-wide GDK install required for compilation — set `VCPKG_ROOT` and
+machine-wide Microsoft GDK install required for compilation — set `VCPKG_ROOT` and
 run the `default` preset.
 
 If you ever need to point at a specific vcpkg toolchain file (for example,
@@ -681,7 +681,7 @@ included `.vscode/c_cpp_properties.json`. If you see red squiggles on
 
 1. Ensure you've **built at least once** — godot-cpp headers are generated
    during the first build into `build/godot-cpp/gen/include/`, and vcpkg
-   stages the GDK + GameInput headers into `build/vcpkg_installed/`.
+   stages the Microsoft GDK + GameInput headers into `build/vcpkg_installed/`.
 2. Ensure `VCPKG_ROOT` is set in your environment so the IntelliSense
    include paths resolve. If you point IntelliSense at a different vcpkg
    install than the build uses, update `.vscode/c_cpp_properties.json` to

@@ -37,12 +37,12 @@ Sample output (host side):
 - Two Godot processes (one host, one client). The simplest way to
   test on one PC is to run the host scene in the editor and a
   separate exported build for the client, each signed into a
-  different Xbox test account. Two editors with two different
+  different XBOX test account. Two editors with two different
   PlayFab sessions also works as long as both PCs are in the same
   sandbox.
-- `Auth.playfab_user` resolves to an Xbox-backed PlayFab session
+- `Auth.playfab_user` resolves to an XBOX-backed PlayFab session
   for the snippets below. Custom-ID sessions also work for lobby
-  but invites from the Xbox shell will not.
+  but invites from the XBOX shell will not.
 
 > **Lobby vs. Matchmaking.** Lobbies are persistent rooms identified
 > by a lobby id and a connection string. Matchmaking
@@ -73,7 +73,7 @@ Sample output (host side):
 - [`GDK.presence`](../../addons/godot_gdk/doc_classes/GDKPresence.xml)
   — `set_presence_async`, `clear_presence_async`, signal
   `local_presence_set`. Used in Step 8 to advertise the local
-  user's lobby state to Xbox friends. The `state` parameter is a
+  user's lobby state to XBOX friends. The `state` parameter is a
   **rich-presence ID** registered on the title in Partner Center,
   not a freeform string; if your title has no presence IDs
   configured, skip Step 8 — the rest of the lobby flow still works.
@@ -259,7 +259,7 @@ is two layers:
    controls, restricted accounts, missing subscription. Result
    data carries `has_privilege: bool` and a `deny_reason: String`.
 2. When `has_privilege` comes back `false` and the runtime allows
-   the user to fix it (sign in to Xbox Live, accept the
+   the user to fix it (sign in to XBOX Live, accept the
    subscription prompt, ask a parent), `resolve_privilege_with_ui_async`
    pops the system UI to walk the user through it. The same
    signal returns the post-resolution `has_privilege`.
@@ -505,7 +505,7 @@ either:
 - A `find_lobbies_async` call against the `search_properties` you
   set on the host. PlayFab filter syntax uses the reserved search
   keys, for example `string_key1 eq 'casual'`.
-- An Xbox-shell invite — the host invites a friend, the client side
+- An XBOX-shell invite — the host invites a friend, the client side
   receives `PlayFab.multiplayer.invite_received` with a
   `PlayFabLobbyInvite.connection_string`, and the client calls
   `join_lobby_async` with that string.
@@ -632,11 +632,11 @@ This step requires one piece of **Partner Center title config** —
 a rich-presence ID registered against your title's SCID. If your
 title has none configured yet, skip the step; the rest of the
 chain still works. Configuring a presence ID is a one-time per-
-title step in Partner Center → Xbox Live → Rich Presence.
+title step in Partner Center → XBOX Live → Rich Presence.
 
 Assuming you registered a presence ID called `in_lobby`, extend
 your `Lobby` autoload so successful host / join sets the local
-user's Xbox presence, and `leave` clears it:
+user's XBOX presence, and `leave` clears it:
 
 ```gdscript
 const PRESENCE_IN_LOBBY := "in_lobby"
@@ -685,7 +685,7 @@ func leave_lobby() -> bool:
 Notes:
 
 - `set_presence_async`'s `state` argument is the **presence ID
-  string** from Partner Center, not a UI-display string. Xbox
+  string** from Partner Center, not a UI-display string. XBOX
   resolves it on the friend's shell to whatever localized text
   you authored against that ID.
 - The optional `rich_presence` Dictionary lets you pass

@@ -38,8 +38,8 @@ Sample output (host side):
 ## Prerequisites
 
 - [Tutorial 1 — Sign in a user](01-sign-in-user.md) is complete and
-  `Auth.playfab_user` resolves to an Xbox-backed PlayFab session on
-  both sides. Custom-ID sessions also work for Party but Xbox-shell
+  `Auth.playfab_user` resolves to an XBOX-backed PlayFab session on
+  both sides. Custom-ID sessions also work for Party but XBOX-shell
   invites will not.
 - [Tutorial 5 — Create and join a lobby](05-multiplayer-lobby.md) is
   complete. This tutorial assumes the host has already called
@@ -59,7 +59,7 @@ Sample output (host side):
   be enabled manually. See
   [PlayFab title prerequisites — §2 Party](../playfab/prerequisites.md#party-t7-t8).
 - Two Godot processes (host + client), each signed into a different
-  Xbox test account in the same sandbox. As with the lobby tutorial,
+  XBOX test account in the same sandbox. As with the lobby tutorial,
   the easiest setup is one editor scene as host and an exported
   build as client; two editors with different PlayFab sessions also
   work.
@@ -697,7 +697,7 @@ Notes:
   (covered in Step 7); checking permissions at network-create
   time would be too early — the peer isn't there yet.
 - For chat permission **changes mid-session** (the local user
-  blocks a remote peer through the Xbox shell), the addon fires
+  blocks a remote peer through the XBOX shell), the addon fires
   `chat_permissions_changed(peer_id, permissions)`. Re-run the
   same `check_permission_async` flow against the affected peer
   in response and call `set_peer_chat_permissions_async` again.
@@ -913,7 +913,7 @@ Common failures:
 | Output | Diagnosis | Fix |
 |---|---|---|
 | `init failed: party_not_initialized` | `PartyManager` startup failed. | Check that the title has **Multiplayer → Party** enabled in PlayFab Game Manager and that `PlayFab.initialize()` resolved cleanly. |
-| `create_and_join failed: party_invalid_user` | The signed-in `PlayFabUser` doesn't have an entity token, or the title id doesn't match. | Run Tutorial 1's sign-in to completion; `PlayFab.users.sign_in_*` must resolve to an Xbox-backed or Custom-ID `PlayFabUser` first. |
+| `create_and_join failed: party_invalid_user` | The signed-in `PlayFabUser` doesn't have an entity token, or the title id doesn't match. | Run Tutorial 1's sign-in to completion; `PlayFab.users.sign_in_*` must resolve to an XBOX-backed or Custom-ID `PlayFabUser` first. |
 | `create_and_join failed: party_network_create_failed` or `party_network_connect_failed` | The Party service rejected the create or the local user failed to authenticate into the new network. | Re-check the title's Party configuration; verify the network and the local user are not already part of another network (`party_network_already_active`). |
 | `join_network failed: party_descriptor_invalid` | The descriptor string was empty or malformed when the client called `join_network_async`. | Confirm the host's descriptor arrived through `change.lobby.properties` and is non-empty before joining. |
 | Host prints `Network created` but never `Descriptor ready` | The descriptor finalization didn't reach `NETWORK_CHANGE_DESCRIPTOR_UPDATED` and was not populated synchronously after the await either. | Confirm `_network.state_changed` is connected in `host_party()` before yielding control; do not reassign `_network` between the await and the signal. |
@@ -957,7 +957,7 @@ From here you might also want to:
 - **Cross-platform voice.** Set
   `direct_peer_connectivity = DIRECT_PEER_CONNECTIVITY_ANY`
   on `PlayFabPartyConfig` (as in the snippets above) when you
-  expect PC ↔ Xbox sessions. `DIRECT_PEER_CONNECTIVITY_ANY` is
+  expect PC ↔ XBOX sessions. `DIRECT_PEER_CONNECTIVITY_ANY` is
   shorthand for "any platform type + any login provider", which is
   the SDK's required pairing. Same-platform-only is a small latency
   win when you ship single-platform builds — e.g.

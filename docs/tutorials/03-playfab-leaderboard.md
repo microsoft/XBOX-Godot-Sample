@@ -13,7 +13,7 @@ the page first. By the end you will:
 - Page through the result with `start_position` + `page_size` and
   read the same leaderboard "around the player" with
   `get_leaderboard_around_user_async`.
-- Pull an **Xbox-friend leaderboard** with
+- Pull an **XBOX-friend leaderboard** with
   `get_friend_leaderboard_async(..., include_xbox_friends=true)`.
 
 Sample output:
@@ -54,9 +54,9 @@ Sample output:
 - For the friend leaderboard step: `Auth.playfab_user` was obtained
   via `PlayFab.users.sign_in_with_xuser_async(Auth.xbox_user)`, not
   `sign_in_with_custom_id_async`. The friend-leaderboard call needs
-  the local Xbox token, which is only available when the PlayFab
-  session is backed by an Xbox user. The signed-in test account must
-  also have at least one Xbox friend who has submitted a score.
+  the local XBOX token, which is only available when the PlayFab
+  session is backed by an XBOX user. The signed-in test account must
+  also have at least one XBOX friend who has submitted a score.
 
 > **Why statistic-backed instead of direct writes?** PlayFab's
 > `LeaderboardsV2/UpdateLeaderboardEntries` is, by default,
@@ -68,14 +68,14 @@ Sample output:
 > [Troubleshooting → PlayFab leaderboard submit returns 0x89235472](../troubleshooting.md#playfab-leaderboard-submit-fails-with-e_pf_api_not_enabled_for_game_client_access-0x89235472)
 > for the diagnostic context.
 
-> **PlayFab leaderboards vs. GDK leaderboards.** PlayFab leaderboards
+> **PlayFab leaderboards vs. Microsoft GDK leaderboards.** PlayFab leaderboards
 > are an explicitly **versioned** resource: a leaderboard is created
 > in Game Manager with a reset cadence (or a manual reset endpoint),
 > and every reset increments `version`. Statistics carry their own
-> version that the leaderboard tracks. The GDK leaderboard surface
-> (`GDK.leaderboards` + `GDK.stats`) is a separate Xbox Live service
+> version that the leaderboard tracks. The Microsoft GDK leaderboard surface
+> (`GDK.leaderboards` + `GDK.stats`) is a separate XBOX Live service
 > with a different reset model; the two are not interchangeable.
-> This tutorial uses PlayFab; the GDK surface remains available in
+> This tutorial uses PlayFab; the Microsoft GDK surface remains available in
 > the addon for titles that prefer it.
 
 ## Relevant addon surfaces
@@ -290,7 +290,7 @@ below** the player, so the page size you see is roughly `2N + 1`
 when there are enough rows on either side. Pass `3` for a 7-row
 ribbon, `10` for a 21-row panel, etc.
 
-## Step 5 — Pull the Xbox-friend leaderboard
+## Step 5 — Pull the XBOX-friend leaderboard
 
 For social cards and "challenge a friend" UI, switch to
 `get_friend_leaderboard_async` with `include_xbox_friends=true`:
@@ -313,15 +313,15 @@ func _print_xbox_friend_leaderboard() -> void:
         print("[Lead]   #%d  %s — %d" % [row.get("rank", 0), _display_name(row), _primary_score(row)])
 ```
 
-`include_xbox_friends=true` is what makes this an *Xbox-friend*
+`include_xbox_friends=true` is what makes this an *XBOX-friend*
 leaderboard rather than a PlayFab-friend leaderboard. The addon
-acquires an Xbox token for the local PlayFab API call, which only
+acquires an XBOX token for the local PlayFab API call, which only
 works when the `PlayFabUser` was created with
 `sign_in_with_xuser_async`. A custom-ID PlayFab session is allowed
-to call this method but the **Xbox-friend half** of the query
+to call this method but the **XBOX-friend half** of the query
 returns an empty list — only mutual PlayFab friends appear.
 
-For PlayFab-only friend graphs pass `false` and skip the Xbox
+For PlayFab-only friend graphs pass `false` and skip the XBOX
 prereq; mutual PlayFab friends still appear either way.
 
 ## Verify
@@ -352,8 +352,8 @@ Common failures:
 | `get_leaderboard failed: not_found` | The leaderboard name does not match a leaderboard configured in Game Manager, or no entity has a statistic value yet. | Confirm the leaderboard exists and is sourced from the statistic. Then record at least one score (your own counts). |
 | Leaderboard renders `(no entries)` even after a successful record | The leaderboard is sourced from a different statistic than the one being written, or the rankings have not refreshed yet. | Confirm the Game Manager leaderboard's source statistic matches `STATISTIC_NAME`. Statistic-to-leaderboard propagation is typically a few seconds; wait and re-query. |
 | Around-user returns only one row | You are the only entity with a value in this statistic version. | Record values from a second test account, or use the global query for the demo. |
-| `friend leaderboard failed: missing_xbox_token` | `Auth.playfab_user` was created with `sign_in_with_custom_id_async`, so no Xbox token is available. | Switch the session to `PlayFab.users.sign_in_with_xuser_async(Auth.xbox_user)`. |
-| Xbox-friend page is empty for a friended account | The friend has never recorded the statistic, or you and the friend are in different PlayFab titles in the same Xbox sandbox. | Have the friend record a score; confirm the same PlayFab title id on both accounts. |
+| `friend leaderboard failed: missing_xbox_token` | `Auth.playfab_user` was created with `sign_in_with_custom_id_async`, so no XBOX token is available. | Switch the session to `PlayFab.users.sign_in_with_xuser_async(Auth.xbox_user)`. |
+| XBOX-friend page is empty for a friended account | The friend has never recorded the statistic, or you and the friend are in different PlayFab titles in the same XBOX sandbox. | Have the friend record a score; confirm the same PlayFab title id on both accounts. |
 
 ## Reference implementation
 

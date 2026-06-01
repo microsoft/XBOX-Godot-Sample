@@ -3,7 +3,7 @@
 ## What you'll build
 
 A persistent save flow on top of PlayFab Game Saves, backed by the
-Xbox-signed-in PlayFab session you reached in tutorial 1. By the end
+XBOX-signed-in PlayFab session you reached in tutorial 1. By the end
 you will:
 
 - Add the signed-in PlayFab user to Game Saves with
@@ -32,11 +32,11 @@ Sample output:
   `has_local_user_handle == true`. PlayFab sessions that were created
   with `sign_in_with_custom_id_async` are rejected by every Game
   Saves call with the `xbox_user_required` code — Game Saves is
-  Xbox-backed only.
+  XBOX-backed only.
 - The title-side Game Saves configuration is in place: a `CloudSaves`
   block is present in `MicrosoftGame.config`, and the signed-in
-  PlayFab session is Xbox-backed. The walkthrough — including the
-  template written by **GDK → Create MicrosoftGame.config** and the
+  PlayFab session is XBOX-backed. The walkthrough — including the
+  template written by **Microsoft GDK → Create MicrosoftGame.config** and the
   procedure for updating older configurations — is documented in
   [PlayFab title prerequisites — §2 Game Saves](../playfab/prerequisites.md#game-saves-t4-t8).
 - Network connectivity for the cloud sync round-trips. Game Saves
@@ -44,11 +44,11 @@ Sample output:
   result has an explicit "cloud connected" bit you can check.
 
 > **Game Saves vs. PlayFab title data / entity data.** Game Saves is
-> the Xbox-attached blob store that follows the Xbox account across
+> the XBOX-attached blob store that follows the XBOX account across
 > devices and surfaces in the system Cloud Saves UI. Use it for
 > player-progress blobs. Use `PlayFab.entity_data` or
 > `PlayFab.player_data` for structured per-player JSON that does not
-> need the Xbox-backed sync semantics.
+> need the XBOX-backed sync semantics.
 
 ## Relevant addon surfaces
 
@@ -58,7 +58,7 @@ Sample output:
   `is_connected_to_cloud`, `set_save_description_async`,
   `reset_cloud_async`.
 - [`PlayFabUser`](../../addons/godot_playfab/doc_classes/PlayFabUser.xml) — read
-  `has_local_user_handle` to confirm an Xbox-backed session.
+  `has_local_user_handle` to confirm an XBOX-backed session.
 - One-page primer on the addons' async model:
   [Async patterns](../async-patterns.md).
 
@@ -278,7 +278,7 @@ func _on_resolve_action(action: StringName) -> void:
 A few discipline points worth pinning down before you ship this:
 
 - **Pre-flight before showing the dialog.** Game Saves only
-  supports Xbox-backed sessions, so check
+  supports XBOX-backed sessions, so check
   `Auth.playfab_user.has_local_user_handle` first and refuse to
   open the dialog (rather than letting `add_user_with_ui_async`
   fail under the player's nose).
@@ -317,7 +317,7 @@ Common failures:
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| `Add user failed: xbox_user_required` | The PlayFab session is custom-id, not Xbox-backed. | Sign in through `sign_in_with_xuser_async` (tutorial 1), not `sign_in_with_custom_id_async`. |
+| `Add user failed: xbox_user_required` | The PlayFab session is custom-id, not XBOX-backed. | Sign in through `sign_in_with_xuser_async` (tutorial 1), not `sign_in_with_custom_id_async`. |
 | `Add user failed: not_initialized` | PlayFab runtime did not initialize. | Set `playfab/runtime/title_id` and re-run sign-in. |
 | `Upload failed: out_of_quota` | The save folder is over the per-user quota. | Trim files in `_save_folder` before retrying; `get_remaining_quota` reports the budget. |
 | `Upload failed: not_connected` | The PC has no internet, or PlayFab Game Saves connectivity dropped. | Cache the local write and retry the upload when connectivity returns. `is_connected_to_cloud(user)` is your check. |

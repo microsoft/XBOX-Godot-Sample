@@ -7,7 +7,7 @@ relevant) `godot_gameinput`, so once you know it for one method you
 know it for all of them.
 
 This page is the one-page intro the tutorials assume. For the deeper
-implementation view of the GDK side specifically (native runtime
+implementation view of the Microsoft GDK side specifically (native runtime
 queue, `XAsyncBlock` bridge, `XTaskQueueHandle`), see
 [`gdk/async-system.md`](gdk/async-system.md).
 
@@ -15,7 +15,7 @@ queue, `XAsyncBlock` bridge, `XTaskQueueHandle`), see
 
 A method whose name ends in `_async` returns a Godot
 [`Signal`](https://docs.godotengine.org/en/stable/classes/class_signal.html)
-that fires **exactly once** when the underlying GDK / PlayFab /
+that fires **exactly once** when the underlying Microsoft GDK / PlayFab /
 GameInput operation completes:
 
 | Addon           | Example                                                 |
@@ -135,7 +135,7 @@ There are two distinct error surfaces. Tutorials lean on both:
        push_warning("[Ach] subsystem error: %s" % result.message)
    ```
 
-Service-level runtime signals exist on most GDK services that have
+Service-level runtime signals exist on most Microsoft GDK services that have
 their own native callback path (`GDK.achievements`, `GDK.social`,
 `GDK.presence`, `GDK.multiplayer_activity`, …) and on the major
 PlayFab services that wrap a background callback queue
@@ -183,9 +183,9 @@ In normal app code you should never need to call `dispatch()`.
 ## See also
 
 - [`gdk/async-system.md`](gdk/async-system.md) — the deep view of the
-  GDK side (native runtime, `XAsyncBlock` bridge, `XTaskQueueHandle`
+  Microsoft GDK side (native runtime, `XAsyncBlock` bridge, `XTaskQueueHandle`
   ownership, per-service `runtime_error` semantics).
-- [`gdk/api-reference.md`](gdk/api-reference.md) — the full GDK
+- [`gdk/api-reference.md`](gdk/api-reference.md) — the full Microsoft GDK
   surface, organized by service. Every `_async` method is listed
   with its return signal and `Result.data` shape.
 - [`playfab/plugin.md`](playfab/plugin.md) — the PlayFab side,

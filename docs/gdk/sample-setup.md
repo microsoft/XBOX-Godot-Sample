@@ -1,9 +1,9 @@
-# Godot GDK sample project setup
+# Godot Microsoft GDK sample project setup
 
 The integrated tutorial sample needs your **Partner Center** credentials to
-work with Xbox Live services. The supported setup paths are the repo CLI script
+work with XBOX Live services. The supported setup paths are the repo CLI script
 or manually editing the local config files and Project Settings. The
-`godot_gdk` editor plugin no longer docks a **GDK Setup** panel; it keeps the
+`godot_gdk` editor plugin no longer docks a **Microsoft GDK Setup** panel; it keeps the
 runtime autoload installed and registers the `Xbox GDK (PC)` export platform.
 
 ## Prerequisites
@@ -11,27 +11,27 @@ runtime autoload installed and registers the `Xbox GDK (PC)` export platform.
 1. **Register your title** in the
    [Partner Center dashboard](https://partner.microsoft.com/dashboard).
    If you don't have a publisher account yet, start with the
-   [ID@Xbox program](https://www.xbox.com/en-us/developers/id) and the
+   [ID@XBOX program](https://www.xbox.com/en-us/developers/id) and the
    [Microsoft Game Stack publisher hub](https://developer.microsoft.com/en-us/games/publish/).
-2. **Create test accounts** in Partner Center → Account Settings → Xbox Live
+2. **Create test accounts** in Partner Center → Account Settings → XBOX Live
    → Test Accounts
-3. **Configure achievements** (optional) in Partner Center → Xbox Live →
+3. **Configure achievements** (optional) in Partner Center → XBOX Live →
    Achievements, then publish to your sandbox. See
    [Microsoft GDK — Achievements](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/player-data/achievements/live-achievements-nav)
    for the authoring walkthrough.
-4. Gather these values from Partner Center → Xbox Live → Xbox Live Setup
+4. Gather these values from Partner Center → XBOX Live → XBOX Live Setup
    (see
-   [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   [Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
    and
    [Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)):
 
 | Value | Where to find it | Example |
 |-------|-------------------|---------|
-| Title ID | Xbox Live Setup | `6718942c` |
-| MSA App ID | Xbox Live Setup | `93900f42-4313-...` |
+| Title ID | XBOX Live Setup | `6718942c` |
+| MSA App ID | XBOX Live Setup | `93900f42-4313-...` |
 | Store ID | Product identity page | `9XXXXXXXXX` |
-| SCID | Xbox Live Setup | `00000000-0000-0000-0000-000067...` |
-| Sandbox ID | Xbox Live Setup | `XDKS.1` |
+| SCID | XBOX Live Setup | `00000000-0000-0000-0000-000067...` |
+| Sandbox ID | XBOX Live Setup | `XDKS.1` |
 | Publisher CN | Product identity page | `CN=XXXXXXXX-XXXX-...` |
 
 ## Title-owned values checklist
@@ -55,7 +55,7 @@ own game code:
   development machine.
 - **Peer-XUID prerequisites:** additional signed-in test accounts/XUIDs for
   invites, recent-player updates, profile-card UI, reputation feedback, and any
-  other peer-targeted Xbox service flow.
+  other peer-targeted XBOX service flow.
 
 ## Option A: Configure via CLI (recommended)
 
@@ -89,10 +89,10 @@ The generated files are gitignored, so your credentials stay local.
    plugins after the CMake build mirrors them into `sample\tutorial_app\addons\`.
 4. Review **Project → Project Settings** for `gdk/runtime/*` startup settings
    and any PlayFab runtime values needed by the tutorial scenes.
-5. For editor-driven packaging, use **Project → Export… → Add… → Xbox GDK (PC)**.
+5. For editor-driven packaging, use **Project → Export… → Add… → `Xbox GDK (PC)`**.
    For scripted packaging and sandbox actions, use the separate
    `godot_gdk_packaging` addon (`addons\godot_gdk_packaging\gdkpkg.cmd` or its
-   top-level **GDK** editor menu).
+   top-level **Microsoft GDK** editor menu).
 
 ## Set your PC sandbox
 
@@ -110,7 +110,7 @@ The short version:
 
 ## Test account sign-in
 
-The sample uses **Xbox test accounts**, not personal Microsoft accounts:
+The sample uses **XBOX test accounts**, not personal Microsoft accounts:
 
 1. Ensure your PC sandbox matches the sandbox in Partner Center
 2. Launch the sample — it will attempt silent sign-in automatically
@@ -159,11 +159,11 @@ This signs into Partner Center via `XblDevAccount.exe`, then calls
 `XblPlayerDataReset.exe` to wipe achievements, stats, and leaderboards for
 the specified test account. You'll need:
 
-- **Service Config ID (SCID)** — from Partner Center → Xbox Live → Xbox Live
+- **Service Config ID (SCID)** — from Partner Center → XBOX Live → XBOX Live
   Setup
 - **Sandbox ID** — the development sandbox your test account is signed into
-- **XUID** — the Xbox User ID of the test account to reset
+- **XUID** — the XBOX User ID of the test account to reset
 
-> **Note:** Resets only work on Xbox test accounts in a development sandbox,
+> **Note:** Resets only work on XBOX test accounts in a development sandbox,
 > not retail accounts. Restart the game after resetting for changes to take
 > effect.

@@ -1,4 +1,4 @@
-# Godot GDK Packaging — User Reference
+# Godot Microsoft GDK Packaging — User Reference
 
 `addons\godot_gdk_packaging\` exposes Microsoft GDK PC packaging from
 Godot — Microsoft Game Config, makepkg (genmap / pack / validate), wdapp
@@ -8,7 +8,7 @@ runner you can drive from scripts and CI, with a top-level editor `GDK` menu
 for Game Config, sandbox/package management, and documentation shortcuts.
 
 This page is the headless-surface reference. For editor UI coverage, see
-[Godot GDK Packaging — Editor `GDK` Menu](editor-menu.md).
+[Godot Microsoft GDK Packaging — Editor `GDK` Menu](editor-menu.md).
 
 ## Invocation
 
@@ -88,9 +88,9 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 
 The `export` verb uses Godot's Windows Desktop exporter, so install the Godot
 4.6.1 export templates under `%APPDATA%\Godot\export_templates\` first.
-MSIXVC and loose-registration flows also need the public GDK toolchain on
+MSIXVC and loose-registration flows also need the public Microsoft GDK toolchain on
 `PATH` (`makepkg.exe`, `wdapp.exe`, `XblPCSandbox.exe`), or `GDK_BIN` pointing
-at the GDK `bin\` directory.
+at the Microsoft GDK `bin\` directory.
 
 | Verb               | Required flags                 | Optional flags                                                                 | Description                                                       |
 |--------------------|--------------------------------|---------------------------------------------------------------------------------|-------------------------------------------------------------------|
@@ -237,10 +237,10 @@ example `..\..\outside.png`) are refused with an error before staging begins.
 | Variable                          | Purpose                                                                       |
 |-----------------------------------|-------------------------------------------------------------------------------|
 | `GODOT_CONSOLE` / `GODOT_BIN` / `GODOT` | Shell-forwarder Godot discovery (see Invocation).                       |
-| `GDK_BIN`                         | Override the GDK install bin directory (otherwise `C:\Program Files (x86)\Microsoft GDK\bin`). |
-| `GameDKCoreLatest`                | Standard GDK install marker; used to detect the GDK version when present.     |
+| `GDK_BIN`                         | Override the Microsoft GDK install bin directory (otherwise `C:\Program Files (x86)\Microsoft GDK\bin`). |
+| `GameDKCoreLatest`                | Standard Microsoft GDK install marker; used to detect the Microsoft GDK version when present.     |
 
-## GDK tool discovery
+## Microsoft GDK tool discovery
 
 `gdk_toolchain.gd` checks `GDK_BIN` first and falls back to
 `C:\Program Files (x86)\Microsoft GDK\bin`. The toolchain is considered
@@ -293,7 +293,7 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
 
   Set one of `GODOT_CONSOLE`, `GODOT_BIN`, or `GODOT`, or pass `--godot <path>`.
 - **`EXIT_CONFIG: wdapp.exe not found`.** Set `GDK_BIN` to point at your
-  GDK install's `bin\` directory, or install the GDK to the default
+  Microsoft GDK install's `bin\` directory, or install the Microsoft GDK to the default
   location.
 - **`terminate` falls back to `wdapp` failure instead of `taskkill`.** The
   fallback only targets the exact executable named by `MicrosoftGame.config`
@@ -306,14 +306,14 @@ addons\godot_gdk_packaging\gdkpkg.cmd terminate --package-name MyPublisher.MyGam
   host project hasn't been imported yet. Run `godot --headless --import`
   once against that host. Form A (`-s ...`) still works without prior import,
   but it does not perform the import or register the class for later form-B use.
-- **GDK runtime warnings on every invocation** (e.g. silent sign-in
+- **Microsoft GDK runtime warnings on every invocation** (e.g. silent sign-in
   cancellation). Those come from the host project's autoloaded
   `GDKBootstrap`. They are unrelated to the packaging verb result and
   can be ignored when inspecting `PACKAGING_RESULT_JSON:`.
 
 ## See also
 
-- [Godot GDK Packaging — Editor `GDK` Menu](editor-menu.md) — what each
+- [Godot Microsoft GDK Packaging — Editor `GDK` Menu](editor-menu.md) — what each
   editor menu item does and what prerequisites it needs.
 - `.github\instructions\godot-gdk-packaging.instructions.md` — repo-wide
   rules for contributors editing the addon.

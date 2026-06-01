@@ -193,7 +193,7 @@ are the recommended entry points.
 
 `godot_gameinput` is exercised by the `tests\godot\gameinput\` host. Coverage lives under `tests\godot\gameinput\tests\` and includes files such as `test_gameinput_core.gd`, `test_gameinput_device.gd`, `test_gameinput_reading.gd`, `test_gameinput_resource.gd`, `test_gameinput_mapper.gd`, `test_gameinput_mapper_extensions.gd`, and `test_gameinput_threading_smoke.gd`. Bootstrap autoload checks live under `tests\godot\gameinput\tests\bootstrap\`.
 
-GameInput headless tests are deterministic by default and do not require live Xbox or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md).
+GameInput headless tests are deterministic by default and do not require live XBOX or PlayFab credentials. Hardware-specific behavior such as real controllers, rumble feel, and hot-plug should still be checked with [`gameinput/manual-tests.md`](manual-tests.md).
 
 Run the standard pipeline from the repository root:
 

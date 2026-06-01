@@ -1,6 +1,6 @@
 # Tutorials
 
-Task-oriented walkthroughs for the Godot for XBOX on PC addons. The tutorial
+Task-oriented walkthroughs for the Godot XBOX addons. The tutorial
 chain takes you from a fresh project to a single integrated tech
 demo — sign-in, achievements, leaderboards, game saves, lobby,
 multiplayer activity, Party chat — with each step landing one
@@ -9,16 +9,16 @@ addon surface. A separate standalone track covers GameInput.
 If you have not enabled the addons yet, start with
 [Addons getting started](../addon-getting-started.md). It covers
 copying the addons into a project, setting the PlayFab title id,
-creating the `MicrosoftGame.config`, switching the Xbox sandbox, and
-signing a user into both Xbox Live and PlayFab. Every tutorial below
+creating the `MicrosoftGame.config`, switching the XBOX sandbox, and
+signing a user into both XBOX Live and PlayFab. Every tutorial below
 assumes you have completed that quickstart.
 
-> **You also need a Partner Center title with Xbox Live configured.**
+> **You also need a Partner Center title with XBOX Live configured.**
 > The quickstart links above assume you already have one. If you don't,
-> start at the [ID@Xbox program](https://www.xbox.com/en-us/developers/id),
+> start at the [ID@XBOX program](https://www.xbox.com/en-us/developers/id),
 > register your title in the
 > [Partner Center dashboard](https://partner.microsoft.com/dashboard),
-> and follow [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+> and follow [Microsoft GDK — Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
 > to surface the Title ID and SCID values the addon quickstart asks for.
 
 > **And a PlayFab title.** Every tutorial below talks to PlayFab. The
@@ -119,7 +119,7 @@ open either project in Godot.
   and is reused in the capstone. Drop the standalone GameInput
   tutorial wherever it fits your input-handling story.
 - **Sign-in + identity only**: T1. Stop after T1 if all you need
-  is "let the user sign into Xbox Live and PlayFab from my game".
+  is "let the user sign into XBOX Live and PlayFab from my game".
 - **Single-player progression**: T1 → T2 → T3 → T4. Stop after T4 if
   you do not need any multiplayer surface.
 - **Multiplayer without voice**: T1 → T5 → T6. Stop after T6 if you
