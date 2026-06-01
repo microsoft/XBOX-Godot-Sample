@@ -71,7 +71,8 @@ The script prompts for each Partner Center value, derives the current-title
 SCID, then writes `sample\tutorial_app\sample_config.cfg` and
 `sample\tutorial_app\MicrosoftGame.config`. If `export_presets.cfg` already
 exists in that project, the script also updates the matching export-preset
-fields.
+fields. The script does not create the preset from scratch; start from the
+sample's checked-in base preset.
 
 The generated files are gitignored, so your credentials stay local.
 
