@@ -481,7 +481,7 @@ malformed URIs return `invalid_uri`; blocked destinations such as `file:`,
 
 ## Error reporting service
 
-`GDKErrorReporting` wraps the public PC Microsoft GDK `XError` callback and options
+`GDKErrorReporting` wraps the public Microsoft GDK `XError` callback and options
 APIs (`XErrorSetCallback`, `XErrorSetOptions`). It does not submit reports to
 external endpoints.
 

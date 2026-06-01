@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_gdk` docs set.
 
-`godot_gdk` is the primary GDExtension addon in this repository. It implements a public-PC Microsoft GDK service surface — runtime, users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC content access, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, and system metadata — and also ships editor-side setup and export tooling for the broader Microsoft GDK workflow.
+`godot_gdk` is the primary GDExtension addon in this repository. It implements a public Microsoft GDK service surface — runtime, users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC content access, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, and system metadata — and also ships editor-side setup and export tooling for the broader Microsoft GDK workflow.
 
 ## Current implementation status
 

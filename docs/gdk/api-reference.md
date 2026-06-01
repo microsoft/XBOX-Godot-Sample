@@ -36,7 +36,7 @@ accessed as namespaces under this root.
 | `get_profile()` | `GDKProfile` | Access the XBOX Services profile service |
 | `get_string_verify()` | `GDKStringVerify` | Access the XBOX Services string verification service |
 | `get_title_storage()` | `GDKTitleStorage` | Access the XBOX Services Title Storage service |
-| `get_error_reporting()` | `GDKErrorReporting` | Access the PC Microsoft GDK `XError` callback/options service |
+| `get_error_reporting()` | `GDKErrorReporting` | Access the Microsoft GDK `XError` callback/options service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
 | `get_capture()` | `GDKCapture` | Access the capture metadata and capture-state service |
@@ -941,7 +941,7 @@ additional pages.
 `GDK.error_reporting` is a `RefCounted` service object returned by
 `GDK.get_error_reporting()`.
 
-This service wraps the public PC Microsoft GDK `XError` callback/options APIs
+This service wraps the public Microsoft GDK `XError` callback/options APIs
 (`XErrorSetCallback`, `XErrorSetOptions`). It does not submit reports to
 external endpoints.
 
@@ -1076,11 +1076,11 @@ Script-visible wrapper around a cached multiplayer activity snapshot.
 | `take_diagnostic_screenshot_async(path_hint: String)` | `Signal` | Take a diagnostic screenshot and return a deferred completion signal. Requires Game Bar. |
 | `create_metadata(reserved_bytes := 0)` | `GDKCaptureMetaData` | Create a script-side metadata write context, or `null` if the runtime is not initialized. `reserved_bytes` is retained for compatibility and ignored. |
 
-### PC Microsoft GDK availability
+### Microsoft GDK availability
 
 All wrapped APIs are available in `_GAMING_DESKTOP` builds via `XAppCapture.h` / `xgameruntime.lib`.
 
-| Native function | PC Microsoft GDK |
+| Native function | Microsoft GDK |
 |---|---|
 | `XAppCaptureEnableRecord` | YES |
 | `XAppCaptureDisableRecord` | YES |
@@ -1163,7 +1163,7 @@ It wraps PC-supported `XLaunchUri` flows.
 ### Manual smoke coverage
 
 Launcher success paths depend on host OS URI handlers and package context and are
-not deterministic for CI. Use a manual smoke pass on a PC Microsoft GDK machine:
+not deterministic for CI. Use a manual smoke pass on a Microsoft GDK machine:
 
 ```gdscript
 var result = GDK.launcher.launch_uri("ms-settings:privacy-microphone")
@@ -1185,7 +1185,7 @@ Normalized result payload returned by all async operations.
 ## Display service: `GDK.display`
 
 `GDK.display` is a `RefCounted` service object returned by `GDK.get_display()`. It
-wraps the PC Microsoft GDK `XDisplay.h` family: HDR mode probe/enable and idle display
+wraps the Microsoft GDK `XDisplay.h` family: HDR mode probe/enable and idle display
 timeout deferrals.
 
 ### Methods

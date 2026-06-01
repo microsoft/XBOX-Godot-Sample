@@ -163,7 +163,7 @@ Update a baseline only when the host's intentional coverage changes. Do not lowe
 `GDK.launcher` success paths invoke OS-level URI handlers (`XLaunchUri`) and are
 not deterministic in CI/headless hosts. Keep automated coverage focused on input
 validation and unsupported-destination errors, then run manual smoke checks on a
-PC Microsoft GDK machine for successful destinations (for example
+Microsoft GDK machine for successful destinations (for example
 `GDK.launcher.launch_uri("ms-settings:privacy-microphone")` and
 `GDK.launcher.launch_uri("ms-windows-store://pdp/?productid=<StoreProductId>")`).
 
