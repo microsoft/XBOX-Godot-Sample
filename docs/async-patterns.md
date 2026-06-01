@@ -1,6 +1,6 @@
-# Async patterns in the Godot for XBOX on PC addons
+# Async patterns in the Godot XBOX addons
 
-Every long-running call in the Godot for XBOX on PC addons returns a one-shot
+Every long-running call in the Godot XBOX addons returns a one-shot
 **Godot Signal** that resolves to a typed **Result** object. The
 pattern is identical across `godot_gdk`, `godot_playfab`, and (when
 relevant) `godot_gameinput`, so once you know it for one method you
@@ -22,7 +22,7 @@ GameInput operation completes:
 |-----------------|---------------------------------------------------------|
 | `godot_gdk`     | `GDK.users.add_default_user_async()`                    |
 | `godot_gdk`     | `GDK.achievements.update_achievement_async(user, id, %)`|
-| `godot_playfab` | `PlayFab.users.sign_in_with_xuser_async(xbox_user)`     |
+| `godot_playfab` | `PlayFab.users.sign_in_with_xuser_async(Xbox_user)`     |
 | `godot_playfab` | `PlayFab.multiplayer.create_lobby_async(user, config)`  |
 
 Methods **without** the `_async` suffix are synchronous — they
@@ -54,7 +54,7 @@ serially:
 
 ```gdscript
 func warm_caches() -> void:
-    var ach_signal: Signal = GDK.achievements.query_player_achievements_async(Auth.xbox_user)
+    var ach_signal: Signal = GDK.achievements.query_player_achievements_async(Auth.Xbox_user)
     var board_signal: Signal = PlayFab.leaderboards.get_leaderboard_async(
             Auth.playfab_user, "high_score", 1, 25)
 
@@ -83,7 +83,7 @@ A typical handler looks like:
 ```gdscript
 func _push_progress(percent: int) -> void:
     var result: GDKResult = await GDK.achievements.update_achievement_async(
-        Auth.xbox_user, "1", percent)
+        Auth.Xbox_user, "1", percent)
     if not result.ok:
         push_warning("[Ach] update failed: %s (%s)" % [result.message, result.code])
         return
