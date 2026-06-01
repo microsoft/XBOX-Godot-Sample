@@ -70,6 +70,8 @@ private:
     bool m_warned_uninitialized = false;
     bool m_warned_create_failed = false;
 
+    std::atomic<bool> m_shutting_down{false};
+    std::atomic<int32_t> m_callbacks_in_flight{0};
     std::atomic<int64_t> m_next_device_id{1};
     uint64_t m_last_polled_frame = UINT64_MAX;
 
