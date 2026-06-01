@@ -1,8 +1,8 @@
 # Getting Started
 
-This guide walks you through using the Godot for XBOX on PC addons in your own Godot
+This guide walks you through using the Godot XBOX addons in your own Godot
 project — what to copy, how to enable it, how to configure project settings,
-and how to reach **a signed-in user** for both Xbox Live (`godot_gdk`) and
+and how to reach **a signed-in user** for both XBOX Live (`godot_gdk`) and
 PlayFab (`godot_playfab`).
 
 It also covers building the addon binaries from source, which is the current
@@ -11,12 +11,12 @@ way to obtain them.
 ## Who this is for
 
 - **Godot developers** building a Windows game that needs to ship with
-  Microsoft Store / GDK identity, Xbox Live services, PlayFab backend
+  Microsoft Store / Microsoft GDK identity, XBOX Live services, PlayFab backend
   features, GameInput, or MSIXVC packaging.
 - **Comfortable with Godot 4.x** as an everyday tool: scenes, autoloads,
   signals, `await`, and the in-editor F1 documentation.
 - **Have at least a sandbox Partner Center title** (or plan to) — the
-  Xbox-services side of the addons cannot meaningfully be exercised
+  XBOX-services side of the addons cannot meaningfully be exercised
   without a title id, SCID, and a sandbox.
 
 You do **not** need prior Microsoft GDK or PlayFab experience to follow
@@ -45,7 +45,7 @@ account.
   (`winget install Microsoft.Gaming.GDK`)
 - A built copy of each addon you want to use — either a release zip,
   or built from source per **Step 1** below
-- For Xbox-services tutorials (T1+): a Partner Center title + SCID +
+- For XBOX-services tutorials (T1+): a Partner Center title + SCID +
   sandbox test account
 - For PlayFab tutorials (T1+): a PlayFab title id
 - A scratch Godot project to copy the addons into (the tutorials build
@@ -57,15 +57,15 @@ account.
 > 2. Extract or copy `addons/<addon>/` into your project, including the `bin/` folder.
 > 3. Enable the editor plugin in **Project Settings → Plugins**.
 > 4. Set the `gdk/runtime/*` and `playfab/*` project settings.
-> 5. Subscribe to `GDK.users.user_changed` (Xbox) and call
+> 5. Subscribe to `GDK.users.user_changed` (XBOX) and call
 >    `PlayFab.users.sign_in_with_xuser_async(...)` (PlayFab).
 
 ## What's in this repo
 
 | Addon | Purpose |
 |-------|---------|
-| `addons/godot_gdk` | Microsoft GDK runtime + PC-supported Xbox services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs a `GDKBootstrap` autoload. |
-| `addons/godot_playfab` | PlayFab runtime, sign-in (Xbox-backed or custom id), Game Saves, leaderboards, Lobby + Matchmaking, Party, and REST service wrappers. Installs a `PlayFabBootstrap` autoload (auto-init is opt-in). |
+| `addons/godot_gdk` | Microsoft GDK runtime + PC-supported XBOX services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs a `GDKBootstrap` autoload. |
+| `addons/godot_playfab` | PlayFab runtime, sign-in (XBOX-backed or custom id), Game Saves, leaderboards, Lobby + Matchmaking, Party, and REST service wrappers. Installs a `PlayFabBootstrap` autoload (auto-init is opt-in). |
 | `addons/godot_gameinput` | GameInput controller integration (devices, polling, vibration, action-bridge into Godot's `InputMap`). Installs a `GameInputBootstrap` autoload. |
 | `addons/godot_gdk_packaging` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
 
@@ -85,37 +85,37 @@ errors in `MicrosoftGame.config`, etc.).
 - Windows 10 (build 18362+) or Windows 11
 - [Godot 4.5+](https://godotengine.org/download) (stable, Windows 64-bit)
 - [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed on
-  every machine that runs the game (the Xbox runtime DLLs the addons depend
+  every machine that runs the game (the XBOX runtime DLLs the addons depend
   on resolve from the GDK install). `winget install Microsoft.Gaming.GDK`.
 
-### To make Xbox sign-in actually work
+### To make XBOX sign-in actually work
 
 - A title in [Partner Center](https://partner.microsoft.com/dashboard)
   (Title ID, SCID, Sandbox ID at minimum)
-- At least one Xbox **test account** provisioned in your sandbox
+- At least one XBOX **test account** provisioned in your sandbox
 - Your dev PC switched into that sandbox
 
-> **First time?** You need an Xbox publisher account before you can
+> **First time?** You need an XBOX publisher account before you can
 > register a Partner Center title. Start with the
-> [ID@Xbox program overview](https://www.xbox.com/en-us/developers/id) /
+> [ID@XBOX program overview](https://www.xbox.com/en-us/developers/id) /
 > [application form](https://www.xbox.com/en-us/developers/id/apply)
 > and the [Microsoft Game Stack publisher hub](https://developer.microsoft.com/en-us/games/publish/).
 > Then follow [Microsoft GDK — Get started](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/get-started/get-started-home),
-> [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp),
+> [Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp),
 > and [Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
 > for the Microsoft-side walkthrough that produces the IDs the rest of
 > this guide refers to.
 
 See [Sample project setup](gdk/sample-setup.md) and
-[Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md)
+[XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md)
 for the canonical addon-side walk-through.
 
 ### To make PlayFab sign-in work
 
 - A PlayFab title (you'll need its title id)
-- For the Xbox-backed `sign_in_with_xuser_async` flow, the same Xbox
+- For the XBOX-backed `sign_in_with_xuser_async` flow, the same XBOX
   prerequisites above
-- For `sign_in_with_custom_id_async`, no Xbox setup is required
+- For `sign_in_with_custom_id_async`, no XBOX setup is required
 
 > **First time?** You need a PlayFab title before you can fill in
 > `playfab/runtime/title_id`. Sign up at the
@@ -138,12 +138,12 @@ for the canonical addon-side walk-through.
   CMake preset reads it via `$env{VCPKG_ROOT}`).
 
 > **Note:** The vcpkg manifest only provides the **build-time headers and
-> import libs** for GDK + GameInput. You still need a full Microsoft GDK
+> import libs** for Microsoft GDK + GameInput. You still need a full Microsoft GDK
 > install on any machine where you intend to run `makepkg.exe`, `wdapp.exe`,
 > or the Game Config Editor (see [Editor tools](gdk/editor-tools.md) and
 > [Packaging plugin](packaging/plugin.md)).
 
-> **Note:** The Debug build of the GDK addon requires Visual Studio to be
+> **Note:** The Debug build of the Microsoft GDK addon requires Visual Studio to be
 > installed on the machine that *runs* the game, not just the machine that
 > builds it. Use the Release build for distribution. See
 > [Troubleshooting](troubleshooting.md) for details.
@@ -183,8 +183,8 @@ The package build:
 
 - Outputs each addon's DLLs and PDBs into `addons/<addon>/bin/`
 - Copies the runtime dependency DLLs (`libHttpClient.dll`,
-  `Microsoft.Xbox.Services.C.Thunks.dll` for Release or
-  `Microsoft.Xbox.Services.C.Thunks.Debug.dll` for Debug, `PlayFabCore.dll`,
+  `Microsoft.XBOX.Services.C.Thunks.dll` for Release or
+  `Microsoft.XBOX.Services.C.Thunks.Debug.dll` for Debug, `PlayFabCore.dll`,
   `PlayFabServices.dll`, `PlayFabGameSave.dll`, `PlayFabMultiplayer.dll`,
   `Party.dll`) into the same `bin/` folder so they ship side-by-side
 - Syncs the addon directories into every sample project under `sample/`
@@ -193,7 +193,7 @@ If you only need one addon during development, use the targeted presets
 (`gdk-only`, `playfab-only`, `gameinput-only`). See the
 [repo README](../README.md#build-presets) for the full preset table.
 
-For deeper notes on the build pipeline (CMake auto-detection of the GDK
+For deeper notes on the build pipeline (CMake auto-detection of the Microsoft GDK
 install, selective builds, VS Code IntelliSense, ignored-artifact
 cleanup), jump to [Building from source](#building-from-source) at the
 end of this guide.
@@ -214,8 +214,8 @@ your_project/
         │   ├── godot_gdk.windows.debug.x86_64.dll
         │   ├── godot_gdk.windows.release.x86_64.dll
         │   ├── libHttpClient.dll
-        │   ├── Microsoft.Xbox.Services.C.Thunks.Debug.dll
-        │   └── Microsoft.Xbox.Services.C.Thunks.dll
+        │   ├── Microsoft.XBOX.Services.C.Thunks.Debug.dll
+        │   └── Microsoft.XBOX.Services.C.Thunks.dll
         ├── doc_classes/               # in-editor F1 documentation
         ├── editor/                    # editor plugin scripts
         ├── runtime/                   # GDKBootstrap autoload
@@ -305,10 +305,10 @@ See [GameInput addon](gameinput/plugin.md) for the action-bridge details.
 ## 5. Walkthrough — get to a signed-in user
 
 This is the smallest thing that proves the addons are wired up
-correctly: an Xbox sign-in (godot_gdk) followed by a PlayFab sign-in
-that reuses the Xbox user (godot_playfab).
+correctly: an XBOX sign-in (godot_gdk) followed by a PlayFab sign-in
+that reuses the XBOX user (godot_playfab).
 
-### 5a. Xbox sign-in (`godot_gdk`)
+### 5a. XBOX sign-in (`godot_gdk`)
 
 If you set `gdk/runtime/initialize_on_startup` and
 `gdk/runtime/auto_add_primary_user` to `true`, the `GDKBootstrap`
@@ -364,22 +364,22 @@ func _exit_tree() -> void:
         GDK.shutdown()
 ```
 
-`add_default_user_async()` is the Xbox **silent** sign-in. If no user is
-already signed into the Xbox app on the PC, it returns a non-ok result
+`add_default_user_async()` is the XBOX **silent** sign-in. If no user is
+already signed into the XBOX app on the PC, it returns a non-ok result
 (commonly `no_default_user`). Use `add_user_with_ui_async()` to put the
 system account picker on screen instead.
 
 For the full method/signal table see
 [GDK API reference → `GDK.users`](gdk/api-reference.md#users-service-gdkusers).
 
-> Real Xbox Live sign-in needs Partner Center configuration, the right
-> sandbox set on the PC, and a test account signed into the Xbox app —
+> Real XBOX Live sign-in needs Partner Center configuration, the right
+> sandbox set on the PC, and a test account signed into the XBOX app —
 > see [Sample project setup](gdk/sample-setup.md) and
-> [Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md).
+> [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md).
 > Without those, sign-in will report a clear error and the rest of the
 > game keeps running fine.
 
-### 5b. PlayFab sign-in with the Xbox user (`godot_playfab`)
+### 5b. PlayFab sign-in with the XBOX user (`godot_playfab`)
 
 If you set `playfab/runtime/initialize_on_startup` to `true`, the
 `PlayFabBootstrap` autoload calls `PlayFab.initialize()` for you. Sign-in
@@ -400,18 +400,18 @@ func _sign_in_to_playfab() -> void:
         push_error("godot_gdk extension is not loaded")
         return
 
-    # Make sure GDK is up and we have an Xbox user.
+    # Make sure GDK is up and we have an XBOX user.
     if not GDK.is_initialized():
         var init: GDKResult = GDK.initialize()
         if not init.ok:
             push_warning("GDK init failed: %s" % init.message); return
 
-    var xbox_user: GDKUser = GDK.users.get_primary_user()
-    if xbox_user == null or not xbox_user.signed_in:
-        var xbox_result: GDKResult = await GDK.users.add_default_user_async()
-        if not xbox_result.ok:
-            push_warning("Xbox sign-in failed: %s" % xbox_result.message); return
-        xbox_user = xbox_result.data
+    var XBOX_user: GDKUser = GDK.users.get_primary_user()
+    if XBOX_user == null or not XBOX_user.signed_in:
+        var XBOX_result: GDKResult = await GDK.users.add_default_user_async()
+        if not XBOX_result.ok:
+            push_warning("XBOX sign-in failed: %s" % XBOX_result.message); return
+        XBOX_user = XBOX_result.data
 
     # Initialize PlayFab once. The PlayFabBootstrap autoload may have
     # already done this when playfab/runtime/initialize_on_startup is true;
@@ -421,8 +421,8 @@ func _sign_in_to_playfab() -> void:
         if not pf_init.ok:
             push_warning("PlayFab init failed: %s" % pf_init.message); return
 
-    # Sign the Xbox user into PlayFab.
-    var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox_user)
+    # Sign the XBOX user into PlayFab.
+    var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(XBOX_user)
     if not pf_result.ok:
         push_warning("PlayFab sign-in failed: %s" % pf_result.message); return
 
@@ -431,8 +431,8 @@ func _sign_in_to_playfab() -> void:
     print("[PlayFab] signed in: %s:%s" % [key.get("type", ""), key.get("id", "")])
 ```
 
-If you don't have an Xbox account yet (or are testing on a machine
-without GDK Live setup), use the no-Xbox custom-ID path:
+If you don't have an XBOX account yet (or are testing on a machine
+without GDK Live setup), use the no-XBOX custom-ID path:
 
 ```gdscript
 var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
@@ -440,9 +440,9 @@ var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
 ```
 
 `sign_in_with_xuser_async` returns `invalid_xuser` if you pass a null or
-signed-out GDK user, so always confirm `xbox_user.signed_in` first.
-PlayFab Game Saves additionally require an Xbox-backed PlayFab session
-(custom-id users will get `xbox_user_required` from `PlayFab.game_saves`
+signed-out GDK user, so always confirm `XBOX_user.signed_in` first.
+PlayFab Game Saves additionally require an XBOX-backed PlayFab session
+(custom-id users will get `XBOX_user_required` from `PlayFab.game_saves`
 methods).
 
 For the full PlayFab service surface see the
@@ -473,10 +473,10 @@ test-account guide.
 |---------|--------------|-----|
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
 | `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the GDK is installed on the machine that runs the game |
-| Silent sign-in returns `no_default_user` | No test account signed in to the Xbox app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the Xbox app — see [Xbox sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md) |
+| Silent sign-in returns `no_default_user` | No test account signed in to the XBOX app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the XBOX app — see [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md) |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
-| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
-| `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
+| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out GDK user | Verify `XBOX_user != null and XBOX_user.signed_in` before calling |
+| `PlayFab.game_saves` returns `XBOX_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
 
 ---
 
@@ -738,7 +738,7 @@ cmake --build build --preset debug
 1. Rebuild the addon or run the full orchestrator.
 2. Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1`.
 3. Open the relevant sample in the editor and verify the user-facing flow still loads.
-4. If Xbox Live or PlayFab live features changed, test with `-Live` against a sandbox title and test account.
+4. If XBOX Live or PlayFab live features changed, test with `-Live` against a sandbox title and test account.
 
 #### Optional pre-commit hook
 
