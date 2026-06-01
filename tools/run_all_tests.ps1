@@ -32,10 +32,10 @@
     -AllowLiveWrites is also specified.
 
 .PARAMETER AllowLiveWrites
-    Requires -Live and sets LIVE_WRITE_TESTS=1 in the child env for live tests
-    that create lobbies, write leaderboards, save Game Saves, or otherwise
-    mutate the configured sandbox title. Prints the active PlayFab title id so
-    live writes are visibly scoped to an explicit sandbox title.
+    Requires -Live and -PlayFabTitleId. Sets LIVE_WRITE_TESTS=1 in the child
+    env for live tests that create lobbies, write leaderboards, save Game Saves,
+    or otherwise mutate the configured sandbox title. Prints the active PlayFab
+    title id so live writes are visibly scoped to an explicit sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
@@ -62,6 +62,7 @@
 .PARAMETER PlayFabTitleId
     Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
     The PlayFab test base applies it to ProjectSettings['playfab/runtime/title_id'].
+    Required when -AllowLiveWrites is set; must identify a dedicated sandbox title.
 
 .PARAMETER PlayFabCustomId
     Optional pre-existing PlayFab custom id forwarded to Godot children as
@@ -76,6 +77,10 @@
 
 .PARAMETER VerboseOutput
     Streams child stdout/stderr to the host console as it arrives.
+
+.NOTES
+    -AllowLiveWrites is a sandbox-only live-write tier. It is refused unless
+    -Live and -PlayFabTitleId are both set.
 
 .OUTPUTS
     Writes <OutDir>\run-summary.json and <OutDir>\run-summary.md.
@@ -907,16 +912,16 @@ function Write-RunSummary {
 
 function Main {
     if ($AllowLiveWrites -and -not $Live) {
-        throw '-AllowLiveWrites requires -Live so LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 travel together.'
+        throw "-AllowLiveWrites requires -Live. Aborting before any test starts."
+    }
+    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
+        throw "-AllowLiveWrites requires -PlayFabTitleId <sandbox title id>. Refusing to run write-tier tests against an unspecified title."
     }
 
     $startedAt = (Get-Date).ToUniversalTime()
     $godotExe  = Get-GodotExecutable
     $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
-    # Resolve the effective sandbox title id once so -AllowLiveWrites can
-    # require it (otherwise the safety banner could print "<unset>" if the
-    # title id is configured only inside a Godot ProjectSettings).
     $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
         $PlayFabTitleId.Trim()
     } elseif (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID'))) {
@@ -924,17 +929,11 @@ function Main {
     } else {
         ''
     }
-    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
-        throw '-AllowLiveWrites requires -PlayFabTitleId or PLAYFAB_TITLE_ID so the sandbox title is explicit; refusing to write live state to an unknown title.'
-    }
 
     $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
     if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
     if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
-        # Propagate the resolved title id so the child env matches the
-        # banner regardless of whether it came from -PlayFabTitleId or the
-        # parent environment.
         $childEnv['PLAYFAB_TITLE_ID'] = $effectivePlayFabTitleId
     }
     if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
@@ -956,22 +955,18 @@ function Main {
         Join-Path $script:RepoRoot $OutDir
     }
 
-    $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) { $PlayFabTitleId.Trim() } else { ([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID') ?? '').Trim() }
-    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
-        throw '-AllowLiveWrites requires -PlayFabTitleId or PLAYFAB_TITLE_ID so the sandbox title is explicit.'
-    }
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
     Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) { $effectivePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) { 'set' } else { 'unset' })" -ForegroundColor Cyan
-    if ($AllowLiveWrites) {
-        Write-Host "                   LIVE WRITES ENABLED for sandbox title '$effectivePlayFabTitleId'" -ForegroundColor Yellow
-    }
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
     Write-Host "                   OutDir= $outDirAbsolute" -ForegroundColor Cyan
     if ($AllowLiveWrites) {
-        Write-Host "                   LIVE WRITES ENABLED for sandbox title $liveWriteTitle" -ForegroundColor Yellow
+        Write-Host "" -ForegroundColor Yellow
+        Write-Host "[run_all_tests] === LIVE WRITE TIER ENABLED ===" -ForegroundColor Yellow
+        Write-Host "[run_all_tests] Active PlayFab title id: $effectivePlayFabTitleId" -ForegroundColor Yellow
+        Write-Host "[run_all_tests] This MUST be a dedicated sandbox title. Never run against a shared or production title id." -ForegroundColor Yellow
     }
     Write-Host ''
 
