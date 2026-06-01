@@ -8,8 +8,6 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
-> **Status:** the test-tier contract is documented and in active rollout. The Party single-leave regression suite already uses `requires_live_write()`; the helpers (`requires_live()` / `requires_live_write()`) are available on every test base, and `tools\run_all_tests.ps1 -Live -AllowLiveWrites` forwards both `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` to Godot children. Older live-write suites that still call `pending_unless_live()` are being migrated to `requires_live_write()` so the orchestrator's `-AllowLiveWrites` gate covers every mutating suite.
-
 The repo-root orchestrator now owns both GUT hosts and the PlayFab Multiplayer multi-process orchestrator. Use `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>` for the full live MP sweep.
 
 ## Test Tiers
@@ -42,7 +40,7 @@ func before_all() -> void:
 
 ### `live_write`
 
-- Requires both `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1`. Opt in via `tools\run_all_tests.ps1 -Live -AllowLiveWrites`.
+- Requires both `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1`. Opt in via `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox-title>`.
 - Writes state that persists in the live PlayFab title (create lobby, post leaderboard entry, save Game Save, …).
 - **Must run against a dedicated sandbox PlayFab title.** Never run against a shared title id and never against a production title id. The orchestrator prints the active title id when `-AllowLiveWrites` is set so it cannot be missed in a CI log.
 - Declares the tier by calling `requires_live_write()` at the top of `before_all` / `before_each`. When either flag is missing, the helper marks the test pending.
@@ -64,16 +62,16 @@ func before_each() -> void:
 | ------------------------------------------------ | :----------: | :----------------: | :------------------------------------------------------------- |
 | `run_all_tests.ps1`                              |      —       |         —          | `contract` runs. `live_read` and `live_write` mark pending.    |
 | `run_all_tests.ps1 -Live`                        |    `1`       |         —          | `contract` and `live_read` run. `live_write` marks pending.    |
-| `run_all_tests.ps1 -Live -AllowLiveWrites`       |    `1`       |       `1`          | All three tiers run. Banner prints the active title id.        |
+| `run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox-title>` |    `1`       |       `1`          | All three tiers run. Banner prints the active sandbox title id. |
 
-`-AllowLiveWrites` without `-Live` is invalid — the orchestrator refuses it.
+`-AllowLiveWrites` without `-Live`, or without `-PlayFabTitleId <sandbox-title>`, is invalid — the orchestrator refuses it.
 
 ## Authoring a New Test
 
 1. Pick the tier honestly. Default to `contract`; promote to `live_read` only if the test cannot be meaningfully asserted offline; promote to `live_write` only if persistent state mutation is the point.
 2. Place the test under `tests\godot\<addon>\tests\` as `test_<scenario>.gd`.
 3. `extends` the matching base — `gdk_test_base.gd` / `playfab_test_base.gd` / `gameinput_test_base.gd`.
-4. For `live_read` and `live_write` tests, call the matching helper at the top of `before_all` (or `before_each` for per-test gating) and return when it reports the test pending. The GDK and PlayFab bases expose `requires_live()` / `requires_live_write()` (and the equivalent `pending_unless_live()` / `pending_unless_live_write()` aliases for legacy callers); the GameInput base currently exposes only `pending_unless_live()` / `pending_unless_live_write()` — use those there.
+4. For `live_read` and `live_write` tests, call `requires_live()` / `requires_live_write()` at the top of `before_all` (or `before_each` for per-test gating) and return when it reports the test pending. The bases also expose `pending_unless_live()` / `pending_unless_live_write()` aliases for legacy callers.
 5. Run the orchestrator at least once offline (`tools\run_all_tests.ps1`) to confirm the new test marks pending instead of failing when live access is missing.
 
 ## PlayFab Multiplayer Orchestrator
