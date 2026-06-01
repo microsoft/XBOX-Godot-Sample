@@ -1,4 +1,4 @@
-# Godot for XBOX on PC
+# Godot XBOX
 
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
@@ -15,9 +15,9 @@ The sample covers roughly **85–95% of the surface area** a Godot developer nee
 - PlayFab Game Saves
 - Microsoft GameInput v3 controller support — devices, polling, rumble, and an action bridge into Godot's `Input` / `InputMap`
 
-The **PlayFab extension sample code does not have a specific dependency on the GDK extension sample code**, so the two can be adopted modularly — use either on its own, or compose them (e.g. sign in to PlayFab with the Xbox user provided by the GDK side).
+The **PlayFab extension sample code does not have a specific dependency on the Microsoft GDK extension sample code**, so the two can be adopted modularly — use either on its own, or compose them (e.g. sign in to PlayFab with the Xbox user provided by the GDK side).
 
-The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The sample is currently compatible with the **April 2026 GDK** out of the box.
+The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The sample is currently compatible with the **April 2026 Microsoft GDK** out of the box.
 
 This is the **first step** in our Godot for XBOX on PC integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
 
