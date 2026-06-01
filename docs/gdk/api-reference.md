@@ -27,15 +27,15 @@ accessed as namespaces under this root.
 | `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
 | `get_achievements()` | `GDKAchievements` | Access the achievements service |
 | `get_package()` | `GDKPackage` | Access package metadata and DLC content-loading helpers |
-| `get_stats()` | `GDKStats` | Access the Xbox Services statistics service |
-| `get_leaderboards()` | `GDKLeaderboards` | Access the Xbox Services leaderboard service |
-| `get_privacy()` | `GDKPrivacy` | Access the Xbox Services privacy service |
+| `get_stats()` | `GDKStats` | Access the XBOX Services statistics service |
+| `get_leaderboards()` | `GDKLeaderboards` | Access the XBOX Services leaderboard service |
+| `get_privacy()` | `GDKPrivacy` | Access the XBOX Services privacy service |
 | `get_presence()` | `GDKPresence` | Access the presence service |
 | `get_social()` | `GDKSocial` | Access the social graph service |
 | `get_store()` | `GDKStore` | Access the XStore commerce service |
-| `get_profile()` | `GDKProfile` | Access the Xbox Services profile service |
-| `get_string_verify()` | `GDKStringVerify` | Access the Xbox Services string verification service |
-| `get_title_storage()` | `GDKTitleStorage` | Access the Xbox Services Title Storage service |
+| `get_profile()` | `GDKProfile` | Access the XBOX Services profile service |
+| `get_string_verify()` | `GDKStringVerify` | Access the XBOX Services string verification service |
+| `get_title_storage()` | `GDKTitleStorage` | Access the XBOX Services Title Storage service |
 | `get_error_reporting()` | `GDKErrorReporting` | Access the PC GDK `XError` callback/options service |
 | `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
 | `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
@@ -74,12 +74,12 @@ func _process(_delta):
 
 ### Initialization config
 
-When `config` is a `Dictionary`, the Xbox services bootstrap accepts the first
+When `config` is a `Dictionary`, the XBOX services bootstrap accepts the first
 matching SCID override it finds in this order:
 
 1. `config["scid"]`
 2. `config["service_configuration_id"]`
-3. `config["xbox_live/scid"]`
+3. `config["XBOX_live/scid"]`
 4. `config["xbox_live"]["scid"]`
 
 If no override is supplied, the addon derives the default SCID from
@@ -111,11 +111,11 @@ peer test-account XUIDs from the checklist in
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_title_id()` | `GDKResult` | Read the current Xbox title ID (`data` is `int`) |
-| `get_title_id_hex()` | `GDKResult` | Read the current Xbox title ID as uppercase `0x`-prefixed hex (`data` is `String`) |
+| `get_title_id()` | `GDKResult` | Read the current XBOX title ID (`data` is `int`) |
+| `get_title_id_hex()` | `GDKResult` | Read the current XBOX title ID as uppercase `0x`-prefixed hex (`data` is `String`) |
 | `get_sandbox_id()` | `GDKResult` | Read the current sandbox ID (`data` is `String`) |
-| `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared Xbox services scaffold (`data` is `String`) |
-| `is_xbox_services_initialized()` | `bool` | Check whether the shared Xbox services scaffold is initialized |
+| `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
+| `is_xbox_services_initialized()` | `bool` | Check whether the shared XBOX services scaffold is initialized |
 
 ### Usage
 
@@ -137,15 +137,15 @@ if sandbox_result.ok:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `add_default_user_async()` | `Signal` | Silent Xbox sign-in for a non-guest user |
-| `add_user_with_ui_async()` | `Signal` | Xbox sign-in with UI prompt for another local user or guest-capable picker flow; it does not replace the session primary user |
+| `add_default_user_async()` | `Signal` | Silent XBOX sign-in for a non-guest user |
+| `add_user_with_ui_async()` | `Signal` | XBOX sign-in with UI prompt for another local user or guest-capable picker flow; it does not replace the session primary user |
 | `get_primary_user()` | `GDKUser` | Current primary user (or `null`) |
 | `get_users()` | `Array` | All local users |
 | `check_privilege_async(user, privilege)` | `Signal` | Check user privilege |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Resolve privilege with UI |
 | `resolve_issue_with_ui_async(user, url)` | `Signal` | Resolve account issue with UI |
 | `get_gamer_picture_async(user, size)` | `Signal` | Fetch user's profile picture |
-| `get_token_and_signature_async(user, method, url, headers, body, force_refresh)` | `Signal` | Get Xbox Live auth token |
+| `get_token_and_signature_async(user, method, url, headers, body, force_refresh)` | `Signal` | Get XBOX Live auth token |
 
 ### Signals
 
@@ -209,14 +209,14 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 
 ## `GDKUser`
 
-Script-visible wrapper around a local Xbox user.
+Script-visible wrapper around a local XBOX user.
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `local_id` | `int` | Local user ID |
-| `xuid` | `String` | Xbox User ID |
+| `xuid` | `String` | XBOX User ID |
 | `gamertag` | `String` | Display name |
 | `age_group` | `GDKUser.AgeGroup` | Age group enum |
 | `sign_in_state` | `GDKUser.SignInState` | Sign-in state enum |
@@ -392,7 +392,7 @@ title-owned values you need to supply for DLC/package flows.
 ## Stats service: `GDK.stats`
 
 `GDK.stats` is a `RefCounted` service object returned by `GDK.get_stats()`.
-It wraps Xbox Services user statistics reads, title-managed statistic updates,
+It wraps XBOX Services user statistics reads, title-managed statistic updates,
 real-time statistic tracking, and a per-user in-memory cache.
 
 ### Methods
@@ -420,7 +420,7 @@ real-time statistic tracking, and a per-user in-memory cache.
 
 Stat dictionaries are keyed by statistic name. Each value contains `name`,
 `type`, `value`, and `service_configuration_id`. Native statistic values are
-returned as strings because Xbox Services user-stat query results expose values
+returned as strings because XBOX Services user-stat query results expose values
 as string payloads.
 
 ### Usage
@@ -439,7 +439,7 @@ if flush_result.ok:
 ## Leaderboards service: `GDK.leaderboards`
 
 `GDK.leaderboards` is a `RefCounted` service object returned by
-`GDK.get_leaderboards()`. It wraps read-only Xbox Services leaderboard queries
+`GDK.get_leaderboards()`. It wraps read-only XBOX Services leaderboard queries
 backed by title-managed statistics.
 
 ### Methods
@@ -464,13 +464,13 @@ backed by title-managed statistics.
 |----------|------|-------------|
 | `stat_name` | `String` | Statistic backing the leaderboard |
 | `query_type` | `String` | `global`, `around_user`, or `social` |
-| `total_row_count` | `int` | Total rows reported by Xbox Services |
+| `total_row_count` | `int` | Total rows reported by XBOX Services |
 | `has_next` | `bool` | Whether another page can be fetched |
 | `columns` | `Array[GDKLeaderboardColumn]` | Column metadata |
 | `rows` | `Array[GDKLeaderboardRow]` | Row data |
 
 `GDKLeaderboardRow.column_values` contains the JSON-encoded column values
-returned by Xbox Services.
+returned by XBOX Services.
 
 ### Usage
 
@@ -488,7 +488,7 @@ if result.ok:
 ## Privacy service: `GDK.privacy`
 
 `GDK.privacy` is a `RefCounted` service object returned by
-`GDK.get_privacy()`. It wraps Xbox Services privacy permission checks plus
+`GDK.get_privacy()`. It wraps XBOX Services privacy permission checks plus
 avoid-list and mute-list reads.
 
 ### Methods
@@ -556,8 +556,8 @@ if mute_list_result.ok:
 
 **Notes:**
 - `state` is the configured rich-presence string ID for the title's SCID in Partner Center. It is not arbitrary display text.
-- `get_presence_async(xuids)` uses the signed-in primary user as its Xbox services caller context, so `GDK.users.get_primary_user()` must be non-null.
-- `get_presence_for_social_group_async(user, social_group)` uses the supplied local user as its Xbox Services caller context.
+- `get_presence_async(xuids)` uses the signed-in primary user as its XBOX services caller context, so `GDK.users.get_primary_user()` must be non-null.
+- `get_presence_for_social_group_async(user, social_group)` uses the supplied local user as its XBOX Services caller context.
 
 ### Signals
 
@@ -588,15 +588,15 @@ if result.ok:
 
 ## `GDKPresenceRecord`
 
-Script-visible wrapper around a cached Xbox presence record.
+Script-visible wrapper around a cached XBOX presence record.
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `xuid` | `String` | Xbox User ID |
+| `xuid` | `String` | XBOX User ID |
 | `user_state` | `GDKPresenceRecord.UserState` | `USER_STATE_UNKNOWN`, `USER_STATE_ONLINE`, `USER_STATE_AWAY`, or `USER_STATE_OFFLINE` |
-| `title_records` | `Array[Dictionary]` | Title/device presence records translated from Xbox Services |
+| `title_records` | `Array[Dictionary]` | Title/device presence records translated from XBOX Services |
 
 ### Methods
 
@@ -607,7 +607,7 @@ Script-visible wrapper around a cached Xbox presence record.
 
 `title_records` dictionaries can include `title_id`, `title_name`,
 `title_active`, `rich_presence_string`, `device_type`, `device_type_name`,
-and broadcast fields when Xbox Services reports them.
+and broadcast fields when XBOX Services reports them.
 
 ## Social service: `GDK.social`
 
@@ -691,7 +691,7 @@ Script-visible wrapper around a tracked social user.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `xuid` | `String` | Xbox User ID |
+| `xuid` | `String` | XBOX User ID |
 | `favorite` | `bool` | Whether the user is a favorite of the local user |
 | `friend` | `bool` | Whether the user is a friend of the local user |
 | `display_name` | `String` | Display name |
@@ -804,9 +804,9 @@ your installed SDK version.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_profile_async(user, xuid)` | `Signal` | Query one Xbox profile |
-| `get_profiles_async(user, xuids)` | `Signal` | Query Xbox profiles for a list of XUID strings |
-| `get_profiles_for_social_group_async(user, social_group)` | `Signal` | Query Xbox profiles for a social group such as `People` or `Favorites` |
+| `get_profile_async(user, xuid)` | `Signal` | Query one XBOX profile |
+| `get_profiles_async(user, xuids)` | `Signal` | Query XBOX profiles for a list of XUID strings |
+| `get_profiles_for_social_group_async(user, social_group)` | `Signal` | Query XBOX profiles for a social group such as `People` or `Favorites` |
 
 On success, `get_profile_async()` returns a `GDKResult` whose `data` is a
 `GDKUserProfile`. Batch and social-group queries return an `Array` of
@@ -823,13 +823,13 @@ if result.ok:
 
 ## `GDKUserProfile`
 
-Script-visible wrapper around an Xbox Services profile record.
+Script-visible wrapper around an XBOX Services profile record.
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `xuid` | `String` | Xbox User ID |
+| `xuid` | `String` | XBOX User ID |
 | `app_display_name` | `String` | Application display name |
 | `app_display_picture_resize_uri` | `String` | Application display picture resize URI |
 | `game_display_name` | `String` | Game display name |
@@ -849,8 +849,8 @@ Script-visible wrapper around an Xbox Services profile record.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `verify_string_async(user, text)` | `Signal` | Verify one string for Xbox Live acceptability |
-| `verify_strings_async(user, strings)` | `Signal` | Verify multiple strings for Xbox Live acceptability |
+| `verify_string_async(user, text)` | `Signal` | Verify one string for XBOX Live acceptability |
+| `verify_strings_async(user, strings)` | `Signal` | Verify multiple strings for XBOX Live acceptability |
 
 On success, `verify_string_async()` returns a `GDKResult` whose `data` is a
 dictionary with:
@@ -874,7 +874,7 @@ if result.ok and not result.data.acceptable:
 ## Title Storage service: `GDK.title_storage`
 
 `GDK.title_storage` is a `RefCounted` service object returned by
-`GDK.get_title_storage()`. This wraps Xbox Services Title Storage from
+`GDK.get_title_storage()`. This wraps XBOX Services Title Storage from
 `title_storage_c.h`; it is unrelated to PlayFab Game Saves or GDK
 `XGameSaveFiles`.
 
