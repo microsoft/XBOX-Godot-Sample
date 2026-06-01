@@ -140,7 +140,9 @@ marker for interactive use; the summary line and the exit code are always
 emitted.
 
 Common runner flags (accepted by every verb): `--help` (`-h`), `--no-json`,
-`--config <path>`, `--verbose` (`-v`).
+`--config <path>`, `--verbose` (`-v`). There is no CLI `--settings` flag:
+`settings_path` exists only on `PackagingConfig.resolve(...)` as a resolver/test
+hook, and normal runner invocations always load `res://.gdk_packaging.cfg`.
 
 Verb list (14):
 
@@ -156,7 +158,7 @@ Verb list (14):
 | `uninstall`        | `--package-name`              | wdapp uninstall.                                       |
 | `launch`           | `--package-name` or `--aumid` | Resolves AUMID via `wdapp list` when only PFN given.   |
 | `terminate`        | `--package-name`              | Falls back to taskkill only for the exact bare `.exe` basename named by MicrosoftGame.config, with path/wildcard/quote characters rejected and the file required in the build dir. |
-| `sandbox`          | `--action {get,set,retail}`   | `set` also requires `--sandbox-id`.                    |
+| `sandbox`          | (none)                        | Defaults to `get`; only `--action set` requires `--sandbox-id`. |
 | `config_template`  | (none)                        | Writes a starter MicrosoftGame.config; optional `--output`, `--overwrite`. |
 | `config_editor`    | (none)                        | Detached GameConfigEditor.exe launch.                  |
 | `store_wizard`     | (none)                        | Detached GameConfigEditor.exe `/StoreAssociation`.     |
