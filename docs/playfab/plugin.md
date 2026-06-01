@@ -13,13 +13,13 @@ This is the landing page for the `godot_playfab` docs set.
 - shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
 - project-settings-backed PlayFab config through `playfab/runtime/title_id` and `playfab/runtime/endpoint`
-- manual Xbox-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`
+- manual XBOX-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`
 - custom-ID PlayFab sign-in through `PlayFab.users.sign_in_with_custom_id_async(...)`
-- cached `PlayFabUser` wrappers keyed by local Xbox user id or custom id
+- cached `PlayFabUser` wrappers keyed by local XBOX user id or custom id
 - Game Saves add/sync, upload, folder/quota queries, cloud connectivity queries, save description updates, and cloud reset through `PlayFab.game_saves`
 - leaderboard submit, global query, around-user query, and friends/social leaderboard query
 - client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
-- `PlayFab.events` as a reserved service namespace; the current GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
+- `PlayFab.events` as a reserved service namespace; the current Microsoft GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
 - PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
 - PlayFab Party network host (`create_and_join_network_async`) and join (`join_network_async`) flows over the PartyManager runtime, with peer-id handshake, descriptor publishing, chat controls (voice/text/transcription), mute, and permission management; the per-network peer object is a Godot `MultiplayerPeerExtension`
 - GUT coverage under `tests\godot\playfab\tests\`
@@ -59,7 +59,7 @@ The addon registers these Project Settings. Only the first two are read by `Play
 
 The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
 
-`PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled when returning to a title screen or changing test fixtures: shutdown tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached users, then a later initialize recreates them. The underlying GDK `XGameRuntimeInitialize` reference is process-lifetime state, so the first successful runtime initialization acquires it and extension teardown releases it once. This mirrors `godot_gdk` and lets both addons coexist safely; each addon owns exactly one matching GDK runtime reference.
+`PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled when returning to a title screen or changing test fixtures: shutdown tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached users, then a later initialize recreates them. The underlying Microsoft GDK `XGameRuntimeInitialize` reference is process-lifetime state, so the first successful runtime initialization acquires it and extension teardown releases it once. This mirrors `godot_gdk` and lets both addons coexist safely; each addon owns exactly one matching Microsoft GDK runtime reference.
 
 ## Public GDScript surface
 
@@ -139,7 +139,7 @@ if not stats_result.ok:
     push_warning(stats_result.message)
 ```
 
-Game Saves still requires an Xbox-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `GDKUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
+Game Saves still requires an XBOX-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `GDKUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
 
 ## Leaderboard write path
 
@@ -190,7 +190,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 
 
 The runner forwards those values only to child processes as `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`; the PlayFab test base applies the title id to `playfab/runtime/title_id` and uses the custom id for `create_account=false` sign-in. The Multiplayer runner derives worker accounts from `PLAYFAB_CUSTOM_ID` as `<custom-id>-multiplayer-host/client/observer` unless `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` overrides the prefix. The developer secret key is only consumed by `tools\configure_playfab_test_title.ps1`, not by Godot test processes. Project settings (`playfab/runtime/title_id`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Some `-Live` tests write online state, such as leaderboard submissions and the PlayFab Multiplayer multi-client lobby smoke, so run live PlayFab coverage only against a personal sandbox title. Leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and mark pending, not failed, when the service is eventually consistent beyond that budget. The live Multiplayer orchestration uses three worker processes and covers lobby creation, search isolation, private lobby discovery behavior, invalid joins, three-member snapshots, member/lobby property propagation, leave/rejoin behavior, owner migration, and cleanup; when `-PlayFabMatchmakingQueue` or `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set it also covers match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
 
-The PlayFab host uses custom-ID sign-in for default coverage. By default, CMake also mirrors `godot_gdk` into `tests\godot\playfab` so optional Xbox-backed compatibility tests can call `ensure_gdk_primary_user_for_playfab()`. Configure with `-DGODOT_PLAYFAB_TEST_HOST_WITH_GDK=OFF` to omit that mirror; GDK-backed helpers skip cleanly when the addon is not present.
+The PlayFab host uses custom-ID sign-in for default coverage. By default, CMake also mirrors `godot_gdk` into `tests\godot\playfab` so optional XBOX-backed compatibility tests can call `ensure_gdk_primary_user_for_playfab()`. Configure with `-DGODOT_PLAYFAB_TEST_HOST_WITH_GDK=OFF` to omit that mirror; Microsoft GDK-backed helpers skip cleanly when the addon is not present.
 
 Run the standard pipeline from the repository root:
 

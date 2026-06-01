@@ -1,12 +1,12 @@
-# Godot GDK async system
+# Godot Microsoft GDK async system
 
-This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared Xbox services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.activation`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
+This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared XBOX services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.activation`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`gdk/plugin.md`](plugin.md).
 
 ## Why this exists
 
-GDK async APIs are queue- and callback-driven. Godot script APIs are signal- and `await`-driven.
+Microsoft GDK async APIs are queue- and callback-driven. Godot script APIs are signal- and `await`-driven.
 
 The system in `addons\godot_gdk\src\` exists to bridge those two models without exposing raw `XAsyncBlock`, `XTaskQueueHandle`, or `XUserHandle` values to GDScript.
 
@@ -18,8 +18,8 @@ The current baseline gives us:
 - one normalized result type: `GDKResult`
 - one internal `XAsync` bridge base: `GDKSignalXAsyncContext`
 - one internal one-shot signal helper: `GDKPendingSignal`
-- one internal Xbox services scaffold: `GDKXboxServices`
-- the concrete services that use this pattern across Xbox identity, services,
+- one internal XBOX services scaffold: `GDKXboxServices`
+- the concrete services that use this pattern across XBOX identity, services,
   package metadata, commerce, capture, launcher, error reporting, and
   system metadata (see [API reference](api-reference.md) for the
   full list)
@@ -206,10 +206,10 @@ Fields:
   `GDKStringVerify`, `GDKTitleStorage`,   `GDKErrorReporting`, `GDKLauncher`, `GDKActivation`,
   `GDKMultiplayerActivity`, and `GDKCapture`).
 - `gdk_runtime.cpp` / `gdk_runtime.h`  
-  Shared GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely. During shutdown it cancels every retained pending signal and queues a cancelled completion so GDScript `await` sites are not stranded by queue teardown.
+  Shared Microsoft GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely. During shutdown it cancels every retained pending signal and queues a cancelled completion so GDScript `await` sites are not stranded by queue teardown.
 
 - `gdk_xbox_services.cpp` / `gdk_xbox_services.h`
-  Shared Xbox services bootstrap. Derives the current-title SCID from `XGameGetXboxTitleId()`, initializes XSAPI, and caches per-user `XblContextHandle` objects.
+  Shared XBOX services bootstrap. Derives the current-title SCID from `XGameGetXboxTitleId()`, initializes XSAPI, and caches per-user `XblContextHandle` objects.
 
 ### Generic async layer
 
@@ -243,10 +243,10 @@ Fields:
   `GDKPackage`, `GDKPackageMount`, `GDKPackageResourcePack`, and `XPackage` enumeration / mount / DLC resource-pack flows.
 
 - `gdk_stats.cpp` / `gdk_stats.h`  
-  `GDKStats` Xbox Services user statistics with cache + tracking signals.
+  `GDKStats` XBOX Services user statistics with cache + tracking signals.
 
 - `gdk_leaderboards.cpp` / `gdk_leaderboards.h`  
-  `GDKLeaderboards`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow`, and read-only Xbox Services leaderboard queries.
+  `GDKLeaderboards`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow`, and read-only XBOX Services leaderboard queries.
 
 - `gdk_privacy.cpp` / `gdk_privacy.h`  
   `GDKPrivacy` permission/avoid-list/mute-list reads.
@@ -261,13 +261,13 @@ Fields:
   `GDKStore`, `GDKStoreLicenseStatus`, the per-product license cache, and `XStore` license/refresh/purchase flows.
 
 - `gdk_profile.cpp` / `gdk_profile.h`  
-  `GDKProfile`, `GDKUserProfile`, and Xbox Services profile reads.
+  `GDKProfile`, `GDKUserProfile`, and XBOX Services profile reads.
 
 - `gdk_string_verify.cpp` / `gdk_string_verify.h`  
-  `GDKStringVerify` Xbox Live string verification.
+  `GDKStringVerify` XBOX Live string verification.
 
 - `gdk_title_storage.cpp` / `gdk_title_storage.h`  
-  `GDKTitleStorage`, `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult`, and Xbox Services Title Storage blob/quota flows.
+  `GDKTitleStorage`, `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult`, and XBOX Services Title Storage blob/quota flows.
 
 - `gdk_error_reporting.cpp` / `gdk_error_reporting.h`  
   `GDKErrorReporting` `XError` callback/options wrapper with `error_reported` mirrored through `GDK.runtime_error`.
@@ -321,7 +321,7 @@ XTaskQueueDispatch(m_task_queue, XTaskQueuePort::Completion, 0)
 
 This keeps Godot-facing state changes tied to the main-thread pump instead of worker-thread callbacks.
 
-For Xbox services features, `GDK.dispatch()` also pumps manager-driven state like `XblAchievementsManagerDoWork()`. So the same per-frame dispatch contract covers both `XAsync` completions and non-`XAsync` service feeds.
+For XBOX services features, `GDK.dispatch()` also pumps manager-driven state like `XblAchievementsManagerDoWork()`. So the same per-frame dispatch contract covers both `XAsync` completions and non-`XAsync` service feeds.
 
 ### 2. One `XAsyncBlock` per XAsync-backed request
 
@@ -353,7 +353,7 @@ void CALLBACK GDKSignalXAsyncContext::_completion_thunk(XAsyncBlock *p_async_blo
 
 The thunk does **not** try to decode results generically.
 
-That is intentional. Each GDK async API has its own result contract:
+That is intentional. Each Microsoft GDK async API has its own result contract:
 
 - some use `*Result()`
 - some use `*ResultSize()` + `*Result()`
@@ -375,9 +375,9 @@ If the runtime did not retain the request, it could be destroyed before completi
 
 When a request completes, `GDKPendingSignal::complete()` runs its release hook and `GDKRuntime::release_pending_signal()` drops the retained reference.
 
-### 4. Xbox services bootstrap is shared
+### 4. XBOX services bootstrap is shared
 
-`GDKXboxServices` exists so Xbox services features can share title metadata and per-user XSAPI context management.
+`GDKXboxServices` exists so XBOX services features can share title metadata and per-user XSAPI context management.
 
 It currently:
 
@@ -402,7 +402,7 @@ This is the current end-to-end flow for `GDK.users.add_default_user_async()`:
    - allocates `AddUserAsyncContext`
    - binds cancellation through `XAsyncCancel`
    - starts `XUserAddAsync(...)`
-5. GDK performs the work on the queue's work port.
+5. Microsoft GDK performs the work on the queue's work port.
 6. Completion lands on the queue's completion port.
 7. The completion only becomes visible when `GDK.dispatch()` pumps the queue.
 8. `GDKSignalXAsyncContext::_completion_thunk()` forwards the raw `XAsyncBlock` to `AddUserAsyncContext::finalize(...)`.
@@ -541,11 +541,11 @@ Today the system covers:
 - shared queue ownership
 - retained pending-signal/result wrappers
 - one reusable `XAsync` context base
-- the full Xbox identity, Xbox services, package/DLC, commerce, capture,
+- the full XBOX identity, XBOX services, package/DLC, commerce, capture,
   launcher, error-reporting, and system-metadata service set listed in
   [Public surface](#public-surface)
 
 All shipped services share the same completion-signal pattern end to end.
 Game Saves are intentionally not part of this addon; they live in
-`godot_playfab` under `PlayFab.game_saves`. Server / admin / private GDK
+`godot_playfab` under `PlayFab.game_saves`. Server / admin / private Microsoft GDK
 surfaces remain out of scope for the public PC client wrappers.

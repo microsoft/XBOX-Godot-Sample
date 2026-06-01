@@ -1,4 +1,4 @@
-# Godot GDK editor tools
+# Godot Microsoft GDK editor tools
 
 This document explains the current editor-side split between the `godot_gdk`
 runtime addon and the separate `godot_gdk_packaging` tooling addon.
@@ -22,7 +22,7 @@ in the editor's `Project > Export… > Add…` dropdown alongside the
 built-in platforms.
 
 The `godot_gdk_packaging` addon hosts the wider editor workflow
-(top-level **GDK** menu, sandbox switcher, `MicrosoftGame.config`
+(top-level **Microsoft GDK** menu, sandbox switcher, `MicrosoftGame.config`
 flows, tutorial wizard) and the headless packaging CLI.
 
 ## `gdk_editor_plugin.gd`
@@ -71,7 +71,7 @@ working when the underlying packaging primitives change.
 
 ## `godot_gdk_packaging`
 
-The active editor tooling for GDK packaging now lives in
+The active editor tooling for Microsoft GDK packaging now lives in
 `addons\godot_gdk_packaging\editor\`.
 
 Treat the root `addons\godot_gdk_packaging\` tree as the source of truth. The
@@ -81,7 +81,7 @@ addon rather than patching sample copies directly.
 
 That addon owns:
 
-- the top-level **GDK** editor menu
+- the top-level **Microsoft GDK** editor menu
 - headless package, validate, install, and launch actions
 - tutorial/help surfaces
 - `MicrosoftGame.config` helper flows
@@ -94,7 +94,7 @@ When discussing the current editor workflow, treat `godot_gdk` and
 
 ## Relationship to the runtime addon
 
-The GDK runtime addon still matters to the editor story because samples and
+The Microsoft GDK runtime addon still matters to the editor story because samples and
 packaging flows need title identity and synced addon payloads, but the runtime
 addon is no longer the main place to look for packaging UI behavior.
 

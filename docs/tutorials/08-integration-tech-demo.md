@@ -69,7 +69,7 @@ out side by side.
 - `playfab/runtime/initialize_on_startup` and
   `gdk/runtime/initialize_on_startup` are both `true` so the two
   runtimes are up by the time the dashboard's panels query them.
-- A signed-in Xbox test account with at least one **declared
+- A signed-in XBOX test account with at least one **declared
   achievement** in Partner Center (any progress-style achievement
   works) and a **PlayFab statistic + a leaderboard that sources the
   statistic** configured in Game Manager (the snippets below use
@@ -774,7 +774,7 @@ once, and every panel that depends on them benefits:
   `batch_check_permission_async("play_multiplayer", xuids)`
   filter through the same `Lobby.invite_friend` autoload helper.
   The picker invite path (`show_invite_ui_async`) does its own
-  permission filtering inside the Xbox shell.
+  permission filtering inside the XBOX shell.
 - The **Party** autoload (T7 Step 6) decides whether to enable
   voice / text on the `PlayFabPartyConfig` based on the local
   user's `Communications` + `CommunicationVoiceIngame`
@@ -832,7 +832,7 @@ error fires.
 | HUD says "Signing in…" forever | `Auth` is stuck in `SIGNING_IN_*`. | Check the Output panel for a `[Auth] sign-in failed at <stage>: <message>` line and run the matching T1 fix. The HUD retry button re-runs `Auth.sign_in()` without restarting the scene; `sign_in()` resets stale failure state on each retry. |
 | Achievements panel `Status` is "Achievement 1 not yet in cache" indefinitely | The achievement id passed in `ACHIEVEMENT_ID` does not match a declared achievement in Partner Center. | Update `ACHIEVEMENT_ID` to one of your declared ids (a numeric string like `"2"`, not a slug). |
 | Leaderboard panel renders `(no entries)` even after a successful record | Statistic-to-leaderboard propagation is eventually consistent, or the leaderboard's source statistic does not match `STATISTIC_NAME`. | Wait 1–10 seconds and click **Refresh**. If still empty, confirm in Game Manager that `LEADERBOARD_NAME` matches a leaderboard sourced from the statistic named `STATISTIC_NAME`, and that the entity type seeded by your sign-in (`title_player_account`) matches the statistic's expected entity. See T3's common-failures table for the same diagnoses. |
-| Game Saves panel `_save_folder` stays empty | `add_user_with_ui_async` failed. | Most common cause: the PlayFab session is custom-id rather than Xbox-backed. See T4's common failures table. |
+| Game Saves panel `_save_folder` stays empty | `add_user_with_ui_async` failed. | Most common cause: the PlayFab session is custom-id rather than XBOX-backed. See T4's common failures table. |
 | MPA panel shows "Advertising …" but the second client never sees a join card | Sandbox mismatch between PC and friend's PC. | See [Troubleshooting → Sandbox mismatch](../troubleshooting.md). |
 | Party panel chat send returns ok but no remote ever receives it | The remote peer's chat control had not been mapped at send time (zero broadcast targets). | Wait for `PlayFabPartyPeer.chat_control_added(peer_id, control)` for at least one remote peer before exposing the chat send UI — same diagnosis as T7. |
 | `_on_runtime_error` fires every frame for the same service | Stale connection that the addon keeps retrying. | Restart the runtime: `PlayFab.shutdown()` then `PlayFab.initialize()` from the HUD's retry button, or recreate the Party network from the Party panel. |

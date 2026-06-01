@@ -5,7 +5,7 @@ configuration required before any PlayFab tutorial or sample in this
 repository runs.
 
 It complements
-[Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md),
+[XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md),
 which covers the PC- and test-account-side configuration.
 
 Each PlayFab tutorial under [`docs/tutorials/`](../tutorials/README.md)
@@ -53,17 +53,17 @@ derives `https://<titleid>.playfabapi.com` from the Title ID.
 
 `PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled in tools and
 runtime flows. The PlayFab Core/Services/Game Save state and task queue are
-recreated on each initialize, while the GDK `XGameRuntimeInitialize` reference
+recreated on each initialize, while the Microsoft GDK `XGameRuntimeInitialize` reference
 is held for the process lifetime and released once when the extension unloads.
 
 > **`PlayFab.initialize()` failing with `title_id_required`** indicates
 > the setting is empty at runtime. See
 > [Troubleshooting → `PlayFab.initialize()` fails with `title_id_required`](../troubleshooting.md#playfabinitialize-fails-with-title_id_required).
 
-### Xbox-backed sign-in prerequisites
+### XBOX-backed sign-in prerequisites
 
 `PlayFab.users.sign_in_with_xuser_async(...)` accepts a signed-in `GDKUser`
-object, not a raw local Xbox user id. Reuse `GDK.users.get_primary_user()`
+object, not a raw local XBOX user id. Reuse `GDK.users.get_primary_user()`
 when a primary user is already present, or prompt for one with
 `await GDK.users.add_user_with_ui_async()`, then pass that returned object to
 `PlayFab.users.sign_in_with_xuser_async(...)`.
@@ -84,7 +84,7 @@ var sign_in_result = await PlayFab.users.sign_in_with_xuser_async(gdk_user)
 ## 2. Per-tutorial title-side fixtures
 
 Each section below lists the Game Manager configuration (or, where
-the resource is Xbox-side, the `MicrosoftGame.config` configuration)
+the resource is XBOX-side, the `MicrosoftGame.config` configuration)
 required by the matching tutorial. Sections that do not apply may be
 skipped.
 
@@ -190,14 +190,14 @@ is trusted to compute.
 requires:
 
 - **`CloudSaves` block in `MicrosoftGame.config`.** The
-  **GDK → Create MicrosoftGame.config** menu (provided by the
+  **Microsoft GDK → Create MicrosoftGame.config** menu (provided by the
   `godot_gdk_packaging` addon) writes a template that includes the
   CloudSaves block. Configurations created before the template was
   added must be updated in `GameConfigEditor.exe` to include a
   `<CloudSaves>` section.
-- **Xbox-backed PlayFab session.** Every `PlayFab.game_saves` call
+- **XBOX-backed PlayFab session.** Every `PlayFab.game_saves` call
   rejects a custom-ID session with `xbox_user_required`. Game Saves
-  is the Xbox-attached blob store and has no PlayFab-only path.
+  is the XBOX-attached blob store and has no PlayFab-only path.
   Enablement is controlled entirely by `MicrosoftGame.config`; no
   PlayFab Game Manager setting is involved.
 - **Network connectivity** for cloud sync round-trips. Game Saves
@@ -205,11 +205,11 @@ requires:
   exposes a `cloud connected` indicator.
 
 > **Game Saves vs. PlayFab title data / entity data.** Game Saves is
-> the Xbox-attached blob store that follows the Xbox account across
+> the XBOX-attached blob store that follows the XBOX account across
 > devices and is surfaced in the system Cloud Saves UI. Use it for
 > player-progress blobs. Use `PlayFab.entity_data` or
 > `PlayFab.player_data` for structured per-player JSON that does not
-> require Xbox-backed sync semantics.
+> require XBOX-backed sync semantics.
 
 ### Lobby (T5, T6, T7, T8)
 
@@ -221,21 +221,21 @@ requires:
   "Lobby enabled." Recently created titles enable this by default;
   older titles require the feature to be enabled manually.
 - **Two Godot processes** (host and client) signed into different
-  Xbox test accounts in the same sandbox. A typical setup runs the
+  XBOX test accounts in the same sandbox. A typical setup runs the
   host scene in the editor and the client as an exported build. Two
   editors with separate PlayFab sessions are also supported.
-- **Xbox-backed PlayFab session on both sides** when Xbox-shell
+- **XBOX-backed PlayFab session on both sides** when XBOX-shell
   invites (Game Bar, friends list) are required. Custom-ID lobbies
   are restricted to joining by connection string.
 
 ### Multiplayer Activity (T6, T8)
 
 [Tutorial 6 — Advertise your lobby with MPA](../tutorials/06-multiplayer-activity.md)
-is the Xbox-side advertisement layer that sits on top of a PlayFab
+is the XBOX-side advertisement layer that sits on top of a PlayFab
 lobby. There is no PlayFab Game Manager fixture for MPA; the
-prerequisites are the Xbox-side SCID, an Xbox-backed PlayFab session,
+prerequisites are the XBOX-side SCID, an XBOX-backed PlayFab session,
 and the in-sandbox test accounts documented in
-[Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md).
+[XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md).
 The only PlayFab-side prerequisite is that the T5 Lobby fixture is in
 place.
 
@@ -251,7 +251,7 @@ requires:
 - **A functional microphone on both sides** for voice-path testing.
   Text and RPC traffic do not require a microphone.
 - **The two-process / two-test-account setup described in §2 Lobby.**
-  Party's Xbox-shell invites require Xbox-backed sessions on both
+  Party's XBOX-shell invites require XBOX-backed sessions on both
   sides.
 
 #### Same-host Party UDP port override
@@ -359,9 +359,9 @@ must be treated as production credentials.
 |---|---|
 | Title ID set in Project Settings | `Get-Content .\project.godot \| Select-String "title_id"` reports the Title ID under `[playfab]` |
 | `PlayFab.initialize()` succeeds | Bootstrap log line `[PlayFab] Bootstrap: PlayFab.initialize() succeeded.` is emitted at editor or runtime startup |
-| Xbox-backed sign-in succeeds (T1) | T1 log line `[PlayFab] signed in: title_player_account:<entity-id>` is emitted |
+| XBOX-backed sign-in succeeds (T1) | T1 log line `[PlayFab] signed in: title_player_account:<entity-id>` is emitted |
 | Leaderboard accepts client writes (T3) | T3 statistic write emits `[Lead] Recorded score …`. HRESULT `0x89235472` on `submit_score_async` indicates the code is calling the direct leaderboard write path, which should be handled by a trusted backend with a developer secret key for non-statistic-backed leaderboards. Use `update_statistics_async` for client-safe statistic-backed leaderboards. The same `0x89235472` on `update_statistics_async` indicates the title's **Allow client to post player stats** setting is disabled (see §2 step 3) |
-| Game Saves accepts the local user (T4) | T4 add-user emits `[Save] User context registered`. `xbox_user_required` indicates a custom-ID rather than Xbox-backed session |
+| Game Saves accepts the local user (T4) | T4 add-user emits `[Save] User context registered`. `xbox_user_required` indicates a custom-ID rather than XBOX-backed session |
 | Lobby create succeeds (T5) | T5 host emits `[Lobby] hosting <lobbyId>` |
 | Party create succeeds (T7) | T7 host emits `[Party] network <id> hosted with descriptor <…>` |
 
@@ -376,8 +376,8 @@ the diagnostic next steps.
 - [Addons getting started](../addon-getting-started.md) — the
   addon-zip quickstart, including the `playfab/runtime/title_id`
   setting step that this page elaborates on.
-- [Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
-  — the Xbox-side companion to this page. PlayFab tutorials assume
+- [XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
+  — the XBOX-side companion to this page. PlayFab tutorials assume
   both pages are satisfied.
 - [PlayFab plugin overview](plugin.md) — `godot_playfab` runtime
   configuration, public surface, and architecture notes.

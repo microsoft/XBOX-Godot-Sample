@@ -1,17 +1,17 @@
-# Godot GDK plugin
+# Godot Microsoft GDK plugin
 
 This is the landing page for the `godot_gdk` docs set.
 
-`godot_gdk` is the primary GDExtension addon in this repository. It implements a public-PC GDK service surface — runtime, users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC content access, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, and system metadata — and also ships editor-side setup and export tooling for the broader GDK workflow.
+`godot_gdk` is the primary GDExtension addon in this repository. It implements a public Microsoft GDK service surface — runtime, users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC content access, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, and system metadata — and also ships editor-side setup and export tooling for the broader Microsoft GDK workflow.
 
 ## Current implementation status
 
 ### Implemented now
 
 - root singleton registration through `GDK`
-- shared GDK runtime lifecycle
+- shared Microsoft GDK runtime lifecycle
 - shared async bridge
-- shared Xbox services scaffold
+- shared XBOX services scaffold
 - users service (`GDK.users`)
 - system / runtime metadata service (`GDK.system`)
 - game UI service (`GDK.game_ui`)
@@ -43,15 +43,15 @@ This is the landing page for the `godot_gdk` docs set.
 
 - Game Saves are intentionally not part of `godot_gdk`; they live in
   `godot_playfab` under `PlayFab.game_saves` because the PlayFab Game Saves
-  C API drives the Xbox-backed save flow.
-- Server / admin / private GDK surfaces remain out of scope for the public
+  C API drives the XBOX-backed save flow.
+- Server / admin / private Microsoft GDK surfaces remain out of scope for the public
   PC client wrappers.
 
 ## Testing this addon
 
 `godot_gdk` is exercised by the `tests\godot\gdk\` host. Coverage lives under `tests\godot\gdk\tests\` and includes files such as `test_core.gd`, `test_users.gd`, `test_achievements.gd`, `test_presence.gd`, `test_social.gd`, `test_multiplayer_activity.gd`, `test_system.gd`, `test_result_helpers.gd`, and `test_embed_dispatch.gd`. Startup-only behavior is covered by `tests\godot\gdk\tests\bootstrap\run_*.gd`, and packaging/editor-helper logic is covered under `tests\godot\gdk\tests\packaging\`.
 
-Most deterministic coverage runs in the default orchestrator pass. Live GDK flows are gated by `LIVE_TESTS=1` through `-Live`; any live write coverage should use a test sandbox.
+Most deterministic coverage runs in the default orchestrator pass. Live Microsoft GDK flows are gated by `LIVE_TESTS=1` through `-Live`; any live write coverage should use a test sandbox.
 
 Run the standard pipeline from the repository root:
 
@@ -67,7 +67,7 @@ See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages
 
 - [`getting-started.md`](../getting-started.md)  
   Adding the addons to your project, configuring project settings,
-  getting to user sign-in (Xbox + PlayFab), and building from source.
+  getting to user sign-in (XBOX + PlayFab), and building from source.
 
 - [`gdk/sample-setup.md`](sample-setup.md)  
   Partner Center configuration, sandbox setup, test accounts, and configuration flow.
@@ -97,7 +97,7 @@ See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages
 ### Subsystem deep dive
 
 - [`gdk/async-system.md`](async-system.md)  
-  Lower-level explanation of the shared async bridge and how the GDK service
+  Lower-level explanation of the shared async bridge and how the Microsoft GDK service
   wrappers participate in it.
 
 ### Reference

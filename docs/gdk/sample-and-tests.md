@@ -1,4 +1,4 @@
-# Godot GDK sample and tests
+# Godot Microsoft GDK sample and tests
 
 This document explains how the repo-wide test pipeline validates
 the addons.
@@ -18,7 +18,7 @@ The repository currently ships two tutorial-driven sample projects:
   integration tech demo). The CMake build mirrors `godot_gdk`, `godot_playfab`,
   and `godot_gdk_packaging` into this project.
 - `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
-  wired for the GameInput addon rather than the GDK runtime addon.
+  wired for the GameInput addon rather than the Microsoft GDK runtime addon.
 
 The test hosts under `tests\godot\` remain the automated coverage projects;
 the sample projects are reader-facing tutorial references, not GUT hosts.
@@ -70,7 +70,7 @@ A local run is green when all of the following are true:
 
 | Var | Effect | Default |
 |---|---|---|
-| `LIVE_TESTS=1` | Enables tests that need a live GDK or PlayFab session. | unset |
+| `LIVE_TESTS=1` | Enables tests that need a live Microsoft GDK or PlayFab session. | unset |
 | `LIVE_WRITE_TESTS=1` | Enables sandbox-only tests that write online state. Use only with sandbox titles. | unset |
 | `PLAYFAB_TITLE_ID` | Overrides `playfab/runtime/title_id` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
 | `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. | unset |
@@ -163,7 +163,7 @@ Update a baseline only when the host's intentional coverage changes. Do not lowe
 `GDK.launcher` success paths invoke OS-level URI handlers (`XLaunchUri`) and are
 not deterministic in CI/headless hosts. Keep automated coverage focused on input
 validation and unsupported-destination errors, then run manual smoke checks on a
-PC GDK machine for successful destinations (for example
+Microsoft GDK machine for successful destinations (for example
 `GDK.launcher.launch_uri("ms-settings:privacy-microphone")` and
 `GDK.launcher.launch_uri("ms-windows-store://pdp/?productid=<StoreProductId>")`).
 
@@ -175,9 +175,9 @@ PlayFab leaderboard writes may take several seconds to appear in subsequent read
 
 ## Adding a new test
 
-- Put addon coverage in the owning host: GDK and packaging tests in `tests\godot\gdk\tests\`, PlayFab tests in `tests\godot\playfab\tests\`, and GameInput tests in `tests\godot\gameinput\tests\`.
+- Put addon coverage in the owning host: Microsoft GDK and packaging tests in `tests\godot\gdk\tests\`, PlayFab tests in `tests\godot\playfab\tests\`, and GameInput tests in `tests\godot\gameinput\tests\`.
 - Extend the matching shared base: `res://addons/godot_gdk_tests/gdk_test_base.gd`, `res://addons/godot_gdk_tests/playfab_test_base.gd`, or `res://addons/godot_gdk_tests/gameinput_test_base.gd`.
-- Use `await_completion(...)` or `await_completion_state(...)` for async signal waits. PlayFab tests inherit a dual-pump override that dispatches both PlayFab and, when the optional GDK mirror is present, GDK queues.
+- Use `await_completion(...)` or `await_completion_state(...)` for async signal waits. PlayFab tests inherit a dual-pump override that dispatches both PlayFab and, when the optional Microsoft GDK mirror is present, Microsoft GDK queues.
 - Use `pending_unless_live()` for live gates, and derive mutating identifiers with `with_unique_id(...)`.
 - Use `assert_has_method_named(...)` and `assert_has_signal_named(...)` for reflection checks.
 - If a directory tree contains GUT-extending `.gd` files, place an empty `.gut_skip_validation` sentinel at that tree root so `tools\check_gd_scripts_headless.ps1` skips standalone parsing that would otherwise produce UID or GUT class-name warnings.

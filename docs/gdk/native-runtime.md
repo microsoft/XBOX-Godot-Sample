@@ -1,4 +1,4 @@
-# Godot GDK native runtime
+# Godot Microsoft GDK native runtime
 
 This document explains the current native runtime architecture of the `godot_gdk` addon.
 
@@ -17,7 +17,7 @@ The current native implementation has one root singleton and 21 public service n
 - service namespaces: `GDK.users`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.store`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.launcher`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.system`, `GDK.display`, and `GDK.activation`
 - wrapper types: `GDKResult`, `GDKUsers`, `GDKUser`, `GDKGameUI`, `GDKAccessibility`, `GDKClosedCaptionProperties`, `GDKAchievements`, `GDKAchievement`, `GDKPackage`, `GDKPackageMount`, `GDKPackageResourcePack`, `GDKStats`, `GDKLeaderboards`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow`, `GDKPrivacy`, `GDKPresence`, `GDKPresenceRecord`, `GDKSocial`, `GDKSocialFilter`, `GDKSocialGroup`, `GDKSocialUser`, `GDKStore`, `GDKStoreLicenseStatus`, `GDKProfile`, `GDKUserProfile`, `GDKStringVerify`, `GDKTitleStorage`, `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult`, `GDKErrorReporting`, `GDKLauncher`, `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, `GDKCapture`, `GDKCaptureMetaData`, `GDKSystem`, `GDKDisplay`, `GDKDisplayTimeoutDeferral`, and `GDKActivation`
 - internal direct-await helpers: `GDKPendingSignal`, `GDKSignalXAsyncContext`
-- internal Xbox services scaffold: `GDKXboxServices`
+- internal XBOX services scaffold: `GDKXboxServices`
 
 ## Root object: `GDK`
 
@@ -85,9 +85,9 @@ The queue is configured as:
 
 That means native work may happen off-thread, but Godot-visible completion only becomes visible when `GDK.dispatch()` drains the completion queue. By default the addon now calls `GDK.dispatch()` from a native process-frame callback while `gdk/runtime/embed_dispatch` is enabled, and games can fall back to manual dispatch when they disable that setting.
 
-## Xbox services scaffold: `GDKXboxServices`
+## XBOX services scaffold: `GDKXboxServices`
 
-`GDKXboxServices` is the shared native helper for features that sit on top of Xbox services rather than the raw game runtime.
+`GDKXboxServices` is the shared native helper for features that sit on top of XBOX services rather than the raw game runtime.
 
 It is responsible for:
 
@@ -137,7 +137,7 @@ It currently exposes:
 
 It emits:
 
-- `user_changed(user, change_kind)` for all user lifecycle and Xbox-facing state changes. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`.
+- `user_changed(user, change_kind)` for all user lifecycle and XBOX-facing state changes. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`.
 
 `GDKUser` is the script-visible wrapper around a local user. It stores:
 
@@ -184,7 +184,7 @@ this change (`XClosedCaptionGetProperties`, `XClosedCaptionSetEnabled`,
 
 ## Achievements service
 
-`GDKAchievements` is the first service implemented on top of the Xbox services scaffold.
+`GDKAchievements` is the first service implemented on top of the XBOX services scaffold.
 
 It currently owns:
 
@@ -215,7 +215,7 @@ It emits:
 
 ## Presence service
 
-`GDKPresence` is the XAsync-backed presence layer implemented on top of the shared Xbox services scaffold.
+`GDKPresence` is the XAsync-backed presence layer implemented on top of the shared XBOX services scaffold.
 
 It currently exposes:
 
@@ -239,7 +239,7 @@ Important contract details:
 
 - `state` is the configured rich-presence string ID for the current title SCID in Partner Center, not arbitrary text.
 - `rich_presence` can override `scid` and pass `token_ids` / `tokens` for rich-presence formatting.
-- `get_presence_async(xuids)` reads presence by XUID, but it still requires a signed-in primary user because the XSAPI call needs an Xbox services context.
+- `get_presence_async(xuids)` reads presence by XUID, but it still requires a signed-in primary user because the XSAPI call needs an XBOX services context.
 
 ## Social service
 
@@ -269,7 +269,7 @@ Its main wrapper types are:
 
 ## Profile service
 
-`GDKProfile` is the XSAPI-backed profile layer for Xbox Services profile reads.
+`GDKProfile` is the XSAPI-backed profile layer for XBOX Services profile reads.
 
 It currently exposes:
 
@@ -277,8 +277,8 @@ It currently exposes:
 - `get_profiles_async(user, xuids)`
 - `get_profiles_for_social_group_async(user, social_group)`
 
-`GDKUserProfile` is the script-visible wrapper around one Xbox Services profile
-record. Calls duplicate from the shared cached Xbox services context via
+`GDKUserProfile` is the script-visible wrapper around one XBOX Services profile
+record. Calls duplicate from the shared cached XBOX services context via
 `GDKXboxServices::duplicate_context_for_user` (which calls
 `XblContextDuplicateHandle(...)`); methods return typed errors when the
 scaffold isn't initialized.
@@ -303,7 +303,7 @@ linked thunk libs.
 
 ## Stats service
 
-`GDKStats` is the XSAPI-backed user statistics layer wired through the Xbox
+`GDKStats` is the XSAPI-backed user statistics layer wired through the XBOX
 services scaffold.
 
 It currently exposes:
@@ -345,11 +345,11 @@ It emits:
 
 `GDKLeaderboard` carries `query_type`, `total_row_count`, `has_next`, columns,
 and rows. `GDKLeaderboardRow.column_values` carries JSON-encoded column values
-returned by Xbox Services.
+returned by XBOX Services.
 
 ## String verification service
 
-`GDKStringVerify` is the XSAPI-backed wrapper around Xbox Live string
+`GDKStringVerify` is the XSAPI-backed wrapper around XBOX Live string
 verification.
 
 It currently exposes:
@@ -363,9 +363,9 @@ boolean and the first offending substring when available.
 
 ## Title Storage service
 
-`GDKTitleStorage` is the XSAPI-backed Xbox Services Title Storage layer
+`GDKTitleStorage` is the XSAPI-backed XBOX Services Title Storage layer
 wrapping `title_storage_c.h`. It is unrelated to PlayFab Game Saves and the
-GDK `XGameSaveFiles` API.
+Microsoft GDK `XGameSaveFiles` API.
 
 It currently exposes:
 
@@ -481,7 +481,7 @@ malformed URIs return `invalid_uri`; blocked destinations such as `file:`,
 
 ## Error reporting service
 
-`GDKErrorReporting` wraps the public PC GDK `XError` callback and options
+`GDKErrorReporting` wraps the public Microsoft GDK `XError` callback and options
 APIs (`XErrorSetCallback`, `XErrorSetOptions`). It does not submit reports to
 external endpoints.
 
@@ -503,7 +503,7 @@ bitwise OR.
 
 `GDKSystem` is the synchronous title/runtime metadata service. It exposes
 PC-supported XGameRuntime metadata reads plus a passthrough to the shared
-Xbox services scaffold.
+XBOX services scaffold.
 
 It currently exposes:
 
@@ -513,7 +513,7 @@ It currently exposes:
 - `is_xbox_services_initialized()`
 
 The service has no native handle of its own; reads are direct calls to
-`XGameGetXboxTitleId`, `XSystemGetXboxLiveSandboxId`, and the Xbox services
+`XGameGetXboxTitleId`, `XSystemGetXboxLiveSandboxId`, and the XBOX services
 scaffold's cached SCID.
 
 ## Display service
@@ -576,7 +576,7 @@ The newer XUser-facing methods now reuse that same flow as well: privilege resol
 
 The current `query_player_achievements_async()` and `update_achievement_async()` paths are the complementary non-`XAsyncBlock` example:
 
-1. `GDKAchievements` ensures Xbox services are initialized from title metadata.
+1. `GDKAchievements` ensures XBOX services are initialized from title metadata.
 2. it registers the user with Achievements Manager through `XblAchievementsManagerAddLocalUser(...)`
 3. it returns a retained completion signal
 4. the op stays pending until `GDK.dispatch()` pumps `XblAchievementsManagerDoWork()`

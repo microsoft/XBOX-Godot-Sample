@@ -2,9 +2,9 @@
 
 ## What you'll build
 
-A single autoload that brings up Xbox Live first, then PlayFab on top
+A single autoload that brings up XBOX Live first, then PlayFab on top
 of it, and exposes both sessions to the rest of your game. The flow
-is the **check → silent → UI** fallback for Xbox, followed by
+is the **check → silent → UI** fallback for XBOX, followed by
 `sign_in_with_xuser_async` for PlayFab. When it works, your Output
 panel ends with something like:
 
@@ -23,16 +23,16 @@ Everything in tutorials 2–5 assumes you can reach this state.
   `godot_gameinput`, plus `godot_gdk_packaging`) are enabled in
   **Project Settings → Plugins**, and `MicrosoftGame.config` has
   real Title ID and SCID values (not the template defaults). See
-  [Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+  [Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
   for where these values live in
   [Partner Center](https://partner.microsoft.com/dashboard).
 - Your **PlayFab title** is provisioned and `playfab/runtime/title_id`
   is set. The walkthrough — creating the title and configuring the
   Title ID in Project Settings — is documented in
   [PlayFab title prerequisites — §1 Create the title](../playfab/prerequisites.md#1-create-the-title-and-capture-the-title-id).
-- Your **PC is in the right Xbox sandbox** and at least one Xbox
-  **test account** is signed into the Xbox app for the silent path.
-  See [Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md).
+- Your **PC is in the right XBOX sandbox** and at least one XBOX
+  **test account** is signed into the XBOX app for the silent path.
+  See [XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md).
 - `gdk/runtime/initialize_on_startup` and
   `playfab/runtime/initialize_on_startup` are both `true` (the
   quickstart sets these explicitly — they ship `false` out of the
@@ -116,7 +116,7 @@ they need to gate work on a completed session.
 
 ## Step 2 — Reach a `GDKUser` (check → silent → UI)
 
-Add the Xbox sign-in routine to `auth.gd`:
+Add the XBOX sign-in routine to `auth.gd`:
 
 ```gdscript
 func _ensure_xbox_user() -> GDKUser:
@@ -158,7 +158,7 @@ A few things worth calling out:
   `.ok`) all matter. `add_default_user_async` resolves to a result
   that is "ok" with `data == null` in a handful of edge cases (for
   example a stale handle); the explicit chain rejects those.
-- This is the **only** Xbox sign-in entry point your game should
+- This is the **only** XBOX sign-in entry point your game should
   call. Do **not** drive sign-in from `GDK.users.user_changed` —
   that signal fires for every user lifecycle event (adds, removes,
   gamertag changes, picture changes, privilege changes) and is not
@@ -168,7 +168,7 @@ A few things worth calling out:
   allows UI presentation. Running it from `_ready` is fine; running
   it during shutdown or from a worker thread is not.
 
-## Step 3 — Hand the Xbox user to PlayFab
+## Step 3 — Hand the XBOX user to PlayFab
 
 PlayFab does not have its own silent/UI distinction — once you have a
 signed-in `GDKUser`, `sign_in_with_xuser_async` does the rest:
@@ -202,7 +202,7 @@ func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
 
 The two failure codes worth recognizing here are:
 
-- `invalid_xuser` — the GDK user passed in was null or signed out
+- `invalid_xuser` — the Microsoft GDK user passed in was null or signed out
   between the check above and the call. The chain in step 2 makes
   this unlikely, but a user who signs out between frames will
   surface it.
@@ -322,7 +322,7 @@ func _on_state_changed(_state: Auth.State) -> void:
 ```
 
 A `gdk.add_user_with_ui` failure is the one the user can recover
-from by signing into the Xbox app and tapping a retry button that
+from by signing into the XBOX app and tapping a retry button that
 calls `await Auth.sign_in()` again — `sign_in()` resets stale
 state on each fresh attempt so it's safe to retry.
 
@@ -347,10 +347,10 @@ The most common failure paths and how to read them:
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| `[Auth] Silent sign-in failed (no_default_user) — falling back to UI.` | No Xbox-app account on the PC. The fallback handles it. | Pick a test account in the picker, or sign one into the Xbox app first. |
-| `[Auth] sign-in failed at gdk.initialize: ...` | GDK runtime did not initialize. | Confirm the GDK is installed (`winget install Microsoft.Gaming.GDK`) and the addon `bin/` folder shipped into the project. |
+| `[Auth] Silent sign-in failed (no_default_user) — falling back to UI.` | No XBOX-app account on the PC. The fallback handles it. | Pick a test account in the picker, or sign one into the XBOX app first. |
+| `[Auth] sign-in failed at gdk.initialize: ...` | Microsoft GDK runtime did not initialize. | Confirm the Microsoft GDK is installed (`winget install Microsoft.Gaming.GDK`) and the addon `bin/` folder shipped into the project. |
 | `[Auth] sign-in failed at playfab.initialize: ...` | PlayFab runtime did not initialize. Usually `title_id_required`. | Set `playfab/runtime/title_id` in Project Settings. |
-| `[Auth] sign-in failed at playfab.sign_in: invalid_xuser` | The Xbox user signed out between sign-in stages. | Retry. If it persists, check the sandbox setting and the test account state. |
+| `[Auth] sign-in failed at playfab.sign_in: invalid_xuser` | The XBOX user signed out between sign-in stages. | Retry. If it persists, check the sandbox setting and the test account state. |
 | `[Auth] sign-in failed at gdk.add_user_with_ui: ...` | The picker was dismissed or the account flow was canceled. | Run again — `add_user_with_ui_async` is idempotent, and `Auth.sign_in()` resets failure state on each retry. |
 
 ## Reference implementation

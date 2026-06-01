@@ -1,6 +1,6 @@
-# Godot GDK Packaging — Editor `GDK` Menu
+# Godot Microsoft GDK Packaging — Editor `GDK` Menu
 
-The `godot_gdk_packaging` addon adds a top-level **GDK** menu to the
+The `godot_gdk_packaging` addon adds a top-level **Microsoft GDK** menu to the
 Godot editor. The menu is editor tooling only: it does not add a runtime
 autoload or engine singleton, and it is separate from the headless
 `gdkpkg` runner documented in [Packaging Plugin](plugin.md).
@@ -18,8 +18,8 @@ The menu is assembled by
 7. GameConfigEditor Reference
 8. Achievements Guide
 9. PlayFab Game Manager
-10. PlayFab IDs from Xbox Live
-11. PlayFab + GDK Quickstart
+10. PlayFab IDs from XBOX Live
+11. PlayFab + Microsoft GDK Quickstart
 
 ## Prerequisites shared by all menu entries
 
@@ -27,7 +27,7 @@ The menu is assembled by
 - Open the project whose packaging state you want to inspect or change.
 - Install the Microsoft GDK when you want to run local tools such as
   `GameConfigEditor.exe`, `XblPCSandbox.exe`, `wdapp.exe`, or `makepkg.exe`.
-  The addon discovers the GDK from `GDK_BIN` first, then from the default
+  The addon discovers the Microsoft GDK from `GDK_BIN` first, then from the default
   `C:\Program Files (x86)\Microsoft GDK\bin` location.
 
 Documentation links also require network access and whatever Microsoft,
@@ -47,7 +47,7 @@ when you need a quick reminder of the packaging workflow without leaving the
 editor.
 
 **Required prerequisites:** The addon must be enabled and the Godot editor
-must have a base editor window. The wizard itself does not require the GDK to
+must have a base editor window. The wizard itself does not require the Microsoft GDK to
 be installed because it is informational.
 
 **Expected output / side effects:** A modal wizard window opens. Navigating or
@@ -61,25 +61,25 @@ commands that perform the build and packaging work.
 **What it does:** The label changes based on whether the project already has a
 MicrosoftGame.config. When the file is missing, the menu creates a starter
 `MicrosoftGame.config`, best-effort creates placeholder images under
-`storelogos\` when the GDK default PNG asset is available, asks Godot's file
+`storelogos\` when the Microsoft GDK default PNG asset is available, asks Godot's file
 system to rescan, then launches `GameConfigEditor.exe`. When the file already
 exists, it launches `GameConfigEditor.exe` against the current config.
 
-**When to use it:** Use it when bootstrapping a GDK project identity, editing
-store logos, or updating the executable, identity, product, or Xbox Live fields
+**When to use it:** Use it when bootstrapping a Microsoft GDK project identity, editing
+store logos, or updating the executable, identity, product, or XBOX Live fields
 inside the config.
 
 **Required prerequisites:** Install the Microsoft GDK so
 `GameConfigEditor.exe` is available. The project directory must be writable
 when creating the initial template. Partner Center sign-in is not required just
-to create or edit the local file, but store association and Xbox Live IDs must
+to create or edit the local file, but store association and XBOX Live IDs must
 come from your Partner Center title when you are preparing a real package.
 
 **Expected output / side effects:** Template creation writes
 `MicrosoftGame.config` and a `storelogos\` folder in the project if they do not
 exist, then best-effort populates the placeholder logo files when
 `GameConfigEditorDependencies\default480x480.png` is available in the selected
-GDK bin directory. Editing through GameConfigEditor may rewrite the config and
+Microsoft GDK bin directory. Editing through GameConfigEditor may rewrite the config and
 logo files. If the editor executable is missing or fails to launch, the Godot
 output panel shows an error.
 
@@ -90,13 +90,13 @@ entry.
 
 ### Change Sandbox…
 
-**What it does:** Opens the GDK Sandbox Switcher dialog. The dialog reads the
+**What it does:** Opens the Microsoft GDK Sandbox Switcher dialog. The dialog reads the
 current PC sandbox with `XblPCSandbox.exe /get`, can switch to a target
 sandbox with `/set <sandbox-id> /noApps`, and can switch back to RETAIL with
 `/retail /noApps`.
 
-**When to use it:** Use it before testing Xbox Live services with development
-sandboxes, or before returning the PC to retail Xbox Live services.
+**When to use it:** Use it before testing XBOX Live services with development
+sandboxes, or before returning the PC to retail XBOX Live services.
 
 **Required prerequisites:** Install the Microsoft GDK so
 `XblPCSandbox.exe` is available. Switching sandboxes is machine-wide and
@@ -105,11 +105,11 @@ Partner Center title that your developer account can access.
 
 **Expected output / side effects:** The dialog displays the current sandbox,
 confirms any switch, and reports success or failure. A successful switch changes
-the PC's machine-wide Xbox sandbox for every user, Xbox tool, and Xbox-aware
-app on the machine. Switch back to RETAIL before using retail Xbox Live
+the PC's machine-wide XBOX sandbox for every user, XBOX tool, and XBOX-aware
+app on the machine. Switch back to RETAIL before using retail XBOX Live
 services.
 
-**Deeper docs:** See [Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
+**Deeper docs:** See [XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
 for account and sandbox setup. The headless equivalent is the `sandbox` verb in
 [Packaging Plugin](plugin.md#verbs).
 
@@ -202,13 +202,13 @@ title, publishing them to a development sandbox, or validating achievement
 unlock flows with test accounts.
 
 **Required prerequisites:** Network access. Following the guide requires a
-Partner Center title, access to Xbox Live configuration for that title, a
+Partner Center title, access to XBOX Live configuration for that title, a
 development sandbox, and a matching test account.
 
 **Expected output / side effects:** The browser opens a Microsoft Learn page.
 No local project files change.
 
-**Deeper docs:** See [Xbox sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
+**Deeper docs:** See [XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
 for the local sandbox and test-account prerequisites.
 
 ### PlayFab Game Manager
@@ -229,16 +229,16 @@ Changes happen only if you modify title data in the portal.
 **Deeper docs:** See [PlayFab title prerequisites](../playfab/prerequisites.md)
 for the title configuration expected by this repository's PlayFab tutorials.
 
-### PlayFab IDs from Xbox Live
+### PlayFab IDs from XBOX Live
 
-**What it does:** Opens the PlayFab REST API documentation for mapping Xbox Live
+**What it does:** Opens the PlayFab REST API documentation for mapping XBOX Live
 IDs to PlayFab IDs.
 
-**When to use it:** Use it when reconciling Xbox identities with PlayFab player
+**When to use it:** Use it when reconciling XBOX identities with PlayFab player
 records or debugging cross-service account linking.
 
 **Required prerequisites:** Network access. Calling the documented API requires
-PlayFab credentials and the appropriate Xbox Live identity data.
+PlayFab credentials and the appropriate XBOX Live identity data.
 
 **Expected output / side effects:** The browser opens a Microsoft Learn API
 reference. No local files change.
@@ -246,16 +246,16 @@ reference. No local files change.
 **Deeper docs:** See [PlayFab title prerequisites](../playfab/prerequisites.md)
 and the PlayFab user-session docs in [PlayFab Plugin](../playfab/plugin.md).
 
-### PlayFab + GDK Quickstart
+### PlayFab + Microsoft GDK Quickstart
 
-**What it does:** Opens the PlayFab SDK for GDK quickstart in the system
+**What it does:** Opens the PlayFab SDK for Microsoft GDK quickstart in the system
 browser.
 
-**When to use it:** Use it when you need Microsoft's native PlayFab + GDK
+**When to use it:** Use it when you need Microsoft's native PlayFab + Microsoft GDK
 integration context while comparing this repository's Godot addon layer to the
 underlying platform SDK guidance.
 
-**Required prerequisites:** Network access. Running native GDK SDK samples also
+**Required prerequisites:** Network access. Running native Microsoft GDK SDK samples also
 requires the Microsoft GDK and a PlayFab title.
 
 **Expected output / side effects:** The browser opens Microsoft Learn. No local

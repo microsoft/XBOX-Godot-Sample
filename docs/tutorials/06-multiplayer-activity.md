@@ -3,7 +3,7 @@
 ## What you'll build
 
 Hook your [Tutorial 5 lobby](05-multiplayer-lobby.md) into the
-Xbox shell's **Multiplayer Activity** (MPA) surface so the user's
+XBOX shell's **Multiplayer Activity** (MPA) surface so the user's
 friends can see "Playing with you" cards, accept invites from the
 Game Bar, and rejoin your session through the system UI. By the
 end you will:
@@ -52,19 +52,19 @@ Game Bar):
   resolves to the per-sandbox MPSD ("Multiplayer Session
   Directory"), and a wrong-sandbox PC silently writes activities
   into a graveyard SCID nobody can see.
-- For end-to-end testing of invites: two Xbox **test accounts**
+- For end-to-end testing of invites: two XBOX **test accounts**
   that follow each other in the same sandbox, signed into two
-  separate machines (or two Xbox app sessions on the same PC).
+  separate machines (or two XBOX app sessions on the same PC).
   Friends-of-friends invites also work but are flakier in
   pre-release sandboxes.
 - One-page primer on the addons' async model: [Async patterns](../async-patterns.md).
 
 > **MPA vs. the lobby.** A `PlayFabLobby` is the actual session
 > roster — connection string, member list, properties, ownership.
-> The **multiplayer activity** is an Xbox shell concept layered on
+> The **multiplayer activity** is an XBOX shell concept layered on
 > top: a per-user advertisement that says "this XUID is in a
 > session with this connection string, here's how to join". MPA
-> does not move bytes. It exists so the Xbox / Game Bar / Game DVR
+> does not move bytes. It exists so the XBOX / Game Bar / Game DVR
 > / "Currently playing" surfaces know that a user is joinable and
 > what string to pass back into your title when a friend taps
 > **Join**.
@@ -118,7 +118,7 @@ Game Bar):
 
 Add the three signal connections to the `Lobby` autoload's
 `_ready` (alongside the existing `Auth.sign_in()` await). The goal
-is to install handlers **before** the GDK runtime can fire a
+is to install handlers **before** the Microsoft GDK runtime can fire a
 deferred `invite_accepted` from a launch-with-invite activation —
 that activation can race `_ready` if the title is launched cold
 straight from a friend's invite.
@@ -127,8 +127,8 @@ The PlayFab Multiplayer side stays inside the
 `_ensure_initialized()` helper you added in
 [T5 Step 1](05-multiplayer-lobby.md#step-1--bring-up-the-lobby-autoload)
 so the SDK only spins up when the user actually hosts / joins. The
-GDK side wires up unconditionally in `_ready` — `GDK.multiplayer_activity`
-is part of the core GDK runtime that's already initialized by the
+Microsoft GDK side wires up unconditionally in `_ready` — `GDK.multiplayer_activity`
+is part of the core Microsoft GDK runtime that's already initialized by the
 bootstrap.
 
 ```gdscript
@@ -143,7 +143,7 @@ func _ready() -> void:
     print("[Lobby] autoload ready (Lobby + MPA wired; PlayFab Multiplayer init is lazy)")
 ```
 
-The three GDK signals are stateless — connecting after a missed
+The three Microsoft GDK signals are stateless — connecting after a missed
 `invite_accepted` simply means you miss that one. The launch-with-
 invite path is handled by the activation service queueing the
 event until the first signal listener attaches, so connecting in
@@ -214,7 +214,7 @@ A few notes:
 - `group_id` is for grouping friends who are about to play
   together (e.g. a pre-game party). Most titles pass `""`.
 - `allow_cross_platform_join` controls whether the activity is
-  visible to non-Xbox platforms (PlayFab Multiplayer's
+  visible to non-XBOX platforms (PlayFab Multiplayer's
   cross-platform discovery). Defaults to `false` because most
   titles want explicit opt-in.
 
@@ -288,7 +288,7 @@ seconds while the leave round-trips.
 
 ## Step 4 — Accept an invite that arrives mid-game
 
-When a friend taps **Join** on your activity, the Xbox shell
+When a friend taps **Join** on your activity, the XBOX shell
 queues an activation event. The addon parses the activation URI
 into a `Dictionary` and fires `invite_accepted`. The handler
 should pull the `connectionstring` out of that dict and decide
@@ -333,7 +333,7 @@ func _on_invite_accepted(invite: Dictionary) -> void:
 A few notes:
 
 - The dictionary keys are **lowercased** (the addon normalizes them
-  for stable indexing across activations). The Xbox URI uses
+  for stable indexing across activations). The XBOX URI uses
   `connectionString` (camel case); the parsed dict exposes it as
   `"connectionstring"`. Use `invite.get("raw_uri", "")` for the
   full URI when you need to log unparsed cases.
@@ -469,7 +469,7 @@ Two flavors:
 - **Targeted invite** — you know the friend's XUID and want to
   push the invite without surfacing UI. Use
   `Lobby.get_friends_async()` (Step 5a) to pull a real friends
-  list from the Xbox Social Manager instead of asking the player
+  list from the XBOX Social Manager instead of asking the player
   to paste a XUID by hand.
 - **Picker invite** — surface the system **People Picker** so the
   user chooses who to invite.
@@ -509,7 +509,7 @@ Two flavors:
 
 ### Step 5a — Pull a real friends list from Social Manager
 
-The friends list lives in the **Xbox Social Manager**, which
+The friends list lives in the **XBOX Social Manager**, which
 tracks the local user's social graph in the background and exposes
 it as a snapshot of `GDKSocialUser` records (XUID + gamertag +
 presence). Bring it up lazily on first call, then reuse the cached
@@ -593,7 +593,7 @@ Notes:
 - Always destroy the group in `_exit_tree`. Leaving it alive after
   the autoload is gone keeps the Social Manager doing background
   work for nothing.
-- For testing the targeted invite path without two real Xbox
+- For testing the targeted invite path without two real XBOX
   accounts, fall back to the system picker
   (`show_invite_ui_async`) which uses the shell's own friends
   view and works against test sandbox accounts immediately.
@@ -639,7 +639,7 @@ Notes:
   flows where the inviter is advertising a different "lobby" than
   the one they want the invitee to join (rare; mostly relevant for
   staged invite flows where the inviter has not joined yet).
-- `show_invite_ui_async` is a thin wrapper over the system Xbox
+- `show_invite_ui_async` is a thin wrapper over the system XBOX
   People Picker. The UI surfaces the user's friends list with
   multi-select; the actual invites go out automatically once the
   user confirms. The awaited result fires when the picker closes,
@@ -831,7 +831,7 @@ republished activity:
 | `set_activity failed: invalid_connection_string` | `_lobby.connection_string` was empty when `_publish_activity` was called. | Make sure you call `_publish_activity` **after** `create_lobby_async` / `join_lobby_async` resolves — the connection string is populated as part of that completion. |
 | `set_activity failed: auth_invalid_scid` | The PC's sandbox SCID does not match Partner Center. | See [Troubleshooting → SCID mismatch](../troubleshooting.md). |
 | `invite_accepted` never fires when a friend taps Join | The PC and the friend are in different sandboxes, or the friend's title's SCID does not match yours. | Both sides must be in the same sandbox, with the same SCID published. |
-| `invite_accepted` fires with `invite.get("connectionstring", "") == ""` | The invite was issued against a non-PlayFab activity (e.g. a stale Xbox-only MPSD session from an earlier build), or you passed an empty `connection_string` to `send_invites_async`. | Always advertise a real lobby connection string in `set_activity_async`, and let `send_invites_async` default to it. |
+| `invite_accepted` fires with `invite.get("connectionstring", "") == ""` | The invite was issued against a non-PlayFab activity (e.g. a stale XBOX-only MPSD session from an earlier build), or you passed an empty `connection_string` to `send_invites_async`. | Always advertise a real lobby connection string in `set_activity_async`, and let `send_invites_async` default to it. |
 | `send_invites failed: invalid_xuids` | One or more entries in the `xuids` PackedStringArray was not a valid base-10 XUID. | XUIDs are decimal strings (e.g. `"2814635463725476"`) — not gamertags. Pull them from `Lobby.get_friends_async()` (Step 5a) — each `GDKSocialUser.xuid` is in the correct format. |
 | `delete_activity failed: not_found` | No activity was ever set, or the runtime restarted between set and delete. | Safe to ignore — the user is already not advertising. |
 

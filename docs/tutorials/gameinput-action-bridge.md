@@ -4,7 +4,7 @@
 > cumulative chain (Sign-in → Achievements → Leaderboards → Game
 > Saves → Lobby → MPA → Party → Capstone). You can read it before,
 > after, or in parallel with that chain — it does not depend on
-> a signed-in Xbox user or any PlayFab state.
+> a signed-in XBOX user or any PlayFab state.
 
 ## What you'll build
 
@@ -22,9 +22,9 @@ gamepad into Godot's standard `InputMap`. By the end:
   `GameInput.device_connected` / `device_disconnected` signals.
 
 When it works, a Sprite that uses `move_left` / `move_right` /
-`jump` reacts to gamepad input even when the player's Xbox
+`jump` reacts to gamepad input even when the player's XBOX
 controller would otherwise be routed through GameInput-only paths
-(some Windows builds, all GDK title-process builds).
+(some Windows builds, all Microsoft GDK title-process builds).
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ controller would otherwise be routed through GameInput-only paths
 - A scratch Godot project with a single scene to attach the
   mapper to. You do **not** need to have followed any tutorial
   in the main cumulative chain — GameInput is entirely
-  independent of Xbox / PlayFab sign-in.
+  independent of XBOX / PlayFab sign-in.
 - `game_input/runtime/initialize_on_startup` is set to `true`.
   This defaults to `false`, so flip it explicitly in
   **Project Settings → Game Input → Runtime** (or call
@@ -45,7 +45,7 @@ controller would otherwise be routed through GameInput-only paths
   auto-poll, `GameInputMapper` calls poll defensively per frame
   anyway — auto-poll is mostly a perf optimization when multiple
   consumers share state.
-- A wired or wireless Xbox controller (or other GameInput-compatible
+- A wired or wireless XBOX controller (or other GameInput-compatible
   gamepad) plugged into the dev PC. The action bridge is
   GDScript-only on top of `GameInput` — it works on any
   GameInput-supported device kind.
@@ -72,9 +72,9 @@ controller would otherwise be routed through GameInput-only paths
 
 > **GameInput vs. Godot's built-in joypad backend.** Godot has its
 > own joypad backend that delivers `InputEventJoypadButton` and
-> `InputEventJoypadMotion`. GameInput is the GDK runtime that
-> exposes the same hardware through the Xbox-supported input stack.
-> Use this tutorial when your project ships to GDK targets (so the
+> `InputEventJoypadMotion`. GameInput is the Microsoft GDK runtime that
+> exposes the same hardware through the XBOX-supported input stack.
+> Use this tutorial when your project ships to Microsoft GDK targets (so the
 > built-in backend may not see the controller) or when you want
 > richer feedback like impulse triggers and per-motor rumble.
 
@@ -266,7 +266,7 @@ process lifetime.
 ## Step 6 — (Optional) Sanity-check the runtime
 
 When a build runs without a GameInput-capable host (for example a
-non-GDK Windows build that did not satisfy
+non-Microsoft GDK Windows build that did not satisfy
 `GameInputCreate()`), every GameInput call soft-fails into a safe
 default and `GameInput.is_initialized()` returns `false`. Your
 gameplay code keeps working off keyboard input; the mapper just
@@ -302,7 +302,7 @@ Common failures:
 | Single `push_warning` per missing action like `[GameInputMapper] Action not found in InputMap: 'jump'` | The action name on a `GameInputBinding` does not exist in **Project Settings → Input Map**. | Add the action, or fix the typo on the binding. |
 | Action fires twice (e.g., your jump triggers a double-jump) | A native joypad event for the same button is bound in the Input Map AND the mapper is also firing. | Either remove the native joypad event for that action, or accept the mapper's automatic skip (it should detect this case — if it doesn't, file a bug). |
 | Analog stick "snaps" to full strength at a small tilt | `deadzone` on the axis binding is too low. | Raise `deadzone` to `0.2` or higher (the default). |
-| `[Pad] GameInput runtime not available` on a GDK build | `GameInputCreate()` failed at runtime. | Check that the GDK is installed on the target machine and the addon `bin/` ships with the build. |
+| `[Pad] GameInput runtime not available` on a Microsoft GDK build | `GameInputCreate()` failed at runtime. | Check that the Microsoft GDK is installed on the target machine and the addon `bin/` ships with the build. |
 
 ## Reference implementation
 
@@ -331,7 +331,7 @@ The end-state lives in the standalone GameInput sample at
 - **Per-player binding for split-screen.** The hot-plug handler in
   Step 5 is the starting point — extend it to pin specific device
   ids to per-player `GameInputMapper` nodes.
-- **Wire GameInput into a signed-in Xbox session.** If you also
+- **Wire GameInput into a signed-in XBOX session.** If you also
   built through the main cumulative chain (signs in, lobbies,
   Party, MPA), the [capstone integration tech demo](08-integration-tech-demo.md)
   is the natural place to drop the gamepad autoload alongside the
