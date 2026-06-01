@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common build and runtime issues for the Godot for XBOX on PC addons.
+Common build and runtime issues for the Godot XBOX addons.
 
 ## DLL load failure: Error 126
 
@@ -39,7 +39,7 @@ godot_gdk.windows.debug.x86_64.dll
   cmake --build build --config Release
   ```
 
-## GDK headers or import libs not found during CMake configure
+## Microsoft GDK headers or import libs not found during CMake configure
 
 **Symptom:**
 
@@ -73,7 +73,7 @@ preset does not require vcpkg at all — see
    ```powershell
    cmake --preset default
    ```
-   The first run downloads the GDK and GameInput NuGet packages from
+   The first run downloads the Microsoft GDK and GameInput NuGet packages from
    Microsoft's public feed and can take several minutes; subsequent runs
    reuse the cached install.
 3. If the configure still fails, delete `build\vcpkg_installed\` and try
@@ -84,13 +84,13 @@ preset does not require vcpkg at all — see
 > still need a full Microsoft GDK install on machines that need to **run**
 > packaging tools (`makepkg.exe`, `wdapp.exe`, Game Config Editor).
 
-## GDK packaging tools not found at runtime
+## Microsoft GDK packaging tools not found at runtime
 
 **Symptom:** The packaging plugin reports that `makepkg.exe`, `wdapp.exe`,
 or `GameConfigEditor.exe` cannot be located.
 
-**Cause:** The vcpkg-based build does not install the GDK tools (only the
-headers and import libs). End users need the full GDK install for the
+**Cause:** The vcpkg-based build does not install the Microsoft GDK tools (only the
+headers and import libs). End users need the full Microsoft GDK install for the
 tooling surface.
 
 **Fix:** Install the Microsoft GDK on the machine that runs the packaging
@@ -157,7 +157,7 @@ CMake Error: godot-cpp submodule not found. Run: git submodule update --init --r
 git submodule update --init --recursive
 ```
 
-## Xbox sign-in fails at runtime
+## XBOX sign-in fails at runtime
 
 **Possible causes:**
 
@@ -168,12 +168,12 @@ git submodule update --init --recursive
    See [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
    and
    [PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
-2. **Using personal account** — The sample requires Xbox test accounts, not
+2. **Using personal account** — The sample requires XBOX test accounts, not
    personal Microsoft accounts.
 3. **Title not configured** — Ensure your title is set up in
-   [Partner Center](https://partner.microsoft.com/dashboard) with Xbox Live
+   [Partner Center](https://partner.microsoft.com/dashboard) with XBOX Live
    enabled. See
-   [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   [Microsoft GDK — Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
    for the canonical Microsoft-side walkthrough.
 
 See [Sample Project Setup](gdk/sample-setup.md) for the full
@@ -187,7 +187,7 @@ configuration guide.
 [GDK] add_default_user_async failed: code=auth_invalid_scid, message=...
 ```
 
-Or sign-in succeeds but every Xbox services call (achievements,
+Or sign-in succeeds but every XBOX services call (achievements,
 leaderboards, MPA, presence) fails with `404` / `not_found` / a similar
 "unknown SCID" diagnostic.
 
@@ -198,9 +198,9 @@ Partner Center, or matches an SCID from a different sandbox.
 **Fix:**
 
 1. In [Partner Center](https://partner.microsoft.com/dashboard) → your title
-   → **Xbox services → Service configuration → IDs**, copy the
+   → **XBOX services → Service configuration → IDs**, copy the
    **Service Configuration ID** value. See
-   [Microsoft GDK — Configuring Xbox services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
+   [Microsoft GDK — Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
    for where this lives.
 2. Open your project's `MicrosoftGame.config` and confirm the `Scid`
    attribute under
@@ -222,7 +222,7 @@ the next entry.
 - Sign-in fails immediately with `auth_no_account` when the account
   works fine on a different machine.
 - The Game Bar identity badge shows a different gamertag than the one
-  Xbox services returns.
+  XBOX services returns.
 
 **Cause:** The PC's active sandbox does not match the sandbox the test
 account is provisioned in (or the SCID is published into).
@@ -237,7 +237,7 @@ account is provisioned in (or the SCID is published into).
    for the underlying model and
    [PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher)
    for the tool reference.
-2. Sign out of the Microsoft Store / Xbox app, then sign back in with
+2. Sign out of the Microsoft Store / XBOX app, then sign back in with
    the test account.
 3. Re-run the game.
 
@@ -330,13 +330,13 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
   `Auth.xbox_user` from before sign-in completed.
 - `xuser_not_found` — the `local_id` was valid at one point but the
   underlying `XUserHandle` has been freed or signed out. Most common
-  cause: signing out of Xbox between `add_default_user_async` and
+  cause: signing out of XBOX between `add_default_user_async` and
   `sign_in_with_xuser_async`, or holding a stored user across a
   long-running test session.
 
 **Fix:**
 
-1. Confirm Xbox sign-in completed and the user is still live before
+1. Confirm XBOX sign-in completed and the user is still live before
    passing it to PlayFab:
    ```gdscript
    var xbox_result := await GDK.users.add_default_user_async()
@@ -348,14 +348,14 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
    ```
    Do not pass an `xuid` or a raw local id directly — `sign_in_with_xuser_async`
    takes the typed `GDKUser` object.
-3. If the Xbox sign-in succeeded but PlayFab still fails with
+3. If the XBOX sign-in succeeded but PlayFab still fails with
    `xuser_not_found`, re-run `GDK.users.add_default_user_async()` to
    obtain a fresh `GDKUser` and immediately retry — the previous
    handle was released.
 4. If the failure is consistent across fresh sign-ins, your PlayFab
-   title may not have Xbox Live linked. In
+   title may not have XBOX Live linked. In
    [PlayFab Game Manager](https://developer.playfab.com/) →
-   your title → **Add-ons → Xbox Live**, install the add-on and
+   your title → **Add-ons → XBOX Live**, install the add-on and
    configure it with your title's SCID.
 
 ## PlayFab leaderboard submit fails with `E_PF_API_NOT_ENABLED_FOR_GAME_CLIENT_ACCESS` (0x89235472)
