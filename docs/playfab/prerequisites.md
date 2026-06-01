@@ -374,7 +374,7 @@ the diagnostic next steps.
 ## Related docs
 
 - [Addons getting started](../addon-getting-started.md) — the
-  addon-zip quickstart, including the `playfab/runtime/title_id`
+  drop-in addons quickstart, including the `playfab/runtime/title_id`
   setting step that this page elaborates on.
 - [XBOX sandbox and test accounts](../platform/xbox-sandbox-and-test-accounts.md)
   — the XBOX-side companion to this page. PlayFab tutorials assume
