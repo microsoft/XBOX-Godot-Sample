@@ -60,10 +60,10 @@ commands that perform the build and packaging work.
 
 **What it does:** The label changes based on whether the project already has a
 MicrosoftGame.config. When the file is missing, the menu creates a starter
-`MicrosoftGame.config`, creates placeholder images under `storelogos\`, asks
-Godot's file system to rescan, then launches `GameConfigEditor.exe`. When the
-file already exists, it launches `GameConfigEditor.exe` against the current
-config.
+`MicrosoftGame.config`, best-effort creates placeholder images under
+`storelogos\` when the GDK default PNG asset is available, asks Godot's file
+system to rescan, then launches `GameConfigEditor.exe`. When the file already
+exists, it launches `GameConfigEditor.exe` against the current config.
 
 **When to use it:** Use it when bootstrapping a GDK project identity, editing
 store logos, or updating the executable, identity, product, or Xbox Live fields
@@ -77,9 +77,11 @@ come from your Partner Center title when you are preparing a real package.
 
 **Expected output / side effects:** Template creation writes
 `MicrosoftGame.config` and a `storelogos\` folder in the project if they do not
-exist. Editing through GameConfigEditor may rewrite the config and logo files.
-If the editor executable is missing or fails to launch, the Godot output panel
-shows an error.
+exist, then best-effort populates the placeholder logo files when
+`GameConfigEditorDependencies\default480x480.png` is available in the selected
+GDK bin directory. Editing through GameConfigEditor may rewrite the config and
+logo files. If the editor executable is missing or fails to launch, the Godot
+output panel shows an error.
 
 **Deeper docs:** See [Packaging Plugin](plugin.md#verbs) for the
 `config_template` and `config_editor` headless verbs, and Microsoft's
