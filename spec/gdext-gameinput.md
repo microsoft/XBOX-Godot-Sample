@@ -193,7 +193,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `game_input/mapper/default_action_map` | `""` | When set to a `GameInputActionMap` resource path (e.g. `res://input/actions.tres`), the bootstrap autoload spawns a `GameInputMapper` named `DefaultMapper` as its child and assigns the loaded resource to it. Lets a project drive its `InputMap` from a GameInput action map without adding any nodes to its scenes. Also serves as the fallback `action_map` for any user-placed `GameInputMapper` whose `action_map` property is null. |
+| `game_input/mapper/default_action_map` | `""` | When set to a `GameInputActionMap` resource path (e.g. `res://input/actions.tres`), the bootstrap autoload spawns a `GameInputMapper` named `DefaultMapper` as its child and assigns the loaded resource to it. Lets a project drive its `InputMap` from a GameInput action map without adding any nodes to its scenes. This applies only to the bootstrap-spawned `DefaultMapper`; a user-placed `GameInputMapper` whose `action_map` is null does **not** load this setting. |
 
 > **Note:** `game_input/runtime/embed_dispatch` was dropped — GameInput
 > dispatches callbacks on its own worker thread and we don't manually drive

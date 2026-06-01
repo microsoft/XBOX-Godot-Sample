@@ -43,7 +43,7 @@
 		<method name="supports_haptics" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code]true[/code] if the device reports one or more haptic-feedback motors (distinct from rumble). The current addon does not yet send haptic patterns; this is exposed so games can detect capability ahead of a future API.
+				Returns [code]true[/code] if [code]IGameInputDevice::GetHapticInfo()[/code] succeeds and reports at least one haptic location. This is distinct from rumble support exposed by [method supports_vibration]. The current addon does not yet send haptic patterns; this is exposed so games can detect capability ahead of a future API.
 			</description>
 		</method>
 		<method name="get_device_info" qualifiers="const">

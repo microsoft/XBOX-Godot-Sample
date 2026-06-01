@@ -4,17 +4,11 @@ The headless test suite under `tests/godot/gameinput/tests/` covers everything t
 can be verified without a real controller. This document covers the pieces
 that need a human + hardware in the loop.
 
-> **Sample-dependent steps are temporarily inert.** The repository is
-> mid-revamp; samples are returning in PR 3 of the tutorial-driven
-> sample series (`sample/tutorial_app/` for the action-bridge demo
-> and `sample/tutorial_gameinput/` as a standalone scene). The
-> checklist below references the historical sample names —
-> `gdk_launch_point` for the scenario shell and `multiplayer_pong`
-> for the rumble-on-event verification — and will be re-pointed at
-> the new samples once they land. Until then, GameInput hardware
-> testing falls back to the GUT host plus your own minimal Godot
-> project that calls `GameInput.initialize()` and exercises the
-> action bridge.
+> Recommended manual-test host: `sample/tutorial_gameinput/`. It ships as the
+> standalone GameInput sample and covers initialize / shutdown, device listing,
+> primary-device inspection, rumble pulse / stop, live device count, and
+> hot-plug event logging. If you prefer a minimal custom host, wire one up
+> with [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md).
 
 ## Setup
 
@@ -25,9 +19,9 @@ that need a human + hardware in the loop.
     cmake --build build --preset debug
     ```
 
-2. Open the GameInput-using Godot project of your choice. Until the
-   samples land (PR 3), this means a project you wired up
-   following [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md).
+2. Open `sample/tutorial_gameinput/` or another GameInput-using Godot project.
+   For a minimal custom host, wire one up by following
+   [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md).
 
 ## Per-feature checklist
 
@@ -116,9 +110,8 @@ After any change to the GameInput addon C++:
   pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts @('tests\godot\gameinput')
   ```
   Expected output ends with `Overall: pass`.
-- [ ] Any GameInput-using Godot project (yours or, once PR 3 lands, the
-  tutorial samples) launches without `ERROR:` lines mentioning `gameinput`
-  in editor output.
+- [ ] Any GameInput-using Godot project (your own or `sample/tutorial_gameinput/`)
+  launches without `ERROR:` lines mentioning `gameinput` in editor output.
 - [ ] `GameInput` singleton appears in **Project → Project Settings →
   Globals** (or wherever Godot lists engine singletons in your version).
 

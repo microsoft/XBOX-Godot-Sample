@@ -288,10 +288,12 @@ per-player key (a `GDKUser` or a custom id).
 
 ### `godot_gameinput`
 
+Example override (the registered default for `runtime/initialize_on_startup` is `false`):
+
 ```ini
 [game_input]
 
-runtime/initialize_on_startup=true   ; bootstrap calls GameInput.initialize() at startup
+runtime/initialize_on_startup=true   ; example override: bootstrap calls GameInput.initialize() at startup
 runtime/auto_poll=true               ; bootstrap calls GameInput.poll() in _process (default)
 mapper/default_action_map=""         ; optional path to a GameInputActionMap .tres
 ```
