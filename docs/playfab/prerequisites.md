@@ -53,8 +53,11 @@ derives `https://<titleid>.playfabapi.com` from the Title ID.
 
 `PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled in tools and
 runtime flows. The PlayFab Core/Services/Game Save state and task queue are
-recreated on each initialize, while the Microsoft GDK `XGameRuntimeInitialize` reference
-is held for the process lifetime and released once when the extension unloads.
+recreated on each initialize, while the Microsoft GDK runtime reference
+(acquired through `XGameRuntimeInitializeWithOptions()` when
+`res://MicrosoftGame.config` is on disk, or `XGameRuntimeInitialize()`
+otherwise) is held for the process lifetime and released once when the
+extension unloads.
 
 > **`PlayFab.initialize()` failing with `title_id_required`** indicates
 > the setting is empty at runtime. See

@@ -21,7 +21,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 | Domain | Status | Notes |
 | --- | --- | --- |
-| Runtime init/shutdown | Implemented | `XGameRuntimeInitialize`, queue/bootstrap |
+| Runtime init/shutdown | Implemented | `XGameRuntimeInitializeWithOptions` (`File` source) when `res://MicrosoftGame.config` is on disk, otherwise `XGameRuntimeInitialize`; queue/bootstrap |
 | User identity/sign-in | Implemented | `XUser`-backed; not an Xbox Services `xsapi-c` surface |
 | PC GDK helpers | Implemented selectively | Includes launcher, game UI, accessibility, system metadata, and error reporting; these are outside the Xbox Services coverage matrix below |
 | Package metadata and DLC content access | Implemented | `GDK.package` wraps PC-supported `XPackage` enumeration, install progress, package mounts, and resource-pack loading |
@@ -411,7 +411,7 @@ and `GDK.achievements.runtime_error`).
 
 | Public surface | Native API(s) | Notes |
 | --- | --- | --- |
-| `GDK.initialize()` | `XGameRuntimeInitialize`, `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. |
+| `GDK.initialize()` | `XGameRuntimeInitializeWithOptions` (`File` source pointing at `res://MicrosoftGame.config` when that file is on disk; otherwise plain `XGameRuntimeInitialize`), `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. The `WithOptions` path makes unpackaged Godot dev runs (editor or `godot project.godot`) get package identity from the project-root `MicrosoftGame.config` so downstream `XGameGetXboxTitleId` / `XblInitialize` calls do not surface `xbox_title_id_unavailable`. Packaged GDK launches get identity from the registered package and take the plain-init fall-back. |
 | `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle` | Service and user cleanup runs first; queue teardown happens last. `XGameRuntimeUninitialize()` is intentionally reserved for extension teardown (`~GDKRuntime()`), not each shutdown cycle. |
 | `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork`, `XErrorSetCallback` callback-drain bridge | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
 | `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
