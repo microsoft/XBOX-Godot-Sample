@@ -20,6 +20,10 @@ const WdappManagerScript = preload("res://addons/godot_gdk_packaging/core/wdapp_
 
 const COL_PFN := 0
 const COL_AUMID := 1
+# Wrap width for the autowrap labels. Kept below min_size.x (820) so it never
+# forces the window wider, but pins a width so autowrap heights are computed
+# correctly on first open instead of inflating the window vertically.
+const _CONTENT_WIDTH: int = 780
 
 var _toolchain: RefCounted
 var _wdapp_manager: RefCounted
@@ -89,13 +93,21 @@ func _notification(what: int) -> void:
 
 func show_centered_clamped() -> void:
 	_apply_screen_size_cap()
-	# Snap to the layout's calculated minimum so the window opens only as
-	# tall as the current package count + chrome needs. Without this the
-	# Window's prior size (or its size_flags / max_size interaction with
-	# the SIZE_EXPAND_FILL root) makes it open near full-screen height.
-	reset_size()
+	# First-open fix (issue #61). The window's height is derived from its
+	# content's combined minimum size, but an AUTOWRAP Label (the machine-wide
+	# description) only knows its real wrapped height once it has been laid out
+	# against a constrained width. Before the first popup no layout pass has
+	# run, so a pre-show reset_size() overshoots and the window opens near
+	# full-screen height. Show first (which runs a layout pass at the real
+	# min_size width), then snap to the now-correct content size on the next
+	# frame. The screen cap keeps the transient frame on-screen.
 	popup_centered()
 	refresh()
+	await get_tree().process_frame
+	if not is_inside_tree() or not visible:
+		return
+	reset_size()
+	move_to_center()
 
 
 # Caps max_size to fit the current monitor (with a small chrome / taskbar
@@ -142,6 +154,10 @@ func _build_ui() -> void:
 	var desc: Label = Label.new()
 	desc.text = "This list reflects every package currently installed on this machine — not just the current Godot project."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Pin a wrap width so the autowrap height is computed against a known width
+	# even before the first layout pass; otherwise the label reports an
+	# inflated height on first open and the window opens near full-screen tall.
+	desc.custom_minimum_size.x = _CONTENT_WIDTH
 	desc.add_theme_font_size_override("font_size", 11)
 	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	root.add_child(desc)
@@ -201,6 +217,7 @@ func _build_ui() -> void:
 	_status_label = Label.new()
 	_status_label.text = ""
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.custom_minimum_size.x = _CONTENT_WIDTH
 	root.add_child(_status_label)
 
 	_install_file_dialog = FileDialog.new()
