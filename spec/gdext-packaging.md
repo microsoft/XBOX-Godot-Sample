@@ -38,11 +38,8 @@ addons\godot_gdk_packaging\
     wdapp_manager.gd                     # wraps wdapp register/install/launch/terminate/uninstall
     packaging_settings_store.gd          # reads/writes res://.gdk_packaging.cfg
     export_preset_catalog.gd             # enumerates Windows export presets
-    packaging_panel_logic.gd             # editor panel helpers (not an active dock)
   editor\                                # UI-only — preloads from core\
     gdk_packaging_plugin.gd              # EditorPlugin entry; top-level GDK menu
-    packaging_panel.gd                   # legacy panel root (not registered)
-    packaging_tabs\*.gd                  # legacy tab views (not registered)
     gdk_tutorial_wizard.gd, tutorial_wizard_state.gd
     gdk_sandbox_dialog.gd                # GDK Sandbox Switcher popup
     gdk_package_manager_dialog.gd        # machine-wide Package Manager popup

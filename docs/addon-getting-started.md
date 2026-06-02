@@ -25,6 +25,15 @@ Each addon is independent — copy in only the ones you need. Always copy
 the whole `addons/<addon>/` directory (including its `bin/` folder) into
 your Godot project's `addons/` directory.
 
+> ⚠️ **Copy from the packaged output, not a raw dev build.** Use the
+> consumer-ready layout produced by `.\tools\package_addons.ps1`
+> (`build\dist\godot-gdk-addons\addons\`). A raw in-tree `addons\<addon>\`
+> from a `cmake --build` dev build also carries `src\`, `tests_support\`,
+> and `CMakeLists.txt`; the `tests_support\` scripts extend `GutTest` and
+> trigger `Could not find base class "GutTest"` parse errors in a project
+> that doesn't ship GUT. If you copy from a dev build, exclude `src\`,
+> `tests_support\`, and `CMakeLists.txt`.
+
 ## Prerequisites
 
 - Windows 10 (build 18362+) or Windows 11, 64-bit
@@ -96,6 +105,30 @@ your Godot project's `addons/` directory.
      menu bar (game config, sandbox switcher, package manager,
      packaging).
 4. Restart the editor when prompted.
+
+Editing `project.godot` directly (CI / automated setup)? The Plugins tab
+just writes an `[editor_plugins]` section. Add it yourself, listing only
+the addons you copied in:
+
+```ini
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+```
+
+Without it, Godot opens with every plugin disabled and prints no error —
+the autoloads and the GDK menu simply never appear.
+
+To confirm the addons load without parse or load errors (handy for CI or
+agents that can't check the editor visually), open the project headless
+and scan the output:
+
+```powershell
+godot --headless --path path\to\your_project --quit 2>&1 |
+  Select-String -Pattern "Parse Error", "GDExtension dynamic library not found"
+```
+
+No matching lines means the addons loaded cleanly.
 
 If a plugin fails to load, check that the `bin/` directory of that
 addon made it into your project — the native DLLs live there.
