@@ -31,6 +31,73 @@ void wait_for_async_completion(HRESULT p_start_hr, XAsyncBlock *p_async_block) {
 constexpr const char *PLAYFAB_TITLE_ID_SETTING = "playfab/runtime/title_id";
 constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/runtime/endpoint";
 
+constexpr const char *GAME_CONFIG_RES_PATH = "res://MicrosoftGame.config";
+
+// Process-lifetime storage for the UTF-8 path handed to
+// XGameRuntimeInitializeWithOptions. The Microsoft GDK runtime is a
+// process-lifetime resource and we initialize it at most once per process, so
+// a single static buffer is sufficient. Keeping the bytes alive here removes
+// any reliance on the XGameRuntimeInitializeWithOptions copy semantics, which
+// the public XGameRuntimeInit.h header does not document either way.
+CharString g_xgame_runtime_config_path;
+
+// Resolves res://MicrosoftGame.config to an absolute OS path, or returns an
+// empty String when the file is not present on disk. Uses GetFileAttributesExW
+// instead of Godot's FileAccess so a config that lives inside a packed .pck is
+// not mistaken for a real file (XGameRuntime cannot read from inside a .pck).
+String _resolve_game_config_path() {
+    ProjectSettings *settings = ProjectSettings::get_singleton();
+    if (settings == nullptr) {
+        return String();
+    }
+
+    String resolved = settings->globalize_path(GAME_CONFIG_RES_PATH);
+    if (resolved.is_empty() || resolved.begins_with("res://")) {
+        return String();
+    }
+
+    Char16String wide_path = resolved.utf16();
+    WIN32_FILE_ATTRIBUTE_DATA attrs = {};
+    BOOL ok = GetFileAttributesExW(
+            reinterpret_cast<LPCWSTR>(wide_path.get_data()),
+            GetFileExInfoStandard,
+            &attrs);
+    if (!ok) {
+        return String();
+    }
+    if ((attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        return String();
+    }
+    return resolved;
+}
+
+// Calls XGameRuntimeInitializeWithOptions when res://MicrosoftGame.config is
+// on disk so unpackaged Godot dev runs (editor or `godot project.godot`) pick
+// up the game config explicitly and avoid the "no package identity" HRESULT
+// class. Falls back to XGameRuntimeInitialize() for packaged GDK launches,
+// where the registered package supplies identity. Mirrors the helper in
+// godot_gdk so both addons feed XGameRuntime the same options; XGameRuntime is
+// ref-counted, and using the same hardcoded path keeps the first caller's
+// options consistent regardless of bootstrap ordering.
+//
+// r_config_path is set to the absolute path passed into
+// XGameRuntimeInitializeWithOptions, or to an empty String when the fall-back
+// path was taken; callers include it in their failure message.
+HRESULT _initialize_xgame_runtime(String &r_config_path) {
+    String resolved = _resolve_game_config_path();
+    if (resolved.is_empty()) {
+        r_config_path = String();
+        return XGameRuntimeInitialize();
+    }
+
+    g_xgame_runtime_config_path = resolved.utf8();
+    XGameRuntimeOptions options = {};
+    options.gameConfigSource = XGameRuntimeGameConfigSource::File;
+    options.gameConfig = g_xgame_runtime_config_path.get_data();
+    r_config_path = resolved;
+    return XGameRuntimeInitializeWithOptions(&options);
+}
+
 } // namespace
 
 PlayFabRuntime::PlayFabRuntime() {
@@ -81,9 +148,14 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     bool game_save_files_initialized = false;
 
     if (!m_xgame_runtime_initialized) {
-        HRESULT runtime_hr = XGameRuntimeInitialize();
+        String attempted_config_path;
+        HRESULT runtime_hr = _initialize_xgame_runtime(attempted_config_path);
         if (FAILED(runtime_hr)) {
-            Ref<PlayFabResult> result = PlayFabResult::hresult_error(runtime_hr, "Failed to initialize the Gaming Runtime.", "runtime_initialize_failed");
+            String message = "Failed to initialize the Gaming Runtime.";
+            if (!attempted_config_path.is_empty()) {
+                message += " Tried game config at: " + attempted_config_path;
+            }
+            Ref<PlayFabResult> result = PlayFabResult::hresult_error(runtime_hr, message, "runtime_initialize_failed");
             return result;
         }
         m_xgame_runtime_initialized = true;

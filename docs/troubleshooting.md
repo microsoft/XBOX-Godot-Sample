@@ -161,16 +161,21 @@ git submodule update --init --recursive
 
 **Possible causes:**
 
-1. **Wrong sandbox** — Your PC must be in the same sandbox as your test account:
+1. **`MicrosoftGame.config` missing from project root** — Without it,
+   `XGameRuntimeInitialize()` (or the registered package) cannot provide
+   package identity, and downstream Xbox services init fails with
+   `xbox_title_id_unavailable`. See
+   [No package identity at startup](#no-package-identity-at-startup) below.
+2. **Wrong sandbox** — Your PC must be in the same sandbox as your test account:
    ```powershell
    & "C:\Program Files (x86)\Microsoft GDK\bin\XblPCSandbox.exe"
    ```
    See [Microsoft GDK — Setting up sandboxes](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/sandboxes/live-setup-sandbox)
    and
    [PC Sandbox Switcher (XblPCSandbox.exe)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-services/live-pc-sandbox-switcher).
-2. **Using personal account** — The sample requires XBOX test accounts, not
+3. **Using personal account** — The sample requires XBOX test accounts, not
    personal Microsoft accounts.
-3. **Title not configured** — Ensure your title is set up in
+4. **Title not configured** — Ensure your title is set up in
    [Partner Center](https://partner.microsoft.com/dashboard) with XBOX Live
    enabled. See
    [Microsoft GDK — Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)
@@ -178,6 +183,48 @@ git submodule update --init --recursive
 
 See [Sample Project Setup](gdk/sample-setup.md) for the full
 configuration guide.
+
+## No package identity at startup
+
+**Symptom:**
+
+```
+[GDK] initialize failed: code=runtime_initialize_failed, message=Failed to initialize GDK runtime. Tried game config at: <abs path>
+```
+
+or, in a downstream surface that depends on the game config:
+
+```
+[GDK] add_default_user_async failed: code=xbox_title_id_unavailable
+```
+
+or a system-level "no package identity" / `0x80073D54`-class error from the
+Microsoft GDK runtime itself.
+
+**Cause:** Both `godot_gdk` and `godot_playfab` look for
+`res://MicrosoftGame.config` on disk and call
+`XGameRuntimeInitializeWithOptions` with `File` source pointing at that path,
+so unpackaged Godot dev runs (editor or `godot project.godot`) get explicit
+package identity. When the file is missing, the addons fall back to plain
+`XGameRuntimeInitialize()`, which only succeeds in a packaged GDK launch where
+a registered package supplies identity.
+
+**Fix:**
+
+- For unpackaged dev runs, put `MicrosoftGame.config` at the project root next
+  to `project.godot`. The packaging tooling can create a starter file via
+  **Project → Tools → Microsoft GDK → Create MicrosoftGame.config**, or
+  through the CLI:
+  ```powershell
+  & "<godot.exe>" --headless --path . --script res://addons/godot_gdk_packaging/core/packaging_cli.gd -- config_template
+  ```
+- For packaged GDK launches, `wdapp register` the staged loose folder (or
+  install a `.msixvc`) before launching the game so the registered package
+  supplies identity.
+- If the message says `Tried game config at: <path>`, the file at `<path>`
+  was found but the runtime rejected it — open it with the GDK
+  `GameConfigEditor.exe` (or **Project → Tools → Microsoft GDK → Edit
+  MicrosoftGame.config**) and confirm the schema is valid.
 
 ## SCID does not match between `MicrosoftGame.config` and Partner Center
 
