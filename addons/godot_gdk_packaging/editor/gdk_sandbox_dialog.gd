@@ -12,6 +12,10 @@ extends AcceptDialog
 ## the dialog still opens but disables the action buttons and explains why.
 
 const _RETAIL_LABEL: String = "RETAIL"
+# Wrap width for the autowrap labels. Kept below min_size.x (540) so it never
+# forces the window wider, but pins a width so autowrap heights are computed
+# correctly on first open instead of inflating the window vertically.
+const _CONTENT_WIDTH: int = 500
 const _MACHINE_WIDE_WARNING: String = (
 	"⚠  Sandbox switching is machine-wide. It affects every signed-in user, "
 	+ "every Xbox tool, and every Xbox-aware app running on this PC — not "
@@ -44,13 +48,51 @@ func setup(toolchain: RefCounted) -> void:
 
 
 func show_centered_clamped() -> void:
-	# Snap to the layout's calculated minimum so the window opens only as
-	# tall as the warning + rows + buttons need. Without this the dialog
-	# opens at its stale prior size (or stretches to the editor window
-	# height on first open).
-	reset_size()
+	# First-open fix (issue #61). The dialog's height is derived from its
+	# content's combined minimum size, but an AUTOWRAP Label only knows its
+	# real (wrapped) height once it has been laid out against a constrained
+	# width. Before the first popup no layout pass has run, so a pre-show
+	# reset_size() overshoots and the window opens taller than the screen.
+	# Cap to the current screen so the transient frame can never go
+	# off-screen, show (which runs a layout pass at the real min_size width),
+	# then snap to the now-correct content size on the next frame.
+	_apply_screen_size_cap()
 	popup_centered()
 	refresh_status()
+	await get_tree().process_frame
+	if not is_inside_tree() or not visible:
+		return
+	reset_size()
+	move_to_center()
+
+
+# Caps max_size to fit the current monitor (with a small chrome / taskbar
+# margin) so the dialog never opens taller than the user's screen. Re-evaluated
+# per popup because the editor may move between monitors of different sizes.
+func _apply_screen_size_cap() -> void:
+	var screen_idx: int = _current_screen_index()
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(screen_idx)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return  # DisplayServer didn't report a usable rect; keep defaults
+	var capped_w: int = max(min_size.x, usable.size.x - 80)
+	var capped_h: int = max(min_size.y, usable.size.y - 120)
+	max_size = Vector2i(capped_w, capped_h)
+	# Actively shrink the current size if a previous open left it larger than
+	# what fits the current screen (e.g. user moved monitors between opens).
+	if size.x > capped_w or size.y > capped_h:
+		size = Vector2i(mini(size.x, capped_w), mini(size.y, capped_h))
+
+
+# Returns the screen index the editor's main window is currently on, so the
+# cap matches the monitor the dialog will actually open on. Falls back to the
+# primary screen if no editor window is available.
+func _current_screen_index() -> int:
+	var base: Control = EditorInterface.get_base_control()
+	if base != null:
+		var w: Window = base.get_window()
+		if w != null:
+			return w.current_screen
+	return DisplayServer.get_primary_screen()
 
 
 func _build_ui() -> void:
@@ -61,6 +103,10 @@ func _build_ui() -> void:
 	var warn := Label.new()
 	warn.text = _MACHINE_WIDE_WARNING
 	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Pin a wrap width so the autowrap height is computed against a known
+	# width even before the first layout pass. Without this the label reports
+	# an inflated height on first open and the window opens screen-tall.
+	warn.custom_minimum_size.x = _CONTENT_WIDTH
 	warn.add_theme_color_override("font_color", Color(0.83, 0.51, 0.04))
 	root.add_child(warn)
 
@@ -113,6 +159,7 @@ func _build_ui() -> void:
 	_status_label = Label.new()
 	_status_label.text = ""
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.custom_minimum_size.x = _CONTENT_WIDTH
 	_status_label.visible = false
 	root.add_child(_status_label)
 
