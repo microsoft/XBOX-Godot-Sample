@@ -24,8 +24,7 @@ addons/godot_gdk_packaging/
     packaging_result.gd      # typed Dictionary builder + EXIT_* constants
     gdk_toolchain.gd, makepkg_executor.gd, game_config_manager.gd,
     packaging_content_preparer.gd, wdapp_manager.gd,
-    packaging_settings_store.gd, export_preset_catalog.gd,
-    packaging_panel_logic.gd
+    packaging_settings_store.gd, export_preset_catalog.gd
   editor/                    # EditorPlugin menu / import plugin; preloads from core/
 ```
 
@@ -158,8 +157,6 @@ once, then manually delete the stale mirror files under
 - `tests/godot/gdk/tests/packaging/test_packaging_content_preparer.gd` —
   content-prep XML helpers, `ensure_content_dir_ready()`, and runtime DLL
   refresh behavior.
-- `tests/godot/gdk/tests/packaging/test_packaging_panel_logic.gd` — editor
-  panel helper behavior.
 - `tests/godot/gdk/tests/packaging/test_packaging_plugin_lifecycle.gd` —
   editor plugin enter/exit lifecycle.
 - `tests/godot/gdk/tests/packaging/test_packaging_result.gd` — result

@@ -223,6 +223,19 @@ done.
 > dynamic library not found` and the addon's singletons never register.
 > 64-bit Windows is the only target the addons currently build for.
 
+> ⚠️ **Copy from the packaged output, not a raw dev build.** The
+> `build\dist\godot-gdk-addons\addons\` layout produced by
+> [`tools\package_addons.ps1`](#1-build-the-addon-binaries) is already
+> consumer-ready. A raw in-tree `addons\<addon>\` directory from a
+> `cmake --build` dev build *also* contains `src\`, `tests_support\`, and
+> `CMakeLists.txt`. The `tests_support\` scripts extend `GutTest` (from
+> the GUT testing framework, which your project won't have), so copying
+> them in makes Godot throw parse errors like
+> `Could not find base class "GutTest"` on load. If you must copy from a
+> dev build, exclude `src\`, `tests_support\`, and `CMakeLists.txt` —
+> keep only `bin\`, `runtime\`, `editor\`, `doc_classes\`, the
+> `.gdextension` manifest, and `plugin.cfg`.
+
 ---
 
 ## 3. Enable the editor plugin
@@ -239,6 +252,40 @@ files, then go to **Project → Project Settings → Plugins** and enable:
 
 Disabling a plugin removes its autoload again — there's no orphaned
 state.
+
+### Enabling plugins from `project.godot` (CI / automated setup)
+
+The Plugins tab just writes an `[editor_plugins]` section to
+`project.godot`. For headless setup, CI, onboarding scripts, or if you
+prefer editing config directly, add the section yourself (list only the
+addons you actually copied in):
+
+```ini
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+```
+
+Without this section Godot opens with every plugin disabled and prints
+no error — the autoloads and the **GDK** editor menu simply never appear.
+
+### Verify the addons load (headless)
+
+To confirm the addons resolve without parse or load errors — useful for
+agents and CI that can't visually check the editor — open the project
+once in headless mode and inspect the output:
+
+```powershell
+godot --headless --path path\to\your_project --quit 2>&1 |
+  Select-String -Pattern "Parse Error", "GDExtension dynamic library not found"
+```
+
+No matching lines means the addons loaded cleanly. (You can point
+`--path` at the in-repo `sample\tutorial_app` project once its addon
+binaries have been built and synced.) This is a quick load smoke test —
+the repo's own GDScript validator
+(`tools\check_gd_scripts_headless.ps1`) remains the authoritative parse
+gate for contributors.
 
 ---
 
@@ -554,6 +601,18 @@ cmake --build --preset debug-gameinput
 ```
 
 ### Source for the Microsoft GDK dependency
+
+**Which preset should I use?**
+
+- `VCPKG_ROOT` is set (or you're happy to set it) → **`cmake --preset default`**.
+  Resolves the Microsoft GDK + GameInput from vcpkg; no machine-wide GDK
+  install needed at build time.
+- No vcpkg, but the Microsoft GDK is installed on disk (auto-detected via
+  `%GRDKLatest%` / `%GameDK%`, or set explicitly with
+  `-DGDK_INSTALL_DIR=<path>`) → **`cmake --preset installed-gdk`**. No vcpkg
+  checkout or `VCPKG_ROOT` required.
+- Neither → install [vcpkg](https://github.com/microsoft/vcpkg), set
+  `VCPKG_ROOT`, then use `cmake --preset default`.
 
 By default, the build resolves the Microsoft GDK headers and import libs through
 the `ms-gdk[playfab]` vcpkg port (`default` preset). This requires only

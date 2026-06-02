@@ -27,161 +27,123 @@ func _build_slides() -> void:
 			"title": "Welcome to the Microsoft GDK for Godot",
 			"body": """[font_size=16][color=#107c10][b]Microsoft Game Development Kit[/b][/color] integration for the Godot Engine.[/font_size]
 
-This addon brings Xbox PC development tools directly into the Godot Editor — from configuring your game identity, to exporting, packaging, and launching your builds.
+This addon brings Xbox PC development tools directly into the Godot Editor through the [b]Microsoft GDK[/b] menu in the editor menu bar — from configuring your game identity, to exporting, packaging, installing, and launching your builds.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [font_size=15][b]What this wizard covers:[/b][/font_size]
 
     [color=#107c10]▸[/color]  [b]Config[/b] — Set up your MicrosoftGame.config and store logos
-    [color=#107c10]▸[/color]  [b]Sandbox[/b] — Switch Xbox sandboxes and manage test accounts
+    [color=#107c10]▸[/color]  [b]Sandbox[/b] — Switch the PC's Xbox sandbox for test accounts
     [color=#107c10]▸[/color]  [b]Export & Package[/b] — Export your game and create MSIXVC packages
-    [color=#107c10]▸[/color]  [b]Install & Launch[/b] — Install, launch, and terminate builds
-    [color=#107c10]▸[/color]  [b]Achievements[/b] — Configure achievement testing
-    [color=#107c10]▸[/color]  [b]PlayFab[/b] — Connect to PlayFab services
+    [color=#107c10]▸[/color]  [b]Package Manager[/b] — Install, uninstall, and launch builds
+    [color=#107c10]▸[/color]  [b]PlayFab[/b] — Point the runtime at your PlayFab title
 
-[color=gray]Navigate with the buttons below, or close this window at any time.[/color]"""
+[color=gray]The wizard is informational — it never changes project files or machine state. Navigate with the buttons below, or close it at any time.[/color]"""
 		},
 		{
 			"title": "⚙️  Config",
 			"body": """[font_size=15][b]Your game's identity starts here.[/b][/font_size]
 
-The [b]MicrosoftGame.config[/b] file defines your game's name, publisher, logos, and Xbox Live IDs. Every GDK game needs one.
+The [b]MicrosoftGame.config[/b] file defines your game's name, publisher, logos, and Xbox Live IDs. Every Microsoft GDK game needs one.
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[font_size=14][b]Menu actions[/b][/font_size]
+[color=#107c10]▸[/color]  [b]Microsoft GDK → Create MicrosoftGame.config[/b] — Writes a starter config (and placeholder [b]storelogos/[/b]) when none exists, then opens Microsoft's [b]GameConfigEditor[/b]
+[color=#107c10]▸[/color]  [b]Microsoft GDK → Edit MicrosoftGame.config[/b] — The same item relabels itself once the file exists, and reopens GameConfigEditor on it
+
+[font_size=14][b]Fill in at minimum[/b][/font_size]
+[color=#107c10]▸[/color]  [b]Identity / Name[/b], [b]Title Id[/b], and [b]Store Id[/b] from your Partner Center title
+[color=#107c10]▸[/color]  A [b]Version[/b] such as [b]1.0.0.0[/b]
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[color=#d4830b]⚠  Tip:[/color] Commit [b]MicrosoftGame.config[/b] to source control so the whole team shares the same identity. Use [b]GameConfigEditor Reference[/b] in the menu for Microsoft's field-by-field docs."""
+		},
+		{
+			"title": "🔒  Sandbox",
+			"body": """[font_size=15][b]Switch the PC's Xbox sandbox.[/b][/font_size]
+
+Xbox Live services run in isolated sandboxes. Test accounts only authenticate against the sandbox they were created in, so your PC must be in the matching development sandbox.
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[font_size=14][b]Microsoft GDK → Change Sandbox…[/b][/font_size]
+[color=#107c10]▸[/color]  Shows the current sandbox (e.g., [b]XDKS.1[/b] or [b]RETAIL[/b])
+[color=#107c10]▸[/color]  [b]Set Sandbox[/b] — Switches to a development sandbox via [i]XblPCSandbox.exe[/i]
+[color=#107c10]▸[/color]  [b]Switch to RETAIL[/b] — Returns the PC to consumer Xbox Live
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[color=#d4830b]⚠  Tips:[/color]
+•  Switching the sandbox is [b]machine-wide[/b] and requires [b]administrator privileges[/b]
+•  Your PC sandbox must match your test account's sandbox
+•  Switch back to RETAIL before updating the Xbox App or Gaming Services"""
+		},
+		{
+			"title": "📦  Export & Package",
+			"body": """[font_size=15][b]Export your project and build an MSIXVC package.[/b][/font_size]
+
+Exporting and packaging run through Godot's [b]Project → Export…[/b] dialog and the addon's headless [b]gdkpkg[/b] runner — there is no separate dock.
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[font_size=14][b]Export[/b][/font_size]
+[color=#107c10]▸[/color]  Add a [b]Windows Desktop[/b] preset in [b]Project → Export…[/b]
+[color=#107c10]▸[/color]  [code]gdkpkg export[/code] — Exports and prepares content; the addon copies MicrosoftGame.config, patches the exe name, adds the VC14 dependency, and copies logos
+
+[font_size=14][b]Package (headless gdkpkg verbs)[/b][/font_size]
+[color=#107c10]▸[/color]  [code]gdkpkg genmap[/code] — Create the layout mapping file
+[color=#107c10]▸[/color]  [code]gdkpkg pack[/code] — Create an MSIXVC package from the content dir
+[color=#107c10]▸[/color]  [code]gdkpkg validate[/code] — Run the Submission Validator without packaging
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[color=#d4830b]⚠  Tip:[/color] Run [code]gdkpkg help[/code] for the full verb and flag list. The [b]makepkg Reference[/b] and [b]PC Packaging Overview[/b] menu items link Microsoft's docs."""
+		},
+		{
+			"title": "🚀  Package Manager",
+			"body": """[font_size=15][b]Install, uninstall, and launch builds on this PC.[/b][/font_size]
+
+[b]Microsoft GDK → Package Manager…[/b] opens a machine-wide view of every package registered with [i]wdapp.exe[/i] — not just the current project.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [font_size=14][b]Actions[/b][/font_size]
-[color=#107c10]▸[/color]  [b]GDK → Create MicrosoftGame.config[/b] — Generates a template when the file is missing
-[color=#107c10]▸[/color]  [b]GDK → Edit MicrosoftGame.config[/b] — Opens Microsoft's visual config editor when the file exists
-
-[font_size=14][b]Config Preview[/b][/font_size]
-All parsed values are shown with [i]hover tooltips[/i] explaining each field from the MicrosoftGame.config schema.
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[color=#d4830b]⚠  Tip:[/color] After changing the tile image in GameConfigEditor, click [b]Refresh[/b] in Godot. The plugin auto-detects logo files at the project root and moves them to [b]storelogos/[/b]."""
-		},
-		{
-			"title": "🔒  Sandbox",
-			"body": """[font_size=15][b]Xbox sandbox and account management.[/b][/font_size]
-
-Xbox Live services run in isolated sandboxes. Your PC must be in a development sandbox to use test accounts.
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[font_size=14][b]PC Sandbox[/b][/font_size]
-[color=#107c10]▸[/color]  Shows the current sandbox (e.g., [b]XDKS.1[/b] or [b]RETAIL[/b])
-[color=#107c10]▸[/color]  [b]Set Sandbox[/b] — Switches to a development sandbox
-[color=#107c10]▸[/color]  [b]Switch to RETAIL[/b] — Returns to the consumer sandbox
-
-[font_size=14][b]Partner Center Account[/b][/font_size]
-[color=#107c10]▸[/color]  Shows the signed-in developer email
-[color=#107c10]▸[/color]  [b]Sign In / Sign Out[/b] — Partner Center authentication
-[color=#107c10]▸[/color]  [b]Test Accounts[/b] — Opens the Xbox Live Test Account Manager
-
-[font_size=14][b]Active Test Account[/b][/font_size]
-Track which test account gamertag you're currently signed into via the Xbox App.
+[color=#107c10]▸[/color]  [b]Install[/b] — Installs a [b].msixvc[/b] you pick from disk
+[color=#107c10]▸[/color]  [b]Uninstall[/b] — Removes the selected registered package
+[color=#107c10]▸[/color]  [b]Refresh[/b] — Re-queries [i]wdapp[/i] for the current package list
+[color=#107c10]▸[/color]  [b]Export…[/b] — Jumps to Godot's [b]Project → Export…[/b] dialog
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [color=#d4830b]⚠  Tips:[/color]
-•  Setting the sandbox requires [b]administrator privileges[/b]
-•  Your PC sandbox must match your test account's sandbox
-•  Switch to RETAIL before updating the Xbox App or Gaming Services"""
-		},
-		{
-			"title": "📦  Export & Package",
-			"body": """[font_size=15][b]Build, export, and package your game for distribution.[/b][/font_size]
-
-This tab handles the full pipeline — from exporting your Godot project to creating a distributable MSIXVC package.
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[font_size=14][b]Export Presets & Headless Actions[/b][/font_size]
-[color=#107c10]▸[/color]  Select a [b]Windows Desktop[/b] export preset from the dropdown
-[color=#107c10]▸[/color]  [b]gdkpkg export[/b] — Exports to the [b]Build/[/b] folder and prepares content
-[color=#107c10]▸[/color]  [b]gdkpkg register_loose[/b] — Registers an existing Build/ folder with wdapp
-
-[font_size=14][b]Packaging Actions[/b][/font_size]
-[color=#107c10]▸[/color]  [b]gdkpkg genmap[/b] — Create layout.xml mapping file
-[color=#107c10]▸[/color]  [b]gdkpkg pack[/b] — Create an MSIXVC package from Build/
-[color=#107c10]▸[/color]  [b]gdkpkg validate[/b] — Run the Submission Validator without packaging
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[color=#d4830b]⚠  Tips:[/color]
-•  You need a [b]Windows Desktop export preset[/b] in Project → Export
-•  The plugin automatically copies MicrosoftGame.config, patches the exe name, adds the VC14 dependency, and copies logos to the Build/ folder
-•  Use [b]📂[/b] buttons to open Content/Output directories"""
-		},
-		{
-			"title": "🚀  Install & Launch",
-			"body": """[font_size=15][b]Install, launch, and manage your builds.[/b][/font_size]
-
-After exporting or packaging, use this tab to install and run your game.
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[font_size=14][b]Install[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Install[/b] — Installs the .msixvc package from the Package/ folder
-[color=#107c10]▸[/color]  [b]Uninstall[/b] — Removes the selected registered app
-
-[font_size=14][b]Launch[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Registered App[/b] — Dropdown listing all registered/installed apps
-[color=#107c10]▸[/color]  [b]Refresh[/b] — Queries [i]wdapp list[/i] to update the app list
-[color=#107c10]▸[/color]  [b]Launch[/b] — Starts the selected app
-[color=#107c10]▸[/color]  [b]Terminate[/b] — Stops the running app
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[color=#d4830b]⚠  Tips:[/color]
-•  After exporting and registering, click [b]Refresh[/b] to see your app
-•  Terminate uses [i]wdapp terminate[/i] for packaged builds and [i]taskkill[/i] for loose builds
-•  Select the app you want from the dropdown before clicking Launch"""
-		},
-		{
-			"title": "🏆  Achievements",
-			"body": """[font_size=15][b]Configure achievement testing for the sample project.[/b][/font_size]
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[font_size=14][b]Demo Achievement ID[/b][/font_size]
-Enter the achievement ID you want to test (e.g., [b]1[/b]) and click [b]Save[/b]. The value is stored in [b]sample_config.cfg[/b] and read at runtime by the sample.
-
-[font_size=14][b]Setup Requirements[/b][/font_size]
-[color=#107c10]▸[/color]  Configure achievements in [b]Partner Center → Xbox Live → Achievements[/b]
-[color=#107c10]▸[/color]  Publish to your development sandbox
-[color=#107c10]▸[/color]  Sign in with a test account in the matching sandbox
-
-[font_size=14][b]Resetting Achievements[/b][/font_size]
-Use the included helper script to wipe achievement progress:
-[code].\tools\reset_player_data.ps1[/code]
-
-[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
-
-[color=#d4830b]⚠  Tip:[/color] Resets only work on Xbox test accounts in a development sandbox. Restart the game after resetting."""
+•  Only one [i]wdapp[/i] operation runs at a time; buttons disable while an op is in flight
+•  For fast iteration, register a loose [b]Build/[/b] folder with [code]gdkpkg register_loose[/code] instead of packing
+•  Launch and terminate are also available as [code]gdkpkg launch[/code] / [code]gdkpkg terminate[/code]"""
 		},
 		{
 			"title": "☁️  PlayFab",
-			"body": """[font_size=15][b]Connect your game to Azure PlayFab services.[/b][/font_size]
+			"body": """[font_size=15][b]Point the runtime at your PlayFab title.[/b][/font_size]
+
+PlayFab-backed features read the Title ID from Project Settings. Set it once and the [b]godot_playfab[/b] runtime derives the endpoint automatically.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
-[font_size=14][b]PlayFab Title ID[/b][/font_size]
-Enter your Title ID from [b]Game Manager → Settings → API Keys[/b] and click [b]Save[/b].
-You can also set an optional endpoint override; leaving it blank uses the default endpoint derived from the Title ID.
+[font_size=14][b]Set the Title ID[/b][/font_size]
+In [b]Project → Project Settings → General[/b] (enable [i]Advanced Settings[/i]) set [code]playfab/runtime/title_id[/code] to your Title ID from [b]Game Manager → Settings → API features[/b]. Leave [code]playfab/runtime/endpoint[/code] blank to use the default.
 
-[font_size=14][b]Runtime Usage[/b][/font_size]
-[code]var title_id = str(ProjectSettings.get_setting("playfab/runtime/title_id", ""))
-var endpoint: String = str(ProjectSettings.get_setting("playfab/runtime/endpoint", ""))[/code]
+[font_size=14][b]Runtime usage[/b][/font_size]
+[code]var title_id := str(ProjectSettings.get_setting("playfab/runtime/title_id", ""))[/code]
 
-[font_size=14][b]Tools[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Open Game Manager[/b] — Opens the PlayFab portal
-[color=#107c10]▸[/color]  [b]SDK Version[/b] — Shows the detected PlayFab SDK version from PlayFabCore.dll
+[font_size=14][b]Menu shortcuts[/b][/font_size]
+[color=#107c10]▸[/color]  [b]PlayFab Game Manager[/b] — Opens the PlayFab portal
+[color=#107c10]▸[/color]  [b]PlayFab + Microsoft GDK Quickstart[/b] — Microsoft's integration docs
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
-[color=#d4830b]⚠  Tip:[/color] These values are stored in [i]project.godot[/i] so the PlayFab runtime can read them directly."""
+[color=#d4830b]⚠  Tip:[/color] These values live in [i]project.godot[/i] so the PlayFab runtime reads them directly at startup."""
 		},
 		{
 			"title": "You're Ready!",
@@ -191,24 +153,24 @@ var endpoint: String = str(ProjectSettings.get_setting("playfab/runtime/endpoint
 
 [font_size=15][b]Step 1[/b]  ⚙️  Create your MicrosoftGame.config and set your tile image[/font_size]
 
-[font_size=15][b]Step 2[/b]  🔒  Set your dev sandbox and sign into Partner Center[/font_size]
+[font_size=15][b]Step 2[/b]  🔒  Switch the PC to your development sandbox and sign in a test account[/font_size]
 
-[font_size=15][b]Step 3[/b]  📦  Click [b]Export + Register[/b] for fast testing[/font_size]
+[font_size=15][b]Step 3[/b]  📦  Add a Windows Desktop export preset and run [code]gdkpkg export[/code][/font_size]
 
-[font_size=15][b]Step 4[/b]  🚀  Launch your registered build from Install & Launch[/font_size]
+[font_size=15][b]Step 4[/b]  🚀  Install and launch your build from [b]Package Manager…[/b][/font_size]
 
-[font_size=15][b]Step 5[/b]  📦  Click [b]Export & Package[/b] when ready for distribution[/font_size]
+[font_size=15][b]Step 5[/b]  📦  Run [code]gdkpkg pack[/code] (and [code]validate[/code]) when ready for distribution[/font_size]
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
-[font_size=14][b]Documentation[/b] (available in the GDK menu):[/font_size]
+[font_size=14][b]Documentation[/b] (available in the Microsoft GDK menu):[/font_size]
     [color=#107c10]▸[/color]  PC Packaging Overview
     [color=#107c10]▸[/color]  makepkg Reference
     [color=#107c10]▸[/color]  GameConfigEditor Reference
     [color=#107c10]▸[/color]  Achievements Guide
     [color=#107c10]▸[/color]  PlayFab Game Manager & Quickstart
 
-[color=gray]Reopen this wizard anytime from [b]GDK → 🎓 Getting Started[/b][/color]"""
+[color=gray]For the full setup walkthrough see [b]docs/getting-started.md[/b] and the [b]sample/tutorial_app[/b] project. Reopen this wizard anytime from [b]Microsoft GDK → Getting Started[/b].[/color]"""
 		},
 	]
 
