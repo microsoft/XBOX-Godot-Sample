@@ -294,7 +294,11 @@ Fields:
 
 `GDKRuntime::initialize()` does two things:
 
-1. calls `XGameRuntimeInitialize()`
+1. calls `XGameRuntimeInitializeWithOptions()` with `File` source pointing at
+   `<project_root>/MicrosoftGame.config` when that file is on disk (so
+   unpackaged Godot dev runs get explicit package identity); falls back to
+   `XGameRuntimeInitialize()` for packaged GDK launches that get identity from
+   the registered package
 2. creates one `XTaskQueue` with:
    - `ThreadPool` work dispatch
    - `Manual` completion dispatch

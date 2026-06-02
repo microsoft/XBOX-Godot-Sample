@@ -21,7 +21,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 
 | Domain | Included | Notes |
 | --- | --- | --- |
-| Runtime init/shutdown | Yes | Process-lifetime `XGameRuntimeInitialize` reference, re-armable PlayFab init/shutdown, shared queue |
+| Runtime init/shutdown | Yes | Process-lifetime Microsoft GDK runtime reference (`XGameRuntimeInitializeWithOptions` with `File` source when `res://MicrosoftGame.config` is on disk, otherwise `XGameRuntimeInitialize`), re-armable PlayFab init/shutdown, shared queue |
 | Manual sign-in | Yes | `GDKUser` object and custom-ID entry points |
 | Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id or custom id |
 | Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
@@ -81,7 +81,7 @@ The addon registers these Project Settings, but they are consumed by different l
 
 ## Runtime lifecycle
 
-`PlayFab.initialize()` acquires this addon's GDK `XGameRuntimeInitialize` reference the first time the runtime initializes successfully and keeps it for the process lifetime. `PlayFab.shutdown()` tears down PlayFab-owned state (`PFGameSaveFiles`, service config, `PFServices`, `PFInitialize`, pending signals, cached users, and the shared task queue) but deliberately does not call `XGameRuntimeUninitialize`; the matching GDK runtime release happens once during extension teardown. This mirrors the `godot_gdk` singleton/runtime pattern and allows titles or tests to cycle `initialize() -> shutdown() -> initialize()` without racing the process-wide Gaming Runtime, even when both addons are loaded.
+`PlayFab.initialize()` acquires this addon's Microsoft GDK runtime reference the first time the runtime initializes successfully and keeps it for the process lifetime. The runtime reference is acquired through `XGameRuntimeInitializeWithOptions` with `File` source pointing at `<project_root>/MicrosoftGame.config` when that file is on disk (so unpackaged Godot dev runs get explicit package identity), and falls back to `XGameRuntimeInitialize` for packaged GDK launches that get identity from the registered package. `PlayFab.shutdown()` tears down PlayFab-owned state (`PFGameSaveFiles`, service config, `PFServices`, `PFInitialize`, pending signals, cached users, and the shared task queue) but deliberately does not call `XGameRuntimeUninitialize`; the matching GDK runtime release happens once during extension teardown. This mirrors the `godot_gdk` singleton/runtime pattern and allows titles or tests to cycle `initialize() -> shutdown() -> initialize()` without racing the process-wide Gaming Runtime, even when both addons are loaded. Because `godot_gdk` and `godot_playfab` resolve the same hardcoded `res://MicrosoftGame.config` path, the ref-counted Microsoft GDK runtime sees consistent options regardless of which addon's bootstrap initializes first.
 
 ## Async model
 

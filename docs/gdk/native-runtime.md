@@ -72,7 +72,11 @@ Current public shape:
 
 It is responsible for:
 
-- calling `XGameRuntimeInitialize()`
+- calling `XGameRuntimeInitializeWithOptions()` with `File` source pointing at
+  `<project_root>/MicrosoftGame.config` when that file is on disk (so
+  unpackaged Godot dev runs get explicit package identity); falling back to
+  `XGameRuntimeInitialize()` for packaged GDK launches that get identity from
+  the registered package
 - creating the shared `XTaskQueue`
 - retaining in-flight completion signals
 - pumping manual completion dispatch
