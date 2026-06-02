@@ -608,8 +608,8 @@ cmake --build --preset debug-gameinput
   Resolves the Microsoft GDK + GameInput from vcpkg; no machine-wide GDK
   install needed at build time.
 - No vcpkg, but the Microsoft GDK is installed on disk (auto-detected via
-  `%GRDKLatest%` / `%GameDK%`, or the `GameDKCoreLatest` environment
-  variable points at it) → **`cmake --preset installed-gdk`**. No vcpkg
+  `%GRDKLatest%` / `%GameDK%`, or set explicitly with
+  `-DGDK_INSTALL_DIR=<path>`) → **`cmake --preset installed-gdk`**. No vcpkg
   checkout or `VCPKG_ROOT` required.
 - Neither → install [vcpkg](https://github.com/microsoft/vcpkg), set
   `VCPKG_ROOT`, then use `cmake --preset default`.

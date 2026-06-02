@@ -54,7 +54,7 @@ The [b]MicrosoftGame.config[/b] file defines your game's name, publisher, logos,
 [color=#107c10]▸[/color]  [b]Microsoft GDK → Edit MicrosoftGame.config[/b] — The same item relabels itself once the file exists, and reopens GameConfigEditor on it
 
 [font_size=14][b]Fill in at minimum[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Identity / Name[/b], [b]Title Id[/b], and [b]Store Id (SCID)[/b] from your Partner Center title
+[color=#107c10]▸[/color]  [b]Identity / Name[/b], [b]Title Id[/b], and [b]Store Id[/b] from your Partner Center title
 [color=#107c10]▸[/color]  A [b]Version[/b] such as [b]1.0.0.0[/b]
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
