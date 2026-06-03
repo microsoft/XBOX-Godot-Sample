@@ -35,6 +35,7 @@ This addon brings Xbox PC development tools directly into the Godot Editor throu
 
     [color=#107c10]▸[/color]  [b]Config[/b] — Set up your MicrosoftGame.config and store logos
     [color=#107c10]▸[/color]  [b]Sandbox[/b] — Switch the PC's Xbox sandbox for test accounts
+    [color=#107c10]▸[/color]  [b]Sample app[/b] — Explore the tutorial app shipped with the addon
     [color=#107c10]▸[/color]  [b]Export & Package[/b] — Export your game and create MSIXVC packages
     [color=#107c10]▸[/color]  [b]Package Manager[/b] — Install, uninstall, and launch builds
     [color=#107c10]▸[/color]  [b]PlayFab[/b] — Point the runtime at your PlayFab title
@@ -80,6 +81,34 @@ Xbox Live services run in isolated sandboxes. Test accounts only authenticate ag
 •  Switching the sandbox is [b]machine-wide[/b] and requires [b]administrator privileges[/b]
 •  Your PC sandbox must match your test account's sandbox
 •  Switch back to RETAIL before updating the Xbox App or Gaming Services"""
+		},
+		{
+			"title": "🎮  Sample app",
+			"body": """[font_size=15][b]A ready-to-run tutorial app ships with the addon.[/b][/font_size]
+
+The [b]sample/tutorial_app[/b] project under the repo root is the finished version of every tutorial in the documentation chain (T1 → T8), wired up against the GDK and PlayFab addons. Use it as a reference when your own project drifts from the tutorial — open the matching scene and compare.
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[font_size=14][b]Run it[/b][/font_size]
+[color=#107c10]▸[/color]  Build the addons once so the sample's mirrored [b]addons/[/b] are populated: [code]cmake --build build --preset debug[/code]
+[color=#107c10]▸[/color]  Open [b]sample/tutorial_app/project.godot[/b] in the Godot editor
+[color=#107c10]▸[/color]  Run [code]pwsh -File .\\tools\\setup_sample.ps1[/code] once to fill in your Partner Center / PlayFab identifiers
+[color=#107c10]▸[/color]  Press [b]F5[/b] — the default scene is a tutorial picker; each button loads one tutorial's scene
+
+[font_size=14][b]Tutorial scenes[/b][/font_size]
+[color=#107c10]▸[/color]  [b]t01_signin[/b] — Sign in a local Xbox user
+[color=#107c10]▸[/color]  [b]t02_achievement[/b] — Unlock an achievement
+[color=#107c10]▸[/color]  [b]t03_leaderboard[/b] — Post and read a PlayFab leaderboard score
+[color=#107c10]▸[/color]  [b]t04_game_saves[/b] — Read and write a PlayFab Game Save
+[color=#107c10]▸[/color]  [b]t05_lobby[/b] — Create and join a PlayFab multiplayer lobby
+[color=#107c10]▸[/color]  [b]t06_mpa[/b] — Multiplayer Activity surfaces (invites, join-in-progress)
+[color=#107c10]▸[/color]  [b]t07_party[/b] — PlayFab Party text and voice chat
+[color=#107c10]▸[/color]  [b]t08_integration[/b] — End-to-end tech demo combining T1–T7
+
+[color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
+
+[color=#d4830b]⚠  Tip:[/color] The full per-tutorial walkthroughs live in [b]docs/tutorials/[/b]. The picker scene is [b]sample/tutorial_app/shared/tutorial_picker.tscn[/b]."""
 		},
 		{
 			"title": "📦  Export & Package",
@@ -155,11 +184,13 @@ In [b]Project → Project Settings → General[/b] (enable [i]Advanced Settings[
 
 [font_size=15][b]Step 2[/b]  🔒  Switch the PC to your development sandbox and sign in a test account[/font_size]
 
-[font_size=15][b]Step 3[/b]  📦  Add a Windows Desktop export preset and run [code]gdkpkg export[/code][/font_size]
+[font_size=15][b]Step 3[/b]  🎮  Open [b]sample/tutorial_app[/b] and run a tutorial scene to see the addons in action[/font_size]
 
-[font_size=15][b]Step 4[/b]  🚀  Install and launch your build from [b]Package Manager…[/b][/font_size]
+[font_size=15][b]Step 4[/b]  📦  Add a Windows Desktop export preset and run [code]gdkpkg export[/code][/font_size]
 
-[font_size=15][b]Step 5[/b]  📦  Run [code]gdkpkg pack[/code] (and [code]validate[/code]) when ready for distribution[/font_size]
+[font_size=15][b]Step 5[/b]  🚀  Install and launch your build from [b]Package Manager…[/b][/font_size]
+
+[font_size=15][b]Step 6[/b]  📦  Run [code]gdkpkg pack[/code] (and [code]validate[/code]) when ready for distribution[/font_size]
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
