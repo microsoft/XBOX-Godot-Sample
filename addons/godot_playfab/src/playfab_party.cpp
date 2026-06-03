@@ -2570,6 +2570,39 @@ void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChang
     if (network.is_valid()) {
         network->set_state_value(NETWORK_STATE_DISCONNECTED);
         _emit_network_state(network, NETWORK_CHANGE_STATE, 0, result, "disconnected");
+
+        // Issue #73 — after a title-initiated LeaveNetwork completes, detach
+        // and untrack the wrapper here instead of waiting for the
+        // PartyNetworkDestroyed event (which arrives some Party DoWork cycles
+        // later). If the title immediately rejoins the same network, holding
+        // the dying wrapper in m_networks lets stale local_peer entity-key
+        // records steal PartyChatControlCreated events from the new network
+        // (the iteration in _process_chat_control_created / _attach_orphan_chat_controls
+        // is order-sensitive and the older wrapper wins). The GDScript autoload
+        // disconnects its handlers via _detach_network, so chat_control_added
+        // emitted on the stale peer is silently dropped — voice and text never
+        // re-arm on the rejoined network. Only do this on a successful leave;
+        // if the leave failed the wrapper may still own live native resources
+        // and we must keep tracking it until PartyNetworkDestroyed lands.
+        if (result.is_valid() && result->is_ok()) {
+            Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+            if (peer.is_valid()) {
+                peer->set_connection_status(MultiplayerPeer::CONNECTION_DISCONNECTED);
+                peer->set_unique_id(0);
+            }
+            // PENDING_JOIN_HANDSHAKE has no Party-side completion event of its
+            // own — it waits for a HANDSHAKE_REPLY packet. After we detach
+            // the wrapper, the message-received path can no longer route the
+            // reply, so drain any such op here (mirrors _process_network_destroyed).
+            // Other join-chain pending kinds will gracefully bail through
+            // _abort_join_op_if_network_dead once they observe the detached
+            // native handle on their *Completed event.
+            while (PendingOperation *handshake_op = _find_pending(PENDING_JOIN_HANDSHAKE, change->network)) {
+                _complete_pending(handshake_op, PlayFabResult::error_result(E_ABORT, PARTY_RESOURCE_NOT_READY, "Network left during handshake."));
+            }
+            network->detach_native();
+            _untrack_network(network);
+        }
     }
     if (operation != nullptr) {
         _complete_pending(operation, result);

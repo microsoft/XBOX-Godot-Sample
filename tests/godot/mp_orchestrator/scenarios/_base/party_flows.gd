@@ -220,6 +220,107 @@ func run_party_state_host_leaves_network_destroyed_on_guest(orch) -> Dictionary:
 	return await run_party_lifecycle_host_create_join_destroy(orch)
 
 
+# Regression cover for issue #73. A guest that voluntarily leaves a Party
+# network and immediately rejoins it must still be able to send AND receive
+# text chat with the host. Pre-fix, PlayFabParty::_process_leave_network_completed
+# kept the dying wrapper in m_networks until the later PartyNetworkDestroyed
+# landed, which let the rejoin's PartyChatControlCreated for the host bind
+# to the stale wrapper's peer record instead of the new one. With the chat
+# control mapping wrong, the new local_peer's m_peer_records[host_id]
+# .chat_control is null, so send_text_async finds zero targets and
+# ChatTextReceived routes incoming text to the detached wrapper — both
+# directions silently fail. This scenario drives the exact leave -> immediate
+# rejoin sequence the tutorial T7 panel reported, then asserts text moves
+# both ways. It is deliberately ordered so the rejoin happens before the
+# host has had a chance to observe peer_disconnected, mirroring the original
+# race so the test still catches a regression of the underlying root cause.
+func run_party_leave_rejoin_chat_round_trip(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var pair: Variant = await _party_pair(orch, true)
+	if _is_failure(pair): return pair
+	var descriptor: String = String(pair.get("descriptor", ""))
+	var invitation_id: String = String(pair.get("invitation_id", ""))
+
+	# Arm the host's peer_disconnected waiter BEFORE issuing leave so the
+	# event can't be missed even if the host processes it before we get
+	# back here. Then issue leave + rejoin back-to-back to reproduce the
+	# exact race that triggered #73 (waiting for the host-side disconnect
+	# first would give Party extra DoWork cycles and could let the unfixed
+	# bug self-heal via the later PartyNetworkDestroyed cleanup).
+	var wait_host_disconnect = _client(orch, "host").expect_event("party.peer_disconnected", {})
+	var left: Variant = await _command_ok(orch, "guest", "party_leave_network", { "handle": "party" }, COMMAND_TIMEOUT_MS)
+	if _is_failure(left): return left
+	var rejoined: Variant = await _party_join_network(orch, "guest", "party", descriptor, invitation_id, true)
+	if _is_failure(rejoined): return rejoined
+
+	# Let the host observe the leave + reconvergence (order between
+	# disconnect and the new endpoint isn't guaranteed across processes).
+	if not bool((await wait_host_disconnect.wait(PARTY_WAIT_MS)).get("ok", false)):
+		return fail("host did not observe peer_disconnected after guest leave/rejoin race")
+	var host_converged: Variant = await _wait_party_peer_count(orch, "host", "party", 1)
+	if _is_failure(host_converged): return host_converged
+	var guest_converged: Variant = await _wait_party_peer_count(orch, "guest", "party", 1)
+	if _is_failure(guest_converged): return guest_converged
+
+	# Chat-readiness probe on the guest side (the side affected by #73).
+	# set_peer_chat_permissions_async returns party_peer_not_connected
+	# while the local_peer.m_peer_records[peer_id].chat_control is still
+	# null/stale — which is the exact failure surface the bug produced on
+	# the rejoining client — so we retry briefly until it succeeds. The
+	# probe doubles as a deterministic "chat plumbing is ready" gate
+	# before we exercise send/receive, and mirrors what the tutorial
+	# autoload does in response to chat_control_added. The orchestrator
+	# process does not load the PlayFab GDExtension so we hardcode the
+	# CHAT_PERMISSION_RECEIVE_TEXT enum value (matches
+	# PlayFabParty::CHAT_PERMISSION_RECEIVE_TEXT in playfab_party.h)
+	# instead of going through ClassDB.
+	const PARTY_CHAT_PERMISSION_RECEIVE_TEXT: int = 4
+	var ready: Variant = await _retry_party_set_peer_chat_permissions(orch, "guest", "party", 1, PARTY_CHAT_PERMISSION_RECEIVE_TEXT, PARTY_WAIT_MS)
+	if _is_failure(ready): return ready
+
+	# Bidirectional chat round trip. Pre-fix, guest.send_text_async()
+	# enumerates m_peer_records and finds zero targets with a valid
+	# chat_control (so the host never sees the text) AND host->guest
+	# text routes to the detached wrapper (so the guest never sees it).
+	# Both directions must succeed post-fix.
+	var text_g_to_h: String = _unique_token(orch, "rejoin-g2h")
+	var wait_host_chat = _client(orch, "host").expect_event("party.chat.text_received", { "text": text_g_to_h })
+	var sent_g: Variant = await _party_send_chat(orch, "guest", text_g_to_h)
+	if _is_failure(sent_g): return sent_g
+	if not bool((await wait_host_chat.wait(PARTY_WAIT_MS)).get("ok", false)):
+		return fail("host did not receive guest chat text after rejoin (issue #73 regression)", { "text": text_g_to_h })
+
+	var text_h_to_g: String = _unique_token(orch, "rejoin-h2g")
+	var wait_guest_chat = _client(orch, "guest").expect_event("party.chat.text_received", { "text": text_h_to_g })
+	var sent_h: Variant = await _party_send_chat(orch, "host", text_h_to_g)
+	if _is_failure(sent_h): return sent_h
+	if not bool((await wait_guest_chat.wait(PARTY_WAIT_MS)).get("ok", false)):
+		return fail("guest did not receive host chat text after rejoin (issue #73 regression)", { "text": text_h_to_g })
+
+	return ok({ "guest_to_host": text_g_to_h, "host_to_guest": text_h_to_g })
+
+
+# Retry party_set_peer_chat_permissions until the target peer's chat
+# control is attached to the local peer record (or the deadline expires).
+# Used as a "chat ready" gate after a rejoin: the only retryable error
+# is party_peer_not_connected — every other failure mode is fatal and
+# returned immediately rather than burning the deadline.
+func _retry_party_set_peer_chat_permissions(orch, role: String, handle: String, peer_id: int, permissions: int, timeout_ms: int) -> Variant:
+	var deadline: int = Time.get_ticks_msec() + timeout_ms
+	var last: Dictionary = {}
+	while Time.get_ticks_msec() < deadline:
+		var resp: Dictionary = await _command(orch, role, "party_set_peer_chat_permissions", { "handle": handle, "peer_id": peer_id, "permissions": permissions }, COMMAND_TIMEOUT_MS)
+		if bool(resp.get("ok", false)):
+			return ok({ "handle": handle, "peer_id": peer_id, "permissions": permissions })
+		last = resp
+		var code: String = String(resp.get("error", {}).get("code", ""))
+		if code != "party_peer_not_connected":
+			return fail("party_set_peer_chat_permissions failed: %s" % code, { "response": resp })
+		await _sleep_ms(orch, 100)
+	return fail("party_set_peer_chat_permissions readiness probe timed out (%d ms)" % timeout_ms, { "role": role, "peer_id": peer_id, "last_response": last })
+
+
 func run_party_chaos_host_kill_network_destroyed(orch) -> Dictionary:
 	var gate: Variant = requires_live_write(orch)
 	if gate != null: return gate
