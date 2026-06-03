@@ -60,8 +60,8 @@ commands that perform the build and packaging work.
 
 **What it does:** The label changes based on whether the project already has a
 MicrosoftGame.config. When the file is missing, the menu creates a starter
-`MicrosoftGame.config`, best-effort creates placeholder images under
-`storelogos\` when the Microsoft GDK default PNG asset is available, asks Godot's file
+`MicrosoftGame.config`, best-effort creates placeholder images at the project
+root when the Microsoft GDK default PNG asset is available, asks Godot's file
 system to rescan, then launches `GameConfigEditor.exe`. When the file already
 exists, it launches `GameConfigEditor.exe` against the current config.
 
@@ -76,12 +76,20 @@ to create or edit the local file, but store association and XBOX Live IDs must
 come from your Partner Center title when you are preparing a real package.
 
 **Expected output / side effects:** Template creation writes
-`MicrosoftGame.config` and a `storelogos\` folder in the project if they do not
-exist, then best-effort populates the placeholder logo files when
+`MicrosoftGame.config` and best-effort populates placeholder logo files at the
+project root (next to the config) when
 `GameConfigEditorDependencies\default480x480.png` is available in the selected
 Microsoft GDK bin directory. Editing through GameConfigEditor may rewrite the config and
-logo files. If the editor executable is missing or fails to launch, the Godot
-output panel shows an error.
+logo files. When you pick a new tile image, GameConfigEditor saves it to the
+project root and leaves the derived size variants stale. The addon keeps every
+logo at the project root to match, so the plugin watches the editor process
+and, once it closes, automatically regenerates every stale size variant
+(`Square150x150Logo`, `Square44x44Logo`, `StoreLogo`, `SplashScreenImage`) from
+the picked 480×480 master — writing each to the path its config attribute
+already declares — and rescans the Godot FileSystem. The 480×480 master is left
+untouched and nothing is moved or repointed, so no duplicate logos are created.
+If the editor executable is missing or fails to launch, the Godot output panel
+shows an error.
 
 **Deeper docs:** See [Packaging Plugin](plugin.md#verbs) for the
 `config_template` and `config_editor` headless verbs, and Microsoft's

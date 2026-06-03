@@ -1,12 +1,25 @@
 extends GutTest
-## XML rewrite safety coverage for MicrosoftGame.config packaging helpers.
+## Logo reconciliation coverage for MicrosoftGame.config packaging helpers, plus
+## an encryption-key safety pin. The addon keeps every logo at the project root
+## (where GameConfigEditor writes picked tiles) and regenerates the derived size
+## variants in place from the 480x480 master — it does not move logos into a
+## storelogos/ subfolder or rewrite the config's logo paths (issue #62).
 
 const GameConfigManagerScript = preload("res://addons/godot_gdk_packaging/core/game_config_manager.gd")
 const PackagingResult = preload("res://addons/godot_gdk_packaging/core/packaging_result.gd")
 const PackagingServiceScript = preload("res://addons/godot_gdk_packaging/core/packaging_service.gd")
 
 const _CONFIG_FILE := "MicrosoftGame.config"
-const _ROOT_LOGO := "Logo.png"
+const _MASTER := "Square480x480Logo.png"
+const _LOGO_FILES := [
+	"Square480x480Logo.png",
+	"Square150x150Logo.png",
+	"Square44x44Logo.png",
+	"StoreLogo.png",
+	"SplashScreenImage.png",
+	"MyNewTile.png",
+	"custom150.png",
+]
 
 
 class FakeToolchain:
@@ -48,31 +61,6 @@ func after_each() -> void:
 	_cleanup_project_artifacts()
 
 
-func test_relocate_logos_updates_only_logo_attributes() -> void:
-	var config := ""
-	config += '<?xml version="1.0" encoding="utf-8"?>\n'
-	config += '<Game configVersion="1">\n'
-	config += '  <ShellVisuals DefaultDisplayName="Logo.png"\n'
-	config += '                PublisherDisplayName="Logo.png"\n'
-	config += '                Square150x150Logo="Logo.png"\n'
-	config += '                Description="assets\\Logo.png" />\n'
-	config += '</Game>\n'
-	_write_text(_project_path(_CONFIG_FILE), config)
-	_write_text(_project_path(_ROOT_LOGO), "fake-png")
-
-	var manager = GameConfigManagerScript.new(FakeToolchain.new())
-	var moved: int = manager.relocate_logos_to_storelogos()
-
-	assert_eq(moved, 1, "root logo moved once")
-	var rewritten: String = _read_text(_project_path(_CONFIG_FILE))
-	assert_string_contains(rewritten, 'Square150x150Logo="storelogos\\Logo.png"', "logo attr rewritten")
-	assert_string_contains(rewritten, 'DefaultDisplayName="Logo.png"', "same value in non-logo attr preserved")
-	assert_string_contains(rewritten, 'PublisherDisplayName="Logo.png"', "unrelated attr not rewritten")
-	assert_string_contains(rewritten, 'Description="assets\\Logo.png"', "substring in unrelated attr preserved")
-	assert_false(FileAccess.file_exists(_project_path(_ROOT_LOGO)), "root logo removed")
-	assert_true(FileAccess.file_exists(_project_path("storelogos").path_join(_ROOT_LOGO)), "logo moved into storelogos")
-
-
 func test_pack_encrypt_key_without_key_returns_config_error() -> void:
 	var service = PackagingServiceScript.new(FakeToolchain.new())
 	var result: Dictionary = service.run_pack({
@@ -88,93 +76,91 @@ func test_pack_encrypt_key_without_key_returns_config_error() -> void:
 	assert_push_error("--encrypt=key requires --encrypt-key", "push_error emitted for editor callers")
 
 
-func test_relocate_keeps_config_referenced_logo_when_standard_logo_also_present() -> void:
-	# Config references a custom logo filename (e.g. fhl_logo.png) for an attribute
-	# while a standard GameConfigEditor-named logo (Square150x150Logo.png) also
-	# happens to exist at the project root. Both files must be moved, and the
-	# attribute rewrite must continue to point at the config-referenced custom
-	# filename — not be overwritten by the standard-name entry.
-	const _CUSTOM_LOGO := "fhl_logo.png"
-	const _STANDARD_LOGO := "Square150x150Logo.png"
-	# Back up the committed storelogos fixture so we can restore it after the test
-	# overwrites it via relocate_logos_to_storelogos().
-	var committed_storelogo_path: String = _project_path("storelogos").path_join(_STANDARD_LOGO)
-	var committed_storelogo_bytes: PackedByteArray = PackedByteArray()
-	if FileAccess.file_exists(committed_storelogo_path):
-		var backup_file: FileAccess = FileAccess.open(committed_storelogo_path, FileAccess.READ)
-		if backup_file != null:
-			committed_storelogo_bytes = backup_file.get_buffer(int(backup_file.get_length()))
-			backup_file.close()
+func test_reconcile_regenerates_stale_variants_in_place_without_moving_or_rewriting() -> void:
+	# Simulates issue #62: GameConfigEditor wrote a freshly-picked 480x480 master
+	# (a custom filename) to the project root and pointed Square480x480Logo at it,
+	# but left the derived size variants stale. reconcile_logos_after_edit() must
+	# regenerate the four derived variants in place from that master, at the paths
+	# the config declares — WITHOUT moving anything into storelogos/ or rewriting
+	# the config's logo paths (which is what produced duplicates before).
+	const _PICKED := "MyNewTile.png"
 	var config := ""
 	config += '<?xml version="1.0" encoding="utf-8"?>\n'
 	config += '<Game configVersion="1">\n'
 	config += '  <ShellVisuals DefaultDisplayName="App"\n'
-	config += '                Square150x150Logo="' + _CUSTOM_LOGO + '" />\n'
+	config += '                StoreLogo="StoreLogo.png"\n'
+	config += '                Square44x44Logo="Square44x44Logo.png"\n'
+	config += '                Square150x150Logo="Square150x150Logo.png"\n'
+	config += '                Square480x480Logo="' + _PICKED + '"\n'
+	config += '                SplashScreenImage="SplashScreenImage.png" />\n'
 	config += '</Game>\n'
 	_write_text(_project_path(_CONFIG_FILE), config)
-	_write_text(_project_path(_CUSTOM_LOGO), "fake-custom-png")
-	_write_text(_project_path(_STANDARD_LOGO), "fake-standard-png")
+
+	# The freshly-picked master image GameConfigEditor dropped at the root.
+	_write_master_png(_project_path(_PICKED))
+	# Stale 1x1 derived variants left over from a previous tile.
+	for stale: String in ["StoreLogo.png", "Square44x44Logo.png", "Square150x150Logo.png", "SplashScreenImage.png"]:
+		_write_png(_project_path(stale), 1, 1)
 
 	var manager = GameConfigManagerScript.new(FakeToolchain.new())
-	var moved: int = manager.relocate_logos_to_storelogos()
+	var summary: Dictionary = manager.reconcile_logos_after_edit()
 
-	assert_eq(moved, 2, "both root logos relocated")
-	var rewritten: String = _read_text(_project_path(_CONFIG_FILE))
-	assert_string_contains(rewritten, 'Square150x150Logo="storelogos\\' + _CUSTOM_LOGO + '"',
-		"attribute keeps pointing at the config-referenced filename after the move")
-	assert_eq(rewritten.find('Square150x150Logo="storelogos\\' + _STANDARD_LOGO + '"'), -1,
-		"standard-name entry must not overwrite the config-referenced replacement")
-	assert_true(FileAccess.file_exists(_project_path("storelogos").path_join(_CUSTOM_LOGO)),
-		"custom logo moved into storelogos")
-	assert_true(FileAccess.file_exists(_project_path("storelogos").path_join(_STANDARD_LOGO)),
-		"standard logo moved into storelogos")
-	# Cleanup the extra files this test created.
-	for cleanup: String in [
-		_project_path("storelogos").path_join(_CUSTOM_LOGO),
-		_project_path(_CUSTOM_LOGO),
-		_project_path(_STANDARD_LOGO),
-	]:
-		if FileAccess.file_exists(cleanup):
-			DirAccess.remove_absolute(cleanup)
-	# Restore the committed storelogos fixture if we shadowed it.
-	if not committed_storelogo_bytes.is_empty():
-		var restore_file: FileAccess = FileAccess.open(committed_storelogo_path, FileAccess.WRITE)
-		if restore_file != null:
-			restore_file.store_buffer(committed_storelogo_bytes)
-			restore_file.close()
-	elif FileAccess.file_exists(committed_storelogo_path):
-		DirAccess.remove_absolute(committed_storelogo_path)
+	assert_eq(int(summary.get("synced", 0)), 4, "four derived variants regenerated (the 480 master is the source)")
+
+	# Each derived variant exists at its declared root path with the right size.
+	assert_eq(_png_size(_project_path("StoreLogo.png")), Vector2i(100, 100), "StoreLogo regenerated at 100x100")
+	assert_eq(_png_size(_project_path("Square44x44Logo.png")), Vector2i(44, 44), "44 variant regenerated")
+	assert_eq(_png_size(_project_path("Square150x150Logo.png")), Vector2i(150, 150), "150 variant regenerated")
+	assert_eq(_png_size(_project_path("SplashScreenImage.png")), Vector2i(1920, 1080), "splash regenerated")
+
+	# The picked master is untouched (not moved, not resized).
+	assert_true(FileAccess.file_exists(_project_path(_PICKED)), "picked master still at root")
+	assert_eq(_png_size(_project_path(_PICKED)), Vector2i(480, 480), "picked master unchanged")
+
+	# Nothing is relocated into a storelogos/ subfolder and the config is
+	# left as-is — this is what produced duplicates before.
+	assert_false(FileAccess.file_exists(_project_path("storelogos").path_join(_PICKED)),
+		"picked master is not relocated into storelogos/")
+	var after_config: String = _read_text(_project_path(_CONFIG_FILE))
+	assert_string_contains(after_config, 'Square480x480Logo="' + _PICKED + '"', "config still references the picked master, unrewritten")
 
 
-func test_rewrite_does_not_double_escape_xml_entities_in_logo_paths() -> void:
-	# Logo filenames containing XML-significant characters (e.g. '&') appear in
-	# MicrosoftGame.config as entity references ('&amp;'). The rewrite path
-	# previously read the raw escaped text, re-escaped it during write-back, and
-	# produced a doubly-escaped string ('&amp;amp;') that no longer refers to
-	# the actual file. The reader now decodes entities so the round-trip stays
-	# clean.
-	const _ENTITY_LOGO := "Logo&Mark.png"
-	const _ENTITY_LOGO_ESCAPED := "Logo&amp;Mark.png"
+func test_sync_writes_variant_to_config_declared_custom_path() -> void:
+	# When the config declares a non-standard filename for a variant, sync must
+	# regenerate the file at THAT path (so packaging staging finds a fresh file),
+	# not at a hardcoded standard name.
+	const _CUSTOM := "custom150.png"
 	var config := ""
 	config += '<?xml version="1.0" encoding="utf-8"?>\n'
 	config += '<Game configVersion="1">\n'
 	config += '  <ShellVisuals DefaultDisplayName="App"\n'
-	config += '                Square150x150Logo="' + _ENTITY_LOGO_ESCAPED + '" />\n'
+	config += '                Square480x480Logo="Square480x480Logo.png"\n'
+	config += '                Square150x150Logo="' + _CUSTOM + '" />\n'
 	config += '</Game>\n'
 	_write_text(_project_path(_CONFIG_FILE), config)
-	_write_text(_project_path(_ENTITY_LOGO), "fake-png")
+	_write_master_png(_project_path(_MASTER))
 
 	var manager = GameConfigManagerScript.new(FakeToolchain.new())
-	manager._rewrite_config_paths_to_storelogos()
+	var synced: int = manager.sync_store_logos()
 
-	var rewritten: String = _read_text(_project_path(_CONFIG_FILE))
-	assert_string_contains(rewritten, 'Square150x150Logo="storelogos\\' + _ENTITY_LOGO_ESCAPED + '"',
-		"entity remains singly-escaped after rewrite")
-	assert_eq(rewritten.find("&amp;amp;"), -1,
-		"no double-escape introduced by the rewrite")
-	# Cleanup.
-	if FileAccess.file_exists(_project_path(_ENTITY_LOGO)):
-		DirAccess.remove_absolute(_project_path(_ENTITY_LOGO))
+	assert_eq(synced, 4, "all four derived variants regenerated")
+	assert_true(FileAccess.file_exists(_project_path(_CUSTOM)), "custom-named variant written at its declared path")
+	assert_eq(_png_size(_project_path(_CUSTOM)), Vector2i(150, 150), "custom variant has the 150 size")
+
+
+func test_sync_no_op_without_a_master() -> void:
+	# A config whose Square480x480Logo points at a missing file must not crash and
+	# must report zero regenerations.
+	var config := ""
+	config += '<?xml version="1.0" encoding="utf-8"?>\n'
+	config += '<Game configVersion="1">\n'
+	config += '  <ShellVisuals DefaultDisplayName="App"\n'
+	config += '                Square480x480Logo="Square480x480Logo.png" />\n'
+	config += '</Game>\n'
+	_write_text(_project_path(_CONFIG_FILE), config)
+
+	var manager = GameConfigManagerScript.new(FakeToolchain.new())
+	assert_eq(manager.sync_store_logos(), 0, "no master on disk -> nothing regenerated")
 
 
 func _project_path(relative_path: String) -> String:
@@ -199,14 +185,30 @@ func _read_text(path: String) -> String:
 	return text
 
 
+func _write_png(path: String, width: int, height: int) -> void:
+	var img: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.1, 0.6, 0.1))
+	assert_eq(img.save_png(path), OK, "fixture PNG written: %s" % path)
+
+
+func _write_master_png(path: String) -> void:
+	_write_png(path, 480, 480)
+
+
+func _png_size(path: String) -> Vector2i:
+	var img: Image = Image.new()
+	if img.load(path) != OK:
+		return Vector2i(-1, -1)
+	return Vector2i(img.get_width(), img.get_height())
+
+
 func _cleanup_project_artifacts() -> void:
-	for path: String in [
-		_project_path(_CONFIG_FILE),
-		_project_path(_ROOT_LOGO),
-		_project_path("storelogos").path_join(_ROOT_LOGO),
-	]:
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
+	if FileAccess.file_exists(_project_path(_CONFIG_FILE)):
+		DirAccess.remove_absolute(_project_path(_CONFIG_FILE))
+	for name: String in _LOGO_FILES:
+		var p: String = _project_path(name)
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 	var storelogos_dir: String = _project_path("storelogos")
 	if DirAccess.dir_exists_absolute(storelogos_dir):
 		if DirAccess.get_files_at(storelogos_dir).is_empty() and DirAccess.get_directories_at(storelogos_dir).is_empty():

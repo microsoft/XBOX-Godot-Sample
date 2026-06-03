@@ -374,16 +374,17 @@ func test_config_template_accepts_res_output_path() -> void:
 		DirAccess.remove_absolute(fs_out)
 
 
-# ── PR #13 round-2 review follow-up: storelogos lands next to the config ────
+# ── Issue #62: template logos live at the project/config root, not storelogos ─
 
 
-func test_config_template_writes_storelogos_next_to_output() -> void:
-	# When --output writes outside the project root, the placeholder logos
-	# must land in <output_dir>/storelogos/ so the config's relative
-	# "storelogos\..." references resolve next to the file. (PR #13 round-2.)
+func test_config_template_out_of_tree_uses_root_logos_not_storelogos() -> void:
+	# The addon keeps logos next to the config at its own root (matching where
+	# GameConfigEditor writes picked tiles), so an out-of-tree --output must:
+	#   * declare root-relative logo paths in the config (no "storelogos\..."),
+	#   * NOT create a storelogos/ sibling folder, and
+	#   * NOT pollute res:// (project root) with logos as a side effect.
 	var output: String = _fixture_path("alt_config_root/Custom.config")
 	var sibling_logos_dir: String = _fixture_path("alt_config_root/storelogos")
-	# Sanity: fixture starts clean.
 	assert_false(DirAccess.dir_exists_absolute(sibling_logos_dir),
 		"fixture starts with no sibling storelogos directory")
 
@@ -395,18 +396,21 @@ func test_config_template_writes_storelogos_next_to_output() -> void:
 	})
 
 	assert_true(result["ok"], "config_template succeeds for out-of-tree output")
-	# We don't require the placeholder PNGs themselves (those need the GDK
-	# default480x480 PNG, which the FakeToolchain points at a missing path —
-	# the function will push_warning and return without writing PNGs). But we
-	# DO require that the implementation reaches for the *sibling* storelogos
-	# location, not res://storelogos, so the next-most-actionable check is
-	# that res://storelogos is not created as a side-effect of running the
-	# template with a custom --output.
-	var res_logos: String = ProjectSettings.globalize_path("res://storelogos")
-	# If res://storelogos already exists from a real prior template run we
-	# can't assert on its absence — gate the assertion on a clean start.
-	# In CI fixtures this directory is freshly created per-run.
-	if not DirAccess.dir_exists_absolute(res_logos):
-		# Already absent before — must remain absent after.
-		assert_false(DirAccess.dir_exists_absolute(res_logos),
+
+	# The generated config declares root-relative logo paths.
+	var config_text: String = _read_text(output)
+	assert_string_contains(config_text, 'Square480x480Logo="Square480x480Logo.png"',
+		"480 logo declared at the config root")
+	assert_eq(config_text.find("storelogos"), -1,
+		"config no longer references a storelogos/ subfolder")
+
+	# No storelogos/ sibling is created (the FakeToolchain has no default PNG, so
+	# no placeholder PNGs are written either — but the folder must never appear).
+	assert_false(DirAccess.dir_exists_absolute(sibling_logos_dir),
+		"out-of-tree --output does not create a sibling storelogos/ folder")
+
+	# Running with a custom --output must not create logos under res:// root.
+	var res_storelogos: String = ProjectSettings.globalize_path("res://storelogos")
+	if not DirAccess.dir_exists_absolute(res_storelogos):
+		assert_false(DirAccess.dir_exists_absolute(res_storelogos),
 			"out-of-tree --output does not create res://storelogos as a side effect")

@@ -69,11 +69,13 @@ summary_*.json
 sample/**/*.exe
 
 # ── Placeholder logos (generated for wdapp/makepkg) ─────────────
+# GameConfigEditor and the packaging addon write these standard-named logos to
+# the project root (the addon no longer uses a storelogos/ subfolder).
 sample/**/StoreLogo.png
-sample/**/Logo150.png
-sample/**/Logo44.png
-sample/**/Logo480.png
-sample/**/SplashScreen.png
+sample/**/Square44x44Logo.png
+sample/**/Square150x150Logo.png
+sample/**/Square480x480Logo.png
+sample/**/SplashScreenImage.png
 sample/**/storelogos/
 sample/**/Package/
 
