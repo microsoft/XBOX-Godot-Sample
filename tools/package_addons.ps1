@@ -293,7 +293,7 @@ function FindVCPKG_ROOT {
             }
         }
     }
-    throw "Could not find Visual Studio install. If it is in a custom directory ensure VCPKG is installed and you set VCPKG_ROOT = \VS_Location\VC\vcpkg "
+    throw "Could not auto-detect VCPKG_ROOT from a default Visual Studio install. Ensure the Visual Studio vcpkg component is installed, or set VCPKG_ROOT to a vcpkg checkout (e.g. C:\\vcpkg) or to <VS>\\VC\\vcpkg."
 }
 
 
