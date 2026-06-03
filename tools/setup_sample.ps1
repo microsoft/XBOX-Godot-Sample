@@ -54,8 +54,8 @@ Write-Host "Derived SCID: $Scid" -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "--- Identity Settings ---" -ForegroundColor Yellow
-$GameName = Read-Host "Game name [Godot for XBOX on PC Demo]"
-if ([string]::IsNullOrWhiteSpace($GameName)) { $GameName = "Godot for XBOX on PC Demo" }
+$GameName = Read-Host "Game name [XBOX Godot Sample Tutorial App]"
+if ([string]::IsNullOrWhiteSpace($GameName)) { $GameName = "XBOX Godot Sample Tutorial App" }
 $Publisher = Read-Host "Publisher CN (e.g. CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)"
 $PublisherDisplay = Read-Host "Publisher display name"
 $Version = Read-Host "Version [1.0.0.0]"

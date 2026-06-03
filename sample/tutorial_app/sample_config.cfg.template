@@ -1,4 +1,4 @@
-; Godot for XBOX on PC Tutorial App — sample configuration template.
+; XBOX Godot Sample Tutorial App — sample configuration template.
 ;
 ; Copy this file to `sample_config.cfg` (next to it) and fill in the
 ; values from Partner Center, OR run:
@@ -17,7 +17,7 @@ scid = "00000000-0000-0000-0000-0000<title_id>"
 sandbox_id = "<Sandbox Id, e.g. XDKS.1>"
 
 [identity]
-game_name = "Godot for XBOX on PC Tutorial App"
+game_name = "XBOX Godot Sample Tutorial App"
 publisher = "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 publisher_display_name = "<Publisher display name>"
 version = "1.0.0.0"
