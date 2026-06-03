@@ -83,7 +83,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 4. Create the Party network.
 5. Connect to the Party network.
 6. Authenticate the local Party user to the connected network.
-7. Optionally create/connect the local chat control when chat is enabled.
+7. Optionally create/connect the local chat control when chat is enabled. When voice chat is enabled, bind the local chat control's capture (microphone) and render (speaker) audio devices so voice actually flows; the `audio_input`/`audio_output` config fields choose specific devices and fall back to the system default communication device when empty.
 8. Create the local data endpoint.
 9. Capture the finalized network descriptor from the completed/connected network state, serialize it, and expose it as a base64 string.
 10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
@@ -96,7 +96,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 4. Create or reuse the local Party user for that entity handle.
 5. Connect to the Party network.
 6. Authenticate the local Party user to the connected network.
-7. Optionally create/connect the local chat control when chat is enabled.
+7. Optionally create/connect the local chat control when chat is enabled. When voice chat is enabled, bind the local chat control's capture (microphone) and render (speaker) audio devices so voice actually flows; the `audio_input`/`audio_output` config fields choose specific devices and fall back to the system default communication device when empty.
 8. Create the local data endpoint.
 9. Run the peer-id handshake with the host.
 10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
@@ -135,7 +135,7 @@ var audio_output: String = "" # platform default when empty
 var metadata: Dictionary = {}
 ```
 
-`enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags. They decide whether and how the addon creates/connects Party chat controls; they are not native Party network settings.
+`enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags. They decide whether and how the addon creates/connects Party chat controls; they are not native Party network settings. When `enable_voice_chat` is true the addon binds the local chat control's capture and render audio devices: `audio_input`/`audio_output` select a specific device id, and an empty string selects the platform's system default communication device. When `enable_voice_chat` is false no audio device is bound.
 
 ### `direct_peer_connectivity` flag rules
 

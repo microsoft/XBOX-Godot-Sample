@@ -142,10 +142,14 @@ func test_party_config_defaults() -> void:
 	config.invitation_id = "invite-1"
 	config.enable_voice_chat = false
 	config.enable_text_chat = false
+	config.audio_input = "capture-device-1"
+	config.audio_output = "render-device-1"
 	config.metadata = {"map": "arena"}
 	assert_eq(config.max_players, 4, "PlayFabPartyConfig.max_players setter")
 	assert_eq(config.direct_peer_connectivity, get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE"), "PlayFabPartyConfig.direct_peer_connectivity setter")
 	assert_eq(config.invitation_id, "invite-1", "PlayFabPartyConfig.invitation_id setter")
+	assert_eq(config.audio_input, "capture-device-1", "PlayFabPartyConfig.audio_input setter")
+	assert_eq(config.audio_output, "render-device-1", "PlayFabPartyConfig.audio_output setter")
 	assert_eq(config.metadata.get("map"), "arena", "PlayFabPartyConfig.metadata setter")
 
 	var text_config = instantiate_class("PlayFabPartyTextMessageConfig")
