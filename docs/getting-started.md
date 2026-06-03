@@ -136,7 +136,7 @@ for the canonical addon-side walk-through.
   don't need a separate Microsoft GDK install just to compile the addons.
   Set the `VCPKG_ROOT` environment variable to your vcpkg clone (the
   CMake preset reads it via `$env{VCPKG_ROOT}`). You can also use the VCPKG 
-  componenet if it is installed with Visual Studio. The script `package_addons.ps1` 
+  component if it is installed with Visual Studio. The script `package_addons.ps1` 
   will detect it and use it as `VCPKG_ROOT` automatically.
 
 > **Note:** The vcpkg manifest only provides the **build-time headers and
