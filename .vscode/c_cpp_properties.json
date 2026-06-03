@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "GDK",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/godot-cpp/include",
+                "${workspaceFolder}/godot-cpp/gdextension",
+                "${workspaceFolder}/build/godot-cpp/gen/include",
+                "${env:GameDKCoreLatest}windows\\include"
+            ],
+            "defines": [
+                "_GAMING_DESKTOP",
+                "WIN32_LEAN_AND_MEAN"
+            ]
+        }
+    ],
+    "version": 4
+}

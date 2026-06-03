@@ -1,0 +1,41 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
+[application]
+
+config/name="demo"
+run/main_scene="uid://d325tqe7uhmqv"
+config/features=PackedStringArray("4.6", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
+GameInputBootstrap="*res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+
+[gdk]
+
+runtime/initialize_on_startup=true
+runtime/embed_dispatch=true
+runtime/auto_add_primary_user=true
+
+[playfab]
+
+titleid=""
+endpoint=""
+runtime/embed_dispatch=true

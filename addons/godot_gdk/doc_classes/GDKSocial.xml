@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSocial" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Social graph service accessed via GDK.social.
+	</brief_description>
+	<description>
+		Wraps the Xbox Social Manager. Start tracking a user's social graph with [method start_social_graph], create filtered groups with [method create_social_group], and retrieve user data with [method get_group_users].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="start_social_graph">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Starts tracking the social graph for the given local user. Must be called before creating social groups.
+			</description>
+		</method>
+		<method name="stop_social_graph">
+			<return type="void" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Stops tracking the social graph for the given local user.
+			</description>
+		</method>
+		<method name="get_friends_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Asynchronously retrieves the friends list for the given local user. Await the returned completion [Signal] to receive a [GDKResult] whose [code]data[/code] contains the loaded [GDKSocialGroup].
+			</description>
+		</method>
+		<method name="create_social_group">
+			<return type="GDKSocialGroup" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="filter" type="GDKSocialFilter" default="null" />
+			<description>
+				Creates a social group for the given user with an optional filter. If no filter is provided, a default filter is used.
+			</description>
+		</method>
+		<method name="create_social_group_from_xuids">
+			<return type="GDKSocialGroup" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<description>
+				Creates a social group that tracks the specified XUIDs.
+			</description>
+		</method>
+		<method name="destroy_social_group">
+			<return type="void" />
+			<param index="0" name="group" type="GDKSocialGroup" />
+			<description>
+				Destroys the given social group and stops tracking its users.
+			</description>
+		</method>
+		<method name="get_group_users">
+			<return type="Array" />
+			<param index="0" name="group" type="GDKSocialGroup" />
+			<description>
+				Returns an [Array] of [GDKSocialUser] objects for the users tracked by the given group.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="social_graph_changed">
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Emitted when the social graph for a local user has changed.
+			</description>
+		</signal>
+		<signal name="social_group_updated">
+			<param index="0" name="group" type="GDKSocialGroup" />
+			<description>
+				Emitted when a social group's tracked user list has been updated.
+			</description>
+		</signal>
+		<signal name="social_user_changed">
+			<param index="0" name="xuid" type="String" />
+			<param index="1" name="social_user" type="GDKSocialUser" />
+			<description>
+				Emitted when a tracked social user's data has changed.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

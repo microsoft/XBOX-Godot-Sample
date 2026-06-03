@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabGameSaves" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab Game Saves service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.game_saves[/code]. All Game Saves methods require a signed-in [PlayFabUser]. Asynchronous methods return completion [Signal] values awaited directly, while query helpers return a [PlayFabResult] whose [code]data[/code] field contains the requested Godot value.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="add_user_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="options" type="int" default="0" />
+			<description>
+				Adds the signed-in [param user] to PlayFab Game Saves and performs the initial cloud sync. Use the [code]ADD_USER_OPTION_*[/code] constants for rollback flows when needed. The completed result data contains the synced folder path, folder size, cloud-connection state, the local user id, and the PlayFab entity key. When cloud-connected, the result data also includes [code]remaining_quota[/code].
+			</description>
+		</method>
+		<method name="upload_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="release_device_as_active" type="bool" default="false" />
+			<description>
+				Uploads the local Game Saves folder for [param user]. Pass [code]true[/code] for [param release_device_as_active] when this device should stop being the active upload device after the sync completes.
+			</description>
+		</method>
+		<method name="set_save_description_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="short_save_description" type="String" />
+			<description>
+				Sets the short description shown by Game Saves conflict and active-device UI for the pending upload of [param user].
+			</description>
+		</method>
+		<method name="reset_cloud_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<description>
+				Resets the cloud Game Saves state for [param user] without modifying the local save folder. This is primarily useful for development and recovery flows.
+			</description>
+		</method>
+		<method name="get_folder" qualifiers="const">
+			<return type="PlayFabResult" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<description>
+				Returns a [PlayFabResult]. On success, [code]result.data[/code] contains the Game Saves root folder [String] for [param user].
+			</description>
+		</method>
+		<method name="get_folder_size" qualifiers="const">
+			<return type="PlayFabResult" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<description>
+				Returns a [PlayFabResult]. On success, [code]result.data[/code] contains the Game Saves root folder size in bytes for [param user].
+			</description>
+		</method>
+		<method name="get_remaining_quota" qualifiers="const">
+			<return type="PlayFabResult" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<description>
+				Returns a [PlayFabResult]. On success, [code]result.data[/code] contains the remaining Game Saves cloud quota in bytes for [param user].
+			</description>
+		</method>
+		<method name="is_connected_to_cloud" qualifiers="const">
+			<return type="PlayFabResult" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<description>
+				Returns a [PlayFabResult]. On success, [code]result.data[/code] is [code]true[/code] when [param user] is still connected to the Game Saves cloud state.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="ADD_USER_OPTION_NONE" value="0">
+			Default Game Saves add-user behavior.
+		</constant>
+		<constant name="ADD_USER_OPTION_ROLLBACK_TO_LAST_KNOWN_GOOD" value="1">
+			Syncs to the most recently verified earlier cloud save instead of the latest upload when such a snapshot exists.
+		</constant>
+		<constant name="ADD_USER_OPTION_ROLLBACK_TO_LAST_CONFLICT" value="2">
+			Restores the preserved "losing" side from the most recent conflict resolution when available.
+		</constant>
+	</constants>
+</class>

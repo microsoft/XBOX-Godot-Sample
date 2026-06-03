@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSocialUser" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A tracked user in the Xbox Social Manager graph.
+	</brief_description>
+	<description>
+		Contains social profile data for a user being tracked through the Social Manager. Retrieved from [code]GDK.social.get_group_users()[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_xuid">
+			<return type="String" />
+			<description>
+				Returns the Xbox User ID.
+			</description>
+		</method>
+		<method name="is_favorite">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is a favorite of the local user.
+			</description>
+		</method>
+		<method name="is_friend">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is a friend of the local user.
+			</description>
+		</method>
+		<method name="is_following_user">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the local user is following this user.
+			</description>
+		</method>
+		<method name="is_followed_by_caller">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if this user is followed by the calling user.
+			</description>
+		</method>
+		<method name="get_display_name">
+			<return type="String" />
+			<description>
+				Returns the user's display name.
+			</description>
+		</method>
+		<method name="get_real_name">
+			<return type="String" />
+			<description>
+				Returns the user's real name, if available.
+			</description>
+		</method>
+		<method name="get_display_picture_url">
+			<return type="String" />
+			<description>
+				Returns the URL of the user's display picture.
+			</description>
+		</method>
+		<method name="uses_avatar">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user uses an avatar for their display picture.
+			</description>
+		</method>
+		<method name="get_gamerscore">
+			<return type="String" />
+			<description>
+				Returns the user's gamerscore as a string.
+			</description>
+		</method>
+		<method name="get_gamertag">
+			<return type="String" />
+			<description>
+				Returns the user's classic gamertag.
+			</description>
+		</method>
+		<method name="get_modern_gamertag">
+			<return type="String" />
+			<description>
+				Returns the user's modern gamertag.
+			</description>
+		</method>
+		<method name="get_modern_gamertag_suffix">
+			<return type="String" />
+			<description>
+				Returns the numeric suffix of the user's modern gamertag.
+			</description>
+		</method>
+		<method name="get_unique_modern_gamertag">
+			<return type="String" />
+			<description>
+				Returns the user's unique modern gamertag including suffix.
+			</description>
+		</method>
+		<method name="get_presence">
+			<return type="GDKPresenceRecord" />
+			<description>
+				Returns the user's presence record.
+			</description>
+		</method>
+		<method name="get_title_history">
+			<return type="Dictionary" />
+			<description>
+				Returns the user's title history as a dictionary.
+			</description>
+		</method>
+		<method name="get_preferred_color">
+			<return type="Dictionary" />
+			<description>
+				Returns the user's preferred color as a dictionary.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="xuid" type="String" setter="" getter="get_xuid">
+			The Xbox User ID.
+		</member>
+		<member name="favorite" type="bool" setter="" getter="is_favorite">
+			Whether the user is a favorite of the local user.
+		</member>
+		<member name="friend" type="bool" setter="" getter="is_friend">
+			Whether the user is a friend of the local user.
+		</member>
+		<member name="display_name" type="String" setter="" getter="get_display_name">
+			The user's display name.
+		</member>
+		<member name="real_name" type="String" setter="" getter="get_real_name">
+			The user's real name, if available.
+		</member>
+		<member name="display_picture_url" type="String" setter="" getter="get_display_picture_url">
+			The URL of the user's display picture.
+		</member>
+		<member name="gamerscore" type="String" setter="" getter="get_gamerscore">
+			The user's gamerscore.
+		</member>
+		<member name="gamertag" type="String" setter="" getter="get_gamertag">
+			The user's classic gamertag.
+		</member>
+		<member name="presence" type="GDKPresenceRecord" setter="" getter="get_presence">
+			The user's presence record.
+		</member>
+		<member name="title_history" type="Dictionary" setter="" getter="get_title_history">
+			The user's title history.
+		</member>
+		<member name="preferred_color" type="Dictionary" setter="" getter="get_preferred_color">
+			The user's preferred color.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

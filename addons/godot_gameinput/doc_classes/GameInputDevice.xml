@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInputDevice" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Weak handle to a single GameInput device.
+	</brief_description>
+	<description>
+		[GameInputDevice] is a GDScript-facing wrapper around an [code]IGameInputDevice[/code]. It stores only a session-local monotonic device id (a weak handle), so it is cheap to keep around in user code. All instance methods resolve through the [GameInput] singleton; if the device has been disconnected since the wrapper was handed out, every method returns a safe default ([code]false[/code], an empty [String], [code]-1.0[/code], an empty [Dictionary]) instead of crashing.
+		Device ids are never recycled within a process, so a stored id remains a stable identity for as long as your game runs. Wrappers are obtained from [method GameInput.get_devices], [method GameInput.get_primary_device], or the [signal GameInput.device_connected] signal.
+		The [enum Button], [enum Axis], and [enum Source] enums describe the input vocabulary used by [GameInputReading] and [GameInputBinding]. [enum Source] is a single combined namespace covering buttons (values 0–13) and axes (values 100–105) so editor dropdowns can show one unified list.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_device_id" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the session-local monotonic id assigned when this device first connected. The id is never recycled and is the same value reported by [signal GameInput.device_disconnected]. Useful as a stable key in player-to-device dictionaries.
+			</description>
+		</method>
+		<method name="get_display_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the human-readable device name reported by GameInput (e.g. "Xbox Wireless Controller"). Falls back to a synthesized [code]"GameInput Device VVVV:PPPP"[/code] string built from vendor and product ids when no display name is available, or an empty [String] if the device has been disconnected.
+			</description>
+		</method>
+		<method name="get_kind_mask" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the device's supported-input mask as a bitfield of [GameInput] [enum GameInput.DeviceKind] flags. A single physical device may report multiple kinds (e.g. a controller that also emulates a keyboard). Returns [constant GameInput.DEVICE_UNKNOWN] when the device has been disconnected.
+			</description>
+		</method>
+		<method name="is_connected" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the device is still in the [GameInput] cache. Wrappers stay alive after disconnect, so user code holding a reference can safely call this to gate further work.
+			</description>
+		</method>
+		<method name="supports_vibration" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the device reports any rumble motors. Use this before calling [method GameInput.set_vibration] to avoid wasted calls on devices that cannot rumble.
+			</description>
+		</method>
+		<method name="supports_haptics" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the device reports one or more haptic-feedback motors (distinct from rumble). The current addon does not yet send haptic patterns; this is exposed so games can detect capability ahead of a future API.
+			</description>
+		</method>
+		<method name="get_battery_level" qualifiers="const">
+			<return type="float" />
+			<description>
+				Returns the battery level as a value in [code][0.0, 1.0][/code], or [code]-1.0[/code] when the battery state is unknown, the device is wired/has no battery, or the device is disconnected. Use [code]&lt; 0[/code] as the "no battery info" sentinel rather than treating low values as low battery.
+			</description>
+		</method>
+		<method name="get_device_info" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns a [Dictionary] describing the device. Keys include [code]name[/code] ([String]), [code]vendor_id[/code] ([int]), [code]product_id[/code] ([int]), [code]revision[/code] ([int]), [code]interface_number[/code] ([int]), [code]device_family[/code] ([int]), [code]supported_input_kinds[/code] ([int], the raw [code]GameInputKind[/code] mask), [code]supported_input_mask[/code] ([int], the [enum GameInput.DeviceKind] mask), [code]supports_vibration[/code] ([bool]), [code]controller_axis_count[/code], [code]controller_button_count[/code], [code]force_feedback_motor_count[/code], and [code]haptic_feedback_motor_count[/code]. Returns an empty [Dictionary] when the device is disconnected.
+			</description>
+		</method>
+		<method name="button_to_source" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="button" type="int" />
+			<description>
+				Translates a [enum Button] flag value (a single bit such as [constant BUTTON_A]) into the matching [enum Source] value used by [member GameInputBinding.source]. Returns [constant SRC_BTN_A] for unrecognized inputs as a safe default.
+			</description>
+		</method>
+		<method name="axis_to_source" qualifiers="static">
+			<return type="int" />
+			<param index="0" name="axis" type="int" />
+			<description>
+				Translates an [enum Axis] index value (such as [constant AXIS_LEFT_X]) into the matching [enum Source] value used by [member GameInputBinding.source]. Returns [constant SRC_AXIS_LEFT_X] for unrecognized inputs as a safe default.
+			</description>
+		</method>
+	</methods>
+	<constants>
+		<constant name="BUTTON_NONE" value="0" enum="Button">
+			Sentinel "no button" value. Not a valid argument to [method GameInputReading.is_button_down]; the reading methods will simply return [code]false[/code].
+		</constant>
+		<constant name="BUTTON_MENU" value="1" enum="Button">
+			Bit flag for the gamepad Menu button (Start on Xbox controllers).
+		</constant>
+		<constant name="BUTTON_VIEW" value="2" enum="Button">
+			Bit flag for the gamepad View button (Back/Select on Xbox controllers).
+		</constant>
+		<constant name="BUTTON_A" value="4" enum="Button">
+			Bit flag for the A face button.
+		</constant>
+		<constant name="BUTTON_B" value="8" enum="Button">
+			Bit flag for the B face button.
+		</constant>
+		<constant name="BUTTON_X" value="16" enum="Button">
+			Bit flag for the X face button.
+		</constant>
+		<constant name="BUTTON_Y" value="32" enum="Button">
+			Bit flag for the Y face button.
+		</constant>
+		<constant name="BUTTON_DPAD_UP" value="64" enum="Button">
+			Bit flag for the D-pad up direction.
+		</constant>
+		<constant name="BUTTON_DPAD_DOWN" value="128" enum="Button">
+			Bit flag for the D-pad down direction.
+		</constant>
+		<constant name="BUTTON_DPAD_LEFT" value="256" enum="Button">
+			Bit flag for the D-pad left direction.
+		</constant>
+		<constant name="BUTTON_DPAD_RIGHT" value="512" enum="Button">
+			Bit flag for the D-pad right direction.
+		</constant>
+		<constant name="BUTTON_LEFT_SHOULDER" value="1024" enum="Button">
+			Bit flag for the left shoulder bumper (LB).
+		</constant>
+		<constant name="BUTTON_RIGHT_SHOULDER" value="2048" enum="Button">
+			Bit flag for the right shoulder bumper (RB).
+		</constant>
+		<constant name="BUTTON_LEFT_THUMB" value="4096" enum="Button">
+			Bit flag for the left thumbstick click (L3).
+		</constant>
+		<constant name="BUTTON_RIGHT_THUMB" value="8192" enum="Button">
+			Bit flag for the right thumbstick click (R3).
+		</constant>
+		<constant name="AXIS_LEFT_X" value="0" enum="Axis">
+			Index of the left thumbstick X axis. Returned values are in [code][-1.0, 1.0][/code].
+		</constant>
+		<constant name="AXIS_LEFT_Y" value="1" enum="Axis">
+			Index of the left thumbstick Y axis. [method GameInputReading.get_axis] returns this with the sign flipped to match Godot's convention (down is positive).
+		</constant>
+		<constant name="AXIS_RIGHT_X" value="2" enum="Axis">
+			Index of the right thumbstick X axis. Returned values are in [code][-1.0, 1.0][/code].
+		</constant>
+		<constant name="AXIS_RIGHT_Y" value="3" enum="Axis">
+			Index of the right thumbstick Y axis. Sign-flipped to match Godot's convention.
+		</constant>
+		<constant name="AXIS_LEFT_TRIGGER" value="4" enum="Axis">
+			Index of the left analog trigger. Returned values are in [code][0.0, 1.0][/code].
+		</constant>
+		<constant name="AXIS_RIGHT_TRIGGER" value="5" enum="Axis">
+			Index of the right analog trigger. Returned values are in [code][0.0, 1.0][/code].
+		</constant>
+		<constant name="SRC_BTN_MENU" value="0" enum="Source">
+			[member GameInputBinding.source] value for the Menu button.
+		</constant>
+		<constant name="SRC_BTN_VIEW" value="1" enum="Source">
+			[member GameInputBinding.source] value for the View button.
+		</constant>
+		<constant name="SRC_BTN_A" value="2" enum="Source">
+			[member GameInputBinding.source] value for the A face button. This is the default [member GameInputBinding.source].
+		</constant>
+		<constant name="SRC_BTN_B" value="3" enum="Source">
+			[member GameInputBinding.source] value for the B face button.
+		</constant>
+		<constant name="SRC_BTN_X" value="4" enum="Source">
+			[member GameInputBinding.source] value for the X face button.
+		</constant>
+		<constant name="SRC_BTN_Y" value="5" enum="Source">
+			[member GameInputBinding.source] value for the Y face button.
+		</constant>
+		<constant name="SRC_BTN_DPAD_UP" value="6" enum="Source">
+			[member GameInputBinding.source] value for the D-pad up direction.
+		</constant>
+		<constant name="SRC_BTN_DPAD_DOWN" value="7" enum="Source">
+			[member GameInputBinding.source] value for the D-pad down direction.
+		</constant>
+		<constant name="SRC_BTN_DPAD_LEFT" value="8" enum="Source">
+			[member GameInputBinding.source] value for the D-pad left direction.
+		</constant>
+		<constant name="SRC_BTN_DPAD_RIGHT" value="9" enum="Source">
+			[member GameInputBinding.source] value for the D-pad right direction.
+		</constant>
+		<constant name="SRC_BTN_LEFT_SHOULDER" value="10" enum="Source">
+			[member GameInputBinding.source] value for the left shoulder bumper.
+		</constant>
+		<constant name="SRC_BTN_RIGHT_SHOULDER" value="11" enum="Source">
+			[member GameInputBinding.source] value for the right shoulder bumper.
+		</constant>
+		<constant name="SRC_BTN_LEFT_THUMB" value="12" enum="Source">
+			[member GameInputBinding.source] value for the left thumbstick click.
+		</constant>
+		<constant name="SRC_BTN_RIGHT_THUMB" value="13" enum="Source">
+			[member GameInputBinding.source] value for the right thumbstick click.
+		</constant>
+		<constant name="SRC_AXIS_LEFT_X" value="100" enum="Source">
+			[member GameInputBinding.source] value for the left thumbstick X axis. Bindings using axis sources should set [member GameInputBinding.is_axis] to [code]true[/code].
+		</constant>
+		<constant name="SRC_AXIS_LEFT_Y" value="101" enum="Source">
+			[member GameInputBinding.source] value for the left thumbstick Y axis.
+		</constant>
+		<constant name="SRC_AXIS_RIGHT_X" value="102" enum="Source">
+			[member GameInputBinding.source] value for the right thumbstick X axis.
+		</constant>
+		<constant name="SRC_AXIS_RIGHT_Y" value="103" enum="Source">
+			[member GameInputBinding.source] value for the right thumbstick Y axis.
+		</constant>
+		<constant name="SRC_AXIS_LEFT_TRIGGER" value="104" enum="Source">
+			[member GameInputBinding.source] value for the left analog trigger.
+		</constant>
+		<constant name="SRC_AXIS_RIGHT_TRIGGER" value="105" enum="Source">
+			[member GameInputBinding.source] value for the right analog trigger.
+		</constant>
+	</constants>
+</class>

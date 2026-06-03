@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabUsers" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Manual PlayFab sign-in and cached user lookup service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.users[/code]. Use this service to manually sign a local Xbox user into PlayFab and inspect cached [PlayFabUser] sessions.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="sign_in_async">
+			<return type="Signal" />
+			<param index="0" name="user_or_local_id" type="Variant" />
+			<param index="1" name="create_account" type="bool" default="true" />
+			<description>
+				Starts PlayFab sign-in for the specified signed-in Xbox user. Pass a [code]GDKUser[/code]-like object or local id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
+			</description>
+		</method>
+		<method name="get_user_by_local_id" qualifiers="const">
+			<return type="PlayFabUser" />
+			<param index="0" name="local_id" type="int" />
+			<description>
+				Returns the cached [PlayFabUser] for the given local id, or [code]null[/code] if there is no cached session.
+			</description>
+		</method>
+		<method name="get_user" qualifiers="const">
+			<return type="PlayFabUser" />
+			<param index="0" name="user_or_local_id" type="Variant" />
+			<description>
+				Returns a cached [PlayFabUser] from either a local id or a [PlayFabUser] object.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of cached signed-in [PlayFabUser] objects.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

@@ -1,0 +1,124 @@
+# PlayFab GDExtension Spec
+
+## Overview
+
+This document defines the current design direction for the `godot_playfab` addon.
+
+`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by local Xbox user id, Game Saves flows, and leaderboard flows built on top of the PlayFab C SDKs. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, and direct-await completion signals for one-shot services.
+
+## Design goals
+
+1. **Single root singleton** — expose one `PlayFab` entry point instead of multiple global singletons.
+2. **Manual sign-in** — PlayFab sign-in is an explicit gameplay action, even though the addon can resolve local Xbox users through `XUser`.
+3. **Project-settings-backed config** — runtime configuration comes from `playfab/titleid` and `playfab/endpoint`.
+4. **Godot-native async flow** — one-shot requests return completion `Signal` values that resolve with `PlayFabResult`.
+5. **Typed Game Saves and leaderboard calls** — higher-level services require an already-signed-in `PlayFabUser`.
+6. **Idempotent loading** — multiple synced `.gdextension` files pointing at the same DLL must not duplicate class or singleton registration.
+
+## Scope
+
+| Domain | Included | Notes |
+| --- | --- | --- |
+| Runtime init/shutdown | Yes | `XGameRuntimeInitialize`, PlayFab init, shared queue |
+| Manual sign-in | Yes | local-id / `GDKUser`-based entry points |
+| Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id |
+| Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
+| Leaderboards | Yes | submit, global, around-user, friends/social |
+| Multiplayer / Party | No | legacy code exists, but it is out of scope for the new root API |
+
+## Public API summary
+
+### Root singleton
+
+- `PlayFab`
+
+### Wrapper types
+
+| Native concept | GDScript wrapper |
+| --- | --- |
+| one-shot async request | `Signal` |
+| HRESULT + payload | `PlayFabResult` |
+| local-user PlayFab session | `PlayFabUser` |
+
+### Service surfaces
+
+- `PlayFab.users`
+- `PlayFab.game_saves`
+- `PlayFab.leaderboards`
+
+## Runtime configuration
+
+The runtime reads these Project Settings keys:
+
+- `playfab/titleid`
+- `playfab/endpoint`
+- `playfab/runtime/embed_dispatch`
+
+The endpoint setting is optional. When blank, the runtime derives the default endpoint from the title id.
+
+## Async model
+
+The addon uses one shared task queue owned by the PlayFab runtime. Native completion stays inside the extension until it is converted into Godot-friendly state and emitted through completion signals.
+
+Rules:
+
+1. `PlayFab.sign_in_async()`, `PlayFab.users.sign_in_async()`, Game Saves calls, and leaderboard calls all return completion signals awaited directly.
+2. Completion data is delivered through `PlayFabResult`.
+3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
+4. With `playfab/runtime/embed_dispatch = true`, the addon pumps completions automatically each process frame.
+5. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
+
+## User/session model
+
+`PlayFabUser` represents one signed-in PlayFab session associated with a local Xbox user id.
+
+Publicly exposed data is intentionally narrow:
+
+- `local_id`
+- `entity_key`
+
+Xbox-facing identity details do not belong on the PlayFab user wrapper. The wrapper only exposes what higher-level PlayFab systems need.
+
+`PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals. Titles should use explicit sign-in results plus cache lookups (`get_user_by_local_id()` / `get_users()`) instead.
+
+## Game Saves
+
+Game Saves methods require a signed-in `PlayFabUser`. The runtime initializes `PFGameSaveFiles` alongside the rest of the PlayFab bootstrap, and the signed-in user wrapper retains the internal `PFLocalUserHandle` needed by the Game Saves APIs.
+
+Supported calls:
+
+- `add_user_with_ui_async(user, options := PlayFabGameSaves.ADD_USER_OPTION_NONE)`
+- `upload_with_ui_async(user, release_device_as_active := false)`
+- `set_save_description_async(user, short_save_description)`
+- `reset_cloud_async(user)`
+- `get_folder(user)`
+- `get_folder_size(user)`
+- `get_remaining_quota(user)`
+- `is_connected_to_cloud(user)`
+
+The add-user wrapper returns a snapshot dictionary containing the synced folder path, folder size, cloud-connection state, local id, and entity key. When the user is connected to the cloud, the result also includes the remaining quota in bytes.
+
+## Leaderboards
+
+Leaderboard methods require a signed-in `PlayFabUser` and do not accept a raw local id or arbitrary variant.
+
+Supported calls:
+
+- `submit_score_async(user, leaderboard_name, score, additional_scores := [], metadata := "")`
+- `get_leaderboard_async(user, leaderboard_name, start_position := 1, page_size := 10, version := -1)`
+- `get_leaderboard_around_user_async(user, leaderboard_name, max_surrounding_entries := 10, version := -1)`
+- `get_friend_leaderboard_async(user, leaderboard_name, include_xbox_friends := true, version := -1)`
+
+## Samples
+
+- `sample\playfab_demo` demonstrates settings-backed init plus manual PlayFab sign-in
+- `sample\multiplayer_pong` demonstrates a sample-local wrapper that signs the
+  active Xbox user into PlayFab, persists save JSON through Game Saves, and
+  submits and queries the roguelike leaderboard
+
+## Tests
+
+- `sample\playfab_demo\tests\run_tests.gd` is the PlayFab contract suite.
+- It should keep the root singleton, settings registration, deterministic
+  validation errors, and optional live sign-in smoke flow aligned with the
+  shipped addon behavior.

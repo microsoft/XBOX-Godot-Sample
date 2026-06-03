@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInputReading" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Per-frame snapshot of a gamepad's state.
+	</brief_description>
+	<description>
+		[GameInputReading] is an immutable snapshot of a single device's gamepad state, captured at the moment [method GameInput.get_current_reading] was called. It holds both the current and previous-poll states so [method was_button_pressed] and [method was_button_released] can return correct edge transitions across the most recent real refresh (driven by [method GameInput.poll]).
+		Edge methods only fire when there is a previous-frame state to compare against; on the very first reading after a device connects, [method was_button_pressed] reports [code]true[/code] for buttons that are currently down (treated as a fresh press) and [method was_button_released] reports [code]false[/code].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="is_button_down" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="button" type="int" />
+			<description>
+				Returns [code]true[/code] if [param button] (a [enum GameInputDevice.Button] flag value or any [int] matching the underlying buttons bitmask) is currently held. Use this for "while held" checks; use [method was_button_pressed] for one-shot triggers.
+			</description>
+		</method>
+		<method name="was_button_pressed" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="button" type="int" />
+			<description>
+				Returns [code]true[/code] only on the press edge of [param button] — that is, the button was up in the previous reading and is down now. Returns [code]false[/code] for unknown button values. On the first reading after a device connects (no previous state yet), this falls back to "currently down".
+			</description>
+		</method>
+		<method name="was_button_released" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="button" type="int" />
+			<description>
+				Returns [code]true[/code] only on the release edge of [param button] — that is, the button was down in the previous reading and is up now. Returns [code]false[/code] when there is no previous-frame state to compare against, or when [param button] is unknown.
+			</description>
+		</method>
+		<method name="get_axis" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="axis" type="int" />
+			<description>
+				Returns the value of [param axis] (a [enum GameInputDevice.Axis] index). Thumbstick axes are returned in [code][-1.0, 1.0][/code]; trigger axes are returned in [code][0.0, 1.0][/code]. The Y axes are sign-flipped from the native [code]GameInputGamepadState[/code] to match Godot's convention (down is positive). Returns [code]0.0[/code] for unknown axis ids.
+			</description>
+		</method>
+		<method name="get_buttons_mask" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the raw current-frame buttons bitfield. The bit layout matches the native [code]GameInputGamepadButtons[/code] flags, which is also what the [enum GameInputDevice.Button] constants encode. Useful for batch comparisons or serialization.
+			</description>
+		</method>
+		<method name="get_timestamp" qualifiers="const">
+			<return type="int" />
+			<description>
+				Reserved for a future revision that surfaces [code]IGameInputReading::GetTimestamp()[/code]. The current implementation always returns [code]0[/code] because readings are snapshotted per frame rather than per native event.
+			</description>
+		</method>
+	</methods>
+</class>

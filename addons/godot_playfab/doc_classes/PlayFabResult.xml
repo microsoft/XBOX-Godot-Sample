@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabResult" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Result wrapper for PlayFab operations.
+	</brief_description>
+	<description>
+		Returned by PlayFab API calls to indicate success or failure. Check [member ok] for success. On failure, [member code] contains a machine-readable error code, [member message] contains a human-readable description, and [member hresult] contains the native HRESULT value.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="is_ok" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the operation succeeded.
+			</description>
+		</method>
+		<method name="get_hresult" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the native HRESULT value from the PlayFab operation.
+			</description>
+		</method>
+		<method name="get_code" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a machine-readable error code string.
+			</description>
+		</method>
+		<method name="get_message" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns a human-readable error description.
+			</description>
+		</method>
+		<method name="get_data" qualifiers="const">
+			<return type="Variant" />
+			<description>
+				Returns additional data associated with the result, if any.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="ok" type="bool" setter="" getter="is_ok">
+			[code]true[/code] if the operation succeeded.
+		</member>
+		<member name="hresult" type="int" setter="" getter="get_hresult">
+			The native HRESULT value from the PlayFab operation.
+		</member>
+		<member name="code" type="String" setter="" getter="get_code">
+			A machine-readable error code string.
+		</member>
+		<member name="message" type="String" setter="" getter="get_message">
+			A human-readable error description.
+		</member>
+		<member name="data" type="Variant" setter="" getter="get_data">
+			Additional data associated with the result, if any.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

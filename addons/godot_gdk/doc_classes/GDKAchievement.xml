@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKAchievement" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached Xbox achievement data.
+	</brief_description>
+	<description>
+		Read-only wrapper around a cached Xbox achievement. Retrieved from [method GDKAchievements.get_cached_achievements].
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_id" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the achievement ID.
+			</description>
+		</method>
+		<method name="get_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the display name of the achievement.
+			</description>
+		</method>
+		<method name="get_service_configuration_id" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the service configuration ID (SCID) associated with this achievement.
+			</description>
+		</method>
+		<method name="get_progress_state" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the progress state as a string (e.g., "Achieved", "NotStarted", "InProgress").
+			</description>
+		</method>
+		<method name="get_progress_percent" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the completion percentage (0–100).
+			</description>
+		</method>
+		<method name="is_unlocked" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the achievement has been unlocked.
+			</description>
+		</method>
+		<method name="is_secret" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the achievement is a secret achievement.
+			</description>
+		</method>
+		<method name="get_locked_description" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the description shown when the achievement is locked.
+			</description>
+		</method>
+		<method name="get_unlocked_description" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the description shown when the achievement is unlocked.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="id" type="String" setter="" getter="get_id">
+			The achievement ID.
+		</member>
+		<member name="name" type="String" setter="" getter="get_name">
+			The display name of the achievement.
+		</member>
+		<member name="service_configuration_id" type="String" setter="" getter="get_service_configuration_id">
+			The service configuration ID (SCID) associated with this achievement.
+		</member>
+		<member name="progress_state" type="String" setter="" getter="get_progress_state">
+			The progress state as a string.
+		</member>
+		<member name="progress_percent" type="int" setter="" getter="get_progress_percent">
+			The completion percentage (0–100).
+		</member>
+		<member name="unlocked" type="bool" setter="" getter="is_unlocked">
+			[code]true[/code] if the achievement has been unlocked.
+		</member>
+		<member name="secret" type="bool" setter="" getter="is_secret">
+			[code]true[/code] if the achievement is a secret achievement.
+		</member>
+		<member name="locked_description" type="String" setter="" getter="get_locked_description">
+			The description shown when the achievement is locked.
+		</member>
+		<member name="unlocked_description" type="String" setter="" getter="get_unlocked_description">
+			The description shown when the achievement is unlocked.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFab" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Root singleton for PlayFab services integration.
+	</brief_description>
+	<description>
+		PlayFab is the engine singleton that owns the PlayFab runtime, shared async dispatch, user sign-in, Game Saves, and leaderboard services. Configure [code]playfab/titleid[/code] in Project Settings before calling [method initialize]. By default the addon pumps completions automatically each process frame through [code]playfab/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="initialize">
+			<return type="PlayFabResult" />
+			<description>
+				Initializes the PlayFab runtime using [code]playfab/titleid[/code] and [code]playfab/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure.
+			</description>
+		</method>
+		<method name="shutdown">
+			<return type="void" />
+			<description>
+				Shuts down the PlayFab runtime and clears cached user state.
+			</description>
+		</method>
+		<method name="is_available" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the PlayFab runtime is available on the current platform.
+			</description>
+		</method>
+		<method name="is_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the PlayFab runtime has been successfully initialized.
+			</description>
+		</method>
+		<method name="dispatch">
+			<return type="int" />
+			<description>
+				Manually pumps the PlayFab async task queue. Use this when [code]playfab/runtime/embed_dispatch[/code] is disabled or when deterministic completion timing is required.
+			</description>
+		</method>
+		<method name="get_last_error" qualifiers="const">
+			<return type="PlayFabResult" />
+			<description>
+				Returns the most recent PlayFab runtime error.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="PlayFabUsers" />
+			<description>
+				Returns the [PlayFabUsers] service for manual sign-in and cached PlayFab user lookup.
+			</description>
+		</method>
+		<method name="get_game_saves" qualifiers="const">
+			<return type="PlayFabGameSaves" />
+			<description>
+				Returns the [PlayFabGameSaves] service for PlayFab Game Saves sync, upload, and quota queries.
+			</description>
+		</method>
+		<method name="get_leaderboards" qualifiers="const">
+			<return type="PlayFabLeaderboards" />
+			<description>
+				Returns the [PlayFabLeaderboards] service for score submission and leaderboard queries.
+			</description>
+		</method>
+		<method name="sign_in_async">
+			<return type="Signal" />
+			<param index="0" name="user_or_local_id" type="Variant" />
+			<param index="1" name="create_account" type="bool" default="true" />
+			<description>
+				Starts manual PlayFab sign-in for a local Xbox user. Pass a signed-in [code]GDKUser[/code]-like object or a local user id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains the signed-in [PlayFabUser].
+			</description>
+		</method>
+		<method name="get_user_by_local_id" qualifiers="const">
+			<return type="PlayFabUser" />
+			<param index="0" name="local_id" type="int" />
+			<description>
+				Returns the cached [PlayFabUser] for the given local Xbox user id, or [code]null[/code] if no PlayFab session is cached.
+			</description>
+		</method>
+		<method name="get_title_id" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the configured PlayFab title id currently in use by the runtime.
+			</description>
+		</method>
+		<method name="get_endpoint" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the configured PlayFab endpoint currently in use by the runtime.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="users" type="PlayFabUsers" setter="" getter="get_users">
+			The [PlayFabUsers] service instance for manual sign-in and cached session lookup.
+		</member>
+		<member name="game_saves" type="PlayFabGameSaves" setter="" getter="get_game_saves">
+			The [PlayFabGameSaves] service instance for Game Saves sync, upload, and cloud state queries.
+		</member>
+		<member name="leaderboards" type="PlayFabLeaderboards" setter="" getter="get_leaderboards">
+			The [PlayFabLeaderboards] service instance for score submission and leaderboard queries.
+		</member>
+		<member name="title_id" type="String" setter="" getter="get_title_id">
+			The PlayFab title id used by the runtime.
+		</member>
+		<member name="endpoint" type="String" setter="" getter="get_endpoint">
+			The PlayFab endpoint used by the runtime.
+		</member>
+	</members>
+	<signals>
+		<signal name="initialized">
+			<description>
+				Emitted when the PlayFab runtime has been successfully initialized.
+			</description>
+		</signal>
+		<signal name="shutdown_completed">
+			<description>
+				Emitted when the PlayFab runtime has completed shutdown.
+			</description>
+		</signal>
+		<signal name="runtime_error">
+			<param index="0" name="result" type="PlayFabResult" />
+			<description>
+				Emitted when a runtime error occurs in PlayFab.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

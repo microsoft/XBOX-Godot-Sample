@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInputActionMap" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Serializable list of [GameInputBinding] rows consumed by [GameInputMapper].
+	</brief_description>
+	<description>
+		[GameInputActionMap] is a [Resource] that owns an ordered, typed array of [GameInputBinding]. Edit it in the inspector or build it in code, save and load via [code]ResourceSaver[/code] / [code]ResourceLoader[/code], and assign it to [member GameInputMapper.action_map] to drive Godot actions from GameInput.
+		Mutations through [method add_binding] and [method clear] emit [code]changed[/code] (inherited from [Resource]), so a [GameInputMapper] referencing the action map can react to live edits in the editor.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_bindings" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns the underlying typed array of [GameInputBinding]. See [member bindings].
+			</description>
+		</method>
+		<method name="set_bindings">
+			<return type="void" />
+			<param index="0" name="bindings" type="Array" />
+			<description>
+				Replaces the entire binding list. The argument should be a typed [code]Array[GameInputBinding][/code]; non-binding entries are silently kept by Godot's typed-array machinery but ignored at runtime. See [member bindings].
+			</description>
+		</method>
+		<method name="get_binding_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of bindings in the map. Equivalent to [code]bindings.size()[/code].
+			</description>
+		</method>
+		<method name="get_binding" qualifiers="const">
+			<return type="GameInputBinding" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns the binding at [param index], or [code]null[/code] if [param index] is out of range. Indexing is stable; [GameInputMapper] uses these indices as the keys for its per-binding "previously pressed" state.
+			</description>
+		</method>
+		<method name="add_binding">
+			<return type="void" />
+			<param index="0" name="binding" type="GameInputBinding" />
+			<description>
+				Appends [param binding] to the map. Null arguments are silently ignored. Emits [code]changed[/code] on success.
+			</description>
+		</method>
+		<method name="clear">
+			<return type="void" />
+			<description>
+				Removes every binding from the map. Emits [code]changed[/code].
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="bindings" type="Array" setter="set_bindings" getter="get_bindings" default="[]">
+			Typed [code]Array[GameInputBinding][/code] of rows iterated each frame by [GameInputMapper]. The inspector exposes this as a typed-resource array so you can drag [GameInputBinding] resources directly into it.
+		</member>
+	</members>
+</class>

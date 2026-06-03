@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabUser" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached PlayFab session wrapper for a local Xbox user.
+	</brief_description>
+	<description>
+		Represents a signed-in PlayFab session associated with one local Xbox user. The public surface intentionally exposes only the local user id and the PlayFab entity key needed by higher-level services such as leaderboards.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_local_id" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the local Xbox user id associated with this PlayFab session.
+			</description>
+		</method>
+		<method name="get_entity_key" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns the PlayFab entity key as a [Dictionary] with [code]id[/code] and [code]type[/code] entries.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="local_id" type="int" setter="" getter="get_local_id">
+			The local Xbox user id associated with this PlayFab session.
+		</member>
+		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">
+			The PlayFab entity key as a dictionary containing [code]id[/code] and [code]type[/code].
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

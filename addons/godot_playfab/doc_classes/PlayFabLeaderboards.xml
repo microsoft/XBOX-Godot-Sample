@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLeaderboards" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		PlayFab leaderboard service.
+	</brief_description>
+	<description>
+		Accessed through [code]PlayFab.leaderboards[/code]. All leaderboard methods require a signed-in [PlayFabUser] and return completion [Signal] values awaited directly.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="submit_score_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="leaderboard_name" type="String" />
+			<param index="2" name="score" type="int" />
+			<param index="3" name="additional_scores" type="Array" default="[]" />
+			<param index="4" name="metadata" type="String" default="&quot;&quot;" />
+			<description>
+				Submits the score payload for the specified [param user] to the named leaderboard. The completed result data contains the submitted leaderboard name, local id, entity key, and score values.
+			</description>
+		</method>
+		<method name="get_leaderboard_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="leaderboard_name" type="String" />
+			<param index="2" name="start_position" type="int" default="1" />
+			<param index="3" name="page_size" type="int" default="10" />
+			<param index="4" name="version" type="int" default="-1" />
+			<description>
+				Queries a page of leaderboard rows for the specified [param user].
+			</description>
+		</method>
+		<method name="get_leaderboard_around_user_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="leaderboard_name" type="String" />
+			<param index="2" name="max_surrounding_entries" type="int" default="10" />
+			<param index="3" name="version" type="int" default="-1" />
+			<description>
+				Queries leaderboard rows centered around the specified [param user].
+			</description>
+		</method>
+		<method name="get_friend_leaderboard_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="leaderboard_name" type="String" />
+			<param index="2" name="include_xbox_friends" type="bool" default="true" />
+			<param index="3" name="version" type="int" default="-1" />
+			<description>
+				Queries the friend or social leaderboard for the specified [param user]. When [param include_xbox_friends] is [code]true[/code], the service requests the Xbox friend token required by PlayFab.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

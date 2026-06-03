@@ -1,0 +1,9 @@
+[configuration]
+
+entry_symbol = "godot_playfab_init"
+compatibility_minimum = "4.2"
+
+[libraries]
+
+windows.debug.x86_64 = "res://addons/godot_playfab/bin/godot_playfab.windows.debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/godot_playfab/bin/godot_playfab.windows.release.x86_64.dll"

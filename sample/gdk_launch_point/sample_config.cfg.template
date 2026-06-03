@@ -1,0 +1,19 @@
+; GDK Launch Point Sample Configuration
+; Copy this file to sample_config.cfg and fill in your Partner Center values.
+; See README.md for instructions on where to find each value.
+
+[xbox_live]
+title_id = ""
+msa_app_id = ""
+store_id = ""
+scid = ""
+sandbox_id = ""
+
+[identity]
+game_name = "GDK Launch Point"
+publisher = "CN=YourPublisherGUID"
+publisher_display_name = "Your Studio Name"
+version = "1.0.0.0"
+
+[achievements]
+demo_achievement_id = "1"

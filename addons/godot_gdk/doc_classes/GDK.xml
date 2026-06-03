@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDK" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Root singleton for Microsoft GDK integration.
+	</brief_description>
+	<description>
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, achievements, presence, social, and multiplayer activity. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="initialize">
+			<return type="GDKResult" />
+			<param index="0" name="config" type="Variant" default="null" />
+			<description>
+				Initializes the GDK runtime. Optionally pass a configuration Variant. Returns a [GDKResult] indicating success or failure.
+			</description>
+		</method>
+		<method name="shutdown">
+			<return type="void" />
+			<description>
+				Shuts down the GDK runtime and releases all resources.
+			</description>
+		</method>
+		<method name="is_available" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the GDK runtime is available on the current platform.
+			</description>
+		</method>
+		<method name="is_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the GDK runtime has been successfully initialized.
+			</description>
+		</method>
+		<method name="dispatch">
+			<return type="int" />
+			<description>
+				Manually pumps the GDK async task queue and manager-driven state. Use this when [code]gdk/runtime/embed_dispatch[/code] is disabled or when you want deterministic control over completion timing. Returns the number of tasks dispatched.
+			</description>
+		</method>
+		<method name="get_last_error" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns the [GDKResult] from the most recent GDK operation that failed.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="GDKUsers" />
+			<description>
+				Returns the [GDKUsers] service for managing Xbox user sign-in and identity.
+			</description>
+		</method>
+		<method name="get_achievements" qualifiers="const">
+			<return type="GDKAchievements" />
+			<description>
+				Returns the [GDKAchievements] service for querying and updating Xbox achievements.
+			</description>
+		</method>
+		<method name="get_presence" qualifiers="const">
+			<return type="GDKPresence" />
+			<description>
+				Returns the GDKPresence service for managing rich presence.
+			</description>
+		</method>
+		<method name="get_social" qualifiers="const">
+			<return type="GDKSocial" />
+			<description>
+				Returns the GDKSocial service for social features.
+			</description>
+		</method>
+		<method name="get_multiplayer_activity" qualifiers="const">
+			<return type="GDKMultiplayerActivity" />
+			<description>
+				Returns the GDKMultiplayerActivity service for multiplayer activity management.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="users" type="GDKUsers" setter="" getter="get_users">
+			The [GDKUsers] service instance for managing Xbox user sign-in and identity.
+		</member>
+		<member name="achievements" type="GDKAchievements" setter="" getter="get_achievements">
+			The [GDKAchievements] service instance for querying and updating Xbox achievements.
+		</member>
+		<member name="presence" type="GDKPresence" setter="" getter="get_presence">
+			The GDKPresence service instance for managing rich presence.
+		</member>
+		<member name="social" type="GDKSocial" setter="" getter="get_social">
+			The GDKSocial service instance for social features.
+		</member>
+		<member name="multiplayer_activity" type="GDKMultiplayerActivity" setter="" getter="get_multiplayer_activity">
+			The GDKMultiplayerActivity service instance for multiplayer activity management.
+		</member>
+	</members>
+	<signals>
+		<signal name="initialized">
+			<description>
+				Emitted when the GDK runtime has been successfully initialized.
+			</description>
+		</signal>
+		<signal name="shutdown_completed">
+			<description>
+				Emitted when the GDK runtime has completed shutdown.
+			</description>
+		</signal>
+		<signal name="runtime_error">
+			<param index="0" name="result" type="GDKResult" />
+			<description>
+				Emitted when a runtime error occurs in the GDK.
+			</description>
+		</signal>
+		<signal name="availability_changed">
+			<param index="0" name="available" type="bool" />
+			<description>
+				Emitted when the GDK runtime availability changes.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

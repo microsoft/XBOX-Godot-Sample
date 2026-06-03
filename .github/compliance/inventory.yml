@@ -1,0 +1,8 @@
+inventory:
+- source: DirectOwners
+  items:
+  - id: zachhooper@microsoft.com
+  - id: brennengreen@microsoft.com
+  - id: joebner@microsoft.com
+  - id: sebastianp@microsoft.com
+  isProduction: false

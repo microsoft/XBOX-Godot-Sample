@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GameInputBinding" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		One row in a [GameInputActionMap] mapping a GameInput source onto a Godot action.
+	</brief_description>
+	<description>
+		[GameInputBinding] is an inspector-friendly [Resource] that connects a single GameInput source — either a button or an axis identified by [member source] — to a named action in Godot's [code]InputMap[/code]. [GameInputMapper] iterates over a [GameInputActionMap]'s bindings every frame and calls [code]Input.action_press()[/code] / [code]Input.action_release()[/code] based on the resolved device's reading, so the rest of the game can keep using standard [code]Input.is_action_pressed("jump")[/code] checks.
+		When [member is_axis] is [code]false[/code] the binding tracks the source's bit in the buttons mask and emits press / release on those edges with [code]strength = 1.0[/code]. When [member is_axis] is [code]true[/code], the raw axis value is read, optionally inverted via [member axis_invert], a [member deadzone] is subtracted, the remainder is rescaled into [code][0, 1][/code], and the binding is considered "pressed" when the post-invert axis is positive and its absolute value exceeds [member axis_threshold]. The press strength sent to [code]Input.action_press[/code] is the post-deadzone magnitude.
+		Bindings emit [code]changed[/code] (inherited from [Resource]) whenever any of their fields are modified, so editor inspectors and dependent resources update automatically.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_action" qualifiers="const">
+			<return type="StringName" />
+			<description>
+				Returns the action name this binding drives. See [member action].
+			</description>
+		</method>
+		<method name="set_action">
+			<return type="void" />
+			<param index="0" name="action" type="StringName" />
+			<description>
+				Sets the action name this binding drives. See [member action].
+			</description>
+		</method>
+		<method name="get_source" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the [enum GameInputDevice.Source] id this binding listens to. See [member source].
+			</description>
+		</method>
+		<method name="set_source">
+			<return type="void" />
+			<param index="0" name="source" type="int" />
+			<description>
+				Sets the [enum GameInputDevice.Source] id this binding listens to. See [member source].
+			</description>
+		</method>
+		<method name="get_is_axis" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns whether this binding is interpreted as an axis. See [member is_axis].
+			</description>
+		</method>
+		<method name="set_is_axis">
+			<return type="void" />
+			<param index="0" name="is_axis" type="bool" />
+			<description>
+				Sets whether this binding is interpreted as an axis. See [member is_axis].
+			</description>
+		</method>
+		<method name="get_axis_threshold" qualifiers="const">
+			<return type="float" />
+			<description>
+				Returns the threshold above which an axis is considered "pressed". See [member axis_threshold].
+			</description>
+		</method>
+		<method name="set_axis_threshold">
+			<return type="void" />
+			<param index="0" name="threshold" type="float" />
+			<description>
+				Sets the axis-as-button threshold. The value is clamped to [code][0.0, 1.0][/code]. See [member axis_threshold].
+			</description>
+		</method>
+		<method name="get_axis_invert" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns whether the axis value is negated before deadzone / threshold logic runs. See [member axis_invert].
+			</description>
+		</method>
+		<method name="set_axis_invert">
+			<return type="void" />
+			<param index="0" name="invert" type="bool" />
+			<description>
+				Sets whether the axis value is negated before deadzone / threshold logic runs. See [member axis_invert].
+			</description>
+		</method>
+		<method name="get_deadzone" qualifiers="const">
+			<return type="float" />
+			<description>
+				Returns the deadzone subtracted from the absolute axis value before press evaluation. See [member deadzone].
+			</description>
+		</method>
+		<method name="set_deadzone">
+			<return type="void" />
+			<param index="0" name="deadzone" type="float" />
+			<description>
+				Sets the deadzone subtracted from the absolute axis value before press evaluation. The value is clamped to [code][0.0, 1.0][/code]. See [member deadzone].
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="action" type="StringName" setter="set_action" getter="get_action" default="&amp;&quot;&quot;">
+			Name of the action emitted via [code]Input.action_press[/code] / [code]Input.action_release[/code]. Must already exist in the project's [code]InputMap[/code]; [GameInputMapper] warns once per missing action and then ignores the binding.
+		</member>
+		<member name="source" type="int" setter="set_source" getter="get_source" enum="GameInputDevice.Source" default="2">
+			The GameInput input this binding listens to. Accepts any [enum GameInputDevice.Source] value — buttons in [code][0, 13][/code] and axes in [code][100, 105][/code]. Defaults to [constant GameInputDevice.SRC_BTN_A].
+		</member>
+		<member name="is_axis" type="bool" setter="set_is_axis" getter="get_is_axis" default="false">
+			When [code]false[/code], the binding treats [member source] as a button and emits press / release on edges of the buttons mask. When [code]true[/code], [member source] is treated as an axis and [member deadzone], [member axis_invert], and [member axis_threshold] all participate.
+		</member>
+		<member name="axis_threshold" type="float" setter="set_axis_threshold" getter="get_axis_threshold" default="0.5">
+			Absolute axis magnitude above which an axis-bound binding is considered "pressed". Only used when [member is_axis] is [code]true[/code]. Clamped to [code][0.0, 1.0][/code]. The press also requires the post-invert axis value to be positive, so a single bidirectional axis can be split into two opposing bindings via [member axis_invert].
+		</member>
+		<member name="axis_invert" type="bool" setter="set_axis_invert" getter="get_axis_invert" default="false">
+			When [code]true[/code], the raw axis value is negated before deadzone and threshold logic runs. Use this to bind, for example, "stick down" on a Y axis whose positive direction is up.
+		</member>
+		<member name="deadzone" type="float" setter="set_deadzone" getter="get_deadzone" default="0.2">
+			Deadzone applied to the absolute axis value before press evaluation. The remaining magnitude is rescaled into [code][0, 1][/code] and used as the press strength. Clamped to [code][0.0, 1.0][/code]. Only used when [member is_axis] is [code]true[/code].
+		</member>
+	</members>
+</class>

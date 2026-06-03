@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKPresenceRecord" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Cached Xbox presence record for a user.
+	</brief_description>
+	<description>
+		Contains the online state and title presence records for an Xbox user. Retrieved from [code]GDK.presence.get_cached_presence()[/code] or [code]GDK.presence.get_presence_async()[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_xuid">
+			<return type="String" />
+			<description>
+				Returns the Xbox User ID for this presence record.
+			</description>
+		</method>
+		<method name="get_user_state">
+			<return type="int" enum="GDKPresenceRecord.UserState" />
+			<description>
+				Returns the user's online state as a [enum UserState] value.
+			</description>
+		</method>
+		<method name="get_user_state_name">
+			<return type="String" />
+			<description>
+				Returns the user's online state as a human-readable string.
+			</description>
+		</method>
+		<method name="is_online">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the user is currently online.
+			</description>
+		</method>
+		<method name="get_title_records">
+			<return type="Array" />
+			<description>
+				Returns an array of title presence records for the user.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="xuid" type="String" setter="" getter="get_xuid">
+			The Xbox User ID for this presence record.
+		</member>
+		<member name="user_state" type="int" setter="" getter="get_user_state" enum="GDKPresenceRecord.UserState">
+			The user's online state.
+		</member>
+		<member name="title_records" type="Array" setter="" getter="get_title_records">
+			The title presence records for the user.
+		</member>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+		<constant name="USER_STATE_UNKNOWN" value="0" enum="UserState">
+			The user's state is unknown.
+		</constant>
+		<constant name="USER_STATE_ONLINE" value="1" enum="UserState">
+			The user is online.
+		</constant>
+		<constant name="USER_STATE_AWAY" value="2" enum="UserState">
+			The user is away.
+		</constant>
+		<constant name="USER_STATE_OFFLINE" value="3" enum="UserState">
+			The user is offline.
+		</constant>
+	</constants>
+</class>

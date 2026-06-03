@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKUsers" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		User management service accessed via GDK.users.
+	</brief_description>
+	<description>
+		Manages Xbox user sign-in, identity, and user lifecycle. Add users with [method add_default_user_async] or [method add_user_with_ui_async]. The first successful sign-in establishes the session primary user; later user adds do not replace it.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="add_default_user_async">
+			<return type="Signal" />
+			<description>
+				Adds the default non-guest user silently. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser].
+			</description>
+		</method>
+		<method name="add_user_with_ui_async">
+			<return type="Signal" />
+			<description>
+				Opens the system UI to add a user interactively, allowing guest selection when the platform offers it. This can add another local user, but it does not replace the session primary user once one has already been established. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser].
+			</description>
+		</method>
+		<method name="get_primary_user" qualifiers="const">
+			<return type="GDKUser" />
+			<description>
+				Returns the session primary [GDKUser], or [code]null[/code] if no user is signed in. The first successful user add establishes this user for the session.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of all currently signed-in [GDKUser] objects.
+			</description>
+		</method>
+		<method name="check_privilege_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="privilege" type="int" />
+			<description>
+				Checks whether the [param user] has the specified [param privilege]. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the privilege-check dictionary.
+			</description>
+		</method>
+		<method name="resolve_privilege_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="privilege" type="int" />
+			<description>
+				Attempts to resolve the specified [param privilege] for the [param user] by showing system UI if needed. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the resolution payload.
+			</description>
+		</method>
+		<method name="resolve_issue_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="url" type="String" default="&quot;&quot;" />
+			<description>
+				Opens the system UI to resolve an account issue for the [param user]. Optionally pass a [param url] for a specific issue page. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the resolution payload.
+			</description>
+		</method>
+		<method name="get_gamer_picture_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="size" type="String" default="&quot;medium&quot;" />
+			<description>
+				Retrieves the gamer picture for the [param user] at the specified [param size] (e.g., "small", "medium", "large"). Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the decoded [Image].
+			</description>
+		</method>
+		<method name="get_token_and_signature_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="method" type="String" />
+			<param index="2" name="url" type="String" />
+			<param index="3" name="headers" type="Dictionary" default="{}" />
+			<param index="4" name="body" type="PackedByteArray" default="PackedByteArray()" />
+			<param index="5" name="force_refresh" type="bool" default="false" />
+			<description>
+				Retrieves an Xbox Live token and signature for the specified [param user], HTTP [param method], and [param url]. Optionally provide [param headers], [param body], and [param force_refresh]. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the token and signature dictionary.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="user_added">
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Emitted when a new user has been added.
+			</description>
+		</signal>
+		<signal name="user_removed">
+			<param index="0" name="local_id" type="int" />
+			<description>
+				Emitted when a user has been removed. The [param local_id] identifies the removed user.
+			</description>
+		</signal>
+		<signal name="user_changed">
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="change_kind" type="String" />
+			<description>
+				Emitted when a cached user's Xbox-facing state changes. [param change_kind] is one of [code]signed_in_again[/code], [code]gamertag[/code], [code]gamer_picture[/code], or [code]privileges[/code].
+			</description>
+		</signal>
+		<signal name="primary_user_changed">
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Emitted when the session primary user is first established or later cleared. Later user adds do not promote a different cached user to primary.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>
