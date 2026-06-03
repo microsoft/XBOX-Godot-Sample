@@ -4,6 +4,8 @@ extends Window
 
 const TutorialWizardState = preload("res://addons/godot_gdk_packaging/editor/tutorial_wizard_state.gd")
 
+const _BASE_SIZE := Vector2i(750, 560)
+
 var _current_slide: int = 0
 var _slides: Array[Dictionary] = []
 var _title_label: Label
@@ -15,8 +17,18 @@ var _close_btn: Button
 
 func _ready() -> void:
 	title = "XBOX Godot Sample — Getting Started"
-	size = Vector2i(750, 560)
+	size = _BASE_SIZE
+	min_size = _BASE_SIZE
 	exclusive = false
+	# Scale all wizard contents in lockstep with the window size so text grows
+	# uniformly when the user enlarges the window. CANVAS_ITEMS keeps text
+	# crisp at any factor; EXPAND extends the layout into the larger dimension
+	# instead of letterboxing when the window aspect drifts from the design
+	# 750x560 (e.g. when the user only grows width).
+	content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	content_scale_size = _BASE_SIZE
+	content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	content_scale_factor = 1.0
 	_build_slides()
 	_build_ui()
 	_show_slide(0)
