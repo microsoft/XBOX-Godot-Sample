@@ -16,8 +16,8 @@
 		<member name="enable_text_chat" type="bool" setter="set_text_chat_enabled" getter="is_text_chat_enabled" default="true">Whether the addon should enable text chat on the chat control.</member>
 		<member name="enable_transcription" type="bool" setter="set_transcription_enabled" getter="is_transcription_enabled" default="false">Whether the addon should enable speech-to-text transcription on the chat control.</member>
 		<member name="enable_translation" type="bool" setter="set_translation_enabled" getter="is_translation_enabled" default="false">Whether the addon should enable text translation on the chat control.</member>
-		<member name="audio_input" type="String" setter="set_audio_input" getter="get_audio_input" default="&quot;&quot;">Audio input device id; uses the platform default when empty.</member>
-		<member name="audio_output" type="String" setter="set_audio_output" getter="get_audio_output" default="&quot;&quot;">Audio output device id; uses the platform default when empty.</member>
+		<member name="audio_input" type="String" setter="set_audio_input" getter="get_audio_input" default="&quot;&quot;">Audio input (microphone) device id bound on the local chat control. Empty selects the platform's system default communication device. The device is always bound when the chat control is created; whether voice actually flows still depends on chat permissions and the audio subsystem successfully initializing the chosen device.</member>
+		<member name="audio_output" type="String" setter="set_audio_output" getter="get_audio_output" default="&quot;&quot;">Audio output (speaker) device id bound on the local chat control. Empty selects the platform's system default communication device. The device is always bound when the chat control is created; whether voice actually flows still depends on chat permissions and the audio subsystem successfully initializing the chosen device.</member>
 		<member name="metadata" type="Dictionary" setter="set_metadata" getter="get_metadata">Title-supplied metadata stored alongside the Party network.</member>
 	</members>
 	<signals></signals>

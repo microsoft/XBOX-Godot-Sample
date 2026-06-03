@@ -2175,6 +2175,18 @@ void PlayFabParty::_process_state_change(const Party::PartyStateChange *p_change
         case Party::PartyStateChangeType::ConnectChatControlCompleted:
             _process_connect_chat_control_completed(p_change);
             break;
+        case Party::PartyStateChangeType::SetChatAudioInputCompleted:
+            _process_set_chat_audio_input_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SetChatAudioOutputCompleted:
+            _process_set_chat_audio_output_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::LocalChatAudioInputChanged:
+            _process_local_chat_audio_input_changed(p_change);
+            break;
+        case Party::PartyStateChangeType::LocalChatAudioOutputChanged:
+            _process_local_chat_audio_output_changed(p_change);
+            break;
         case Party::PartyStateChangeType::ChatControlCreated:
             _process_chat_control_created(p_change);
             break;
@@ -2688,6 +2700,19 @@ void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStat
         if (m_chat.is_valid()) {
             m_chat->track(wrapper);
         }
+        // Bind capture/render audio devices on the freshly created local chat
+        // control before connecting it. A new chat control has no audio device
+        // selected (PartyAudioDeviceSelectionType::None), so without this voice
+        // never flows even though voice chat and permissions are enabled.
+        //
+        // Bind unconditionally — matches the canonical PlayFab Party sample
+        // (BumbleRumble), which always wires SystemDefault input/output on the
+        // local chat control regardless of whether voice is actually used. If
+        // voice is denied later (no SendAudio/ReceiveAudio permission, no mic
+        // device, etc.), the device just sits unused; binding it costs nothing
+        // and removes a silent failure mode where voice was implicitly disabled
+        // because the config didn't carry voice_enabled = true.
+        _configure_chat_audio_devices(operation->network, change->localChatControl, operation->config);
     }
 
     PartyError err = operation->native_network->ConnectChatControl(change->localChatControl, operation);
@@ -2728,6 +2753,122 @@ void PlayFabParty::_process_connect_chat_control_completed(const Party::PartySta
         }
         _complete_pending(operation, result);
     }
+}
+
+void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> &p_network, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
+    if (p_chat_control == nullptr) {
+        return;
+    }
+
+    // Capture device (microphone). Empty device id => system default
+    // communication device; a non-empty id selects that device manually.
+    String input_id = p_config.is_valid() ? p_config->get_audio_input() : String();
+    Party::PartyAudioDeviceSelectionType input_type = Party::PartyAudioDeviceSelectionType::SystemDefault;
+    PartyString input_ctx = nullptr;
+    if (!input_id.is_empty()) {
+        input_type = Party::PartyAudioDeviceSelectionType::Manual;
+        if (p_network.is_valid()) {
+            p_network->m_audio_input_device_id = input_id.utf8();
+            input_ctx = p_network->m_audio_input_device_id.get_data();
+        }
+    }
+    PartyError input_err = p_chat_control->SetAudioInput(input_type, input_ctx, nullptr);
+    if (PARTY_FAILED(input_err)) {
+        Ref<PlayFabResult> result = _party_error_result(input_err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioInput");
+        WARN_PRINT(vformat("PlayFab.party: SetAudioInput failed; voice capture is disabled. %s",
+                result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetAudioInput failed.")));
+    }
+
+    // Render device (speaker/headset). Same selection rules as the capture
+    // device above.
+    String output_id = p_config.is_valid() ? p_config->get_audio_output() : String();
+    Party::PartyAudioDeviceSelectionType output_type = Party::PartyAudioDeviceSelectionType::SystemDefault;
+    PartyString output_ctx = nullptr;
+    if (!output_id.is_empty()) {
+        output_type = Party::PartyAudioDeviceSelectionType::Manual;
+        if (p_network.is_valid()) {
+            p_network->m_audio_output_device_id = output_id.utf8();
+            output_ctx = p_network->m_audio_output_device_id.get_data();
+        }
+    }
+    PartyError output_err = p_chat_control->SetAudioOutput(output_type, output_ctx, nullptr);
+    if (PARTY_FAILED(output_err)) {
+        Ref<PlayFabResult> result = _party_error_result(output_err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioOutput");
+        WARN_PRINT(vformat("PlayFab.party: SetAudioOutput failed; voice playback is disabled. %s",
+                result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetAudioOutput failed.")));
+    }
+}
+
+void PlayFabParty::_process_set_chat_audio_input_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetChatAudioInputCompletedStateChange *>(p_change);
+    if (change->result == Party::PartyStateChangeResult::Succeeded) {
+        // The async SetAudioInput dispatch succeeded; whether the device
+        // actually came up is reported by LocalChatAudioInputChanged.
+        return;
+    }
+    // Audio binding is best-effort: voice degrades but the network and text
+    // chat keep working, so surface a warning instead of failing the join.
+    Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioInput");
+    WARN_PRINT(vformat("PlayFab.party: configuring the voice capture device failed; voice capture is disabled. %s",
+            result.is_valid() ? result->get_message() : String("SetAudioInput completion failed.")));
+}
+
+void PlayFabParty::_process_set_chat_audio_output_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetChatAudioOutputCompletedStateChange *>(p_change);
+    if (change->result == Party::PartyStateChangeResult::Succeeded) {
+        // The async SetAudioOutput dispatch succeeded; whether the device
+        // actually came up is reported by LocalChatAudioOutputChanged.
+        return;
+    }
+    Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioOutput");
+    WARN_PRINT(vformat("PlayFab.party: configuring the voice playback device failed; voice playback is disabled. %s",
+            result.is_valid() ? result->get_message() : String("SetAudioOutput completion failed.")));
+}
+
+void PlayFabParty::_process_local_chat_audio_input_changed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartyLocalChatAudioInputChangedStateChange *>(p_change);
+    // SetAudioInput only signals API dispatch success. The audio subsystem
+    // initializing the requested device is reported by this state change.
+    // Anything other than Initialized means voice capture is degraded — log
+    // loudly so the failure isn't silent (matches the BumbleRumble reference
+    // sample's diagnostic handler).
+    if (change->state == Party::PartyAudioInputState::Initialized) {
+        return;
+    }
+    String state_name;
+    switch (change->state) {
+        case Party::PartyAudioInputState::NoInput: state_name = "NoInput"; break;
+        case Party::PartyAudioInputState::Initialized: state_name = "Initialized"; break;
+        case Party::PartyAudioInputState::NotFound: state_name = "NotFound"; break;
+        case Party::PartyAudioInputState::UserConsentDenied: state_name = "UserConsentDenied"; break;
+        case Party::PartyAudioInputState::UnsupportedFormat: state_name = "UnsupportedFormat"; break;
+        case Party::PartyAudioInputState::AlreadyInUse: state_name = "AlreadyInUse"; break;
+        case Party::PartyAudioInputState::UnknownError: state_name = "UnknownError"; break;
+        default: state_name = String::num_int64(static_cast<int64_t>(change->state)); break;
+    }
+    String detail = _party_error_message(change->errorDetail);
+    WARN_PRINT(vformat("PlayFab.party: local chat audio input is not active (state=%s). Voice capture will not flow. %s",
+            state_name, detail.is_empty() ? String() : detail));
+}
+
+void PlayFabParty::_process_local_chat_audio_output_changed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartyLocalChatAudioOutputChangedStateChange *>(p_change);
+    if (change->state == Party::PartyAudioOutputState::Initialized) {
+        return;
+    }
+    String state_name;
+    switch (change->state) {
+        case Party::PartyAudioOutputState::NoOutput: state_name = "NoOutput"; break;
+        case Party::PartyAudioOutputState::Initialized: state_name = "Initialized"; break;
+        case Party::PartyAudioOutputState::NotFound: state_name = "NotFound"; break;
+        case Party::PartyAudioOutputState::UnsupportedFormat: state_name = "UnsupportedFormat"; break;
+        case Party::PartyAudioOutputState::AlreadyInUse: state_name = "AlreadyInUse"; break;
+        case Party::PartyAudioOutputState::UnknownError: state_name = "UnknownError"; break;
+        default: state_name = String::num_int64(static_cast<int64_t>(change->state)); break;
+    }
+    String detail = _party_error_message(change->errorDetail);
+    WARN_PRINT(vformat("PlayFab.party: local chat audio output is not active (state=%s). Voice playback will not flow. %s",
+            state_name, detail.is_empty() ? String() : detail));
 }
 
 void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *p_change) {

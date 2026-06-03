@@ -16,6 +16,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/char_string.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
@@ -313,6 +314,13 @@ class PlayFabPartyNetwork : public RefCounted {
     // the network died instead of a generic "Network destroyed during join."
     // string. Cleared on attach_native().
     Ref<PlayFabResult> m_destroyed_result;
+    // Persisted UTF-8 device identifiers backing manual audio device
+    // selection. PartyLocalChatControl::SetAudioInput()/SetAudioOutput() take
+    // the device-id context by pointer and complete asynchronously, so the
+    // backing memory must outlive the call; the owning network outlives its
+    // local chat control, which makes it the safe owner for these strings.
+    CharString m_audio_input_device_id;
+    CharString m_audio_output_device_id;
 
 protected:
     static void _bind_methods();
@@ -614,6 +622,10 @@ private:
     void _process_network_destroyed(const Party::PartyStateChange *p_change);
     void _process_create_chat_control_completed(const Party::PartyStateChange *p_change);
     void _process_connect_chat_control_completed(const Party::PartyStateChange *p_change);
+    void _process_set_chat_audio_input_completed(const Party::PartyStateChange *p_change);
+    void _process_set_chat_audio_output_completed(const Party::PartyStateChange *p_change);
+    void _process_local_chat_audio_input_changed(const Party::PartyStateChange *p_change);
+    void _process_local_chat_audio_output_changed(const Party::PartyStateChange *p_change);
     void _process_chat_control_created(const Party::PartyStateChange *p_change);
     void _process_chat_control_destroyed(const Party::PartyStateChange *p_change);
     void _process_chat_text_received(const Party::PartyStateChange *p_change);
@@ -634,6 +646,11 @@ private:
     void _emit_chat_state(const Ref<PlayFabPartyChatControl> &p_chat_control, int64_t p_kind, const Ref<PlayFabResult> &p_result, const String &p_reason);
 
     Signal _send_text_via_chat_control(Party::PartyLocalChatControl *p_local_chat_control, const std::vector<Party::PartyChatControl *> &p_targets, const String &p_message, const Ref<PlayFabPartyTextMessageConfig> &p_config);
+    // Binds the local chat control's capture (microphone) and render (speaker)
+    // audio devices so enabled voice chat actually flows. Without this a
+    // freshly created chat control has no audio device bound and no voice is
+    // captured or rendered even when voice permissions are granted.
+    void _configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> &p_network, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
     Signal _set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded = nullptr);
     Signal _set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
     Signal _destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control);
