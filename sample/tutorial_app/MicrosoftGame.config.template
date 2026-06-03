@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  GodotGDK Tutorial App - MicrosoftGame.config template.
+  XBOX Godot Sample Tutorial App - MicrosoftGame.config template.
 
   Copy this file to `MicrosoftGame.config` (next to it) and fill in the
   values from Partner Center, OR run:
@@ -32,7 +32,7 @@
                 IsDevOnly="false" />
   </ExecutableList>
 
-  <ShellVisuals DefaultDisplayName="GodotGDK Tutorial App"
+  <ShellVisuals DefaultDisplayName="XBOX Godot Sample Tutorial App"
                 PublisherDisplayName="Your Publisher"
                 StoreLogo="StoreLogo.png"
                 Square150x150Logo="Logo150.png"

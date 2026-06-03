@@ -14,7 +14,7 @@ var _next_btn: Button
 var _close_btn: Button
 
 func _ready() -> void:
-	title = "Microsoft GDK for Godot — Getting Started"
+	title = "XBOX Godot Sample — Getting Started"
 	size = Vector2i(750, 560)
 	exclusive = false
 	_build_slides()
@@ -24,10 +24,10 @@ func _ready() -> void:
 func _build_slides() -> void:
 	_slides = [
 		{
-			"title": "Welcome to the Microsoft GDK for Godot",
-			"body": """[font_size=16][color=#107c10][b]Microsoft Game Development Kit[/b][/color] integration for the Godot Engine.[/font_size]
+			"title": "Welcome to the XBOX Godot Sample",
+			"body": """[font_size=16][color=#107c10][b]XBOX Godot Sample[/b][/color] — the official Godot integration sample for the Microsoft Game Development Kit.[/font_size]
 
-This addon brings Xbox PC development tools directly into the Godot Editor through the [b]Microsoft GDK[/b] menu in the editor menu bar — from configuring your game identity, to exporting, packaging, installing, and launching your builds.
+This addon brings Xbox PC development tools directly into the Godot Editor through the [b]Microsoft GDK[/b] menu in the editor menu bar — from configuring your game identity, to exporting, packaging, installing, and launching your builds. The companion [b]XBOX Godot Sample Tutorial App[/b] under [b]sample/tutorial_app[/b] is a ready-to-run reference that exercises every surface this wizard covers.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
