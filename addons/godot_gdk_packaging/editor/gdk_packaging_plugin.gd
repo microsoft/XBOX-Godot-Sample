@@ -29,6 +29,11 @@ var _config_import_plugin: EditorImportPlugin
 var _sandbox_dialog: AcceptDialog
 var _package_manager_dialog: AcceptDialog
 
+# Tracks a launched GameConfigEditor process so the plugin can reconcile the
+# project's logos (regenerate stale size variants) once it closes.
+var _config_editor_pid: int = -1
+var _config_editor_timer: Timer
+
 # Menu item IDs — grouped: local tools | web portals | documentation
 enum MenuID {
 	GETTING_STARTED,
@@ -119,6 +124,14 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if _config_editor_timer != null and is_instance_valid(_config_editor_timer):
+		_config_editor_timer.stop()
+		if _config_editor_timer.timeout.is_connected(_on_config_editor_poll):
+			_config_editor_timer.timeout.disconnect(_on_config_editor_poll)
+		_config_editor_timer.queue_free()
+		_config_editor_timer = null
+	_config_editor_pid = -1
+
 	if _sandbox_dialog and is_instance_valid(_sandbox_dialog):
 		if _sandbox_dialog.get_parent() != null:
 			_sandbox_dialog.get_parent().remove_child(_sandbox_dialog)
@@ -241,6 +254,8 @@ func _on_game_config_action() -> void:
 		var pid: int = _config_mgr.launch_editor()
 		if pid < 0:
 			push_error("[GDK Packaging] Failed to launch GameConfigEditor")
+		else:
+			_watch_config_editor(pid)
 		return
 
 	var err: Error = _config_mgr.create_template()
@@ -257,3 +272,41 @@ func _on_game_config_action() -> void:
 	var pid: int = _config_mgr.launch_editor()
 	if pid < 0:
 		push_error("[GDK Packaging] Failed to launch GameConfigEditor")
+	else:
+		_watch_config_editor(pid)
+
+
+# Polls the launched GameConfigEditor process and, once it closes, reconciles
+# the project's logos. GameConfigEditor writes newly-picked tile images to the
+# project root (with no option to redirect) and leaves the derived size variants
+# stale; reconciling here regenerates those variants in place from the 480x480
+# master — see GameConfigManager.reconcile_logos_after_edit().
+func _watch_config_editor(pid: int) -> void:
+	_config_editor_pid = pid
+	if _config_editor_timer == null or not is_instance_valid(_config_editor_timer):
+		_config_editor_timer = Timer.new()
+		_config_editor_timer.wait_time = 1.0
+		_config_editor_timer.timeout.connect(_on_config_editor_poll)
+		add_child(_config_editor_timer)
+	_config_editor_timer.start()
+
+
+func _on_config_editor_poll() -> void:
+	if _config_editor_pid < 0:
+		if _config_editor_timer != null and is_instance_valid(_config_editor_timer):
+			_config_editor_timer.stop()
+		return
+	if OS.is_process_running(_config_editor_pid):
+		return
+
+	# GameConfigEditor has exited — stop polling and reconcile its output.
+	_config_editor_timer.stop()
+	_config_editor_pid = -1
+	if _config_mgr == null:
+		return
+	var summary: Dictionary = _config_mgr.reconcile_logos_after_edit()
+	var fs: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if fs != null and not fs.is_scanning():
+		fs.scan()
+	_update_game_config_label()
+	print("[GDK Packaging] GameConfigEditor closed — reconciled store logos: ", summary)

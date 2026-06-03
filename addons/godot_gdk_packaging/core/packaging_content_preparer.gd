@@ -77,9 +77,16 @@ func ensure_content_dir_ready(content_dir: String, logger: Callable = Callable()
 
 		var src_path: String = ""
 		var filename: String = normalized.get_file()
+		# Prefer the path the config actually declares (root with the new logo
+		# strategy), then fall back to a legacy storelogos/ copy, then a bare
+		# root filename. Config-path-first avoids staging a stale storelogos/
+		# copy when the live logo now lives at the project root.
+		var rel_src: String = project_dir.path_join(normalized)
 		var storelogos_src: String = project_dir.path_join("storelogos").path_join(filename)
 		var root_src: String = project_dir.path_join(filename)
-		if FileAccess.file_exists(storelogos_src):
+		if FileAccess.file_exists(rel_src):
+			src_path = rel_src
+		elif FileAccess.file_exists(storelogos_src):
 			src_path = storelogos_src
 		elif FileAccess.file_exists(root_src):
 			src_path = root_src

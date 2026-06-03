@@ -50,7 +50,7 @@ The [b]MicrosoftGame.config[/b] file defines your game's name, publisher, logos,
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [font_size=14][b]Menu actions[/b][/font_size]
-[color=#107c10]▸[/color]  [b]Microsoft GDK → Create MicrosoftGame.config[/b] — Writes a starter config (and placeholder [b]storelogos/[/b]) when none exists, then opens Microsoft's [b]GameConfigEditor[/b]
+[color=#107c10]▸[/color]  [b]Microsoft GDK → Create MicrosoftGame.config[/b] — Writes a starter config (and placeholder logos at the project root) when none exists, then opens Microsoft's [b]GameConfigEditor[/b]
 [color=#107c10]▸[/color]  [b]Microsoft GDK → Edit MicrosoftGame.config[/b] — The same item relabels itself once the file exists, and reopens GameConfigEditor on it
 
 [font_size=14][b]Fill in at minimum[/b][/font_size]

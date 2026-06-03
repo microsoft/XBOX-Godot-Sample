@@ -195,6 +195,32 @@ absolute paths, Godot URI paths, and paths that resolve outside the content
 directory are rejected with a content-dir safety error before any config or
 logo bytes are written to the staging directory.
 
+## Store-logo reconciliation after GameConfigEditor
+
+Microsoft's GameConfigEditor saves a newly-picked tile image to the project
+root with no option to redirect it, and leaves the derived size variants stale
+(issue #62). Rather than fight that — moving the file into a `storelogos\`
+subfolder and rewriting the config, which left a duplicate at the root that MCGE
+kept re-creating — the addon **keeps every logo at the project root** (the
+config template and placeholder generator both target the root), so MCGE's
+output lands exactly where the config already points.
+
+`GameConfigManager.reconcile_logos_after_edit()` therefore only has to refresh
+the stale variants. It returns `{ "synced": int }` and calls
+`sync_store_logos()`, which regenerates each derived variant
+(`Square150x150Logo`, `Square44x44Logo`, `StoreLogo`, `SplashScreenImage`) from
+the picked 480×480 master and writes it to the exact path that variant's
+ShellVisuals attribute declares. The 480×480 master itself is never overwritten
+(it is the picked source), nothing is moved, and the config is not rewritten —
+so no duplicates are produced.
+
+The editor plugin (`editor\gdk_packaging_plugin.gd`) drives this automatically:
+after launching GameConfigEditor it polls the launched PID via
+`OS.is_process_running()` on a 1s `Timer`, and once the process exits it calls
+`reconcile_logos_after_edit()` and rescans the Godot FileSystem. The reconcile
+helpers stay in headless-safe `core\` and are covered by
+`tests\godot\gdk\tests\packaging\test_game_config_xml_rewriting.gd`.
+
 ## Plan
 
 Headless workflows are the supported automation contract. Editor access stays
@@ -247,3 +273,14 @@ plan a separate editor-panel rewrite.
   separately; do not gate packaging work on this flake.
 - **Editor UX / service hardening**: ongoing. The current editor surface is the
   top-level `GDK` menu plus dialogs; no dock is registered.
+- **Store-logo reconciliation (issue #62)**: shipped.
+  GameConfigEditor saves a newly-picked tile image to the project root with no
+  redirect option, so the addon keeps every logo at the project root to match —
+  the config template and placeholder generator both target the root.
+  `GameConfigManager.reconcile_logos_after_edit()` then only regenerates the
+  stale size variants from the picked 480×480 master via `sync_store_logos()`,
+  writing each to the path its ShellVisuals attribute already declares (the 480
+  master is never overwritten, nothing is moved or repointed, so MCGE's root
+  writes never produce duplicates). The editor plugin watches the launched
+  GameConfigEditor PID and runs the reconcile + FileSystem rescan automatically
+  on close. Covered by `test_game_config_xml_rewriting.gd`.
