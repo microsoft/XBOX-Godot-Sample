@@ -86,7 +86,7 @@ There are two ways to sign in:
    Partner Center → Account Settings → XBOX Live → Test Accounts.
 5. The XBOX app should now show the test account's gamertag.
 
-When you launch a Godot XBOX sample after that, the bootstrap autoload calls
+When you launch an XBOX Godot Sample app after that, the bootstrap autoload calls
 `GDK.users.add_default_user_async()` (silent sign-in). If that succeeds the
 title screen HUD shows **Microsoft GDK READY · SIGNED IN** with the test account's
 gamertag and avatar. **If silent sign-in fails** — common when running

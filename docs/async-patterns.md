@@ -1,6 +1,6 @@
-# Async patterns in the Godot XBOX addons
+# Async patterns in the XBOX Godot Sample addons
 
-Every long-running call in the Godot XBOX addons returns a one-shot
+Every long-running call in the XBOX Godot Sample addons returns a one-shot
 **Godot Signal** that resolves to a typed **Result** object. The
 pattern is identical across `godot_gdk`, `godot_playfab`, and (when
 relevant) `godot_gameinput`, so once you know it for one method you

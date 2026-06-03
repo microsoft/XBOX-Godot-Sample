@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common build and runtime issues for the Godot XBOX addons.
+Common build and runtime issues for the XBOX Godot Sample addons.
 
 ## DLL load failure: Error 126
 

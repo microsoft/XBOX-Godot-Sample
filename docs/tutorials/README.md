@@ -1,6 +1,6 @@
 # Tutorials
 
-Task-oriented walkthroughs for the Godot XBOX addons. The tutorial
+Task-oriented walkthroughs for the XBOX Godot Sample addons. The tutorial
 chain takes you from a fresh project to a single integrated tech
 demo — sign-in, achievements, leaderboards, game saves, lobby,
 multiplayer activity, Party chat — with each step landing one

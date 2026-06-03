@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Single-command repo-wide test orchestrator. The local "definition of green"
-    for the Godot for XBOX on PC repo (this project intentionally has no CI).
+    for the XBOX Godot Sample repo (this project intentionally has no CI).
 
 .DESCRIPTION
     Pipeline (each stage gates the next; a failure aborts downstream work):

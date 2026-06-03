@@ -379,7 +379,7 @@ function Ensure-CustomIdAccount {
         CustomId      = $Id
         CreateAccount = $true
         CustomTags    = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
     $response = Invoke-PlayFabRest -Route $route -Headers $SecretHeaders -Body $body
@@ -644,7 +644,7 @@ function Ensure-LeaderboardDefinition {
             MaxQueryableVersions = 1
         }
         CustomTags           = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
 
@@ -721,7 +721,7 @@ function Set-UserDataValue {
         PlayFabId  = $PlayFabId
         Data       = $data
         CustomTags = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
     if (-not [string]::IsNullOrWhiteSpace($Permission)) {
@@ -749,7 +749,7 @@ function Set-UserPublisherDataValue {
         Data       = $data
         Permission = 'Public'
         CustomTags = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
 
@@ -841,7 +841,7 @@ function Ensure-StatisticDefinition {
             MaxQueryableVersions = 1
         }
         CustomTags           = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
 
@@ -899,7 +899,7 @@ function Test-ClientStatisticWriteEnabled {
             }
         )
         CustomTags = @{
-            source = 'godot-public-gdk-ext-configure-script-probe'
+            source = 'xbox-godot-sample-configure-script-probe'
         }
     }
     $writeResponse = Invoke-PlayFabRest -Route $writeRoute -Headers @{ 'X-EntityToken' = $clientEntityToken } -Body $writeBody
@@ -961,7 +961,7 @@ function Ensure-CatalogConfigForDraftItem {
     $body = @{
         Config     = $config
         CustomTags = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
     $response = Invoke-PlayFabRest -Route $route -Headers $EntityHeaders -Body $body
@@ -1021,16 +1021,16 @@ function Ensure-CatalogDraftItem {
                 NEUTRAL = 'Godot API service smoke item'
             }
             Description       = @{
-                NEUTRAL = 'Fixture item for godot-public-gdk-ext PlayFab service live tests.'
+                NEUTRAL = 'Fixture item for XBOX Godot Sample PlayFab service live tests.'
             }
             DisplayProperties = @{
-                source  = 'godot-public-gdk-ext-live-tests'
+                source  = 'xbox-godot-sample-live-tests'
                 fixture = 'api-services'
             }
         }
         Publish    = $false
         CustomTags = @{
-            source = 'godot-public-gdk-ext-live-tests'
+            source = 'xbox-godot-sample-live-tests'
         }
     }
 
@@ -1206,7 +1206,7 @@ function Set-LiveTestTitleDataMarker {
         }
     }
     $marker = [ordered]@{
-        repository                         = 'gaming-microsoft/godot-public-gdk-ext'
+        repository                         = 'microsoft/XBOX-Godot-Sample'
         title_id                           = $script:TitleIdForRequests
         sandbox_only                       = $true
         purpose                            = 'Dedicated sandbox for Godot live/write tests; never use a shared or production title.'

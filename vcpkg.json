@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-    "name": "godot-public-gdk-ext",
+    "name": "xbox-godot-sample",
     "version-string": "0.1.0-preview",
     "description": "GDExtension addons for the Microsoft public GDK and PlayFab. Build-time dependencies for godot_gdk, godot_playfab, and godot_gameinput.",
     "dependencies": [],

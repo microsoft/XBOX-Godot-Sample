@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through using the Godot XBOX addons in your own Godot
+This guide walks you through using the XBOX Godot Sample addons in your own Godot
 project — what to copy, how to enable it, how to configure project settings,
 and how to reach **a signed-in user** for both XBOX Live (`godot_gdk`) and
 PlayFab (`godot_playfab`).
@@ -159,8 +159,8 @@ drop-in layout from source: clone with submodules and run the package
 helper.
 
 ```powershell
-git clone --recurse-submodules https://github.com/microsoft/Godot-XBOX.git
-cd Godot-XBOX
+git clone --recurse-submodules https://github.com/microsoft/XBOX-Godot-Sample.git
+cd XBOX-Godot-Sample
 
 .\tools\package_addons.ps1
 ```
@@ -548,8 +548,8 @@ themselves.
 ### Clone with submodules
 
 ```powershell
-git clone --recurse-submodules https://github.com/microsoft/Godot-XBOX.git
-cd Godot-XBOX
+git clone --recurse-submodules https://github.com/microsoft/XBOX-Godot-Sample.git
+cd XBOX-Godot-Sample
 ```
 
 If you've already cloned without submodules:
