@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.29)
+if(POLICY CMP0162)
+   cmake_policy(SET CMP0162 NEW)
+endif()
+
 project(godot_public_gdk_ext LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)

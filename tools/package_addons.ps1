@@ -271,6 +271,35 @@ function Copy-PackagingAddon {
     }
 }
 
+function FindVCPKG_ROOT {
+    if (-not [string]::IsNullOrEmpty($env:VCPKG_ROOT)) {
+        Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
+        return
+    }
+
+    $vsEditions = @('2022', '2026') | ForEach-Object { $year = $_; @('Community', 'Enterprise', 'Professional') | ForEach-Object { "$year\$_" } }
+
+    foreach ($drive in @('C:', 'D:')) {
+        $vsBase = "$drive\Program Files\Microsoft Visual Studio"
+        if (-not (Test-Path -LiteralPath $vsBase -PathType Container)) {
+            continue
+        }
+        foreach ($edition in $vsEditions) {
+            $vcpkgCandidate = Join-Path $vsBase "$edition\VC\vcpkg"
+            if (Test-Path -LiteralPath $vcpkgCandidate -PathType Container) {
+                $env:VCPKG_ROOT = $vcpkgCandidate
+                Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
+                return
+            }
+        }
+    }
+    throw "Could not auto-detect VCPKG_ROOT from a default Visual Studio install. Ensure the Visual Studio vcpkg component is installed, or set VCPKG_ROOT to a vcpkg checkout (e.g. C:\\vcpkg) or to <VS>\\VC\\vcpkg."
+}
+
+
+
+FindVCPKG_ROOT
+
 $outputFullPath = Resolve-OutputPath -Path $OutputPath
 $stageFullPath = [System.IO.Path]::GetFullPath($script:StageDir)
 $stagePrefix = $stageFullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar

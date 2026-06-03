@@ -129,13 +129,15 @@ for the canonical addon-side walk-through.
 ### To build the addons from source
 
 - Visual Studio 2022+ with the **C++ Desktop** workload
-- CMake 3.25+ (required by the `CMakePresets.json` schema version)
+- CMake 3.29+ (required by the `CMakePresets.json` schema version)
 - [vcpkg](https://github.com/microsoft/vcpkg) in manifest mode. The build
   reads `vcpkg.json` + `vcpkg-configuration.json` at the repo root and
   resolves the `ms-gdk[playfab]` and `gameinput` ports for you, so you
   don't need a separate Microsoft GDK install just to compile the addons.
   Set the `VCPKG_ROOT` environment variable to your vcpkg clone (the
-  CMake preset reads it via `$env{VCPKG_ROOT}`).
+  CMake preset reads it via `$env{VCPKG_ROOT}`). You can also use the VCPKG 
+  component if it is installed with Visual Studio. The script `package_addons.ps1` 
+  will detect it and use it as `VCPKG_ROOT` automatically.
 
 > **Note:** The vcpkg manifest only provides the **build-time headers and
 > import libs** for Microsoft GDK + GameInput. You still need a full Microsoft GDK
