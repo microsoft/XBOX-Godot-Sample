@@ -135,3 +135,8 @@ a service like `GDK.achievements` or `PlayFab.game_saves`, you can
 press **F1** on the class name in the Godot editor for the full
 reference page. The repository's `addons/<addon>/doc_classes/*.xml`
 files are the source of truth for those reference pages.
+
+## Known Issues
+
+- **Multiple Instances**: A popular Godot feature is to Enable Multiple Instances
+which allows the user to run multiple instances of their game while debugging. This is not recommended as there is only one GDK user in the sample, and attempting this will result in failed connections or crashes. If you wish to run the demos you will need to export the game and run it on a separate computer with a different account. 
