@@ -290,8 +290,6 @@ function FindVCPKG_ROOT {
                 $env:VCPKG_ROOT = $vcpkgCandidate
                 Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
                 return
-            } else {
-                throw "Could not find VCPKG file in Visual Studio"
             }
         }
     }
