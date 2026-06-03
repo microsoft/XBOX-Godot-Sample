@@ -271,7 +271,7 @@ function Copy-PackagingAddon {
     }
 }
 
-function FindVisualStudio {
+function FindVCPKG_ROOT {
     if (-not [string]::IsNullOrEmpty($env:VCPKG_ROOT)) {
         Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
         return
@@ -300,7 +300,7 @@ function FindVisualStudio {
 
 
 
-FindVisualStudio
+FindVCPKG_ROOT
 
 $outputFullPath = Resolve-OutputPath -Path $OutputPath
 $stageFullPath = [System.IO.Path]::GetFullPath($script:StageDir)
