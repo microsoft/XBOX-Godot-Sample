@@ -192,11 +192,11 @@ func create_template(game_name: String = "MyGodotGame",
 	xml += '  </ExecutableList>\n'
 	xml += '  <ShellVisuals DefaultDisplayName="%s"\n' % _escape_xml_attr(display_name)
 	xml += '                PublisherDisplayName="%s"\n' % _escape_xml_attr(publisher.replace("CN=", ""))
-	xml += '                StoreLogo="storelogos\\StoreLogo.png"\n'
-	xml += '                Square150x150Logo="storelogos\\Square150x150Logo.png"\n'
-	xml += '                Square44x44Logo="storelogos\\Square44x44Logo.png"\n'
-	xml += '                Square480x480Logo="storelogos\\Square480x480Logo.png"\n'
-	xml += '                SplashScreenImage="storelogos\\SplashScreenImage.png"\n'
+	xml += '                StoreLogo="StoreLogo.png"\n'
+	xml += '                Square150x150Logo="Square150x150Logo.png"\n'
+	xml += '                Square44x44Logo="Square44x44Logo.png"\n'
+	xml += '                Square480x480Logo="Square480x480Logo.png"\n'
+	xml += '                SplashScreenImage="SplashScreenImage.png"\n'
 	xml += '                Description="A Godot game packaged with GDK"\n'
 	xml += '                BackgroundColor="#000000"\n'
 	xml += '                ForegroundText="light" />\n'
@@ -217,25 +217,25 @@ func create_template(game_name: String = "MyGodotGame",
 	print("[GDK Packaging] Created template MicrosoftGame.config at: ", fs_target)
 
 	# Generate placeholder logo images so GameConfigEditor doesn't error.
-	# Pass the config's base dir so the storelogos/ folder is created next to
-	# the config file (not under res://) when output_path lands outside the
-	# project root; the config's relative "storelogos\..." attributes resolve
-	# against the config's parent directory.
+	# Pass the config's base dir so the placeholders are created next to the
+	# config file (not under res://) when output_path lands outside the project
+	# root; the config's root-relative logo attributes resolve against the
+	# config's parent directory.
 	_ensure_placeholder_images(target_dir)
 
 	return OK
 
 
 ## Copies the GDK default 480x480 PNG and resizes it to create all placeholder
-## images referenced by the MicrosoftGame.config template. Writes them under
-## a "storelogos/" folder inside [param base_dir] (defaults to the project
-## root for backward compatibility) so the relative paths the template
-## embeds resolve next to the config file.
+## images referenced by the MicrosoftGame.config template. Writes them directly
+## into [param base_dir] (defaults to the project root) — the same location
+## Microsoft's GameConfigEditor writes picked tiles to — so the config's
+## root-relative logo attributes resolve next to the config file and we never
+## end up with duplicate copies under a separate storelogos/ folder.
 func _ensure_placeholder_images(base_dir: String = "") -> void:
-	var logos_root: String = base_dir
-	if logos_root.is_empty():
-		logos_root = ProjectSettings.globalize_path("res://")
-	var logos_dir: String = logos_root.path_join("storelogos")
+	var logos_dir: String = base_dir
+	if logos_dir.is_empty():
+		logos_dir = ProjectSettings.globalize_path("res://")
 	var default_png: String = _toolchain.get_bin_dir().path_join(
 		"GameConfigEditorDependencies/default480x480.png")
 
@@ -261,7 +261,6 @@ func _ensure_placeholder_images(base_dir: String = "") -> void:
 	if not any_missing:
 		return
 
-	# Ensure storelogos directory exists
 	DirAccess.make_dir_recursive_absolute(logos_dir)
 
 	var source_image: Image = Image.new()
@@ -279,14 +278,18 @@ func _ensure_placeholder_images(base_dir: String = "") -> void:
 		img.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
 		err = img.save_png(dest_path)
 		if err == OK:
-			print("[GDK Packaging] Created placeholder: storelogos/", filename)
+			print("[GDK Packaging] Created placeholder: ", filename)
 		else:
 			push_warning("[GDK Packaging] Failed to create " + filename + ": " + error_string(err))
 
 
-## Reads the largest logo (480x480) from the config and regenerates all other
-## logo sizes from it. Call after GameConfigEditor saves changes.
-## Returns the number of logos updated.
+## Regenerates the derived logo size variants from the 480x480 master the config
+## points at, writing each variant to the exact path its ShellVisuals attribute
+## declares (resolved against the project root). Microsoft's GameConfigEditor
+## writes a newly-picked tile to the project root but does not refresh the
+## derived sizes; this closes that gap without moving files or rewriting the
+## config. Call after GameConfigEditor saves changes.
+## Returns the number of variant files regenerated.
 func sync_store_logos() -> int:
 	if not config_exists():
 		return 0
@@ -294,253 +297,73 @@ func sync_store_logos() -> int:
 	var info: Dictionary = parse_config()
 	var project_dir: String = ProjectSettings.globalize_path("res://")
 
-	# Find the 480x480 source logo — this is the primary logo to derive others from
-	var logo_480_rel: String = info.get("logo_480", "")
-	if logo_480_rel == "":
+	# The 480x480 logo is the master every other size is derived from.
+	var master_rel: String = str(info.get("logo_480", ""))
+	if master_rel.is_empty():
 		return 0
-
-	# Resolve relative path (config paths use backslashes)
-	var logo_480_path: String = project_dir.path_join(logo_480_rel.replace("\\", "/"))
-	if not FileAccess.file_exists(logo_480_path):
-		print("[GDK Packaging] 480x480 logo not found at: ", logo_480_path)
+	var master_path: String = project_dir.path_join(master_rel.replace("\\", "/"))
+	if not FileAccess.file_exists(master_path):
+		push_warning("[GDK Packaging] 480x480 master logo not found at: " + master_path)
 		return 0
 
 	var source_image: Image = Image.new()
-	var err: Error = source_image.load(logo_480_path)
+	var err: Error = source_image.load(master_path)
 	if err != OK:
-		push_warning("[GDK Packaging] Failed to load 480x480 logo: " + error_string(err))
+		push_warning("[GDK Packaging] Failed to load 480x480 master logo: " + error_string(err))
 		return 0
 
-	var logos_dir: String = project_dir.path_join("storelogos")
-	DirAccess.make_dir_recursive_absolute(logos_dir)
-
-	# All logos including the 480x480 itself
-	var logo_map: Dictionary = {
-		"logo_480": Vector2i(480, 480),
-		"logo_150": Vector2i(150, 150),
-		"logo_44": Vector2i(44, 44),
-		"store_logo": Vector2i(100, 100),
-		"splash_screen": Vector2i(1920, 1080),
-	}
-
-	# Standard filenames for each logo
-	var standard_names: Dictionary = {
-		"logo_480": "Square480x480Logo.png",
-		"logo_150": "Square150x150Logo.png",
-		"logo_44": "Square44x44Logo.png",
-		"store_logo": "StoreLogo.png",
-		"splash_screen": "SplashScreenImage.png",
+	# Derived variants: config key -> [target size, default root filename]. The
+	# 480x480 master is intentionally excluded — it is the picked source, not a
+	# derived size, so we never overwrite the user's chosen image.
+	var variants: Dictionary = {
+		"logo_150": [Vector2i(150, 150), "Square150x150Logo.png"],
+		"logo_44": [Vector2i(44, 44), "Square44x44Logo.png"],
+		"store_logo": [Vector2i(100, 100), "StoreLogo.png"],
+		"splash_screen": [Vector2i(1920, 1080), "SplashScreenImage.png"],
 	}
 
 	var updated: int = 0
-	for key: String in logo_map:
-		var dest_path: String = logos_dir.path_join(standard_names[key])
-
+	for key: String in variants:
+		var size: Vector2i = variants[key][0]
+		# Write each variant to the path the config actually references so the
+		# packaging staging step finds a fresh file there. Fall back to the
+		# standard root filename when the attribute is absent from the config.
+		var rel: String = str(info.get(key, ""))
+		if rel.is_empty():
+			rel = str(variants[key][1])
+		var dest_path: String = project_dir.path_join(rel.replace("\\", "/"))
+		var dest_dir: String = dest_path.get_base_dir()
+		if not dest_dir.is_empty():
+			DirAccess.make_dir_recursive_absolute(dest_dir)
 		var img: Image = source_image.duplicate()
-		var size: Vector2i = logo_map[key]
 		img.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
 		err = img.save_png(dest_path)
 		if err == OK:
 			updated += 1
-			print("[GDK Packaging] Synced logo: storelogos/", standard_names[key])
+			print("[GDK Packaging] Synced logo: ", rel)
 		else:
-			push_warning("[GDK Packaging] Failed to sync " + standard_names[key] + ": " + error_string(err))
+			push_warning("[GDK Packaging] Failed to sync " + rel + ": " + error_string(err))
 
 	return updated
 
 
-## Detects logo PNGs that GameConfigEditor wrote to the project root,
-## moves them into storelogos/, and updates MicrosoftGame.config paths.
-## Returns the number of files relocated.
-func relocate_logos_to_storelogos() -> int:
-	if not config_exists():
-		return 0
-
-	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var logos_dir: String = project_dir.path_join("storelogos")
-
-	# Known logo filenames that GameConfigEditor writes to the project root
-	var logo_files: Dictionary = {
-		"StoreLogo.png": "StoreLogo",
-		"Square44x44Logo.png": "Square44x44Logo",
-		"Square150x150Logo.png": "Square150x150Logo",
-		"Square480x480Logo.png": "Square480x480Logo",
-		"SplashScreenImage.png": "SplashScreenImage",
-	}
-
-	# Also detect the source image (e.g. fhl_logo.png) referenced in the config
-	var info: Dictionary = parse_config()
-	var config_logos: Dictionary = {
-		"store_logo": "StoreLogo",
-		"logo_44": "Square44x44Logo",
-		"logo_150": "Square150x150Logo",
-		"logo_480": "Square480x480Logo",
-		"splash_screen": "SplashScreenImage",
-	}
-
-	# Build a mapping of root files that need to move.
-	var files_to_move: Dictionary = {}  # src_abs -> dest_filename
-	var logo_attr_replacements: Dictionary = {}  # ShellVisuals attr -> { old, new }
-
-	for key: String in config_logos:
-		var rel_path: String = info.get(key, "")
-		if rel_path == "":
-			continue
-		var normalized: String = rel_path.replace("\\", "/")
-		# Only relocate if the file is at the project root (no directory component)
-		if normalized.contains("/"):
-			continue
-		var src_abs: String = project_dir.path_join(normalized)
-		if not FileAccess.file_exists(src_abs):
-			continue
-		var dest_filename: String = normalized.get_file()
-		var attr_name: String = config_logos[key]
-		files_to_move[src_abs] = dest_filename
-		logo_attr_replacements[attr_name] = {"old": rel_path, "new": "storelogos\\" + dest_filename}
-
-	# Also check for standard GameConfigEditor output names at root
-	for filename: String in logo_files:
-		var src_abs: String = project_dir.path_join(filename)
-		if FileAccess.file_exists(src_abs) and not files_to_move.has(src_abs):
-			var attr_name: String = logo_files[filename]
-			files_to_move[src_abs] = filename
-			# Only register the attribute replacement if the config-referenced
-			# loop above did not already register one for this attribute. If we
-			# overwrote that entry, the XML rewrite below would look for the
-			# standard filename in the attribute, miss the config's actual
-			# custom filename, and leave MicrosoftGame.config pointing at the
-			# now-moved root file.
-			if not logo_attr_replacements.has(attr_name):
-				logo_attr_replacements[attr_name] = {"old": filename, "new": "storelogos\\" + filename}
-
-	if files_to_move.is_empty():
-		return 0
-
-	# Ensure storelogos directory exists
-	DirAccess.make_dir_recursive_absolute(logos_dir)
-
-	# Move files
-	var moved: int = 0
-	var dir: DirAccess = DirAccess.open(project_dir)
-	for src_abs: String in files_to_move:
-		var dest_filename: String = files_to_move[src_abs]
-		var dest_abs: String = logos_dir.path_join(dest_filename)
-		var err: Error = dir.rename(src_abs, dest_abs)
-		if err == OK:
-			moved += 1
-			print("[GDK Packaging] Moved ", src_abs.get_file(), " -> storelogos/", dest_filename)
-		else:
-			push_warning("[GDK Packaging] Failed to move " + src_abs.get_file() + ": " + error_string(err))
-
-	# Update MicrosoftGame.config with new paths
-	if moved > 0 and not logo_attr_replacements.is_empty():
-		var config_path: String = get_config_path()
-		var file: FileAccess = FileAccess.open(config_path, FileAccess.READ)
-		if file != null:
-			var content: String = file.get_as_text()
-			file.close()
-			content = _replace_shell_visuals_logo_attributes(content, logo_attr_replacements)
-			file = FileAccess.open(config_path, FileAccess.WRITE)
-			if file != null:
-				file.store_string(content)
-				file.close()
-				print("[GDK Packaging] Updated MicrosoftGame.config logo paths")
-
-	return moved
+## Reconciles logo assets after a GameConfigEditor session. Microsoft's
+## GameConfigEditor writes a newly-picked tile image to the project root (with
+## no option to redirect it) and leaves the derived size variants stale. We
+## align with that behaviour by keeping every logo at the project root, so the
+## only reconciliation needed is regenerating the stale size variants from the
+## picked 480x480 master via sync_store_logos(). No files are moved and the
+## config is not rewritten, so MCGE's root output never produces duplicates.
+## Returns { "synced": int }.
+func reconcile_logos_after_edit() -> Dictionary:
+	return {"synced": sync_store_logos()}
 
 
 # ── GameConfigEditor Launch ─────────────────────────────────────────────────
 
-## Launches MicrosoftGameConfigEditor.exe with the project's config file.
-## Returns the PID, or -1 on failure.
 ## Escapes special characters for safe use in XML attribute values.
 static func _escape_xml_attr(value: String) -> String:
 	return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-## Decodes XML attribute entity references back to their literal characters.
-## Order matters: decode &amp; LAST so that doubly-escaped sequences such as
-## &amp;lt; round-trip back to &lt; (the literal 4-character string the user
-## intended), rather than being collapsed to a single < character.
-static func _unescape_xml_attr(value: String) -> String:
-	return value.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&amp;", "&")
-
-
-static func _replace_shell_visuals_logo_attributes(content: String, attr_replacements: Dictionary) -> String:
-	var shell_visuals: RegEx = RegEx.new()
-	shell_visuals.compile('(?s)<ShellVisuals\\b[^>]*>')
-	var shell_match: RegExMatch = shell_visuals.search(content)
-	if shell_match == null:
-		return content
-
-	var patched: String = ""
-	var cursor: int = 0
-	while shell_match != null:
-		patched += content.substr(cursor, shell_match.get_start() - cursor)
-		patched += _replace_logo_attrs_in_tag(shell_match.get_string(), attr_replacements)
-		cursor = shell_match.get_end()
-		shell_match = shell_visuals.search(content, cursor)
-	return patched + content.substr(cursor)
-
-
-static func _replace_logo_attrs_in_tag(tag: String, attr_replacements: Dictionary) -> String:
-	var patched: String = tag
-	for attr_name: String in attr_replacements:
-		var replacement: Dictionary = attr_replacements[attr_name]
-		patched = _replace_xml_attribute_value(
-			patched,
-			attr_name,
-			str(replacement.get("old", "")),
-			str(replacement.get("new", "")))
-	return patched
-
-
-static func _replace_xml_attribute_value(tag: String, attr_name: String,
-		expected_old_value: String, new_value: String) -> String:
-	if expected_old_value.is_empty():
-		return tag
-	var attr_regex: RegEx = RegEx.new()
-	attr_regex.compile('(\\b' + attr_name + '\\s*=\\s*")[^"]*(")')
-	var attr_match: RegExMatch = attr_regex.search(tag)
-	if attr_match == null:
-		return tag
-
-	var escaped_old: String = _escape_xml_attr(expected_old_value)
-	var escaped_new: String = _escape_xml_attr(new_value)
-	var patched: String = ""
-	var cursor: int = 0
-	while attr_match != null:
-		var original: String = attr_match.get_string()
-		var prefix: String = attr_match.get_string(1)
-		var suffix: String = attr_match.get_string(2)
-		var current_value: String = original.substr(prefix.length(),
-			original.length() - prefix.length() - suffix.length())
-		patched += tag.substr(cursor, attr_match.get_start() - cursor)
-		if current_value == expected_old_value or current_value == escaped_old:
-			patched += prefix + escaped_new + suffix
-		else:
-			patched += original
-		cursor = attr_match.get_end()
-		attr_match = attr_regex.search(tag, cursor)
-	return patched + tag.substr(cursor)
-
-
-## Returns the value of the named attribute from the first <ShellVisuals>
-## element in [param content], with XML entities decoded. The returned string
-## holds the literal filename / value (so callers can do filesystem operations
-## and re-escape exactly once when writing the result back).
-static func _find_shell_visuals_attr(content: String, attr_name: String) -> String:
-	var shell_visuals: RegEx = RegEx.new()
-	shell_visuals.compile('(?s)<ShellVisuals\\b[^>]*>')
-	var shell_match: RegExMatch = shell_visuals.search(content)
-	while shell_match != null:
-		var attr_regex: RegEx = RegEx.new()
-		attr_regex.compile('\\b' + attr_name + '\\s*=\\s*"([^"]*)"')
-		var attr_match: RegExMatch = attr_regex.search(shell_match.get_string())
-		if attr_match != null:
-			return _unescape_xml_attr(attr_match.get_string(1))
-		shell_match = shell_visuals.search(content, shell_match.get_end())
-	return ""
 
 
 ## Strips characters disallowed in MicrosoftGame.config Identity/@Name (spaces
@@ -553,57 +376,20 @@ static func _sanitize_identity_name(value: String) -> String:
 	return sanitized
 
 
+## Launches MicrosoftGameConfigEditor.exe with the project's config file.
+## Returns the PID, or -1 on failure.
 func launch_editor() -> int:
 	var config_path: String = get_config_path()
 	if not FileAccess.file_exists(config_path):
 		push_error("[GDK Packaging] MicrosoftGame.config not found — create one first.")
 		return -1
 
-	# Ensure placeholder images exist before opening the editor
+	# Ensure placeholder images exist at the project root (where GameConfigEditor
+	# also writes picked tiles) before opening the editor.
 	_ensure_placeholder_images()
-
-	# Relocate any root-level logos and update config paths to storelogos/
-	# so GameConfigEditor writes directly to storelogos/ on save
-	relocate_logos_to_storelogos()
-	_rewrite_config_paths_to_storelogos()
 
 	var args: PackedStringArray = PackedStringArray([config_path])
 	var pid: int = _toolchain.launch_detached(_toolchain.get_game_config_editor_path(), args)
 	if pid >= 0:
 		print("[GDK Packaging] Launched GameConfigEditor (PID: ", pid, ")")
 	return pid
-
-
-## Rewrites all logo paths in MicrosoftGame.config to use storelogos/ prefix.
-## This ensures GameConfigEditor saves directly into the storelogos/ folder.
-func _rewrite_config_paths_to_storelogos() -> void:
-	var config_path: String = get_config_path()
-	var file: FileAccess = FileAccess.open(config_path, FileAccess.READ)
-	if file == null:
-		return
-	var content: String = file.get_as_text()
-	file.close()
-
-	var logo_attrs: Array = [
-		"StoreLogo",
-		"Square44x44Logo",
-		"Square150x150Logo",
-		"Square480x480Logo",
-		"SplashScreenImage",
-	]
-
-	var logo_attr_replacements: Dictionary = {}
-	for attr: String in logo_attrs:
-		var old_path: String = _find_shell_visuals_attr(content, attr)
-		if old_path.is_empty() or old_path.replace("/", "\\").begins_with("storelogos\\"):
-			continue
-		var filename: String = old_path.replace("\\", "/").get_file()
-		logo_attr_replacements[attr] = {"old": old_path, "new": "storelogos\\" + filename}
-
-	if not logo_attr_replacements.is_empty():
-		content = _replace_shell_visuals_logo_attributes(content, logo_attr_replacements)
-		file = FileAccess.open(config_path, FileAccess.WRITE)
-		if file != null:
-			file.store_string(content)
-			file.close()
-			print("[GDK Packaging] Rewrote config logo paths to storelogos/")
