@@ -1,6 +1,6 @@
-# Godot XBOX Documentation
+# XBOX Godot Sample Documentation
 
-Welcome to the documentation for the Godot XBOX repository — a collection of
+Welcome to the documentation for the XBOX Godot Sample repository — a collection of
 Godot 4.x GDExtension addons for Windows gaming integrations around the
 Microsoft public GDK.
 

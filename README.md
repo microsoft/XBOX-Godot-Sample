@@ -1,4 +1,4 @@
-# Godot XBOX
+# XBOX Godot Sample
 
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
@@ -19,7 +19,7 @@ The **PlayFab extension sample code does not have a specific dependency on the M
 
 The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The sample is currently compatible with the **April 2026 Microsoft GDK** out of the box.
 
-This is the **first step** in our Godot for XBOX on PC integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
+This is the **first step** in our XBOX Godot Sample integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
 
 ## Addons
 

@@ -1,8 +1,8 @@
-# Copilot Instructions — Godot for XBOX on PC Repo
+# Copilot Instructions — XBOX Godot Sample Repo
 
 ## Repository Overview
 
-Godot for XBOX on PC is a repository of Godot 4.x GDExtension addons for Windows gaming integrations around the **Microsoft public GDK**.
+XBOX Godot Sample is a repository of Godot 4.x GDExtension addons for Windows gaming integrations around the **Microsoft public GDK**.
 
 Current addon targets:
 
@@ -85,9 +85,9 @@ A task is not done until the following are satisfied. Walk through this checklis
 
 ## Worktree Lifecycle
 
-This repo regularly uses multiple worktrees for parallel feature branches (`.copilot-worktrees/<branch>` and `R:\repos\godot-public-gdk-ext-<feature>` are both seen in practice). Treat each worktree as expendable:
+This repo regularly uses multiple worktrees for parallel feature branches (`.copilot-worktrees/<branch>` and `R:\repos\XBOX-Godot-Sample-<feature>` are both seen in practice). Treat each worktree as expendable:
 
-- **Name the worktree after its feature branch.** `R:\repos\godot-public-gdk-ext-<feature>` is preferred for human-driven work; `.copilot-worktrees/<branch>` is acceptable for agent-driven slices.
+- **Name the worktree after its feature branch.** `R:\repos\XBOX-Godot-Sample-<feature>` is preferred for human-driven work; `.copilot-worktrees/<branch>` is acceptable for agent-driven slices.
 - **Rebase or merge `origin/main` before "make the PR".** A worktree that has drifted from main is not ready to be reviewed. Run `git fetch origin && git merge --ff-only origin/main` (or `git rebase origin/main`) before opening or refreshing a PR — do not ask the user to retry merges.
 - **Delete the worktree after its PR merges.** Once the corresponding PR is merged into `origin/main` (or explicitly abandoned), remove the worktree with `git worktree remove --force <path>` and `git worktree prune`. Stale worktrees serve as a foothold for outdated `.github/copilot-instructions.md` content and confuse later sessions.
 - **A standalone helper to list stale worktrees** (`tools\list_stale_worktrees.ps1`) is forthcoming in the companion tooling PR. Until it lands, run `git worktree list` manually and check whether each worktree's branch is fully merged into `origin/main` before pruning.
