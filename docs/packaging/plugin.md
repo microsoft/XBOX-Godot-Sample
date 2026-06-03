@@ -215,8 +215,8 @@ by default, or to the resolved `--output` path when supplied.
 |--------|--------|
 | Derived from `app_name` | `Executable@Name="<app_name>.exe"`, `ShellVisuals@DefaultDisplayName="<app_name>"`, and `Identity@Name` set to a sanitized `app_name` with spaces and underscores removed (falling back to `MyGodotGame` if that becomes empty). |
 | Derived from `identity_publisher` | `Identity@Publisher="CN=<identity_publisher>"` (default `CN=Publisher`) and `ShellVisuals@PublisherDisplayName` with the leading `CN=` stripped. |
-| Hardcoded | `Game@configVersion="1"`, `Identity@Version="1.0.0.0"`, `Executable@Id="Game"`, `Executable@TargetDeviceFamily="PC"`, `StoreLogo="storelogos\StoreLogo.png"`, `Square150x150Logo="storelogos\Square150x150Logo.png"`, `Square44x44Logo="storelogos\Square44x44Logo.png"`, `Square480x480Logo="storelogos\Square480x480Logo.png"`, `SplashScreenImage="storelogos\SplashScreenImage.png"`, `Description="A Godot game packaged with GDK"`, `BackgroundColor="#000000"`, `ForegroundText="light"`, and `<AdvancedUserModel>false</AdvancedUserModel>`. |
-| Best-effort side effect | After writing the XML, the addon tries to create sibling `storelogos\*.png` placeholders next to the config file. That step only runs when `<GDK bin>\GameConfigEditorDependencies\default480x480.png` exists and loads successfully; otherwise the config is still created and the addon only warns. |
+| Hardcoded | `Game@configVersion="1"`, `Identity@Version="1.0.0.0"`, `Executable@Id="Game"`, `Executable@TargetDeviceFamily="PC"`, `StoreLogo="StoreLogo.png"`, `Square150x150Logo="Square150x150Logo.png"`, `Square44x44Logo="Square44x44Logo.png"`, `Square480x480Logo="Square480x480Logo.png"`, `SplashScreenImage="SplashScreenImage.png"`, `Description="A Godot game packaged with GDK"`, `BackgroundColor="#000000"`, `ForegroundText="light"`, and `<AdvancedUserModel>false</AdvancedUserModel>`. Logos live at the project root (matching where GameConfigEditor writes a picked tile image) so editing the config never produces duplicate logos. |
+| Best-effort side effect | After writing the XML, the addon tries to create placeholder `*.png` logos at the project root, next to the config file. That step only runs when `<GDK bin>\GameConfigEditorDependencies\default480x480.png` exists and loads successfully; otherwise the config is still created and the addon only warns. |
 
 ### Common failure contracts
 
@@ -228,7 +228,7 @@ by default, or to the resolved `--output` path when supplied.
 
 `prepare_content`, `pack`, and `export` validate every logo destination path
 read from MicrosoftGame.config before copying logo bytes. Relative paths such
-as `storelogos\Square150x150Logo.png` are staged under the content directory;
+as `Square150x150Logo.png` are staged under the content directory;
 absolute paths or paths that simplify outside the content directory (for
 example `..\..\outside.png`) are refused with an error before staging begins.
 

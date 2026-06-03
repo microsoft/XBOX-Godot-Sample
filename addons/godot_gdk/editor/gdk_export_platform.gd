@@ -225,7 +225,7 @@ func _stage_microsoft_game_config(staging_dir: String) -> int:
 		push_error(
 			"GDK Export: MicrosoftGame.config not found at project root.\n" +
 			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
-			"  or place a MicrosoftGame.config (and storelogos/) at the project root.")
+			"  or place a MicrosoftGame.config (and its logo PNGs) at the project root.")
 		return ERR_FILE_NOT_FOUND
 
 	var content: String = FileAccess.get_file_as_string(src)
