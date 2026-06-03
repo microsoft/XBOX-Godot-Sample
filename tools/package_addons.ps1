@@ -271,6 +271,37 @@ function Copy-PackagingAddon {
     }
 }
 
+function FindVisualStudio {
+    if (-not [string]::IsNullOrEmpty($env:VCPKG_ROOT)) {
+        Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
+        return
+    }
+
+    $vsEditions = @('2022', '2026') | ForEach-Object { $year = $_; @('Community', 'Enterprise', 'Professional') | ForEach-Object { "$year\$_" } }
+
+    foreach ($drive in @('C:', 'D:')) {
+        $vsBase = "$drive\Program Files\Microsoft Visual Studio"
+        if (-not (Test-Path -LiteralPath $vsBase -PathType Container)) {
+            continue
+        }
+        foreach ($edition in $vsEditions) {
+            $vcpkgCandidate = Join-Path $vsBase "$edition\VC\vcpkg"
+            if (Test-Path -LiteralPath $vcpkgCandidate -PathType Container) {
+                $env:VCPKG_ROOT = $vcpkgCandidate
+                Write-Host "  VCPKG_ROOT=$env:VCPKG_ROOT"
+                return
+            } else {
+                throw "Could not find VCPKG file in Visual Studio"
+            }
+        }
+    }
+    throw "Could not find Visual Studio install. If it is in a custom directory ensure VCPKG is installed and you set VCPKG_ROOT = \VS_Location\VC\vcpkg "
+}
+
+
+
+FindVisualStudio
+
 $outputFullPath = Resolve-OutputPath -Path $OutputPath
 $stageFullPath = [System.IO.Path]::GetFullPath($script:StageDir)
 $stagePrefix = $stageFullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
