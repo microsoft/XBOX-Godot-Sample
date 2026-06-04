@@ -240,14 +240,14 @@ The recommended pattern is:
 extends Node
 
 func _ready() -> void:
-    var XBOX_user: GDKUser = await _ensure_XBOX_user()
-    if XBOX_user == null:
+    var xbox_user: GDKUser = await _ensure_xbox_user()
+    if xbox_user == null:
         push_warning("XBOX sign-in failed — playing offline.")
         return
 
-    await _ensure_playfab_user(XBOX_user)
+    await _ensure_playfab_user(xbox_user)
 
-func _ensure_XBOX_user() -> GDKUser:
+func _ensure_xbox_user() -> GDKUser:
     if not Engine.has_singleton("GDK"):
         push_error("godot_gdk extension is not loaded")
         return null
@@ -290,7 +290,7 @@ PlayFab equivalent of "silent vs UI" — `sign_in_with_xuser_async`
 authenticates the Microsoft GDK user directly, no extra prompts.
 
 ```gdscript
-func _ensure_playfab_user(XBOX_user: GDKUser) -> PlayFabUser:
+func _ensure_playfab_user(xbox_user: GDKUser) -> PlayFabUser:
     if not Engine.has_singleton("PlayFab"):
         push_error("godot_playfab extension is not loaded")
         return null
@@ -304,7 +304,7 @@ func _ensure_playfab_user(XBOX_user: GDKUser) -> PlayFabUser:
             push_warning("PlayFab.initialize failed: %s" % init.message)
             return null
 
-    var result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(XBOX_user)
+    var result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox_user)
     if not result.ok:
         push_warning("PlayFab sign-in failed: %s" % result.message)
         return null
@@ -317,8 +317,8 @@ func _ensure_playfab_user(XBOX_user: GDKUser) -> PlayFabUser:
 
 `sign_in_with_xuser_async` returns:
 
-- `invalid_xuser` if `XBOX_user` is null or signed out — guard with
-  `XBOX_user != null and XBOX_user.signed_in` before calling.
+- `invalid_xuser` if `xbox_user` is null or signed out — guard with
+  `xbox_user != null and xbox_user.signed_in` before calling.
 - `title_id_required` if `playfab/runtime/title_id` is empty — set it
   in Project Settings (step 2).
 
@@ -352,7 +352,7 @@ snippets above tells you which step failed.
 | Silent sign-in returns `no_default_user` | No test account signed into the XBOX app on the PC, or PC sandbox doesn't match Partner Center. | Sign in a test account via the XBOX app after switching to the right sandbox (step 4). The fallback `add_user_with_ui_async()` will surface the picker. |
 | XBOX Live calls fail with a registration error | `MicrosoftGame.config` is missing, malformed, or has placeholder Title Id / SCID. | Re-run **Microsoft GDK — Edit MicrosoftGame.config** and fill in real Partner Center values. |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty. | Set it in Project Settings (step 2). |
-| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null or signed-out Microsoft GDK user. | Confirm `XBOX_user != null and XBOX_user.signed_in` first. |
+| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null or signed-out Microsoft GDK user. | Confirm `xbox_user != null and xbox_user.signed_in` first. |
 
 ## Where to go from here
 

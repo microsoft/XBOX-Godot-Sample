@@ -19,7 +19,7 @@ docs/
 │   └── async-system.md                      — PlayFab completion/dispatch contract
 ├── gameinput/                               — godot_gameinput addon
 ├── packaging/                               — godot_gdk_packaging addon
-└── platform/                                — Xbox sandbox + test-account setup
+└── platform/                                — XBOX Sandbox + test-account setup
 ```
 
 ## Getting started

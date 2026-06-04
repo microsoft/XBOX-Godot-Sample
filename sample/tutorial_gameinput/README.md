@@ -3,7 +3,7 @@
 This Godot 4.x project is the **end-state** of the
 [GameInput action-bridge tutorial](../../docs/tutorials/gameinput-action-bridge.md),
 the standalone track of the tutorial series. It does **not** depend
-on Xbox sign-in or PlayFab — bring a wired or wireless Xbox
+on XBOX sign-in or PlayFab — bring a wired or wireless XBOX
 controller and you're ready to run.
 
 ## Quick start
@@ -15,7 +15,7 @@ controller and you're ready to run.
    cmake --build build --preset debug
    ```
 
-2. **Plug in a GameInput-supported gamepad.** Xbox controllers
+2. **Plug in a GameInput-supported gamepad.** XBOX controllers
    over USB or Bluetooth are the common case; any GameInput-
    compatible device works.
 
