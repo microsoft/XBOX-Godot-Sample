@@ -90,7 +90,7 @@ node into a scene and assign a small `GameInputActionMap` with one binding.
 - [ ] With a project that maps `move_up` / `move_down` to controller axes,
   the actions drive your gameplay. (This works through Godot's standard
   joypad mapping; the Mapper layer adds GameInput devices that aren't
-  recognised by Godot's built-in joypad enum.)
+  recognized by Godot's built-in joypad enum.)
 - [ ] When you create a custom `GameInputBinding` that targets an action
   **not** present in `InputMap`, the Mapper logs **one** warning per missing
   action (not per frame).

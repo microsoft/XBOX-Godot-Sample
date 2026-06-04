@@ -138,5 +138,13 @@ files are the source of truth for those reference pages.
 
 ## Known Issues
 
-- **Multiple Instances**: A popular Godot feature is to Enable Multiple Instances
-which allows the user to run multiple instances of their game while debugging. This is not recommended as there is only one GDK user in the sample, and attempting this will result in failed connections or crashes. If you wish to run the demos you will need to export the game and run it on a separate computer with a different account. 
+> [!WARNING]
+> **Multiple Instances.** Godot's **Debug → Run Multiple Instances** option
+> lets you launch several copies of the project while debugging. This is
+> **not recommended** with these tutorials: only one GDK user can be signed
+> in on the PC at a time, so additional instances will fail to sign in and
+> may show failed connections or crashes.
+>
+> To exercise the multiplayer scenarios with more than one player, export
+> the game and run the second copy on a separate computer with a different
+> account.

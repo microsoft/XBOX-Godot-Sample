@@ -446,12 +446,12 @@ func _sign_in_to_playfab() -> void:
         if not init.ok:
             push_warning("GDK init failed: %s" % init.message); return
 
-    var XBOX_user: GDKUser = GDK.users.get_primary_user()
-    if XBOX_user == null or not XBOX_user.signed_in:
-        var XBOX_result: GDKResult = await GDK.users.add_default_user_async()
-        if not XBOX_result.ok:
-            push_warning("XBOX sign-in failed: %s" % XBOX_result.message); return
-        XBOX_user = XBOX_result.data
+    var xbox_user: GDKUser = GDK.users.get_primary_user()
+    if xbox_user == null or not xbox_user.signed_in:
+        var xbox_result: GDKResult = await GDK.users.add_default_user_async()
+        if not xbox_result.ok:
+            push_warning("XBOX sign-in failed: %s" % xbox_result.message); return
+        xbox_user = xbox_result.data
 
     # Initialize PlayFab once. The PlayFabBootstrap autoload may have
     # already done this when playfab/runtime/initialize_on_startup is true;
@@ -462,7 +462,7 @@ func _sign_in_to_playfab() -> void:
             push_warning("PlayFab init failed: %s" % pf_init.message); return
 
     # Sign the XBOX user into PlayFab.
-    var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(XBOX_user)
+    var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox_user)
     if not pf_result.ok:
         push_warning("PlayFab sign-in failed: %s" % pf_result.message); return
 
@@ -480,9 +480,9 @@ var pf_result: PlayFabResult = await PlayFab.users.sign_in_with_custom_id_async(
 ```
 
 `sign_in_with_xuser_async` returns `invalid_xuser` if you pass a null or
-signed-out Microsoft GDK user, so always confirm `XBOX_user.signed_in` first.
+signed-out Microsoft GDK user, so always confirm `xbox_user.signed_in` first.
 PlayFab Game Saves additionally require an XBOX-backed PlayFab session
-(custom-id users will get `XBOX_user_required` from `PlayFab.game_saves`
+(custom-id users will get `xbox_user_required` from `PlayFab.game_saves`
 methods).
 
 For the full PlayFab service surface see the
@@ -515,8 +515,8 @@ test-account guide.
 | `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing Microsoft GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the Microsoft GDK is installed on the machine that runs the game |
 | Silent sign-in returns `no_default_user` | No test account signed in to the XBOX app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the XBOX app — see [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md) |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
-| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out Microsoft GDK user | Verify `XBOX_user != null and XBOX_user.signed_in` before calling |
-| `PlayFab.game_saves` returns `XBOX_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
+| `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out Microsoft GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
+| `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
 
 ---
 
@@ -642,8 +642,8 @@ cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft
 > sidesteps this by not loading the vcpkg toolchain at all.
 
 Installed mode consumes the modern `windows\` subdirectory layout of the
-Microsoft GDK (`<install>/windows/include`, `<install>/windows/lib/x64`,
-`<install>/windows/bin/x64`) that ships in Microsoft GDK **260400 / April 2026 and
+Microsoft GDK (`<install>\windows\include`, `<install>\windows\lib\x64`,
+`<install>\windows\bin\x64`) that ships in Microsoft GDK **260400 / April 2026 and
 later**. The legacy `GRDK\` peer layout is not supported; use the
 `default` preset (vcpkg) for older Microsoft GDK versions.
 
