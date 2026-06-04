@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 ## GodotGDK Editor Plugin — keeps the runtime bootstrap wired into projects
-## and registers the [code]Xbox GDK (PC)[/code] export platform.
+## and registers the [code]XBOX on PC[/code] export platform.
 
 const AUTOLOAD_NAME := "GDKBootstrap"
 const AUTOLOAD_PATH := "res://addons/godot_gdk/runtime/gdk_bootstrap.gd"

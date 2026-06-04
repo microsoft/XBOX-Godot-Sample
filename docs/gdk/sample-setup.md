@@ -4,7 +4,7 @@ The integrated tutorial sample needs your **Partner Center** credentials to
 work with XBOX Live services. The supported setup paths are the repo CLI script
 or manually editing the local config files and Project Settings. The
 `godot_gdk` editor plugin no longer docks a **Microsoft GDK Setup** panel; it keeps the
-runtime autoload installed and registers the `Xbox GDK (PC)` export platform.
+runtime autoload installed and registers the `XBOX on PC` export platform.
 
 ## Prerequisites
 
@@ -89,7 +89,7 @@ The generated files are gitignored, so your credentials stay local.
    plugins after the CMake build mirrors them into `sample\tutorial_app\addons\`.
 4. Review **Project → Project Settings** for `gdk/runtime/*` startup settings
    and any PlayFab runtime values needed by the tutorial scenes.
-5. For editor-driven packaging, use **Project → Export… → Add… → `Xbox GDK (PC)`**.
+5. For editor-driven packaging, use **Project → Export… → Add… → `XBOX on PC`**.
    For scripted packaging and sandbox actions, use the separate
    `godot_gdk_packaging` addon (`addons\godot_gdk_packaging\gdkpkg.cmd` or its
    top-level **Microsoft GDK** editor menu).

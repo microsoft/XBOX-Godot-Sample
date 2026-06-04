@@ -57,7 +57,7 @@ can share one script while still choosing automatic or manual startup.
 - `editor\gdk_setup_panel.gd`
 
 These files are still shipped and synced. The current `gdk_editor_plugin.gd`
-registers the custom `Xbox GDK (PC)` export platform and keeps the runtime
+registers the custom `XBOX on PC` export platform and keeps the runtime
 autoload installed, but it no longer docks `gdk_setup_panel.gd`. The repo's
 broader packaging UI lives in the separate `godot_gdk_packaging` addon.
 

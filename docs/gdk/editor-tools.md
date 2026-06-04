@@ -17,7 +17,7 @@ See also:
 - `gdk_export_platform.gd`
 
 The runtime addon's editor plugin owns startup wiring for the runtime addon
-**and** registers the custom `Xbox GDK (PC)` export platform so it appears
+**and** registers the custom `XBOX on PC` export platform so it appears
 in the editor's `Project > Export… > Add…` dropdown alongside the
 built-in platforms.
 
@@ -33,7 +33,7 @@ Today it:
 
 - installs or updates the addon-owned `GDKBootstrap` autoload on
   `_enable_plugin`
-- registers the `Xbox GDK (PC)` export platform on `_enter_tree`
+- registers the `XBOX on PC` export platform on `_enter_tree`
 - does **not** dock `gdk_setup_panel.gd`
 
 `gdk_editor_plugin.gd` owns startup wiring for the runtime addon and
@@ -57,7 +57,7 @@ Treat it as a retained sample/config utility rather than the primary packaging U
 
 ## `gdk_export_platform.gd`
 
-`gdk_export_platform.gd` implements the custom `Xbox GDK (PC)` export
+`gdk_export_platform.gd` implements the custom `XBOX on PC` export
 platform. It is registered by `gdk_editor_plugin.gd` on `_enter_tree`,
 so the platform appears in the editor's `Project > Export… > Add…`
 dropdown alongside Windows Desktop, Linux, etc.

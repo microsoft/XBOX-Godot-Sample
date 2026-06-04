@@ -30,7 +30,7 @@
 
 .PARAMETER Preset
     Godot export preset name. Default: `Windows Desktop`. Pass an alternate
-    preset (e.g. `Xbox GDK (PC)`) to switch all selected samples to it; samples
+    preset (e.g. `XBOX on PC`) to switch all selected samples to it; samples
     that don't define the preset are reported and skipped.
 
 .PARAMETER Configuration
