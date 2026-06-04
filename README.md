@@ -53,7 +53,7 @@ Per-addon documentation:
 
 Platform setup:
 
-- [XBOX sandbox and test accounts](docs/platform/Xbox-sandbox-and-test-accounts.md)
+- [XBOX sandbox and test accounts](docs/platform/xbox-sandbox-and-test-accounts.md)
 
 Design specs live in [`spec/`](spec/) — design intent that is not always reflective of the current implementation.
 
