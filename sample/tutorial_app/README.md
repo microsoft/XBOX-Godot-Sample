@@ -35,12 +35,12 @@ when your own project drifts from the tutorial — open the matching
 ## Producing a packaged build
 
 The sample includes a committed `export_presets.cfg` so a clean clone has
-editable `Windows Desktop` and `Xbox GDK (PC)` presets under
+editable `Windows Desktop` and `XBOX on PC` presets under
 **Project → Export**.
 
 - Install the Godot 4.6.1 export templates under
   `%APPDATA%\Godot\export_templates\` before exporting either preset.
-- The `Xbox GDK (PC)` preset also needs the public GDK toolchain on `PATH`
+- The `XBOX on PC` preset also needs the public GDK toolchain on `PATH`
   and a `MicrosoftGame.config` authored through the packaging addon's
   **Create Game Config** verb.
 - User-specific identity stays local: EKB path, signing identity, sandbox ID,

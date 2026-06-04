@@ -1,8 +1,8 @@
 @tool
 extends EditorExportPlatformExtension
-## Xbox/GDK (PC) export platform — packages Godot projects as MSIXVC for Xbox app.
+## XBOX on PC export platform — packages Godot projects as MSIXVC for Xbox app.
 
-const PLATFORM_NAME := "Xbox GDK (PC)"
+const PLATFORM_NAME := "XBOX on PC"
 const OS_NAME := "Windows"
 
 # GDK tool paths (resolved on init)
