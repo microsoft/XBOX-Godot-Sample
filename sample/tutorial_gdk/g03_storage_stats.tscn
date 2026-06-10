@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=3 uid="uid://bg03storestats"]
+
+[ext_resource type="Script" path="res://g03_storage_stats.gd" id="1_g03"]
+
+[node name="G03StorageStats" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_g03")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "G3 — Title storage & stats"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "GDK.title_storage upload/list/download + GDK.stats stage/flush/query."
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="StorageBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Storage round-trip (Step 1)"
+
+[node name="StatsBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Stats flush + query (Step 2)"
+
+[node name="BackBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "← Back"
+
+[node name="LogPanel" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Log" type="RichTextLabel" parent="Root/LogPanel"]
+layout_mode = 2
+bbcode_enabled = true
+scroll_following = true

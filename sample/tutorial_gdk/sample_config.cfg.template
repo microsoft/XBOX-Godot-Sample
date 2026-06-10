@@ -1,0 +1,31 @@
+; XBOX Godot Sample — GDK Tutorial — sample configuration template.
+;
+; Copy this file to `sample_config.cfg` (next to it) and fill in the
+; values from Partner Center, OR run:
+;
+;     pwsh -File .\tools\setup_sample.ps1
+;
+; which generates `sample_config.cfg` + `MicrosoftGame.config` for you
+; interactively. The committed `.template` is checked in; the generated
+; `.cfg` and `MicrosoftGame.config` are git-ignored (per-developer state).
+;
+; This is the GDK-only track: it talks to Xbox services and never to
+; PlayFab, so there is no [playfab] / [leaderboards] section.
+
+[xbox_live]
+title_id = "<8-char hex title id, e.g. 6718942c>"
+msa_app_id = "<MSA App Id GUID>"
+store_id = "<Store Id, e.g. 9NXXXXXXXXXX>"
+scid = "00000000-0000-0000-0000-0000<title_id>"
+sandbox_id = "<Sandbox Id, e.g. XDKS.1>"
+
+[identity]
+game_name = "XBOX Godot Sample - GDK Tutorial"
+publisher = "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+publisher_display_name = "<Publisher display name>"
+version = "1.0.0.0"
+
+[achievements]
+; G2 unlocks this achievement id; declared in Partner Center.
+demo_achievement_id = "1"
+

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  XBOX Godot Sample Tutorial App - MicrosoftGame.config template.
+
+  Copy this file to `MicrosoftGame.config` (next to it) and fill in the
+  values from Partner Center, OR run:
+
+      pwsh -File .\tools\setup_sample.ps1
+
+  which generates the populated `MicrosoftGame.config` (and the matching
+  `sample_config.cfg`) from your Partner Center inputs.
+
+  The committed `.template` is checked in; the generated
+  `MicrosoftGame.config` is git-ignored (per-developer state).
+
+  Identity/@Name MUST NOT contain spaces or underscores - Partner Center
+  rejects them. Use camelCase or hyphenated tokens.
+-->
+<Game configVersion="1">
+  <Identity Name="PublisherToken.GodotGDKTutorialApp"
+            Publisher="CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+            Version="1.0.0.0" />
+
+  <TitleId>FFFFFFFF</TitleId>
+  <MSAAppId>00000000-0000-0000-0000-000000000000</MSAAppId>
+  <StoreId>9NXXXXXXXXXX</StoreId>
+
+  <ExecutableList>
+    <Executable Name="Godot_v4.6.1-stable_win64.exe"
+                TargetDeviceFamily="PC"
+                Id="Game"
+                IsDevOnly="false" />
+  </ExecutableList>
+
+  <ShellVisuals DefaultDisplayName="XBOX Godot Sample Tutorial App"
+                PublisherDisplayName="Your Publisher"
+                StoreLogo="StoreLogo.png"
+                Square150x150Logo="Logo150.png"
+                Square44x44Logo="Logo44.png"
+                Square480x480Logo="Logo480.png"
+                SplashScreenImage="SplashScreen.png"
+                ForegroundText="light"
+                BackgroundColor="#1a1a2e" />
+
+  <DesktopRegistration>
+    <DependencyList>
+      <KnownDependency Name="VC14" />
+    </DependencyList>
+  </DesktopRegistration>
+</Game>
