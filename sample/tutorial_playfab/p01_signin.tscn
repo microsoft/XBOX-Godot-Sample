@@ -1,0 +1,55 @@
+[gd_scene load_steps=2 format=3 uid="uid://bp01signin"]
+
+[ext_resource type="Script" path="res://p01_signin.gd" id="1_p01"]
+
+[node name="P01Signin" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_p01")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "P1 — Sign in (PlayFab custom id)"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "Reads the PlayFabAuth autoload (sign_in_with_custom_id_async). PlayFab-only: no Xbox step."
+autowrap_mode = 3
+
+[node name="Identity" type="Label" parent="Root"]
+layout_mode = 2
+text = "PlayFab: (not signed in)"
+
+[node name="Status" type="Label" parent="Root"]
+layout_mode = 2
+text = "Signing in…"
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SignIn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Sign in (retry)"
+
+[node name="Back" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "← Back to picker"

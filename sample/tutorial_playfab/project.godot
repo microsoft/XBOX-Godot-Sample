@@ -1,0 +1,38 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="XBOX Godot Sample — PlayFab Tutorial (PlayFab only)"
+run/main_scene="res://shared/tutorial_picker.tscn"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+PlayFabBootstrap="*res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
+PlayFabAuth="*res://autoload/playfab_auth.gd"
+Lobby="*res://autoload/lobby.gd"
+Party="*res://autoload/party.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_playfab/plugin.cfg")
+
+[playfab]
+
+runtime/title_id=""
+runtime/endpoint=""
+runtime/embed_dispatch=true
+runtime/initialize_on_startup=true
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"
