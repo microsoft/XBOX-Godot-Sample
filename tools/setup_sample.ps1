@@ -2,7 +2,7 @@
 # Generates sample_config.cfg and MicrosoftGame.config from your Partner Center values.
 
 param(
-    [string]$ConfigPath = "$PSScriptRoot\..\sample\tutorial_app\sample_config.cfg"
+    [string]$ConfigPath = "$PSScriptRoot\..\sample\tutorial_integrated\sample_config.cfg"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,10 +12,13 @@ if ([string]::IsNullOrEmpty($ConfigPath)) {
     exit 1
 }
 
-# tutorial_gameinput intentionally has no GDK/PlayFab config — it's a
-# standalone GameInput-only sample. If someone points this script at it
-# the generated MicrosoftGame.config / sample_config.cfg will be unused
-# by the sample but harmless to produce.
+# Sample tracks and their config needs:
+#   tutorial_gdk         — GDK only: needs [xbox_live]/[identity] + MicrosoftGame.config.
+#   tutorial_playfab     — PlayFab only: needs [playfab] title_id only; no MicrosoftGame.config.
+#   tutorial_integrated  — both (default target here): full config + MicrosoftGame.config.
+#   tutorial_gameinput   — standalone GameInput sample; no GDK/PlayFab config.
+# Point -ConfigPath at the track you want to configure. The integrated
+# track is the default because it exercises both addons.
 
 function Normalize-TitleId {
     param([string]$Value)

@@ -1,6 +1,6 @@
 ---
 description: Godot GDK addon architecture, async model, script conventions, and sample workflow
-applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/tutorial_app/**, docs/gdk/**, spec/gdext-gdk.md, tools/setup_sample.ps1"
+applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/tutorial_gdk/**, sample/tutorial_integrated/**, docs/gdk/**, docs/tutorials/gdk/**, spec/gdext-gdk.md, tools/setup_sample.ps1"
 ---
 
 # Godot GDK Addon Instructions

@@ -39,7 +39,7 @@ func _build_slides() -> void:
 			"title": "Welcome to the XBOX Godot Sample",
 			"body": """[font_size=16][color=#107c10][b]XBOX Godot Sample[/b][/color] — the official Godot integration sample for the Microsoft Game Development Kit.[/font_size]
 
-This addon brings Xbox PC development tools directly into the Godot Editor through the [b]Microsoft GDK[/b] menu in the editor menu bar — from configuring your game identity, to exporting, packaging, installing, and launching your builds. The companion [b]XBOX Godot Sample Tutorial App[/b] under [b]sample/tutorial_app[/b] is a ready-to-run reference that exercises every surface this wizard covers.
+This addon brings Xbox PC development tools directly into the Godot Editor through the [b]Microsoft GDK[/b] menu in the editor menu bar — from configuring your game identity, to exporting, packaging, installing, and launching your builds. Three companion tutorial projects ship with the repo — [b]sample/tutorial_gdk[/b] (GDK only), [b]sample/tutorial_playfab[/b] (PlayFab only), and [b]sample/tutorial_integrated[/b] (both together) — each a ready-to-run reference for its altitude.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
@@ -98,29 +98,28 @@ Xbox Live services run in isolated sandboxes. Test accounts only authenticate ag
 			"title": "🎮  Sample app",
 			"body": """[font_size=15][b]A ready-to-run tutorial app ships with the addon.[/b][/font_size]
 
-The [b]sample/tutorial_app[/b] project under the repo root is the finished version of every tutorial in the documentation chain (T1 → T8), wired up against the GDK and PlayFab addons. Use it as a reference when your own project drifts from the tutorial — open the matching scene and compare.
+The repo ships three tutorial projects at different altitudes so you can reference just the integration depth you need:
+[color=#107c10]▸[/color]  [b]sample/tutorial_gdk[/b] — GDK only (Xbox sign-in, achievements, title storage & stats, Multiplayer Activity)
+[color=#107c10]▸[/color]  [b]sample/tutorial_playfab[/b] — PlayFab only (custom-id sign-in, leaderboards, Game Saves, lobby, Party)
+[color=#107c10]▸[/color]  [b]sample/tutorial_integrated[/b] — both together (Xbox → PlayFab sign-in + integration tech demo)
+This wizard's packaging surfaces apply to the GDK and integrated tracks (the PlayFab-only track has no MicrosoftGame.config). Use the matching scene as a reference when your own project drifts from the tutorial.
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
 [font_size=14][b]Run it[/b][/font_size]
-[color=#107c10]▸[/color]  Build the addons once so the sample's mirrored [b]addons/[/b] are populated: [code]cmake --build build --preset debug[/code]
-[color=#107c10]▸[/color]  Open [b]sample/tutorial_app/project.godot[/b] in the Godot editor
+[color=#107c10]▸[/color]  Build the addons once so each sample's mirrored [b]addons/[/b] are populated: [code]cmake --build build --preset debug[/code]
+[color=#107c10]▸[/color]  Open one of the [b]sample/tutorial_*[/b] projects in the Godot editor (start with [b]tutorial_integrated[/b])
 [color=#107c10]▸[/color]  Run [code]pwsh -File .\\tools\\setup_sample.ps1[/code] once to fill in your Partner Center / PlayFab identifiers
 [color=#107c10]▸[/color]  Press [b]F5[/b] — the default scene is a tutorial picker; each button loads one tutorial's scene
 
 [font_size=14][b]Tutorial scenes[/b][/font_size]
-[color=#107c10]▸[/color]  [b]t01_signin[/b] — Sign in a local Xbox user
-[color=#107c10]▸[/color]  [b]t02_achievement[/b] — Unlock an achievement
-[color=#107c10]▸[/color]  [b]t03_leaderboard[/b] — Post and read a PlayFab leaderboard score
-[color=#107c10]▸[/color]  [b]t04_game_saves[/b] — Read and write a PlayFab Game Save
-[color=#107c10]▸[/color]  [b]t05_lobby[/b] — Create and join a PlayFab multiplayer lobby
-[color=#107c10]▸[/color]  [b]t06_mpa[/b] — Multiplayer Activity surfaces (invites, join-in-progress)
-[color=#107c10]▸[/color]  [b]t07_party[/b] — PlayFab Party text and voice chat
-[color=#107c10]▸[/color]  [b]t08_integration[/b] — End-to-end tech demo combining T1–T7
+[color=#107c10]▸[/color]  [b]tutorial_gdk[/b]: g01 sign-in · g02 achievement · g03 storage & stats · g04 Multiplayer Activity
+[color=#107c10]▸[/color]  [b]tutorial_playfab[/b]: p01 sign-in · p02 leaderboard · p03 Game Saves · p04 lobby · p05 Party
+[color=#107c10]▸[/color]  [b]tutorial_integrated[/b]: i01 sign-in (Xbox → PlayFab) · i02 integration tech demo
 
 [color=#107c10]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/color]
 
-[color=#d4830b]⚠  Tip:[/color] The full per-tutorial walkthroughs live in [b]docs/tutorials/[/b]. The picker scene is [b]sample/tutorial_app/shared/tutorial_picker.tscn[/b]."""
+[color=#d4830b]⚠  Tip:[/color] The full per-tutorial walkthroughs live in [b]docs/tutorials/[/b]. Each project's picker scene is [b]sample/tutorial_<track>/shared/tutorial_picker.tscn[/b]."""
 		},
 		{
 			"title": "📦  Export & Package",
@@ -196,7 +195,7 @@ In [b]Project → Project Settings → General[/b] (enable [i]Advanced Settings[
 
 [font_size=15][b]Step 2[/b]  🔒  Switch the PC to your development sandbox and sign in a test account[/font_size]
 
-[font_size=15][b]Step 3[/b]  🎮  Open [b]sample/tutorial_app[/b] and run a tutorial scene to see the addons in action[/font_size]
+[font_size=15][b]Step 3[/b]  🎮  Open a [b]sample/tutorial_*[/b] project and run a tutorial scene to see the addons in action[/font_size]
 
 [font_size=15][b]Step 4[/b]  📦  Add a Windows Desktop export preset and run [code]gdkpkg export[/code][/font_size]
 
@@ -213,7 +212,7 @@ In [b]Project → Project Settings → General[/b] (enable [i]Advanced Settings[
     [color=#107c10]▸[/color]  Achievements Guide
     [color=#107c10]▸[/color]  PlayFab Game Manager & Quickstart
 
-[color=gray]For the full setup walkthrough see [b]docs/getting-started.md[/b] and the [b]sample/tutorial_app[/b] project. Reopen this wizard anytime from [b]Microsoft GDK → Getting Started[/b].[/color]"""
+[color=gray]For the full setup walkthrough see [b]docs/getting-started.md[/b] and the [b]sample/tutorial_integrated[/b] project. Reopen this wizard anytime from [b]Microsoft GDK → Getting Started[/b].[/color]"""
 		},
 	]
 

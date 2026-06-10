@@ -2,8 +2,8 @@
 
 This guide is the canonical, addon-agnostic walk-through for getting a PC
 into the right state to test XBOX Live services from any Godot project
-that uses `godot_gdk` (your own project or, once PR 3 of the
-tutorial-driven sample revamp lands, `sample/tutorial_app/`).
+that uses `godot_gdk` (your own project, or the in-repo
+`sample/tutorial_gdk/` and `sample/tutorial_integrated/` projects).
 
 If you are configuring a project's Partner Center IDs (Title ID, SCID, etc.),
 see [`gdk/sample-setup.md`](../gdk/sample-setup.md). This document

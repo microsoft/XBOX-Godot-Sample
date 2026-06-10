@@ -218,7 +218,7 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	lobby.state_changed.connect(on_lobby_change)
 
 	# Shutdown WITHOUT leaving — same path as
-	# sample/tutorial_app/addons/godot_playfab/runtime/playfab_bootstrap.gd
+	# sample/tutorial_integrated/addons/godot_playfab/runtime/playfab_bootstrap.gd
 	# _exit_tree() when the player closes the window mid-lobby. The pre-fix
 	# LeaveLobbyCompleted handler emitted MEMBER_REMOVED with change.member=null
 	# here, which crashed sample listeners on `change.member.user_id`.

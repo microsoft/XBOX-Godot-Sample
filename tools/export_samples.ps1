@@ -17,8 +17,10 @@
     use the editor panel for full GDK packaging.
 
     The repository ships two samples under `sample\`:
-      - `tutorial_app`        — integrated tutorial chain (T1-T8)
-      - `tutorial_gameinput`  — standalone GameInput demo
+      - `tutorial_gdk`         — GDK-only tutorial track
+      - `tutorial_playfab`     — PlayFab-only tutorial track
+      - `tutorial_integrated`  — integrated GDK + PlayFab tutorial track
+      - `tutorial_gameinput`   — standalone GameInput demo
     Pass either name (or both) via `-Sample`. The default `-Sample`
     value is empty so a no-arg invocation is a no-op; opt in
     explicitly per sample. Samples without an `export_presets.cfg`
@@ -26,7 +28,8 @@
 
 .PARAMETER Sample
     One or more sample directory names under `sample\`. Default is empty
-    (no samples). Pass `tutorial_app`, `tutorial_gameinput`, or both.
+    (no samples). Pass one or more of `tutorial_gdk`, `tutorial_playfab`,
+    `tutorial_integrated`, `tutorial_gameinput`.
 
 .PARAMETER Preset
     Godot export preset name. Default: `Windows Desktop`. Pass an alternate
@@ -57,11 +60,11 @@
     No-op (no samples requested). Returns exit code 0.
 
 .EXAMPLE
-    .\tools\export_samples.ps1 -Sample tutorial_app -Configuration Release
-    Release export of `sample\tutorial_app\`.
+    .\tools\export_samples.ps1 -Sample tutorial_integrated -Configuration Release
+    Release export of `sample\tutorial_integrated\`.
 
 .EXAMPLE
-    .\tools\export_samples.ps1 -Sample tutorial_app,tutorial_gameinput
+    .\tools\export_samples.ps1 -Sample tutorial_gdk,tutorial_playfab,tutorial_integrated,tutorial_gameinput
     Debug export of both samples in sequence.
 #>
 [CmdletBinding()]
@@ -235,9 +238,9 @@ function Get-ProjectName {
 # ---------------------------------------------------------------------------
 
 if ($Sample.Count -eq 0) {
-    Write-Host "export_samples.ps1: no samples to export (sample/ is currently empty)."
-    Write-Host "                   The tutorial-driven sample revamp (PR 3) will add"
-    Write-Host "                   sample/tutorial_app/ and sample/tutorial_gameinput/."
+    Write-Host "export_samples.ps1: no samples to export (pass -Sample)."
+    Write-Host "                   Available: tutorial_gdk, tutorial_playfab,"
+    Write-Host "                   tutorial_integrated, tutorial_gameinput."
     exit 0
 }
 

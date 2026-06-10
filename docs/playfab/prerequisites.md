@@ -93,7 +93,7 @@ skipped.
 
 ### Leaderboards (T3, T8)
 
-[Tutorial 3 — Post and query a PlayFab leaderboard](../tutorials/03-playfab-leaderboard.md)
+[Tutorial 3 — Post and query a PlayFab leaderboard](../tutorials/playfab/02-leaderboard.md)
 uses the **statistic-backed** leaderboard pattern: the client writes
 values to a statistic, and a leaderboard sourced from that statistic
 ranks the values. This is the recommended client-safe path: enable
@@ -187,9 +187,10 @@ Functions, or a trusted backend that holds the developer secret key. The
 statistic-backed pattern remains appropriate for any value the client
 is trusted to compute.
 
-### Game Saves (T4, T8)
+### Game Saves (Integrated tech demo)
 
-[Tutorial 4 — Save the player's progress](../tutorials/04-game-saves.md)
+The Game Saves panel in the
+[Integrated tech demo](../tutorials/integrated/02-tech-demo.md)
 requires:
 
 - **`CloudSaves` block in `MicrosoftGame.config`.** The
@@ -216,7 +217,7 @@ requires:
 
 ### Lobby (T5, T6, T7, T8)
 
-[Tutorial 5 — Create and join a lobby](../tutorials/05-multiplayer-lobby.md)
+[Tutorial 5 — Create and join a lobby](../tutorials/playfab/04-lobby.md)
 requires:
 
 - **PlayFab Multiplayer → Lobby feature enabled.** Open Game
@@ -233,7 +234,7 @@ requires:
 
 ### Multiplayer Activity (T6, T8)
 
-[Tutorial 6 — Advertise your lobby with MPA](../tutorials/06-multiplayer-activity.md)
+[Tutorial 6 — Advertise your lobby with MPA](../tutorials/gdk/04-mpa.md)
 is the XBOX-side advertisement layer that sits on top of a PlayFab
 lobby. There is no PlayFab Game Manager fixture for MPA; the
 prerequisites are the XBOX-side SCID, an XBOX-backed PlayFab session,
@@ -244,7 +245,7 @@ place.
 
 ### Party (T7, T8)
 
-[Tutorial 7 — Stand up a PlayFab Party network](../tutorials/07-playfab-party.md)
+[Tutorial 7 — Stand up a PlayFab Party network](../tutorials/playfab/05-party.md)
 requires:
 
 - **PlayFab Multiplayer → Party feature enabled.** Open Game
@@ -263,7 +264,7 @@ The addon registers `playfab/party/local_udp_socket_bind_port` for `PlayFab.part
 
 ### Capstone (T8)
 
-[Tutorial 8 — Integration tech demo](../tutorials/08-integration-tech-demo.md)
+[Tutorial 8 — Integration tech demo](../tutorials/integrated/02-tech-demo.md)
 composes T1 through T7. Its title-side prerequisites are the union of
 the sections above: a `"high_score"` statistic and linked leaderboard
 plus the title-wide **Allow client to post player stats** setting
@@ -393,3 +394,4 @@ the diagnostic next steps.
   `PlayFabResult`.
 - [Troubleshooting](../troubleshooting.md) — error-code references
   for common failure modes.
+

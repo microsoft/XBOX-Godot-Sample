@@ -44,14 +44,16 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
   - do not invent `doc_classes` requirements for addons that do not currently ship them
 - For tutorial / sample snippet drift (the hand-discipline backstop — there is
   no machine validator that holds tutorial prose and sample scripts in lockstep):
-  - If any `docs\tutorials\*.md` was edited in this diff, verify the matching
-    scene or script under `sample\tutorial_app\` (or `sample\tutorial_gameinput\`
-    for the standalone GameInput track) was also touched in the same diff. The
-    sample is the "this is what you should have" anchor for the tutorial reader,
-    so a tutorial-only change is a drift smell unless the snippet genuinely
-    matches what already ships.
-  - If any script under `sample\tutorial_app\` or `sample\tutorial_gameinput\`
-    was edited in this diff, verify the matching `docs\tutorials\*.md` was also
+  - If any `docs\tutorials\**\*.md` was edited in this diff, verify the matching
+    scene or script under the relevant `sample\tutorial_gdk\`,
+    `sample\tutorial_playfab\`, `sample\tutorial_integrated\` (or
+    `sample\tutorial_gameinput\` for the standalone GameInput track) was also
+    touched in the same diff. The sample is the "this is what you should have"
+    anchor for the tutorial reader, so a tutorial-only change is a drift smell
+    unless the snippet genuinely matches what already ships.
+  - If any script under `sample\tutorial_gdk\`, `sample\tutorial_playfab\`,
+    `sample\tutorial_integrated\`, or `sample\tutorial_gameinput\`
+    was edited in this diff, verify the matching `docs\tutorials\**\*.md` was also
     touched. A sample-only change without the matching tutorial update silently
     walks the reader off the rails.
   - If the change is intentionally docs-only or sample-only (typo fix, comment

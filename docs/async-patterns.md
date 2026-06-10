@@ -170,7 +170,7 @@ In normal app code you should never need to call `dispatch()`.
 - **Don't drive sign-in from `GDK.users.user_changed`.** That signal
   fires for every user lifecycle event (adds, removes, picture
   changes, privilege updates). Use the dedicated `_async` entry
-  point in `Auth.sign_in()` (see [Tutorial 1](tutorials/01-sign-in-user.md))
+  point in `Auth.sign_in()` (see [Tutorial 1](tutorials/integrated/01-signin.md))
   — it's idempotent and joins any in-flight attempt instead of
   starting a second one.
 - **Don't shut the runtime down inside an `await`.** Call
@@ -192,3 +192,4 @@ In normal app code you should never need to call `dispatch()`.
   including which services expose `runtime_error` style signals.
 - Every tutorial under [`tutorials/`](tutorials/README.md) — every
   snippet in the tutorial chain follows the patterns described here.
+

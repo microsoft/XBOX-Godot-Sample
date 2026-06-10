@@ -48,9 +48,12 @@ docs/
 
 > Current committed sample hosts:
 >
-> - `sample/tutorial_app/` — integrated tutorial chain (sign-in,
->   achievements, leaderboards, game saves, lobby, MPA, Party,
->   integration tech demo)
+> - `sample/tutorial_gdk/` — GDK-only tutorial track (sign-in,
+>   achievements, title storage & stats, Multiplayer Activity)
+> - `sample/tutorial_playfab/` — PlayFab-only tutorial track (sign-in,
+>   leaderboards, lobby, Party)
+> - `sample/tutorial_integrated/` — integrated GDK + PlayFab track
+>   (Xbox→PlayFab sign-in, integration tech demo)
 > - `sample/tutorial_gameinput/` — standalone GameInput demo
 >
 > [The tutorials](../docs/tutorials/README.md) walk through each

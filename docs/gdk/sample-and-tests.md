@@ -11,12 +11,18 @@ See also:
 
 ## Sample projects
 
-The repository currently ships two tutorial-driven sample projects:
+The repository currently ships four tutorial-driven sample projects:
 
-- `sample\tutorial_app\` — integrated tutorial chain (sign-in, achievements,
-  leaderboards, game saves, lobby, Multiplayer Activity, Party, and the final
-  integration tech demo). The CMake build mirrors `godot_gdk`, `godot_playfab`,
-  and `godot_gdk_packaging` into this project.
+- `sample\tutorial_gdk\` — GDK-only tutorial track (sign-in, achievements,
+  title storage & stats, Multiplayer Activity). The CMake build mirrors
+  `godot_gdk` and `godot_gdk_packaging` into this project (no PlayFab).
+- `sample\tutorial_playfab\` — PlayFab-only tutorial track (sign-in,
+  leaderboards, lobby, Party). The CMake build mirrors only
+  `godot_playfab` into this project (no GDK).
+- `sample\tutorial_integrated\` — integrated tutorial track (sign-in,
+  Multiplayer Activity, Party, and the final integration tech demo). The CMake
+  build mirrors `godot_gdk`, `godot_playfab`, and `godot_gdk_packaging` into
+  this project.
 - `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
   wired for the GameInput addon rather than the Microsoft GDK runtime addon.
 

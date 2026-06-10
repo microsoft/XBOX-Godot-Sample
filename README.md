@@ -25,7 +25,7 @@ This is the **first step** in our XBOX Godot Sample integration journey. We plan
 
 ## Addons
 
-The addons are designed to be dropped into any Godot 4.5+ project. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_app/` and `sample/tutorial_gameinput/`. Build the addons from source per [Getting started](docs/getting-started.md), then drop the addon folders into your project.
+The addons are designed to be dropped into any Godot 4.5+ project. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_gdk/`, `sample/tutorial_playfab/`, `sample/tutorial_integrated/`, and `sample/tutorial_gameinput/`. Build the addons from source per [Getting started](docs/getting-started.md), then drop the addon folders into your project.
 
 | Addon | Description |
 |-------|-------------|

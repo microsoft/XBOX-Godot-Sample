@@ -283,7 +283,7 @@ godot --headless --path path\to\your_project --quit 2>&1 |
 ```
 
 No matching lines means the addons loaded cleanly. (You can point
-`--path` at the in-repo `sample\tutorial_app` project once its addon
+`--path` at any in-repo `sample\tutorial_*` project once its addon
 binaries have been built and synced.) This is a quick load smoke test —
 the repo's own GDScript validator
 (`tools\check_gd_scripts_headless.ps1`) remains the authoritative parse
@@ -705,11 +705,13 @@ files stay intact.
 
 ### Run the bundled samples
 
-> **No sample projects currently.** The repository is mid-revamp;
-> samples are returning in PR 3 of the tutorial-driven sample
-> series (`sample/tutorial_app/` and `sample/tutorial_gameinput/`).
-> Until then, follow [the tutorials](tutorials/README.md) in your
-> own Godot project.
+> The repository ships four tutorial sample projects:
+> `sample/tutorial_gdk/` (GDK only), `sample/tutorial_playfab/`
+> (PlayFab only), `sample/tutorial_integrated/` (both), and
+> `sample/tutorial_gameinput/` (standalone GameInput). Build the addons
+> once (`cmake --build build --preset debug`) so each project's mirrored
+> `addons/` are populated, then open one in Godot. See
+> [the tutorials](tutorials/README.md) for the per-track walkthroughs.
 
 ### Run the tests
 
@@ -754,11 +756,11 @@ addons/godot_gdk_packaging/   # GDScript-only packaging tools (editor-only)
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule
-sample/                   # Sample projects (returning in PR 3 of the
-                          # tutorial-driven sample revamp:
-                          #   tutorial_app/        — integrated chain
-                          #   tutorial_gameinput/  — standalone GameInput
-                          # ; currently empty)
+sample/                   # Tutorial sample projects:
+                          #   tutorial_gdk/         — GDK-only track
+                          #   tutorial_playfab/     — PlayFab-only track
+                          #   tutorial_integrated/  — GDK + PlayFab track
+                          #   tutorial_gameinput/   — standalone GameInput
 tests/                    # Baselines, C++ doctest sources, and Godot test hosts
   godot/gdk/              # GDK and GDK packaging test host
   godot/playfab/          # PlayFab test host

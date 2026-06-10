@@ -68,25 +68,27 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\setup_sample.ps1
 ```
 
 The script prompts for each Partner Center value, derives the current-title
-SCID, then writes `sample\tutorial_app\sample_config.cfg` and
-`sample\tutorial_app\MicrosoftGame.config`. If `export_presets.cfg` already
-exists in that project, the script also updates the matching export-preset
-fields. The script does not create the preset from scratch; start from the
-sample's checked-in base preset.
+SCID, then writes `sample\tutorial_integrated\sample_config.cfg` and
+`sample\tutorial_integrated\MicrosoftGame.config` (the default target; pass
+`-ConfigPath` to target `sample\tutorial_gdk\` instead, or the PlayFab-only
+`sample\tutorial_playfab\` which needs only a PlayFab title id). If
+`export_presets.cfg` already exists in that project, the script also updates
+the matching export-preset fields. The script does not create the preset from
+scratch; start from the sample's checked-in base preset.
 
 The generated files are gitignored, so your credentials stay local.
 
 ## Option B: Configure manually in the project
 
-1. Copy `sample\tutorial_app\sample_config.cfg.template` to
-   `sample\tutorial_app\sample_config.cfg` and fill in the Partner Center
+1. Copy `sample\tutorial_integrated\sample_config.cfg.template` to
+   `sample\tutorial_integrated\sample_config.cfg` and fill in the Partner Center
    values used by the tutorial scripts.
-2. Copy `sample\tutorial_app\MicrosoftGame.config.template` to
-   `sample\tutorial_app\MicrosoftGame.config` and replace the Title ID,
+2. Copy `sample\tutorial_integrated\MicrosoftGame.config.template` to
+   `sample\tutorial_integrated\MicrosoftGame.config` and replace the Title ID,
    MSA App ID, Store ID, identity, publisher, and visual placeholders.
-3. Open `sample\tutorial_app\project.godot` in Godot. The committed project
+3. Open `sample\tutorial_integrated\project.godot` in Godot. The committed project
    already enables the `godot_gdk`, `godot_playfab`, and `godot_gdk_packaging`
-   plugins after the CMake build mirrors them into `sample\tutorial_app\addons\`.
+   plugins after the CMake build mirrors them into `sample\tutorial_integrated\addons\`.
 4. Review **Project → Project Settings** for `gdk/runtime/*` startup settings
    and any PlayFab runtime values needed by the tutorial scenes.
 5. For editor-driven packaging, use **Project → Export… → Add… → `XBOX on PC`**.

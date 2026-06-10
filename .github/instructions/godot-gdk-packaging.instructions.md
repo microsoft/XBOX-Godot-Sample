@@ -1,5 +1,5 @@
 ---
-applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/tutorial_app/**,docs/packaging/**,spec/gdext-packaging.md"
+applyTo: "addons/godot_gdk_packaging/**,tests/godot/gdk/tests/packaging/**,sample/tutorial_gdk/**,sample/tutorial_integrated/**,docs/packaging/**,spec/gdext-packaging.md"
 description: "Godot GDK Packaging addon architecture, headless runner, settings precedence, and editor menu"
 ---
 
@@ -119,14 +119,16 @@ shortcuts.
 
 ## Sample mirrors
 
-`addons/godot_gdk_packaging/` is mirrored into the GDK test host and
-`sample/tutorial_app/` via `godot_addon_sync_directory` in the root
+`addons/godot_gdk_packaging/` is mirrored into the GDK test host and the
+packaging-using sample tracks (`sample/tutorial_gdk/` and
+`sample/tutorial_integrated/`) via `godot_addon_sync_directory` in the root
 CMakeLists. The sync uses `copy_if_different` — **it does not delete
 stale mirror files.** When you remove or rename a file in
 `addons/godot_gdk_packaging/`, run `cmake --build build --preset debug`
 once, then manually delete the stale mirror files under
-`tests/godot/gdk/addons/godot_gdk_packaging/` and
-`sample/tutorial_app/addons/godot_gdk_packaging/` before committing.
+`tests/godot/gdk/addons/godot_gdk_packaging/`,
+`sample/tutorial_gdk/addons/godot_gdk_packaging/`, and
+`sample/tutorial_integrated/addons/godot_gdk_packaging/` before committing.
 
 ## Tests
 

@@ -4,8 +4,8 @@
 > settings, EditorPlugin-installed bootstrap autoload, the standalone
 > `sample/tutorial_gameinput/` sample, and headless tests under
 > `tests/godot/gameinput/tests/` are live. Device metadata is exposed via
-> `GameInputDevice.get_device_info()`. A GameInput panel inside
-> `sample/tutorial_app/` remains deferred.
+> `GameInputDevice.get_device_info()`. A GameInput panel inside the
+> tutorial sample tracks remains deferred.
 >
 > Deviations from the original sketch are listed in
 > [§ Deviations](#deviations-from-the-original-sketch). Deferred items are in
@@ -226,7 +226,7 @@ Raw API is still the right fit for low-level systems. The mapper exists so GDScr
 | 1 | `GameInput` raw polling + device callbacks + vibration | Shipped |
 | 2 | `GameInputMapper` + action map resource | Shipped |
 | 3 | Device info (issue #23) | Shipped (battery half removed — GameInput v3 dropped the API) |
-| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample/tutorial_gameinput/` action-bridge sample is shipped; a GameInput panel inside `sample/tutorial_app/` remains deferred. |
+| 4 | Sample integration | Historical `gdk_launch_point` panel + `multiplayer_pong` rumble/hot-plug shipped; both were removed in the tutorial-driven sample revamp. The standalone `sample/tutorial_gameinput/` action-bridge sample is shipped; a GameInput panel inside the tutorial sample tracks remains deferred. |
 | 5 | Headless test suite + manual hardware checklist | Shipped |
 | 6 | F1 doc XML + user docs + path-scoped instructions | Shipped |
 

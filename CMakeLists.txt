@@ -24,17 +24,23 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
 
-# Per-sample directories. The two tutorial samples have different
-# addon ownership so they are tracked individually rather than as a
-# single undifferentiated GODOT_SAMPLE_DIRS list:
-#   - tutorial_app:        gdk, playfab, gdk_packaging
-#   - tutorial_gameinput:  gameinput only
-# `GODOT_SAMPLE_DIRS` aggregates both for tooling that walks every
+# Per-sample directories. The tutorial samples have different addon
+# ownership so they are tracked individually rather than as a single
+# undifferentiated GODOT_SAMPLE_DIRS list:
+#   - tutorial_gdk:         gdk, gdk_packaging        (GDK only)
+#   - tutorial_playfab:     playfab                   (PlayFab only)
+#   - tutorial_integrated:  gdk, playfab, gdk_packaging
+#   - tutorial_gameinput:   gameinput only
+# `GODOT_SAMPLE_DIRS` aggregates them all for tooling that walks every
 # sample (e.g. the GodotExtensionCommon fallback path).
-set(GODOT_SAMPLE_TUTORIAL_APP_DIR        "${CMAKE_SOURCE_DIR}/sample/tutorial_app")
-set(GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR  "${CMAKE_SOURCE_DIR}/sample/tutorial_gameinput")
+set(GODOT_SAMPLE_TUTORIAL_GDK_DIR         "${CMAKE_SOURCE_DIR}/sample/tutorial_gdk")
+set(GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR     "${CMAKE_SOURCE_DIR}/sample/tutorial_playfab")
+set(GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR  "${CMAKE_SOURCE_DIR}/sample/tutorial_integrated")
+set(GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR   "${CMAKE_SOURCE_DIR}/sample/tutorial_gameinput")
 set(GODOT_SAMPLE_DIRS
-    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
     ${GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR}
 )
 
@@ -54,7 +60,8 @@ option(GODOT_PLAYFAB_TEST_HOST_WITH_GDK
     ON)
 
 set(GODOT_GDK_PROJECT_DIRS
-    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
 )
 
@@ -65,7 +72,8 @@ if(GODOT_PLAYFAB_TEST_HOST_WITH_GDK)
 endif()
 
 set(GODOT_PLAYFAB_PROJECT_DIRS
-    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
     "${CMAKE_SOURCE_DIR}/tests/godot/mp_test_client"
 )
@@ -91,7 +99,8 @@ option(BUILD_GODOT_GDK_PACKAGING "Sync the godot_gdk_packaging editor plugin int
 
 set(GODOT_GDK_PACKAGING_MIRROR_DIRS)
 set(GODOT_GDK_PACKAGING_PROJECT_DIRS
-    ${GODOT_SAMPLE_TUTORIAL_APP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
 )
 

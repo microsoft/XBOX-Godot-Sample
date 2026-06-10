@@ -26,7 +26,7 @@ The addon gives GDScript first-class access to:
 | `GameInputDevice.get_device_info()` | Shipped (issue #23, device-info half) |
 | `GameInputBinding` / `GameInputActionMap` / `GameInputMapper` | Shipped |
 | `EditorPlugin` autoload installer + Project Settings | Shipped |
-| Sample integration (`sample/tutorial_gameinput/` standalone sample; `sample/tutorial_app/` panel deferred) | Standalone sample shipped; `tutorial_app` panel deferred |
+| Sample integration (`sample/tutorial_gameinput/` standalone sample; tutorial-track panel deferred) | Standalone sample shipped; tutorial-track panel deferred |
 | Headless test suite | Shipped |
 | Manual hardware checklist ([docs/gameinput/manual-tests.md](manual-tests.md)) | Shipped |
 | Reading callbacks (event-driven) | Deferred — see issue list |
@@ -184,7 +184,7 @@ The standalone `sample/tutorial_gameinput/` project demonstrates the action
 bridge end-to-end (initialize / shutdown / list devices / inspect primary /
 rumble pulse / stop rumble, with a live device count and a hot-plug event
 log). See its `README.md` for the walkthrough. The GameInput scenario panel
-inside `sample/tutorial_app/` is deferred to a follow-up PR; until then,
+inside the GDK/PlayFab tutorial tracks is deferred to a follow-up PR; until then,
 the standalone sample and the
 [Tutorial — GameInput action bridge](../tutorials/gameinput-action-bridge.md)
 are the recommended entry points.

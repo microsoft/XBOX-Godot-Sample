@@ -41,7 +41,7 @@ func test_multiplayer_service_contract() -> void:
 		assert_has_signal_named(multiplayer, signal_name)
 
 	# All PlayFabLobby state-change kinds are part of the public contract — the
-	# values are referenced from sample/tutorial_app/autoload/lobby.gd and from
+	# values are referenced from sample/tutorial_integrated/autoload/lobby.gd and from
 	# the doc_classes XML. Regressions in either direction (renames or value
 	# shifts) silently break listener match statements.
 	assert_eq(get_class_constant("PlayFabLobby", "MEMBER_ADDED"), 1, "PlayFabLobby.MEMBER_ADDED constant is stable")

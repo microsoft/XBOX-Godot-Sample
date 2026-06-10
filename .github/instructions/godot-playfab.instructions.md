@@ -1,6 +1,6 @@
 ---
 description: Godot PlayFab addon architecture, runtime model, and sample workflow
-applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_app/**, docs/playfab/**, spec/gdext-playfab.md"
+applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_playfab/**, sample/tutorial_integrated/**, docs/playfab/**, docs/tutorials/playfab/**, spec/gdext-playfab.md"
 ---
 
 # Godot PlayFab Addon Instructions
@@ -41,9 +41,9 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_app/*
 
 ## Sample and Workflow
 
-- `sample\tutorial_app\` is the committed PlayFab-facing sample host for the tutorial chain. Use it for docs/spec sample language instead of legacy removed samples.
+- `sample\tutorial_playfab\` (PlayFab-only) and `sample\tutorial_integrated\` (PlayFab + GDK) are the committed PlayFab-facing sample hosts for the tutorial tracks. Use them for docs/spec sample language instead of legacy removed samples.
 - PlayFab GUT suites live under `tests\godot\playfab\tests\` and `extends "res://addons/godot_gdk_tests/playfab_test_base.gd"` (the base is at `addons\godot_gdk\tests_support\bases\playfab_test_base.gd` and is mirrored into the host by CMake). Use custom-ID helpers for default PlayFab sign-in coverage; reserve `ensure_gdk_primary_user_for_playfab()` for optional Xbox-backed compatibility flows. The root CMake option `GODOT_PLAYFAB_TEST_HOST_WITH_GDK` controls whether `godot_gdk` is mirrored into the PlayFab host for those optional flows.
-- When public `godot_playfab` behavior changes, update the docs, spec, tests, and `sample\tutorial_app\` content in the same change rather than leaving automation follow-up for later.
+- When public `godot_playfab` behavior changes, update the docs, spec, tests, and the `sample\tutorial_playfab\` / `sample\tutorial_integrated\` content in the same change rather than leaving automation follow-up for later.
 - After changing synced addon files under `addons\godot_playfab\`, run:
 
 ```powershell

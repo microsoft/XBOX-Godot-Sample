@@ -493,7 +493,7 @@ path is `update_statistics_async`, the T3 sample succeeds and
 subsequent `get_leaderboard_async` calls return the recorded value
 once statistic-to-leaderboard propagation completes (typically a few
 seconds). The
-[Tutorial 3 walkthrough](tutorials/03-playfab-leaderboard.md) and
+[Tutorial 3 walkthrough](tutorials/playfab/02-leaderboard.md) and
 [PlayFab title prerequisites — §2 Leaderboards](playfab/prerequisites.md#leaderboards-t3-t8)
 cover the full pattern.
 
@@ -531,3 +531,4 @@ PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, s
 ### Bootstrap runner exit code is 0 but I never saw `BOOTSTRAP_OK:`
 
 Check that the script prints the literal success prefix before it exits and ends with `quit(0)`. `tools\run_all_tests.ps1` gates the bootstrap stage on process exit code, while the `BOOTSTRAP_OK:` and `BOOTSTRAP_FAIL:` prefixes are the log contract reviewers and manual runs use to understand what happened.
+

@@ -4,8 +4,9 @@
 > test-host conversion that originally landed alongside the legacy
 > sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`,
 > `multiplayer_pong`). Those samples have since been removed; the
-> tutorial-driven sample revamp (PR 3) will reintroduce
-> `sample\tutorial_app\` and `sample\tutorial_gameinput\`. The
+> tutorial-driven sample revamp reintroduced the tutorial samples
+> (`sample\tutorial_gdk\`, `sample\tutorial_playfab\`,
+> `sample\tutorial_integrated\`, `sample\tutorial_gameinput\`). The
 > `tests\godot\*` host contract documented below is unchanged and
 > still authoritative — the goals/non-goals references to the
 > historical samples are kept for context.

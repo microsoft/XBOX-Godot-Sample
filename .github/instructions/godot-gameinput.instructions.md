@@ -105,7 +105,7 @@ applyTo: "addons/godot_gameinput/**, tests/godot/gameinput/**, sample/tutorial_g
   sample. It uses the `GameInputBootstrap` autoload, displays connected-device
   count and hot-plug events, and is the canonical manual host for mapper,
   device discovery, and hot-plug checks.
-- A GameInput scenario panel inside `sample/tutorial_app/` is not present yet.
+- A GameInput scenario panel inside the tutorial sample tracks is not present yet.
   Until that lands, raw rumble verification follows the
   [GameInput manual-test checklist](../../docs/gameinput/manual-tests.md) using
   a small local scene or other GameInput-enabled project.

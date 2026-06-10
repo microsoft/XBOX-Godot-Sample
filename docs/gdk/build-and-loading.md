@@ -63,10 +63,15 @@ broader packaging UI lives in the separate `godot_gdk_packaging` addon.
 
 ### Sample projects
 
-The repository currently ships two tutorial-driven sample projects:
+The repository currently ships four tutorial-driven sample projects:
 
-- `sample\tutorial_app\` — integrated tutorial chain (Microsoft GDK runtime/sign-in,
-  achievements, PlayFab-backed flows, Multiplayer Activity, Party, and the
+- `sample\tutorial_gdk\` — GDK-only tutorial track (Microsoft GDK runtime/sign-in,
+  achievements, title storage & stats, Multiplayer Activity). Receives
+  `godot_gdk` and `godot_gdk_packaging` mirrors from the CMake build (no PlayFab).
+- `sample\tutorial_playfab\` — PlayFab-only tutorial track. Receives only the
+  `godot_playfab` mirror (no GDK).
+- `sample\tutorial_integrated\` — integrated tutorial track (Microsoft GDK
+  runtime/sign-in, PlayFab-backed flows, Multiplayer Activity, Party, and the
   final integration scene). This project receives `godot_gdk`, `godot_playfab`,
   and `godot_gdk_packaging` mirrors from the CMake build.
 - `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
@@ -105,7 +110,8 @@ The effective runtime artifact chain is:
 native C++ sources
   -> godot_gdk.windows.<config>.x86_64.dll
   -> addons\godot_gdk\bin\
-  -> sample\tutorial_app\addons\godot_gdk\bin\
+  -> sample\tutorial_gdk\addons\godot_gdk\bin\
+  -> sample\tutorial_integrated\addons\godot_gdk\bin\
 ```
 
 > **Note:** vcpkg only provides the build-time dependencies. Consumers who
@@ -169,5 +175,5 @@ In practice:
 
 - `tests\godot\gdk\` is the canonical Microsoft GDK test harness
 - `tests\godot\playfab\` receives `godot_gdk` when `GODOT_PLAYFAB_TEST_HOST_WITH_GDK=ON` so optional XBOX-backed PlayFab compatibility tests can run; turn the option off to keep the PlayFab host custom-ID-only
-- `sample\tutorial_app\` receives the Microsoft GDK runtime addon and is the integrated tutorial sample for Microsoft GDK + PlayFab flows
+- `sample\tutorial_gdk\` and `sample\tutorial_integrated\` receive the Microsoft GDK runtime addon; `tutorial_gdk` is the GDK-only tutorial sample and `tutorial_integrated` is the integrated Microsoft GDK + PlayFab tutorial sample (`sample\tutorial_playfab\` is PlayFab-only and is not a Microsoft GDK runtime consumer)
 - `sample\tutorial_gameinput\` is a standalone GameInput sample and is not a Microsoft GDK runtime consumer

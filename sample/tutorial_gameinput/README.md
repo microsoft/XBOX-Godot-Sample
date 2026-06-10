@@ -38,4 +38,6 @@ Install the Godot 4.6.1 export templates under
 
 - [Tutorial — GameInput action bridge](../../docs/tutorials/gameinput-action-bridge.md)
 - [GameInput plugin reference](../../docs/gameinput/plugin.md)
-- Integrated GDK + PlayFab sample: [`sample/tutorial_app/`](../tutorial_app/README.md)
+- GDK-only sample: [`sample/tutorial_gdk/`](../tutorial_gdk/README.md)
+- PlayFab-only sample: [`sample/tutorial_playfab/`](../tutorial_playfab/README.md)
+- Integrated GDK + PlayFab sample: [`sample/tutorial_integrated/`](../tutorial_integrated/README.md)

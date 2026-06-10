@@ -333,7 +333,7 @@ The end-state lives in the standalone GameInput sample at
   ids to per-player `GameInputMapper` nodes.
 - **Wire GameInput into a signed-in XBOX session.** If you also
   built through the main cumulative chain (signs in, lobbies,
-  Party, MPA), the [capstone integration tech demo](08-integration-tech-demo.md)
+  Party, MPA), the [capstone integration tech demo](integrated/02-tech-demo.md)
   is the natural place to drop the gamepad autoload alongside the
   identity / lobby / Party panels.
 
@@ -342,3 +342,4 @@ The end-state lives in the standalone GameInput sample at
   [`GameInputBinding`](../../addons/godot_gameinput/doc_classes/GameInputBinding.xml),
   [`GameInputMapper`](../../addons/godot_gameinput/doc_classes/GameInputMapper.xml),
   [`GameInputDevice`](../../addons/godot_gameinput/doc_classes/GameInputDevice.xml)
+

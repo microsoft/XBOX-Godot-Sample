@@ -1,6 +1,6 @@
 ## PlayFabPartyOps — handle-based Party command implementations.
 ##
-## Mirrors the patterns from sample/tutorial_app/autoload/party.gd
+## Mirrors the patterns from sample/tutorial_integrated/autoload/party.gd
 ## (initialize → create_and_join_network_async → leave_async → send_text_async)
 ## but tracks networks by orchestrator-supplied handle instead of a singleton.
 ## Event frames expose Party network, peer, RPC-packet, and chat-control changes

@@ -193,10 +193,10 @@ Party and Multiplayer shutdown paths are cancellation-first: they emit cancelled
 
 Current `sample\` contents:
 
-- `sample\tutorial_app\` — committed integrated tutorial sample for the GDK + PlayFab chain, including PlayFab sign-in, statistic-backed leaderboards, Game Saves, Lobby, Multiplayer Activity, Party, and the integration tech demo.
+- `sample\tutorial_playfab\` — committed PlayFab-only tutorial sample (custom-id sign-in, statistic-backed leaderboards, Game Saves, Lobby with search, Party). `sample\tutorial_integrated\` — committed GDK + PlayFab integrated tutorial sample (Xbox→PlayFab sign-in and the integration tech demo).
 - `sample\tutorial_gameinput\` — committed standalone GameInput sample; it does not exercise PlayFab.
 
-Use `sample\tutorial_app\` and `tests\godot\playfab\` for PlayFab reference behavior.
+Use `sample\tutorial_playfab\` / `sample\tutorial_integrated\` and `tests\godot\playfab\` for PlayFab reference behavior.
 
 ## Tests
 
