@@ -4,6 +4,8 @@
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
 >
 > **This is a sample specific to XBOX on PC.** There is no specific support for XBOX Series X\|S or XBOX One. Please talk with your Microsoft representative if you'd like to learn more about support on those platforms.
+<img width="1920" height="1080" alt="XBOXGodot_HERO1" src="https://github.com/user-attachments/assets/59dfb9dc-8eb6-4bc0-b15e-c55b90057020" />
+
 
 A working source-only reference for building a Godot extension that wraps the Microsoft **GDK**, **XBOX Services**, and **PlayFab**, and lets you build your title for XBOX on PC — without leaving the engine you already love.
 
@@ -56,6 +58,14 @@ Platform setup:
 - [XBOX sandbox and test accounts](docs/platform/xbox-sandbox-and-test-accounts.md)
 
 Design specs live in [`spec/`](spec/) — design intent that is not always reflective of the current implementation.
+
+## Additional Documentation
+
+- [**Microsoft GDK**](https://github.com/microsoft/GDK) - Microsoft GDK product details
+- [**PlayFab Unified SDK**](https://learn.microsoft.com/en-us/gaming/playfab/sdks/unified-sdk/overview) - PlayFab Unifieid SDK product details
+- [**GameInput**](https://aka.ms/GameInput) - GameInput product details
+- [**Docs**](https://aka.ms/XBOXGodotDocs) - documentation on XBOX development with Godot on Microsoft GDK Learn website
+- [**Issues**](https://aka.ms/XBOXGodotIssues) - list of issues & feedback related to XBOX Godot sample
 
 ## Support and contributing
 
