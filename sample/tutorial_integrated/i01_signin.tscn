@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://bt01signin"]
 
-[ext_resource type="Script" path="res://t01_signin.gd" id="1_t01"]
+[ext_resource type="Script" path="res://i01_signin.gd" id="1_t01"]
 
 [node name="T01Signin" type="Control"]
 layout_mode = 3

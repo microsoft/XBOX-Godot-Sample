@@ -8,14 +8,8 @@ extends Control
 ## opens don't race the Auth autoload's silent sign-in.
 
 const TUTORIALS := [
-	{ "label": "T1 — Sign in",                    "scene": "res://t01_signin.tscn",                  "needs_auth": false },
-	{ "label": "T2 — Unlock an achievement",      "scene": "res://t02_achievement.tscn",             "needs_auth": true },
-	{ "label": "T3 — PlayFab leaderboard",        "scene": "res://t03_leaderboard.tscn",             "needs_auth": true },
-	{ "label": "T4 — Game Saves",                 "scene": "res://t04_game_saves.tscn",              "needs_auth": true },
-	{ "label": "T5 — Multiplayer lobby",          "scene": "res://t05_lobby.tscn",                   "needs_auth": true },
-	{ "label": "T6 — Multiplayer Activity",       "scene": "res://t06_mpa.tscn",                     "needs_auth": true },
-	{ "label": "T7 — PlayFab Party",              "scene": "res://t07_party.tscn",                   "needs_auth": true },
-	{ "label": "T8 — Integration tech demo",      "scene": "res://t08_integration/t08_integration.tscn", "needs_auth": true },
+	{ "label": "I1 — Sign in (Xbox → PlayFab)",   "scene": "res://i01_signin.tscn",                      "needs_auth": false },
+	{ "label": "I2 — Integration tech demo",      "scene": "res://i02_integration/i02_integration.tscn", "needs_auth": true },
 ]
 
 @onready var _status: Label = $Root/Status

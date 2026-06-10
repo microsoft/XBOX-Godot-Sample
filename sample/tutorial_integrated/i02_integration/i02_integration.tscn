@@ -1,12 +1,12 @@
 [gd_scene load_steps=8 format=3 uid="uid://bt08int"]
 
-[ext_resource type="Script" path="res://t08_integration/t08_integration.gd" id="1_root"]
-[ext_resource type="Script" path="res://t08_integration/panel_achievements.gd" id="2_ach"]
-[ext_resource type="Script" path="res://t08_integration/panel_leaderboard.gd" id="3_lb"]
-[ext_resource type="Script" path="res://t08_integration/panel_game_saves.gd" id="4_gs"]
-[ext_resource type="Script" path="res://t08_integration/panel_lobby.gd" id="5_lob"]
-[ext_resource type="Script" path="res://t08_integration/panel_mpa.gd" id="6_mpa"]
-[ext_resource type="Script" path="res://t08_integration/panel_party.gd" id="7_pty"]
+[ext_resource type="Script" path="res://i02_integration/i02_integration.gd" id="1_root"]
+[ext_resource type="Script" path="res://i02_integration/panel_achievements.gd" id="2_ach"]
+[ext_resource type="Script" path="res://i02_integration/panel_leaderboard.gd" id="3_lb"]
+[ext_resource type="Script" path="res://i02_integration/panel_game_saves.gd" id="4_gs"]
+[ext_resource type="Script" path="res://i02_integration/panel_lobby.gd" id="5_lob"]
+[ext_resource type="Script" path="res://i02_integration/panel_mpa.gd" id="6_mpa"]
+[ext_resource type="Script" path="res://i02_integration/panel_party.gd" id="7_pty"]
 
 [node name="TechDemo" type="Control"]
 layout_mode = 3
