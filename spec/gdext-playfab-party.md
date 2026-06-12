@@ -242,10 +242,11 @@ func close_with_reason(reason: String = "") -> void
 Peer-id handshake:
 
 1. Host always starts as Godot peer id `1`.
-2. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its entity-key `Dictionary` and a random join nonce to the host endpoint.
-3. Host allocates the next positive peer id, records `{peer_id, entity-key Dictionary, Party endpoint}`, and replies with a reserved assignment packet.
-4. Client stores the assigned peer id, transitions to connected, and includes the assigned source peer id in future gameplay packet envelopes.
-5. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the network closes.
+2. The host marks its own endpoint at `CreateEndpoint` time with an immutable shared property (`pf.role` = `host`). Party endpoint shared properties cannot be changed after creation and are owned by the creating endpoint, so exactly one endpoint in the network carries the marker. Every device reads it off the remote endpoint (`PartyEndpoint::GetSharedProperty`) to identify the host deterministically.
+3. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its entity-key `Dictionary` and a random join nonce to the host endpoint — the endpoint identified by the `pf.role=host` marker. A remote endpoint whose role cannot be read is contacted defensively (so a transient property-read failure cannot strand the join); client endpoints (marker absent) are skipped.
+4. Host allocates the next positive peer id, records `{peer_id, entity-key Dictionary, Party endpoint}`, and replies with a reserved assignment packet.
+5. Client stores the assigned peer id, transitions to connected, and includes the assigned source peer id in future gameplay packet envelopes.
+6. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the network closes.
 
 Reserved handshake/control packets are filtered out of `_get_packet()` so Godot RPC code only sees gameplay packets.
 
@@ -517,3 +518,44 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - shutdown cleanup for active networks, endpoints, and chat controls.
 
 Live Party tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title.
+
+## Plan
+
+Incremental hardening of the Party↔Godot integration. Each phase lands a
+self-contained slice with its own validation.
+
+- **Phase A — deterministic host identification (host endpoint marker).**
+  The host marks its own endpoint at `CreateEndpoint` with an immutable
+  `pf.role=host` shared property; clients read it to target the join
+  handshake at the host deterministically instead of contacting every
+  remote and relying on "only the host replies." No public API change;
+  star topology unchanged. Tier: non-live GUT + single-client live Party.
+- **Phase B — full mesh (deferred, may not be needed).** Optionally flip
+  Godot peer registration to full uid-based mesh using
+  `PartyEndpoint::GetUniqueIdentifier()` (network-consistent) so chat,
+  voice, and Godot RPC become all-to-all with the host still id `1`.
+  Deferred; revisit only if all-to-all RPC is required.
+
+## Progress
+
+- **Phase A: ✅ implemented (uncommitted).** `addons/godot_playfab/src/playfab_party.cpp`:
+  host sets `pf.role=host` on its endpoint; `endpoint_is_handshake_target()`
+  drives client→host handshake targeting in both the join-enumeration loop
+  and `EndpointCreated`. Validated: debug build + addon mirror, parse gate,
+  full **non-live** orchestrator (`run_all_tests.ps1`) green, and all **live**
+  GUT hosts green against sandbox title `10D176` (single-client live Party +
+  lobby tests exercise the marker path). The multi-client MP orchestrator
+  shows the **same** 34/27 pass/fail with and without Phase A (verified by an
+  A/B run via the new `-SkipGut`), so its failures —
+  `party_invalid_user: local user limit reached`, matchmaking
+  `arranged_lobby_join_start_failed`, and live `timeout` — are pre-existing
+  and unrelated to this change.
+- **Phase B: ⬜ deferred** pending a need for all-to-all RPC.
+
+### Pre-existing follow-up (not Phase A)
+
+The MP orchestrator (`tests\godot\mp_orchestrator`) exhausts the Party SDK's
+per-device local-user limit across its ~61 back-to-back scenarios
+(`party_invalid_user: can't create local user; local user limit reached`).
+The runner should release each scenario's Party local user before the next
+scenario. Tracked separately from the Party addon work.

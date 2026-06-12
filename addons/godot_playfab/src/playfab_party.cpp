@@ -46,6 +46,16 @@ constexpr uint8_t PACKET_KIND_HANDSHAKE_REPLY = 0x02;
 
 constexpr int32_t HOST_PEER_ID = 1;
 
+// Immutable shared property the host sets on its own endpoint at
+// CreateEndpoint time. PlayFab Party endpoint shared properties cannot be
+// changed after creation and are owned by the creating endpoint, so only
+// the host carries this marker. Every device reads it off the remote
+// endpoint (PartyEndpoint::GetSharedProperty) to identify the host
+// deterministically instead of inferring it from "whoever answers the
+// handshake."
+constexpr const char *PF_ENDPOINT_ROLE_KEY = "pf.role";
+constexpr const char *PF_ENDPOINT_ROLE_HOST = "host";
+
 Signal detached_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant()) {
     Ref<PlayFabPendingSignal> pending_signal;
     pending_signal.instantiate();
@@ -85,6 +95,29 @@ Dictionary entity_key_for_endpoint(Party::PartyEndpoint *p_endpoint) {
     p_endpoint->GetEntityId(&id);
     p_endpoint->GetEntityType(&type);
     return entity_id_pair_to_dictionary(id, type);
+}
+
+// Returns true if we should send the join handshake request to this remote
+// endpoint: the host (which carries the immutable PF_ENDPOINT_ROLE_KEY
+// marker) — or, defensively, any endpoint whose role we cannot read, so a
+// transient GetSharedProperty failure can never strand the connection. An
+// endpoint with the property *absent* is a client and is skipped (the host
+// is the only one who answers handshakes anyway).
+bool endpoint_is_handshake_target(Party::PartyEndpoint *p_endpoint) {
+    if (p_endpoint == nullptr) {
+        return false;
+    }
+    Party::PartyDataBuffer value = {};
+    PartyError err = p_endpoint->GetSharedProperty(PF_ENDPOINT_ROLE_KEY, &value);
+    if (PARTY_FAILED(err)) {
+        return true; // role unknown — fall back to contacting the endpoint
+    }
+    if (value.buffer == nullptr || value.bufferByteCount == 0) {
+        return false; // property absent — this is a client endpoint
+    }
+    const size_t host_len = std::strlen(PF_ENDPOINT_ROLE_HOST);
+    return value.bufferByteCount == host_len &&
+            std::memcmp(value.buffer, PF_ENDPOINT_ROLE_HOST, host_len) == 0;
 }
 
 Dictionary entity_key_for_chat_control(Party::PartyChatControl *p_chat_control) {
@@ -2416,17 +2449,21 @@ void PlayFabParty::_process_endpoint_created(const Party::PartyStateChange *p_ch
         return;
     }
 
-    // Client side: when a new remote endpoint becomes visible, also send the
-    // handshake request to it. We cannot tell the host from other remotes a
-    // priori; non-hosts ignore the request (the receiver guards on
-    // is_host_network), and the host responds idempotently because it tracks
-    // assignments by entity_key. Send failures here are not terminal: the
-    // host endpoint may still arrive via a later EndpointCreated event, and
-    // Party's NetworkDestroyed will surface unrecoverable network errors.
+    // Client side: when a new remote endpoint becomes visible, send the
+    // handshake request to it only if it is the host. The host marks its
+    // endpoint with an immutable PF_ENDPOINT_ROLE_KEY shared property at
+    // CreateEndpoint, so we can identify it deterministically instead of
+    // spraying every remote and relying on "only the host replies." Client
+    // endpoints (no marker) are skipped. endpoint_is_handshake_target falls
+    // back to contacting an endpoint whose role cannot be read so a transient
+    // read failure can't strand the join; the host still only answers when it
+    // is the host (is_host_network guard below).
     if (!network->is_host_network()) {
-        PendingOperation *op = _find_handshake_pending(network);
-        if (op != nullptr) {
-            _send_handshake_request_to(op, change->endpoint);
+        if (endpoint_is_handshake_target(change->endpoint)) {
+            PendingOperation *op = _find_handshake_pending(network);
+            if (op != nullptr) {
+                _send_handshake_request_to(op, change->endpoint);
+            }
         }
     }
 }
@@ -3226,13 +3263,31 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
         return E_INVALIDARG;
     }
     Party::PartyLocalEndpoint *endpoint = nullptr;
-    PartyError err = p_operation->native_network->CreateEndpoint(
-            p_operation->native_user,
-            0,
-            nullptr,
-            nullptr,
-            p_operation,
-            &endpoint);
+    PartyError err;
+    if (p_operation->network.is_valid() && p_operation->network->is_host_network()) {
+        // Host marks its endpoint so every device can identify it without a
+        // handshake round-trip. Shared properties are immutable post-creation,
+        // so this is set once here on the host path only.
+        const PartyString keys[1] = { PF_ENDPOINT_ROLE_KEY };
+        Party::PartyDataBuffer values[1] = {};
+        values[0].buffer = PF_ENDPOINT_ROLE_HOST;
+        values[0].bufferByteCount = static_cast<uint32_t>(std::strlen(PF_ENDPOINT_ROLE_HOST));
+        err = p_operation->native_network->CreateEndpoint(
+                p_operation->native_user,
+                1,
+                keys,
+                values,
+                p_operation,
+                &endpoint);
+    } else {
+        err = p_operation->native_network->CreateEndpoint(
+                p_operation->native_user,
+                0,
+                nullptr,
+                nullptr,
+                p_operation,
+                &endpoint);
+    }
     if (PARTY_FAILED(err)) {
         return E_FAIL;
     }
@@ -3287,14 +3342,17 @@ HRESULT PlayFabParty::_start_handshake_step(PendingOperation *p_operation) {
     if (PARTY_FAILED(err)) {
         return E_FAIL;
     }
-    // Send to any already-visible remote endpoints. If none exist yet, the
-    // handshake is deferred and re-attempted from _process_endpoint_created
-    // when a remote endpoint becomes visible. Per-endpoint send failures are
-    // not treated as terminal because the host endpoint may not be among the
-    // currently visible remotes; Party's NetworkDestroyed surfaces real
-    // unrecoverable network errors.
+    // Send to the host endpoint only (identified by its immutable role
+    // marker). If none of the currently-visible endpoints is the host yet,
+    // the handshake is deferred and re-attempted from
+    // _process_endpoint_created when the host endpoint becomes visible.
+    // endpoint_is_handshake_target falls back to contacting an endpoint whose
+    // role cannot be read, so a transient property-read failure can't strand
+    // the join.
     for (uint32_t i = 0; i < endpoint_count; ++i) {
-        if (endpoints[i] != nullptr && endpoints[i] != static_cast<Party::PartyEndpoint *>(local)) {
+        if (endpoints[i] != nullptr &&
+                endpoints[i] != static_cast<Party::PartyEndpoint *>(local) &&
+                endpoint_is_handshake_target(endpoints[i])) {
             _send_handshake_request_to(p_operation, endpoints[i]);
         }
     }
