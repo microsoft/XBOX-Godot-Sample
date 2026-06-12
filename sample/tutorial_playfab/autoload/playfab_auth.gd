@@ -12,6 +12,21 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ##   1. UNINITIALIZED  → SIGNING_IN (PlayFab.sign_in_with_custom_id)
 ##   2. SIGNING_IN → SIGNED_IN (or FAILED)
 ##
+## Multiple instances, different users. The custom id is resolved per
+## instance so you can run several copies of the project locally — each
+## signed into its own PlayFab account — to exercise the Lobby and Party
+## tutorials without a second machine. Pass a distinct user token on the
+## command line:
+##
+##     godot --path sample/tutorial_playfab -- --pf-user=alice
+##
+## In the editor, use [b]Debug → Customize Run Instances…[/b] to give each
+## instance its own [code]--pf-user=<name>[/code] argument. Resolution order
+## is: [code]--pf-user[/code] command-line argument, then the
+## [code]PF_CUSTOM_ID[/code] environment variable, then the default token
+## [code]player[/code]. The token is namespaced under [constant PREFIX], so
+## [code]--pf-user=alice[/code] signs in as [code]godot-playfab-tutorial-alice[/code].
+##
 ## Consumers gate work by awaiting [code]PlayFabAuth.sign_in()[/code], which
 ## is idempotent and joins an in-flight attempt instead of starting a new
 ## one. The single [code]state_changed[/code] signal carries the new state.
@@ -23,10 +38,14 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ##
 ## Source: docs/tutorials/playfab/01-signin.md
 
-# Title-defined custom id. A shipping title derives a stable per-device or
-# per-account id (e.g. a persisted GUID); the tutorial uses a fixed string
-# so the sample signs into the same PlayFab account every run.
-const CUSTOM_ID := "godot-playfab-tutorial-player"
+# Custom ids are namespaced under this prefix so each tutorial user is a
+# distinct PlayFab account (e.g. godot-playfab-tutorial-alice). A shipping
+# title derives a stable per-device or per-account id instead.
+const PREFIX := "godot-playfab-tutorial-"
+const DEFAULT_USER := "player"
+# Command-line flag / environment variable that select the per-instance user.
+const USER_ARG := "--pf-user"
+const USER_ENV := "PF_CUSTOM_ID"
 
 enum State {
 	UNINITIALIZED,
@@ -39,6 +58,7 @@ signal state_changed(state: State)
 
 var _state: State = State.UNINITIALIZED
 var _playfab_user = null
+var _custom_id: String = ""
 var _last_error_stage: String = ""
 var _last_error_message: String = ""
 
@@ -69,6 +89,38 @@ func get_last_error_stage() -> String:
 func get_last_error_message() -> String:
 	return _last_error_message
 
+## Returns the resolved per-instance PlayFab custom id (e.g.
+## "godot-playfab-tutorial-alice"). Stable for the lifetime of the process.
+func get_custom_id() -> String:
+	if _custom_id.is_empty():
+		_custom_id = _resolve_custom_id()
+	return _custom_id
+
+# Resolves the per-instance user token, namespaced under PREFIX. Order:
+#   1. --pf-user=<token> (or "--pf-user <token>") on the command line —
+#      including user args passed after `--`. Set per instance via the
+#      editor's Debug -> Customize Run Instances dialog.
+#   2. PF_CUSTOM_ID environment variable.
+#   3. DEFAULT_USER ("player").
+func _resolve_custom_id() -> String:
+	var token := _read_user_arg()
+	if token.is_empty():
+		token = OS.get_environment(USER_ENV).strip_edges()
+	if token.is_empty():
+		token = DEFAULT_USER
+	return PREFIX + token
+
+func _read_user_arg() -> String:
+	var args: PackedStringArray = OS.get_cmdline_args()
+	args.append_array(OS.get_cmdline_user_args())
+	for i in args.size():
+		var arg := args[i]
+		if arg.begins_with(USER_ARG + "="):
+			return arg.substr((USER_ARG + "=").length()).strip_edges()
+		if arg == USER_ARG and i + 1 < args.size():
+			return args[i + 1].strip_edges()
+	return ""
+
 ## Idempotent. Joins an in-flight attempt if one is already running.
 ## Returns [code]true[/code] when signed in, [code]false[/code] on failure.
 func sign_in() -> bool:
@@ -81,6 +133,10 @@ func sign_in() -> bool:
 	return await _do_sign_in()
 
 func _ready() -> void:
+	# Resolve the per-instance custom id before the first sign-in so every
+	# consumer (and get_custom_id) sees the same value.
+	_custom_id = _resolve_custom_id()
+	print("[PlayFabAuth] custom id: %s" % _custom_id)
 	# Kick off sign-in immediately so the first scene to load can simply
 	# `await PlayFabAuth.sign_in()` and join the in-flight attempt.
 	sign_in()
@@ -127,13 +183,14 @@ func _ensure_playfab_user():
 			return null
 
 	# Reuse a cached custom-id session if one already exists.
-	var cached = AddonApi.singleton("PlayFab").users.get_user_by_custom_id(CUSTOM_ID)
+	var custom_id := get_custom_id()
+	var cached = AddonApi.singleton("PlayFab").users.get_user_by_custom_id(custom_id)
 	if cached != null:
 		return cached
 
 	# Title-defined custom id sign-in. create_account=true provisions a
 	# new PlayFab account on first run; later runs reuse it.
-	var result = await AddonApi.singleton("PlayFab").users.sign_in_with_custom_id_async(CUSTOM_ID, true)
+	var result = await AddonApi.singleton("PlayFab").users.sign_in_with_custom_id_async(custom_id, true)
 	if not result.ok:
 		_set_error("playfab.sign_in", result.message)
 		return null

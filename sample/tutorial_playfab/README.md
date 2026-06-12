@@ -25,6 +25,22 @@ This Godot 4.x project is the reference implementation for the [PlayFab tutorial
 
 `shared/tutorial_picker.tscn` is the default scene.
 
+## Running multiple instances as different users
+
+This track signs in with a PlayFab custom id resolved per instance, so you
+can run several local copies — each its own PlayFab user — to exercise the
+Lobby (P3) and Party (P4) tutorials without a second machine:
+
+- **Editor:** **Debug → Customize Run Instances…**, enable multiple
+  instances, and give each one a distinct argument such as
+  `--pf-user=alice` / `--pf-user=bob`.
+- **Command line:** `godot --path sample/tutorial_playfab -- --pf-user=alice`
+
+Resolution order is `--pf-user=<name>`, then the `PF_CUSTOM_ID` environment
+variable, then the default token `player`. Each distinct token maps to a
+separate PlayFab account (namespaced as `godot-playfab-tutorial-<name>`).
+The P1 sign-in scene and the picker status show the active custom id.
+
 ## Autoloads
 
 - `PlayFabAuth` (`autoload/playfab_auth.gd`) — custom-id PlayFab sign-in; exposes `playfab_user`.

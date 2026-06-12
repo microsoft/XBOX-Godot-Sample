@@ -118,7 +118,7 @@ func _on_auth_state_changed(_state) -> void:
 		if pf_user != null:
 			var key: Dictionary = pf_user.entity_key
 			id = "%s:%s" % [key.get("type", ""), key.get("id", "")]
-		_status.text = "Signed in (%s)" % id
+		_status.text = "Signed in as '%s' (%s)" % [_auth.call("get_custom_id"), id]
 		_set_signin_gated(false)
 	elif _auth.call("is_signing_in"):
 		_status.text = "Signing in…"

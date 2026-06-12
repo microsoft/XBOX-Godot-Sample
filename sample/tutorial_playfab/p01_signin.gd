@@ -12,6 +12,7 @@ extends Control
 ## Source: docs/tutorials/playfab/01-signin.md
 
 @onready var _identity: Label = $Root/Identity
+@onready var _subtitle: Label = $Root/Subtitle
 @onready var _status: Label = $Root/Status
 @onready var _sign_in_button: Button = $Root/Buttons/SignIn
 @onready var _back_button: Button = $Root/Buttons/Back
@@ -27,6 +28,12 @@ func _ready() -> void:
 		_status.text = "PlayFabAuth autoload missing — register autoload/playfab_auth.gd in project.godot."
 		_sign_in_button.disabled = true
 		return
+
+	# Show which per-instance user this copy signs in as. Run several
+	# instances with distinct `--pf-user=<name>` arguments (Debug ->
+	# Customize Run Instances) to put different users in a lobby/Party.
+	var custom_id: String = _auth.call("get_custom_id")
+	_subtitle.text = "Signs in as custom id '%s'. Override per instance with --pf-user=<name>." % custom_id
 
 	_auth.state_changed.connect(_on_auth_state_changed)
 	_refresh()

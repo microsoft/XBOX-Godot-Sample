@@ -32,6 +32,15 @@ const AddonApi = preload("res://shared/addon_api.gd")
 
 const PARTY_DESCRIPTOR_KEY := "party_descriptor"
 
+# Local UDP socket bind port passed to PlayFab.party.initialize_async.
+#   0  -> ask the OS for an ephemeral port (and exclude the Game Core
+#         preferred port). This is what lets several instances of this
+#         project run on the SAME machine without fighting over one UDP
+#         port — required for local multi-instance Lobby/Party testing
+#         (run each with a distinct --pf-user). A shipping single-instance
+#         title can leave this at -1 to use the SDK's default bind.
+const LOCAL_UDP_BIND_PORT := 0
+
 # Party chat permission bitmask -> Party::PartyChatPermissionOptions.
 const PARTY_CHAT_NONE := 0
 const PARTY_CHAT_SEND_AUDIO := 1
@@ -65,6 +74,12 @@ var _network = null
 var _is_host: bool = false
 var _lobby_signals_connected: bool = false
 var _pf_party_signals_connected: bool = false
+# Peer ids we've already surfaced via peer_connected, so the bootstrap
+# replay in _attach_network and the live NETWORK_CHANGE_PEER_JOINED event
+# can't double-emit for the same peer (the client sees the host as both an
+# already-present peer at attach AND a joined-peer event). Cleared on
+# teardown.
+var _connected_peer_ids: Dictionary = {}
 
 # Rubber-duck issue #1 + #2 — guard concurrent teardown so an in-flight
 # host/join op that completes AFTER the lobby disappeared (or after the
@@ -169,11 +184,16 @@ func _ensure_pf_party_initialized() -> bool:
 		cfg.enable_text_chat = true
 		cfg.enable_transcription = false
 
-		var init = await AddonApi.singleton("PlayFab").party.initialize_async(cfg)
+		# Bind to an OS-assigned UDP port (LOCAL_UDP_BIND_PORT == 0) so two
+		# instances on the same host don't collide on one socket. A bind
+		# failure surfaces as party_error with FailedToBindToLocalUdpSocket.
+		print("[Party] Initializing PlayFab.party (udp_bind_port=%d, voice=%s, text=%s)…" % [
+				LOCAL_UDP_BIND_PORT, str(cfg.enable_voice_chat), str(cfg.enable_text_chat)])
+		var init = await AddonApi.singleton("PlayFab").party.initialize_async(cfg, LOCAL_UDP_BIND_PORT)
 		if not init.ok:
 			push_warning("[Party] PlayFab.party init failed: %s (%s)" % [init.message, init.code])
 			return false
-		print("[Party] PlayFab.party initialized lazily (voice=true text=true transcription=false)")
+		print("[Party] PlayFab.party initialized (udp_bind_port=%d; 0 = OS-assigned ephemeral)" % LOCAL_UDP_BIND_PORT)
 
 	if not _pf_party_signals_connected:
 		AddonApi.singleton("PlayFab").party.party_error.connect(_on_party_error)
@@ -215,6 +235,7 @@ func host_party() -> bool:
 	# under Party's c_maxInvitationIdentifierStringLength (127).
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
 
+	print("[Party] Creating Party network (invitation_id=%s)…" % cfg.invitation_id)
 	var result = await AddonApi.singleton("PlayFab").party.create_and_join_network_async(user, cfg)
 
 	# Rubber-duck issue #1 — the lobby may have disappeared while we were
@@ -240,7 +261,7 @@ func host_party() -> bool:
 	var net = result.data
 	_attach_network(net)
 	_set_state(State.IN_NETWORK)
-	print("[Party] Network created — waiting for descriptor…")
+	print("[Party] Network created: %s — waiting for descriptor…" % net.network_id)
 	network_joined.emit(_network)
 
 	# If the finalized descriptor was populated synchronously, publish now.
@@ -260,6 +281,7 @@ func _join_party_network(descriptor: String) -> bool:
 	_set_state(State.JOINING)
 	_abort_party_op = false
 	_is_host = false
+	print("[Party] Joining Party network from lobby descriptor (len=%d)…" % descriptor.length())
 
 	if not await _ensure_pf_party_initialized():
 		_set_state(State.READY)
@@ -482,13 +504,33 @@ func _attach_network(net) -> void:
 		# Don't emit peer_connected for the local peer.
 		if peer_id == peer.get_unique_id():
 			continue
-		peer_connected.emit(peer_id)
+		_emit_peer_connected(peer_id)
 		var ctrl = peer.get_peer_chat_control(peer_id)
 		if ctrl != null:
 			_on_chat_control_added(peer_id, ctrl)
 
 	if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 		rpc("handshake_message", "ready")
+
+# Emits peer_connected at most once per peer id. Both the _attach_network
+# bootstrap replay and the live NETWORK_CHANGE_PEER_JOINED event can report
+# the same peer (notably the host, id 1, on the client side); de-duplicate
+# so consumers see one connect per peer.
+func _emit_peer_connected(peer_id: int) -> void:
+	if _connected_peer_ids.has(peer_id):
+		return
+	_connected_peer_ids[peer_id] = true
+	var entity := ""
+	if _network != null and _network.local_peer != null:
+		entity = str(_network.local_peer.get_peer_entity_key(peer_id))
+	print("[Party] Peer connected: id=%d entity=%s" % [peer_id, entity])
+	peer_connected.emit(peer_id)
+
+func _emit_peer_disconnected(peer_id: int) -> void:
+	if not _connected_peer_ids.erase(peer_id):
+		return
+	print("[Party] Peer %d left" % peer_id)
+	peer_disconnected.emit(peer_id)
 
 func _detach_network() -> void:
 	if _network != null:
@@ -504,6 +546,7 @@ func _detach_network() -> void:
 				peer.chat_control_added.disconnect(_on_chat_control_added)
 	_clear_multiplayer_peer()
 	_network = null
+	_connected_peer_ids.clear()
 
 # --- Signal handlers ---
 
@@ -552,14 +595,9 @@ func _on_network_state_changed(change) -> void:
 		if _is_host and _state == State.IN_NETWORK and _network != null and not _network.descriptor.is_empty():
 			await _publish_descriptor_on_lobby(_network.descriptor, _network)
 	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_PEER_JOINED"):
-		var entity := ""
-		if _network != null and _network.local_peer != null:
-			entity = str(_network.local_peer.get_peer_entity_key(change.peer_id))
-		print("[Party] Peer connected: id=%d entity=%s" % [change.peer_id, entity])
-		peer_connected.emit(change.peer_id)
+		_emit_peer_connected(change.peer_id)
 	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_PEER_LEFT"):
-		print("[Party] Peer %d left" % change.peer_id)
-		peer_disconnected.emit(change.peer_id)
+		_emit_peer_disconnected(change.peer_id)
 	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_STATE"):
 		print("[Party] State → %d (%s)" % [change.state, change.reason])
 	elif kind == AddonApi.constant("PlayFabParty", "NETWORK_CHANGE_ERROR"):

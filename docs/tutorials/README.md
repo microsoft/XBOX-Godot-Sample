@@ -67,6 +67,7 @@ GDScript snippets reference real, declared APIs. The repository's `addons/<addon
 ## Known Issues
 
 > [!WARNING]
-> **Multiple Instances.** Godot's **Debug → Run Multiple Instances** option lets you launch several copies of a project while debugging. This is **not recommended** with tutorials that sign into Xbox services: only one GDK user can be signed in on the PC at a time, so additional instances will fail to sign in and may show failed connections or crashes.
+> **Multiple Instances (GDK / Integrated tracks).** Godot's **Debug → Run Multiple Instances** option lets you launch several copies of a project while debugging. This is **not recommended** for the GDK and Integrated tracks, which sign into Xbox services: only one GDK user can be signed in on the PC at a time, so additional instances will fail to sign in and may show failed connections or crashes. To exercise those multiplayer scenarios with more than one player, export the game and run the second copy on a separate computer with a different account.
 >
-> To exercise multiplayer scenarios with more than one player, export the game and run the second copy on a separate computer with a different account.
+> [!TIP]
+> **Multiple Instances (PlayFab track).** The PlayFab-only track has no Xbox single-user constraint, so it *does* support running multiple local instances as different users. Give each instance a distinct `--pf-user=<name>` argument (via **Debug → Customize Run Instances…**, or `-- --pf-user=alice` on the command line) and each signs into its own PlayFab account — enough to put two players in the same lobby or Party on one machine. See [PlayFab Tutorial 1 — Custom-id sign-in](playfab/01-signin.md).
