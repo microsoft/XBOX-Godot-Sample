@@ -41,6 +41,16 @@
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
     must already exist from a prior build.
 
+.PARAMETER SkipGut
+    Skips the GUT host stage (stage 4) entirely; each host is recorded as
+    `skip` and does not abort the pipeline. Lets the PlayFab Multiplayer
+    orchestrator (stage 5) run without first running the GUT live suites
+    (useful when a flaky live GUT host would otherwise abort the orchestrator).
+
+.PARAMETER SkipOrchestrator
+    Skips the PlayFab Multiplayer orchestrator stage (stage 5). Use it to run
+    the GUT/bootstrap suites without the multi-client live orchestrator.
+
 .PARAMETER OutDir
     Directory for run-summary.{json,md}. Created if missing. Default:
     build\test-results.
@@ -91,6 +101,8 @@ param(
     [switch]$Live,
     [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
+    [switch]$SkipGut,
+    [switch]$SkipOrchestrator,
     [string]$OutDir = 'build/test-results',
     [string[]]$Hosts,
     [string[]]$ParseProjects,
@@ -715,11 +727,9 @@ function Invoke-PlayFabMultiplayerOrchestrator {
         $rec.message = 'Skipped without -AllowLiveWrites / LIVE_WRITE_TESTS=1 (live Multiplayer orchestration mutates lobbies).'
         return $rec
     }
-    if (-not ($HostList -contains 'tests\godot\playfab')) {
-        $rec.status = 'skip'
-        $rec.message = 'Skipped (-Hosts filter excluded tests\godot\playfab).'
-        return $rec
-    }
+    # The orchestrator is its own stage, independent of the GUT -Hosts filter
+    # (use -SkipOrchestrator to exclude it, or -SkipGut to run it without the
+    # GUT suites). It is gated only on the live-write tier below.
     if (-not (Test-Path $script:PlayFabMultiplayerOrchestratorRunner)) {
         $rec.status = 'fail'
         $rec.message = "PlayFab Multiplayer orchestrator runner not found at $script:PlayFabMultiplayerOrchestratorRunner."
@@ -956,7 +966,7 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) { $effectivePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
@@ -1003,7 +1013,17 @@ function Main {
     }
 
     # 4. GUT runs
-    if (-not $abort) {
+    if ($SkipGut) {
+        Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (-SkipGut).'
+        foreach ($h in $hostList) {
+            $skip = New-StageRecord ("gut:" + ($h -replace '\\','/'))
+            $skip.status = 'skip'
+            $skip.message = 'Skipped (-SkipGut).'
+            [void]$stages.Add($skip)
+        }
+        Write-Host ''
+    } elseif (-not $abort) {
         Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
         foreach ($h in $hostList) {
             Write-Host "  - host: $h"
@@ -1022,7 +1042,14 @@ function Main {
     }
 
     # 5. PlayFab Multiplayer orchestrator
-    if (-not $abort) {
+    if ($SkipOrchestrator) {
+        Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        $skip = New-StageRecord 'playfab-multiplayer-orchestrator'
+        $skip.status = 'skip'
+        $skip.message = 'Skipped (-SkipOrchestrator).'
+        [void]$stages.Add($skip)
+        Write-Host "   SKIP: $($skip.message)`n"
+    } elseif (-not $abort) {
         Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
         $stage = Invoke-PlayFabMultiplayerOrchestrator -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
         [void]$stages.Add($stage)
