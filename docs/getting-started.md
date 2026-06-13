@@ -107,7 +107,7 @@ errors in `MicrosoftGame.config`, etc.).
 > this guide refers to.
 
 See [Sample project setup](gdk/sample-setup.md) and
-[XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md)
+[XBOX sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md)
 for the canonical addon-side walk-through.
 
 ### To make PlayFab sign-in work
