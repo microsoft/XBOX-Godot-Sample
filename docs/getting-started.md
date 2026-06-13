@@ -415,7 +415,7 @@ For the full method/signal table see
 > Real XBOX Live sign-in needs Partner Center configuration, the right
 > sandbox set on the PC, and a test account signed into the XBOX app —
 > see [Sample project setup](gdk/sample-setup.md) and
-> [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md).
+> [XBOX sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md).
 > Without those, sign-in will report a clear error and the rest of the
 > game keeps running fine.
 
@@ -513,7 +513,7 @@ test-account guide.
 |---------|--------------|-----|
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy | Copy `addons/<addon>/` recursively, including `bin/` |
 | `[GDK] Bootstrap: 'GDK' singleton not registered` | Extension failed to load (wrong Windows arch, missing Microsoft GDK install, missing `libHttpClient.dll`) | Check that the addon copy preserved `bin/` and that the Microsoft GDK is installed on the machine that runs the game |
-| Silent sign-in returns `no_default_user` | No test account signed in to the XBOX app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the XBOX app — see [XBOX sandbox and test-account setup](platform/XBOX-sandbox-and-test-accounts.md) |
+| Silent sign-in returns `no_default_user` | No test account signed in to the XBOX app on the PC, or the PC sandbox doesn't match Partner Center | Set the sandbox with `XblPCSandbox.exe` and sign a test account into the XBOX app — see [XBOX sandbox and test-account setup](platform/xbox-sandbox-and-test-accounts.md) |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty | Set `playfab/runtime/title_id` in Project Settings (or `project.godot` `[playfab] runtime/title_id="..."`) |
 | `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null / signed-out Microsoft GDK user | Verify `xbox_user != null and xbox_user.signed_in` before calling |
 | `PlayFab.game_saves` returns `xbox_user_required` | The PlayFab session was created with a custom id | Use `sign_in_with_xuser_async` for any flow that touches Game Saves |
