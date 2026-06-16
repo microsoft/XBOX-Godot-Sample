@@ -487,7 +487,8 @@ void PlayFabPartyChatControl::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_local"), &PlayFabPartyChatControl::is_local);
     ClassDB::bind_method(D_METHOD("send_text_async", "targets", "message", "config"), &PlayFabPartyChatControl::send_text_async, DEFVAL(Ref<PlayFabPartyTextMessageConfig>()));
     ClassDB::bind_method(D_METHOD("set_permissions_async", "target", "permissions"), &PlayFabPartyChatControl::set_permissions_async);
-    ClassDB::bind_method(D_METHOD("set_muted_async", "target", "muted"), &PlayFabPartyChatControl::set_muted_async);
+    ClassDB::bind_method(D_METHOD("set_audio_muted_async", "target", "muted"), &PlayFabPartyChatControl::set_audio_muted_async);
+    ClassDB::bind_method(D_METHOD("set_text_muted_async", "target", "muted"), &PlayFabPartyChatControl::set_text_muted_async);
     ClassDB::bind_method(D_METHOD("destroy_async"), &PlayFabPartyChatControl::destroy_async);
 
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_id");
@@ -560,16 +561,28 @@ Signal PlayFabPartyChatControl::set_permissions_async(const Ref<PlayFabPartyChat
     return m_owner->_set_chat_permissions(static_cast<Party::PartyLocalChatControl *>(m_native_handle), p_target->get_native_handle(), p_permissions);
 }
 
-Signal PlayFabPartyChatControl::set_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted) {
+Signal PlayFabPartyChatControl::set_audio_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted) {
     if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
         return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
-                "PlayFabPartyChatControl.set_muted_async requires a connected local chat control.");
+                "PlayFabPartyChatControl.set_audio_muted_async requires a connected local chat control.");
     }
     if (!p_target.is_valid() || p_target->get_native_handle() == nullptr) {
         return detached_error_signal(E_INVALIDARG, PARTY_CHAT_PERMISSION_FAILED,
-                "PlayFabPartyChatControl.set_muted_async requires a target chat control.");
+                "PlayFabPartyChatControl.set_audio_muted_async requires a target chat control.");
     }
     return m_owner->_set_incoming_audio_muted(static_cast<Party::PartyLocalChatControl *>(m_native_handle), p_target->get_native_handle(), p_muted);
+}
+
+Signal PlayFabPartyChatControl::set_text_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFabPartyChatControl.set_text_muted_async requires a connected local chat control.");
+    }
+    if (!p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFabPartyChatControl.set_text_muted_async requires a target chat control.");
+    }
+    return m_owner->_set_incoming_text_muted(static_cast<Party::PartyLocalChatControl *>(m_native_handle), p_target->get_native_handle(), p_muted);
 }
 
 Signal PlayFabPartyChatControl::destroy_async() {
@@ -592,7 +605,8 @@ void PlayFabPartyChat::_bind_methods() {
             DEFVAL(Array()),
             DEFVAL(Ref<PlayFabPartyTextMessageConfig>()));
     ClassDB::bind_method(D_METHOD("set_chat_permissions_async", "entity_key", "permissions"), &PlayFabPartyChat::set_chat_permissions_async);
-    ClassDB::bind_method(D_METHOD("set_muted_async", "entity_key", "muted"), &PlayFabPartyChat::set_muted_async);
+    ClassDB::bind_method(D_METHOD("set_audio_muted_async", "entity_key", "muted"), &PlayFabPartyChat::set_audio_muted_async);
+    ClassDB::bind_method(D_METHOD("set_text_muted_async", "entity_key", "muted"), &PlayFabPartyChat::set_text_muted_async);
     ClassDB::bind_method(D_METHOD("create_local_chat_control_async", "user", "config"),
             &PlayFabPartyChat::create_local_chat_control_async,
             DEFVAL(Ref<PlayFabPartyConfig>()));
@@ -604,7 +618,8 @@ void PlayFabPartyChat::_bind_methods() {
     ADD_SIGNAL(MethodInfo("text_message_received", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
     ADD_SIGNAL(MethodInfo("transcription_received", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
     ADD_SIGNAL(MethodInfo("chat_permissions_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::INT, "permissions")));
-    ADD_SIGNAL(MethodInfo("muted_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::BOOL, "muted")));
+    ADD_SIGNAL(MethodInfo("audio_muted_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::BOOL, "muted")));
+    ADD_SIGNAL(MethodInfo("text_muted_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::BOOL, "muted")));
 }
 
 void PlayFabPartyChat::set_owner(PlayFabParty *p_owner) { m_owner = p_owner; }
@@ -737,21 +752,40 @@ Signal PlayFabPartyChat::set_chat_permissions_async(const Dictionary &p_entity_k
     return completed;
 }
 
-Signal PlayFabPartyChat::set_muted_async(const Dictionary &p_entity_key, bool p_muted) {
+Signal PlayFabPartyChat::set_audio_muted_async(const Dictionary &p_entity_key, bool p_muted) {
     Party::PartyLocalChatControl *local = _local_native_chat_control();
     if (m_owner == nullptr || local == nullptr) {
         return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
-                "PlayFabPartyChat.set_muted_async() requires a connected Party network with a local chat control.");
+                "PlayFabPartyChat.set_audio_muted_async() requires a connected Party network with a local chat control.");
     }
     Ref<PlayFabPartyChatControl> control = get_chat_control(p_entity_key);
     if (control.is_null() || control->get_native_handle() == nullptr) {
         return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
-                String("PlayFabPartyChat.set_muted_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
+                String("PlayFabPartyChat.set_audio_muted_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
     }
     bool succeeded = false;
     Signal completed = m_owner->_set_incoming_audio_muted(local, control->get_native_handle(), p_muted, &succeeded);
     if (succeeded) {
-        emit_signal("muted_changed", p_entity_key, p_muted);
+        emit_signal("audio_muted_changed", p_entity_key, p_muted);
+    }
+    return completed;
+}
+
+Signal PlayFabPartyChat::set_text_muted_async(const Dictionary &p_entity_key, bool p_muted) {
+    Party::PartyLocalChatControl *local = _local_native_chat_control();
+    if (m_owner == nullptr || local == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
+                "PlayFabPartyChat.set_text_muted_async() requires a connected Party network with a local chat control.");
+    }
+    Ref<PlayFabPartyChatControl> control = get_chat_control(p_entity_key);
+    if (control.is_null() || control->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
+                String("PlayFabPartyChat.set_text_muted_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
+    }
+    bool succeeded = false;
+    Signal completed = m_owner->_set_incoming_text_muted(local, control->get_native_handle(), p_muted, &succeeded);
+    if (succeeded) {
+        emit_signal("text_muted_changed", p_entity_key, p_muted);
     }
     return completed;
 }
@@ -3132,6 +3166,29 @@ Signal PlayFabParty::_set_incoming_audio_muted(Party::PartyLocalChatControl *p_l
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_PERMISSION_FAILED, "PartyLocalChatControl::SetIncomingAudioMuted");
         return _make_error_signal(E_FAIL, PARTY_CHAT_PERMISSION_FAILED, result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetIncomingAudioMuted failed."));
+    }
+    if (r_succeeded != nullptr) {
+        *r_succeeded = true;
+    }
+    return _make_ok_signal();
+}
+
+Signal PlayFabParty::_set_incoming_text_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat mute operations cannot start while PlayFab Party is shutting down.");
+    }
+    if (r_succeeded != nullptr) {
+        *r_succeeded = false;
+    }
+    if (p_local_chat_control == nullptr || p_target == nullptr) {
+        return _make_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFab.party._set_incoming_text_muted() requires both a local chat control and a target.");
+    }
+    PartyError err = p_local_chat_control->SetIncomingTextMuted(p_target, p_muted ? PartyBool(1) : PartyBool(0));
+    if (PARTY_FAILED(err)) {
+        Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_PERMISSION_FAILED, "PartyLocalChatControl::SetIncomingTextMuted");
+        return _make_error_signal(E_FAIL, PARTY_CHAT_PERMISSION_FAILED, result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetIncomingTextMuted failed."));
     }
     if (r_succeeded != nullptr) {
         *r_succeeded = true;

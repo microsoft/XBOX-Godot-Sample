@@ -230,7 +230,8 @@ signal chat_control_removed(entity_key: Dictionary)
 signal text_message_received(entity_key: Dictionary, message: PlayFabPartyChatMessage)
 signal transcription_received(entity_key: Dictionary, message: PlayFabPartyChatMessage)
 signal chat_permissions_changed(entity_key: Dictionary, permissions: int)
-signal muted_changed(entity_key: Dictionary, muted: bool)
+signal audio_muted_changed(entity_key: Dictionary, muted: bool)
+signal text_muted_changed(entity_key: Dictionary, muted: bool)
 
 func get_local_chat_control(user: PlayFabUser) -> PlayFabPartyChatControl
 func get_chat_controls() -> Array
@@ -240,7 +241,8 @@ func create_local_chat_control_async(user: PlayFabUser, config: PlayFabPartyConf
 func destroy_local_chat_control_async(user: PlayFabUser) -> Signal
 func send_text_async(message: String, target_entity_keys: Array = [], config: PlayFabPartyTextMessageConfig = null) -> Signal
 func set_chat_permissions_async(entity_key: Dictionary, permissions: int) -> Signal
-func set_muted_async(entity_key: Dictionary, muted: bool) -> Signal
+func set_audio_muted_async(entity_key: Dictionary, muted: bool) -> Signal
+func set_text_muted_async(entity_key: Dictionary, muted: bool) -> Signal
 ```
 
 The chat mesh surfaces every connected chat control — no host relay. An empty
@@ -298,8 +300,8 @@ Peer-facing rules:
 2. An empty `target_entity_keys` array sends to all currently known remote chat controls.
 3. Specific entity-key `Dictionary` values (`{ "id", "type" }`) target those peers.
 4. Unknown or invalid entity keys return a failed `PlayFabResult`; messages must not be silently dropped.
-5. `set_chat_permissions_async(entity_key, permissions)` and `set_muted_async(entity_key, muted)` wrap the local chat-control relationship APIs for the target peer.
-6. Native relationship outcomes update the peer permission/mute cache and emit `chat_permissions_changed` / `muted_changed` (both carry the target peer's entity-key `Dictionary`).
+5. `set_chat_permissions_async(entity_key, permissions)`, `set_audio_muted_async(entity_key, muted)`, and `set_text_muted_async(entity_key, muted)` wrap the local chat-control relationship APIs for the target peer. Voice and text mute are independent (Party's `SetIncomingAudioMuted` vs `SetIncomingTextMuted`): muting voice does not block text and vice versa.
+6. Native relationship outcomes update the peer permission/mute cache and emit `chat_permissions_changed` / `audio_muted_changed` / `text_muted_changed` (all carry the target peer's entity-key `Dictionary`).
 7. Platform privacy and privilege policy is not automatic in the first pass because PartyXbl is out of scope. Title code can resolve policy through existing GDK/Xbox services and apply the result through peer permission helpers.
 
 Recommended permission constants:
@@ -343,7 +345,8 @@ func get_id() -> String
 func get_user() -> PlayFabUser
 func send_text_async(targets: Array[PlayFabPartyChatControl], message: String, config: PlayFabPartyTextMessageConfig = null) -> Signal
 func set_permissions_async(target: PlayFabPartyChatControl, permissions: int) -> Signal
-func set_muted_async(target: PlayFabPartyChatControl, muted: bool) -> Signal
+func set_audio_muted_async(target: PlayFabPartyChatControl, muted: bool) -> Signal
+func set_text_muted_async(target: PlayFabPartyChatControl, muted: bool) -> Signal
 func destroy_async() -> Signal
 ```
 
@@ -434,7 +437,7 @@ func host_party_game(playfab_user: PlayFabUser) -> PlayFabPartyPeer:
     # Chat is meshed onto the single persistent PlayFab.party.chat surface;
     # wire its signals once (e.g. at startup), not per network/peer.
     PlayFab.party.chat.text_message_received.connect(_on_party_text_message)
-    PlayFab.party.chat.muted_changed.connect(_on_party_muted_changed)
+    PlayFab.party.chat.audio_muted_changed.connect(_on_party_audio_muted_changed)
 
     multiplayer.multiplayer_peer = peer
 
@@ -494,7 +497,8 @@ func send_party_text(peer: PlayFabPartyPeer, target_peer_id: int, message: Strin
 
 func mute_peer(peer: PlayFabPartyPeer, target_peer_id: int) -> void:
     var entity_key := peer.get_peer_entity_key(target_peer_id)
-    var result = await PlayFab.party.chat.set_muted_async(entity_key, true)
+    # Voice and text mute are independent; mute voice here, set_text_muted_async for text.
+    var result = await PlayFab.party.chat.set_audio_muted_async(entity_key, true)
     if not result.ok:
         push_warning(result.message)
 ```
@@ -604,10 +608,20 @@ self-contained slice with its own validation.
   creates one. **Breaking:** titles must create the chat control before joining
   with chat. Tier: non-live GUT (API surface) + live Party/MP orchestrator
   (runtime).
+- **Phase D — independent voice/text mute.** Split the single audio-only
+  `set_muted_async` into `set_audio_muted_async` (Party `SetIncomingAudioMuted`)
+  and `set_text_muted_async` (Party `SetIncomingTextMuted`) on both
+  `PlayFabPartyChat` (entity-key keyed) and `PlayFabPartyChatControl`, with
+  matching `audio_muted_changed` / `text_muted_changed` signals. Voice and text
+  mute are independent in the SDK; the prior API could only mute voice.
+  **Breaking:** `set_muted_async` / `muted_changed` are renamed. Tier: non-live
+  GUT (API surface) + live MP orchestrator (`party.chat.mute_peer` mutes text and
+  asserts text delivery is blocked; `party.chat.text.three_clients` validates host
+  fan-out to both guests).
 
 ## Progress
 
-- **Phase A: ✅ implemented (uncommitted).** `addons/godot_playfab/src/playfab_party.cpp`:
+- **Phase A: ✅ implemented.** `addons/godot_playfab/src/playfab_party.cpp`:
   host sets `pf.role=host` on its endpoint; `endpoint_is_handshake_target()`
   drives client→host handshake targeting in both the join-enumeration loop
   and `EndpointCreated`. Validated: debug build + addon mirror, parse gate,
@@ -620,7 +634,7 @@ self-contained slice with its own validation.
   `arranged_lobby_join_start_failed`, and live `timeout` — are pre-existing
   and unrelated to this change.
 - **Phase B: ⬜ deferred** pending a need for all-to-all RPC.
-- **Phase C: ✅ implemented (uncommitted).** Chat-control creation is decoupled
+- **Phase C: ✅ implemented.** Chat-control creation is decoupled
   from network join. `PlayFabPartyChat` gains
   `create_local_chat_control_async(user, config)` (idempotent; completed signal
   carries the `PlayFabPartyChatControl`) and `destroy_local_chat_control_async(user)`.
@@ -643,6 +657,38 @@ self-contained slice with its own validation.
   `party_invalid_user` ("local user limit reached"), which is a pre-existing
   accumulation unrelated to Phase C (see follow-up below), not a regression from
   this change. Re-run on a configured sandbox title before merge.
+- **Phase D: ✅ implemented.** `set_muted_async` → `set_audio_muted_async`
+  + `set_text_muted_async` on both `PlayFabPartyChat` (entity-key) and
+  `PlayFabPartyChatControl` (target), backed by `PlayFabParty::_set_incoming_audio_muted`
+  / new `_set_incoming_text_muted`; `muted_changed` → `audio_muted_changed` /
+  `text_muted_changed`. doc_classes, spec, the PlayFab/integrated tutorial
+  autoloads + integrated chat panel (mute toggle = voice), `test_party.gd`
+  surface/detached-error assertions, and the MP harness (`party_set_peer_muted`
+  gains a `channel` of `audio`/`text`/`both`) updated to match. The MP
+  `party.chat.mute_peer` flow now mutes the **text** channel and asserts text is
+  blocked (previously it muted audio and vacuously "passed" only because text
+  never flowed).
+  - **`_party_triplet`** (`mp_scenario_utils.gd`) was corrected to the
+    host-centric star — the host converges to 2 transport peers while each guest
+    converges to 1 (it previously expected an all-to-all `peer_count == 2`, which
+    is Phase B and is deferred). It then waits on a new chat-mesh readiness gate
+    (`remote_chat_control_count >= 2` on each role, surfaced from the client
+    snapshot) so a chat send isn't raced against chat-control discovery.
+  - **`party.chat.text.three_clients`** now validates host **fan-out** (host
+    broadcasts; both guests receive). Direct guest→guest text is full-mesh
+    territory (Phase B) and is intentionally not exercised. Root cause of the
+    earlier 3-client failure was a **permission-readiness race**, not transport:
+    the test client's fire-and-forget `_grant_default_chat_permissions` (issued on
+    `chat_control_added`) can land before the peer's chat control is messaging-ready
+    in the slower 3-client convergence, so the host's text was filtered out at the
+    guests. The scenario now explicitly grants and **awaits** `RECEIVE_TEXT` for the
+    host (peer id 1) on each guest via the retrying `party_set_peer_chat_permissions`
+    gate — the same readiness probe the issue #73 rejoin scenario uses — before
+    broadcasting, and re-sends until delivered. With this it passes reliably (~3–6s).
+  - Validated: debug build + addon mirror, parse gate, non-live GUT tier, and
+    **live** on sandbox title `10D176`: `party.chat.text.round_trip`,
+    `party.chat.mute.peer` (text mute blocks delivery), and
+    `party.chat.text.three_clients` all green.
 
 ### Pre-existing follow-up (not Phase A)
 

@@ -16,7 +16,8 @@
 		<method name="is_local" qualifiers="const"><return type="bool" /><description>Returns whether the chat control is local.</description></method>
 		<method name="send_text_async"><return type="Signal" /><param index="0" name="targets" type="Array" /><param index="1" name="message" type="String" /><param index="2" name="config" type="PlayFabPartyTextMessageConfig" default="null" /><description>Sends [param message] to the listed target chat controls.</description></method>
 		<method name="set_permissions_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="permissions" type="int" /><description>Updates the local chat-control relationship permissions for [param target]. See [enum PlayFabParty.ChatPermission].</description></method>
-		<method name="set_muted_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes [param target] on the local chat control.</description></method>
+		<method name="set_audio_muted_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes incoming [b]voice audio[/b] from [param target] on the local chat control. Independent of [method set_text_muted_async].</description></method>
+		<method name="set_text_muted_async"><return type="Signal" /><param index="0" name="target" type="PlayFabPartyChatControl" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes incoming [b]text chat[/b] from [param target] on the local chat control. Independent of [method set_audio_muted_async].</description></method>
 		<method name="destroy_async"><return type="Signal" /><description>Destroys the chat control. The owning network may recreate it on demand.</description></method>
 	</methods>
 	<members>

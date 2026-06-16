@@ -242,7 +242,8 @@ public:
 
     Signal send_text_async(const Array &p_targets, const String &p_message, const Ref<PlayFabPartyTextMessageConfig> &p_config = Ref<PlayFabPartyTextMessageConfig>());
     Signal set_permissions_async(const Ref<PlayFabPartyChatControl> &p_target, int64_t p_permissions);
-    Signal set_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted);
+    Signal set_audio_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted);
+    Signal set_text_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted);
     Signal destroy_async();
 };
 
@@ -285,7 +286,8 @@ public:
 
     Signal send_text_async(const String &p_message, const Array &p_target_entity_keys = Array(), const Ref<PlayFabPartyTextMessageConfig> &p_config = Ref<PlayFabPartyTextMessageConfig>());
     Signal set_chat_permissions_async(const Dictionary &p_entity_key, int64_t p_permissions);
-    Signal set_muted_async(const Dictionary &p_entity_key, bool p_muted);
+    Signal set_audio_muted_async(const Dictionary &p_entity_key, bool p_muted);
+    Signal set_text_muted_async(const Dictionary &p_entity_key, bool p_muted);
 
     // Explicitly create the calling local user's chat control, configured from
     // p_config (audio in/out devices and the voice/text/transcription flags),
@@ -670,6 +672,7 @@ private:
     void _configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
     Signal _set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded = nullptr);
     Signal _set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
+    Signal _set_incoming_text_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
     Signal _destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control);
     // Phase C: explicit, network-independent local chat-control lifecycle backing
     // PlayFabPartyChat.create_local_chat_control_async/destroy_local_chat_control_async.

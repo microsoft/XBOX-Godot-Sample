@@ -131,14 +131,21 @@ func run_party_chat_text_three_clients(orch) -> Dictionary:
 	if gate != null: return gate
 	var triplet: Variant = await _party_triplet(orch, true)
 	if _is_failure(triplet): return triplet
+	# Host-centric star: the host is the only endpoint that registers (and routes
+	# chat to) every guest, so a single host broadcast fans out to both guests.
+	# Direct guest->guest text delivery is full-mesh territory (Phase B) and is
+	# intentionally not exercised here — see spec/gdext-playfab-party.md.
+	#
+	# Each guest registers the host as peer_id 1, so we explicitly grant (and await)
+	# RECEIVE_TEXT for the host before sending instead of leaning on the async
+	# auto-grant fired on chat_control_added — the awaited grant is the same
+	# "chat plumbing ready" gate the issue #73 rejoin scenario relies on.
+	const PARTY_CHAT_PERMISSION_RECEIVE_TEXT: int = 4
+	for role in ["guest", "guest2"]:
+		var ready: Variant = await _retry_party_set_peer_chat_permissions(orch, role, "party", 1, PARTY_CHAT_PERMISSION_RECEIVE_TEXT, PARTY_WAIT_MS)
+		if _is_failure(ready): return ready
 	var text: String = _unique_token(orch, "chat-three")
-	var host_wait = _client(orch, "host").expect_event("party.chat.text_received", { "text": text })
-	var guest2_wait = _client(orch, "guest2").expect_event("party.chat.text_received", { "text": text })
-	var sent: Variant = await _party_send_chat(orch, "guest", text)
-	if _is_failure(sent): return sent
-	if not bool((await host_wait.wait(PARTY_WAIT_MS)).get("ok", false)): return fail("host did not receive guest chat text")
-	if not bool((await guest2_wait.wait(PARTY_WAIT_MS)).get("ok", false)): return fail("guest2 did not receive guest chat text")
-	return ok()
+	return await _party_broadcast_chat_until_received(orch, "host", ["guest", "guest2"], text)
 
 
 func run_party_chat_mute_peer(orch) -> Dictionary:
@@ -147,7 +154,7 @@ func run_party_chat_mute_peer(orch) -> Dictionary:
 	var pair: Variant = await _party_pair(orch, true)
 	if _is_failure(pair): return pair
 	var guest_id: int = int(pair.get("guest_network", {}).get("local_peer_unique_id", 0))
-	var muted: Variant = await _command_ok(orch, "host", "party_set_peer_muted", { "handle": "party", "peer_id": guest_id, "muted": true }, COMMAND_TIMEOUT_MS)
+	var muted: Variant = await _command_ok(orch, "host", "party_set_peer_muted", { "handle": "party", "peer_id": guest_id, "muted": true, "channel": "text" }, COMMAND_TIMEOUT_MS)
 	if _is_failure(muted): return muted
 	var text: String = _unique_token(orch, "chat-muted")
 	var wait_host = _client(orch, "host").expect_event("party.chat.text_received", { "text": text })

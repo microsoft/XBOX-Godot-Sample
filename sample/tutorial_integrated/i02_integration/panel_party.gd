@@ -157,7 +157,7 @@ func _on_mute_remotes_toggled(button_pressed: bool) -> void:
 		return
 	for peer_id in _peer.get_peers():
 		var entity_key: Dictionary = _peer.get_peer_entity_key(peer_id)
-		_chat.set_muted_async(entity_key, button_pressed)
+		_chat.set_audio_muted_async(entity_key, button_pressed)
 
 func _on_network_state_changed(_change) -> void:
 	_refresh_peers()

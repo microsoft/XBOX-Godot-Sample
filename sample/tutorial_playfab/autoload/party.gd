@@ -390,14 +390,15 @@ func resolve_chat_capabilities() -> Dictionary:
 	# CommunicationVoiceIngame (see the integrated track's Party autoload).
 	return { "text": true, "voice": true }
 
-# Tutorial 4 Step 7 — per-peer mute, keyed by PlayFab entity key. Returns
-# false if not in a network or the underlying SDK call fails.
+# Tutorial 4 Step 7 — per-peer voice mute, keyed by PlayFab entity key. Voice
+# and text mute are independent; use chat.set_text_muted_async to mute text.
+# Returns false if not in a network or the underlying SDK call fails.
 func toggle_mute(entity_key: Dictionary, muted: bool) -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] toggle_mute rejected — not in a network (state=%d)" % _state)
 		return false
 	var chat = AddonApi.singleton("PlayFab").party.chat
-	var pf = await chat.set_muted_async(entity_key, muted)
+	var pf = await chat.set_audio_muted_async(entity_key, muted)
 	if not pf.ok:
 		push_warning("[Party] mute toggle failed: %s" % pf.message)
 	return pf.ok

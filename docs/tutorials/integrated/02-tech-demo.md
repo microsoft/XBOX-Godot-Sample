@@ -1388,7 +1388,9 @@ func _on_send_pressed() -> void:
 
 func _on_mute_remotes_toggled(button_pressed: bool) -> void:
 
-    # The addon exposes per-peer mute via PlayFabPartyChat.set_muted_async,
+    # The addon exposes per-peer voice and text mute independently via
+    # PlayFabPartyChat.set_audio_muted_async / set_text_muted_async (this toggle
+    # mutes voice).
 
     # keyed by the peer's PlayFab entity key. The capstone wires the toggle to
 
@@ -1404,7 +1406,7 @@ func _on_mute_remotes_toggled(button_pressed: bool) -> void:
 
         var entity_key: Dictionary = _peer.get_peer_entity_key(peer_id)
 
-        _chat.set_muted_async(entity_key, button_pressed)
+        _chat.set_audio_muted_async(entity_key, button_pressed)
 
 
 
@@ -1498,7 +1500,7 @@ won't retroactively see the message.
 
 
 
-The **mute remotes** toggle uses `PlayFab.party.chat.set_muted_async(entity_key,
+The **mute remotes** toggle uses `PlayFab.party.chat.set_audio_muted_async(entity_key,
 
 muted)` against every known remote peer (resolving each peer id to
 

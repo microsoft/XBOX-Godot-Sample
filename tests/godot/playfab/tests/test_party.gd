@@ -56,7 +56,8 @@ const PARTY_CHAT_METHODS := [
 	"get_chat_control",
 	"send_text_async",
 	"set_chat_permissions_async",
-	"set_muted_async",
+	"set_audio_muted_async",
+	"set_text_muted_async",
 	"create_local_chat_control_async",
 	"destroy_local_chat_control_async",
 ]
@@ -68,7 +69,8 @@ const PARTY_CHAT_SIGNALS := [
 	"text_message_received",
 	"transcription_received",
 	"chat_permissions_changed",
-	"muted_changed",
+	"audio_muted_changed",
+	"text_muted_changed",
 ]
 
 
@@ -333,7 +335,8 @@ func test_party_chat_methods_detached() -> void:
 	# control) must surface deferred error results keyed by entity key.
 	await _assert_signal_error(chat.send_text_async("hi", [{ "id": "guest", "type": "title_player_account" }]), "party_peer_not_connected", "Detached PlayFabPartyChat.send_text_async() reports party_peer_not_connected")
 	await _assert_signal_error(chat.set_chat_permissions_async({ "id": "guest", "type": "title_player_account" }, get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")), "party_peer_not_connected", "Detached PlayFabPartyChat.set_chat_permissions_async() reports party_peer_not_connected")
-	await _assert_signal_error(chat.set_muted_async({ "id": "guest", "type": "title_player_account" }, true), "party_peer_not_connected", "Detached PlayFabPartyChat.set_muted_async() reports party_peer_not_connected")
+	await _assert_signal_error(chat.set_audio_muted_async({ "id": "guest", "type": "title_player_account" }, true), "party_peer_not_connected", "Detached PlayFabPartyChat.set_audio_muted_async() reports party_peer_not_connected")
+	await _assert_signal_error(chat.set_text_muted_async({ "id": "guest", "type": "title_player_account" }, true), "party_peer_not_connected", "Detached PlayFabPartyChat.set_text_muted_async() reports party_peer_not_connected")
 
 
 func test_party_chat_control_helpers() -> void:
@@ -350,7 +353,8 @@ func test_party_chat_control_helpers() -> void:
 		"is_local",
 		"send_text_async",
 		"set_permissions_async",
-		"set_muted_async",
+		"set_audio_muted_async",
+		"set_text_muted_async",
 		"destroy_async",
 	]:
 		assert_has_method_named(control, method_name)
@@ -359,7 +363,8 @@ func test_party_chat_control_helpers() -> void:
 
 	await _assert_signal_error(control.send_text_async([], "hello"), "party_resource_not_ready", "Detached PlayFabPartyChatControl.send_text_async() reports party_resource_not_ready")
 	await _assert_signal_error(control.set_permissions_async(null, get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_permissions_async() reports party_chat_permission_failed")
-	await _assert_signal_error(control.set_muted_async(null, true), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_muted_async() reports party_chat_permission_failed")
+	await _assert_signal_error(control.set_audio_muted_async(null, true), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_audio_muted_async() reports party_chat_permission_failed")
+	await _assert_signal_error(control.set_text_muted_async(null, true), "party_chat_permission_failed", "Detached PlayFabPartyChatControl.set_text_muted_async() reports party_chat_permission_failed")
 	var destroy_signal = control.destroy_async()
 	assert_eq(typeof(destroy_signal), TYPE_SIGNAL, "Detached PlayFabPartyChatControl.destroy_async() returns completion Signal")
 	if typeof(destroy_signal) == TYPE_SIGNAL:

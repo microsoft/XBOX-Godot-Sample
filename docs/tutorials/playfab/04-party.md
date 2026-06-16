@@ -682,7 +682,7 @@ func toggle_mute(entity_key: Dictionary, muted: bool) -> bool:
 
 	var chat = AddonApi.singleton("PlayFab").party.chat
 
-	var pf = await chat.set_muted_async(entity_key, muted)
+	var pf = await chat.set_audio_muted_async(entity_key, muted)
 
 	if not pf.ok:
 

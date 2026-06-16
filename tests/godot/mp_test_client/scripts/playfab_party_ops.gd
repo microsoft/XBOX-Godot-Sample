@@ -251,10 +251,18 @@ func send_chat_text(params: Dictionary) -> Dictionary:
 	var chat: Object = _get_chat()
 	if chat == null:
 		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	# Diagnostic: when broadcasting (no explicit targets), capture which remote
+	# chat controls the SDK will fan the text out to, so multi-client scenarios can
+	# tell a genuine delivery failure from an empty/stale target list at send time.
+	var broadcast_targets: Array = []
+	if target_entity_keys.is_empty() and chat.has_method("get_chat_controls"):
+		for ctrl in chat.get_chat_controls():
+			if ctrl != null and ctrl.has_method("is_local") and not ctrl.is_local():
+				broadcast_targets.append(String(ctrl.id) if "id" in ctrl else "")
 	var result: Variant = await _runtime.await_completion(chat.send_text_async(text, target_entity_keys), SEND_TEXT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "PlayFabPartyChat.send_text_async")
-	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text, "target_peer_ids": echo_peer_ids })
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text, "target_peer_ids": echo_peer_ids, "broadcast_target_ids": broadcast_targets, "broadcast_target_count": broadcast_targets.size() })
 
 
 func set_peer_muted(params: Dictionary) -> Dictionary:
@@ -268,16 +276,22 @@ func set_peer_muted(params: Dictionary) -> Dictionary:
 	if peer_id <= 0:
 		return _err("invalid_peer_id", "party_set_peer_muted requires peer_id > 0")
 	var muted: bool = bool(params.get("muted", true))
+	var channel: String = String(params.get("channel", "audio"))
 	var entity_key: Dictionary = peer.get_peer_entity_key(peer_id)
 	if entity_key.is_empty():
 		return _err("invalid_peer_id", "party_set_peer_muted unknown peer_id %d" % peer_id)
 	var chat: Object = _get_chat()
 	if chat == null:
 		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
-	var result: Variant = await _runtime.await_completion(chat.set_muted_async(entity_key, muted), DEFAULT_AWAIT_TIMEOUT_MS)
-	if result == null or not bool(result.ok):
-		return _err_from_result(result, "PlayFabPartyChat.set_muted_async")
-	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "muted": muted })
+	if channel == "audio" or channel == "both":
+		var audio_result: Variant = await _runtime.await_completion(chat.set_audio_muted_async(entity_key, muted), DEFAULT_AWAIT_TIMEOUT_MS)
+		if audio_result == null or not bool(audio_result.ok):
+			return _err_from_result(audio_result, "PlayFabPartyChat.set_audio_muted_async")
+	if channel == "text" or channel == "both":
+		var text_result: Variant = await _runtime.await_completion(chat.set_text_muted_async(entity_key, muted), DEFAULT_AWAIT_TIMEOUT_MS)
+		if text_result == null or not bool(text_result.ok):
+			return _err_from_result(text_result, "PlayFabPartyChat.set_text_muted_async")
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "muted": muted, "channel": channel })
 
 
 func set_peer_chat_permissions(params: Dictionary) -> Dictionary:
@@ -417,7 +431,8 @@ func _ensure_chat_signals() -> void:
 	_connect_peer_signal(chat, "text_message_received", _on_chat_text_message_received)
 	_connect_peer_signal(chat, "transcription_received", _on_chat_transcription_received)
 	_connect_peer_signal(chat, "chat_permissions_changed", _on_chat_permissions_changed)
-	_connect_peer_signal(chat, "muted_changed", _on_chat_muted_changed)
+	_connect_peer_signal(chat, "audio_muted_changed", _on_chat_audio_muted_changed)
+	_connect_peer_signal(chat, "text_muted_changed", _on_chat_text_muted_changed)
 	_chat_signals_connected = true
 
 
@@ -522,9 +537,14 @@ func _on_chat_permissions_changed(entity_key: Dictionary, permissions: int) -> v
 	_queue_event("party.chat_permissions_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "permissions": permissions })
 
 
-func _on_chat_muted_changed(entity_key: Dictionary, muted: bool) -> void:
+func _on_chat_audio_muted_changed(entity_key: Dictionary, muted: bool) -> void:
 	var handle: String = _handle_for_entity_key(entity_key)
-	_queue_event("party.muted_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "muted": muted })
+	_queue_event("party.audio_muted_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "muted": muted })
+
+
+func _on_chat_text_muted_changed(entity_key: Dictionary, muted: bool) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.text_muted_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "muted": muted })
 
 
 func _chat_message_payload(handle: String, peer_id: int, message: Object) -> Dictionary:
@@ -711,7 +731,23 @@ func _network_snapshot(network: Object) -> Dictionary:
 		snap["connection_status"] = 0
 		snap["peer_ids"] = []
 		snap["peer_count"] = 0
+	# Chat is meshed onto the single global PlayFab.party.chat surface, independent
+	# of the host-star transport peers. Surface the count of remote (non-local)
+	# chat controls so scenarios can wait for the chat mesh to converge before they
+	# send text — peer_count tracks transport registration, not chat readiness.
+	snap["remote_chat_control_count"] = _remote_chat_control_count()
 	return snap
+
+
+func _remote_chat_control_count() -> int:
+	var chat: Object = _get_chat()
+	if chat == null or not chat.has_method("get_chat_controls"):
+		return 0
+	var count: int = 0
+	for ctrl in chat.get_chat_controls():
+		if ctrl != null and ctrl.has_method("is_local") and not ctrl.is_local():
+			count += 1
+	return count
 
 
 func _instantiate(class_name_str: String) -> Object:

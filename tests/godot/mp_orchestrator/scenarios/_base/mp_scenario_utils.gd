@@ -362,6 +362,20 @@ func _wait_party_peer_count(orch, role: String, handle: String, expected_count: 
 	return fail("party peer count did not converge", { "role": role, "handle": handle, "expected": expected_count, "last": last })
 
 
+func _wait_party_chat_mesh(orch, role: String, handle: String, expected_remote: int, timeout_ms: int = PARTY_WAIT_MS) -> Variant:
+	var deadline: int = Time.get_ticks_msec() + timeout_ms
+	var last: Dictionary = {}
+	while Time.get_ticks_msec() < deadline:
+		var snap: Variant = await _party_snapshot(orch, role, handle)
+		if _is_failure(snap):
+			return snap
+		last = snap
+		if int(snap.get("remote_chat_control_count", 0)) >= expected_remote:
+			return snap
+		await _sleep_ms(orch, 500)
+	return fail("party chat mesh did not converge", { "role": role, "handle": handle, "expected": expected_remote, "last": last })
+
+
 func _party_pair(orch, enable_text: bool = true) -> Variant:
 	var signed: Variant = await _sign_in_roles(orch, ["host", "guest"])
 	if _is_failure(signed):
@@ -398,10 +412,27 @@ func _party_triplet(orch, enable_text: bool = true) -> Variant:
 		var joined: Variant = await _party_join_network(orch, role, "party", descriptor, invitation_id, enable_text)
 		if _is_failure(joined):
 			return joined
-	for role in ["host", "guest", "guest2"]:
-		var waited: Variant = await _wait_party_peer_count(orch, role, "party", 2)
+	# Host-centric star: the host registers every guest, but each guest only
+	# registers the host (full mesh is Phase B, deferred). So the host converges
+	# to 2 transport peers while each guest converges to 1 (the host). Party chat
+	# is still meshed, so cross-guest chat is exercised separately by callers.
+	var host_waited: Variant = await _wait_party_peer_count(orch, "host", "party", 2)
+	if _is_failure(host_waited):
+		return host_waited
+	for role in ["guest", "guest2"]:
+		var waited: Variant = await _wait_party_peer_count(orch, role, "party", 1)
 		if _is_failure(waited):
 			return waited
+	# Transport peers converge on the host star above, but cross-guest chat needs
+	# the meshed chat surface to settle: every endpoint must surface the other two
+	# chat controls (and grant them RECEIVE_TEXT on chat_control_added) before a
+	# broadcast send can reach all peers. Wait on that mesh when text is enabled so
+	# guest→guest2 delivery isn't raced against chat-control discovery.
+	if enable_text:
+		for role in ["host", "guest", "guest2"]:
+			var meshed: Variant = await _wait_party_chat_mesh(orch, role, "party", 2)
+			if _is_failure(meshed):
+				return meshed
 	return { "invitation_id": invitation_id, "descriptor": descriptor }
 
 
@@ -419,3 +450,44 @@ func _party_send_rpc_ping(orch, role: String, correlation_id: String, payload: D
 
 func _party_send_chat(orch, role: String, text: String) -> Variant:
 	return await _command_ok(orch, role, "party_send_chat_text", { "handle": "party", "text": text }, COMMAND_TIMEOUT_MS)
+
+
+# Broadcasts a chat text from `sender` and waits until every role in
+# `receiver_roles` has surfaced a party.chat.text_received for it, re-sending on
+# a cadence until they all arrive or the deadline expires. RECEIVE_TEXT grants
+# are auto-issued on chat_control_added but propagate asynchronously, so the
+# first broadcast can land before a receiver has authorized the sender. A single
+# armed waiter per receiver catches whichever resend finally gets through, which
+# keeps multi-client text delivery robust against grant-propagation latency
+# instead of racing a one-shot send against it.
+func _party_broadcast_chat_until_received(orch, sender: String, receiver_roles: Array, text: String, total_timeout_ms: int = PARTY_WAIT_MS, resend_interval_ms: int = 6000) -> Variant:
+	var waiters: Dictionary = {}
+	for role in receiver_roles:
+		waiters[role] = _client(orch, role).expect_event("party.chat.text_received", { "text": text })
+	var deadline: int = Time.get_ticks_msec() + total_timeout_ms
+	var last_target_count: int = -1
+	var last_target_ids: Array = []
+	while Time.get_ticks_msec() < deadline:
+		var sent: Variant = await _party_send_chat(orch, sender, text)
+		if _is_failure(sent):
+			return sent
+		if typeof(sent) == TYPE_DICTIONARY:
+			last_target_count = int(sent.get("broadcast_target_count", last_target_count))
+			last_target_ids = sent.get("broadcast_target_ids", last_target_ids)
+		var settle_deadline: int = Time.get_ticks_msec() + resend_interval_ms
+		while Time.get_ticks_msec() < settle_deadline:
+			var all_delivered: bool = true
+			for role in receiver_roles:
+				if not waiters[role].is_delivered():
+					all_delivered = false
+					break
+			if all_delivered:
+				return ok({ "text": text })
+			await _sleep_ms(orch, 250)
+	var missing: Array = []
+	for role in receiver_roles:
+		if not waiters[role].is_delivered():
+			missing.append(role)
+	if missing.is_empty():
+		return ok({ "text": text })
+	return fail("receivers did not get broadcast chat text", { "missing": missing, "text": text, "sender": sender, "sender_broadcast_target_count": last_target_count, "sender_broadcast_target_ids": last_target_ids })
