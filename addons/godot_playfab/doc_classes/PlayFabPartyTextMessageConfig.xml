@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PlayFabPartyTextMessageConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Per-message options for [method PlayFabPartyPeer.send_text_async] and [method PlayFabPartyChatControl.send_text_async].
+		Per-message options for [method PlayFabPartyChat.send_text_async] and [method PlayFabPartyChatControl.send_text_async].
 	</brief_description>
 	<description>
 		Optional language and translation hints applied when the addon forwards a text message through the local Party chat control.

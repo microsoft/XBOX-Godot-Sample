@@ -25,6 +25,7 @@ var _party_initialized: bool = false
 var _networks: Dictionary = {}  # handle (String) -> PlayFabPartyNetwork (Object)
 var _peer_sets: Dictionary = {}  # handle (String) -> Array[int]
 var _pending_events: Array[Dictionary] = []
+var _chat_signals_connected: bool = false
 
 
 func bind(runtime: PlayFabRuntime) -> void:
@@ -98,6 +99,10 @@ func create_network(params: Dictionary) -> Dictionary:
 	config.enable_transcription = bool(params.get("enable_transcription", false))
 	config.invitation_id = String(params.get("invitation_id", "mp-test-invite-%s" % handle))
 
+	var chat_err: Dictionary = await _ensure_local_chat_control(user, config)
+	if not chat_err.is_empty():
+		return chat_err
+
 	var result: Variant = await _runtime.await_completion(party.create_and_join_network_async(user, config), DEFAULT_AWAIT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "PlayFabParty.create_and_join_network_async")
@@ -143,6 +148,10 @@ func join_network(params: Dictionary) -> Dictionary:
 	config.enable_text_chat = bool(params.get("enable_text_chat", true))
 	config.enable_transcription = bool(params.get("enable_transcription", false))
 	config.invitation_id = invitation_id
+
+	var chat_err: Dictionary = await _ensure_local_chat_control(user, config)
+	if not chat_err.is_empty():
+		return chat_err
 
 	var attempts: int = max(1, int(params.get("retry_attempts", JOIN_RETRY_ATTEMPTS)))
 	var backoff_ms: int = max(0, int(params.get("retry_backoff_ms", JOIN_RETRY_BACKOFF_MS)))
@@ -230,13 +239,22 @@ func send_chat_text(params: Dictionary) -> Dictionary:
 	var peer: Object = network.local_peer if "local_peer" in network else null
 	if peer == null:
 		return _err("peer_not_ready", "PartyNetwork.local_peer is null (still connecting?)")
-	var target_peer_ids := PackedInt32Array()
+	var target_entity_keys: Array = []
+	var echo_peer_ids: Array = []
 	for raw_id in params.get("target_peer_ids", []):
-		target_peer_ids.append(int(raw_id))
-	var result: Variant = await _runtime.await_completion(peer.send_text_async(text, target_peer_ids), SEND_TEXT_TIMEOUT_MS)
+		var pid: int = int(raw_id)
+		var key: Dictionary = peer.get_peer_entity_key(pid)
+		if key.is_empty():
+			return _err("invalid_peer_id", "party_send_chat_text unknown peer_id %d" % pid)
+		target_entity_keys.append(key)
+		echo_peer_ids.append(pid)
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	var result: Variant = await _runtime.await_completion(chat.send_text_async(text, target_entity_keys), SEND_TEXT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
-		return _err_from_result(result, "PlayFabPartyPeer.send_text_async")
-	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text, "target_peer_ids": Array(target_peer_ids) })
+		return _err_from_result(result, "PlayFabPartyChat.send_text_async")
+	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "text": text, "target_peer_ids": echo_peer_ids })
 
 
 func set_peer_muted(params: Dictionary) -> Dictionary:
@@ -250,9 +268,15 @@ func set_peer_muted(params: Dictionary) -> Dictionary:
 	if peer_id <= 0:
 		return _err("invalid_peer_id", "party_set_peer_muted requires peer_id > 0")
 	var muted: bool = bool(params.get("muted", true))
-	var result: Variant = await _runtime.await_completion(peer.set_peer_muted_async(peer_id, muted), DEFAULT_AWAIT_TIMEOUT_MS)
+	var entity_key: Dictionary = peer.get_peer_entity_key(peer_id)
+	if entity_key.is_empty():
+		return _err("invalid_peer_id", "party_set_peer_muted unknown peer_id %d" % peer_id)
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	var result: Variant = await _runtime.await_completion(chat.set_muted_async(entity_key, muted), DEFAULT_AWAIT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
-		return _err_from_result(result, "PlayFabPartyPeer.set_peer_muted_async")
+		return _err_from_result(result, "PlayFabPartyChat.set_muted_async")
 	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "muted": muted })
 
 
@@ -267,9 +291,15 @@ func set_peer_chat_permissions(params: Dictionary) -> Dictionary:
 	if peer_id <= 0:
 		return _err("invalid_peer_id", "party_set_peer_chat_permissions requires peer_id > 0")
 	var permissions: int = int(params.get("permissions", ClassDB.class_get_integer_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")))
-	var result: Variant = await _runtime.await_completion(peer.set_peer_chat_permissions_async(peer_id, permissions), DEFAULT_AWAIT_TIMEOUT_MS)
+	var entity_key: Dictionary = peer.get_peer_entity_key(peer_id)
+	if entity_key.is_empty():
+		return _err("invalid_peer_id", "party_set_peer_chat_permissions unknown peer_id %d" % peer_id)
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	var result: Variant = await _runtime.await_completion(chat.set_chat_permissions_async(entity_key, permissions), DEFAULT_AWAIT_TIMEOUT_MS)
 	if result == null or not bool(result.ok):
-		return _err_from_result(result, "PlayFabPartyPeer.set_peer_chat_permissions_async")
+		return _err_from_result(result, "PlayFabPartyChat.set_chat_permissions_async")
 	return _ok({ "handle": lookup.get("handle", DEFAULT_HANDLE), "peer_id": peer_id, "permissions": permissions })
 
 
@@ -294,6 +324,13 @@ func reset(_params: Dictionary) -> Dictionary:
 			_detach_network(String(detach_handle), detach_network)
 	_networks.clear()
 	_peer_sets.clear()
+	# Release this process's Party local user so its local chat control and the
+	# underlying PartyLocalUser are torn down between scenarios. Without this the
+	# leaked local chat control lands in the next scenario's same-device chat
+	# broadcast target list (party_chat_permission_failed "loopback isn't yet
+	# supported") and the per-device local-user limit is eventually exhausted
+	# (party_invalid_user "local user limit reached").
+	await _release_local_party_user()
 	if not failures.is_empty():
 		return _err(
 			"reset_failed",
@@ -301,6 +338,22 @@ func reset(_params: Dictionary) -> Dictionary:
 			{ "left": left, "failed": failures },
 		)
 	return _ok({ "left": left })
+
+
+# Best-effort teardown of this process's Party local user between scenarios.
+# release_local_user_async is idempotent, so an already-released or never-created
+# user resolves cleanly; a fresh create/join afterward re-creates the user and
+# its chat control.
+func _release_local_party_user() -> void:
+	if _runtime == null or _runtime.get_playfab() == null:
+		return
+	var party: Object = _runtime.get_playfab().get_party()
+	if party == null or not party.has_method("release_local_user_async"):
+		return
+	var user: Object = _runtime.get_user()
+	if user == null:
+		return
+	await _runtime.await_completion(party.release_local_user_async(user), DEFAULT_AWAIT_TIMEOUT_MS)
 
 
 func poll_events(emit: Callable) -> void:
@@ -348,12 +401,24 @@ func _attach_network(handle: String, network: Object) -> void:
 		return
 	_connect_peer_signal(peer, "connection_state_changed", _on_peer_connection_state_changed.bind(handle))
 	_connect_peer_signal(peer, "network_error", _on_peer_network_error.bind(handle))
-	_connect_peer_signal(peer, "chat_control_added", _on_peer_chat_control_added.bind(handle))
-	_connect_peer_signal(peer, "chat_control_removed", _on_peer_chat_control_removed.bind(handle))
-	_connect_peer_signal(peer, "text_message_received", _on_peer_text_message_received.bind(handle))
-	_connect_peer_signal(peer, "transcription_received", _on_peer_transcription_received.bind(handle))
-	_connect_peer_signal(peer, "chat_permissions_changed", _on_peer_chat_permissions_changed.bind(handle))
-	_connect_peer_signal(peer, "peer_muted_changed", _on_peer_muted_changed.bind(handle))
+	# Chat is meshed onto the single persistent PlayFab.party.chat surface, so
+	# its signals are wired once across all networks rather than per peer.
+	_ensure_chat_signals()
+
+
+func _ensure_chat_signals() -> void:
+	if _chat_signals_connected:
+		return
+	var chat: Object = _get_chat()
+	if chat == null:
+		return
+	_connect_peer_signal(chat, "chat_control_added", _on_chat_control_added)
+	_connect_peer_signal(chat, "chat_control_removed", _on_chat_control_removed)
+	_connect_peer_signal(chat, "text_message_received", _on_chat_text_message_received)
+	_connect_peer_signal(chat, "transcription_received", _on_chat_transcription_received)
+	_connect_peer_signal(chat, "chat_permissions_changed", _on_chat_permissions_changed)
+	_connect_peer_signal(chat, "muted_changed", _on_chat_muted_changed)
+	_chat_signals_connected = true
 
 
 func _detach_network(handle: String, network: Object) -> void:
@@ -364,12 +429,8 @@ func _detach_network(handle: String, network: Object) -> void:
 	if peer != null:
 		_disconnect_peer_signal(peer, "connection_state_changed", _on_peer_connection_state_changed.bind(handle))
 		_disconnect_peer_signal(peer, "network_error", _on_peer_network_error.bind(handle))
-		_disconnect_peer_signal(peer, "chat_control_added", _on_peer_chat_control_added.bind(handle))
-		_disconnect_peer_signal(peer, "chat_control_removed", _on_peer_chat_control_removed.bind(handle))
-		_disconnect_peer_signal(peer, "text_message_received", _on_peer_text_message_received.bind(handle))
-		_disconnect_peer_signal(peer, "transcription_received", _on_peer_transcription_received.bind(handle))
-		_disconnect_peer_signal(peer, "chat_permissions_changed", _on_peer_chat_permissions_changed.bind(handle))
-		_disconnect_peer_signal(peer, "peer_muted_changed", _on_peer_muted_changed.bind(handle))
+	# Chat signals live on the persistent PlayFab.party.chat surface and are
+	# intentionally left connected across network attach/detach.
 	_networks.erase(handle)
 	_peer_sets.erase(handle)
 
@@ -413,28 +474,57 @@ func _on_peer_network_error(result: Object, handle: String) -> void:
 	_queue_event("party.peer_network_error", { "handle": handle, "result": _result_snapshot(result) })
 
 
-func _on_peer_chat_control_added(peer_id: int, _chat_control: Object, handle: String) -> void:
-	_queue_event("party.chat_control_added", { "handle": handle, "peer_id": peer_id })
+func _on_chat_control_added(entity_key: Dictionary, _chat_control: Object) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.chat_control_added", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key) })
+	# A newly surfaced remote chat control has no permissions by default, so the
+	# Party SDK silently drops its inbound text/audio until the local control
+	# authorizes it via SetPermissions. The tutorial sample autoload grants these
+	# on chat_control_added (sample/tutorial_playfab/autoload/party.gd); the
+	# harness must do the same or text round-trips never deliver (the receiver
+	# never authorized the sender). Run it deferred so the synchronous signal
+	# handler — and the chat_control_added event the orchestrator waits on — is
+	# not blocked on the async SetPermissions completion.
+	_grant_default_chat_permissions(entity_key)
 
 
-func _on_peer_chat_control_removed(peer_id: int, handle: String) -> void:
-	_queue_event("party.chat_control_removed", { "handle": handle, "peer_id": peer_id })
+func _grant_default_chat_permissions(entity_key: Dictionary) -> void:
+	var chat: Object = _get_chat()
+	if chat == null:
+		return
+	var permissions: int = (
+		ClassDB.class_get_integer_constant("PlayFabParty", "CHAT_PERMISSION_SEND_AUDIO")
+		| ClassDB.class_get_integer_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_AUDIO")
+		| ClassDB.class_get_integer_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")
+	)
+	var result: Variant = await _runtime.await_completion(chat.set_chat_permissions_async(entity_key, permissions), DEFAULT_AWAIT_TIMEOUT_MS)
+	if result == null or not bool(result.ok):
+		push_warning("[party_ops] default chat permissions failed for %s" % String(entity_key.get("id", "")))
 
 
-func _on_peer_text_message_received(peer_id: int, message: Object, handle: String) -> void:
-	_queue_event("party.chat.text_received", _chat_message_payload(handle, peer_id, message))
+func _on_chat_control_removed(entity_key: Dictionary) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.chat_control_removed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key) })
 
 
-func _on_peer_transcription_received(peer_id: int, message: Object, handle: String) -> void:
-	_queue_event("party.chat.transcription_received", _chat_message_payload(handle, peer_id, message))
+func _on_chat_text_message_received(entity_key: Dictionary, message: Object) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.chat.text_received", _chat_message_payload(handle, _peer_id_for_entity_key(handle, entity_key), message))
 
 
-func _on_peer_chat_permissions_changed(peer_id: int, permissions: int, handle: String) -> void:
-	_queue_event("party.chat_permissions_changed", { "handle": handle, "peer_id": peer_id, "permissions": permissions })
+func _on_chat_transcription_received(entity_key: Dictionary, message: Object) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.chat.transcription_received", _chat_message_payload(handle, _peer_id_for_entity_key(handle, entity_key), message))
 
 
-func _on_peer_muted_changed(peer_id: int, muted: bool, handle: String) -> void:
-	_queue_event("party.peer_muted_changed", { "handle": handle, "peer_id": peer_id, "muted": muted })
+func _on_chat_permissions_changed(entity_key: Dictionary, permissions: int) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.chat_permissions_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "permissions": permissions })
+
+
+func _on_chat_muted_changed(entity_key: Dictionary, muted: bool) -> void:
+	var handle: String = _handle_for_entity_key(entity_key)
+	_queue_event("party.muted_changed", { "handle": handle, "peer_id": _peer_id_for_entity_key(handle, entity_key), "muted": muted })
 
 
 func _chat_message_payload(handle: String, peer_id: int, message: Object) -> Dictionary:
@@ -526,6 +616,68 @@ func _network_peer(network: Object) -> Object:
 	if network == null:
 		return null
 	return network.local_peer if "local_peer" in network else null
+
+
+func _get_chat() -> Object:
+	if _runtime == null or _runtime.get_playfab() == null:
+		return null
+	var party: Object = _runtime.get_playfab().get_party()
+	if party == null or not party.has_method("get_chat"):
+		return null
+	return party.get_chat()
+
+
+# Phase C — the local chat control is created explicitly (decoupled from
+# network join). Create it once per local user before create/join; the addon
+# reuses it across networks. Skips creation when neither voice nor text is
+# enabled in the config.
+func _ensure_local_chat_control(user: Object, config: Object) -> Dictionary:
+	if not bool(config.enable_voice_chat) and not bool(config.enable_text_chat):
+		return {}
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.chat surface unavailable")
+	var result: Variant = await _runtime.await_completion(chat.create_local_chat_control_async(user, config), DEFAULT_AWAIT_TIMEOUT_MS)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "PlayFabPartyChat.create_local_chat_control_async")
+	return {}
+
+
+# Chat signals arrive on the global PlayFab.party.chat surface with no network
+# context. Resolve the tracked handle whose transport peer knows the entity key
+# so emitted events keep the per-handle, peer-id-keyed orchestrator contract.
+func _handle_for_entity_key(entity_key: Dictionary) -> String:
+	if entity_key.is_empty():
+		return DEFAULT_HANDLE
+	var target_id: String = String(entity_key.get("id", ""))
+	var target_type: String = String(entity_key.get("type", ""))
+	for handle in _networks.keys():
+		var peer: Object = _network_peer(_networks[handle])
+		if peer == null:
+			continue
+		for raw_id in _peer_ids(peer):
+			var pid: int = int(raw_id)
+			var key: Dictionary = peer.get_peer_entity_key(pid)
+			if String(key.get("id", "")) == target_id and String(key.get("type", "")) == target_type:
+				return handle
+	return DEFAULT_HANDLE
+
+
+# The orchestrator JSON contract is peer-id keyed; the addon chat surface is
+# entity-key keyed. Translate an entity key back to its transport peer id so
+# emitted events keep the stable peer-id contract.
+func _peer_id_for_entity_key(handle: String, entity_key: Dictionary) -> int:
+	var peer: Object = _network_peer(_networks.get(handle))
+	if peer == null or entity_key.is_empty():
+		return 0
+	var target_id: String = String(entity_key.get("id", ""))
+	var target_type: String = String(entity_key.get("type", ""))
+	for raw_id in _peer_ids(peer):
+		var pid: int = int(raw_id)
+		var key: Dictionary = peer.get_peer_entity_key(pid)
+		if String(key.get("id", "")) == target_id and String(key.get("type", "")) == target_type:
+			return pid
+	return 0
 
 
 func _peer_ids(peer: Object) -> Array:

@@ -4,7 +4,7 @@
 		A text or transcription message delivered through PlayFab Party chat.
 	</brief_description>
 	<description>
-		Surfaced through [signal PlayFabPartyPeer.text_message_received], [signal PlayFabPartyPeer.transcription_received], [signal PlayFabPartyChatControl.message_received], and [signal PlayFabPartyChatControl.transcription_received].
+		Surfaced through [signal PlayFabPartyChat.text_message_received], [signal PlayFabPartyChat.transcription_received], [signal PlayFabPartyChatControl.message_received], and [signal PlayFabPartyChatControl.transcription_received].
 	</description>
 	<tutorials></tutorials>
 	<methods>

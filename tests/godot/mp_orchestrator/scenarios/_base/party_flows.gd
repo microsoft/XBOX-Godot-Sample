@@ -264,7 +264,7 @@ func run_party_leave_rejoin_chat_round_trip(orch) -> Dictionary:
 	if _is_failure(guest_converged): return guest_converged
 
 	# Chat-readiness probe on the guest side (the side affected by #73).
-	# set_peer_chat_permissions_async returns party_peer_not_connected
+	# set_chat_permissions_async returns party_peer_not_connected
 	# while the local_peer.m_peer_records[peer_id].chat_control is still
 	# null/stale — which is the exact failure surface the bug produced on
 	# the rejoining client — so we retry briefly until it succeeds. The

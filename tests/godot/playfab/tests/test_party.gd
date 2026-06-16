@@ -26,6 +26,7 @@ const PARTY_SERVICE_METHODS := [
 	"create_and_join_network_async",
 	"join_network_async",
 	"leave_network_async",
+	"release_local_user_async",
 	"get_chat",
 	"get_networks",
 ]
@@ -37,23 +38,37 @@ const PARTY_PEER_METHODS := [
 	"get_peer_entity_key",
 	"get_peer_member",
 	"get_peers",
-	"get_local_chat_control",
-	"get_peer_chat_control",
-	"send_text_async",
-	"set_peer_chat_permissions_async",
-	"set_peer_muted_async",
 	"close_with_reason",
 ]
 
 const PARTY_PEER_SIGNALS := [
 	"connection_state_changed",
 	"network_error",
+]
+
+# Chat is no longer carried on the transport peer. It lives on the single
+# meshed chat surface reached as PlayFab.party.chat (PlayFabPartyChat), keyed by
+# PlayFab entity keys.
+const PARTY_CHAT_METHODS := [
+	"get_local_chat_control",
+	"get_chat_controls",
+	"get_remote_entity_keys",
+	"get_chat_control",
+	"send_text_async",
+	"set_chat_permissions_async",
+	"set_muted_async",
+	"create_local_chat_control_async",
+	"destroy_local_chat_control_async",
+]
+
+const PARTY_CHAT_SIGNALS := [
+	"state_changed",
 	"chat_control_added",
 	"chat_control_removed",
 	"text_message_received",
 	"transcription_received",
 	"chat_permissions_changed",
-	"peer_muted_changed",
+	"muted_changed",
 ]
 
 
@@ -304,15 +319,21 @@ func test_party_initialize_requires_playfab_runtime() -> void:
 	await _assert_signal_error(party.initialize_async(), "party_not_initialized", "PlayFab.party.initialize_async() before PlayFab.initialize()")
 
 
-func test_party_peer_methods_route_to_chat() -> void:
-	var peer = instantiate_class("PlayFabPartyPeer")
-	if peer == null:
+func test_party_chat_methods_detached() -> void:
+	var chat = instantiate_class("PlayFabPartyChat")
+	if chat == null:
 		return
 
-	# Detached peer has no chat transport, so the peer-id helpers must surface deferred error results.
-	await _assert_signal_error(peer.send_text_async("hi", PackedInt32Array([2])), "party_peer_not_connected", "Detached PlayFabPartyPeer.send_text_async() reports party_peer_not_connected")
-	await _assert_signal_error(peer.set_peer_chat_permissions_async(2, get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")), "party_peer_not_connected", "Detached PlayFabPartyPeer.set_peer_chat_permissions_async() reports party_peer_not_connected")
-	await _assert_signal_error(peer.set_peer_muted_async(2, true), "party_peer_not_connected", "Detached PlayFabPartyPeer.set_peer_muted_async() reports party_peer_not_connected")
+	for method_name in PARTY_CHAT_METHODS:
+		assert_has_method_named(chat, method_name)
+	for signal_name in PARTY_CHAT_SIGNALS:
+		assert_has_signal_named(chat, signal_name)
+
+	# A chat surface with no connected network (no owner / no local chat
+	# control) must surface deferred error results keyed by entity key.
+	await _assert_signal_error(chat.send_text_async("hi", [{ "id": "guest", "type": "title_player_account" }]), "party_peer_not_connected", "Detached PlayFabPartyChat.send_text_async() reports party_peer_not_connected")
+	await _assert_signal_error(chat.set_chat_permissions_async({ "id": "guest", "type": "title_player_account" }, get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT")), "party_peer_not_connected", "Detached PlayFabPartyChat.set_chat_permissions_async() reports party_peer_not_connected")
+	await _assert_signal_error(chat.set_muted_async({ "id": "guest", "type": "title_player_account" }, true), "party_peer_not_connected", "Detached PlayFabPartyChat.set_muted_async() reports party_peer_not_connected")
 
 
 func test_party_chat_control_helpers() -> void:

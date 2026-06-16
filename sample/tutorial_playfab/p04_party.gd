@@ -132,8 +132,8 @@ func _on_send_pressed() -> void:
 
 func _on_ping_pressed() -> void:
 	# Broadcast an RPC to every connected peer to exercise the Godot
-	# MultiplayerAPI path (peer.send_text_async goes through
-	# PartyLocalChatControl, not through the multiplayer peer, so chat
+	# MultiplayerAPI path (PlayFab.party.chat.send_text_async goes through
+	# the meshed chat control, not through the multiplayer peer, so chat
 	# alone doesn't prove RPC delivery).
 	var text: String = "ping @%s" % str(Time.get_ticks_msec())
 	if _party_node.send_rpc_ping(text):
@@ -226,8 +226,8 @@ func _on_peer_connected(peer_id: int) -> void:
 func _on_peer_disconnected(peer_id: int) -> void:
 	_append_log("[peer left] id=%d" % peer_id)
 
-func _on_chat_received(peer_id: int, text: String) -> void:
-	_append_log("peer %d> %s" % [peer_id, text])
+func _on_chat_received(sender_id: String, text: String) -> void:
+	_append_log("%s> %s" % [sender_id, text])
 
 func _on_rpc_received(peer_id: int, text: String) -> void:
 	_append_log("peer %d (rpc)> %s" % [peer_id, text])

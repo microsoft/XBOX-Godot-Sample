@@ -1,19 +1,44 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="PlayFabPartyChat" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Diagnostic chat-control surface for [PlayFabParty].
+		Meshed text/voice chat surface for [PlayFabParty].
 	</brief_description>
 	<description>
-		Returned by [method PlayFabParty.get_chat]. Most titles should rely on the peer-id helpers on [PlayFabPartyPeer]; this surface remains available for diagnostic and advanced flows that need direct access to the [PlayFabPartyChatControl] objects.
+		Reached as [code]PlayFab.party.chat[/code] (or [method PlayFabParty.get_chat]). Chat is decoupled from the transport peer: it is fully meshed by the Party SDK — every connected chat control sees every other — and is addressed by PlayFab entity keys (a [code]{ "id", "type" }[/code] dictionary) rather than transport peer ids.
+		There is exactly one local chat control per local user. Chat-control creation is decoupled from network join: create it explicitly with [method create_local_chat_control_async] (which owns the audio devices and the voice/text/transcription flags from the [PlayFabPartyConfig]), then [method PlayFabParty.create_and_join_network_async] / [method PlayFabParty.join_network_async] connect that control to each network automatically. Network join never creates a chat control. The control survives leaving and rejoining and is only destroyed via [method destroy_local_chat_control_async], user release, or Party shutdown.
+		[codeblock]
+		# Create the local chat control once (before joining a network):
+		var result = await PlayFab.party.chat.create_local_chat_control_async(user, config)
+
+		# Send to the whole mesh (empty target == broadcast):
+		PlayFab.party.chat.send_text_async("hello everyone")
+
+		# React to incoming messages:
+		PlayFab.party.chat.text_message_received.connect(func(entity_key, message):
+		    print(entity_key.id, ": ", message.text))
+		[/codeblock]
 	</description>
 	<tutorials></tutorials>
 	<methods>
-		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="user" type="PlayFabUser" /><description>Returns the local chat control bound to [param user], if any.</description></method>
-		<method name="get_chat_controls" qualifiers="const"><return type="Array" /><description>Returns all known [PlayFabPartyChatControl] instances.</description></method>
+		<method name="create_local_chat_control_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="config" type="PlayFabPartyConfig" default="null" /><description>Explicitly creates the local chat control for [param user], decoupled from any network join. The audio input/output devices and the voice/text/transcription flags from [param config] are applied to the control here, where it is owned. A local user keeps a single chat control reused across networks; subsequent network joins for [param user] connect this control automatically. Idempotent — a second call for an existing control resolves with that control. The completed [PlayFabResult] carries the [PlayFabPartyChatControl] on success.</description></method>
+		<method name="destroy_local_chat_control_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><description>Explicitly destroys the local chat control for [param user]. Idempotent — a no-op success when [param user] has no chat control.</description></method>
+		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="user" type="PlayFabUser" /><description>Returns the local [PlayFabPartyChatControl] bound to [param user], if any.</description></method>
+		<method name="get_chat_controls" qualifiers="const"><return type="Array" /><description>Returns all known [PlayFabPartyChatControl] instances, local and remote.</description></method>
+		<method name="get_remote_entity_keys" qualifiers="const"><return type="Array" /><description>Returns the PlayFab entity-key dictionaries ([code]{ "id", "type" }[/code]) of every remote chat control currently in the mesh.</description></method>
+		<method name="get_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="entity_key" type="Dictionary" /><description>Returns the [PlayFabPartyChatControl] identified by the PlayFab entity key [param entity_key] (a [code]{ "id", "type" }[/code] dictionary), if known.</description></method>
+		<method name="send_text_async"><return type="Signal" /><param index="0" name="message" type="String" /><param index="1" name="target_entity_keys" type="Array" default="[]" /><param index="2" name="config" type="PlayFabPartyTextMessageConfig" default="null" /><description>Sends [param message] through the local Party chat control. [param target_entity_keys] is an array of PlayFab entity-key dictionaries ([code]{ "id", "type" }[/code]); an empty array broadcasts to every remote chat control in the mesh; unknown entity keys return a failed [PlayFabResult].</description></method>
+		<method name="set_chat_permissions_async"><return type="Signal" /><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="permissions" type="int" /><description>Updates the local chat-control relationship permissions for the chat control identified by the PlayFab entity key [param entity_key]. See [enum PlayFabParty.ChatPermission].</description></method>
+		<method name="set_muted_async"><return type="Signal" /><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes the chat control identified by the PlayFab entity key [param entity_key] on the local chat control.</description></method>
 	</methods>
 	<members></members>
 	<signals>
 		<signal name="state_changed"><param index="0" name="change" type="PlayFabPartyChatStateChange" /><description>Aggregate signal for chat-control state changes.</description></signal>
+		<signal name="chat_control_added"><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="chat_control" type="PlayFabPartyChatControl" /><description>Emitted when a chat control identified by the PlayFab entity key [param entity_key] (a [code]{ "id", "type" }[/code] dictionary) joins the mesh.</description></signal>
+		<signal name="chat_control_removed"><param index="0" name="entity_key" type="Dictionary" /><description>Emitted when the chat control identified by the PlayFab entity key [param entity_key] leaves the mesh.</description></signal>
+		<signal name="text_message_received"><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a text chat message is received from the chat control identified by the PlayFab entity key [param entity_key].</description></signal>
+		<signal name="transcription_received"><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a speech-to-text transcription is received from the chat control identified by the PlayFab entity key [param entity_key].</description></signal>
+		<signal name="chat_permissions_changed"><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="permissions" type="int" /><description>Emitted when the local chat-control relationship permissions for the chat control identified by the PlayFab entity key [param entity_key] change.</description></signal>
+		<signal name="muted_changed"><param index="0" name="entity_key" type="Dictionary" /><param index="1" name="muted" type="bool" /><description>Emitted when the mute state of the chat control identified by the PlayFab entity key [param entity_key] on the local chat control changes.</description></signal>
 	</signals>
 	<constants></constants>
 </class>

@@ -5,7 +5,7 @@
 	</brief_description>
 	<description>
 		Assigned to [code]multiplayer.multiplayer_peer[/code] for RPC and gameplay traffic. Hosts use Godot peer id [code]1[/code] and clients receive positive ids through the addon's transport handshake. Reserved handshake/control packets are filtered out of the public packet queue.
-		Text chat, transcription, mute, and permissions are exposed through peer-id helpers on this class. They use Party chat-control APIs internally and never travel through Godot RPC packets.
+		Text chat, transcription, mute, and permissions are not part of the transport peer. They live on the meshed chat surface reached as [code]PlayFab.party.chat[/code] (see [PlayFabPartyChat]) and are addressed by PlayFab entity keys.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -15,23 +15,12 @@
 		<method name="get_peer_entity_key" qualifiers="const"><return type="Dictionary" /><param index="0" name="peer_id" type="int" /><description>Returns the PlayFab entity key dictionary for [param peer_id].</description></method>
 		<method name="get_peer_member" qualifiers="const"><return type="PlayFabPartyMember" /><param index="0" name="peer_id" type="int" /><description>Returns the [PlayFabPartyMember] snapshot for [param peer_id].</description></method>
 		<method name="get_peers" qualifiers="const"><return type="Array" /><description>Returns the list of known peer ids.</description></method>
-		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><description>Returns the local [PlayFabPartyChatControl], if chat is enabled.</description></method>
-		<method name="get_peer_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="peer_id" type="int" /><description>Returns the remote [PlayFabPartyChatControl] for [param peer_id], if known.</description></method>
-		<method name="send_text_async"><return type="Signal" /><param index="0" name="message" type="String" /><param index="1" name="target_peer_ids" type="PackedInt32Array" default="PackedInt32Array()" /><param index="2" name="config" type="PlayFabPartyTextMessageConfig" default="null" /><description>Sends [param message] through the local Party chat control. An empty [param target_peer_ids] sends to all known remote chat controls; unknown ids return a failed [PlayFabResult].</description></method>
-		<method name="set_peer_chat_permissions_async"><return type="Signal" /><param index="0" name="peer_id" type="int" /><param index="1" name="permissions" type="int" /><description>Updates the local chat-control relationship permissions for [param peer_id]. See [enum PlayFabParty.ChatPermission].</description></method>
-		<method name="set_peer_muted_async"><return type="Signal" /><param index="0" name="peer_id" type="int" /><param index="1" name="muted" type="bool" /><description>Mutes or unmutes [param peer_id] on the local chat control.</description></method>
 		<method name="close_with_reason"><return type="void" /><param index="0" name="reason" type="String" default="&quot;&quot;" /><description>Closes internal routing and network resources, emitting Godot-consistent connection state transitions.</description></method>
 	</methods>
 	<members></members>
 	<signals>
 		<signal name="connection_state_changed"><param index="0" name="status" type="int" /><description>Emitted when the peer's [enum MultiplayerPeer.ConnectionStatus] changes.</description></signal>
 		<signal name="network_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted when a Party transport error occurs.</description></signal>
-		<signal name="chat_control_added"><param index="0" name="peer_id" type="int" /><param index="1" name="chat_control" type="PlayFabPartyChatControl" /><description>Emitted when a chat control is added for [param peer_id].</description></signal>
-		<signal name="chat_control_removed"><param index="0" name="peer_id" type="int" /><description>Emitted when a chat control is removed for [param peer_id].</description></signal>
-		<signal name="text_message_received"><param index="0" name="peer_id" type="int" /><param index="1" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a text chat message is received from [param peer_id].</description></signal>
-		<signal name="transcription_received"><param index="0" name="peer_id" type="int" /><param index="1" name="message" type="PlayFabPartyChatMessage" /><description>Emitted when a speech-to-text transcription is received from [param peer_id].</description></signal>
-		<signal name="chat_permissions_changed"><param index="0" name="peer_id" type="int" /><param index="1" name="permissions" type="int" /><description>Emitted when the local chat-control relationship permissions for [param peer_id] change.</description></signal>
-		<signal name="peer_muted_changed"><param index="0" name="peer_id" type="int" /><param index="1" name="muted" type="bool" /><description>Emitted when the mute state of [param peer_id] on the local chat control changes.</description></signal>
 	</signals>
 	<constants></constants>
 </class>

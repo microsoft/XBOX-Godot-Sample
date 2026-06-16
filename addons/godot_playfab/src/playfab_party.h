@@ -211,6 +211,13 @@ class PlayFabPartyChatControl : public RefCounted {
     bool m_text_enabled = false;
     bool m_transcription_enabled = false;
     bool m_local = false;
+    // Persisted UTF-8 device identifiers backing manual audio device selection.
+    // PartyLocalChatControl::SetAudioInput()/SetAudioOutput() take the device-id
+    // context by pointer and complete asynchronously, so the backing memory must
+    // outlive the call. The chat control wrapper owns its own selection now that
+    // chat-control lifetime is decoupled from any single network (Phase C).
+    CharString m_audio_input_device_id;
+    CharString m_audio_output_device_id;
 
 protected:
     static void _bind_methods();
@@ -239,23 +246,58 @@ public:
     Signal destroy_async();
 };
 
+// Public chat surface, reached as PlayFab.party.get_chat(). Chat is meshed by
+// the Party SDK (every endpoint sees every chat control), so it is decoupled
+// from the host-star transport peer ids modeled by PlayFabPartyPeer. All chat
+// addressing here is by PlayFab entity key ({ "id", "type" } Dictionary), and
+// it surfaces every remote chat control in the network — an empty-target
+// send_text_async() reaches everyone connected to the party network.
 class PlayFabPartyChat : public RefCounted {
     GDCLASS(PlayFabPartyChat, RefCounted);
 
     friend class PlayFabParty;
 
+    PlayFabParty *m_owner = nullptr;
     Array m_chat_controls;
+
+    // Resolves the local PartyLocalChatControl used to originate sends and
+    // permission/mute changes. The sample owns a single network, so this
+    // returns the first tracked network's local chat control.
+    Party::PartyLocalChatControl *_local_native_chat_control() const;
 
 protected:
     static void _bind_methods();
 
 public:
+    void set_owner(PlayFabParty *p_owner);
     void clear();
     void track(const Ref<PlayFabPartyChatControl> &p_chat_control);
     void untrack(const Ref<PlayFabPartyChatControl> &p_chat_control);
 
     Ref<PlayFabPartyChatControl> get_local_chat_control(const Ref<PlayFabUser> &p_user) const;
     Array get_chat_controls() const;
+
+    // Entity keys of every remote chat control currently in the mesh.
+    Array get_remote_entity_keys() const;
+    // Wrapper for the chat control owned by the given entity key (local or
+    // remote), or null when no chat control with that entity key is tracked.
+    Ref<PlayFabPartyChatControl> get_chat_control(const Dictionary &p_entity_key) const;
+
+    Signal send_text_async(const String &p_message, const Array &p_target_entity_keys = Array(), const Ref<PlayFabPartyTextMessageConfig> &p_config = Ref<PlayFabPartyTextMessageConfig>());
+    Signal set_chat_permissions_async(const Dictionary &p_entity_key, int64_t p_permissions);
+    Signal set_muted_async(const Dictionary &p_entity_key, bool p_muted);
+
+    // Explicitly create the calling local user's chat control, configured from
+    // p_config (audio in/out devices and the voice/text/transcription flags),
+    // decoupled from any network join (Phase C). A user keeps a single chat
+    // control reused across networks; subsequent network joins for this user
+    // connect this control automatically. Idempotent: a second create for an
+    // existing control resolves with the existing control. The completed signal
+    // carries the PlayFabPartyChatControl on success.
+    Signal create_local_chat_control_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>());
+    // Explicitly destroy the calling local user's chat control. Idempotent: a
+    // no-op success when the user has no chat control.
+    Signal destroy_local_chat_control_async(const Ref<PlayFabUser> &p_user);
 };
 
 class PlayFabPartyNetworkStateChange : public RefCounted {
@@ -314,13 +356,6 @@ class PlayFabPartyNetwork : public RefCounted {
     // the network died instead of a generic "Network destroyed during join."
     // string. Cleared on attach_native().
     Ref<PlayFabResult> m_destroyed_result;
-    // Persisted UTF-8 device identifiers backing manual audio device
-    // selection. PartyLocalChatControl::SetAudioInput()/SetAudioOutput() take
-    // the device-id context by pointer and complete asynchronously, so the
-    // backing memory must outlive the call; the owning network outlives its
-    // local chat control, which makes it the safe owner for these strings.
-    CharString m_audio_input_device_id;
-    CharString m_audio_output_device_id;
 
 protected:
     static void _bind_methods();
@@ -372,9 +407,6 @@ public:
     struct PeerRecord {
         Party::PartyEndpoint *endpoint = nullptr;
         Dictionary entity_key;
-        Ref<PlayFabPartyChatControl> chat_control;
-        bool muted = false;
-        int64_t permissions = 0;
     };
 
     struct InboundPacket {
@@ -420,20 +452,12 @@ public:
     bool insert_peer_record(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint, const Dictionary &p_entity_key);
     void emit_peer_connected(int32_t p_peer_id);
     void update_peer_endpoint(int32_t p_peer_id, Party::PartyEndpoint *p_endpoint);
-    void update_peer_chat_control(int32_t p_peer_id, const Ref<PlayFabPartyChatControl> &p_chat_control);
     void unregister_peer(int32_t p_peer_id);
     void unregister_endpoint(Party::PartyEndpoint *p_endpoint);
     int32_t find_peer_by_endpoint(Party::PartyEndpoint *p_endpoint) const;
     int32_t find_peer_by_entity_key(const Dictionary &p_entity_key) const;
-    int32_t find_peer_by_chat_control(Party::PartyChatControl *p_chat_control) const;
     Party::PartyEndpoint *get_peer_endpoint(int32_t p_peer_id) const;
     void enqueue_inbound(int32_t p_source_peer, int32_t p_channel, MultiplayerPeer::TransferMode p_mode, const PackedByteArray &p_payload);
-    void emit_chat_control_added(int32_t p_peer_id, const Ref<PlayFabPartyChatControl> &p_chat_control);
-    void emit_chat_control_removed(int32_t p_peer_id);
-    void emit_text_message(int32_t p_peer_id, const Ref<PlayFabPartyChatMessage> &p_message);
-    void emit_transcription(int32_t p_peer_id, const Ref<PlayFabPartyChatMessage> &p_message);
-    void emit_chat_permissions_changed(int32_t p_peer_id, int64_t p_permissions);
-    void emit_peer_muted_changed(int32_t p_peer_id, bool p_muted);
     void emit_network_error(const Ref<PlayFabResult> &p_result);
 
     Ref<PlayFabPartyNetwork> get_network() const;
@@ -442,12 +466,6 @@ public:
     Dictionary get_peer_entity_key(int64_t p_peer_id) const;
     Ref<PlayFabPartyMember> get_peer_member(int64_t p_peer_id) const;
     Array get_peers() const;
-    Ref<PlayFabPartyChatControl> get_local_chat_control() const;
-    Ref<PlayFabPartyChatControl> get_peer_chat_control(int64_t p_peer_id) const;
-
-    Signal send_text_async(const String &p_message, const PackedInt32Array &p_target_peer_ids = PackedInt32Array(), const Ref<PlayFabPartyTextMessageConfig> &p_config = Ref<PlayFabPartyTextMessageConfig>());
-    Signal set_peer_chat_permissions_async(int64_t p_peer_id, int64_t p_permissions);
-    Signal set_peer_muted_async(int64_t p_peer_id, bool p_muted);
 
     void close_with_reason(const String &p_reason = String());
 
@@ -480,6 +498,7 @@ class PlayFabParty : public RefCounted {
     GDCLASS(PlayFabParty, RefCounted);
 
     friend class PlayFabPartyChatControl;
+    friend class PlayFabPartyChat;
     friend class PlayFabPartyNetwork;
     friend class PlayFabPartyPeer;
 
@@ -568,13 +587,16 @@ private:
     Ref<PlayFabPartyChat> m_chat;
     std::vector<Ref<PlayFabPartyNetwork>> m_networks;
     std::map<PFEntityHandle, Party::PartyLocalUser *> m_local_users;
+    // One local chat control per local user, reused across networks. Created
+    // explicitly via PlayFabPartyChat.create_local_chat_control_async (Phase C),
+    // independent of any network. The Party SDK keeps a PartyLocalChatControl
+    // valid until DestroyChatControl, so each network join reconnects it via
+    // ConnectChatControl; it is destroyed only on explicit
+    // destroy_local_chat_control_async / user release / shutdown.
+    std::map<PFEntityHandle, Ref<PlayFabPartyChatControl>> m_local_chat_controls;
     std::vector<PendingOperation *> m_pending_operations;
     std::vector<PendingOperation *> m_pending_operations_deferred_delete;
     std::vector<Ref<PlayFabPendingSignal>> m_shutdown_pending_signals;
-    // Chat controls that arrived via PartyChatControlCreated before the
-    // matching peer was registered (handshake race). Drained by
-    // _attach_orphan_chat_controls() after every register_peer.
-    std::vector<Ref<PlayFabPartyChatControl>> m_orphan_chat_controls;
 
     PlayFabRuntime *_get_runtime() const;
     Ref<PlayFabPendingSignal> _make_pending_signal();
@@ -630,11 +652,6 @@ private:
     void _process_chat_control_destroyed(const Party::PartyStateChange *p_change);
     void _process_chat_text_received(const Party::PartyStateChange *p_change);
     void _process_voice_chat_transcription_received(const Party::PartyStateChange *p_change);
-    // Drains m_orphan_chat_controls — chat controls that arrived before
-    // the matching peer was registered. Called after every register_peer
-    // so handshake-race-orphaned controls are surfaced as chat_control_added
-    // once the peer mapping exists.
-    void _attach_orphan_chat_controls();
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Signal _test_enqueue_shutdown_pending();
@@ -650,13 +667,20 @@ private:
     // audio devices so enabled voice chat actually flows. Without this a
     // freshly created chat control has no audio device bound and no voice is
     // captured or rendered even when voice permissions are granted.
-    void _configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> &p_network, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
+    void _configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
     Signal _set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded = nullptr);
     Signal _set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
     Signal _destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control);
+    // Phase C: explicit, network-independent local chat-control lifecycle backing
+    // PlayFabPartyChat.create_local_chat_control_async/destroy_local_chat_control_async.
+    Signal _create_local_chat_control(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config);
+    Signal _destroy_local_chat_control(const Ref<PlayFabUser> &p_user);
 
     HRESULT _start_create_endpoint_step(PendingOperation *p_operation);
     HRESULT _start_create_chat_control_step(PendingOperation *p_operation);
+    // Reuse an already-created local chat control by connecting it to the
+    // operation's network instead of creating a fresh one.
+    HRESULT _start_connect_chat_control_step(PendingOperation *p_operation, const Ref<PlayFabPartyChatControl> &p_chat_control);
     HRESULT _start_handshake_step(PendingOperation *p_operation);
     HRESULT _send_handshake_request_to(PendingOperation *p_operation, Party::PartyEndpoint *p_target);
     void _send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id);
@@ -694,6 +718,7 @@ public:
     Signal create_and_join_network_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>());
     Signal join_network_async(const Ref<PlayFabUser> &p_user, const String &p_descriptor, const Ref<PlayFabPartyConfig> &p_config = Ref<PlayFabPartyConfig>());
     Signal leave_network_async(const Ref<PlayFabPartyNetwork> &p_network);
+    Signal release_local_user_async(const Ref<PlayFabUser> &p_user);
 
     Ref<PlayFabPartyChat> get_chat() const;
     Array get_networks() const;

@@ -4,7 +4,7 @@
 		Diagnostic wrapper around a PlayFab Party chat control.
 	</brief_description>
 	<description>
-		Provides advanced access to a PlayFab Party chat control. Most title code should prefer the peer-id helpers on [PlayFabPartyPeer] (such as [method PlayFabPartyPeer.send_text_async] and [method PlayFabPartyPeer.set_peer_chat_permissions_async]) which do not require maintaining chat-control identity.
+		Provides advanced access to a PlayFab Party chat control. Most title code should prefer the entity-key helpers on [PlayFabPartyChat] (such as [method PlayFabPartyChat.send_text_async] and [method PlayFabPartyChat.set_chat_permissions_async]) which do not require maintaining chat-control identity.
 	</description>
 	<tutorials></tutorials>
 	<methods>

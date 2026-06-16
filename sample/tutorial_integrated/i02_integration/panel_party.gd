@@ -26,6 +26,7 @@ var _auth: Node = null
 var _party_node: Node = null
 var _network = null
 var _peer = null
+var _chat = null
 var _initialized: bool = false
 
 func _ready() -> void:
@@ -56,6 +57,13 @@ func _exit_tree() -> void:
 			_party_node.network_destroyed.disconnect(_on_network_destroyed)
 		if _party_node.state_changed.is_connected(_on_party_state_changed):
 			_party_node.state_changed.disconnect(_on_party_state_changed)
+	if _chat != null:
+		if _chat.text_message_received.is_connected(_on_text_received):
+			_chat.text_message_received.disconnect(_on_text_received)
+		if _chat.chat_control_added.is_connected(_on_chat_control_added):
+			_chat.chat_control_added.disconnect(_on_chat_control_added)
+		if _chat.chat_control_removed.is_connected(_on_chat_control_removed):
+			_chat.chat_control_removed.disconnect(_on_chat_control_removed)
 	# Detach the active network so its state_changed / peer signals
 	# are dropped explicitly rather than left to instance-free cleanup.
 	_attach_network(null)
@@ -79,6 +87,14 @@ func _initialize_after_sign_in() -> void:
 	_party_node.network_joined.connect(_attach_network)
 	_party_node.network_left.connect(_on_network_left)
 	_party_node.network_destroyed.connect(_on_network_destroyed)
+	# Chat is meshed by PlayFab Party and lives on the persistent
+	# PlayFab.party.chat surface, reused across networks, so wire its
+	# signals once here rather than per network attach. The roster
+	# (peer list) still comes from the per-network transport peer.
+	_chat = AddonApi.singleton("PlayFab").party.chat
+	_chat.text_message_received.connect(_on_text_received)
+	_chat.chat_control_added.connect(_on_chat_control_added)
+	_chat.chat_control_removed.connect(_on_chat_control_removed)
 	# Drive in-progress feedback off the Party autoload so the peer list
 	# flips to "Bringing up…" / "Joining…" the moment a host/join starts
 	# (typically cascaded from the Lobby panel). _attach_network owns the
@@ -93,13 +109,6 @@ func _attach_network(network) -> void:
 		return
 	if _network != null and _network.state_changed.is_connected(_on_network_state_changed):
 		_network.state_changed.disconnect(_on_network_state_changed)
-	if _peer != null:
-		if _peer.text_message_received.is_connected(_on_text_received):
-			_peer.text_message_received.disconnect(_on_text_received)
-		if _peer.chat_control_added.is_connected(_on_chat_control_added):
-			_peer.chat_control_added.disconnect(_on_chat_control_added)
-		if _peer.chat_control_removed.is_connected(_on_chat_control_removed):
-			_peer.chat_control_removed.disconnect(_on_chat_control_removed)
 	_network = network
 	if _network == null:
 		_peer = null
@@ -107,10 +116,6 @@ func _attach_network(network) -> void:
 		return
 	_peer = _network.local_peer
 	_network.state_changed.connect(_on_network_state_changed)
-	if _peer != null:
-		_peer.text_message_received.connect(_on_text_received)
-		_peer.chat_control_added.connect(_on_chat_control_added)
-		_peer.chat_control_removed.connect(_on_chat_control_removed)
 	_refresh_peers()
 
 func _on_network_left() -> void:
@@ -136,9 +141,9 @@ func _on_party_state_changed(state) -> void:
 
 func _on_send_pressed() -> void:
 	var text: String = _chat_input.text.strip_edges()
-	if text.is_empty() or _peer == null:
+	if text.is_empty() or _peer == null or _chat == null:
 		return
-	var result = await _peer.send_text_async(text)
+	var result = await _chat.send_text_async(text)
 	if not is_inside_tree():
 		return
 	if result.ok:
@@ -148,25 +153,23 @@ func _on_send_pressed() -> void:
 		_chat_log.append_text("[i]send_text_async failed: %s[/i]\n" % result.message)
 
 func _on_mute_remotes_toggled(button_pressed: bool) -> void:
-	if _peer == null:
+	if _peer == null or _chat == null:
 		return
 	for peer_id in _peer.get_peers():
-		_peer.set_peer_muted_async(peer_id, button_pressed)
+		var entity_key: Dictionary = _peer.get_peer_entity_key(peer_id)
+		_chat.set_muted_async(entity_key, button_pressed)
 
 func _on_network_state_changed(_change) -> void:
 	_refresh_peers()
 
-func _on_chat_control_added(_peer_id: int, _control) -> void:
+func _on_chat_control_added(_entity_key: Dictionary, _control) -> void:
 	_refresh_peers()
 
-func _on_chat_control_removed(_peer_id: int) -> void:
+func _on_chat_control_removed(_entity_key: Dictionary) -> void:
 	_refresh_peers()
 
-func _on_text_received(peer_id: int, message) -> void:
-	var label: String = "?"
-	if _peer != null:
-		var entity: Dictionary = _peer.get_peer_entity_key(peer_id)
-		label = String(entity.get("id", "?")).left(8)
+func _on_text_received(entity_key: Dictionary, message) -> void:
+	var label: String = String(entity_key.get("id", "?")).left(8)
 	_chat_log.append_text("[%s] %s\n" % [label, message.text])
 
 func _refresh_peers() -> void:

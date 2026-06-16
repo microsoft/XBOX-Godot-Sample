@@ -585,9 +585,29 @@ Signal PlayFabPartyChatControl::destroy_async() {
 void PlayFabPartyChat::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_local_chat_control", "user"), &PlayFabPartyChat::get_local_chat_control);
     ClassDB::bind_method(D_METHOD("get_chat_controls"), &PlayFabPartyChat::get_chat_controls);
+    ClassDB::bind_method(D_METHOD("get_remote_entity_keys"), &PlayFabPartyChat::get_remote_entity_keys);
+    ClassDB::bind_method(D_METHOD("get_chat_control", "entity_key"), &PlayFabPartyChat::get_chat_control);
+    ClassDB::bind_method(D_METHOD("send_text_async", "message", "target_entity_keys", "config"),
+            &PlayFabPartyChat::send_text_async,
+            DEFVAL(Array()),
+            DEFVAL(Ref<PlayFabPartyTextMessageConfig>()));
+    ClassDB::bind_method(D_METHOD("set_chat_permissions_async", "entity_key", "permissions"), &PlayFabPartyChat::set_chat_permissions_async);
+    ClassDB::bind_method(D_METHOD("set_muted_async", "entity_key", "muted"), &PlayFabPartyChat::set_muted_async);
+    ClassDB::bind_method(D_METHOD("create_local_chat_control_async", "user", "config"),
+            &PlayFabPartyChat::create_local_chat_control_async,
+            DEFVAL(Ref<PlayFabPartyConfig>()));
+    ClassDB::bind_method(D_METHOD("destroy_local_chat_control_async", "user"), &PlayFabPartyChat::destroy_local_chat_control_async);
 
     ADD_SIGNAL(MethodInfo("state_changed", PropertyInfo(Variant::OBJECT, "change", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatStateChange")));
+    ADD_SIGNAL(MethodInfo("chat_control_added", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "chat_control", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatControl")));
+    ADD_SIGNAL(MethodInfo("chat_control_removed", PropertyInfo(Variant::DICTIONARY, "entity_key")));
+    ADD_SIGNAL(MethodInfo("text_message_received", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
+    ADD_SIGNAL(MethodInfo("transcription_received", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
+    ADD_SIGNAL(MethodInfo("chat_permissions_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::INT, "permissions")));
+    ADD_SIGNAL(MethodInfo("muted_changed", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::BOOL, "muted")));
 }
+
+void PlayFabPartyChat::set_owner(PlayFabParty *p_owner) { m_owner = p_owner; }
 
 void PlayFabPartyChat::clear() {
     m_chat_controls.clear();
@@ -627,6 +647,129 @@ Ref<PlayFabPartyChatControl> PlayFabPartyChat::get_local_chat_control(const Ref<
 
 Array PlayFabPartyChat::get_chat_controls() const {
     return m_chat_controls.duplicate();
+}
+
+Party::PartyLocalChatControl *PlayFabPartyChat::_local_native_chat_control() const {
+    if (m_owner == nullptr) {
+        return nullptr;
+    }
+    for (const Ref<PlayFabPartyNetwork> &network : m_owner->m_networks) {
+        if (network.is_valid()) {
+            Party::PartyLocalChatControl *local = network->get_native_local_chat_control();
+            if (local != nullptr) {
+                return local;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Array PlayFabPartyChat::get_remote_entity_keys() const {
+    Array keys;
+    for (int i = 0; i < m_chat_controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = m_chat_controls[i];
+        if (control.is_valid() && !control->is_local() && control->get_native_handle() != nullptr) {
+            keys.push_back(entity_key_for_chat_control(control->get_native_handle()));
+        }
+    }
+    return keys;
+}
+
+Ref<PlayFabPartyChatControl> PlayFabPartyChat::get_chat_control(const Dictionary &p_entity_key) const {
+    for (int i = 0; i < m_chat_controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = m_chat_controls[i];
+        if (control.is_valid() && control->get_native_handle() != nullptr &&
+                dictionary_entity_key_equals(entity_key_for_chat_control(control->get_native_handle()), p_entity_key)) {
+            return control;
+        }
+    }
+    return Ref<PlayFabPartyChatControl>();
+}
+
+Signal PlayFabPartyChat::send_text_async(const String &p_message, const Array &p_target_entity_keys, const Ref<PlayFabPartyTextMessageConfig> &p_config) {
+    Party::PartyLocalChatControl *local = _local_native_chat_control();
+    if (m_owner == nullptr || local == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
+                "PlayFabPartyChat.send_text_async() requires a connected Party network with a local chat control.");
+    }
+
+    std::vector<Party::PartyChatControl *> targets;
+    if (p_target_entity_keys.size() == 0) {
+        // Empty target == broadcast to the full mesh: every remote chat
+        // control the Party SDK has surfaced, no host relay.
+        for (int i = 0; i < m_chat_controls.size(); ++i) {
+            Ref<PlayFabPartyChatControl> control = m_chat_controls[i];
+            if (control.is_valid() && !control->is_local() && control->get_native_handle() != nullptr) {
+                targets.push_back(control->get_native_handle());
+            }
+        }
+    } else {
+        for (int i = 0; i < p_target_entity_keys.size(); ++i) {
+            Dictionary entity_key = p_target_entity_keys[i];
+            Ref<PlayFabPartyChatControl> control = get_chat_control(entity_key);
+            if (control.is_null() || control->get_native_handle() == nullptr) {
+                return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
+                        String("PlayFabPartyChat.send_text_async() unknown entity key ") + String(entity_key.get("id", "")) + ".");
+            }
+            targets.push_back(control->get_native_handle());
+        }
+    }
+
+    return m_owner->_send_text_via_chat_control(local, targets, p_message, p_config);
+}
+
+Signal PlayFabPartyChat::set_chat_permissions_async(const Dictionary &p_entity_key, int64_t p_permissions) {
+    Party::PartyLocalChatControl *local = _local_native_chat_control();
+    if (m_owner == nullptr || local == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
+                "PlayFabPartyChat.set_chat_permissions_async() requires a connected Party network with a local chat control.");
+    }
+    Ref<PlayFabPartyChatControl> control = get_chat_control(p_entity_key);
+    if (control.is_null() || control->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
+                String("PlayFabPartyChat.set_chat_permissions_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
+    }
+    bool succeeded = false;
+    Signal completed = m_owner->_set_chat_permissions(local, control->get_native_handle(), p_permissions, &succeeded);
+    if (succeeded) {
+        emit_signal("chat_permissions_changed", p_entity_key, p_permissions);
+    }
+    return completed;
+}
+
+Signal PlayFabPartyChat::set_muted_async(const Dictionary &p_entity_key, bool p_muted) {
+    Party::PartyLocalChatControl *local = _local_native_chat_control();
+    if (m_owner == nullptr || local == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
+                "PlayFabPartyChat.set_muted_async() requires a connected Party network with a local chat control.");
+    }
+    Ref<PlayFabPartyChatControl> control = get_chat_control(p_entity_key);
+    if (control.is_null() || control->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
+                String("PlayFabPartyChat.set_muted_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
+    }
+    bool succeeded = false;
+    Signal completed = m_owner->_set_incoming_audio_muted(local, control->get_native_handle(), p_muted, &succeeded);
+    if (succeeded) {
+        emit_signal("muted_changed", p_entity_key, p_muted);
+    }
+    return completed;
+}
+
+Signal PlayFabPartyChat::create_local_chat_control_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config) {
+    if (m_owner == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
+                "PlayFabPartyChat.create_local_chat_control_async() requires an initialized PlayFab.party.");
+    }
+    return m_owner->_create_local_chat_control(p_user, p_config);
+}
+
+Signal PlayFabPartyChat::destroy_local_chat_control_async(const Ref<PlayFabUser> &p_user) {
+    if (m_owner == nullptr) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
+                "PlayFabPartyChat.destroy_local_chat_control_async() requires an initialized PlayFab.party.");
+    }
+    return m_owner->_destroy_local_chat_control(p_user);
 }
 
 // ---------------------------------------------------------------------------
@@ -772,24 +915,10 @@ void PlayFabPartyPeer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_peer_entity_key", "peer_id"), &PlayFabPartyPeer::get_peer_entity_key);
     ClassDB::bind_method(D_METHOD("get_peer_member", "peer_id"), &PlayFabPartyPeer::get_peer_member);
     ClassDB::bind_method(D_METHOD("get_peers"), &PlayFabPartyPeer::get_peers);
-    ClassDB::bind_method(D_METHOD("get_local_chat_control"), &PlayFabPartyPeer::get_local_chat_control);
-    ClassDB::bind_method(D_METHOD("get_peer_chat_control", "peer_id"), &PlayFabPartyPeer::get_peer_chat_control);
-    ClassDB::bind_method(D_METHOD("send_text_async", "message", "target_peer_ids", "config"),
-            &PlayFabPartyPeer::send_text_async,
-            DEFVAL(PackedInt32Array()),
-            DEFVAL(Ref<PlayFabPartyTextMessageConfig>()));
-    ClassDB::bind_method(D_METHOD("set_peer_chat_permissions_async", "peer_id", "permissions"), &PlayFabPartyPeer::set_peer_chat_permissions_async);
-    ClassDB::bind_method(D_METHOD("set_peer_muted_async", "peer_id", "muted"), &PlayFabPartyPeer::set_peer_muted_async);
     ClassDB::bind_method(D_METHOD("close_with_reason", "reason"), &PlayFabPartyPeer::close_with_reason, DEFVAL(String()));
 
     ADD_SIGNAL(MethodInfo("connection_state_changed", PropertyInfo(Variant::INT, "status")));
     ADD_SIGNAL(MethodInfo("network_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabResult")));
-    ADD_SIGNAL(MethodInfo("chat_control_added", PropertyInfo(Variant::INT, "peer_id"), PropertyInfo(Variant::OBJECT, "chat_control", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatControl")));
-    ADD_SIGNAL(MethodInfo("chat_control_removed", PropertyInfo(Variant::INT, "peer_id")));
-    ADD_SIGNAL(MethodInfo("text_message_received", PropertyInfo(Variant::INT, "peer_id"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
-    ADD_SIGNAL(MethodInfo("transcription_received", PropertyInfo(Variant::INT, "peer_id"), PropertyInfo(Variant::OBJECT, "message", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatMessage")));
-    ADD_SIGNAL(MethodInfo("chat_permissions_changed", PropertyInfo(Variant::INT, "peer_id"), PropertyInfo(Variant::INT, "permissions")));
-    ADD_SIGNAL(MethodInfo("peer_muted_changed", PropertyInfo(Variant::INT, "peer_id"), PropertyInfo(Variant::BOOL, "muted")));
 }
 
 void PlayFabPartyPeer::set_network(const Ref<PlayFabPartyNetwork> &p_network) {
@@ -844,14 +973,6 @@ void PlayFabPartyPeer::update_peer_endpoint(int32_t p_peer_id, Party::PartyEndpo
     }
 }
 
-void PlayFabPartyPeer::update_peer_chat_control(int32_t p_peer_id, const Ref<PlayFabPartyChatControl> &p_chat_control) {
-    auto it = m_peer_records.find(p_peer_id);
-    if (it == m_peer_records.end()) {
-        return;
-    }
-    it->second.chat_control = p_chat_control;
-}
-
 void PlayFabPartyPeer::unregister_peer(int32_t p_peer_id) {
     auto it = m_peer_records.find(p_peer_id);
     if (it == m_peer_records.end()) {
@@ -896,18 +1017,6 @@ int32_t PlayFabPartyPeer::find_peer_by_entity_key(const Dictionary &p_entity_key
     return 0;
 }
 
-int32_t PlayFabPartyPeer::find_peer_by_chat_control(Party::PartyChatControl *p_chat_control) const {
-    if (p_chat_control == nullptr) {
-        return 0;
-    }
-    for (const auto &entry : m_peer_records) {
-        if (entry.second.chat_control.is_valid() && entry.second.chat_control->get_native_handle() == p_chat_control) {
-            return entry.first;
-        }
-    }
-    return 0;
-}
-
 Party::PartyEndpoint *PlayFabPartyPeer::get_peer_endpoint(int32_t p_peer_id) const {
     auto it = m_peer_records.find(p_peer_id);
     if (it == m_peer_records.end()) {
@@ -923,30 +1032,6 @@ void PlayFabPartyPeer::enqueue_inbound(int32_t p_source_peer, int32_t p_channel,
     packet.mode = p_mode;
     packet.payload = p_payload;
     m_inbound.push_back(packet);
-}
-
-void PlayFabPartyPeer::emit_chat_control_added(int32_t p_peer_id, const Ref<PlayFabPartyChatControl> &p_chat_control) {
-    emit_signal("chat_control_added", static_cast<int64_t>(p_peer_id), p_chat_control);
-}
-
-void PlayFabPartyPeer::emit_chat_control_removed(int32_t p_peer_id) {
-    emit_signal("chat_control_removed", static_cast<int64_t>(p_peer_id));
-}
-
-void PlayFabPartyPeer::emit_text_message(int32_t p_peer_id, const Ref<PlayFabPartyChatMessage> &p_message) {
-    emit_signal("text_message_received", static_cast<int64_t>(p_peer_id), p_message);
-}
-
-void PlayFabPartyPeer::emit_transcription(int32_t p_peer_id, const Ref<PlayFabPartyChatMessage> &p_message) {
-    emit_signal("transcription_received", static_cast<int64_t>(p_peer_id), p_message);
-}
-
-void PlayFabPartyPeer::emit_chat_permissions_changed(int32_t p_peer_id, int64_t p_permissions) {
-    emit_signal("chat_permissions_changed", static_cast<int64_t>(p_peer_id), p_permissions);
-}
-
-void PlayFabPartyPeer::emit_peer_muted_changed(int32_t p_peer_id, bool p_muted) {
-    emit_signal("peer_muted_changed", static_cast<int64_t>(p_peer_id), p_muted);
 }
 
 void PlayFabPartyPeer::emit_network_error(const Ref<PlayFabResult> &p_result) {
@@ -989,100 +1074,6 @@ Array PlayFabPartyPeer::get_peers() const {
         peers.push_back(static_cast<int64_t>(entry.first));
     }
     return peers;
-}
-
-Ref<PlayFabPartyChatControl> PlayFabPartyPeer::get_local_chat_control() const {
-    return m_network.is_valid() ? m_network->get_local_chat_control() : Ref<PlayFabPartyChatControl>();
-}
-
-Ref<PlayFabPartyChatControl> PlayFabPartyPeer::get_peer_chat_control(int64_t p_peer_id) const {
-    auto it = m_peer_records.find(static_cast<int32_t>(p_peer_id));
-    if (it == m_peer_records.end()) {
-        return Ref<PlayFabPartyChatControl>();
-    }
-    return it->second.chat_control;
-}
-
-Signal PlayFabPartyPeer::send_text_async(const String &p_message, const PackedInt32Array &p_target_peer_ids, const Ref<PlayFabPartyTextMessageConfig> &p_config) {
-    if (m_network.is_null() || m_network->m_owner == nullptr || m_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
-                "PlayFabPartyPeer.send_text_async() requires a connected Party network.");
-    }
-
-    Party::PartyLocalChatControl *local = m_network->get_native_local_chat_control();
-    if (local == nullptr) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
-                "PlayFabPartyPeer.send_text_async() requires a local chat control.");
-    }
-
-    std::vector<Party::PartyChatControl *> targets;
-    if (p_target_peer_ids.size() == 0) {
-        for (const auto &entry : m_peer_records) {
-            if (entry.second.chat_control.is_valid() && entry.second.chat_control->get_native_handle() != nullptr) {
-                targets.push_back(entry.second.chat_control->get_native_handle());
-            }
-        }
-    } else {
-        for (int i = 0; i < p_target_peer_ids.size(); ++i) {
-            int32_t peer_id = p_target_peer_ids[i];
-            auto it = m_peer_records.find(peer_id);
-            if (it == m_peer_records.end() || !it->second.chat_control.is_valid() || it->second.chat_control->get_native_handle() == nullptr) {
-                return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
-                        String("PlayFabPartyPeer.send_text_async() unknown peer id ") + String::num_int64(peer_id) + ".");
-            }
-            targets.push_back(it->second.chat_control->get_native_handle());
-        }
-    }
-
-    return m_network->m_owner->_send_text_via_chat_control(local, targets, p_message, p_config);
-}
-
-Signal PlayFabPartyPeer::set_peer_chat_permissions_async(int64_t p_peer_id, int64_t p_permissions) {
-    if (m_network.is_null() || m_network->m_owner == nullptr || m_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
-                "PlayFabPartyPeer.set_peer_chat_permissions_async() requires a connected Party network.");
-    }
-    auto it = m_peer_records.find(static_cast<int32_t>(p_peer_id));
-    if (it == m_peer_records.end() || !it->second.chat_control.is_valid() || it->second.chat_control->get_native_handle() == nullptr) {
-        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
-                String("PlayFabPartyPeer.set_peer_chat_permissions_async() unknown peer id ") + String::num_int64(p_peer_id) + ".");
-    }
-    Party::PartyLocalChatControl *local = m_network->get_native_local_chat_control();
-    if (local == nullptr) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
-                "PlayFabPartyPeer.set_peer_chat_permissions_async() requires a local chat control.");
-    }
-    bool succeeded = false;
-    Signal completed = m_network->m_owner->_set_chat_permissions(local, it->second.chat_control->get_native_handle(), p_permissions, &succeeded);
-    if (succeeded) {
-        it->second.permissions = p_permissions;
-        emit_signal("chat_permissions_changed", static_cast<int64_t>(p_peer_id), p_permissions);
-    }
-    return completed;
-}
-
-Signal PlayFabPartyPeer::set_peer_muted_async(int64_t p_peer_id, bool p_muted) {
-    if (m_network.is_null() || m_network->m_owner == nullptr || m_connection_status != MultiplayerPeer::CONNECTION_CONNECTED) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED,
-                "PlayFabPartyPeer.set_peer_muted_async() requires a connected Party network.");
-    }
-    auto it = m_peer_records.find(static_cast<int32_t>(p_peer_id));
-    if (it == m_peer_records.end() || !it->second.chat_control.is_valid() || it->second.chat_control->get_native_handle() == nullptr) {
-        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
-                String("PlayFabPartyPeer.set_peer_muted_async() unknown peer id ") + String::num_int64(p_peer_id) + ".");
-    }
-    Party::PartyLocalChatControl *local = m_network->get_native_local_chat_control();
-    if (local == nullptr) {
-        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
-                "PlayFabPartyPeer.set_peer_muted_async() requires a local chat control.");
-    }
-    bool succeeded = false;
-    Signal completed = m_network->m_owner->_set_incoming_audio_muted(local, it->second.chat_control->get_native_handle(), p_muted, &succeeded);
-    if (succeeded) {
-        it->second.muted = p_muted;
-        emit_signal("peer_muted_changed", static_cast<int64_t>(p_peer_id), p_muted);
-    }
-    return completed;
 }
 
 void PlayFabPartyPeer::close_with_reason(const String &p_reason) {
@@ -1285,6 +1276,7 @@ MultiplayerPeer::ConnectionStatus PlayFabPartyPeer::_get_connection_status() con
 
 PlayFabParty::PlayFabParty() {
     m_chat.instantiate();
+    m_chat->set_owner(this);
 }
 
 PlayFabParty::~PlayFabParty() {
@@ -1555,8 +1547,6 @@ void PlayFabParty::shutdown() {
         m_chat->clear();
     }
 
-    m_orphan_chat_controls.clear();
-
     _release_all_local_users();
 
     if (m_initialized) {
@@ -1679,6 +1669,17 @@ Party::PartyLocalUser *PlayFabParty::_get_or_create_local_user(const Ref<PlayFab
 }
 
 void PlayFabParty::_release_local_user(PFEntityHandle p_handle) {
+    // Tear down this user's reusable chat control before the user itself.
+    auto cc = m_local_chat_controls.find(p_handle);
+    if (cc != m_local_chat_controls.end()) {
+        if (cc->second.is_valid()) {
+            if (m_chat.is_valid()) {
+                m_chat->untrack(cc->second);
+            }
+            _destroy_chat_control(cc->second);
+        }
+        m_local_chat_controls.erase(cc);
+    }
     auto it = m_local_users.find(p_handle);
     if (it == m_local_users.end()) {
         return;
@@ -1690,6 +1691,9 @@ void PlayFabParty::_release_local_user(PFEntityHandle p_handle) {
 }
 
 void PlayFabParty::_release_all_local_users() {
+    // Native chat controls are torn down by PartyManager::Cleanup() at
+    // shutdown; just drop our wrapper references here.
+    m_local_chat_controls.clear();
     for (auto &entry : m_local_users) {
         if (entry.second != nullptr) {
             Party::PartyManager::GetSingleton().DestroyLocalUser(entry.second, nullptr);
@@ -1709,7 +1713,7 @@ void PlayFabParty::_reset_after_state_change_finish_failure(const Ref<PlayFabRes
         m_initialized = false;
     }
     m_local_users.clear();
-    m_orphan_chat_controls.clear();
+    m_local_chat_controls.clear();
     if (m_chat.is_valid()) {
         m_chat->clear();
     }
@@ -2332,16 +2336,36 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
         need_chat = operation->config->is_voice_chat_enabled() || operation->config->is_text_chat_enabled();
     }
 
-    if (need_chat) {
-        HRESULT hr = _start_create_chat_control_step(operation);
+    // Chat-control creation is decoupled from network join (Phase C): the
+    // control is created explicitly via
+    // PlayFab.party.chat.create_local_chat_control_async(). Join never creates a
+    // chat control — if this local user already owns one, connect it to this
+    // network; otherwise this network simply carries no chat, regardless of the
+    // join config's voice/text flags.
+    Ref<PlayFabPartyChatControl> existing_chat_control;
+    if (operation->user.is_valid() && operation->user->get_entity_handle() != nullptr) {
+        auto it = m_local_chat_controls.find(operation->user->get_entity_handle());
+        if (it != m_local_chat_controls.end()) {
+            existing_chat_control = it->second;
+        }
+    }
+    if (existing_chat_control.is_valid() && existing_chat_control->get_native_handle() != nullptr) {
+        HRESULT hr = _start_connect_chat_control_step(operation, existing_chat_control);
         if (FAILED(hr)) {
-            Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_CHAT_CONTROL_CREATE_FAILED, "Failed to create chat control.");
+            Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_CHAT_CONTROL_CREATE_FAILED, "Failed to connect chat control.");
             if (operation->network.is_valid()) {
-                _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Chat control creation failed.");
+                _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Chat control connection failed.");
             }
             _complete_pending(operation, result);
         }
         return;
+    }
+    if (need_chat) {
+        // The join asked for chat but this user has not created a local chat
+        // control yet. Surface a warning so the silent "no chat on this network"
+        // outcome is diagnosable; the join itself continues without chat.
+        WARN_PRINT("PlayFab.party: network join requested chat but the local user has no chat control; "
+                   "call PlayFab.party.chat.create_local_chat_control_async() before joining. Continuing without chat.");
     }
 
     HRESULT hr = _start_create_endpoint_step(operation);
@@ -2518,7 +2542,6 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
             if (assigned_id == 0) {
                 assigned_id = peer->allocate_peer_id();
                 peer->register_peer(assigned_id, change->senderEndpoint, entity_key);
-                _attach_orphan_chat_controls();
                 newly_joined = true;
             } else {
                 peer->update_peer_endpoint(assigned_id, change->senderEndpoint);
@@ -2555,15 +2578,12 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
                 peer->set_unique_id(assigned_id);
                 peer->set_connection_status(MultiplayerPeer::CONNECTION_CONNECTED);
                 if (change->senderEndpoint != nullptr && peer->find_peer_by_endpoint(change->senderEndpoint) == 0) {
-                    // Populate the host's entity_key from the endpoint so a
-                    // later PartyChatControlCreated for the host's chat
-                    // control can find peer 1 by entity_key and fire
-                    // chat_control_added. With an empty key the lookup
-                    // fails and the sample never sets chat permissions for
-                    // the host, breaking text + voice in both directions.
+                    // Populate the host's entity_key from the endpoint so the
+                    // host shows up as a transport peer (peer id 1) on the
+                    // client. Chat is meshed independently of these records,
+                    // so no chat bookkeeping happens here.
                     Dictionary host_entity_key = entity_key_for_endpoint(change->senderEndpoint);
                     peer->register_peer(HOST_PEER_ID, change->senderEndpoint, host_entity_key);
-                    _attach_orphan_chat_controls();
                 }
                 network->set_state_value(NETWORK_STATE_CONNECTED);
                 // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see
@@ -2626,8 +2646,8 @@ void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChang
         // later). If the title immediately rejoins the same network, holding
         // the dying wrapper in m_networks lets stale local_peer entity-key
         // records steal PartyChatControlCreated events from the new network
-        // (the iteration in _process_chat_control_created / _attach_orphan_chat_controls
-        // is order-sensitive and the older wrapper wins). The GDScript autoload
+        // (the iteration in _process_chat_control_created is order-sensitive
+        // and the older wrapper wins). The GDScript autoload
         // disconnects its handlers via _detach_network, so chat_control_added
         // emitted on the stale peer is silently dropped — voice and text never
         // re-arm on the rejoined network. Only do this on a successful leave;
@@ -2707,61 +2727,51 @@ void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStat
     if (operation == nullptr) {
         return;
     }
-    if (_abort_join_op_if_network_dead(operation)) {
-        // Newly-created local chat control is not attached to a wrapper here;
-        // Party will surface its destruction independently.
-        return;
-    }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyCreateChatControl");
-        if (operation->network.is_valid()) {
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create chat control failed.");
-        }
         _complete_pending(operation, result);
         return;
     }
 
+    // Phase C: chat-control creation is decoupled from network join. This
+    // completion is the terminal step of an explicit
+    // create_local_chat_control_async() call, so there is no network to connect
+    // here. Track the control on the meshed chat surface, cache it per local
+    // user (later network joins connect it via ConnectChatControl), bind its
+    // audio devices, and resolve the awaiter with the wrapper.
     operation->native_chat_control = change->localChatControl;
-    if (operation->network.is_valid()) {
-        operation->network->m_native_local_chat_control = change->localChatControl;
-        Ref<PlayFabPartyChatControl> wrapper;
-        wrapper.instantiate();
-        wrapper->attach(this, change->localChatControl, true);
-        bool voice_enabled = operation->config.is_valid() ? operation->config->is_voice_chat_enabled() : true;
-        bool text_enabled = operation->config.is_valid() ? operation->config->is_text_chat_enabled() : true;
-        bool transcription_enabled = operation->config.is_valid() ? operation->config->is_transcription_enabled() : false;
-        Dictionary local_entity_key = entity_key_for_chat_control(change->localChatControl);
-        String local_entity_id = local_entity_key.get("id", String());
-        wrapper->set_snapshot(local_entity_id, operation->user, voice_enabled, text_enabled, transcription_enabled, true);
-        operation->network->m_local_chat_control = wrapper;
-        if (m_chat.is_valid()) {
-            m_chat->track(wrapper);
-        }
-        // Bind capture/render audio devices on the freshly created local chat
-        // control before connecting it. A new chat control has no audio device
-        // selected (PartyAudioDeviceSelectionType::None), so without this voice
-        // never flows even though voice chat and permissions are enabled.
-        //
-        // Bind unconditionally — matches the canonical PlayFab Party sample
-        // (BumbleRumble), which always wires SystemDefault input/output on the
-        // local chat control regardless of whether voice is actually used. If
-        // voice is denied later (no SendAudio/ReceiveAudio permission, no mic
-        // device, etc.), the device just sits unused; binding it costs nothing
-        // and removes a silent failure mode where voice was implicitly disabled
-        // because the config didn't carry voice_enabled = true.
-        _configure_chat_audio_devices(operation->network, change->localChatControl, operation->config);
-    }
 
-    PartyError err = operation->native_network->ConnectChatControl(change->localChatControl, operation);
-    if (PARTY_FAILED(err)) {
-        Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyNetwork::ConnectChatControl");
-        if (operation->network.is_valid()) {
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Connect chat control dispatch failed.");
-        }
-        _complete_pending(operation, result);
-        return;
+    Ref<PlayFabPartyChatControl> wrapper;
+    wrapper.instantiate();
+    wrapper->attach(this, change->localChatControl, true);
+    bool voice_enabled = operation->config.is_valid() ? operation->config->is_voice_chat_enabled() : true;
+    bool text_enabled = operation->config.is_valid() ? operation->config->is_text_chat_enabled() : true;
+    bool transcription_enabled = operation->config.is_valid() ? operation->config->is_transcription_enabled() : false;
+    Dictionary local_entity_key = entity_key_for_chat_control(change->localChatControl);
+    String local_entity_id = local_entity_key.get("id", String());
+    wrapper->set_snapshot(local_entity_id, operation->user, voice_enabled, text_enabled, transcription_enabled, true);
+    if (m_chat.is_valid()) {
+        m_chat->track(wrapper);
     }
-    operation->kind = PENDING_CONNECT_CHAT_CONTROL;
+    // Cache this control against the local user so subsequent network joins
+    // reuse it (ConnectChatControl) instead of creating a second one.
+    if (operation->user.is_valid() && operation->user->get_entity_handle() != nullptr) {
+        m_local_chat_controls[operation->user->get_entity_handle()] = wrapper;
+    }
+    // Bind capture/render audio devices on the freshly created local chat
+    // control. A new chat control has no audio device selected
+    // (PartyAudioDeviceSelectionType::None), so without this voice never flows
+    // even when voice chat and permissions are enabled.
+    //
+    // Bind unconditionally — matches the canonical PlayFab Party sample
+    // (BumbleRumble), which always wires SystemDefault input/output on the local
+    // chat control regardless of whether voice is actually used. If voice is
+    // denied later (no SendAudio/ReceiveAudio permission, no mic device, etc.),
+    // the device just sits unused; binding it costs nothing and removes a silent
+    // failure mode where voice was implicitly disabled.
+    _configure_chat_audio_devices(wrapper, change->localChatControl, operation->config);
+
+    _complete_pending(operation, PlayFabResult::ok_result(wrapper));
 }
 
 void PlayFabParty::_process_connect_chat_control_completed(const Party::PartyStateChange *p_change) {
@@ -2792,7 +2802,7 @@ void PlayFabParty::_process_connect_chat_control_completed(const Party::PartySta
     }
 }
 
-void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> &p_network, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
+void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
     if (p_chat_control == nullptr) {
         return;
     }
@@ -2804,9 +2814,9 @@ void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> 
     PartyString input_ctx = nullptr;
     if (!input_id.is_empty()) {
         input_type = Party::PartyAudioDeviceSelectionType::Manual;
-        if (p_network.is_valid()) {
-            p_network->m_audio_input_device_id = input_id.utf8();
-            input_ctx = p_network->m_audio_input_device_id.get_data();
+        if (p_chat_control_wrapper.is_valid()) {
+            p_chat_control_wrapper->m_audio_input_device_id = input_id.utf8();
+            input_ctx = p_chat_control_wrapper->m_audio_input_device_id.get_data();
         }
     }
     PartyError input_err = p_chat_control->SetAudioInput(input_type, input_ctx, nullptr);
@@ -2823,9 +2833,9 @@ void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyNetwork> 
     PartyString output_ctx = nullptr;
     if (!output_id.is_empty()) {
         output_type = Party::PartyAudioDeviceSelectionType::Manual;
-        if (p_network.is_valid()) {
-            p_network->m_audio_output_device_id = output_id.utf8();
-            output_ctx = p_network->m_audio_output_device_id.get_data();
+        if (p_chat_control_wrapper.is_valid()) {
+            p_chat_control_wrapper->m_audio_output_device_id = output_id.utf8();
+            output_ctx = p_chat_control_wrapper->m_audio_output_device_id.get_data();
         }
     }
     PartyError output_err = p_chat_control->SetAudioOutput(output_type, output_ctx, nullptr);
@@ -2916,40 +2926,32 @@ void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *
     if (m_chat.is_null()) {
         return;
     }
-    // Local chat controls are tracked from CreateChatControlCompleted; skip
-    // them here.
+    // Local chat controls are tracked from CreateChatControlCompleted; skip them
+    // here. Post-Phase-C the local control is created (and this notification can
+    // arrive) before any network connects it, so network->get_native_local_chat_control()
+    // is not yet set — relying on it would mis-track our own local control as a
+    // remote one, which then lands in send_text_async()'s broadcast target list
+    // and the SDK rejects the send as a local-target loopback. Ask the SDK
+    // directly whether the control is local instead.
+    Party::PartyLocalChatControl *local_control = nullptr;
+    if (!PARTY_FAILED(change->chatControl->GetLocal(&local_control)) && local_control != nullptr) {
+        return;
+    }
     for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
         if (network.is_valid() && network->get_native_local_chat_control() == change->chatControl) {
             return;
         }
     }
-    // Remote chat control: find which tracked network owns the matching peer
-    // by entity-key, attach a wrapper, and surface it through the per-peer
-    // chat_control_added signal so GDScript can subscribe to messages and
-    // transcriptions on a per-peer basis.
-    Dictionary entity_key = entity_key_for_chat_control(change->chatControl);
-    int32_t matched_peer_id = 0;
-    Ref<PlayFabPartyPeer> matched_peer;
-    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        if (!network.is_valid()) {
-            continue;
-        }
-        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-        if (!peer.is_valid()) {
-            continue;
-        }
-        int32_t peer_id = peer->find_peer_by_entity_key(entity_key);
-        if (peer_id == 0) {
-            continue;
-        }
-        if (peer->find_peer_by_chat_control(change->chatControl) != 0) {
-            // Already mapped via handshake or a prior event.
+    // Remote chat control. Chat is meshed by the Party SDK — every endpoint
+    // sees every chat control — so we surface it on the PlayFab.party.chat
+    // surface keyed by entity key, independent of the transport peer star.
+    // Guard against a duplicate create for an already-tracked native handle.
+    for (Ref<PlayFabPartyChatControl> existing : m_chat->get_chat_controls()) {
+        if (existing.is_valid() && existing->get_native_handle() == change->chatControl) {
             return;
         }
-        matched_peer_id = peer_id;
-        matched_peer = peer;
-        break;
     }
+    Dictionary entity_key = entity_key_for_chat_control(change->chatControl);
     Ref<PlayFabPartyChatControl> wrapper;
     wrapper.instantiate();
     wrapper->attach(this, change->chatControl, false);
@@ -2958,61 +2960,7 @@ void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *
     String id = id_str != nullptr ? String::utf8(id_str) : String();
     wrapper->set_snapshot(id, Ref<PlayFabUser>(), true, true, false, false);
     m_chat->track(wrapper);
-    if (matched_peer.is_valid()) {
-        matched_peer->update_peer_chat_control(matched_peer_id, wrapper);
-        matched_peer->emit_chat_control_added(matched_peer_id, wrapper);
-    } else {
-        // Peer not registered yet (handshake hasn't completed for this
-        // chat control's owner). Queue and retry from
-        // _attach_orphan_chat_controls() after the next register_peer.
-        // Without this, a PartyChatControlCreated that lands in the same
-        // DoWork pass BEFORE the handshake reply/request is processed is
-        // silently dropped — chat_control_added never fires, the sample
-        // never calls set_peer_chat_permissions_async, and both sides
-        // reject inbound text/voice for lack of receive permission.
-        m_orphan_chat_controls.push_back(wrapper);
-    }
-}
-
-void PlayFabParty::_attach_orphan_chat_controls() {
-    for (auto it = m_orphan_chat_controls.begin(); it != m_orphan_chat_controls.end(); ) {
-        Ref<PlayFabPartyChatControl> wrapper = *it;
-        if (!wrapper.is_valid()) {
-            it = m_orphan_chat_controls.erase(it);
-            continue;
-        }
-        Party::PartyChatControl *native = wrapper->get_native_handle();
-        if (native == nullptr) {
-            it = m_orphan_chat_controls.erase(it);
-            continue;
-        }
-        Dictionary entity_key = entity_key_for_chat_control(native);
-        bool attached = false;
-        for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-            if (!network.is_valid()) {
-                continue;
-            }
-            Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-            if (!peer.is_valid()) {
-                continue;
-            }
-            int32_t peer_id = peer->find_peer_by_entity_key(entity_key);
-            if (peer_id == 0) {
-                continue;
-            }
-            if (peer->find_peer_by_chat_control(native) == 0) {
-                peer->update_peer_chat_control(peer_id, wrapper);
-                peer->emit_chat_control_added(peer_id, wrapper);
-            }
-            attached = true;
-            break;
-        }
-        if (attached) {
-            it = m_orphan_chat_controls.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    m_chat->emit_signal("chat_control_added", entity_key, wrapper);
 }
 
 void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange *p_change) {
@@ -3023,36 +2971,32 @@ void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange
     if (m_chat.is_null()) {
         return;
     }
-    // Clear any per-peer chat-control mapping for the destroyed control and
-    // surface the removal through the peer's chat_control_removed signal.
+    // Surface the removal on the meshed chat surface keyed by entity key, then
+    // untrack the wrapper.
+    Dictionary entity_key = entity_key_for_chat_control(change->chatControl);
+    // If a cached local chat control was destroyed (user release / shutdown),
+    // drop it from the per-user cache so a later join re-creates one.
+    for (auto it = m_local_chat_controls.begin(); it != m_local_chat_controls.end(); ++it) {
+        if (it->second.is_valid() && it->second->get_native_handle() == change->chatControl) {
+            m_local_chat_controls.erase(it);
+            break;
+        }
+    }
+    // Clear any network still pointing at the destroyed local control so its
+    // get_native_local_chat_control() / get_local_chat_control() accessors do
+    // not hand back a freed native handle or a detached wrapper.
     for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        if (!network.is_valid()) {
-            continue;
-        }
-        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-        if (!peer.is_valid()) {
-            continue;
-        }
-        int32_t peer_id = peer->find_peer_by_chat_control(change->chatControl);
-        if (peer_id != 0) {
-            peer->emit_chat_control_removed(peer_id);
-            peer->update_peer_chat_control(peer_id, Ref<PlayFabPartyChatControl>());
+        if (network.is_valid() && network->m_native_local_chat_control == change->chatControl) {
+            network->m_native_local_chat_control = nullptr;
+            network->m_local_chat_control = Ref<PlayFabPartyChatControl>();
         }
     }
     for (Ref<PlayFabPartyChatControl> wrapper : m_chat->get_chat_controls()) {
         if (wrapper.is_valid() && wrapper->get_native_handle() == change->chatControl) {
+            m_chat->emit_signal("chat_control_removed", entity_key);
             m_chat->untrack(wrapper);
             _emit_chat_state(wrapper, CHAT_CHANGE_DESTROYED, Ref<PlayFabResult>(), "chat control destroyed");
             break;
-        }
-    }
-    // Drop any orphan wrapper still pointing at the destroyed control so we
-    // don't leak the Ref or re-emit chat_control_added later for a dead handle.
-    for (auto it = m_orphan_chat_controls.begin(); it != m_orphan_chat_controls.end(); ) {
-        if (it->is_valid() && (*it)->get_native_handle() == change->chatControl) {
-            it = m_orphan_chat_controls.erase(it);
-        } else {
-            ++it;
         }
     }
 }
@@ -3078,30 +3022,15 @@ void PlayFabParty::_process_chat_text_received(const Party::PartyStateChange *p_
     if (change->translationCount > 0 && change->translations != nullptr && change->translations[0].translation != nullptr) {
         translated = String::utf8(change->translations[0].translation);
     }
-    message->set_values(sender_wrapper, Dictionary(), targets, text, language, translated, false, 0, Dictionary());
+    Dictionary sender_entity_key = entity_key_for_chat_control(change->senderChatControl);
+    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, translated, false, 0, Dictionary());
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("message_received", message);
     }
-    // Mirror onto the network-level peer signal so titles that wired
-    // PlayFabPartyPeer.text_message_received (the documented + tested
-    // public API) actually receive incoming chat. A chat control is
-    // only ever associated with one tracked network, so break after the
-    // first match to avoid unnecessary scans and any chance of double
-    // emission if that invariant ever changes.
-    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        if (!network.is_valid()) {
-            continue;
-        }
-        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-        if (!peer.is_valid()) {
-            continue;
-        }
-        int32_t peer_id = peer->find_peer_by_chat_control(change->senderChatControl);
-        if (peer_id != 0) {
-            peer->emit_text_message(peer_id, message);
-            break;
-        }
-    }
+    // Surface on the meshed chat surface keyed by the sender's entity key.
+    // Delivery is mesh-wide, so this fires for messages from any endpoint,
+    // not just transport peers.
+    m_chat->emit_signal("text_message_received", sender_entity_key, message);
 }
 
 void PlayFabParty::_process_voice_chat_transcription_received(const Party::PartyStateChange *p_change) {
@@ -3121,30 +3050,13 @@ void PlayFabParty::_process_voice_chat_transcription_received(const Party::Party
     Array targets;
     String text = String::utf8(change->transcription != nullptr ? change->transcription : "");
     String language = String::utf8(change->languageCode != nullptr ? change->languageCode : "");
-    message->set_values(sender_wrapper, Dictionary(), targets, text, language, text, true, 0, Dictionary());
+    Dictionary sender_entity_key = entity_key_for_chat_control(change->senderChatControl);
+    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, text, true, 0, Dictionary());
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("transcription_received", message);
     }
-    // Mirror onto the network-level peer signal so titles that wired
-    // PlayFabPartyPeer.transcription_received (the documented + tested
-    // public API) actually receive transcribed audio. A chat control is
-    // only ever associated with one tracked network, so break after the
-    // first match to avoid unnecessary scans and any chance of double
-    // emission if that invariant ever changes.
-    for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        if (!network.is_valid()) {
-            continue;
-        }
-        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-        if (!peer.is_valid()) {
-            continue;
-        }
-        int32_t peer_id = peer->find_peer_by_chat_control(change->senderChatControl);
-        if (peer_id != 0) {
-            peer->emit_transcription(peer_id, message);
-            break;
-        }
-    }
+    // Surface on the meshed chat surface keyed by the sender's entity key.
+    m_chat->emit_signal("transcription_received", sender_entity_key, message);
 }
 
 // ---------------------------------------------------------------------------
@@ -3252,8 +3164,86 @@ Signal PlayFabParty::_destroy_chat_control(const Ref<PlayFabPartyChatControl> &p
     return operation->pending_signal->get_completed_signal();
 }
 
-// ---------------------------------------------------------------------------
-// PlayFabParty (network step starters)
+Signal PlayFabParty::_create_local_chat_control(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat control creation cannot start while PlayFab Party is shutting down.");
+    }
+    Ref<PlayFabResult> validation = _validate_user(p_user);
+    if (validation.is_valid() && !validation->is_ok()) {
+        Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+        pending_signal->complete_deferred(validation);
+        return pending_signal->get_completed_signal();
+    }
+
+    HRESULT hr = _ensure_initialized();
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, PARTY_NOT_INITIALIZED,
+                "PlayFab.party requires initialization before creating a chat control.");
+    }
+
+    String error_text;
+    Party::PartyLocalUser *local_user = _get_or_create_local_user(p_user, &error_text);
+    if (local_user == nullptr) {
+        return _make_error_signal(E_FAIL, PARTY_INVALID_USER,
+                String("Failed to create Party local user: ") + error_text);
+    }
+
+    // Idempotent: a local user keeps a single chat control reused across
+    // networks, so a second create resolves with the existing control instead
+    // of creating a duplicate.
+    if (p_user->get_entity_handle() != nullptr) {
+        auto it = m_local_chat_controls.find(p_user->get_entity_handle());
+        if (it != m_local_chat_controls.end() && it->second.is_valid() && it->second->get_native_handle() != nullptr) {
+            return _make_ok_signal(it->second);
+        }
+    }
+
+    PendingOperation *operation = _create_pending(PENDING_CREATE_CHAT_CONTROL);
+    operation->user = p_user;
+    operation->config = p_config;
+    operation->native_user = local_user;
+    hr = _start_create_chat_control_step(operation);
+    if (FAILED(hr)) {
+        Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_CHAT_CONTROL_CREATE_FAILED, "Failed to create chat control.");
+        _complete_pending(operation, result);
+        return _make_error_signal(E_FAIL, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                result.is_valid() ? result->get_message() : String("Failed to create chat control."));
+    }
+    return operation->pending_signal->get_completed_signal();
+}
+
+Signal PlayFabParty::_destroy_local_chat_control(const Ref<PlayFabUser> &p_user) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat control destruction cannot start while PlayFab Party is shutting down.");
+    }
+    if (!p_user.is_valid() || p_user->get_entity_handle() == nullptr) {
+        return _make_ok_signal();
+    }
+    auto it = m_local_chat_controls.find(p_user->get_entity_handle());
+    if (it == m_local_chat_controls.end() || !it->second.is_valid()) {
+        return _make_ok_signal();
+    }
+    // _process_chat_control_destroyed drops the per-user cache entry and clears
+    // any network still pointing at this control once the SDK confirms the
+    // destruction, so no manual cache erase is needed here.
+    return _destroy_chat_control(it->second);
+}
+
+Signal PlayFabParty::release_local_user_async(const Ref<PlayFabUser> &p_user) {
+    // Fully release a local user: tears down its reusable local chat control
+    // (via _release_local_user) and destroys the underlying PartyLocalUser so
+    // the per-device local-user slot is freed. Idempotent — releasing an
+    // unknown or already-released user resolves with success. Titles that run
+    // several local users in one process (split-screen) or reuse a process
+    // across sessions (the MP test harness) must call this to avoid leaking
+    // local chat controls and exhausting the Party local-user limit.
+    if (p_user.is_valid() && p_user->get_entity_handle() != nullptr) {
+        _release_local_user(p_user->get_entity_handle());
+    }
+    return _make_ok_signal();
+}
 
 HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation) {
     if (m_shutting_down) {
@@ -3313,6 +3303,33 @@ HRESULT PlayFabParty::_start_create_chat_control_step(PendingOperation *p_operat
         return E_FAIL;
     }
     p_operation->kind = PENDING_CREATE_CHAT_CONTROL;
+    return S_OK;
+}
+
+HRESULT PlayFabParty::_start_connect_chat_control_step(PendingOperation *p_operation, const Ref<PlayFabPartyChatControl> &p_chat_control) {
+    if (m_shutting_down) {
+        return E_ABORT;
+    }
+    if (p_operation == nullptr || p_operation->native_network == nullptr || !p_chat_control.is_valid()) {
+        return E_INVALIDARG;
+    }
+    Party::PartyLocalChatControl *native = static_cast<Party::PartyLocalChatControl *>(p_chat_control->get_native_handle());
+    if (native == nullptr) {
+        return E_INVALIDARG;
+    }
+    // Point this network at the shared local chat control and connect it. The
+    // control was already created, tracked on m_chat, and had its audio devices
+    // bound on the first join, so none of that is repeated here.
+    p_operation->native_chat_control = native;
+    if (p_operation->network.is_valid()) {
+        p_operation->network->m_native_local_chat_control = native;
+        p_operation->network->m_local_chat_control = p_chat_control;
+    }
+    PartyError err = p_operation->native_network->ConnectChatControl(native, p_operation);
+    if (PARTY_FAILED(err)) {
+        return E_FAIL;
+    }
+    p_operation->kind = PENDING_CONNECT_CHAT_CONTROL;
     return S_OK;
 }
 
@@ -3460,13 +3477,11 @@ void PlayFabParty::_resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party
     // set. _complete_pending invalidates p_operation, so network was captured.
     _complete_pending(p_operation, PlayFabResult::ok_result(network));
     if (inserted) {
-        // _attach_network has assigned multiplayer.multiplayer_peer and
-        // wired peer.chat_control_added; now safe to emit peer_connected
-        // (MultiplayerAPI picks it up so subsequent rpc(...) calls to peer
-        // 1 are routed) and drain any chat controls that arrived before
-        // the peer was registered.
+        // _attach_network has assigned multiplayer.multiplayer_peer; now safe
+        // to emit peer_connected (MultiplayerAPI picks it up so subsequent
+        // rpc(...) calls to peer 1 are routed). Chat controls are meshed and
+        // surfaced independently, so no chat bookkeeping happens here.
         p_peer->emit_peer_connected(HOST_PEER_ID);
-        _attach_orphan_chat_controls();
     }
     if (network.is_valid()) {
         // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see line 2205)
@@ -3645,7 +3660,9 @@ void PlayFabParty::_bind_methods() {
     ClassDB::bind_method(D_METHOD("create_and_join_network_async", "user", "config"), &PlayFabParty::create_and_join_network_async, DEFVAL(Ref<PlayFabPartyConfig>()));
     ClassDB::bind_method(D_METHOD("join_network_async", "user", "descriptor", "config"), &PlayFabParty::join_network_async, DEFVAL(Ref<PlayFabPartyConfig>()));
     ClassDB::bind_method(D_METHOD("leave_network_async", "network"), &PlayFabParty::leave_network_async);
+    ClassDB::bind_method(D_METHOD("release_local_user_async", "user"), &PlayFabParty::release_local_user_async);
     ClassDB::bind_method(D_METHOD("get_chat"), &PlayFabParty::get_chat);
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "chat", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChat", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_chat");
     ClassDB::bind_method(D_METHOD("get_networks"), &PlayFabParty::get_networks);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabParty::_test_enqueue_shutdown_pending);

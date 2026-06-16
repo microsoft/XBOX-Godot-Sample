@@ -62,7 +62,7 @@ signal network_left           ## Voluntary teardown (leave_party).
 signal network_destroyed      ## Involuntary teardown (NETWORK_CHANGE_DESTROYED / lobby drop / shutdown).
 signal peer_connected(peer_id: int)
 signal peer_disconnected(peer_id: int)
-signal chat_received(peer_id: int, text: String)
+signal chat_received(sender_id: String, text: String)
 signal rpc_received(peer_id: int, text: String) ## ping RPC received from a peer (Tutorial 7 Step 5).
 
 var _state: State = State.UNINITIALIZED
@@ -184,19 +184,41 @@ func _ensure_pf_party_initialized() -> bool:
 		print("[Party] PlayFab.party initialized lazily (voice=true text=true transcription=false)")
 
 	if not _pf_party_signals_connected:
-		AddonApi.singleton("PlayFab").party.party_error.connect(_on_party_error)
+		var party = AddonApi.singleton("PlayFab").party
+		party.party_error.connect(_on_party_error)
+		# Chat is meshed by PlayFab Party and lives on the persistent
+		# PlayFab.party.chat surface (not the per-network transport peer),
+		# so wire its signals once here rather than per network attach.
+		var chat = party.chat
+		chat.text_message_received.connect(_on_party_text_received)
+		chat.chat_control_added.connect(_on_chat_control_added)
 		_pf_party_signals_connected = true
 
 	return true
 
 # Tutorial 7 Step 2 — host creates the Party network.
+# Phase C — the local chat control is created explicitly, decoupled from
+# network join. Create it once per local user (idempotent) using the chat
+# config so its audio devices and voice/text/transcription flags are owned
+# where the control lives; later create_and_join / join calls connect this
+# control to each network automatically. Skips creation when the config asks
+# for neither voice nor text.
+func _ensure_local_chat_control(user, cfg) -> bool:
+	if not cfg.enable_voice_chat and not cfg.enable_text_chat:
+		return true
+	var chat = AddonApi.singleton("PlayFab").party.chat
+	var result = await chat.create_local_chat_control_async(user, cfg)
+	if not result.ok:
+		push_warning("[Party] create_local_chat_control failed: %s (%s)" % [result.message, result.code])
+		return false
+	return true
+
 func host_party() -> bool:
 	if not await _ensure_ready():
 		return false
 	if _state != State.READY:
 		push_warning("[Party] host_party rejected — busy or already in network (state=%d)" % _state)
 		return false
-
 	_set_state(State.HOSTING)
 	_abort_party_op = false
 	_is_host = true
@@ -222,6 +244,11 @@ func host_party() -> bool:
 	# as a stable, mutually-known identifier on both sides. Capped well
 	# under Party's c_maxInvitationIdentifierStringLength (127).
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
+
+	if not await _ensure_local_chat_control(user, cfg):
+		_is_host = false
+		_set_state(State.READY)
+		return false
 
 	var result = await AddonApi.singleton("PlayFab").party.create_and_join_network_async(user, cfg)
 
@@ -283,6 +310,10 @@ func _join_party_network(descriptor: String) -> bool:
 	# non-empty invitation_id the host used. The lobby_id is mutually
 	# known to host and client once the lobby is joined, so use it.
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
+
+	if not await _ensure_local_chat_control(user, cfg):
+		_set_state(State.READY)
+		return false
 
 	var result = await AddonApi.singleton("PlayFab").party.join_network_async(user, descriptor, cfg)
 
@@ -346,12 +377,12 @@ func resolve_chat_capabilities() -> Dictionary:
 
 # Tutorial 7 Step 7 — per-peer mute. Returns false if not in a network
 # or the underlying SDK call fails.
-func toggle_mute(peer_id: int, muted: bool) -> bool:
+func toggle_mute(entity_key: Dictionary, muted: bool) -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] toggle_mute rejected — not in a network (state=%d)" % _state)
 		return false
-	var peer = _network.local_peer
-	var pf = await peer.set_peer_muted_async(peer_id, muted)
+	var chat = AddonApi.singleton("PlayFab").party.chat
+	var pf = await chat.set_muted_async(entity_key, muted)
 	if not pf.ok:
 		push_warning("[Party] mute toggle failed: %s" % pf.message)
 	return pf.ok
@@ -363,8 +394,8 @@ func send_chat(text: String) -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] send_chat rejected — not in a network (state=%d)" % _state)
 		return false
-	var peer = _network.local_peer
-	var pf = await peer.send_text_async(text)
+	var chat = AddonApi.singleton("PlayFab").party.chat
+	var pf = await chat.send_text_async(text)
 	if not pf.ok:
 		push_warning("[Party] send_text failed: %s" % pf.message)
 	return pf.ok
@@ -372,8 +403,8 @@ func send_chat(text: String) -> bool:
 # Tutorial 7 Step 5 — example RPC. Fires automatically once when the
 # multiplayer peer attaches; useful as a heartbeat to confirm the
 # Godot MultiplayerAPI binding is live, distinct from text chat
-# (which goes through PartyLocalChatControl::SendText rather than the
-# Godot multiplayer peer).
+# (which goes through the meshed PlayFab.party.chat surface rather than
+# the Godot multiplayer peer).
 @rpc("any_peer", "reliable")
 func handshake_message(text: String) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
@@ -486,28 +517,24 @@ func _attach_network(net) -> void:
 	if peer == null:
 		return
 	multiplayer.multiplayer_peer = peer
-	peer.text_message_received.connect(_on_party_text_received)
 	peer.connection_state_changed.connect(_on_party_connection_state_changed)
-	peer.chat_control_added.connect(_on_chat_control_added)
 
 	# Bootstrap signals for state that was already established before this
-	# attach. The addon emits NETWORK_CHANGE_PEER_JOINED + chat_control_added
-	# synchronously while the join_network_async / create_and_join_network_async
-	# call is still awaiting completion — at which point this autoload has
-	# nothing connected yet, so those events would otherwise be silently
-	# dropped. Replay them here for every already-registered peer so the
-	# client side sees the host as "[peer connected] id=1" + sets per-peer
-	# chat permissions, symmetric with the host-side path where the
+	# attach. The addon emits NETWORK_CHANGE_PEER_JOINED synchronously while
+	# the join_network_async / create_and_join_network_async call is still
+	# awaiting completion — at which point this autoload has nothing connected
+	# yet, so those events would otherwise be silently dropped. Replay them
+	# here for every already-registered peer so the client side sees the host
+	# as "[peer connected] id=1", symmetric with the host-side path where the
 	# remote handshakes arrive AFTER this attach has wired the handlers.
+	# Chat controls are meshed on the persistent PlayFab.party.chat surface
+	# whose signals are wired once at init, so they need no replay here.
 	for raw_id in peer.get_peers():
 		var peer_id: int = int(raw_id)
 		# Don't emit peer_connected for the local peer.
 		if peer_id == peer.get_unique_id():
 			continue
 		peer_connected.emit(peer_id)
-		var ctrl = peer.get_peer_chat_control(peer_id)
-		if ctrl != null:
-			_on_chat_control_added(peer_id, ctrl)
 
 	if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 		rpc("handshake_message", "ready")
@@ -518,12 +545,8 @@ func _detach_network() -> void:
 			_network.state_changed.disconnect(_on_network_state_changed)
 		var peer = _network.local_peer
 		if peer != null:
-			if peer.text_message_received.is_connected(_on_party_text_received):
-				peer.text_message_received.disconnect(_on_party_text_received)
 			if peer.connection_state_changed.is_connected(_on_party_connection_state_changed):
 				peer.connection_state_changed.disconnect(_on_party_connection_state_changed)
-			if peer.chat_control_added.is_connected(_on_chat_control_added):
-				peer.chat_control_added.disconnect(_on_chat_control_added)
 	_clear_multiplayer_peer()
 	_network = null
 
@@ -629,19 +652,20 @@ func _clear_multiplayer_peer() -> void:
 		return
 	api.multiplayer_peer = null
 
-func _on_party_text_received(peer_id: int, message) -> void:
-	print("[Party] Text from peer %d: \"%s\"" % [peer_id, message.text])
-	chat_received.emit(peer_id, message.text)
+func _on_party_text_received(entity_key: Dictionary, message) -> void:
+	var sender_id: String = String(entity_key.get("id", ""))
+	print("[Party] Text from %s: \"%s\"" % [sender_id, message.text])
+	chat_received.emit(sender_id, message.text)
 
 func _on_party_connection_state_changed(status: int) -> void:
 	if status == MultiplayerPeer.CONNECTION_DISCONNECTED:
 		print("[Party] Multiplayer peer disconnected")
 
-func _on_chat_control_added(peer_id: int, _control) -> void:
+func _on_chat_control_added(entity_key: Dictionary, _control) -> void:
 	# Per-peer permission gate (Step 6). XUID resolution depends on the
 	# lobby roster — fall back to skipping the per-peer check when we
 	# cannot resolve the XUID (e.g. local peer).
-	var peer_xuid: String = _xuid_for_peer(peer_id)
+	var peer_xuid: String = _xuid_for_entity_key(entity_key)
 	if peer_xuid.is_empty():
 		return
 	var allow_voice: bool = await _check_permission("communicate_using_voice", peer_xuid)
@@ -656,19 +680,20 @@ func _on_chat_control_added(peer_id: int, _control) -> void:
 	# Re-check after the await — the network may have torn down.
 	if _state != State.IN_NETWORK or _network == null:
 		return
-	var pf = await _network.local_peer.set_peer_chat_permissions_async(
-			peer_id, permissions)
+	var chat = AddonApi.singleton("PlayFab").party.chat
+	var pf = await chat.set_chat_permissions_async(
+			entity_key, permissions)
 	if not pf.ok:
-		push_warning("[Party] chat permissions for peer %d failed: %s" % [peer_id, pf.message])
+		push_warning("[Party] chat permissions for %s failed: %s" % [String(entity_key.get("id", "")), pf.message])
 
-func _xuid_for_peer(peer_id: int) -> String:
-	# Item 5 / B1 — map Party peer_id -> XUID via the lobby roster.
+func _xuid_for_entity_key(key: Dictionary) -> String:
+	# Item 5 / B1 — map a Party entity key -> XUID via the lobby roster.
 	#
-	# Party gives us a PlayFab entity key (id + type) for the peer via
-	# PlayFabPartyPeer.get_peer_entity_key. The lobby autoload writes the
-	# local user's XUID into member_properties["xuid"] on host/join, so
-	# we can match the entity key against the lobby roster and read the
-	# XUID off the matching member.
+	# Party identifies a peer by its PlayFab entity key (id + type), now
+	# delivered directly on the chat_control_added / text_message_received
+	# signals. The lobby autoload writes the local user's XUID into
+	# member_properties["xuid"] on host/join, so we can match the entity
+	# key against the lobby roster and read the XUID off the matching member.
 	#
 	# Returns "" in three cases the chat-control-added handler treats
 	# the same way (skip the per-peer permission check):
@@ -680,10 +705,7 @@ func _xuid_for_peer(peer_id: int) -> String:
 	#   - The peer is on a non-Xbox sign-in path (custom-id sessions)
 	#     so no XUID was written. The privilege gate (T5 Step 2 / T7
 	#     Step 6) already filtered out non-comms users.
-	if _network == null or _network.local_peer == null or _lobby == null:
-		return ""
-	var key: Dictionary = _network.local_peer.get_peer_entity_key(peer_id)
-	if key.is_empty():
+	if _lobby == null:
 		return ""
 	var entity_id: String = String(key.get("id", ""))
 	if entity_id.is_empty():

@@ -27,9 +27,7 @@ enabled=PackedStringArray("res://addons/godot_playfab/plugin.cfg")
 
 [playfab]
 
-runtime/title_id=""
-runtime/endpoint=""
-runtime/embed_dispatch=true
+runtime/title_id="6bab6"
 runtime/initialize_on_startup=true
 
 [rendering]

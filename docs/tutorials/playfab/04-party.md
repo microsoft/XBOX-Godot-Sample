@@ -132,7 +132,7 @@ signal peer_connected(peer_id: int)
 
 signal peer_disconnected(peer_id: int)
 
-signal chat_received(peer_id: int, text: String)
+signal chat_received(sender_id: String, text: String)
 
 signal rpc_received(peer_id: int, text: String) ## ping RPC received from a peer (Tutorial 4 Step 5).
 
@@ -334,9 +334,53 @@ func _ensure_pf_party_initialized() -> bool:
 
 	if not _pf_party_signals_connected:
 
-		AddonApi.singleton("PlayFab").party.party_error.connect(_on_party_error)
+		var party = AddonApi.singleton("PlayFab").party
+
+		party.party_error.connect(_on_party_error)
+
+		# Chat is meshed by PlayFab Party and lives on the persistent
+
+		# PlayFab.party.chat surface (not the per-network transport peer),
+
+		# so wire its signals once here rather than per network attach.
+
+		var chat = party.chat
+
+		chat.text_message_received.connect(_on_party_text_received)
+
+		chat.chat_control_added.connect(_on_chat_control_added)
 
 		_pf_party_signals_connected = true
+
+	return true
+
+# Phase C — the local chat control is created explicitly, decoupled from
+
+# network join. Create it once per local user (idempotent) using the chat
+
+# config so its audio devices and voice/text/transcription flags are owned
+
+# where the control lives; later create_and_join / join calls connect this
+
+# control to each network automatically. Skips creation when the config asks
+
+# for neither voice nor text.
+
+func _ensure_local_chat_control(user, cfg) -> bool:
+
+	if not cfg.enable_voice_chat and not cfg.enable_text_chat:
+
+		return true
+
+	var chat = AddonApi.singleton("PlayFab").party.chat
+
+	var result = await chat.create_local_chat_control_async(user, cfg)
+
+	if not result.ok:
+
+		push_warning("[Party] create_local_chat_control failed: %s (%s)" % [result.message, result.code])
+
+		return false
 
 	return true
 
@@ -397,6 +441,20 @@ func host_party() -> bool:
 	# under Party's c_maxInvitationIdentifierStringLength (127).
 
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
+
+	# Phase C — create the local chat control explicitly before joining; the
+
+	# addon connects it to the network automatically. Idempotent, reused across
+
+	# networks.
+
+	if not await _ensure_local_chat_control(user, cfg):
+
+		_is_host = false
+
+		_set_state(State.READY)
+
+		return false
 
 	var result = await AddonApi.singleton("PlayFab").party.create_and_join_network_async(user, cfg)
 
@@ -499,6 +557,14 @@ func _join_party_network(descriptor: String) -> bool:
 	# known to host and client once the lobby is joined, so use it.
 
 	cfg.invitation_id = _lobby.lobby_id if _lobby != null else ""
+
+	# Phase C — create the local chat control explicitly before joining.
+
+	if not await _ensure_local_chat_control(user, cfg):
+
+		_set_state(State.READY)
+
+		return false
 
 	var result = await AddonApi.singleton("PlayFab").party.join_network_async(user, descriptor, cfg)
 
@@ -606,7 +672,7 @@ func resolve_chat_capabilities() -> Dictionary:
 
 # or the underlying SDK call fails.
 
-func toggle_mute(peer_id: int, muted: bool) -> bool:
+func toggle_mute(entity_key: Dictionary, muted: bool) -> bool:
 
 	if _state != State.IN_NETWORK:
 
@@ -614,9 +680,9 @@ func toggle_mute(peer_id: int, muted: bool) -> bool:
 
 		return false
 
-	var peer = _network.local_peer
+	var chat = AddonApi.singleton("PlayFab").party.chat
 
-	var pf = await peer.set_peer_muted_async(peer_id, muted)
+	var pf = await chat.set_muted_async(entity_key, muted)
 
 	if not pf.ok:
 
@@ -638,9 +704,13 @@ func send_chat(text: String) -> bool:
 
 		return false
 
-	var peer = _network.local_peer
+	# Empty target list == broadcast to the full chat mesh. PlayFab Party
 
-	var pf = await peer.send_text_async(text)
+	# delivers to every remote chat control directly, with no host relay.
+
+	var chat = AddonApi.singleton("PlayFab").party.chat
+
+	var pf = await chat.send_text_async(text)
 
 	if not pf.ok:
 
@@ -654,7 +724,7 @@ func send_chat(text: String) -> bool:
 
 # Godot MultiplayerAPI binding is live, distinct from text chat
 
-# (which goes through PartyLocalChatControl::SendText rather than the
+# (which goes through the meshed PlayFab.party.chat surface rather than
 
 # Godot multiplayer peer).
 
@@ -838,29 +908,27 @@ func _attach_network(net) -> void:
 
 	multiplayer.multiplayer_peer = peer
 
-	peer.text_message_received.connect(_on_party_text_received)
-
 	peer.connection_state_changed.connect(_on_party_connection_state_changed)
-
-	peer.chat_control_added.connect(_on_chat_control_added)
 
 	# Bootstrap signals for state that was already established before this
 
-	# attach. The addon emits NETWORK_CHANGE_PEER_JOINED + chat_control_added
+	# attach. The addon emits NETWORK_CHANGE_PEER_JOINED synchronously while
 
-	# synchronously while the join_network_async / create_and_join_network_async
+	# the join_network_async / create_and_join_network_async call is still
 
-	# call is still awaiting completion — at which point this autoload has
+	# awaiting completion — at which point this autoload has nothing connected
 
-	# nothing connected yet, so those events would otherwise be silently
+	# yet, so those events would otherwise be silently dropped. Replay them
 
-	# dropped. Replay them here for every already-registered peer so the
+	# here for every already-registered peer so the client side sees the host
 
-	# client side sees the host as "[peer connected] id=1" + sets per-peer
-
-	# chat permissions, symmetric with the host-side path where the
+	# as "[peer connected] id=1", symmetric with the host-side path where the
 
 	# remote handshakes arrive AFTER this attach has wired the handlers.
+
+	# Chat controls are meshed on the persistent PlayFab.party.chat surface
+
+	# whose signals are wired once at init, so they need no replay here.
 
 	for raw_id in peer.get_peers():
 
@@ -873,12 +941,6 @@ func _attach_network(net) -> void:
 			continue
 
 		peer_connected.emit(peer_id)
-
-		var ctrl = peer.get_peer_chat_control(peer_id)
-
-		if ctrl != null:
-
-			_on_chat_control_added(peer_id, ctrl)
 
 	if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 
@@ -896,17 +958,9 @@ func _detach_network() -> void:
 
 		if peer != null:
 
-			if peer.text_message_received.is_connected(_on_party_text_received):
-
-				peer.text_message_received.disconnect(_on_party_text_received)
-
 			if peer.connection_state_changed.is_connected(_on_party_connection_state_changed):
 
 				peer.connection_state_changed.disconnect(_on_party_connection_state_changed)
-
-			if peer.chat_control_added.is_connected(_on_chat_control_added):
-
-				peer.chat_control_added.disconnect(_on_chat_control_added)
 
 	_clear_multiplayer_peer()
 
@@ -1096,11 +1150,13 @@ func _clear_multiplayer_peer() -> void:
 
 	api.multiplayer_peer = null
 
-func _on_party_text_received(peer_id: int, message) -> void:
+func _on_party_text_received(entity_key: Dictionary, message) -> void:
 
-	print("[Party] Text from peer %d: \"%s\"" % [peer_id, message.text])
+	var sender_id: String = String(entity_key.get("id", ""))
 
-	chat_received.emit(peer_id, message.text)
+	print("[Party] Text from %s: \"%s\"" % [sender_id, message.text])
+
+	chat_received.emit(sender_id, message.text)
 
 func _on_party_connection_state_changed(status: int) -> void:
 
@@ -1108,7 +1164,7 @@ func _on_party_connection_state_changed(status: int) -> void:
 
 		print("[Party] Multiplayer peer disconnected")
 
-func _on_chat_control_added(peer_id: int, _control) -> void:
+func _on_chat_control_added(entity_key: Dictionary, _control) -> void:
 
 	# PlayFab-only track: no per-peer Xbox permission gate. Grant full
 
@@ -1128,13 +1184,15 @@ func _on_chat_control_added(peer_id: int, _control) -> void:
 
 		return
 
-	var pf = await _network.local_peer.set_peer_chat_permissions_async(
+	var chat = AddonApi.singleton("PlayFab").party.chat
 
-			peer_id, permissions)
+	var pf = await chat.set_chat_permissions_async(
+
+			entity_key, permissions)
 
 	if not pf.ok:
 
-		push_warning("[Party] chat permissions for peer %d failed: %s" % [peer_id, pf.message])
+		push_warning("[Party] chat permissions for %s failed: %s" % [String(entity_key.get("id", "")), pf.message])
 
 func _on_party_error(result) -> void:
 
@@ -1378,9 +1436,9 @@ func _on_ping_pressed() -> void:
 
 	# Broadcast an RPC to every connected peer to exercise the Godot
 
-	# MultiplayerAPI path (peer.send_text_async goes through
+	# MultiplayerAPI path (PlayFab.party.chat.send_text_async goes through
 
-	# PartyLocalChatControl, not through the multiplayer peer, so chat
+	# the meshed chat control, not through the multiplayer peer, so chat
 
 	# alone doesn't prove RPC delivery).
 
@@ -1544,9 +1602,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 	_append_log("[peer left] id=%d" % peer_id)
 
-func _on_chat_received(peer_id: int, text: String) -> void:
+func _on_chat_received(sender_id: String, text: String) -> void:
 
-	_append_log("peer %d> %s" % [peer_id, text])
+	_append_log("%s> %s" % [sender_id, text])
 
 func _on_rpc_received(peer_id: int, text: String) -> void:
 
@@ -1584,10 +1642,14 @@ other. Practical consequences in this sample:
 - Godot **RPC** is host-routed: host→all works; client→host works; direct
   client→client RPC does not deliver. Relay through the host (`rpc_id(1, …)`)
   if you need it.
-- **Chat** (`send_text_async` with no explicit targets) sends to the sender's
-  known peers, which on a client is just the host — so clients see the host's
-  and their own messages, while the host sees everyone. Have the host re-send
-  to the other clients if you want all-to-all chat.
+- **Chat** runs on a separate, fully **meshed** surface (`PlayFab.party.chat`),
+  independent of the host-centric RPC star above. `send_text_async` with no
+  explicit targets broadcasts to every chat control in the network — PlayFab
+  Party delivers directly to each remote, with no host relay — so all peers
+  (host and clients alike) see every message. There is one local chat control
+  per signed-in user, created explicitly with
+  `PlayFab.party.chat.create_local_chat_control_async(user, cfg)` before joining
+  and reused across networks; network join connects it but never creates it.
 
 ## Verify
 

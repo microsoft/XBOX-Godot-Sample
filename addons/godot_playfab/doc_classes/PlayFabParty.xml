@@ -4,7 +4,7 @@
 		PlayFab Party network and chat service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.party[/code]. Owns PlayFab Party initialization, network host/join flows, descriptor serialization, and chat-control integration. The title-facing transport object is [PlayFabPartyPeer], assigned to [code]multiplayer.multiplayer_peer[/code] for RPC traffic and exposing peer-id helpers for text chat, mute, and permissions. PlayFab Multiplayer lobbies and matchmaking are handled separately by [PlayFabMultiplayer]. If [code]PartyManager::FinishProcessingStateChanges[/code] fails, [signal party_error] is emitted, active wrappers are detached, and the service resets to an uninitialized state; call [method initialize_async] before using Party again.
+		Accessed through [code]PlayFab.party[/code]. Owns PlayFab Party initialization, network host/join flows, descriptor serialization, and chat-control integration. The title-facing transport object is [PlayFabPartyPeer], assigned to [code]multiplayer.multiplayer_peer[/code] for RPC traffic. Text chat, transcription, mute, and permissions are not on the peer; they live on the single meshed [PlayFabPartyChat] surface reached as [code]PlayFab.party.chat[/code] (see [member chat]) and are addressed by PlayFab entity keys. PlayFab Multiplayer lobbies and matchmaking are handled separately by [PlayFabMultiplayer]. If [code]PartyManager::FinishProcessingStateChanges[/code] fails, [signal party_error] is emitted, active wrappers are detached, and the service resets to an uninitialized state; call [method initialize_async] before using Party again.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -14,10 +14,15 @@
 		<method name="create_and_join_network_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="config" type="PlayFabPartyConfig" default="null" /><description>Creates a Party network for [param user] and resolves with a ready [PlayFabPartyNetwork] whose [PlayFabPartyPeer] is host (peer id [code]1[/code]).</description></method>
 		<method name="join_network_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="descriptor" type="String" /><param index="2" name="config" type="PlayFabPartyConfig" default="null" /><description>Joins an existing Party network using a base64 descriptor obtained from a host's [PlayFabPartyNetwork].</description></method>
 		<method name="leave_network_async"><return type="Signal" /><param index="0" name="network" type="PlayFabPartyNetwork" /><description>Leaves [param network], closing endpoints, chat controls, and the local Party user reference if no other network is active.</description></method>
-		<method name="get_chat" qualifiers="const"><return type="PlayFabPartyChat" /><description>Returns the diagnostic [PlayFabPartyChat] surface for advanced chat-control access.</description></method>
+		<method name="release_local_user_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><description>Fully releases [param user]'s Party local user: tears down its reusable local chat control and destroys the underlying [code]PartyLocalUser[/code] so the per-device local-user slot is freed. Idempotent — releasing an unknown or already-released user resolves with success. Titles that run several local users in one process (split-screen) or reuse a process across multiple Party sessions must call this; otherwise leaked local chat controls land in a later same-device chat broadcast ([code]party_chat_permission_failed[/code], "loopback isn't yet supported") and the local-user limit is eventually exhausted ([code]party_invalid_user[/code]). A later [method create_and_join_network_async]/[method join_network_async] for the same user re-creates the user and chat control.</description></method>
+		<method name="get_chat" qualifiers="const"><return type="PlayFabPartyChat" /><description>Returns the meshed [PlayFabPartyChat] surface (also available as [member chat]) for entity-key-addressed text/voice chat.</description></method>
 		<method name="get_networks" qualifiers="const"><return type="Array" /><description>Returns active [PlayFabPartyNetwork] instances tracked by the service.</description></method>
 	</methods>
-	<members></members>
+	<members>
+		<member name="chat" type="PlayFabPartyChat" setter="" getter="get_chat">
+			The single meshed chat surface for this Party service, addressed by PlayFab entity keys. See [PlayFabPartyChat].
+		</member>
+	</members>
 	<signals>
 		<signal name="party_error"><param index="0" name="result" type="PlayFabResult" /><description>Emitted for Party dispatch errors. A [code]party_state_finish_failed[/code] result means Party was reset and must be initialized again before further use.</description></signal>
 	</signals>

@@ -258,7 +258,7 @@ out side by side.
 
   `PlayFabPartyNetwork.state_changed` signal carries network
 
-  lifecycle changes; the `PlayFabPartyPeer.text_message_received`
+  lifecycle changes; the `PlayFabPartyChat.text_message_received`
 
   signal carries inbound chat.
 
@@ -1284,6 +1284,8 @@ var _network: PlayFabPartyNetwork = null
 
 var _peer: PlayFabPartyPeer = null
 
+var _chat: PlayFabPartyChat = null
+
 
 
 func _ready() -> void:
@@ -1303,6 +1305,26 @@ func _ready() -> void:
     _send.pressed.connect(_on_send_pressed)
 
     _mute_remotes.toggled.connect(_on_mute_remotes_toggled)
+
+    # Chat is meshed by PlayFab Party and lives on the persistent
+
+    # PlayFab.party.chat surface (the autoload creates the local chat control
+
+    # explicitly via create_local_chat_control_async before joining; it is
+
+    # reused across networks), so wire its signals once here rather than per
+
+    # network attach. The roster (peer
+
+    # list) still comes from the per-network transport peer.
+
+    _chat = PlayFab.party.chat
+
+    _chat.text_message_received.connect(_on_text_received)
+
+    _chat.chat_control_added.connect(_on_chat_control_added)
+
+    _chat.chat_control_removed.connect(_on_chat_control_removed)
 
     _attach_network(Party.network)
 
@@ -1324,20 +1346,6 @@ func _attach_network(network: PlayFabPartyNetwork) -> void:
 
         _network.state_changed.disconnect(_on_network_state_changed)
 
-    if _peer != null:
-
-        if _peer.text_message_received.is_connected(_on_text_received):
-
-            _peer.text_message_received.disconnect(_on_text_received)
-
-        if _peer.chat_control_added.is_connected(_on_chat_control_added):
-
-            _peer.chat_control_added.disconnect(_on_chat_control_added)
-
-        if _peer.chat_control_removed.is_connected(_on_chat_control_removed):
-
-            _peer.chat_control_removed.disconnect(_on_chat_control_removed)
-
     _network = network
 
     if _network == null:
@@ -1352,14 +1360,6 @@ func _attach_network(network: PlayFabPartyNetwork) -> void:
 
     _network.state_changed.connect(_on_network_state_changed)
 
-    if _peer != null:
-
-        _peer.text_message_received.connect(_on_text_received)
-
-        _peer.chat_control_added.connect(_on_chat_control_added)
-
-        _peer.chat_control_removed.connect(_on_chat_control_removed)
-
     _refresh_peers()
 
 
@@ -1368,11 +1368,11 @@ func _on_send_pressed() -> void:
 
     var text: String = _chat_input.text.strip_edges()
 
-    if text.is_empty() or _peer == null:
+    if text.is_empty() or _peer == null or _chat == null:
 
         return
 
-    var result: PlayFabResult = await _peer.send_text_async(text)
+    var result: PlayFabResult = await _chat.send_text_async(text)
 
     if result.ok:
 
@@ -1388,19 +1388,23 @@ func _on_send_pressed() -> void:
 
 func _on_mute_remotes_toggled(button_pressed: bool) -> void:
 
-    # The addon exposes per-peer mute via PlayFabPartyPeer.set_peer_muted_async.
+    # The addon exposes per-peer mute via PlayFabPartyChat.set_muted_async,
 
-    # The capstone wires the toggle to mute/unmute every known remote peer at
+    # keyed by the peer's PlayFab entity key. The capstone wires the toggle to
 
-    # once; production titles will typically expose this per row in a roster.
+    # mute/unmute every known remote peer at once; production titles will
 
-    if _peer == null:
+    # typically expose this per row in a roster.
+
+    if _peer == null or _chat == null:
 
         return
 
     for peer_id in _peer.get_peers():
 
-        _peer.set_peer_muted_async(peer_id, button_pressed)
+        var entity_key: Dictionary = _peer.get_peer_entity_key(peer_id)
+
+        _chat.set_muted_async(entity_key, button_pressed)
 
 
 
@@ -1410,27 +1414,21 @@ func _on_network_state_changed(_change: PlayFabPartyNetworkStateChange) -> void:
 
 
 
-func _on_chat_control_added(_peer_id: int, _control: PlayFabPartyChatControl) -> void:
+func _on_chat_control_added(_entity_key: Dictionary, _control: PlayFabPartyChatControl) -> void:
 
     _refresh_peers()
 
 
 
-func _on_chat_control_removed(_peer_id: int) -> void:
+func _on_chat_control_removed(_entity_key: Dictionary) -> void:
 
     _refresh_peers()
 
 
 
-func _on_text_received(peer_id: int, message: PlayFabPartyChatMessage) -> void:
+func _on_text_received(entity_key: Dictionary, message: PlayFabPartyChatMessage) -> void:
 
-    var label: String = "?"
-
-    if _peer != null:
-
-        var entity: Dictionary = _peer.get_peer_entity_key(peer_id)
-
-        label = String(entity.get("id", "?")).left(8)
+    var label: String = String(entity_key.get("id", "?")).left(8)
 
     _chat_log.append_text("[%s] %s\n" % [label, message.text])
 
@@ -1484,25 +1482,27 @@ and connect to it here, or poll `Party.network` from this panel's
 
 
 
-The `PlayFabPartyPeer.text_message_received` signal arrives on
+The `PlayFabPartyChat.text_message_received` signal arrives on
 
-the **local peer** with the sending peer's id as its first
+the persistent `PlayFab.party.chat` surface with the sending peer's
 
-parameter — that's why the chat log resolves a label by looking
+PlayFab entity key as its first parameter — that's why the chat log
 
-up `peer.get_peer_entity_key(peer_id)`. `send_text_async` with no
+resolves a label straight from `entity_key.get("id")`.
 
-explicit `target_peer_ids` broadcasts to every chat control the
+`send_text_async` with no explicit `target_entity_keys` broadcasts to
 
-local peer has currently mapped; new peers that join later won't
+every chat control in the meshed network; new peers that join later
 
-retroactively see the message.
+won't retroactively see the message.
 
 
 
-The **mute remotes** toggle uses `set_peer_muted_async(peer_id,
+The **mute remotes** toggle uses `PlayFab.party.chat.set_muted_async(entity_key,
 
-muted)` against every known remote peer. The addon does not
+muted)` against every known remote peer (resolving each peer id to
+
+its entity key with `get_peer_entity_key`). The addon does not
 
 expose a local-microphone mute API; if you want "mute my mic"
 
@@ -1564,7 +1564,7 @@ once, and every panel that depends on them benefits:
 
   `communicate_using_text` and calls
 
-  `set_peer_chat_permissions_async` with the resulting mask. The
+  `set_chat_permissions_async` with the resulting mask. The
 
   capstone Party panel's chat surface is the post-gate UI; if
 
@@ -1670,7 +1670,7 @@ error fires.
 
 | MPA panel shows "Advertising …" but the second client never sees a join card | Sandbox mismatch between PC and friend's PC. | See [Troubleshooting → Sandbox mismatch](../../troubleshooting.md). |
 
-| Party panel chat send returns ok but no remote ever receives it | The remote peer's chat control had not been mapped at send time (zero broadcast targets). | Wait for `PlayFabPartyPeer.chat_control_added(peer_id, control)` for at least one remote peer before exposing the chat send UI — same diagnosis as the [PlayFab Party tutorial](../playfab/04-party.md). |
+| Party panel chat send returns ok but no remote ever receives it | The remote peer's chat control had not been mapped at send time (zero broadcast targets). | Wait for `PlayFabPartyChat.chat_control_added(entity_key, control)` for at least one remote peer before exposing the chat send UI — same diagnosis as the [PlayFab Party tutorial](../playfab/04-party.md). |
 
 | `_on_runtime_error` fires every frame for the same service | Stale connection that the addon keeps retrying. | Restart the runtime: `PlayFab.shutdown()` then `PlayFab.initialize()` from the HUD's retry button, or recreate the Party network from the Party panel. |
 
