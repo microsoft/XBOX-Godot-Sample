@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKGameChat" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		GDK-native voice and text chat service accessed via GDK.game_chat.
+	</brief_description>
+	<description>
+		Wraps the Game Chat 2 ([code]GameChat2.h[/code]) [code]chat_manager[/code] singleton. Game Chat encodes its own opaque audio and text data frames and tracks per-user communication relationships, muting, and chat indicators; it does [b]not[/b] choose or build a network transport. This wrapper exposes that data-frame surface so titles can ferry frames over whatever transport they already have: outbound frames are reported through the [signal outgoing_data_frame] signal, and inbound frames are handed back via [method process_incoming_data_frame]. Inbound text and transcribed messages surface through [signal text_chat_received] and [signal transcribed_chat_received].
+		Call [method initialize] once after [code]GDK.initialize()[/code], add local and remote users, configure communication relationships, then pump the manager every frame (handled automatically by [code]GDK.dispatch()[/code]). This is the GDK-native alternative to PlayFab Party's batteries-included voice/text option ([code]godot_playfab[/code]); unlike Party, it has no built-in transport.
+		Real voice capture and rendering require multi-machine audio hardware and cannot be exercised headlessly; headless tests and the sample drive lifecycle and data-frame plumbing using single-process loopback (feeding each [signal outgoing_data_frame] straight back into [method process_incoming_data_frame]).
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="initialize">
+			<return type="GDKResult" />
+			<param index="0" name="max_users" type="int" default="16" />
+			<param index="1" name="default_relationship" type="int" default="31" enum="GDKGameChat.CommunicationRelationship" />
+			<description>
+				Initializes the Game Chat 2 [code]chat_manager[/code] with room for [param max_users] combined local and remote users and the [param default_relationship] applied between new local and remote users. Requires the GDK runtime to be initialized first. Returns an ok [GDKResult], or an error with code [code]not_initialized[/code], [code]already_initialized[/code], or [code]invalid_max_users[/code].
+			</description>
+		</method>
+		<method name="is_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when [method initialize] has succeeded and [method cleanup] has not yet been called.
+			</description>
+		</method>
+		<method name="cleanup">
+			<return type="void" />
+			<description>
+				Reclaims all Game Chat resources by calling [code]chat_manager::cleanup()[/code]. Safe to call when not initialized (no-op). Invoked automatically when the GDK runtime shuts down.
+			</description>
+		</method>
+		<method name="add_local_user">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Adds a signed-in [param user] as a local chat user. On success [code]GDKResult.data.xuid[/code] holds the user's Xbox User ID. Errors with [code]not_initialized[/code], [code]invalid_user[/code], or [code]add_user_failed[/code].
+			</description>
+		</method>
+		<method name="add_remote_user">
+			<return type="GDKResult" />
+			<param index="0" name="xuid" type="String" />
+			<param index="1" name="endpoint_id" type="int" />
+			<description>
+				Adds a remote chat user identified by [param xuid] reachable on the title-assigned [param endpoint_id]. Remote users on the same device/endpoint must share an [param endpoint_id]; Game Chat uses it to address outgoing frames and to attribute incoming frames passed to [method process_incoming_data_frame]. On success [code]GDKResult.data[/code] holds [code]xuid[/code] and [code]endpoint_id[/code]. Errors with [code]not_initialized[/code], [code]invalid_xuid[/code], or [code]add_user_failed[/code].
+			</description>
+		</method>
+		<method name="remove_user">
+			<return type="GDKResult" />
+			<param index="0" name="xuid" type="String" />
+			<description>
+				Removes the local or remote chat user matching [param xuid]. Errors with [code]not_initialized[/code] or [code]user_not_found[/code].
+			</description>
+		</method>
+		<method name="set_communication_relationship">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="target_xuid" type="String" />
+			<param index="2" name="relationship" type="int" enum="GDKGameChat.CommunicationRelationship" />
+			<description>
+				Sets the communication [param relationship] (a bitwise combination of [enum CommunicationRelationship] flags) that the local user [param local_xuid] is allowed to use toward [param target_xuid]. Errors with [code]not_initialized[/code], [code]user_not_found[/code], [code]not_local_user[/code], or [code]target_not_found[/code].
+			</description>
+		</method>
+		<method name="set_microphone_muted">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="muted" type="bool" />
+			<description>
+				Sets whether the local user [param local_xuid]'s microphone is muted. Muting stops microphone capture but not outgoing text or synthesized speech. Errors with [code]not_initialized[/code], [code]user_not_found[/code], or [code]not_local_user[/code].
+			</description>
+		</method>
+		<method name="set_remote_user_muted">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="target_xuid" type="String" />
+			<param index="2" name="muted" type="bool" />
+			<description>
+				Sets whether the remote user [param target_xuid] is muted for the local user [param local_xuid]. A muted remote user's audio is not rendered and the local user is excluded from that remote's text receiver list. Errors with [code]not_initialized[/code], [code]user_not_found[/code], [code]not_local_user[/code], or [code]target_not_found[/code].
+			</description>
+		</method>
+		<method name="set_audio_render_volume">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="target_xuid" type="String" />
+			<param index="2" name="volume" type="float" />
+			<description>
+				Sets the render [param volume] (0.0 quietest to 1.0 standard; clamped) used for audio received from [param target_xuid] by the local user [param local_xuid]. Errors with [code]not_initialized[/code], [code]user_not_found[/code], [code]not_local_user[/code], or [code]target_not_found[/code].
+			</description>
+		</method>
+		<method name="send_text">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="text" type="String" />
+			<description>
+				Sends a chat [param text] message (1 to 1023 characters) from the local user [param local_xuid] to every user configured to receive text from them. Errors with [code]not_initialized[/code], [code]invalid_text[/code], [code]user_not_found[/code], or [code]not_local_user[/code].
+			</description>
+		</method>
+		<method name="synthesize_text_to_speech">
+			<return type="GDKResult" />
+			<param index="0" name="local_xuid" type="String" />
+			<param index="1" name="text" type="String" />
+			<description>
+				Synthesizes [param text] as speech audio from the local user [param local_xuid], as if spoken into their microphone. Only takes effect when the user has text-to-speech enabled. Errors with [code]not_initialized[/code], [code]invalid_text[/code], [code]user_not_found[/code], or [code]not_local_user[/code].
+			</description>
+		</method>
+		<method name="process_incoming_data_frame">
+			<return type="GDKResult" />
+			<param index="0" name="source_endpoint_id" type="int" />
+			<param index="1" name="bytes" type="PackedByteArray" />
+			<description>
+				Hands Game Chat a data frame received from a remote endpoint. [param source_endpoint_id] must match the [code]endpoint_id[/code] a remote user was added with via [method add_remote_user], and [param bytes] is the opaque payload that arrived in an [signal outgoing_data_frame] on the sender. Errors with [code]not_initialized[/code] or [code]invalid_data[/code].
+			</description>
+		</method>
+		<method name="get_chat_users" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of [Dictionary] entries describing the current chat users, each with [code]xuid[/code] ([String]), [code]is_local[/code] ([bool]), and [code]chat_indicator[/code] ([int], see [enum ChatIndicator]). Returns an empty array when not initialized.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="outgoing_data_frame">
+			<param index="0" name="target_endpoint_ids" type="PackedInt64Array" />
+			<param index="1" name="bytes" type="PackedByteArray" />
+			<param index="2" name="transport_requirement" type="int" />
+			<description>
+				Emitted while pumping (during [code]GDK.dispatch()[/code]) for each Game Chat data frame the title must transmit. Deliver [param bytes] to every endpoint in [param target_endpoint_ids] over the title's own transport, then call [method process_incoming_data_frame] on each receiving instance. [param transport_requirement] is a [enum TransportRequirement] value indicating whether guaranteed or best-effort delivery is expected.
+			</description>
+		</signal>
+		<signal name="text_chat_received">
+			<param index="0" name="sender_xuid" type="String" />
+			<param index="1" name="message" type="String" />
+			<description>
+				Emitted while pumping when a text message from [param sender_xuid] is addressed to one or more local users.
+			</description>
+		</signal>
+		<signal name="transcribed_chat_received">
+			<param index="0" name="speaker_xuid" type="String" />
+			<param index="1" name="message" type="String" />
+			<description>
+				Emitted while pumping when a remote speaker [param speaker_xuid]'s voice has been transcribed for local users who requested speech-to-text.
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="RELATIONSHIP_NONE" value="0" enum="CommunicationRelationship">
+			No communication is allowed between the two users.
+		</constant>
+		<constant name="RELATIONSHIP_SEND_MICROPHONE_AUDIO" value="1" enum="CommunicationRelationship">
+			The local user may send microphone audio to the target user.
+		</constant>
+		<constant name="RELATIONSHIP_SEND_TEXT_TO_SPEECH_AUDIO" value="2" enum="CommunicationRelationship">
+			The local user may send text-to-speech audio to the target user.
+		</constant>
+		<constant name="RELATIONSHIP_SEND_TEXT" value="4" enum="CommunicationRelationship">
+			The local user may send text to the target user.
+		</constant>
+		<constant name="RELATIONSHIP_RECEIVE_AUDIO" value="8" enum="CommunicationRelationship">
+			The local user may receive audio from the target user.
+		</constant>
+		<constant name="RELATIONSHIP_RECEIVE_TEXT" value="16" enum="CommunicationRelationship">
+			The local user may receive text from the target user.
+		</constant>
+		<constant name="RELATIONSHIP_SEND_ALL" value="7" enum="CommunicationRelationship">
+			Convenience mask allowing the local user to send all communication types (microphone, text-to-speech, and text).
+		</constant>
+		<constant name="RELATIONSHIP_RECEIVE_ALL" value="24" enum="CommunicationRelationship">
+			Convenience mask allowing the local user to receive all communication types (audio and text).
+		</constant>
+		<constant name="RELATIONSHIP_SEND_AND_RECEIVE_ALL" value="31" enum="CommunicationRelationship">
+			Convenience mask allowing the local user to both send and receive all communication types. This is the default relationship used by [method initialize].
+		</constant>
+		<constant name="TRANSPORT_GUARANTEED" value="0" enum="TransportRequirement">
+			The outgoing data frame must be delivered with guaranteed (reliable) delivery.
+		</constant>
+		<constant name="TRANSPORT_BEST_EFFORT" value="1" enum="TransportRequirement">
+			The outgoing data frame may be delivered best-effort; packet loss is acceptable.
+		</constant>
+		<constant name="CHAT_INDICATOR_SILENT" value="0" enum="ChatIndicator">
+			The user is not currently talking.
+		</constant>
+		<constant name="CHAT_INDICATOR_TALKING" value="1" enum="ChatIndicator">
+			The user is currently talking.
+		</constant>
+		<constant name="CHAT_INDICATOR_LOCAL_MICROPHONE_MUTED" value="2" enum="ChatIndicator">
+			The local user's microphone is muted.
+		</constant>
+		<constant name="CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED" value="3" enum="ChatIndicator">
+			The remote user has been muted by all local users.
+		</constant>
+		<constant name="CHAT_INDICATOR_REPUTATION_RESTRICTED" value="4" enum="ChatIndicator">
+			Chat with this user is limited due to an "Avoid Me" reputation.
+		</constant>
+		<constant name="CHAT_INDICATOR_PLATFORM_RESTRICTED" value="5" enum="ChatIndicator">
+			Chat with this user is limited by platform privacy/privilege restrictions.
+		</constant>
+		<constant name="CHAT_INDICATOR_NO_CHAT_FOCUS" value="6" enum="ChatIndicator">
+			The user cannot chat because the app lacks the microphone capability or chat audio focus.
+		</constant>
+		<constant name="CHAT_INDICATOR_NO_MICROPHONE" value="7" enum="ChatIndicator">
+			The user has no microphone available or configured.
+		</constant>
+	</constants>
+</class>

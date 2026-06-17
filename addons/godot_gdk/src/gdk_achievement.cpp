@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdlib>
 
+#include <godot_cpp/variant/dictionary.hpp>
+
 #include "gdk.h"
 #include "gdk_pending_signal.h"
 #include "gdk_result.h"
@@ -31,6 +33,26 @@ String _progress_state_to_string(XblAchievementProgressState p_state) {
         default:
             return "Unknown";
     }
+}
+
+bool _progress_state_from_string(const String &p_value, XblAchievementProgressState *r_state) {
+    if (r_state == nullptr) {
+        return false;
+    }
+
+    const String normalized = p_value.strip_edges().to_lower();
+    if (normalized == "achieved") {
+        *r_state = XblAchievementProgressState::Achieved;
+    } else if (normalized == "notstarted" || normalized == "not_started") {
+        *r_state = XblAchievementProgressState::NotStarted;
+    } else if (normalized == "inprogress" || normalized == "in_progress") {
+        *r_state = XblAchievementProgressState::InProgress;
+    } else if (normalized == "unknown") {
+        *r_state = XblAchievementProgressState::Unknown;
+    } else {
+        return false;
+    }
+    return true;
 }
 
 bool _try_parse_progress_value(const char *p_value, double &r_parsed_value) {
@@ -161,6 +183,7 @@ void GDKAchievements::_bind_methods() {
     ClassDB::bind_method(D_METHOD("query_player_achievements_async", "user"), &GDKAchievements::query_player_achievements_async);
     ClassDB::bind_method(D_METHOD("update_achievement_async", "user", "achievement_id", "percent_complete"), &GDKAchievements::update_achievement_async);
     ClassDB::bind_method(D_METHOD("get_cached_achievements", "user"), &GDKAchievements::get_cached_achievements);
+    ClassDB::bind_method(D_METHOD("get_achievements_by_state", "user", "progress_state"), &GDKAchievements::get_achievements_by_state);
 
     ADD_SIGNAL(MethodInfo("achievement_unlocked",
         PropertyInfo(Variant::OBJECT, "user"),
@@ -773,6 +796,63 @@ Array GDKAchievements::get_cached_achievements(const Ref<GDKUser> &p_user) const
     }
 
     return Array();
+}
+
+Ref<GDKResult> GDKAchievements::get_achievements_by_state(const Ref<GDKUser> &p_user, const String &p_progress_state) {
+    XblAchievementProgressState progress_state = XblAchievementProgressState::Unknown;
+    if (!_progress_state_from_string(p_progress_state, &progress_state)) {
+        return GDKResult::error_result(
+                E_INVALIDARG,
+                "invalid_progress_state",
+                "progress_state must be one of 'Achieved', 'NotStarted', 'InProgress', or 'Unknown'.");
+    }
+
+    UserState *state = nullptr;
+    Ref<GDKResult> ensure_result = _ensure_user_state(p_user, &state);
+    if (!ensure_result->is_ok()) {
+        return ensure_result;
+    }
+
+    if (!state->initialized) {
+        return GDKResult::error_result(
+                E_PENDING,
+                "achievements_not_loaded",
+                "Achievements are not loaded yet. Call query_player_achievements_async() and await it first.");
+    }
+
+    XblAchievementsManagerResultHandle result_handle = nullptr;
+    HRESULT hr = XblAchievementsManagerGetAchievementsByState(
+            state->xbox_user_id,
+            XblAchievementOrderBy::DefaultOrder,
+            XblAchievementsManagerSortOrder::Unsorted,
+            progress_state,
+            &result_handle);
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to query achievements by progress state.", "achievement_state_query_failed");
+    }
+
+    const XblAchievement *achievements = nullptr;
+    uint64_t achievements_count = 0;
+    hr = XblAchievementsManagerResultGetAchievements(result_handle, &achievements, &achievements_count);
+    if (FAILED(hr)) {
+        XblAchievementsManagerResultCloseHandle(result_handle);
+        return GDKResult::hresult_error(hr, "Failed to translate the achievements-by-state result.", "achievement_state_translate_failed");
+    }
+
+    Array filtered;
+    for (uint64_t i = 0; i < achievements_count; ++i) {
+        Ref<GDKAchievement> achievement;
+        achievement.instantiate();
+        achievement->populate_from_native(achievements[i]);
+        filtered.push_back(achievement);
+    }
+
+    XblAchievementsManagerResultCloseHandle(result_handle);
+
+    Dictionary data;
+    data["progress_state"] = _progress_state_to_string(progress_state);
+    data["achievements"] = filtered;
+    return GDKResult::ok_result(data);
 }
 
 void GDKAchievements::on_user_removed(const Ref<GDKUser> &p_user) {

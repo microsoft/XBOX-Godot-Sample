@@ -122,6 +122,7 @@ public:
     Signal query_player_achievements_async(const Ref<GDKUser> &p_user);
     Signal update_achievement_async(const Ref<GDKUser> &p_user, const String &p_achievement_id, int64_t p_percent_complete);
     Array get_cached_achievements(const Ref<GDKUser> &p_user) const;
+    Ref<GDKResult> get_achievements_by_state(const Ref<GDKUser> &p_user, const String &p_progress_state);
 
     void on_user_removed(const Ref<GDKUser> &p_user);
 };

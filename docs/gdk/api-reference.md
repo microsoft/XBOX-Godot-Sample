@@ -116,6 +116,7 @@ peer test-account XUIDs from the checklist in
 | `get_sandbox_id()` | `GDKResult` | Read the current sandbox ID (`data` is `String`) |
 | `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
 | `is_xbox_services_initialized()` | `bool` | Check whether the shared XBOX services scaffold is initialized |
+| `is_feature_available(name)` | `bool` | Check whether an optional GDK runtime feature is available (`XGameRuntimeIsFeatureAvailable`). `name` is a case-insensitive feature id such as `"XAccessibility"`, `"XGameUI"`, `"XGameSave"`, or `"XGameStreaming"`. Unknown names push a warning and return `false`. |
 
 ### Usage
 
@@ -199,6 +200,10 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 | `show_player_profile_card_async(requesting_user, target_xuid)` | `Signal` | Show the profile card UI for a target XUID |
 | `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids, min_selection_count, max_selection_count)` | `Signal` | Show player picker UI; success data includes `selected_xuids` and `selection_count` |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Forward to users-service privilege remediation UI flow |
+| `show_achievements_async(requesting_user)` | `Signal` | Show the system achievements UI for the current title |
+| `show_error_dialog_async(error_code, context)` | `Signal` | Show the system error dialog for an HRESULT `error_code` with optional `context` text |
+| `show_send_game_invite_async(requesting_user, session_configuration_id, session_template_name, session_id, invitation_text, custom_activation_context)` | `Signal` | Show the system send-game-invite UI for a multiplayer session |
+| `show_text_entry_async(title_text, description_text, default_text, input_scope, max_text_length)` | `Signal` | Show the virtual-keyboard text entry UI; success data includes `text` |
 
 ### Validation
 
@@ -278,6 +283,7 @@ with direct-await completion signals.
 | `query_player_achievements_async(user)` | `Signal` | Query achievements for a user |
 | `update_achievement_async(user, achievement_id, percent_complete)` | `Signal` | Update achievement progress |
 | `get_cached_achievements(user)` | `Array` | Get cached achievement list |
+| `get_achievements_by_state(user, progress_state)` | `GDKResult` | Filter the cached achievements by progress state (`"Achieved"`, `"NotStarted"`, `"InProgress"`, `"Unknown"`; case-insensitive). `data.achievements` is an `Array` of `GDKAchievement`. Returns `achievements_not_loaded` until `query_player_achievements_async()` has warmed the cache for `user`. |
 
 ### Signals
 
@@ -401,9 +407,12 @@ real-time statistic tracking, and a per-user in-memory cache.
 |--------|---------|-------------|
 | `query_user_stats_async(user, stat_names := PackedStringArray())` | `Signal` | Query named stats for one local user; success data is a `Dictionary` keyed by stat name |
 | `query_users_stats_async(user, xuids, stat_names := PackedStringArray())` | `Signal` | Query named stats for multiple target XUIDs using the local user as caller context; success data is keyed by XUID |
+| `get_single_stat_async(user, stat_name)` | `Signal` | Read a single named stat for the signed-in user; success data is a `Dictionary` keyed by stat name (one entry) |
 | `set_stat_integer(user, stat_name, value)` | `GDKResult` | Stage an integer title-managed statistic for the user |
 | `set_stat_number(user, stat_name, value)` | `GDKResult` | Stage a numeric title-managed statistic for the user |
-| `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user |
+| `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user (merge semantics) |
+| `write_stats_async(user, stats)` | `Signal` | Replace-all write: the `stats` `Dictionary` (name → number) becomes the user's complete title-managed stat document. Non-numeric values are rejected with `invalid_stat_value`. Live-write surface |
+| `delete_stats_async(user, stat_names)` | `Signal` | Delete the named title-managed stats for the user. Live-write surface |
 | `track_stats(user, stat_names)` | `GDKResult` | Start tracking real-time changes for named stats |
 | `stop_tracking_stats(user, stat_names := PackedStringArray())` | `GDKResult` | Stop tracking named stats, or all tracked stats for the user when empty |
 | `get_cached_stats(user)` | `Dictionary` | Return cached stats for the user keyed by stat name |
@@ -622,6 +631,8 @@ and broadcast fields when XBOX Services reports them.
 | `get_friends_async(user)` | `Signal` | Query the default friends group |
 | `create_social_group(user, filter)` | `GDKResult` | Create a filtered social group. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
 | `create_social_group_from_xuids(user, xuids)` | `GDKResult` | Create a social group from explicit XUIDs. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
+| `update_social_user_group(group, xuids)` | `GDKResult` | Replace the tracked-user list of a list-based `GDKSocialGroup` (one created via `create_social_group_from_xuids`). `result.data.count` is the new tracked-user count. Filter-based groups cannot be updated this way. |
+| `set_rich_presence_polling(user, enabled)` | `GDKResult` | Enable or disable Social Manager rich-presence polling for `user`. `result.data.enabled` echoes the requested state; the user's social graph is started if needed. |
 | `destroy_social_group(group)` | `void` | Destroy a social group |
 | `get_group_users(group)` | `GDKResult` | Get the `GDKSocialUser` list for a group. `result.data` is always an `Array` (possibly empty); `result.ok` is false when the underlying lookup fails. |
 | `submit_reputation_feedback_async(user, target_xuid, feedback_type, reason := "", evidence_id := "")` | `Signal` | Submit one reputation feedback item |
@@ -770,6 +781,11 @@ signed-in [`GDKUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-
 | `query_license_status_async(user, store_id)` | `Signal` | Query whether `user` can acquire a license for `store_id`. Completion `GDKResult.data` is a `GDKStoreLicenseStatus` on success. |
 | `refresh_entitlements_async(user, store_id)` | `Signal` | Refresh entitlements for `store_id` by re-querying license-acquire status. |
 | `show_purchase_ui_async(user, store_id)` | `Signal` | Show the system purchase UI for `store_id`. |
+| `show_product_page_ui_async(user, store_id)` | `Signal` | Show the system product page UI for `store_id`. |
+| `show_associated_products_ui_async(user, store_id, product_kinds)` | `Signal` | Show the associated-products UI. `product_kinds` is a comma-separated filter (`consumable`, `durable`, `game`, `pass`, `unmanaged_consumable`); empty includes all kinds. |
+| `show_rate_and_review_ui_async(user)` | `Signal` | Show the rate-and-review UI; success data includes `was_updated`. |
+| `show_redeem_token_ui_async(user, token, allowed_store_ids, disallow_csv_redemption)` | `Signal` | Show the token-redemption UI for `token`. `allowed_store_ids` optionally restricts redeemable products. |
+| `show_gifting_ui_async(user, store_id, name, extended_json)` | `Signal` | Show the gifting UI for `store_id` with optional gifting metadata. |
 | `get_cached_license_status(store_id)` | `GDKStoreLicenseStatus` | Returns the cached license status for `store_id`, or `null` when no cached value exists. |
 | `check_cached_license_status(store_id)` | `GDKResult` | Synchronous cache-only check; returns `license_status_not_cached` when no cached status exists. |
 
@@ -1281,3 +1297,229 @@ fan-out so both services see the same parsed invite dictionary.
 - If activation registration fails on this host (e.g., a partially registered
   package), the synchronous `accept_pending_invite` API still works; the
   signal-driven flow simply emits no events. A `push_warning` is logged once.
+
+## Speech service: `GDK.speech`
+
+`GDK.speech` is a `RefCounted` service object returned by `GDK.get_speech()`. It
+wraps `XSpeechSynthesizer.h` to turn text or SSML into PCM/WAV audio bytes on the
+local device with no network call, which makes it usable for accessibility
+narration, prompts, and announcer lines. The service lazily creates a single
+native synthesizer the first time a voice is selected or speech is synthesized,
+and releases it on `GDK.shutdown()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_installed_voices()` | `Array` | Installed voices as dictionaries with `id`, `display_name`, `language`, `gender` (`"male"`/`"female"`), and `description`. Empty before `GDK.initialize()` |
+| `set_default_voice()` | `GDKResult` | Select the platform default voice for subsequent synthesis |
+| `set_custom_voice(voice_id)` | `GDKResult` | Select a voice by `id`; rejects an empty id with `invalid_voice_id` |
+| `synthesize_text(text)` | `GDKResult` | Synthesize plain text; `data.audio_wav` is a `PackedByteArray` of RIFF/WAV bytes and `data.byte_count` is its length |
+| `synthesize_ssml(ssml)` | `GDKResult` | Synthesize an SSML document; same payload shape as `synthesize_text` |
+| `synthesize_to_stream(text)` | `AudioStreamWAV` | Convenience helper returning a ready-to-play stream, or `null` on failure |
+
+### Validation notes
+
+- Calls before `GDK.initialize()` return `not_initialized`.
+- Empty `text`/`ssml` returns `invalid_input`; an empty `voice_id` returns `invalid_voice_id`.
+- If the synthesizer cannot be created on this host, calls return `speech_synthesizer_unavailable`.
+
+### Usage
+
+```gdscript
+# Enumerate voices and pick one
+var voices: Array = GDK.speech.get_installed_voices()
+if voices.size() > 0:
+    GDK.speech.set_custom_voice(voices[0]["id"])
+
+# Synthesize to raw WAV bytes
+var result: GDKResult = GDK.speech.synthesize_text("Welcome to the game.")
+if result.ok:
+    var wav_bytes: PackedByteArray = result.data["audio_wav"]
+    # ...persist or hand off the WAV bytes...
+
+# Or play immediately through a Godot AudioStreamPlayer
+var stream := GDK.speech.synthesize_to_stream("Welcome to the game.")
+if stream != null:
+    $AudioStreamPlayer.stream = stream
+    $AudioStreamPlayer.play()
+```
+
+## Events service: `GDK.events`
+
+`GDK.events` is a `RefCounted` service object returned by `GDK.get_events()`.
+It writes GDK-native in-game telemetry through `XGameEventWrite`. Events are
+batched and uploaded asynchronously by the runtime. This is complementary to
+PlayFab analytics (`godot_playfab`); titles may use either or both.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `write_event(user, event_name, dimensions, measurements)` | `GDKResult` | Write a telemetry event for `user`. `dimensions`/`measurements` are `Dictionary` payloads serialized to JSON. Success data includes `event_name` and `play_session_id`. |
+| `set_play_session_id(play_session_id)` | `void` | Set the play-session GUID used to group events. Pass `""` to regenerate a fresh GUID. |
+| `get_play_session_id()` | `String` | Return the current play-session GUID (auto-generated on first access). |
+
+### Notes
+
+- The event name and every `dimensions`/`measurements` field name must match the
+  title's Xbox Live service-configuration event manifest (case-insensitive).
+  Events whose names do not match are **silently dropped** by the service.
+- When the GDK XGameEvent telemetry feature is unavailable in the current
+  runtime, `write_event()` returns `events_feature_unavailable` (HRESULT
+  `E_NOTIMPL`) without writing.
+
+### Usage
+
+```gdscript
+var user: GDKUser = GDK.users.get_primary_user()
+
+# Tag the play session (optional; a GUID is generated automatically otherwise)
+GDK.events.set_play_session_id("")  # regenerate, or pass your own id
+
+var result: GDKResult = GDK.events.write_event(
+    user,
+    "LevelComplete",
+    {"level_id": "forest_01", "difficulty": "hard"},   # dimensions
+    {"score": 1450, "time_seconds": 92.5})             # measurements
+if not result.ok:
+    push_warning("Event not written: %s" % result.code)
+```
+
+## Game Save service: `GDK.game_save`
+
+`GDK.game_save` is a `RefCounted` service object returned by
+`GDK.get_game_save()`. It wraps the GDK-native file-style save API
+(`XGameSaveFiles.h`). This is distinct from PlayFab Game Saves
+(`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+
+The title must declare connected storage / a `SaveFolder` in its
+`MicrosoftGame.config`; without it the native calls fail and the propagated
+`HRESULT` error is returned.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_folder_async(user)` | `Signal` | Resolve the user's save folder (may surface a system UI) via `XGameSaveFilesGetFolderWithUiAsync`. Success data is `data.path` (absolute folder path). Titles then read/write ordinary files under that folder. |
+| `get_remaining_quota(user)` | `GDKResult` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. |
+
+### Validation notes
+
+- `not_initialized` when the GDK runtime is not yet initialized.
+- `invalid_user` when `user` is null or has no underlying handle.
+- `xbox_services_uninitialized` when the shared XBOX services scaffold (SCID)
+  is unavailable.
+
+### Usage
+
+```gdscript
+var user: GDKUser = GDK.users.get_primary_user()
+
+var folder_result: GDKResult = await GDK.game_save.get_folder_async(user)
+if folder_result.ok:
+    var save_path: String = folder_result.data.path
+    var f := FileAccess.open(save_path.path_join("save1.dat"), FileAccess.WRITE)
+    f.store_var({"level": 3, "score": 1450})
+    f.close()
+
+var quota_result: GDKResult = GDK.game_save.get_remaining_quota(user)
+if quota_result.ok:
+    print("Remaining save quota: %d bytes" % quota_result.data.bytes)
+```
+
+## Game Chat service: `GDK.game_chat`
+
+`GDK.game_chat` is a `RefCounted` service object returned by
+`GDK.get_game_chat()`. It wraps the Game Chat 2 (`GameChat2.h`) `chat_manager`
+for GDK-native voice and text chat. It is the GDK-native alternative to PlayFab
+Party (`godot_playfab`), which is the batteries-included option that owns its
+own transport.
+
+**No transport is built or selected.** Game Chat encodes its own opaque
+audio/text data frames; this wrapper only exposes that surface. While the
+manager is pumped each frame (driven automatically by `GDK.dispatch()`), every
+frame Game Chat wants to send is emitted on the `outgoing_data_frame` signal.
+Deliver those bytes over whatever transport your title already has, then call
+`process_incoming_data_frame()` on each receiving instance. The sample and tests
+demonstrate this with single-process **loopback** (feeding each
+`outgoing_data_frame` straight back into `process_incoming_data_frame`).
+
+Real voice capture and rendering require multi-machine audio hardware and cannot
+be validated headlessly; headless coverage exercises the service surface, enum
+constants, lifecycle, and data-frame plumbing.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `initialize(max_users := 16, default_relationship := RELATIONSHIP_SEND_AND_RECEIVE_ALL)` | `GDKResult` | Initialize the `chat_manager` for `max_users` combined local + remote users. Errors: `not_initialized`, `already_initialized`, `invalid_max_users`. |
+| `is_initialized()` | `bool` | `true` between a successful `initialize()` and `cleanup()`. |
+| `cleanup()` | `void` | Release all Game Chat resources (also called on `GDK.shutdown`). |
+| `add_local_user(user)` | `GDKResult` | Add a signed-in `GDKUser` as a local chat user. Success data is `data.xuid`. |
+| `add_remote_user(xuid, endpoint_id)` | `GDKResult` | Add a remote user by XUID reachable on a title-assigned `endpoint_id`. Success data is `{xuid, endpoint_id}`. |
+| `remove_user(xuid)` | `GDKResult` | Remove the local or remote user matching `xuid`. |
+| `set_communication_relationship(local_xuid, target_xuid, relationship)` | `GDKResult` | Set the bitwise `CommunicationRelationship` flags from a local user toward a target. |
+| `set_microphone_muted(local_xuid, muted)` | `GDKResult` | Mute/unmute a local user's microphone. |
+| `set_remote_user_muted(local_xuid, target_xuid, muted)` | `GDKResult` | Mute/unmute a remote user for a local user. |
+| `set_audio_render_volume(local_xuid, target_xuid, volume)` | `GDKResult` | Set the render volume (0.0–1.0) for audio from a remote user. |
+| `send_text(local_xuid, text)` | `GDKResult` | Send a 1–1023 character chat text message. |
+| `synthesize_text_to_speech(local_xuid, text)` | `GDKResult` | Synthesize text as speech from the local user (when TTS is enabled). |
+| `process_incoming_data_frame(source_endpoint_id, bytes)` | `GDKResult` | Hand Game Chat a frame received from a remote endpoint. |
+| `get_chat_users()` | `Array` | Snapshot of current users as `{xuid, is_local, chat_indicator}` dictionaries. |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `outgoing_data_frame(target_endpoint_ids, bytes, transport_requirement)` | A frame the title must transmit to each endpoint in `target_endpoint_ids`. `transport_requirement` is a `TransportRequirement` value. |
+| `text_chat_received(sender_xuid, message)` | A text message addressed to one or more local users. |
+| `transcribed_chat_received(speaker_xuid, message)` | A remote speaker's transcribed voice for local users who requested speech-to-text. |
+
+### Independent voice and text control
+
+Like PlayFab Party, Game Chat tracks voice and text independently. The
+`CommunicationRelationship` flags carry separate send/receive bits for
+microphone audio, text-to-speech audio, and text, and per-user mute/volume is
+controlled via `set_microphone_muted()`, `set_remote_user_muted()`, and
+`set_audio_render_volume()`.
+
+### Validation notes
+
+- `not_initialized` before `GDK.initialize()` (for `initialize()`) or before
+  `GDK.game_chat.initialize()` (for every other method).
+- `invalid_max_users` when `max_users <= 0`; `already_initialized` on re-init.
+- `invalid_xuid` / `invalid_user` for empty XUIDs or non-signed-in users;
+  `invalid_text` for empty/over-long text; `invalid_data` for an empty frame.
+- `user_not_found`, `not_local_user`, `target_not_found`, `add_user_failed` for
+  user-lookup and add failures.
+
+### Usage
+
+```gdscript
+GDK.game_chat.initialize()
+
+# Local (signed-in) user plus a remote peer reachable on endpoint 1001.
+var me: GDKUser = GDK.users.get_primary_user()
+var local := GDK.game_chat.add_local_user(me)
+GDK.game_chat.add_remote_user("2814639011419087", 1001)
+
+# Ferry Game Chat's encoded frames over your own networking transport. Game Chat
+# hands each outgoing frame to this handler; forward it to the listed endpoints.
+GDK.game_chat.outgoing_data_frame.connect(
+    func(target_endpoint_ids, bytes, transport_requirement):
+        for endpoint in target_endpoint_ids:
+            my_transport.send(endpoint, bytes)
+)
+
+# On the receiving peer, feed bytes that arrive on your transport back into Game
+# Chat (for a single-process loopback test, call this with your own frames):
+#     GDK.game_chat.process_incoming_data_frame(source_endpoint_id, received_bytes)
+
+GDK.game_chat.text_chat_received.connect(
+    func(sender_xuid, message): print("%s: %s" % [sender_xuid, message])
+)
+
+GDK.game_chat.send_text(local.data.xuid, "hello over game chat")
+```
+

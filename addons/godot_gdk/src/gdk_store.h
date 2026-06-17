@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
@@ -59,6 +60,7 @@ class GDKStore : public RefCounted {
     void _close_store_context();
     XStoreContextHandle _get_or_create_store_context(HRESULT &r_hresult);
     Signal _make_error_signal(HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant()) const;
+    bool _prepare_store_ui_call(const Ref<GDKUser> &p_user, GDKRuntime *&r_runtime, XStoreContextHandle &r_store_context, Signal &r_error_signal);
     Signal _start_license_status_async(const Ref<GDKUser> &p_user, const String &p_store_id, bool p_is_refresh);
     static String _normalize_store_id(const String &p_store_id);
 
@@ -78,6 +80,11 @@ public:
     Signal query_license_status_async(const Ref<GDKUser> &p_user, const String &p_store_id);
     Signal refresh_entitlements_async(const Ref<GDKUser> &p_user, const String &p_store_id);
     Signal show_purchase_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id);
+    Signal show_product_page_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id);
+    Signal show_associated_products_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id, const String &p_product_kinds);
+    Signal show_rate_and_review_ui_async(const Ref<GDKUser> &p_user);
+    Signal show_redeem_token_ui_async(const Ref<GDKUser> &p_user, const String &p_token, const PackedStringArray &p_allowed_store_ids, bool p_disallow_csv_redemption);
+    Signal show_gifting_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id, const String &p_name, const String &p_extended_json);
 
     Ref<GDKStoreLicenseStatus> get_cached_license_status(const String &p_store_id) const;
     Ref<GDKResult> check_cached_license_status(const String &p_store_id) const;

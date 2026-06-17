@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/string.hpp>
 
 namespace godot {
 
@@ -34,6 +35,7 @@ public:
     Ref<GDKResult> get_sandbox_id() const;
     Ref<GDKResult> get_service_configuration_id() const;
     bool is_xbox_services_initialized() const;
+    bool is_feature_available(const String &p_feature_name) const;
 };
 
 } // namespace godot

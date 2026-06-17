@@ -46,6 +46,22 @@
 				Creates a social group that tracks the specified XUIDs. Returns a [GDKResult]; on success the [code]data[/code] field contains the created [GDKSocialGroup]. On failure the result describes the error and a [code]runtime_error[/code] signal is emitted.
 			</description>
 		</method>
+		<method name="update_social_user_group">
+			<return type="GDKResult" />
+			<param index="0" name="group" type="GDKSocialGroup" />
+			<param index="1" name="xuids" type="PackedStringArray" />
+			<description>
+				Replaces the tracked-user list of an existing list-based [GDKSocialGroup] (one created via [method create_social_group_from_xuids]) with [param xuids], wrapping [code]XblSocialManagerUpdateSocialUserGroup[/code]. Returns a [GDKResult] whose [code]data.count[/code] reports the new tracked-user count. Filter-based groups cannot be updated this way.
+			</description>
+		</method>
+		<method name="set_rich_presence_polling">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="enabled" type="bool" />
+			<description>
+				Enables or disables Social Manager rich-presence polling for [param user] via [code]XblSocialManagerSetRichPresencePollingStatus[/code]. When enabled, the Social Manager polls the presence service roughly every 30 seconds so social-graph users' presence stays current. Returns a [GDKResult] whose [code]data.enabled[/code] echoes the requested state. The user's social graph is started if it is not already.
+			</description>
+		</method>
 		<method name="destroy_social_group">
 			<return type="void" />
 			<param index="0" name="group" type="GDKSocialGroup" />

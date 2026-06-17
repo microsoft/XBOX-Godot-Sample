@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <godot_cpp/variant/array.hpp>
+
 #include "gdk.h"
 #include "gdk_pending_signal.h"
 #include "gdk_result.h"
@@ -129,6 +131,7 @@ class QueryStatsAsyncContext final : public GDKSignalXAsyncContext {
     std::vector<uint64_t> m_xuids;
     bool m_single_user_payload = true;
     bool m_multiple_user_result = false;
+    bool m_single_stat_query = false;
 
 protected:
     void finalize(XAsyncBlock *p_async_block) override {
@@ -141,9 +144,11 @@ protected:
         }
 
         size_t result_size = 0;
-        HRESULT result_hr = m_multiple_user_result ?
-                XblUserStatisticsGetMultipleUserStatisticsResultSize(p_async_block, &result_size) :
-                XblUserStatisticsGetSingleUserStatisticsResultSize(p_async_block, &result_size);
+        HRESULT result_hr = m_single_stat_query ?
+                XblUserStatisticsGetSingleUserStatisticResultSize(p_async_block, &result_size) :
+                (m_multiple_user_result ?
+                        XblUserStatisticsGetMultipleUserStatisticsResultSize(p_async_block, &result_size) :
+                        XblUserStatisticsGetSingleUserStatisticsResultSize(p_async_block, &result_size));
         if (result_hr == E_ABORT) {
             result = GDKResult::cancelled("Statistic query cancelled.");
             get_pending_signal()->complete(result);
@@ -159,7 +164,15 @@ protected:
         XblUserStatisticsResult *results = nullptr;
         size_t results_count = 0;
         size_t buffer_used = 0;
-        if (m_multiple_user_result) {
+        if (m_single_stat_query) {
+            result_hr = XblUserStatisticsGetSingleUserStatisticResult(
+                    p_async_block,
+                    buffer.size(),
+                    buffer.empty() ? nullptr : buffer.data(),
+                    &results,
+                    &buffer_used);
+            results_count = results != nullptr ? 1 : 0;
+        } else if (m_multiple_user_result) {
             result_hr = XblUserStatisticsGetMultipleUserStatisticsResult(
                     p_async_block,
                     buffer.size(),
@@ -252,6 +265,14 @@ public:
 
     uint64_t get_xbox_user_id() const {
         return m_xbox_user_id;
+    }
+
+    void set_single_stat_query(bool p_single_stat_query) {
+        m_single_stat_query = p_single_stat_query;
+    }
+
+    const char *get_single_stat_name() const {
+        return m_stat_name_ptrs.empty() ? nullptr : m_stat_name_ptrs.front();
     }
 
     uint64_t *get_xuids() {
@@ -354,14 +375,167 @@ public:
     }
 };
 
+class WriteStatsAsyncContext final : public GDKSignalXAsyncContext {
+    Ref<GDKUser> m_user;
+    XblContextHandle m_context = nullptr;
+    uint64_t m_xbox_user_id = 0;
+    std::vector<CharString> m_name_utf8;
+    std::vector<XblTitleManagedStatistic> m_native_stats;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Statistic write cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Statistic write cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(result_hr, "Failed to write title-managed statistics.", "stats_write_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["xuid"] = m_user.is_valid() ? m_user->get_xuid() : String();
+        data["count"] = static_cast<int64_t>(m_native_stats.size());
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    WriteStatsAsyncContext(
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const Ref<GDKUser> &p_user,
+            XblContextHandle p_context,
+            uint64_t p_xbox_user_id,
+            const std::vector<GDKStats::StagedStat> &p_stats) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_user(p_user),
+            m_context(p_context),
+            m_xbox_user_id(p_xbox_user_id) {
+        m_name_utf8.reserve(p_stats.size());
+        m_native_stats.reserve(p_stats.size());
+        for (const GDKStats::StagedStat &stat : p_stats) {
+            m_name_utf8.push_back(stat.name.utf8());
+        }
+        for (size_t i = 0; i < p_stats.size(); ++i) {
+            XblTitleManagedStatistic native_stat = {};
+            native_stat.statisticName = m_name_utf8[i].get_data();
+            native_stat.statisticType = XblTitleManagedStatType::Number;
+            native_stat.numberValue = p_stats[i].value;
+            native_stat.stringValue = nullptr;
+            m_native_stats.push_back(native_stat);
+        }
+    }
+
+    ~WriteStatsAsyncContext() override {
+        if (m_context != nullptr) {
+            XblContextCloseHandle(m_context);
+            m_context = nullptr;
+        }
+    }
+
+    XblContextHandle get_context() const {
+        return m_context;
+    }
+
+    uint64_t get_xbox_user_id() const {
+        return m_xbox_user_id;
+    }
+
+    const XblTitleManagedStatistic *get_native_stats() const {
+        return m_native_stats.empty() ? nullptr : m_native_stats.data();
+    }
+
+    size_t get_native_stats_count() const {
+        return m_native_stats.size();
+    }
+};
+
+class DeleteStatsAsyncContext final : public GDKSignalXAsyncContext {
+    Ref<GDKUser> m_user;
+    XblContextHandle m_context = nullptr;
+    std::vector<CharString> m_name_utf8;
+    std::vector<const char *> m_name_ptrs;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Statistic delete cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XAsyncGetStatus(p_async_block, false);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Statistic delete cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(result_hr, "Failed to delete title-managed statistics.", "stats_delete_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["xuid"] = m_user.is_valid() ? m_user->get_xuid() : String();
+        data["count"] = static_cast<int64_t>(m_name_ptrs.size());
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    DeleteStatsAsyncContext(
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const Ref<GDKUser> &p_user,
+            XblContextHandle p_context,
+            const std::vector<String> &p_stat_names) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_user(p_user),
+            m_context(p_context) {
+        m_name_utf8.reserve(p_stat_names.size());
+        m_name_ptrs.reserve(p_stat_names.size());
+        for (const String &stat_name : p_stat_names) {
+            m_name_utf8.push_back(stat_name.utf8());
+        }
+        for (const CharString &stat_name_utf8 : m_name_utf8) {
+            m_name_ptrs.push_back(stat_name_utf8.get_data());
+        }
+    }
+
+    ~DeleteStatsAsyncContext() override {
+        if (m_context != nullptr) {
+            XblContextCloseHandle(m_context);
+            m_context = nullptr;
+        }
+    }
+
+    XblContextHandle get_context() const {
+        return m_context;
+    }
+
+    const char **get_name_ptrs() {
+        return m_name_ptrs.empty() ? nullptr : m_name_ptrs.data();
+    }
+
+    size_t get_name_count() const {
+        return m_name_ptrs.size();
+    }
+};
+
 } // namespace
 
 void GDKStats::_bind_methods() {
     ClassDB::bind_method(D_METHOD("query_user_stats_async", "user", "stat_names"), &GDKStats::query_user_stats_async, DEFVAL(PackedStringArray()));
     ClassDB::bind_method(D_METHOD("query_users_stats_async", "user", "xuids", "stat_names"), &GDKStats::query_users_stats_async, DEFVAL(PackedStringArray()));
+    ClassDB::bind_method(D_METHOD("get_single_stat_async", "user", "stat_name"), &GDKStats::get_single_stat_async);
     ClassDB::bind_method(D_METHOD("set_stat_integer", "user", "stat_name", "value"), &GDKStats::set_stat_integer);
     ClassDB::bind_method(D_METHOD("set_stat_number", "user", "stat_name", "value"), &GDKStats::set_stat_number);
     ClassDB::bind_method(D_METHOD("flush_stats_async", "user"), &GDKStats::flush_stats_async);
+    ClassDB::bind_method(D_METHOD("write_stats_async", "user", "stats"), &GDKStats::write_stats_async);
+    ClassDB::bind_method(D_METHOD("delete_stats_async", "user", "stat_names"), &GDKStats::delete_stats_async);
     ClassDB::bind_method(D_METHOD("track_stats", "user", "stat_names"), &GDKStats::track_stats);
     ClassDB::bind_method(D_METHOD("stop_tracking_stats", "user", "stat_names"), &GDKStats::stop_tracking_stats, DEFVAL(PackedStringArray()));
     ClassDB::bind_method(D_METHOD("get_cached_stats", "user"), &GDKStats::get_cached_stats);
@@ -830,6 +1004,171 @@ Signal GDKStats::flush_stats_async(const Ref<GDKUser> &p_user) {
         async_context->clear_cancel_handler();
         delete async_context;
         return _make_error_signal(hr, "stats_flush_start_failed", "Failed to start title-managed statistic flush.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStats::get_single_stat_async(const Ref<GDKUser> &p_user, const String &p_stat_name) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+
+    const String stat_name = p_stat_name.strip_edges();
+    if (stat_name.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_stat_name", "A non-empty statistic name is required.");
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_uninitialized", "Xbox services are not initialized.");
+    }
+
+    XblContextHandle context = nullptr;
+    uint64_t xbox_user_id = 0;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context, &xbox_user_id);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "xbox_context_unavailable", "Failed to create an Xbox services context for the user.");
+    }
+
+    std::vector<String> stat_names = { stat_name };
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    QueryStatsAsyncContext *async_context = new QueryStatsAsyncContext(this, p_user, runtime, pending_signal, context, xbox_services->get_scid(), stat_names, xbox_user_id, std::vector<uint64_t>(), true, false);
+    async_context->set_single_stat_query(true);
+    async_context->bind_cancel_handler();
+
+    hr = XblUserStatisticsGetSingleUserStatisticAsync(
+            async_context->get_context(),
+            async_context->get_xbox_user_id(),
+            async_context->get_scid(),
+            async_context->get_single_stat_name(),
+            async_context->get_async_block());
+    if (FAILED(hr)) {
+        async_context->clear_cancel_handler();
+        delete async_context;
+        return _make_error_signal(hr, "stats_query_failed", "Failed to start single-statistic query.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStats::write_stats_async(const Ref<GDKUser> &p_user, const Dictionary &p_stats) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+    if (p_stats.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "no_stats", "write_stats_async() requires at least one statistic.");
+    }
+
+    std::vector<StagedStat> stats;
+    stats.reserve(static_cast<size_t>(p_stats.size()));
+    const Array keys = p_stats.keys();
+    for (int64_t i = 0; i < keys.size(); ++i) {
+        const String name = String(keys[i]).strip_edges();
+        if (name.is_empty()) {
+            return _make_error_signal(E_INVALIDARG, "invalid_stat_name", "Statistic names must be non-empty strings.");
+        }
+        const Variant value = p_stats[keys[i]];
+        if (value.get_type() != Variant::INT && value.get_type() != Variant::FLOAT) {
+            return _make_error_signal(E_INVALIDARG, "invalid_stat_value", "write_stats_async() only accepts numeric statistic values.");
+        }
+        StagedStat stat;
+        stat.name = name;
+        stat.value = static_cast<double>(value);
+        stats.push_back(stat);
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_uninitialized", "Xbox services are not initialized.");
+    }
+
+    XblContextHandle context = nullptr;
+    uint64_t xbox_user_id = 0;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context, &xbox_user_id);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "xbox_context_unavailable", "Failed to create an Xbox services context for the user.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    WriteStatsAsyncContext *async_context = new WriteStatsAsyncContext(runtime, pending_signal, p_user, context, xbox_user_id, stats);
+    async_context->bind_cancel_handler();
+
+    hr = XblTitleManagedStatsWriteAsync(
+            async_context->get_context(),
+            async_context->get_xbox_user_id(),
+            async_context->get_native_stats(),
+            async_context->get_native_stats_count(),
+            async_context->get_async_block());
+    if (FAILED(hr)) {
+        async_context->clear_cancel_handler();
+        delete async_context;
+        return _make_error_signal(hr, "stats_write_start_failed", "Failed to start title-managed statistic write.");
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStats::delete_stats_async(const Ref<GDKUser> &p_user, const PackedStringArray &p_stat_names) {
+    GDKRuntime *runtime = _get_runtime();
+    if (runtime == nullptr) {
+        return Signal();
+    }
+
+    Ref<GDKResult> validation = _ensure_ready_user(p_user);
+    if (!validation->is_ok()) {
+        return _make_error_signal(static_cast<HRESULT>(validation->get_hresult()), validation->get_code(), validation->get_message());
+    }
+    if (p_stat_names.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "no_stat_names", "delete_stats_async() requires at least one statistic name.");
+    }
+
+    std::vector<String> stat_names;
+    stat_names.reserve(static_cast<size_t>(p_stat_names.size()));
+    for (int64_t i = 0; i < p_stat_names.size(); ++i) {
+        const String name = String(p_stat_names[i]).strip_edges();
+        if (name.is_empty()) {
+            return _make_error_signal(E_INVALIDARG, "invalid_stat_name", "Statistic names must be non-empty strings.");
+        }
+        stat_names.push_back(name);
+    }
+
+    GDKXboxServices *xbox_services = _get_xbox_services();
+    if (xbox_services == nullptr || !xbox_services->is_initialized()) {
+        return _make_error_signal(E_FAIL, "xbox_services_uninitialized", "Xbox services are not initialized.");
+    }
+
+    XblContextHandle context = nullptr;
+    HRESULT hr = xbox_services->duplicate_context_for_user(p_user, &context);
+    if (FAILED(hr)) {
+        return _make_error_signal(hr, "xbox_context_unavailable", "Failed to create an Xbox services context for the user.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    DeleteStatsAsyncContext *async_context = new DeleteStatsAsyncContext(runtime, pending_signal, p_user, context, stat_names);
+    async_context->bind_cancel_handler();
+
+    hr = XblTitleManagedStatsDeleteStatsAsync(
+            async_context->get_context(),
+            async_context->get_name_ptrs(),
+            async_context->get_name_count(),
+            async_context->get_async_block());
+    if (FAILED(hr)) {
+        async_context->clear_cancel_handler();
+        delete async_context;
+        return _make_error_signal(hr, "stats_delete_start_failed", "Failed to start title-managed statistic delete.");
     }
 
     return pending_signal->get_completed_signal();

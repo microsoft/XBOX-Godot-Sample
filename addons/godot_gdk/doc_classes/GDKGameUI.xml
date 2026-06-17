@@ -56,6 +56,44 @@
 				Shows privilege-resolution UI for [param user] and [param privilege]. This forwards to the existing users-service privilege-remediation flow.
 			</description>
 		</method>
+		<method name="show_achievements_async">
+			<return type="Signal" />
+			<param index="0" name="requesting_user" type="GDKUser" />
+			<description>
+				Shows the system achievements UI for [param requesting_user] scoped to the current title. The title ID is resolved automatically via [code]XGameGetXboxTitleId[/code].
+			</description>
+		</method>
+		<method name="show_error_dialog_async">
+			<return type="Signal" />
+			<param index="0" name="error_code" type="int" />
+			<param index="1" name="context" type="String" default="&quot;&quot;" />
+			<description>
+				Shows the system error dialog for the supplied [param error_code] (an HRESULT). [param context] optionally supplies extra context text shown to the user.
+			</description>
+		</method>
+		<method name="show_send_game_invite_async">
+			<return type="Signal" />
+			<param index="0" name="requesting_user" type="GDKUser" />
+			<param index="1" name="session_configuration_id" type="String" />
+			<param index="2" name="session_template_name" type="String" />
+			<param index="3" name="session_id" type="String" />
+			<param index="4" name="invitation_text" type="String" default="&quot;&quot;" />
+			<param index="5" name="custom_activation_context" type="String" default="&quot;&quot;" />
+			<description>
+				Shows the system send-game-invite UI for [param requesting_user]. The session identifiers describe the multiplayer session players are invited into; [param invitation_text] and [param custom_activation_context] are optional. Validation failures return [code]invalid_session[/code] or [code]invalid_user[/code].
+			</description>
+		</method>
+		<method name="show_text_entry_async">
+			<return type="Signal" />
+			<param index="0" name="title_text" type="String" default="&quot;&quot;" />
+			<param index="1" name="description_text" type="String" default="&quot;&quot;" />
+			<param index="2" name="default_text" type="String" default="&quot;&quot;" />
+			<param index="3" name="input_scope" type="String" default="&quot;default&quot;" />
+			<param index="4" name="max_text_length" type="int" default="0" />
+			<description>
+				Shows the system virtual-keyboard text entry UI. [param input_scope] accepts [code]default[/code], [code]url[/code], [code]email[/code], [code]number[/code], [code]password[/code], [code]telephone[/code], [code]alphanumeric[/code], [code]search[/code], or [code]chat[/code]. [param max_text_length] of [code]0[/code] uses the platform default. On success, [code]GDKResult.data.text[/code] holds the entered string.
+			</description>
+		</method>
 	</methods>
 	<members>
 	</members>

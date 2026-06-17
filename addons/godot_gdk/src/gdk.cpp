@@ -6,6 +6,9 @@
 #include "gdk_capture.h"
 #include "gdk_display.h"
 #include "gdk_error_reporting.h"
+#include "gdk_events.h"
+#include "gdk_game_chat.h"
+#include "gdk_game_save.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
@@ -17,6 +20,7 @@
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_social.h"
+#include "gdk_speech_synthesizer.h"
 #include "gdk_stats.h"
 #include "gdk_store.h"
 #include "gdk_string_verify.h"
@@ -84,6 +88,14 @@ GDK::GDK() {
     m_display->set_owner(this);
     m_activation.instantiate();
     m_activation->set_owner(this);
+    m_speech.instantiate();
+    m_speech->set_owner(this);
+    m_events.instantiate();
+    m_events->set_owner(this);
+    m_game_save.instantiate();
+    m_game_save->set_owner(this);
+    m_game_chat.instantiate();
+    m_game_chat->set_owner(this);
 }
 
 GDK::~GDK() {
@@ -120,6 +132,10 @@ GDK::~GDK() {
     m_system.unref();
     m_display.unref();
     m_activation.unref();
+    m_speech.unref();
+    m_events.unref();
+    m_game_save.unref();
+    m_game_chat.unref();
     singleton = nullptr;
 }
 
@@ -150,6 +166,10 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_system"), &GDK::get_system);
     ClassDB::bind_method(D_METHOD("get_display"), &GDK::get_display);
     ClassDB::bind_method(D_METHOD("get_activation"), &GDK::get_activation);
+    ClassDB::bind_method(D_METHOD("get_speech"), &GDK::get_speech);
+    ClassDB::bind_method(D_METHOD("get_events"), &GDK::get_events);
+    ClassDB::bind_method(D_METHOD("get_game_save"), &GDK::get_game_save);
+    ClassDB::bind_method(D_METHOD("get_game_chat"), &GDK::get_game_chat);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
@@ -172,6 +192,10 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "system", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSystem"), "", "get_system");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "display", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKDisplay"), "", "get_display");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "activation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKActivation"), "", "get_activation");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "speech", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSpeechSynthesizer"), "", "get_speech");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "events", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKEvents"), "", "get_events");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_save", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameSave"), "", "get_game_save");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_chat", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameChat"), "", "get_game_chat");
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
@@ -224,6 +248,14 @@ const GDKInitStep INIT_STEPS[] = {
       [](GDK *g) { g->get_capture()->shutdown(); } },
     { [](GDK *g) { return g->get_display()->on_runtime_initialized(); },
       [](GDK *g) { g->get_display()->shutdown(); } },
+    { [](GDK *g) { return g->get_speech()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_speech()->shutdown(); } },
+    { [](GDK *g) { return g->get_events()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_events()->shutdown(); } },
+    { [](GDK *g) { return g->get_game_save()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_game_save()->shutdown(); } },
+    { [](GDK *g) { return g->get_game_chat()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_game_chat()->shutdown(); } },
 };
 
 struct GDKDispatchStep {
@@ -238,6 +270,7 @@ const GDKDispatchStep DISPATCH_STEPS[] = {
     { [](GDK *g) { return g->get_presence()->dispatch(); } },
     { [](GDK *g) { return g->get_social()->dispatch(); } },
     { [](GDK *g) { return g->get_error_reporting()->dispatch(); } },
+    { [](GDK *g) { return g->get_game_chat()->dispatch(); } },
 };
 
 class GDKShutdownGuard {
@@ -414,6 +447,22 @@ Ref<GDKActivation> GDK::get_activation() const {
     return m_activation;
 }
 
+Ref<GDKSpeechSynthesizer> GDK::get_speech() const {
+    return m_speech;
+}
+
+Ref<GDKEvents> GDK::get_events() const {
+    return m_events;
+}
+
+Ref<GDKGameSave> GDK::get_game_save() const {
+    return m_game_save;
+}
+
+Ref<GDKGameChat> GDK::get_game_chat() const {
+    return m_game_chat;
+}
+
 GDKRuntime *GDK::get_runtime() const {
     return m_runtime;
 }
@@ -463,6 +512,9 @@ void GDK::notify_user_removed(const Ref<GDKUser> &p_user) {
     }
     if (m_multiplayer_activity.is_valid()) {
         m_multiplayer_activity->on_user_removed(p_user);
+    }
+    if (m_game_chat.is_valid()) {
+        m_game_chat->on_user_removed(p_user);
     }
     if (m_xbox_services != nullptr) {
         XUserLocalId local_id = {};

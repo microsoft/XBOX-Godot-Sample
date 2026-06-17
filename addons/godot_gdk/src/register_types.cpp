@@ -13,6 +13,9 @@
 #include "gdk_capture.h"
 #include "gdk_display.h"
 #include "gdk_error_reporting.h"
+#include "gdk_events.h"
+#include "gdk_game_chat.h"
+#include "gdk_game_save.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
@@ -24,6 +27,7 @@
 #include "gdk_privacy.h"
 #include "gdk_result.h"
 #include "gdk_social.h"
+#include "gdk_speech_synthesizer.h"
 #include "gdk_stats.h"
 #include "gdk_store.h"
 #include "gdk_string_verify.h"
@@ -148,6 +152,10 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<GDKDisplayTimeoutDeferral>();
     ClassDB::register_class<GDKDisplay>();
     ClassDB::register_class<GDKActivation>();
+    ClassDB::register_class<GDKSpeechSynthesizer>();
+    ClassDB::register_class<GDKEvents>();
+    ClassDB::register_class<GDKGameSave>();
+    ClassDB::register_class<GDKGameChat>();
 
     gdk_singleton = memnew(GDK);
     Engine::get_singleton()->register_singleton("GDK", GDK::get_singleton());

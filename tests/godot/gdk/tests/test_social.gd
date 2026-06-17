@@ -28,6 +28,8 @@ func test_social_full_flow() -> void:
 		"get_friends_async",
 		"create_social_group",
 		"create_social_group_from_xuids",
+		"update_social_user_group",
+		"set_rich_presence_polling",
 		"destroy_social_group",
 		"get_group_users",
 		"submit_reputation_feedback_async",
@@ -210,3 +212,61 @@ func test_social_full_flow() -> void:
 
 	disconnect_signal_handlers(gdk, ["runtime_error"])
 	disconnect_signal_handlers(social, ["runtime_error"])
+
+
+func test_social_group_update_and_rich_presence_validation() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	var social = gdk.get_social()
+	assert_not_null(social, "GDK.social returns service object")
+	if social == null:
+		return
+
+	# update_social_user_group() validates the group handle before any runtime
+	# state, so a blank group is rejected deterministically.
+	var blank_group = instantiate_class("GDKSocialGroup")
+	var blank_update = social.update_social_user_group(blank_group, PackedStringArray(["1"]))
+	assert_result_error(blank_update, "invalid_social_group", "update_social_user_group() rejects an unloaded social group")
+	var null_update = social.update_social_user_group(null, PackedStringArray(["1"]))
+	assert_result_error(null_update, "invalid_social_group", "update_social_user_group(null) is rejected")
+
+	# set_rich_presence_polling() requires the runtime to be initialized first.
+	var pre_init_polling = social.set_rich_presence_polling(null, true)
+	assert_result_error(pre_init_polling, "not_initialized", "set_rich_presence_polling() rejects calls before GDK.initialize()")
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() for social group/polling validation returns GDKResult")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Social group/polling validation: %s" % init_result.message)
+		return
+
+	var invalid_polling = social.set_rich_presence_polling(null, true)
+	assert_result_error(invalid_polling, "invalid_user", "set_rich_presence_polling() rejects null users after initialize")
+
+	var sign_in = await ensure_primary_user()
+	var user = sign_in["user"]
+	var sign_in_result = sign_in["result"]
+	if user == null:
+		if sign_in_result != null and not sign_in_result.ok:
+			pending("Social rich-presence signed-in validation: %s" % sign_in_result.message)
+		else:
+			pending("Social rich-presence signed-in validation: No signed-in user is available on this machine.")
+		return
+
+	var polling_result = social.set_rich_presence_polling(user, true)
+	assert_not_null(polling_result, "set_rich_presence_polling() returns GDKResult for a signed-in user")
+	if polling_result == null:
+		return
+	if polling_result.ok:
+		assert_dict_has_key(polling_result.data, "enabled", "set_rich_presence_polling() success data exposes enabled")
+		assert_eq(polling_result.data["enabled"], true, "set_rich_presence_polling() echoes the requested state")
+		social.set_rich_presence_polling(user, false)
+		social.stop_social_graph(user)
+	else:
+		assert_true(polling_result.code.length() > 0, "set_rich_presence_polling() failure exposes an error code")
+		assert_true(polling_result.message.length() > 0, "set_rich_presence_polling() failure exposes an error message")
+		pending("Social rich-presence behavior: %s" % polling_result.message)

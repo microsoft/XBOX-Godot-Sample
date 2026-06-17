@@ -215,6 +215,8 @@ public:
     Signal get_friends_async(const Ref<GDKUser> &p_user);
     Ref<GDKResult> create_social_group(const Ref<GDKUser> &p_user, const Ref<GDKSocialFilter> &p_filter = Ref<GDKSocialFilter>());
     Ref<GDKResult> create_social_group_from_xuids(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids);
+    Ref<GDKResult> update_social_user_group(const Ref<GDKSocialGroup> &p_group, const PackedStringArray &p_xuids);
+    Ref<GDKResult> set_rich_presence_polling(const Ref<GDKUser> &p_user, bool p_enabled);
     void destroy_social_group(const Ref<GDKSocialGroup> &p_group);
     Ref<GDKResult> get_group_users(const Ref<GDKSocialGroup> &p_group);
     Signal submit_reputation_feedback_async(const Ref<GDKUser> &p_user, const String &p_target_xuid, const String &p_feedback_type, const String &p_reason = String(), const String &p_evidence_id = String());

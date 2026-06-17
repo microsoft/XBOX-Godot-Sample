@@ -22,9 +22,12 @@ func test_stats_surface_and_validation() -> void:
 	for method_name in [
 		"query_user_stats_async",
 		"query_users_stats_async",
+		"get_single_stat_async",
 		"set_stat_integer",
 		"set_stat_number",
 		"flush_stats_async",
+		"write_stats_async",
+		"delete_stats_async",
 		"track_stats",
 		"stop_tracking_stats",
 		"get_cached_stats",
@@ -234,3 +237,63 @@ func test_stats_live_write_tracked_callback_context() -> void:
 	assert_result_ok(stop_result, "stop_tracking_stats() unregisters after live write callback exercise")
 	gdk.shutdown()
 	assert_eq(gdk.is_initialized(), false, "GDK.shutdown() after live write callback exercise does not crash")
+
+
+func test_stats_single_write_delete_validation() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	var stats = gdk.get_stats()
+	assert_not_null(stats, "GDK.stats returns service object")
+	if stats == null:
+		return
+
+	var pre_init_single = stats.get_single_stat_async(null, "score")
+	await assert_signal_result_error(pre_init_single, "runtime_unavailable", "get_single_stat_async() reports unavailable runtime before initialize")
+
+	var pre_init_write = stats.write_stats_async(null, {"score": 1})
+	await assert_signal_result_error(pre_init_write, "runtime_unavailable", "write_stats_async() reports unavailable runtime before initialize")
+
+	var pre_init_delete = stats.delete_stats_async(null, PackedStringArray(["score"]))
+	await assert_signal_result_error(pre_init_delete, "runtime_unavailable", "delete_stats_async() reports unavailable runtime before initialize")
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() for stats write/delete validation returns GDKResult")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Stats write/delete validation: %s" % init_result.message)
+		return
+
+	var invalid_single = stats.get_single_stat_async(null, "score")
+	await assert_signal_result_error(invalid_single, "invalid_user", "get_single_stat_async() rejects null users after initialize")
+
+	var invalid_write = stats.write_stats_async(null, {"score": 1})
+	await assert_signal_result_error(invalid_write, "invalid_user", "write_stats_async() rejects null users after initialize")
+
+	var invalid_delete = stats.delete_stats_async(null, PackedStringArray(["score"]))
+	await assert_signal_result_error(invalid_delete, "invalid_user", "delete_stats_async() rejects null users after initialize")
+
+	var sign_in = await ensure_primary_user()
+	var user = sign_in["user"]
+	var sign_in_result = sign_in["result"]
+	if user == null:
+		if sign_in_result != null and not sign_in_result.ok:
+			pending("Stats write/delete signed-in validation: %s" % sign_in_result.message)
+		else:
+			pending("Stats write/delete signed-in validation: No signed-in user is available on this machine.")
+		return
+
+	var blank_single = stats.get_single_stat_async(user, "   ")
+	await assert_signal_result_error(blank_single, "invalid_stat_name", "get_single_stat_async() rejects blank statistic names")
+
+	var empty_write = stats.write_stats_async(user, {})
+	await assert_signal_result_error(empty_write, "no_stats", "write_stats_async() rejects empty stat dictionaries")
+
+	var bad_value_write = stats.write_stats_async(user, {"score": "not-a-number"})
+	await assert_signal_result_error(bad_value_write, "invalid_stat_value", "write_stats_async() rejects non-numeric stat values")
+
+	var empty_delete = stats.delete_stats_async(user, PackedStringArray())
+	await assert_signal_result_error(empty_delete, "no_stat_names", "delete_stats_async() rejects empty stat-name lists")
+

@@ -34,6 +34,10 @@ add_library(godot_gdk SHARED
     src/gdk_xbox_services.cpp
     src/gdk_display.cpp
     src/gdk_activation.cpp
+    src/gdk_speech_synthesizer.cpp
+    src/gdk_events.cpp
+    src/gdk_game_save.cpp
+    src/gdk_game_chat.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE
@@ -45,6 +49,7 @@ target_link_libraries(godot_gdk PRIVATE
     Xbox::GameRuntime
     Xbox::XSAPI
     Xbox::HTTPClient
+    Xbox::GameChat2
 )
 
 target_compile_definitions(godot_gdk PRIVATE _GAMING_DESKTOP)
@@ -78,6 +83,7 @@ godot_addon_copy_runtime_files(
     FILES
         "$<TARGET_FILE:Xbox::HTTPClient>"
         "$<TARGET_FILE:Xbox::XCurl>"
+        "$<TARGET_FILE:Xbox::GameChat2>"
         ${XSAPI_THUNKS_DLLS}
 )
 

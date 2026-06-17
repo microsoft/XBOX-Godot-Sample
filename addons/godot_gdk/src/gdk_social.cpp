@@ -562,6 +562,8 @@ void GDKSocial::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_friends_async", "user"), &GDKSocial::get_friends_async);
     ClassDB::bind_method(D_METHOD("create_social_group", "user", "filter"), &GDKSocial::create_social_group, DEFVAL(Ref<GDKSocialFilter>()));
     ClassDB::bind_method(D_METHOD("create_social_group_from_xuids", "user", "xuids"), &GDKSocial::create_social_group_from_xuids);
+    ClassDB::bind_method(D_METHOD("update_social_user_group", "group", "xuids"), &GDKSocial::update_social_user_group);
+    ClassDB::bind_method(D_METHOD("set_rich_presence_polling", "user", "enabled"), &GDKSocial::set_rich_presence_polling);
     ClassDB::bind_method(D_METHOD("destroy_social_group", "group"), &GDKSocial::destroy_social_group);
     ClassDB::bind_method(D_METHOD("get_group_users", "group"), &GDKSocial::get_group_users);
     ClassDB::bind_method(D_METHOD("submit_reputation_feedback_async", "user", "target_xuid", "feedback_type", "reason", "evidence_id"), &GDKSocial::submit_reputation_feedback_async, DEFVAL(String()), DEFVAL(String()));
@@ -1016,6 +1018,66 @@ Ref<GDKResult> GDKSocial::create_social_group_from_xuids(const Ref<GDKUser> &p_u
 
 void GDKSocial::destroy_social_group(const Ref<GDKSocialGroup> &p_group) {
     _destroy_group_internal(p_group, true);
+}
+
+Ref<GDKResult> GDKSocial::update_social_user_group(const Ref<GDKSocialGroup> &p_group, const PackedStringArray &p_xuids) {
+    if (!p_group.is_valid() || p_group->get_handle() == nullptr) {
+        return GDKResult::error_result(E_INVALIDARG, "invalid_social_group", "A valid, loaded social group is required.");
+    }
+    Ref<GDKResult> validation = _ensure_ready_user(p_group->get_local_user());
+    if (!validation->is_ok()) {
+        return validation;
+    }
+    if (_find_group_by_handle(p_group->get_handle()).is_null()) {
+        return GDKResult::error_result(E_INVALIDARG, "unknown_social_group", "The social group is not tracked by this service.");
+    }
+    if (p_group->get_group_type() != GDKSocialGroup::GROUP_TYPE_USER_LIST) {
+        return GDKResult::error_result(E_INVALIDARG, "invalid_social_group_type", "Only list-based social groups can be updated.");
+    }
+    if (p_xuids.size() > XBL_SOCIAL_MANAGER_MAX_USERS_FROM_LIST) {
+        return GDKResult::error_result(E_INVALIDARG, "too_many_social_group_xuids", "Social list groups cannot exceed the XSAPI maximum tracked user count.");
+    }
+
+    std::vector<uint64_t> native_xuids;
+    native_xuids.reserve(static_cast<size_t>(p_xuids.size()));
+    for (int64_t i = 0; i < p_xuids.size(); ++i) {
+        uint64_t xuid = 0;
+        if (!_try_parse_xuid(p_xuids[i], &xuid)) {
+            return GDKResult::error_result(E_INVALIDARG, "invalid_social_group_xuid", "Social list groups require numeric XUID strings.");
+        }
+        native_xuids.push_back(xuid);
+    }
+
+    HRESULT hr = XblSocialManagerUpdateSocialUserGroup(
+            p_group->get_handle(),
+            native_xuids.empty() ? nullptr : native_xuids.data(),
+            native_xuids.size());
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to update the list-based social group.", "social_group_update_failed");
+    }
+
+    p_group->set_tracked_xuids(p_xuids);
+
+    Dictionary data;
+    data["count"] = static_cast<int64_t>(native_xuids.size());
+    return GDKResult::ok_result(data);
+}
+
+Ref<GDKResult> GDKSocial::set_rich_presence_polling(const Ref<GDKUser> &p_user, bool p_enabled) {
+    LocalUserState *state = nullptr;
+    Ref<GDKResult> ensure_result = _ensure_local_user_state(p_user, &state, true);
+    if (!ensure_result->is_ok()) {
+        return ensure_result;
+    }
+
+    HRESULT hr = XblSocialManagerSetRichPresencePollingStatus(p_user->get_handle(), p_enabled);
+    if (FAILED(hr)) {
+        return GDKResult::hresult_error(hr, "Failed to update rich-presence polling status.", "social_rich_presence_polling_failed");
+    }
+
+    Dictionary data;
+    data["enabled"] = p_enabled;
+    return GDKResult::ok_result(data);
 }
 
 Ref<GDKResult> GDKSocial::get_group_users(const Ref<GDKSocialGroup> &p_group) {

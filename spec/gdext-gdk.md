@@ -27,9 +27,9 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Package metadata and DLC content access | Implemented | `GDK.package` wraps PC-supported `XPackage` enumeration, install progress, package mounts, and resource-pack loading |
 | Achievements | Implemented | Achievements Manager-backed |
 | Presence | Implemented | `GDK.presence` covers set/clear, single/multi-user queries, social-group query, tracking, non-deprecated change handlers, and cache access |
-| Social | Implemented | Social Manager graph/groups and reputation feedback are exposed; direct relationship paging remains intentionally excluded |
+| Social | Implemented | Social Manager graph/groups (create/update/destroy list-based groups), rich-presence polling toggle, and reputation feedback are exposed; direct relationship paging remains intentionally excluded |
 | Multiplayer activity | Implemented and capped | `GDK.multiplayer_activity` is the only multiplayer-related Xbox Services surface |
-| Stats | Implemented | `GDK.stats` wraps `title_managed_statistics_c.h` and `user_statistics_c.h` for reads, staged writes, tracking, and cache access |
+| Stats | Implemented | `GDK.stats` wraps `title_managed_statistics_c.h` and `user_statistics_c.h` for single/multiple-stat reads, staged merge writes plus replace-all/delete writes, tracking, and cache access |
 | Leaderboards | Implemented | `GDK.leaderboards` wraps read-only `leaderboard_c.h` queries and pagination |
 | Privacy | Implemented | `GDK.privacy` wraps `privacy_c.h` permission checks and avoid/mute list reads; list-change handlers are not exported by the public XSAPI thunk libraries used by the addon |
 | Profile | Implemented | `GDK.profile` wraps `profile_c.h` profile lookup APIs |
@@ -38,7 +38,11 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Capture | Implemented | `GDK.capture` wraps PC-supported `XAppCapture` metadata/state APIs; console-only paths excluded |
 | Display | Implemented | `GDK.display` wraps `XDisplay.h`: HDR mode probe/enable and idle display-timeout deferrals |
 | Game activation events | Implemented | `GDK.activation` wraps `XGameActivation.h` (modern replacement for the deprecated `XGameProtocol.h`) |
-| Events | Excluded | Do not wrap `events_c.h` Xbox Services telemetry/configuration APIs or the per-title `XGameEvent.h` writer; titles that need event telemetry should use PlayFab or a separate analytics integration |
+| Text-to-speech | Implemented | `GDK.speech` wraps `XSpeechSynthesizer.h`: enumerate installed voices, select default/custom voice, and synthesize text/SSML to WAV/PCM bytes locally (no network) |
+| Events | Implemented | `GDK.events` wraps the per-title `XGameEvent.h` writer (`XGameEventWrite`) for GDK-native in-game telemetry. Complementary to PlayFab analytics. The `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`) remain internal-gated and unwrapped |
+| Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves. Requires the title's `MicrosoftGame.config` connected-storage/SaveFolder config. The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
+| Runtime feature probe | Implemented | `GDK.system.is_feature_available(name)` wraps `XGameRuntimeIsFeatureAvailable` (`XGameRuntimeFeature.h`) so titles can gate optional GDK features (e.g. Events, GameChat) at runtime |
+| Voice and text chat | Implemented | `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) `chat_manager` for GDK-native voice + text chat: user management, communication relationships, mute/volume controls, text, and text-to-speech. The wrapper exposes Game Chat's opaque data-frame surface (`outgoing_data_frame` signal + `process_incoming_data_frame`) and builds **no** network transport — titles ferry frames over their own transport (sample/tests use single-process loopback). This is the GDK-native alternative to PlayFab Party (`godot_playfab`) |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
@@ -48,12 +52,12 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 | Public service | Native Xbox Services APIs | Notes |
 | --- | --- | --- |
-| `GDK.achievements` | Achievements Manager APIs | Query/update/cache are manager-backed. |
-| `GDK.stats` | `XblUserStatisticsGetSingleUserStatisticsAsync`, `XblUserStatisticsGetSingleUserStatisticsResultSize`, `XblUserStatisticsGetSingleUserStatisticsResult`, `XblUserStatisticsGetMultipleUserStatisticsAsync`, `XblUserStatisticsGetMultipleUserStatisticsResultSize`, `XblUserStatisticsGetMultipleUserStatisticsResult`, `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsRemoveStatisticChangedHandler`, `XblUserStatisticsTrackStatistics`, `XblUserStatisticsStopTrackingStatistics`, `XblUserStatisticsStopTrackingUsers`, `XblTitleManagedStatsUpdateStatsAsync` | Query one or more users' stats, stage integer/number writes, flush staged stats, track changes, and read cached stats. |
+| `GDK.achievements` | Achievements Manager APIs including `XblAchievementsManagerGetAchievementsByState` | Query/update/cache are manager-backed; cached achievements can be filtered by progress state. |
+| `GDK.stats` | `XblUserStatisticsGetSingleUserStatisticAsync`, `XblUserStatisticsGetSingleUserStatisticResultSize`, `XblUserStatisticsGetSingleUserStatisticResult`, `XblUserStatisticsGetSingleUserStatisticsAsync`, `XblUserStatisticsGetSingleUserStatisticsResultSize`, `XblUserStatisticsGetSingleUserStatisticsResult`, `XblUserStatisticsGetMultipleUserStatisticsAsync`, `XblUserStatisticsGetMultipleUserStatisticsResultSize`, `XblUserStatisticsGetMultipleUserStatisticsResult`, `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsRemoveStatisticChangedHandler`, `XblUserStatisticsTrackStatistics`, `XblUserStatisticsStopTrackingStatistics`, `XblUserStatisticsStopTrackingUsers`, `XblTitleManagedStatsUpdateStatsAsync`, `XblTitleManagedStatsWriteAsync`, `XblTitleManagedStatsDeleteStatsAsync` | Query a single named stat or one/more users' stats, stage merge writes, replace-all or delete title-managed stats, track changes, and read cached stats. |
 | `GDK.leaderboards` | `XblLeaderboardGetLeaderboardAsync`, `XblLeaderboardGetLeaderboardResultSize`, `XblLeaderboardGetLeaderboardResult`, `XblLeaderboardResultGetNextAsync`, `XblLeaderboardResultGetNextResultSize`, `XblLeaderboardResultGetNextResult` | Read-only global, around-user, social leaderboard queries plus next-page pagination. |
 | `GDK.privacy` | `XblPrivacyCheckPermissionAsync`, `XblPrivacyCheckPermissionResultSize`, `XblPrivacyCheckPermissionResult`, `XblPrivacyCheckPermissionForAnonymousUserAsync`, `XblPrivacyCheckPermissionForAnonymousUserResultSize`, `XblPrivacyCheckPermissionForAnonymousUserResult`, `XblPrivacyBatchCheckPermissionAsync`, `XblPrivacyBatchCheckPermissionResultSize`, `XblPrivacyBatchCheckPermissionResult`, `XblPrivacyGetAvoidListAsync`, `XblPrivacyGetAvoidListResultCount`, `XblPrivacyGetAvoidListResult`, `XblPrivacyGetMuteListAsync`, `XblPrivacyGetMuteListResultCount`, `XblPrivacyGetMuteListResult` | Permission checks against XUIDs or anonymous user types, batch permission checks, and avoid/mute list reads. |
 | `GDK.presence` | `XblPresenceSetPresenceAsync`, `XblPresenceGetPresenceAsync`, `XblPresenceGetPresenceResult`, `XblPresenceGetPresenceForMultipleUsersAsync`, `XblPresenceGetPresenceForMultipleUsersResultCount`, `XblPresenceGetPresenceForMultipleUsersResult`, `XblPresenceGetPresenceForSocialGroupAsync`, `XblPresenceGetPresenceForSocialGroupResultCount`, `XblPresenceGetPresenceForSocialGroupResult`, `XblPresenceAddDevicePresenceChangedHandler`, `XblPresenceRemoveDevicePresenceChangedHandler`, `XblPresenceAddTitlePresenceChangedHandler`, `XblPresenceRemoveTitlePresenceChangedHandler`, `XblPresenceTrackUsers`, `XblPresenceStopTrackingUsers`, `XblPresenceTrackAdditionalTitles`, `XblPresenceStopTrackingAdditionalTitles`, `XblPresenceRecordGetXuid`, `XblPresenceRecordGetUserState`, `XblPresenceRecordGetDeviceRecords`, `XblPresenceRecordCloseHandle` | Set/clear local presence, query presence records, track change notifications, and cache translated records. |
-| `GDK.social` | Social Manager APIs including `XblSocialManagerAddLocalUser`, `XblSocialManagerRemoveLocalUser`, `XblSocialManagerDoWork`, `XblSocialManagerCreateSocialUserGroupFromFilters`, `XblSocialManagerCreateSocialUserGroupFromList`, `XblSocialManagerDestroySocialUserGroup`, and `XblSocialManagerUserGroupGetUsers`; reputation APIs `XblSocialSubmitReputationFeedbackAsync` and `XblSocialSubmitBatchReputationFeedbackAsync` | Direct relationship REST-style wrappers are intentionally not exposed. |
+| `GDK.social` | Social Manager APIs including `XblSocialManagerAddLocalUser`, `XblSocialManagerRemoveLocalUser`, `XblSocialManagerDoWork`, `XblSocialManagerCreateSocialUserGroupFromFilters`, `XblSocialManagerCreateSocialUserGroupFromList`, `XblSocialManagerUpdateSocialUserGroup`, `XblSocialManagerDestroySocialUserGroup`, `XblSocialManagerUserGroupGetUsers`, and `XblSocialManagerSetRichPresencePollingStatus`; reputation APIs `XblSocialSubmitReputationFeedbackAsync` and `XblSocialSubmitBatchReputationFeedbackAsync` | Direct relationship REST-style wrappers are intentionally not exposed. |
 | `GDK.profile` | `XblProfileGetUserProfileAsync`, `XblProfileGetUserProfileResult`, `XblProfileGetUserProfilesAsync`, `XblProfileGetUserProfilesResultCount`, `XblProfileGetUserProfilesResult`, `XblProfileGetUserProfilesForSocialGroupAsync`, `XblProfileGetUserProfilesForSocialGroupResultCount`, `XblProfileGetUserProfilesForSocialGroupResult` | Query one profile, multiple profiles by XUID list, or profiles for a named social group. |
 | `GDK.string_verify` | `XblStringVerifyStringAsync`, `XblStringVerifyStringResultSize`, `XblStringVerifyStringResult`, `XblStringVerifyStringsAsync`, `XblStringVerifyStringsResultSize`, `XblStringVerifyStringsResult` | Verify one string or a batch of strings and return per-string result dictionaries. |
 | `GDK.title_storage` | `XblTitleStorageGetQuotaAsync`, `XblTitleStorageGetQuotaResult`, `XblTitleStorageGetBlobMetadataAsync`, `XblTitleStorageGetBlobMetadataResult`, `XblTitleStorageBlobMetadataResultGetItems`, `XblTitleStorageBlobMetadataResultHasNext`, `XblTitleStorageBlobMetadataResultGetNextAsync`, `XblTitleStorageBlobMetadataResultGetNextResult`, `XblTitleStorageBlobMetadataResultDuplicateHandle`, `XblTitleStorageBlobMetadataResultCloseHandle`, `XblTitleStorageDownloadBlobAsync`, `XblTitleStorageDownloadBlobResult`, `XblTitleStorageUploadBlobAsync`, `XblTitleStorageUploadBlobResult`, `XblTitleStorageDeleteBlobAsync` | Query quota, list paged metadata, download blobs via metadata discovery, upload bytes, and delete blobs. |
@@ -70,7 +74,8 @@ Do not expose wrappers for:
 
 - `XGameProtocol.h` — both `XGameProtocolRegisterForActivation` and `XGameProtocolUnregisterForActivation` are explicitly `__declspec(deprecated)` in the SDK and are superseded by `XGameActivationRegisterForEvent` / `XGameActivationUnregisterForEvent`. Use `GDK.activation.protocol_activated` for the modern protocol-activation event.
 - `XGameInvite.h` — every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK explicitly points each one at the `XGameActivation*` equivalent. Use `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` subscribes to `GDK.activation`'s internal event fan-out and must not register its own native activation callback.
-- `XGameEvent.h` — the per-title `XGameEventWrite` writer ships in PC GDK but is part of the broader Xbox Services events pipeline that this addon does not cover. Titles that need event telemetry should either author it through PlayFab (see the `godot_playfab` addon) or integrate a separate analytics SDK.
+
+> Note: `XGameEvent.h`'s `XGameEventWrite` is **wrapped** by `GDK.events` (see the Events scope row and the `GDK.events` service section) and is intentionally not listed here.
 
 #### Explicit no-wrap Xbox Services APIs
 
@@ -81,7 +86,7 @@ Do not expose wrappers for:
 - `multiplayer_manager_c.h`
 - MPSD, multiplayer sessions, lobby/session transport APIs
 - `game_invite_c.h` legacy/deprecated invite APIs
-- `events_c.h` telemetry/configuration APIs
+- `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`); the per-title in-game event *writer* is wrapped instead via `GDK.events` → `XGameEventWrite` (`XGameEvent.h`). `XblEventsWriteInGameEvent` is an alternate write path and remains unwrapped in favor of the primary `XGameEventWrite`
 - generic public `notification_c.h` subscription wrappers; use notification/RTA plumbing internally only if a wrapped service requires it
 - `XblPrivacyAddMuteListChangedHandler`, `XblPrivacyRemoveMuteListChangedHandler`, `XblPrivacyAddBlockListChangedHandler`, and `XblPrivacyRemoveBlockListChangedHandler` while the addon links against `Microsoft.Xbox.Services.C.Thunks`; these header-declared APIs are not exported by the public thunk libraries
 - deprecated social, presence, and statistics subscription APIs
@@ -381,6 +386,10 @@ GDK.launcher: GDKLauncher
 GDK.capture: GDKCapture
 GDK.activation: GDKActivation
 GDK.multiplayer_activity: GDKMultiplayerActivity
+GDK.speech: GDKSpeechSynthesizer
+GDK.events: GDKEvents
+GDK.game_save: GDKGameSave
+GDK.game_chat: GDKGameChat
 ```
 
 #### Root signals
@@ -436,6 +445,154 @@ launch_uri(uri: String, user: GDKUser = null) -> GDKResult
 - `launch_uri` rejects blank/malformed input with `invalid_uri`.
 - Unsupported URI destinations reject with `unsupported_launcher_destination`.
 - Optional `user` must be a signed-in `GDKUser` when provided (`invalid_user`).
+
+#### `GDK.speech` service
+
+##### Methods
+
+```gdscript
+get_installed_voices() -> Array            # [{id, display_name, language, gender, description}, ...]
+set_default_voice() -> GDKResult
+set_custom_voice(voice_id: String) -> GDKResult
+synthesize_text(text: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+synthesize_ssml(ssml: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on failure
+```
+
+##### Behavior contract
+
+- Synthesis runs locally on the device and produces WAV/PCM bytes with no network call, so it is headless-testable.
+- The service lazily creates a single native `XSpeechSynthesizer` the first time a voice is selected or speech is synthesized, and releases it on `GDK.shutdown`.
+- Voice selection (`set_default_voice` / `set_custom_voice`) applies to every subsequent `synthesize_*` call.
+- Empty input rejects with `invalid_input`; an empty voice id rejects with `invalid_voice_id`.
+- Calls before `GDK.initialize()` return a `not_initialized` error; a failure to create the synthesizer returns `speech_synthesizer_unavailable`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `get_installed_voices()` | `XSpeechSynthesizerEnumerateInstalledVoices` | Collects `XSpeechSynthesizerVoiceInformation` rows into dictionaries. |
+| `set_default_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetDefaultVoice` | Creates the synthesizer lazily. |
+| `set_custom_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetCustomVoice` | Selects a voice by id. |
+| `synthesize_text()` | `XSpeechSynthesizerCreateStreamFromText`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | Returns RIFF/WAV bytes in `GDKResult.data.audio_wav`. |
+| `synthesize_ssml()` | `XSpeechSynthesizerCreateStreamFromSsml`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | SSML variant of `synthesize_text`. |
+| `synthesize_to_stream()` | (decodes the `synthesize_text` WAV bytes) | Parses the RIFF/WAV header and returns a ready-to-play `AudioStreamWAV`. |
+| service shutdown | `XSpeechSynthesizerCloseHandle` | Releases the cached synthesizer. |
+
+#### `GDK.events` service
+
+##### Methods
+
+```gdscript
+write_event(user: GDKUser, event_name: String, dimensions := {}, measurements := {}) -> GDKResult
+set_play_session_id(play_session_id: String)   # empty string regenerates a fresh GUID
+get_play_session_id() -> String
+```
+
+##### Behavior contract
+
+- `GDK.events` is the GDK-native in-game telemetry path, complementary to PlayFab analytics (`godot_playfab`). Titles may use either or both.
+- `write_event()` is synchronous and returns a `GDKResult`; the runtime batches and uploads events asynchronously.
+- `dimensions` hold fields with a finite set of values (map id, difficulty, mode, boolean settings); `measurements` hold scalar numeric metrics (score, time, counters, position). Both `Dictionary` payloads are serialized to JSON internally.
+- The SCID is pulled from the cached `GDKXboxServices` state; `play_session_id` is a per-session GUID auto-generated on runtime init and overridable via `set_play_session_id()`.
+- The event name and the names of all `dimensions`/`measurements` fields must match the title's Xbox Live service-configuration event manifest (case-insensitive); the service **silently drops** events whose names do not match.
+- Graceful degradation: returns `events_feature_unavailable` on `E_NOTIMPL` when the GRTS XGameEvent feature/runtime is not installed. Other validation failures return `invalid_event_name`, `invalid_user`, `not_initialized`, or `xbox_services_uninitialized`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `write_event()` | `XGameEventWrite` (`XGameEvent.h`) | Primary GDK telemetry write path. Requires a signed-in `GDKUser` handle and the cached SCID; `dimensions`/`measurements` are JSON-serialized. |
+| `set_play_session_id()` / `get_play_session_id()` | (wrapper-managed GUID) | Session-scoped GUID forwarded as `playSessionId` to `XGameEventWrite`. |
+
+> The alternate Xbox Services write path `XblEventsWriteInGameEvent` (`events_c.h`) is intentionally **not** wrapped; `XGameEventWrite` is the primary GDK path. The `XblEventsSet*` configuration/tuning functions remain internal-gated.
+
+#### `GDK.game_save` service
+
+##### Methods
+
+```gdscript
+get_folder_async(user: GDKUser) -> Signal      # GDKResult.data.path := absolute save-folder path
+get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remaining quota in bytes
+```
+
+##### Behavior contract
+
+- `GDK.game_save` wraps the GDK-native file-style save API (`XGameSaveFiles.h`). It is distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+- The title must declare connected storage / a `SaveFolder` in its `MicrosoftGame.config`; without it the native calls fail and the wrapper returns the propagated `HRESULT` error.
+- `get_folder_async()` wraps `XGameSaveFilesGetFolderWithUiAsync`: it resolves (and may surface a system UI for) the user's save folder, returning the absolute path in `GDKResult.data.path`. Titles then read/write ordinary files under that folder.
+- `get_remaining_quota()` is synchronous and wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`.
+- The service configuration id (SCID) is pulled from the cached `GDKXboxServices` state. Validation failures return `not_initialized`, `invalid_user`, or `xbox_services_uninitialized`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `get_folder_async()` | `XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetFolderWithUiResult` | Returns the absolute save-folder path; may show a system UI. |
+| `get_remaining_quota()` | `XGameSaveFilesGetRemainingQuota` | Synchronous; returns remaining quota bytes. |
+
+> The richer `XGameSave.h` connected-storage container API (27 functions) is intentionally **not** wrapped: it is a more complex API than `XGameSaveFiles` and overlaps PlayFab Game Saves.
+
+#### `GDK.game_chat` service
+
+##### Methods
+
+```gdscript
+initialize(max_users := 16, default_relationship := GDKGameChat.RELATIONSHIP_SEND_AND_RECEIVE_ALL) -> GDKResult
+is_initialized() -> bool
+cleanup() -> void
+add_local_user(user: GDKUser) -> GDKResult                                  # GDKResult.data.xuid
+add_remote_user(xuid: String, endpoint_id: int) -> GDKResult               # GDKResult.data := {xuid, endpoint_id}
+remove_user(xuid: String) -> GDKResult
+set_communication_relationship(local_xuid, target_xuid, relationship: int) -> GDKResult
+set_microphone_muted(local_xuid: String, muted: bool) -> GDKResult
+set_remote_user_muted(local_xuid: String, target_xuid: String, muted: bool) -> GDKResult
+set_audio_render_volume(local_xuid: String, target_xuid: String, volume: float) -> GDKResult
+send_text(local_xuid: String, text: String) -> GDKResult
+synthesize_text_to_speech(local_xuid: String, text: String) -> GDKResult
+process_incoming_data_frame(source_endpoint_id: int, bytes: PackedByteArray) -> GDKResult
+get_chat_users() -> Array          # [{xuid, is_local, chat_indicator}]
+```
+
+##### Signals
+
+```gdscript
+outgoing_data_frame(target_endpoint_ids: PackedInt64Array, bytes: PackedByteArray, transport_requirement: int)
+text_chat_received(sender_xuid: String, message: String)
+transcribed_chat_received(speaker_xuid: String, message: String)
+```
+
+##### Behavior contract
+
+- `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) C++ `chat_manager` singleton. It is the GDK-native voice + text chat option; PlayFab Party (`godot_playfab`) is the batteries-included alternative that owns its own transport.
+- **No transport is built or selected.** Game Chat encodes its own opaque audio/text data frames; the wrapper exposes that surface only. During the per-frame pump (driven by `GDK.dispatch()`), each frame Game Chat wants to send is emitted on `outgoing_data_frame`; the title delivers those bytes over whatever transport it already has and calls `process_incoming_data_frame()` on each receiving instance. The sample and tests demonstrate this with single-process **loopback** (feeding each `outgoing_data_frame` straight back into `process_incoming_data_frame`).
+- `initialize()` requires the GDK runtime to be initialized; it then initializes the `chat_manager` for `max_users` combined local + remote users with `default_relationship` between new users. Re-initializing without `cleanup()` first returns `already_initialized`; `max_users <= 0` returns `invalid_max_users`.
+- `add_local_user()` requires a signed-in `GDKUser` (its decimal XUID); remote users are added by XUID + a title-assigned `endpoint_id` used to address outgoing frames and attribute incoming ones.
+- Independent voice and text control mirrors PlayFab Party: `set_communication_relationship()` takes a bitwise combination of `GDKGameChat.CommunicationRelationship` flags (separate send/receive bits for microphone, text-to-speech audio, and text), and `set_microphone_muted()` / `set_remote_user_muted()` / `set_audio_render_volume()` provide per-user mute and volume.
+- Inbound text and transcription surface on `text_chat_received` / `transcribed_chat_received` during the pump. `shutdown()` calls `cleanup()` automatically.
+- Real voice capture/render requires multi-machine audio hardware and cannot be validated headlessly (mirrors the Party "voice deferred" stance); headless coverage exercises the service surface, enum constants, lifecycle, and data-frame plumbing.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `initialize()` | `chat_manager::initialize` | Sets max users and the default local↔remote relationship. |
+| `cleanup()` / service shutdown | `chat_manager::cleanup` | Releases all Game Chat resources. |
+| `add_local_user()` | `chat_manager::add_local_user` | Adds a signed-in user's XUID as a local chat user. |
+| `add_remote_user()` | `chat_manager::add_remote_user` | Adds a remote XUID reachable on a title-assigned endpoint id. |
+| `remove_user()` | `chat_manager::get_chat_users`, `chat_manager::remove_user` | Locates the user by XUID, then removes it. |
+| `set_communication_relationship()` | `chat_user::chat_user_local::set_communication_relationship` | Bitwise `game_chat_communication_relationship_flags`. |
+| `set_microphone_muted()` | `chat_user::chat_user_local::set_microphone_muted` | Local microphone mute. |
+| `set_remote_user_muted()` | `chat_user::chat_user_local::set_remote_user_muted` | Per-remote-user mute for a local user. |
+| `set_audio_render_volume()` | `chat_user::chat_user_local::set_audio_render_volume` | Per-remote render volume. |
+| `send_text()` | `chat_user::chat_user_local::send_chat_text` | 1–1023 character chat text. |
+| `synthesize_text_to_speech()` | `chat_user::chat_user_local::synthesize_text_to_speech` | TTS-as-microphone for the local user. |
+| `process_incoming_data_frame()` | `chat_manager::process_incoming_data` | Hands a received frame to Game Chat by source endpoint id. |
+| `get_chat_users()` | `chat_manager::get_chat_users`, `chat_user::xbox_user_id`, `chat_user::local`, `chat_user::chat_indicator` | Snapshots current users into dictionaries. |
+| `outgoing_data_frame` (pump) | `chat_manager::start_processing_data_frames`, `chat_manager::finish_processing_data_frames` | Emits each frame's targets, bytes, and transport requirement. |
+| `text_chat_received` / `transcribed_chat_received` (pump) | `chat_manager::start_processing_state_changes`, `chat_manager::finish_processing_state_changes` | Drains text + transcription state changes. |
+
+> Game Chat 2 ships in its own `GameChat2.lib`/`GameChat2.dll`. The wrapper links `Xbox::GameChat2` and includes `GameChat2Impl.h` in exactly one translation unit (the class methods are defined out-of-line there). No network transport is part of this addon.
 
 #### `GDK.users` service
 
@@ -525,6 +682,10 @@ set_notification_position_hint(position: String) -> GDKResult
 show_player_profile_card_async(requesting_user: GDKUser, target_xuid: String) -> Signal
 show_player_picker_async(requesting_user: GDKUser, prompt: String, selectable_xuids: PackedStringArray, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal
 resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
+show_achievements_async(requesting_user: GDKUser) -> Signal
+show_error_dialog_async(error_code: int, context := "") -> Signal
+show_send_game_invite_async(requesting_user: GDKUser, session_configuration_id: String, session_template_name: String, session_id: String, invitation_text := "", custom_activation_context := "") -> Signal
+show_text_entry_async(title_text := "", description_text := "", default_text := "", input_scope := "default", max_text_length := 0) -> Signal
 ```
 
 ##### Notes
@@ -543,6 +704,12 @@ resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
 | `show_player_profile_card_async()` | `XGameUiShowPlayerProfileCardAsync`, `XGameUiShowPlayerProfileCardResult` | Requires a signed-in `GDKUser` requesting handle and numeric target XUID. |
 | `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `GDKResult.data`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Delegate to `GDK.users` privilege-remediation flow so existing users-service behavior remains authoritative. |
+| `show_achievements_async()` | `XGameUiShowAchievementsAsync`, `XGameUiShowAchievementsResult` | Title ID resolved via `XGameGetXboxTitleId`. Requires a signed-in `GDKUser`. |
+| `show_error_dialog_async()` | `XGameUiShowErrorDialogAsync`, `XGameUiShowErrorDialogResult` | Takes an HRESULT `error_code` plus optional `context` text. |
+| `show_send_game_invite_async()` | `XGameUiShowSendGameInviteAsync`, `XGameUiShowSendGameInviteResult` | Requires session configuration/template/id; optional invitation text and custom activation context. Title owns the MPSD session identifiers. |
+| `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `GDKResult.data.text`. |
+
+> Excluded from `GDK.game_ui` (engine/host overlap): `XGameUiShowStateShareAsync` and `XGameUiShowWebAuthenticationAsync`/`WithOptions` — Godot already provides web-auth/state-share equivalents.
 
 #### `GDK.achievements` service
 
@@ -552,6 +719,7 @@ resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
 query_player_achievements_async(user: GDKUser) -> Signal
 update_achievement_async(user: GDKUser, achievement_id: String, percent_complete: int) -> Signal
 get_cached_achievements(user: GDKUser) -> Array
+get_achievements_by_state(user: GDKUser, progress_state: String) -> GDKResult  # data.achievements: Array[GDKAchievement]
 ```
 
 ##### Signals
@@ -578,6 +746,7 @@ runtime_error(result: GDKResult)  # unsolicited achievement-service errors
 | `query_player_achievements_async()` | `XblAchievementsManagerAddLocalUser`, `XblAchievementsManagerIsUserInitialized`, `XblAchievementsManagerDoWork`, `XblAchievementsManagerGetAchievements` | Treat this as a cache-warm operation: ensure the user is registered, wait until the manager reports the user initialized, then copy the cache into Godot objects before completing. |
 | `update_achievement_async()` | `XblAchievementsManagerUpdateAchievement`, `XblAchievementsManagerDoWork` | Resolve the returned completion signal only after the manager reports the updated achievement state on the dispatch thread. |
 | `get_cached_achievements()` | `XblAchievementsManagerGetAchievements` | Reads the current manager cache and translates it into Godot-facing achievement objects. |
+| `get_achievements_by_state()` | `XblAchievementsManagerGetAchievementsByState`, `XblAchievementsManagerResultGetAchievements`, `XblAchievementsManagerResultCloseHandle` | Filters the cached achievements by progress state (`Achieved`/`NotStarted`/`InProgress`/`Unknown`); returns `achievements_not_loaded` until the user's cache is warmed by `query_player_achievements_async()`. |
 | `achievement_unlocked` / `achievements_updated` | `XblAchievementsManagerDoWork` | These signals come from manager update events, not from a separate polling or REST-style query path. |
 
 The manager result handles should be copied into extension-owned data immediately on dispatch, because they are cache views rather than long-lived script-safe objects.
@@ -619,9 +788,12 @@ get_install_progress(package_identifier: String) -> GDKResult
 ```gdscript
 query_user_stats_async(user: GDKUser, stat_names := PackedStringArray()) -> Signal
 query_users_stats_async(user: GDKUser, xuids: PackedStringArray, stat_names := PackedStringArray()) -> Signal
+get_single_stat_async(user: GDKUser, stat_name: String) -> Signal
 set_stat_number(user: GDKUser, stat_name: String, value: float) -> GDKResult
 set_stat_integer(user: GDKUser, stat_name: String, value: int) -> GDKResult
 flush_stats_async(user: GDKUser) -> Signal
+write_stats_async(user: GDKUser, stats: Dictionary) -> Signal
+delete_stats_async(user: GDKUser, stat_names: PackedStringArray) -> Signal
 track_stats(user: GDKUser, stat_names: PackedStringArray) -> GDKResult
 stop_tracking_stats(user: GDKUser, stat_names := PackedStringArray()) -> GDKResult
 get_cached_stats(user: GDKUser) -> Dictionary
@@ -648,9 +820,12 @@ stats_flushed(user: GDKUser, result: GDKResult)
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
 | `query_user_stats_async()` | `XblUserStatisticsGetSingleUserStatisticsAsync`, `XblUserStatisticsGetSingleUserStatisticsResultSize`, `XblUserStatisticsGetSingleUserStatisticsResult` | Use explicit user-statistics reads for query-style fetches and cache refreshes. |
+| `get_single_stat_async()` | `XblUserStatisticsGetSingleUserStatisticAsync`, `XblUserStatisticsGetSingleUserStatisticResultSize`, `XblUserStatisticsGetSingleUserStatisticResult` | Reads one named stat for the signed-in user; returns the same result shape as the plural read with a single entry. |
 | `query_users_stats_async()` | `XblUserStatisticsGetMultipleUserStatisticsAsync`, `XblUserStatisticsGetMultipleUserStatisticsResultSize`, `XblUserStatisticsGetMultipleUserStatisticsResult` | Use one local user context to read the requested stats for a target XUID list. |
 | `set_stat_number()` / `set_stat_integer()` | extension-local staging only | Convert staged values into `XblTitleManagedStatistic` payloads. No native call is made until `flush_stats_async()`. |
-| `flush_stats_async()` | `XblTitleManagedStatsUpdateStatsAsync`, `XblTitleManagedStatistic`, `XblTitleManagedStatType` | Flushes staged values through the documented title-managed stats write API. If the wrapper later needs full-document replacement semantics, add a separate path that uses `XblTitleManagedStatsWriteAsync`. |
+| `flush_stats_async()` | `XblTitleManagedStatsUpdateStatsAsync`, `XblTitleManagedStatistic`, `XblTitleManagedStatType` | Flushes staged values through the documented title-managed stats write API (merge semantics). |
+| `write_stats_async()` | `XblTitleManagedStatsWriteAsync`, `XblTitleManagedStatistic`, `XblTitleManagedStatType` | Replace-all write: the supplied `stats` Dictionary becomes the complete title-managed stat document for the user. Live-write surface. |
+| `delete_stats_async()` | `XblTitleManagedStatsDeleteStatsAsync` | Deletes the named title-managed stats for the user. Live-write surface. |
 | `track_stats()` | `XblUserStatisticsAddStatisticChangedHandler`, `XblUserStatisticsTrackStatistics` | Register one change handler per local user context, then track the requested stats for that user's XUID. |
 | `stop_tracking_stats()` | `XblUserStatisticsStopTrackingStatistics`, `XblUserStatisticsStopTrackingUsers`, `XblUserStatisticsRemoveStatisticChangedHandler` | Stop specific stat tracking or all tracked stat updates for the local user. |
 | `get_cached_stats()` | service cache only | Cache ownership stays in the extension; it is hydrated by explicit reads and tracked-stat change callbacks. |
@@ -774,6 +949,8 @@ stop_social_graph(user: GDKUser) -> void
 get_friends_async(user: GDKUser) -> Signal
 create_social_group(user: GDKUser, filter: GDKSocialFilter = null) -> GDKResult  # data: GDKSocialGroup
 create_social_group_from_xuids(user: GDKUser, xuids: PackedStringArray) -> GDKResult  # data: GDKSocialGroup
+update_social_user_group(group: GDKSocialGroup, xuids: PackedStringArray) -> GDKResult  # data.count: int
+set_rich_presence_polling(user: GDKUser, enabled: bool) -> GDKResult  # data.enabled: bool
 destroy_social_group(group: GDKSocialGroup) -> void
 get_group_users(group: GDKSocialGroup) -> GDKResult  # data: Array[GDKSocialUser]
 submit_reputation_feedback_async(user: GDKUser, target_xuid: String, feedback_type: String, reason := "", evidence_id := "") -> Signal
@@ -805,8 +982,9 @@ runtime_error(result: GDKResult)  # unsolicited social-service errors
 | `get_friends_async()` | `XblSocialManagerCreateSocialUserGroupFromFilters`, `XblSocialManagerDoWork` | Treat this as a default friends-group bootstrap op that completes after the first group population event is observed. |
 | `create_social_group()` | `XblSocialManagerCreateSocialUserGroupFromFilters` | Filter-backed social groups map directly to native filtered groups. |
 | `create_social_group_from_xuids()` | `XblSocialManagerCreateSocialUserGroupFromList` | Fixed-list groups map directly to native list-backed groups. |
+| `update_social_user_group()` | `XblSocialManagerUpdateSocialUserGroup` | Replaces the tracked-user list of a list-based group with a new XUID set. Filter-based groups cannot be updated this way. |
+| `set_rich_presence_polling()` | `XblSocialManagerSetRichPresencePollingStatus`, `XblSocialManagerAddLocalUser` | Toggles Social Manager rich-presence polling for the user; starts the user's social graph first if needed. |
 | `destroy_social_group()` | `XblSocialManagerDestroySocialUserGroup` | Releases the native social-group handle. |
-| future mutable list groups | `XblSocialManagerUpdateSocialUserGroup` | Keep this internal until a public update-group API is justified. |
 | `get_group_users()` | `XblSocialManagerUserGroupGetUsers` | Reads the current user list from the native social group handle. |
 | `submit_reputation_feedback_async()` | `XblSocialSubmitReputationFeedbackAsync` | Submit one feedback item without exposing native MPSD session-reference structs. |
 | `submit_batch_reputation_feedback_async()` | `XblSocialSubmitBatchReputationFeedbackAsync`, `XblReputationFeedbackItem` | Batch items are Godot dictionaries with `target_xuid`, `feedback_type`, optional `reason`, and optional `evidence_id`. |

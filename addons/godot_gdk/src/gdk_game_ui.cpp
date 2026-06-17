@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <XGame.h>
 #include <XGameUI.h>
 
 #include "gdk.h"
@@ -319,6 +320,172 @@ public:
             GDKSignalXAsyncContext(p_runtime, p_pending_signal) {}
 };
 
+class AchievementsUiAsyncContext final : public GDKSignalXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Achievements UI cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XGameUiShowAchievementsResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Achievements UI cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the achievements UI flow.",
+                    "game_ui_achievements_result_failed"));
+            return;
+        }
+
+        get_pending_signal()->complete(GDKResult::ok_result());
+    }
+
+public:
+    AchievementsUiAsyncContext(GDKRuntime *p_runtime, const Ref<GDKPendingSignal> &p_pending_signal) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal) {}
+};
+
+class ErrorDialogAsyncContext final : public GDKSignalXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Error dialog cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XGameUiShowErrorDialogResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Error dialog cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the error dialog flow.",
+                    "game_ui_error_dialog_result_failed"));
+            return;
+        }
+
+        get_pending_signal()->complete(GDKResult::ok_result());
+    }
+
+public:
+    ErrorDialogAsyncContext(GDKRuntime *p_runtime, const Ref<GDKPendingSignal> &p_pending_signal) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal) {}
+};
+
+class SendGameInviteAsyncContext final : public GDKSignalXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Send game invite UI cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XGameUiShowSendGameInviteResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Send game invite UI cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the send game invite UI flow.",
+                    "game_ui_send_game_invite_result_failed"));
+            return;
+        }
+
+        get_pending_signal()->complete(GDKResult::ok_result());
+    }
+
+public:
+    SendGameInviteAsyncContext(GDKRuntime *p_runtime, const Ref<GDKPendingSignal> &p_pending_signal) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal) {}
+};
+
+class TextEntryAsyncContext final : public GDKSignalXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Text entry UI cancelled."));
+            return;
+        }
+
+        uint32_t buffer_size = 0;
+        HRESULT size_hr = XGameUiShowTextEntryResultSize(p_async_block, &buffer_size);
+        if (size_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Text entry UI cancelled."));
+            return;
+        }
+        if (FAILED(size_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    size_hr,
+                    "Failed to size the text entry UI result.",
+                    "game_ui_text_entry_size_failed"));
+            return;
+        }
+
+        std::vector<char> buffer(buffer_size > 0 ? buffer_size : 1, '\0');
+        uint32_t used = 0;
+        HRESULT result_hr = XGameUiShowTextEntryResult(p_async_block, static_cast<uint32_t>(buffer.size()), buffer.data(), &used);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Text entry UI cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to read the text entry UI result.",
+                    "game_ui_text_entry_result_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["text"] = String::utf8(buffer.data());
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    TextEntryAsyncContext(GDKRuntime *p_runtime, const Ref<GDKPendingSignal> &p_pending_signal) :
+            GDKSignalXAsyncContext(p_runtime, p_pending_signal) {}
+};
+
+XGameUiTextEntryInputScope _parse_text_entry_input_scope(const String &p_input_scope) {
+    const String normalized = p_input_scope.strip_edges().to_lower();
+    if (normalized.is_empty() || normalized == "default") {
+        return XGameUiTextEntryInputScope::Default;
+    }
+    if (normalized == "url") {
+        return XGameUiTextEntryInputScope::Url;
+    }
+    if (normalized == "email" || normalized == "email_smtp_address") {
+        return XGameUiTextEntryInputScope::EmailSmtpAddress;
+    }
+    if (normalized == "number") {
+        return XGameUiTextEntryInputScope::Number;
+    }
+    if (normalized == "password") {
+        return XGameUiTextEntryInputScope::Password;
+    }
+    if (normalized == "telephone" || normalized == "telephone_number") {
+        return XGameUiTextEntryInputScope::TelephoneNumber;
+    }
+    if (normalized == "alphanumeric") {
+        return XGameUiTextEntryInputScope::Alphanumeric;
+    }
+    if (normalized == "search") {
+        return XGameUiTextEntryInputScope::Search;
+    }
+    if (normalized == "chat" || normalized == "chat_without_emoji") {
+        return XGameUiTextEntryInputScope::ChatWithoutEmoji;
+    }
+    return XGameUiTextEntryInputScope::Default;
+}
+
 } // namespace
 
 void GDKGameUI::_bind_methods() {
@@ -339,6 +506,21 @@ void GDKGameUI::_bind_methods() {
             DEFVAL(static_cast<int64_t>(1)),
             DEFVAL(static_cast<int64_t>(1)));
     ClassDB::bind_method(D_METHOD("resolve_privilege_with_ui_async", "user", "privilege"), &GDKGameUI::resolve_privilege_with_ui_async);
+    ClassDB::bind_method(D_METHOD("show_achievements_async", "requesting_user"), &GDKGameUI::show_achievements_async);
+    ClassDB::bind_method(D_METHOD("show_error_dialog_async", "error_code", "context"), &GDKGameUI::show_error_dialog_async, DEFVAL(String()));
+    ClassDB::bind_method(
+            D_METHOD("show_send_game_invite_async", "requesting_user", "session_configuration_id", "session_template_name", "session_id", "invitation_text", "custom_activation_context"),
+            &GDKGameUI::show_send_game_invite_async,
+            DEFVAL(String()),
+            DEFVAL(String()));
+    ClassDB::bind_method(
+            D_METHOD("show_text_entry_async", "title_text", "description_text", "default_text", "input_scope", "max_text_length"),
+            &GDKGameUI::show_text_entry_async,
+            DEFVAL(String()),
+            DEFVAL(String()),
+            DEFVAL(String()),
+            DEFVAL(String("default")),
+            DEFVAL(static_cast<int64_t>(0)));
 }
 
 void GDKGameUI::set_owner(GDK *p_owner) {
@@ -634,6 +816,168 @@ Signal GDKGameUI::resolve_privilege_with_ui_async(const Ref<GDKUser> &p_user, in
     }
 
     return users->resolve_privilege_with_ui_async(p_user, p_privilege);
+}
+
+Signal GDKGameUI::show_achievements_async(const Ref<GDKUser> &p_requesting_user) {
+    GDKRuntime *runtime = get_runtime_internal();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return make_error_signal_internal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_requesting_user.is_valid() || p_requesting_user->get_handle() == nullptr) {
+        return make_error_signal_internal(E_INVALIDARG, "invalid_user", "A signed-in GDKUser is required to show achievements UI.");
+    }
+
+    uint32_t title_id = 0;
+    HRESULT title_hr = XGameGetXboxTitleId(&title_id);
+    if (FAILED(title_hr)) {
+        return make_error_signal_internal(title_hr, "xbox_title_id_unavailable", "Failed to resolve the Xbox title ID for the achievements UI.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new AchievementsUiAsyncContext(runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    HRESULT hr = XGameUiShowAchievementsAsync(
+            context->get_async_block(),
+            p_requesting_user->get_handle(),
+            title_id);
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                hr,
+                "Failed to start the achievements UI flow.",
+                "game_ui_achievements_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKGameUI::show_error_dialog_async(int64_t p_error_code, const String &p_context) {
+    GDKRuntime *runtime = get_runtime_internal();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return make_error_signal_internal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new ErrorDialogAsyncContext(runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    const String context_text = p_context.strip_edges();
+    const CharString context_utf8 = context_text.utf8();
+
+    HRESULT hr = XGameUiShowErrorDialogAsync(
+            context->get_async_block(),
+            static_cast<HRESULT>(p_error_code),
+            context_text.is_empty() ? nullptr : context_utf8.get_data());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                hr,
+                "Failed to start the error dialog flow.",
+                "game_ui_error_dialog_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKGameUI::show_send_game_invite_async(
+        const Ref<GDKUser> &p_requesting_user,
+        const String &p_session_configuration_id,
+        const String &p_session_template_name,
+        const String &p_session_id,
+        const String &p_invitation_text,
+        const String &p_custom_activation_context) {
+    const String session_configuration_id = p_session_configuration_id.strip_edges();
+    const String session_template_name = p_session_template_name.strip_edges();
+    const String session_id = p_session_id.strip_edges();
+    if (session_configuration_id.is_empty() || session_template_name.is_empty() || session_id.is_empty()) {
+        return make_error_signal_internal(E_INVALIDARG, "invalid_session", "session_configuration_id, session_template_name, and session_id are all required.");
+    }
+
+    GDKRuntime *runtime = get_runtime_internal();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return make_error_signal_internal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_requesting_user.is_valid() || p_requesting_user->get_handle() == nullptr) {
+        return make_error_signal_internal(E_INVALIDARG, "invalid_user", "A signed-in GDKUser is required to send a game invite.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new SendGameInviteAsyncContext(runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    const String invitation_text = p_invitation_text.strip_edges();
+    const String custom_activation_context = p_custom_activation_context.strip_edges();
+    const CharString session_configuration_id_utf8 = session_configuration_id.utf8();
+    const CharString session_template_name_utf8 = session_template_name.utf8();
+    const CharString session_id_utf8 = session_id.utf8();
+    const CharString invitation_text_utf8 = invitation_text.utf8();
+    const CharString custom_activation_context_utf8 = custom_activation_context.utf8();
+
+    HRESULT hr = XGameUiShowSendGameInviteAsync(
+            context->get_async_block(),
+            p_requesting_user->get_handle(),
+            session_configuration_id_utf8.get_data(),
+            session_template_name_utf8.get_data(),
+            session_id_utf8.get_data(),
+            invitation_text.is_empty() ? nullptr : invitation_text_utf8.get_data(),
+            custom_activation_context.is_empty() ? nullptr : custom_activation_context_utf8.get_data());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                hr,
+                "Failed to start the send game invite UI flow.",
+                "game_ui_send_game_invite_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKGameUI::show_text_entry_async(
+        const String &p_title_text,
+        const String &p_description_text,
+        const String &p_default_text,
+        const String &p_input_scope,
+        int64_t p_max_text_length) {
+    if (p_max_text_length < 0) {
+        return make_error_signal_internal(E_INVALIDARG, "invalid_max_length", "max_text_length must be zero or greater.");
+    }
+
+    GDKRuntime *runtime = get_runtime_internal();
+    if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
+        return make_error_signal_internal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new TextEntryAsyncContext(runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    const String title_text = p_title_text.strip_edges();
+    const String description_text = p_description_text.strip_edges();
+    const CharString title_text_utf8 = title_text.utf8();
+    const CharString description_text_utf8 = description_text.utf8();
+    const CharString default_text_utf8 = p_default_text.utf8();
+
+    HRESULT hr = XGameUiShowTextEntryAsync(
+            context->get_async_block(),
+            title_text.is_empty() ? nullptr : title_text_utf8.get_data(),
+            description_text.is_empty() ? nullptr : description_text_utf8.get_data(),
+            p_default_text.is_empty() ? nullptr : default_text_utf8.get_data(),
+            _parse_text_entry_input_scope(p_input_scope),
+            static_cast<uint32_t>(p_max_text_length));
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                hr,
+                "Failed to start the text entry UI flow.",
+                "game_ui_text_entry_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
 }
 
 GDKRuntime *GDKGameUI::get_runtime_internal() const {

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKSpeechSynthesizer" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Text-to-speech synthesis through PC GDK.
+	</brief_description>
+	<description>
+		[GDKSpeechSynthesizer] is exposed as [code]GDK.speech[/code]. It wraps the GDK [code]XSpeechSynthesizer[/code] API to turn text or SSML into PCM/WAV audio bytes on the local device, with no network call.
+		The service lazily creates a single native synthesizer the first time a voice is selected or speech is synthesized, and releases it on [method GDK.shutdown]. Selecting a voice with [method set_default_voice] or [method set_custom_voice] affects every subsequent [method synthesize_text] / [method synthesize_ssml] call.
+		[codeblock]
+		var voices: Array = GDK.speech.get_installed_voices()
+		if voices.size() &gt; 0:
+		    GDK.speech.set_custom_voice(voices[0]["id"])
+		var result: GDKResult = GDK.speech.synthesize_text("Welcome to the game.")
+		if result.ok:
+		    var wav: PackedByteArray = result.data["audio_wav"]
+		    # ...persist or decode the WAV bytes...
+		# Convenience: play immediately through a Godot AudioStreamPlayer.
+		$AudioStreamPlayer.stream = GDK.speech.synthesize_to_stream("Welcome to the game.")
+		$AudioStreamPlayer.play()
+		[/codeblock]
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_installed_voices">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of [Dictionary] entries describing the installed TTS voices. Each entry has the keys [code]id[/code], [code]display_name[/code], [code]language[/code], [code]gender[/code] ([code]"male"[/code] or [code]"female"[/code]), and [code]description[/code]. Returns an empty array before [method GDK.initialize] or when enumeration fails.
+			</description>
+		</method>
+		<method name="set_default_voice">
+			<return type="GDKResult" />
+			<description>
+				Selects the platform default voice for subsequent synthesis. Returns an error [GDKResult] before [method GDK.initialize] or when the synthesizer cannot be created.
+			</description>
+		</method>
+		<method name="set_custom_voice">
+			<return type="GDKResult" />
+			<param index="0" name="voice_id" type="String" />
+			<description>
+				Selects a specific voice by its [code]id[/code] (as reported by [method get_installed_voices]). Returns an [code]invalid_voice_id[/code] error when [param voice_id] is empty.
+			</description>
+		</method>
+		<method name="synthesize_text">
+			<return type="GDKResult" />
+			<param index="0" name="text" type="String" />
+			<description>
+				Synthesizes [param text] into audio. On success [member GDKResult.data] contains [code]audio_wav[/code] (a [PackedByteArray] holding RIFF/WAV bytes) and [code]byte_count[/code]. Returns an [code]invalid_input[/code] error for empty input.
+			</description>
+		</method>
+		<method name="synthesize_ssml">
+			<return type="GDKResult" />
+			<param index="0" name="ssml" type="String" />
+			<description>
+				Synthesizes a Speech Synthesis Markup Language (SSML) document into audio. On success [member GDKResult.data] contains [code]audio_wav[/code] (a [PackedByteArray]) and [code]byte_count[/code]. Returns an [code]invalid_input[/code] error for empty input.
+			</description>
+		</method>
+		<method name="synthesize_to_stream">
+			<return type="AudioStreamWAV" />
+			<param index="0" name="text" type="String" />
+			<description>
+				Convenience helper that synthesizes [param text] and returns a ready-to-play [AudioStreamWAV]. Returns [code]null[/code] when synthesis fails or the produced audio cannot be decoded.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

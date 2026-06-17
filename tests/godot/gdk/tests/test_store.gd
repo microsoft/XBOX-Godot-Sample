@@ -23,6 +23,11 @@ func test_store_surface_and_validation_paths() -> void:
 		"query_license_status_async",
 		"refresh_entitlements_async",
 		"show_purchase_ui_async",
+		"show_product_page_ui_async",
+		"show_associated_products_ui_async",
+		"show_rate_and_review_ui_async",
+		"show_redeem_token_ui_async",
+		"show_gifting_ui_async",
 		"get_cached_license_status",
 		"check_cached_license_status",
 	]:
@@ -48,6 +53,21 @@ func test_store_surface_and_validation_paths() -> void:
 	var pre_init_purchase = store.show_purchase_ui_async(blank_user, "9NBLGGH4R315")
 	await assert_signal_result_error(pre_init_purchase, "not_initialized", "show_purchase_ui_async() rejects requests before initialize()")
 
+	var pre_init_product_page = store.show_product_page_ui_async(blank_user, "9NBLGGH4R315")
+	await assert_signal_result_error(pre_init_product_page, "not_initialized", "show_product_page_ui_async() rejects requests before initialize()")
+
+	var pre_init_associated = store.show_associated_products_ui_async(blank_user, "9NBLGGH4R315", "game")
+	await assert_signal_result_error(pre_init_associated, "not_initialized", "show_associated_products_ui_async() rejects requests before initialize()")
+
+	var pre_init_rate = store.show_rate_and_review_ui_async(blank_user)
+	await assert_signal_result_error(pre_init_rate, "not_initialized", "show_rate_and_review_ui_async() rejects requests before initialize()")
+
+	var pre_init_redeem = store.show_redeem_token_ui_async(blank_user, "TOKEN-12345")
+	await assert_signal_result_error(pre_init_redeem, "not_initialized", "show_redeem_token_ui_async() rejects requests before initialize()")
+
+	var pre_init_gifting = store.show_gifting_ui_async(blank_user, "9NBLGGH4R315")
+	await assert_signal_result_error(pre_init_gifting, "not_initialized", "show_gifting_ui_async() rejects requests before initialize()")
+
 	var invalid_cached_check = store.check_cached_license_status("")
 	assert_not_null(invalid_cached_check, "check_cached_license_status('') returns GDKResult")
 	if invalid_cached_check != null:
@@ -72,6 +92,24 @@ func test_store_surface_and_validation_paths() -> void:
 
 	var invalid_store_id_purchase = store.show_purchase_ui_async(blank_user, " ")
 	await assert_signal_result_error(invalid_store_id_purchase, "invalid_product_id", "show_purchase_ui_async() rejects blank Store product IDs")
+
+	var invalid_store_id_product_page = store.show_product_page_ui_async(blank_user, " ")
+	await assert_signal_result_error(invalid_store_id_product_page, "invalid_product_id", "show_product_page_ui_async() rejects blank Store product IDs")
+
+	var invalid_store_id_associated = store.show_associated_products_ui_async(blank_user, "", "game")
+	await assert_signal_result_error(invalid_store_id_associated, "invalid_product_id", "show_associated_products_ui_async() rejects blank Store product IDs")
+
+	var invalid_store_id_gifting = store.show_gifting_ui_async(blank_user, " ")
+	await assert_signal_result_error(invalid_store_id_gifting, "invalid_product_id", "show_gifting_ui_async() rejects blank Store product IDs")
+
+	var invalid_token_redeem = store.show_redeem_token_ui_async(blank_user, "  ")
+	await assert_signal_result_error(invalid_token_redeem, "invalid_token", "show_redeem_token_ui_async() rejects blank tokens")
+
+	var missing_user_product_page = store.show_product_page_ui_async(null, "9NBLGGH4R315")
+	await assert_signal_result_error(missing_user_product_page, "invalid_user", "show_product_page_ui_async() requires a signed-in user")
+
+	var missing_user_rate = store.show_rate_and_review_ui_async(null)
+	await assert_signal_result_error(missing_user_rate, "invalid_user", "show_rate_and_review_ui_async() requires a signed-in user")
 
 	var missing_user_query = store.query_license_status_async(null, "9NBLGGH4R315")
 	await assert_signal_result_error(missing_user_query, "invalid_user", "query_license_status_async() requires a signed-in user")

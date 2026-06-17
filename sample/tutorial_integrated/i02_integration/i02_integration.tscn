@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://i02_integration/panel_lobby.gd" id="5_lob"]
 [ext_resource type="Script" path="res://i02_integration/panel_mpa.gd" id="6_mpa"]
 [ext_resource type="Script" path="res://i02_integration/panel_party.gd" id="7_pty"]
+[ext_resource type="Script" path="res://i02_integration/panel_game_chat.gd" id="8_gc"]
 
 [node name="TechDemo" type="Control"]
 layout_mode = 3
@@ -257,5 +258,40 @@ layout_mode = 2
 placeholder_text = "Broadcast a message"
 
 [node name="Send" type="Button" parent="Root/Tabs/Party"]
+layout_mode = 2
+text = "Send"
+
+[node name="GameChat" type="VBoxContainer" parent="Root/Tabs"]
+visible = false
+script = ExtResource("8_gc")
+
+[node name="Status" type="Label" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+text = "Signing in…"
+
+[node name="Hint" type="Label" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+text = "GDK-native voice + text chat (vs. the Party tab's batteries-included transport). No transport is built — outgoing frames loop back in-process."
+autowrap_mode = 3
+
+[node name="MuteMic" type="CheckButton" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+text = "Mute microphone (text chat still works)"
+
+[node name="ChatLogLabel" type="Label" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+text = "Chat"
+
+[node name="ChatLog" type="RichTextLabel" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_following = true
+
+[node name="ChatInput" type="LineEdit" parent="Root/Tabs/GameChat"]
+layout_mode = 2
+placeholder_text = "Send a chat message"
+
+[node name="Send" type="Button" parent="Root/Tabs/GameChat"]
 layout_mode = 2
 text = "Send"

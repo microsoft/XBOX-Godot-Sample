@@ -15,6 +15,7 @@ const TUTORIALS := [
 	{ "label": "G2 — Unlock an achievement",     "scene": "res://g02_achievement.tscn",   "needs_auth": true },
 	{ "label": "G3 — Title storage & stats",     "scene": "res://g03_storage_stats.tscn", "needs_auth": true },
 	{ "label": "G4 — Multiplayer Activity",      "scene": "res://g04_mpa.tscn",           "needs_auth": true },
+	{ "label": "G5 — Text-to-Speech",            "scene": "res://g05_speech.tscn",        "needs_auth": false },
 ]
 
 @onready var _status: Label = $Root/Status

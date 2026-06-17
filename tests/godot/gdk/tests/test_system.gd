@@ -25,6 +25,7 @@ func test_system_surface_and_validation_paths() -> void:
 		"get_sandbox_id",
 		"get_service_configuration_id",
 		"is_xbox_services_initialized",
+		"is_feature_available",
 	]:
 		assert_has_method_named(system, method_name)
 
@@ -81,3 +82,24 @@ func test_system_surface_and_validation_paths() -> void:
 	else:
 		assert_true(post_init_scid.code.length() > 0, "get_service_configuration_id() failure exposes an error code")
 		assert_true(post_init_scid.message.length() > 0, "get_service_configuration_id() failure exposes an error message")
+
+
+func test_is_feature_available() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	var system = gdk.get_system()
+	assert_not_null(system, "GDK.system returns service object")
+	if system == null:
+		return
+
+	# Known feature names resolve to a bool regardless of runtime availability.
+	for feature_name in ["XAccessibility", "xgameui", "XGameSave", "XGameStreaming"]:
+		var available = system.is_feature_available(feature_name)
+		assert_typeof(available, TYPE_BOOL, "is_feature_available('%s') returns a bool" % feature_name)
+
+	# Unknown feature names push a warning and return false.
+	assert_eq(system.is_feature_available("NotARealFeature"), false, "is_feature_available() returns false for unknown feature names")
+	assert_eq(system.is_feature_available(""), false, "is_feature_available('') returns false")
+

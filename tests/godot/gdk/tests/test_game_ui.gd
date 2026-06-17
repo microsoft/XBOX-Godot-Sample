@@ -25,10 +25,26 @@ func test_game_ui_surface_and_validation() -> void:
 		"show_player_profile_card_async",
 		"show_player_picker_async",
 		"resolve_privilege_with_ui_async",
+		"show_achievements_async",
+		"show_error_dialog_async",
+		"show_send_game_invite_async",
+		"show_text_entry_async",
 	]:
 		assert_has_method_named(game_ui, method_name)
 
 	var blank_user = instantiate_class("GDKUser")
+
+	var not_initialized_achievements_signal = game_ui.show_achievements_async(blank_user)
+	await assert_signal_result_error(not_initialized_achievements_signal, "not_initialized", "show_achievements_async() requires initialized runtime")
+
+	var not_initialized_error_dialog_signal = game_ui.show_error_dialog_async(-2147467259)
+	await assert_signal_result_error(not_initialized_error_dialog_signal, "not_initialized", "show_error_dialog_async() requires initialized runtime")
+
+	var not_initialized_text_entry_signal = game_ui.show_text_entry_async("Title", "Description")
+	await assert_signal_result_error(not_initialized_text_entry_signal, "not_initialized", "show_text_entry_async() requires initialized runtime")
+
+	var invalid_session_invite_signal = game_ui.show_send_game_invite_async(blank_user, "", "", "")
+	await assert_signal_result_error(invalid_session_invite_signal, "invalid_session", "show_send_game_invite_async() rejects empty session identifiers")
 
 	var empty_title_signal = game_ui.show_message_dialog_async("", "Body")
 	await assert_signal_result_error(empty_title_signal, "invalid_title", "show_message_dialog_async() rejects empty title")
@@ -83,6 +99,12 @@ func test_game_ui_surface_and_validation() -> void:
 
 	var invalid_user_privilege_signal = game_ui.resolve_privilege_with_ui_async(blank_user, 254)
 	await assert_signal_result_error(invalid_user_privilege_signal, "invalid_user", "resolve_privilege_with_ui_async() rejects invalid users")
+
+	var invalid_user_achievements_signal = game_ui.show_achievements_async(blank_user)
+	await assert_signal_result_error(invalid_user_achievements_signal, "invalid_user", "show_achievements_async() rejects invalid users")
+
+	var invalid_user_invite_signal = game_ui.show_send_game_invite_async(blank_user, "scid", "MinGameSession", "session-1")
+	await assert_signal_result_error(invalid_user_invite_signal, "invalid_user", "show_send_game_invite_async() rejects invalid users")
 
 
 func test_game_ui_show_method_fails_after_shutdown() -> void:

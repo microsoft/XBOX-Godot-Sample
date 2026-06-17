@@ -120,9 +120,12 @@ public:
 
     Signal query_user_stats_async(const Ref<GDKUser> &p_user, const PackedStringArray &p_stat_names = PackedStringArray());
     Signal query_users_stats_async(const Ref<GDKUser> &p_user, const PackedStringArray &p_xuids, const PackedStringArray &p_stat_names = PackedStringArray());
+    Signal get_single_stat_async(const Ref<GDKUser> &p_user, const String &p_stat_name);
     Ref<GDKResult> set_stat_integer(const Ref<GDKUser> &p_user, const String &p_stat_name, int64_t p_value);
     Ref<GDKResult> set_stat_number(const Ref<GDKUser> &p_user, const String &p_stat_name, double p_value);
     Signal flush_stats_async(const Ref<GDKUser> &p_user);
+    Signal write_stats_async(const Ref<GDKUser> &p_user, const Dictionary &p_stats);
+    Signal delete_stats_async(const Ref<GDKUser> &p_user, const PackedStringArray &p_stat_names);
     Ref<GDKResult> track_stats(const Ref<GDKUser> &p_user, const PackedStringArray &p_stat_names);
     Ref<GDKResult> stop_tracking_stats(const Ref<GDKUser> &p_user, const PackedStringArray &p_stat_names = PackedStringArray());
     Dictionary get_cached_stats(const Ref<GDKUser> &p_user) const;

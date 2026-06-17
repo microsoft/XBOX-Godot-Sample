@@ -39,6 +39,13 @@
 				Returns [code]true[/code] if the shared Xbox services scaffold has been initialized.
 			</description>
 		</method>
+		<method name="is_feature_available" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="feature_name" type="String" />
+			<description>
+				Returns [code]true[/code] if the named GDK runtime feature is available, wrapping [code]XGameRuntimeIsFeatureAvailable[/code]. [param feature_name] is matched case-insensitively against the [code]XGameRuntimeFeature[/code] identifiers (for example [code]"XSpeechSynthesizer"[/code], [code]"XGameEvent"[/code], [code]"XStore"[/code], [code]"XGameSave"[/code]). Unknown names log a warning and return [code]false[/code]. This query does not require [method GDK.initialize] and may be called at any time.
+			</description>
+		</method>
 	</methods>
 	<members>
 	</members>
