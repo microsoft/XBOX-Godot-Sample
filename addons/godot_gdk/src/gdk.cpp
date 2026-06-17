@@ -6,6 +6,7 @@
 #include "gdk_capture.h"
 #include "gdk_display.h"
 #include "gdk_error_reporting.h"
+#include "gdk_events.h"
 #include "gdk_game_ui.h"
 #include "gdk_launcher.h"
 #include "gdk_leaderboards.h"
@@ -87,6 +88,8 @@ GDK::GDK() {
     m_activation->set_owner(this);
     m_speech.instantiate();
     m_speech->set_owner(this);
+    m_events.instantiate();
+    m_events->set_owner(this);
 }
 
 GDK::~GDK() {
@@ -124,6 +127,7 @@ GDK::~GDK() {
     m_display.unref();
     m_activation.unref();
     m_speech.unref();
+    m_events.unref();
     singleton = nullptr;
 }
 
@@ -155,6 +159,7 @@ void GDK::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_display"), &GDK::get_display);
     ClassDB::bind_method(D_METHOD("get_activation"), &GDK::get_activation);
     ClassDB::bind_method(D_METHOD("get_speech"), &GDK::get_speech);
+    ClassDB::bind_method(D_METHOD("get_events"), &GDK::get_events);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKGameUI"), "", "get_game_ui");
@@ -178,6 +183,7 @@ void GDK::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "display", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKDisplay"), "", "get_display");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "activation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKActivation"), "", "get_activation");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "speech", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKSpeechSynthesizer"), "", "get_speech");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "events", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "GDKEvents"), "", "get_events");
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
@@ -232,6 +238,8 @@ const GDKInitStep INIT_STEPS[] = {
       [](GDK *g) { g->get_display()->shutdown(); } },
     { [](GDK *g) { return g->get_speech()->on_runtime_initialized(); },
       [](GDK *g) { g->get_speech()->shutdown(); } },
+    { [](GDK *g) { return g->get_events()->on_runtime_initialized(); },
+      [](GDK *g) { g->get_events()->shutdown(); } },
 };
 
 struct GDKDispatchStep {
@@ -424,6 +432,10 @@ Ref<GDKActivation> GDK::get_activation() const {
 
 Ref<GDKSpeechSynthesizer> GDK::get_speech() const {
     return m_speech;
+}
+
+Ref<GDKEvents> GDK::get_events() const {
+    return m_events;
 }
 
 GDKRuntime *GDK::get_runtime() const {

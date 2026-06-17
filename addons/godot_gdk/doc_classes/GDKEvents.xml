@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKEvents" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Title telemetry service accessed via GDK.events.
+	</brief_description>
+	<description>
+		Writes GDK-native in-game telemetry events through [code]XGameEventWrite[/code]. Events are batched and uploaded asynchronously by the runtime. The event name and the names of any [code]dimensions[/code]/[code]measurements[/code] fields must match the title's Xbox Live service configuration event manifest; events whose names do not match are silently dropped by the service. This is complementary to PlayFab analytics ([code]godot_playfab[/code]).
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="write_event">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="event_name" type="String" />
+			<param index="2" name="dimensions" type="Dictionary" default="{}" />
+			<param index="3" name="measurements" type="Dictionary" default="{}" />
+			<description>
+				Writes a telemetry event on behalf of [param user]. [param dimensions] hold fields with a finite set of values (map id, difficulty, mode, etc.); [param measurements] hold scalar numeric metrics (score, time, counters, etc.). Both are serialized to JSON internally. Returns an ok [GDKResult] whose [code]data[/code] contains [code]event_name[/code] and [code]play_session_id[/code]. When the GDK telemetry feature is unavailable in the current runtime, returns [code]events_feature_unavailable[/code] without writing.
+			</description>
+		</method>
+		<method name="set_play_session_id">
+			<return type="void" />
+			<param index="0" name="play_session_id" type="String" />
+			<description>
+				Sets the play-session ID used to group events from a single play session. Pass an empty string to generate a fresh random GUID.
+			</description>
+		</method>
+		<method name="get_play_session_id">
+			<return type="String" />
+			<description>
+				Returns the current play-session ID, generating one on first access if none was set.
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="play_session_id" type="String" setter="set_play_session_id" getter="get_play_session_id">
+			A unique per-session GUID that groups the events written during a single play session. Auto-generated when the runtime initializes.
+		</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

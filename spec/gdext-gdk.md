@@ -39,7 +39,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Display | Implemented | `GDK.display` wraps `XDisplay.h`: HDR mode probe/enable and idle display-timeout deferrals |
 | Game activation events | Implemented | `GDK.activation` wraps `XGameActivation.h` (modern replacement for the deprecated `XGameProtocol.h`) |
 | Text-to-speech | Implemented | `GDK.speech` wraps `XSpeechSynthesizer.h`: enumerate installed voices, select default/custom voice, and synthesize text/SSML to WAV/PCM bytes locally (no network) |
-| Events | Excluded | Do not wrap `events_c.h` Xbox Services telemetry/configuration APIs or the per-title `XGameEvent.h` writer; titles that need event telemetry should use PlayFab or a separate analytics integration |
+| Events | Implemented | `GDK.events` wraps the per-title `XGameEvent.h` writer (`XGameEventWrite`) for GDK-native in-game telemetry. Complementary to PlayFab analytics. The `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`) remain internal-gated and unwrapped |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
@@ -71,7 +71,8 @@ Do not expose wrappers for:
 
 - `XGameProtocol.h` — both `XGameProtocolRegisterForActivation` and `XGameProtocolUnregisterForActivation` are explicitly `__declspec(deprecated)` in the SDK and are superseded by `XGameActivationRegisterForEvent` / `XGameActivationUnregisterForEvent`. Use `GDK.activation.protocol_activated` for the modern protocol-activation event.
 - `XGameInvite.h` — every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK explicitly points each one at the `XGameActivation*` equivalent. Use `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` subscribes to `GDK.activation`'s internal event fan-out and must not register its own native activation callback.
-- `XGameEvent.h` — the per-title `XGameEventWrite` writer ships in PC GDK but is part of the broader Xbox Services events pipeline that this addon does not cover. Titles that need event telemetry should either author it through PlayFab (see the `godot_playfab` addon) or integrate a separate analytics SDK.
+
+> Note: `XGameEvent.h`'s `XGameEventWrite` is **wrapped** by `GDK.events` (see the Events scope row and the `GDK.events` service section) and is intentionally not listed here.
 
 #### Explicit no-wrap Xbox Services APIs
 
@@ -82,7 +83,7 @@ Do not expose wrappers for:
 - `multiplayer_manager_c.h`
 - MPSD, multiplayer sessions, lobby/session transport APIs
 - `game_invite_c.h` legacy/deprecated invite APIs
-- `events_c.h` telemetry/configuration APIs
+- `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`); the per-title in-game event *writer* is wrapped instead via `GDK.events` → `XGameEventWrite` (`XGameEvent.h`). `XblEventsWriteInGameEvent` is an alternate write path and remains unwrapped in favor of the primary `XGameEventWrite`
 - generic public `notification_c.h` subscription wrappers; use notification/RTA plumbing internally only if a wrapped service requires it
 - `XblPrivacyAddMuteListChangedHandler`, `XblPrivacyRemoveMuteListChangedHandler`, `XblPrivacyAddBlockListChangedHandler`, and `XblPrivacyRemoveBlockListChangedHandler` while the addon links against `Microsoft.Xbox.Services.C.Thunks`; these header-declared APIs are not exported by the public thunk libraries
 - deprecated social, presence, and statistics subscription APIs
@@ -470,6 +471,34 @@ synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on fa
 | `synthesize_ssml()` | `XSpeechSynthesizerCreateStreamFromSsml`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | SSML variant of `synthesize_text`. |
 | `synthesize_to_stream()` | (decodes the `synthesize_text` WAV bytes) | Parses the RIFF/WAV header and returns a ready-to-play `AudioStreamWAV`. |
 | service shutdown | `XSpeechSynthesizerCloseHandle` | Releases the cached synthesizer. |
+
+#### `GDK.events` service
+
+##### Methods
+
+```gdscript
+write_event(user: GDKUser, event_name: String, dimensions := {}, measurements := {}) -> GDKResult
+set_play_session_id(play_session_id: String)   # empty string regenerates a fresh GUID
+get_play_session_id() -> String
+```
+
+##### Behavior contract
+
+- `GDK.events` is the GDK-native in-game telemetry path, complementary to PlayFab analytics (`godot_playfab`). Titles may use either or both.
+- `write_event()` is synchronous and returns a `GDKResult`; the runtime batches and uploads events asynchronously.
+- `dimensions` hold fields with a finite set of values (map id, difficulty, mode, boolean settings); `measurements` hold scalar numeric metrics (score, time, counters, position). Both `Dictionary` payloads are serialized to JSON internally.
+- The SCID is pulled from the cached `GDKXboxServices` state; `play_session_id` is a per-session GUID auto-generated on runtime init and overridable via `set_play_session_id()`.
+- The event name and the names of all `dimensions`/`measurements` fields must match the title's Xbox Live service-configuration event manifest (case-insensitive); the service **silently drops** events whose names do not match.
+- Graceful degradation: returns `events_feature_unavailable` on `E_NOTIMPL` when the GRTS XGameEvent feature/runtime is not installed. Other validation failures return `invalid_event_name`, `invalid_user`, `not_initialized`, or `xbox_services_uninitialized`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `write_event()` | `XGameEventWrite` (`XGameEvent.h`) | Primary GDK telemetry write path. Requires a signed-in `GDKUser` handle and the cached SCID; `dimensions`/`measurements` are JSON-serialized. |
+| `set_play_session_id()` / `get_play_session_id()` | (wrapper-managed GUID) | Session-scoped GUID forwarded as `playSessionId` to `XGameEventWrite`. |
+
+> The alternate Xbox Services write path `XblEventsWriteInGameEvent` (`events_c.h`) is intentionally **not** wrapped; `XGameEventWrite` is the primary GDK path. The `XblEventsSet*` configuration/tuning functions remain internal-gated.
 
 #### `GDK.users` service
 

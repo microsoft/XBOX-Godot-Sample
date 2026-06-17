@@ -1338,3 +1338,45 @@ if stream != null:
     $AudioStreamPlayer.play()
 ```
 
+## Events service: `GDK.events`
+
+`GDK.events` is a `RefCounted` service object returned by `GDK.get_events()`.
+It writes GDK-native in-game telemetry through `XGameEventWrite`. Events are
+batched and uploaded asynchronously by the runtime. This is complementary to
+PlayFab analytics (`godot_playfab`); titles may use either or both.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `write_event(user, event_name, dimensions, measurements)` | `GDKResult` | Write a telemetry event for `user`. `dimensions`/`measurements` are `Dictionary` payloads serialized to JSON. Success data includes `event_name` and `play_session_id`. |
+| `set_play_session_id(play_session_id)` | `void` | Set the play-session GUID used to group events. Pass `""` to regenerate a fresh GUID. |
+| `get_play_session_id()` | `String` | Return the current play-session GUID (auto-generated on first access). |
+
+### Notes
+
+- The event name and every `dimensions`/`measurements` field name must match the
+  title's Xbox Live service-configuration event manifest (case-insensitive).
+  Events whose names do not match are **silently dropped** by the service.
+- When the GDK XGameEvent telemetry feature is unavailable in the current
+  runtime, `write_event()` returns `events_feature_unavailable` (HRESULT
+  `E_NOTIMPL`) without writing.
+
+### Usage
+
+```gdscript
+var user: GDKUser = GDK.users.get_primary_user()
+
+# Tag the play session (optional; a GUID is generated automatically otherwise)
+GDK.events.set_play_session_id("")  # regenerate, or pass your own id
+
+var result: GDKResult = GDK.events.write_event(
+    user,
+    "LevelComplete",
+    {"level_id": "forest_01", "difficulty": "hard"},   # dimensions
+    {"score": 1450, "time_seconds": 92.5})             # measurements
+if not result.ok:
+    push_warning("Event not written: %s" % result.code)
+```
+
+
