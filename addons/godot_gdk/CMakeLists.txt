@@ -36,6 +36,7 @@ add_library(godot_gdk SHARED
     src/gdk_activation.cpp
     src/gdk_speech_synthesizer.cpp
     src/gdk_events.cpp
+    src/gdk_game_save.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE

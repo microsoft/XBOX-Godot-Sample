@@ -20,6 +20,7 @@ class GDKCapture;
 class GDKDisplay;
 class GDKErrorReporting;
 class GDKEvents;
+class GDKGameSave;
 class GDKGameUI;
 class GDKLauncher;
 class GDKLeaderboards;
@@ -71,6 +72,7 @@ class GDK : public Object {
     Ref<GDKActivation> m_activation;
     Ref<GDKSpeechSynthesizer> m_speech;
     Ref<GDKEvents> m_events;
+    Ref<GDKGameSave> m_game_save;
 
 protected:
     static void _bind_methods();
@@ -109,6 +111,7 @@ public:
     Ref<GDKActivation> get_activation() const;
     Ref<GDKSpeechSynthesizer> get_speech() const;
     Ref<GDKEvents> get_events() const;
+    Ref<GDKGameSave> get_game_save() const;
 
     GDKRuntime *get_runtime() const;
     GDKXboxServices *get_xbox_services() const;

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GDKGameSave" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		GDK-native file-style game save service accessed via GDK.game_save.
+	</brief_description>
+	<description>
+		Wraps [code]XGameSaveFiles[/code] to resolve a user's cloud-synced save folder and query the remaining storage quota. This is the simpler file-based variation of the connected-storage API and is distinct from PlayFab Game Saves ([code]godot_playfab[/code]) and from [GDKTitleStorage]. The title's [code]MicrosoftGame.config[/code] must declare a connected-storage/save-folder configuration for these calls to succeed; the service configuration ID (SCID) is supplied automatically from the initialized Xbox services scaffold.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_folder_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Resolves the local, cloud-synced save folder for [param user] via [code]XGameSaveFilesGetFolderWithUiAsync[/code]. Returns a [Signal] that completes with a [GDKResult] whose [code]data.path[/code] holds the absolute folder path. The platform may show a brief sync UI. Requires a signed-in [GDKUser] and an initialized runtime.
+			</description>
+		</method>
+		<method name="get_remaining_quota">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. On success [code]GDKResult.data.bytes[/code] holds the remaining byte count. Synchronous; requires a signed-in [GDKUser] and an initialized runtime.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

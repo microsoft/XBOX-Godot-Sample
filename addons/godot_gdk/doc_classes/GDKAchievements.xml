@@ -31,6 +31,14 @@
 				Returns an [Array] of cached [GDKAchievement] objects for the specified [param user]. Call [method query_player_achievements_async] first to populate the cache.
 			</description>
 		</method>
+		<method name="get_achievements_by_state">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="progress_state" type="String" />
+			<description>
+				Returns the cached achievements for [param user] filtered by progress state via [code]XblAchievementsManagerGetAchievementsByState[/code]. [param progress_state] is one of [code]"Achieved"[/code], [code]"NotStarted"[/code], [code]"InProgress"[/code], or [code]"Unknown"[/code] (case-insensitive). On success [member GDKResult.data] holds [code]progress_state[/code] and an [code]achievements[/code] [Array] of [GDKAchievement]. Returns [code]achievements_not_loaded[/code] if [method query_player_achievements_async] has not completed for [param user] yet.
+			</description>
+		</method>
 	</methods>
 	<members>
 	</members>

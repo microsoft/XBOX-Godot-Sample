@@ -116,6 +116,7 @@ peer test-account XUIDs from the checklist in
 | `get_sandbox_id()` | `GDKResult` | Read the current sandbox ID (`data` is `String`) |
 | `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
 | `is_xbox_services_initialized()` | `bool` | Check whether the shared XBOX services scaffold is initialized |
+| `is_feature_available(name)` | `bool` | Check whether an optional GDK runtime feature is available (`XGameRuntimeIsFeatureAvailable`). `name` is a case-insensitive feature id such as `"XAccessibility"`, `"XGameUI"`, `"XGameSave"`, or `"XGameStreaming"`. Unknown names push a warning and return `false`. |
 
 ### Usage
 
@@ -282,6 +283,7 @@ with direct-await completion signals.
 | `query_player_achievements_async(user)` | `Signal` | Query achievements for a user |
 | `update_achievement_async(user, achievement_id, percent_complete)` | `Signal` | Update achievement progress |
 | `get_cached_achievements(user)` | `Array` | Get cached achievement list |
+| `get_achievements_by_state(user, progress_state)` | `GDKResult` | Filter the cached achievements by progress state (`"Achieved"`, `"NotStarted"`, `"InProgress"`, `"Unknown"`; case-insensitive). `data.achievements` is an `Array` of `GDKAchievement`. Returns `achievements_not_loaded` until `query_player_achievements_async()` has warmed the cache for `user`. |
 
 ### Signals
 
@@ -405,9 +407,12 @@ real-time statistic tracking, and a per-user in-memory cache.
 |--------|---------|-------------|
 | `query_user_stats_async(user, stat_names := PackedStringArray())` | `Signal` | Query named stats for one local user; success data is a `Dictionary` keyed by stat name |
 | `query_users_stats_async(user, xuids, stat_names := PackedStringArray())` | `Signal` | Query named stats for multiple target XUIDs using the local user as caller context; success data is keyed by XUID |
+| `get_single_stat_async(user, stat_name)` | `Signal` | Read a single named stat for the signed-in user; success data is a `Dictionary` keyed by stat name (one entry) |
 | `set_stat_integer(user, stat_name, value)` | `GDKResult` | Stage an integer title-managed statistic for the user |
 | `set_stat_number(user, stat_name, value)` | `GDKResult` | Stage a numeric title-managed statistic for the user |
-| `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user |
+| `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user (merge semantics) |
+| `write_stats_async(user, stats)` | `Signal` | Replace-all write: the `stats` `Dictionary` (name → number/string) becomes the user's complete title-managed stat document. Live-write surface |
+| `delete_stats_async(user, stat_names)` | `Signal` | Delete the named title-managed stats for the user. Live-write surface |
 | `track_stats(user, stat_names)` | `GDKResult` | Start tracking real-time changes for named stats |
 | `stop_tracking_stats(user, stat_names := PackedStringArray())` | `GDKResult` | Stop tracking named stats, or all tracked stats for the user when empty |
 | `get_cached_stats(user)` | `Dictionary` | Return cached stats for the user keyed by stat name |
@@ -626,6 +631,8 @@ and broadcast fields when XBOX Services reports them.
 | `get_friends_async(user)` | `Signal` | Query the default friends group |
 | `create_social_group(user, filter)` | `GDKResult` | Create a filtered social group. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
 | `create_social_group_from_xuids(user, xuids)` | `GDKResult` | Create a social group from explicit XUIDs. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
+| `update_social_user_group(group, xuids)` | `GDKResult` | Replace the tracked-user list of a list-based `GDKSocialGroup` (one created via `create_social_group_from_xuids`). `result.data.count` is the new tracked-user count. Filter-based groups cannot be updated this way. |
+| `set_rich_presence_polling(user, enabled)` | `GDKResult` | Enable or disable Social Manager rich-presence polling for `user`. `result.data.enabled` echoes the requested state; the user's social graph is started if needed. |
 | `destroy_social_group(group)` | `void` | Destroy a social group |
 | `get_group_users(group)` | `GDKResult` | Get the `GDKSocialUser` list for a group. `result.data` is always an `Array` (possibly empty); `result.ok` is false when the underlying lookup fails. |
 | `submit_reputation_feedback_async(user, target_xuid, feedback_type, reason := "", evidence_id := "")` | `Signal` | Submit one reputation feedback item |
@@ -1379,4 +1386,44 @@ if not result.ok:
     push_warning("Event not written: %s" % result.code)
 ```
 
+## Game Save service: `GDK.game_save`
 
+`GDK.game_save` is a `RefCounted` service object returned by
+`GDK.get_game_save()`. It wraps the GDK-native file-style save API
+(`XGameSaveFiles.h`). This is distinct from PlayFab Game Saves
+(`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+
+The title must declare connected storage / a `SaveFolder` in its
+`MicrosoftGame.config`; without it the native calls fail and the propagated
+`HRESULT` error is returned.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_folder_async(user)` | `Signal` | Resolve the user's save folder (may surface a system UI) via `XGameSaveFilesGetFolderWithUiAsync`. Success data is `data.path` (absolute folder path). Titles then read/write ordinary files under that folder. |
+| `get_remaining_quota(user)` | `GDKResult` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. |
+
+### Validation notes
+
+- `not_initialized` when the GDK runtime is not yet initialized.
+- `invalid_user` when `user` is null or has no underlying handle.
+- `xbox_services_uninitialized` when the shared XBOX services scaffold (SCID)
+  is unavailable.
+
+### Usage
+
+```gdscript
+var user: GDKUser = GDK.users.get_primary_user()
+
+var folder_result: GDKResult = await GDK.game_save.get_folder_async(user)
+if folder_result.ok:
+    var save_path: String = folder_result.data.path
+    var f := FileAccess.open(save_path.path_join("save1.dat"), FileAccess.WRITE)
+    f.store_var({"level": 3, "score": 1450})
+    f.close()
+
+var quota_result: GDKResult = GDK.game_save.get_remaining_quota(user)
+if quota_result.ok:
+    print("Remaining save quota: %d bytes" % quota_result.data.bytes)
+```

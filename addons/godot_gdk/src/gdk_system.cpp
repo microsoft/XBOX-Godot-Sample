@@ -2,7 +2,10 @@
 
 #include <cstdio>
 
+#include <godot_cpp/variant/utility_functions.hpp>
+
 #include <XGame.h>
+#include <XGameRuntimeFeature.h>
 #include <XSystem.h>
 
 #include "gdk.h"
@@ -19,6 +22,51 @@ String _format_title_id_hex(uint32_t p_title_id) {
     return String(buffer);
 }
 
+struct FeatureNameEntry {
+    const char *name;
+    XGameRuntimeFeature feature;
+};
+
+const FeatureNameEntry kFeatureNames[] = {
+    { "XAccessibility", XGameRuntimeFeature::XAccessibility },
+    { "XAppCapture", XGameRuntimeFeature::XAppCapture },
+    { "XAsync", XGameRuntimeFeature::XAsync },
+    { "XAsyncProvider", XGameRuntimeFeature::XAsyncProvider },
+    { "XDisplay", XGameRuntimeFeature::XDisplay },
+    { "XGame", XGameRuntimeFeature::XGame },
+    { "XGameInvite", XGameRuntimeFeature::XGameInvite },
+    { "XGameSave", XGameRuntimeFeature::XGameSave },
+    { "XGameUI", XGameRuntimeFeature::XGameUI },
+    { "XLauncher", XGameRuntimeFeature::XLauncher },
+    { "XNetworking", XGameRuntimeFeature::XNetworking },
+    { "XPackage", XGameRuntimeFeature::XPackage },
+    { "XPersistentLocalStorage", XGameRuntimeFeature::XPersistentLocalStorage },
+    { "XSpeechSynthesizer", XGameRuntimeFeature::XSpeechSynthesizer },
+    { "XStore", XGameRuntimeFeature::XStore },
+    { "XSystem", XGameRuntimeFeature::XSystem },
+    { "XTaskQueue", XGameRuntimeFeature::XTaskQueue },
+    { "XThread", XGameRuntimeFeature::XThread },
+    { "XUser", XGameRuntimeFeature::XUser },
+    { "XError", XGameRuntimeFeature::XError },
+    { "XGameEvent", XGameRuntimeFeature::XGameEvent },
+    { "XGameStreaming", XGameRuntimeFeature::XGameStreaming },
+};
+
+bool _resolve_feature(const String &p_feature_name, XGameRuntimeFeature *r_feature) {
+    const String normalized = p_feature_name.strip_edges().to_lower();
+    if (normalized.is_empty()) {
+        return false;
+    }
+
+    for (const FeatureNameEntry &entry : kFeatureNames) {
+        if (normalized == String(entry.name).to_lower()) {
+            *r_feature = entry.feature;
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 void GDKSystem::_bind_methods() {
@@ -27,6 +75,7 @@ void GDKSystem::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_sandbox_id"), &GDKSystem::get_sandbox_id);
     ClassDB::bind_method(D_METHOD("get_service_configuration_id"), &GDKSystem::get_service_configuration_id);
     ClassDB::bind_method(D_METHOD("is_xbox_services_initialized"), &GDKSystem::is_xbox_services_initialized);
+    ClassDB::bind_method(D_METHOD("is_feature_available", "feature_name"), &GDKSystem::is_feature_available);
 }
 
 void GDKSystem::set_owner(GDK *p_owner) {
@@ -113,6 +162,17 @@ bool GDKSystem::is_xbox_services_initialized() const {
     }
 
     return xbox_services->is_initialized();
+}
+
+bool GDKSystem::is_feature_available(const String &p_feature_name) const {
+    XGameRuntimeFeature feature = {};
+    if (!_resolve_feature(p_feature_name, &feature)) {
+        UtilityFunctions::push_warning(
+                "GDK.system.is_feature_available: unknown feature name '" + p_feature_name + "'.");
+        return false;
+    }
+
+    return XGameRuntimeIsFeatureAvailable(feature);
 }
 
 } // namespace godot

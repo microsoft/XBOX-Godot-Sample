@@ -22,7 +22,7 @@ func test_achievements_full_flow() -> void:
 	if achievements == null:
 		return
 
-	for method_name in ["query_player_achievements_async", "update_achievement_async", "get_cached_achievements"]:
+	for method_name in ["query_player_achievements_async", "update_achievement_async", "get_cached_achievements", "get_achievements_by_state"]:
 		assert_has_method_named(achievements, method_name)
 
 	for signal_name in ["achievement_unlocked", "achievements_updated"]:
@@ -83,3 +83,51 @@ func test_achievements_full_flow() -> void:
 			assert_true(query_result.code.length() > 0, "achievement query failure exposes an error code")
 			assert_true(query_result.message.length() > 0, "achievement query failure exposes an error message")
 			pending("Achievement cache assertions: %s" % query_result.message)
+
+
+func test_get_achievements_by_state_validation() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	var achievements = gdk.get_achievements()
+	assert_not_null(achievements, "GDK.achievements returns service object")
+	if achievements == null:
+		return
+
+	# progress_state is validated before any runtime/user state, so an invalid
+	# state is rejected deterministically without a signed-in user.
+	var invalid_state = achievements.get_achievements_by_state(null, "not-a-state")
+	assert_result_error(invalid_state, "invalid_progress_state", "get_achievements_by_state() rejects unknown progress states")
+
+	var init_result = initialize_runtime()
+	assert_not_null(init_result, "GDK.initialize() for achievements-by-state validation returns GDKResult")
+	if init_result == null:
+		return
+	if not init_result.ok:
+		pending("Achievements-by-state validation: %s" % init_result.message)
+		return
+
+	var sign_in = await ensure_primary_user()
+	var user = sign_in["user"]
+	var sign_in_result = sign_in["result"]
+	if user == null:
+		if sign_in_result != null and not sign_in_result.ok:
+			pending("Achievements-by-state signed-in validation: %s" % sign_in_result.message)
+		else:
+			pending("Achievements-by-state signed-in validation: No signed-in user is available on this machine.")
+		return
+
+	# A valid progress state with a freshly-registered user that has not been
+	# queried yet reports achievements_not_loaded.
+	var not_loaded = achievements.get_achievements_by_state(user, "Achieved")
+	assert_not_null(not_loaded, "get_achievements_by_state() returns GDKResult for a signed-in user")
+	if not_loaded == null:
+		return
+	if not_loaded.ok:
+		assert_dict_has_key(not_loaded.data, "achievements", "get_achievements_by_state() success data exposes achievements")
+		assert_dict_has_key(not_loaded.data, "progress_state", "get_achievements_by_state() success data exposes progress_state")
+		assert_true(not_loaded.data["achievements"] is Array, "get_achievements_by_state() achievements payload is an Array")
+	else:
+		assert_true(not_loaded.code.length() > 0, "get_achievements_by_state() failure exposes an error code")
+		assert_true(not_loaded.message.length() > 0, "get_achievements_by_state() failure exposes an error message")

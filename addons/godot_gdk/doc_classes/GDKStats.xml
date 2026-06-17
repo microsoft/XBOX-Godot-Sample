@@ -26,6 +26,14 @@
 				Queries the specified statistics for multiple target XUIDs using [param user] as the local Xbox Services context. On success, [member GDKResult.data] is a [Dictionary] keyed by XUID, with each value a statistic-name dictionary.
 			</description>
 		</method>
+		<method name="get_single_stat_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_name" type="String" />
+			<description>
+				Reads a single named statistic for [param user] via [code]XblUserStatisticsGetSingleUserStatisticAsync[/code]. Await the returned completion [Signal]; on success [member GDKResult.data] holds the statistic payload for [param user]. Use [method query_user_stats_async] to read several stats in one call.
+			</description>
+		</method>
 		<method name="set_stat_integer">
 			<return type="GDKResult" />
 			<param index="0" name="user" type="GDKUser" />
@@ -49,6 +57,22 @@
 			<param index="0" name="user" type="GDKUser" />
 			<description>
 				Submits the staged title-managed statistics for [param user]. Await the returned completion [Signal] directly.
+			</description>
+		</method>
+		<method name="write_stats_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stats" type="Dictionary" />
+			<description>
+				Replaces all of [param user]'s title-managed statistics with the provided set via [code]XblTitleManagedStatsWriteAsync[/code]. [param stats] maps statistic names to numeric values; any title-managed stat not present in the map is removed by the service. Await the returned completion [Signal]; on success [member GDKResult.data] holds [code]xuid[/code] and [code]count[/code]. This writes online state and is a live-write surface. Contrast with [method flush_stats_async], which merges staged values without removing others.
+			</description>
+		</method>
+		<method name="delete_stats_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="stat_names" type="PackedStringArray" />
+			<description>
+				Deletes the named title-managed statistics for [param user] via [code]XblTitleManagedStatsDeleteStatsAsync[/code]. Names with no matching stat are ignored. Await the returned completion [Signal]; on success [member GDKResult.data] holds [code]xuid[/code] and [code]count[/code]. This writes online state and is a live-write surface.
 			</description>
 		</method>
 		<method name="track_stats">
