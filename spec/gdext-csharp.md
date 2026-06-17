@@ -336,8 +336,10 @@ addons/godot_gameinput/           # unchanged
 addons/godot_gameinput_csharp/    # NEW: GameInput C# facade class library
 addons/godot_gdk_packaging/       # unchanged GDScript editor plugin (no C# port)
 
-sample/tutorial_app_csharp/       # NEW: C# port of the GDK + PlayFab tutorial app
-sample/tutorial_gameinput_csharp/ # NEW: C# port of the GameInput tutorial
+sample/tutorial_gdk_csharp/        # NEW: C# mirror of sample/tutorial_gdk (GDK only)
+sample/tutorial_playfab_csharp/    # NEW: C# mirror of sample/tutorial_playfab (PlayFab only)
+sample/tutorial_integrated_csharp/ # NEW: C# mirror of sample/tutorial_integrated (GDK + PlayFab)
+sample/tutorial_gameinput_csharp/  # NEW: C# mirror of sample/tutorial_gameinput (GameInput)
 
 tests/godot/gdk_csharp/           # NEW: C# in-engine test host (GoDotTest)
 tests/godot/playfab_csharp/       # NEW: C# in-engine test host
@@ -355,16 +357,25 @@ sample/test projects' generated `.csproj`/`.sln`.
 
 ## Samples
 
-- **`tutorial_app_csharp`** — C# port of `sample/tutorial_app` (GDK + PlayFab),
-  starting with **T1 sign-in** (`t01_signin.gd` + `autoload/auth.gd`). The GDScript
-  `Auth` autoload state machine (check → silent → UI fallback) maps to a C#
-  `Auth : Node` autoload exposing `Task SignInAsync()` and a `StateChanged` event.
-  Later scenes cover achievement, leaderboard, Game Saves, lobby, MPA, and Party flows
-  — the Party scene exercises the C# Godot-RPC-over-Party path.
-- **`tutorial_gameinput_csharp`** — C# port of `sample/tutorial_gameinput`, exercising
+The C# samples mirror the GDScript samples **1:1**. The GDScript side was split from a
+single monolithic app into four focused projects to demonstrate how modular these addons
+are; the C# side mirrors that split scene-for-scene so each track can be opened and run on
+its own:
+
+- **`tutorial_gdk_csharp`** — C# mirror of `sample/tutorial_gdk` (GDK only, no PlayFab).
+  A GDK-only `GdkAuth` autoload (check → silent → UI fallback) and scenes G1–G5: sign-in,
+  achievement, title storage + stats, MPA, and text-to-speech.
+- **`tutorial_playfab_csharp`** — C# mirror of `sample/tutorial_playfab` (PlayFab only).
+  A PlayFab-only `PlayFabAuth` autoload (custom-id sign-in, no Xbox dependency) and scenes
+  P1–P4: sign-in, leaderboard, lobby, and Party — the Party scene exercises the C#
+  Godot-RPC-over-Party path.
+- **`tutorial_integrated_csharp`** — C# mirror of `sample/tutorial_integrated` (GDK +
+  PlayFab). A phased `Auth` autoload (Xbox → PlayFab) and an I2 integration tech demo with
+  seven tabs: achievements, leaderboard, Game Saves, lobby, MPA, Party, and GDK Game Chat.
+- **`tutorial_gameinput_csharp`** — C# mirror of `sample/tutorial_gameinput`, exercising
   device enumeration, polling, the `InputMap` bridge, rumble, and hot-plug.
 
-Both samples require a **`_mono`** Godot editor and `dotnet/project/assembly_name`
+All samples require a **`_mono`** Godot editor and `dotnet/project/assembly_name`
 configured in their `project.godot`.
 
 ## Tests
@@ -474,8 +485,8 @@ pattern.
   `game_saves`, `leaderboards`, and the client services. Parity test + docs.
 - **Phase 5 — PlayFab Multiplayer + Party.** `multiplayer` (Lobby + Matchmaking) and
   `party` (real-time net + chat), including the C# Godot-RPC-over-Party path and the
-  background error/state event wrappers. Extend `tutorial_app_csharp` (lobby, MPA,
-  Party scenes). Resolve Risk #4.
+  background error/state event wrappers. Extend the integrated/PlayFab C# samples
+  (lobby, MPA, Party scenes). Resolve Risk #4.
 - **Phase 6 — GameInput facade + sample.** `GameInput` facade (sync polling,
   hot-plug events, vibration), `GameInputRuntime` autoload, action-map Resource +
   `InputMap` bridge, `tutorial_gameinput_csharp`, `docs/gameinput/csharp.md`. Resolve
@@ -517,9 +528,12 @@ sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
   `Mapper` authoring wrappers + `InputMap` bridge, `GameInputRuntime` autoload,
   and `sample/tutorial_gameinput_csharp`. In-engine smoke: device hot-plug enumerated,
   clean shutdown.
-- **Phase 3 — GDK + PlayFab sample (`tutorial_app_csharp`): ✅ shipped.** All eight
-  tutorial scenes, autoloads (`Auth`/`Lobby`/`Party`/bootstraps), and panels ported.
-  In-engine headless smoke completes the full sign-in flow with no errors.
+- **Phase 3 — C# samples mirror the GDScript samples 1:1: ✅ shipped.** The monolithic
+  `tutorial_app_csharp` was split into `tutorial_gdk_csharp` (GDK only),
+  `tutorial_playfab_csharp` (PlayFab only), and `tutorial_integrated_csharp` (GDK +
+  PlayFab, seven-tab integration demo incl. GDK Game Chat), matching the GDScript
+  restructure that demonstrates addon modularity. `tutorial_gameinput_csharp` mirrors the
+  GameInput sample. All four sample `.csproj` projects build clean (`dotnet build`).
 - **Phase 7 — Tests: ✅ partial.** `tests/csharp/FacadeParity.Tests` (xUnit, 101
   tests) reflects over all three facade assemblies and asserts every native
   `doc_classes` method/member/signal has a managed wrapper; run via

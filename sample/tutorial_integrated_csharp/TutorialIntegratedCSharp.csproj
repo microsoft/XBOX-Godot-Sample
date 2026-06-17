@@ -1,0 +1,12 @@
+<Project Sdk="Godot.NET.Sdk/4.6.3">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>disable</Nullable>
+    <AssemblyName>TutorialIntegratedCSharp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\addons\godot_gdk_csharp\GodotGdkCSharp.csproj" />
+    <ProjectReference Include="..\..\addons\godot_playfab_csharp\GodotPlayFabCSharp.csproj" />
+  </ItemGroup>
+</Project>
