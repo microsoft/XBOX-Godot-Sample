@@ -1,5 +1,6 @@
 #include "gdk_game_chat.h"
 
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -367,6 +368,27 @@ Ref<GDKResult> GDKGameChat::remove_user(const String &p_xuid) {
     return GDKResult::ok_result();
 }
 
+void GDKGameChat::on_user_removed(const Ref<GDKUser> &p_user) {
+    // Sign-out hook. Critically, return *before* touching
+    // chat_manager::singleton_instance() when chat is not initialized: a
+    // sign-out must never lazily spin up GameChat2. When chat is active, drop
+    // the signed-out user so it cannot linger in GameChat2 after GDK.users has
+    // forgotten it. A user that was never added to chat is simply a no-op.
+    if (!m_initialized || !p_user.is_valid()) {
+        return;
+    }
+
+    const String xuid = p_user->get_xuid();
+    if (xuid.is_empty()) {
+        return;
+    }
+
+    auto *user = static_cast<chat_user *>(_find_user(xuid));
+    if (user != nullptr) {
+        chat_manager::singleton_instance().remove_user(user);
+    }
+}
+
 Ref<GDKResult> GDKGameChat::set_communication_relationship(const String &p_local_xuid, const String &p_target_xuid, int p_relationship) {
     if (!m_initialized) {
         return GDKResult::error_result(E_FAIL, "not_initialized", "Call GDK.game_chat.initialize() first.");
@@ -506,6 +528,9 @@ Ref<GDKResult> GDKGameChat::process_incoming_data_frame(int64_t p_source_endpoin
     }
     if (p_bytes.is_empty()) {
         return GDKResult::error_result(E_INVALIDARG, "invalid_data", "The incoming data frame must contain at least one byte.");
+    }
+    if (p_bytes.size() > static_cast<int64_t>(UINT32_MAX)) {
+        return GDKResult::error_result(E_INVALIDARG, "invalid_data", "The incoming data frame exceeds the maximum supported size (UINT32_MAX bytes).");
     }
 
     chat_manager::singleton_instance().process_incoming_data(

@@ -513,6 +513,9 @@ void GDK::notify_user_removed(const Ref<GDKUser> &p_user) {
     if (m_multiplayer_activity.is_valid()) {
         m_multiplayer_activity->on_user_removed(p_user);
     }
+    if (m_game_chat.is_valid()) {
+        m_game_chat->on_user_removed(p_user);
+    }
     if (m_xbox_services != nullptr) {
         XUserLocalId local_id = {};
         local_id.value = static_cast<uint64_t>(p_user->get_local_id());

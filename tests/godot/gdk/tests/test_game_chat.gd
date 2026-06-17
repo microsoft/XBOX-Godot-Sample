@@ -206,7 +206,26 @@ func test_game_chat_text_loopback_when_user_available() -> void:
 	# Loopback: feed the captured frame back in as if it arrived from the peer.
 	var frame: Dictionary = captured_frames[0]
 	assert_true(frame["bytes"].size() > 0, "outgoing_data_frame carries a non-empty payload")
+
+	var received: Array = []
+	var on_text := func(sender_xuid, message):
+		received.append({ "sender": sender_xuid, "message": message })
+	game_chat.text_chat_received.connect(on_text)
+
 	var round_trip = game_chat.process_incoming_data_frame(REMOTE_ENDPOINT, frame["bytes"])
 	assert_result_ok(round_trip, "process_incoming_data_frame() accepts a looped-back frame")
+
+	# Pump a few frames so the state-change pump surfaces text_chat_received.
+	for _i in range(30):
+		await get_tree().process_frame
+		if not received.is_empty():
+			break
+
+	game_chat.text_chat_received.disconnect(on_text)
+
+	assert_false(received.is_empty(), "text_chat_received fires for the looped-back text frame")
+	if not received.is_empty():
+		assert_eq(received[0]["message"], "loopback hello", "text_chat_received delivers the original message text")
+		assert_false(String(received[0]["sender"]).is_empty(), "text_chat_received reports a non-empty sender XUID")
 
 	game_chat.cleanup()

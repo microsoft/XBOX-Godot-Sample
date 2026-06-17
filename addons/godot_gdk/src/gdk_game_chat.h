@@ -89,6 +89,8 @@ public:
     Ref<GDKResult> add_remote_user(const String &p_xuid, int64_t p_endpoint_id);
     Ref<GDKResult> remove_user(const String &p_xuid);
 
+    void on_user_removed(const Ref<GDKUser> &p_user);
+
     Ref<GDKResult> set_communication_relationship(const String &p_local_xuid, const String &p_target_xuid, int p_relationship);
     Ref<GDKResult> set_microphone_muted(const String &p_local_xuid, bool p_muted);
     Ref<GDKResult> set_remote_user_muted(const String &p_local_xuid, const String &p_target_xuid, bool p_muted);
