@@ -42,6 +42,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Events | Implemented | `GDK.events` wraps the per-title `XGameEvent.h` writer (`XGameEventWrite`) for GDK-native in-game telemetry. Complementary to PlayFab analytics. The `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`) remain internal-gated and unwrapped |
 | Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves. Requires the title's `MicrosoftGame.config` connected-storage/SaveFolder config. The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
 | Runtime feature probe | Implemented | `GDK.system.is_feature_available(name)` wraps `XGameRuntimeIsFeatureAvailable` (`XGameRuntimeFeature.h`) so titles can gate optional GDK features (e.g. Events, GameChat) at runtime |
+| Voice and text chat | Implemented | `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) `chat_manager` for GDK-native voice + text chat: user management, communication relationships, mute/volume controls, text, and text-to-speech. The wrapper exposes Game Chat's opaque data-frame surface (`outgoing_data_frame` signal + `process_incoming_data_frame`) and builds **no** network transport — titles ferry frames over their own transport (sample/tests use single-process loopback). This is the GDK-native alternative to PlayFab Party (`godot_playfab`) |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
@@ -388,6 +389,7 @@ GDK.multiplayer_activity: GDKMultiplayerActivity
 GDK.speech: GDKSpeechSynthesizer
 GDK.events: GDKEvents
 GDK.game_save: GDKGameSave
+GDK.game_chat: GDKGameChat
 ```
 
 #### Root signals
@@ -530,6 +532,67 @@ get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remain
 | `get_remaining_quota()` | `XGameSaveFilesGetRemainingQuota` | Synchronous; returns remaining quota bytes. |
 
 > The richer `XGameSave.h` connected-storage container API (27 functions) is intentionally **not** wrapped: it is a more complex API than `XGameSaveFiles` and overlaps PlayFab Game Saves.
+
+#### `GDK.game_chat` service
+
+##### Methods
+
+```gdscript
+initialize(max_users := 16, default_relationship := GDKGameChat.RELATIONSHIP_SEND_AND_RECEIVE_ALL) -> GDKResult
+is_initialized() -> bool
+cleanup() -> void
+add_local_user(user: GDKUser) -> GDKResult                                  # GDKResult.data.xuid
+add_remote_user(xuid: String, endpoint_id: int) -> GDKResult               # GDKResult.data := {xuid, endpoint_id}
+remove_user(xuid: String) -> GDKResult
+set_communication_relationship(local_xuid, target_xuid, relationship: int) -> GDKResult
+set_microphone_muted(local_xuid: String, muted: bool) -> GDKResult
+set_remote_user_muted(local_xuid: String, target_xuid: String, muted: bool) -> GDKResult
+set_audio_render_volume(local_xuid: String, target_xuid: String, volume: float) -> GDKResult
+send_text(local_xuid: String, text: String) -> GDKResult
+synthesize_text_to_speech(local_xuid: String, text: String) -> GDKResult
+process_incoming_data_frame(source_endpoint_id: int, bytes: PackedByteArray) -> GDKResult
+get_chat_users() -> Array          # [{xuid, is_local, chat_indicator}]
+```
+
+##### Signals
+
+```gdscript
+outgoing_data_frame(target_endpoint_ids: PackedInt64Array, bytes: PackedByteArray, transport_requirement: int)
+text_chat_received(sender_xuid: String, message: String)
+transcribed_chat_received(speaker_xuid: String, message: String)
+```
+
+##### Behavior contract
+
+- `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) C++ `chat_manager` singleton. It is the GDK-native voice + text chat option; PlayFab Party (`godot_playfab`) is the batteries-included alternative that owns its own transport.
+- **No transport is built or selected.** Game Chat encodes its own opaque audio/text data frames; the wrapper exposes that surface only. During the per-frame pump (driven by `GDK.dispatch()`), each frame Game Chat wants to send is emitted on `outgoing_data_frame`; the title delivers those bytes over whatever transport it already has and calls `process_incoming_data_frame()` on each receiving instance. The sample and tests demonstrate this with single-process **loopback** (feeding each `outgoing_data_frame` straight back into `process_incoming_data_frame`).
+- `initialize()` requires the GDK runtime to be initialized; it then initializes the `chat_manager` for `max_users` combined local + remote users with `default_relationship` between new users. Re-initializing without `cleanup()` first returns `already_initialized`; `max_users <= 0` returns `invalid_max_users`.
+- `add_local_user()` requires a signed-in `GDKUser` (its decimal XUID); remote users are added by XUID + a title-assigned `endpoint_id` used to address outgoing frames and attribute incoming ones.
+- Independent voice and text control mirrors PlayFab Party: `set_communication_relationship()` takes a bitwise combination of `GDKGameChat.CommunicationRelationship` flags (separate send/receive bits for microphone, text-to-speech audio, and text), and `set_microphone_muted()` / `set_remote_user_muted()` / `set_audio_render_volume()` provide per-user mute and volume.
+- Inbound text and transcription surface on `text_chat_received` / `transcribed_chat_received` during the pump. `shutdown()` calls `cleanup()` automatically.
+- Real voice capture/render requires multi-machine audio hardware and cannot be validated headlessly (mirrors the Party "voice deferred" stance); headless coverage exercises the service surface, enum constants, lifecycle, and data-frame plumbing.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `initialize()` | `chat_manager::initialize` | Sets max users and the default local↔remote relationship. |
+| `cleanup()` / service shutdown | `chat_manager::cleanup` | Releases all Game Chat resources. |
+| `add_local_user()` | `chat_manager::add_local_user` | Adds a signed-in user's XUID as a local chat user. |
+| `add_remote_user()` | `chat_manager::add_remote_user` | Adds a remote XUID reachable on a title-assigned endpoint id. |
+| `remove_user()` | `chat_manager::get_chat_users`, `chat_manager::remove_user` | Locates the user by XUID, then removes it. |
+| `set_communication_relationship()` | `chat_user::chat_user_local::set_communication_relationship` | Bitwise `game_chat_communication_relationship_flags`. |
+| `set_microphone_muted()` | `chat_user::chat_user_local::set_microphone_muted` | Local microphone mute. |
+| `set_remote_user_muted()` | `chat_user::chat_user_local::set_remote_user_muted` | Per-remote-user mute for a local user. |
+| `set_audio_render_volume()` | `chat_user::chat_user_local::set_audio_render_volume` | Per-remote render volume. |
+| `send_text()` | `chat_user::chat_user_local::send_chat_text` | 1–1023 character chat text. |
+| `synthesize_text_to_speech()` | `chat_user::chat_user_local::synthesize_text_to_speech` | TTS-as-microphone for the local user. |
+| `process_incoming_data_frame()` | `chat_manager::process_incoming_data` | Hands a received frame to Game Chat by source endpoint id. |
+| `get_chat_users()` | `chat_manager::get_chat_users`, `chat_user::xbox_user_id`, `chat_user::local`, `chat_user::chat_indicator` | Snapshots current users into dictionaries. |
+| `outgoing_data_frame` (pump) | `chat_manager::start_processing_data_frames`, `chat_manager::finish_processing_data_frames` | Emits each frame's targets, bytes, and transport requirement. |
+| `text_chat_received` / `transcribed_chat_received` (pump) | `chat_manager::start_processing_state_changes`, `chat_manager::finish_processing_state_changes` | Drains text + transcription state changes. |
+
+> Game Chat 2 ships in its own `GameChat2.lib`/`GameChat2.dll`. The wrapper links `Xbox::GameChat2` and includes `GameChat2Impl.h` in exactly one translation unit (the class methods are defined out-of-line there). No network transport is part of this addon.
 
 #### `GDK.users` service
 

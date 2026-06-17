@@ -1427,3 +1427,96 @@ var quota_result: GDKResult = GDK.game_save.get_remaining_quota(user)
 if quota_result.ok:
     print("Remaining save quota: %d bytes" % quota_result.data.bytes)
 ```
+
+## Game Chat service: `GDK.game_chat`
+
+`GDK.game_chat` is a `RefCounted` service object returned by
+`GDK.get_game_chat()`. It wraps the Game Chat 2 (`GameChat2.h`) `chat_manager`
+for GDK-native voice and text chat. It is the GDK-native alternative to PlayFab
+Party (`godot_playfab`), which is the batteries-included option that owns its
+own transport.
+
+**No transport is built or selected.** Game Chat encodes its own opaque
+audio/text data frames; this wrapper only exposes that surface. While the
+manager is pumped each frame (driven automatically by `GDK.dispatch()`), every
+frame Game Chat wants to send is emitted on the `outgoing_data_frame` signal.
+Deliver those bytes over whatever transport your title already has, then call
+`process_incoming_data_frame()` on each receiving instance. The sample and tests
+demonstrate this with single-process **loopback** (feeding each
+`outgoing_data_frame` straight back into `process_incoming_data_frame`).
+
+Real voice capture and rendering require multi-machine audio hardware and cannot
+be validated headlessly; headless coverage exercises the service surface, enum
+constants, lifecycle, and data-frame plumbing.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `initialize(max_users := 16, default_relationship := RELATIONSHIP_SEND_AND_RECEIVE_ALL)` | `GDKResult` | Initialize the `chat_manager` for `max_users` combined local + remote users. Errors: `not_initialized`, `already_initialized`, `invalid_max_users`. |
+| `is_initialized()` | `bool` | `true` between a successful `initialize()` and `cleanup()`. |
+| `cleanup()` | `void` | Release all Game Chat resources (also called on `GDK.shutdown`). |
+| `add_local_user(user)` | `GDKResult` | Add a signed-in `GDKUser` as a local chat user. Success data is `data.xuid`. |
+| `add_remote_user(xuid, endpoint_id)` | `GDKResult` | Add a remote user by XUID reachable on a title-assigned `endpoint_id`. Success data is `{xuid, endpoint_id}`. |
+| `remove_user(xuid)` | `GDKResult` | Remove the local or remote user matching `xuid`. |
+| `set_communication_relationship(local_xuid, target_xuid, relationship)` | `GDKResult` | Set the bitwise `CommunicationRelationship` flags from a local user toward a target. |
+| `set_microphone_muted(local_xuid, muted)` | `GDKResult` | Mute/unmute a local user's microphone. |
+| `set_remote_user_muted(local_xuid, target_xuid, muted)` | `GDKResult` | Mute/unmute a remote user for a local user. |
+| `set_audio_render_volume(local_xuid, target_xuid, volume)` | `GDKResult` | Set the render volume (0.0–1.0) for audio from a remote user. |
+| `send_text(local_xuid, text)` | `GDKResult` | Send a 1–1023 character chat text message. |
+| `synthesize_text_to_speech(local_xuid, text)` | `GDKResult` | Synthesize text as speech from the local user (when TTS is enabled). |
+| `process_incoming_data_frame(source_endpoint_id, bytes)` | `GDKResult` | Hand Game Chat a frame received from a remote endpoint. |
+| `get_chat_users()` | `Array` | Snapshot of current users as `{xuid, is_local, chat_indicator}` dictionaries. |
+
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `outgoing_data_frame(target_endpoint_ids, bytes, transport_requirement)` | A frame the title must transmit to each endpoint in `target_endpoint_ids`. `transport_requirement` is a `TransportRequirement` value. |
+| `text_chat_received(sender_xuid, message)` | A text message addressed to one or more local users. |
+| `transcribed_chat_received(speaker_xuid, message)` | A remote speaker's transcribed voice for local users who requested speech-to-text. |
+
+### Independent voice and text control
+
+Like PlayFab Party, Game Chat tracks voice and text independently. The
+`CommunicationRelationship` flags carry separate send/receive bits for
+microphone audio, text-to-speech audio, and text, and per-user mute/volume is
+controlled via `set_microphone_muted()`, `set_remote_user_muted()`, and
+`set_audio_render_volume()`.
+
+### Validation notes
+
+- `not_initialized` before `GDK.initialize()` (for `initialize()`) or before
+  `GDK.game_chat.initialize()` (for every other method).
+- `invalid_max_users` when `max_users <= 0`; `already_initialized` on re-init.
+- `invalid_xuid` / `invalid_user` for empty XUIDs or non-signed-in users;
+  `invalid_text` for empty/over-long text; `invalid_data` for an empty frame.
+- `user_not_found`, `not_local_user`, `target_not_found`, `add_user_failed` for
+  user-lookup and add failures.
+
+### Usage
+
+```gdscript
+GDK.game_chat.initialize()
+
+# Local (signed-in) user plus a remote peer reachable on endpoint 1001.
+var me: GDKUser = GDK.users.get_primary_user()
+var local := GDK.game_chat.add_local_user(me)
+GDK.game_chat.add_remote_user("2814639011419087", 1001)
+
+# Ferry Game Chat's encoded frames over your own transport. Here we loop them
+# straight back (single-process loopback) to exercise the round trip.
+GDK.game_chat.outgoing_data_frame.connect(
+    func(target_endpoint_ids, bytes, transport_requirement):
+        for endpoint in target_endpoint_ids:
+            my_transport.send(endpoint, bytes)  # or, for loopback:
+        GDK.game_chat.process_incoming_data_frame(1001, bytes)
+)
+
+GDK.game_chat.text_chat_received.connect(
+    func(sender_xuid, message): print("%s: %s" % [sender_xuid, message])
+)
+
+GDK.game_chat.send_text(local.data.xuid, "hello over game chat")
+```
+
