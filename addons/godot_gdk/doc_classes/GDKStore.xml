@@ -32,6 +32,50 @@
 				Shows the system purchase UI for the specified Store product ID.
 			</description>
 		</method>
+		<method name="show_product_page_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<description>
+				Shows the system product page UI for the specified Store product ID. The completion [Signal] emits a [GDKResult] whose [code]data.store_id[/code] echoes the requested product.
+			</description>
+		</method>
+		<method name="show_associated_products_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<param index="2" name="product_kinds" type="String" default="&quot;&quot;" />
+			<description>
+				Shows the system associated-products UI for the specified Store product ID. [code]product_kinds[/code] is a comma-separated filter drawn from [code]consumable[/code], [code]durable[/code], [code]game[/code], [code]pass[/code], and [code]unmanaged_consumable[/code]; an empty string includes all kinds.
+			</description>
+		</method>
+		<method name="show_rate_and_review_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Shows the system rate-and-review UI for the current title. The completion [Signal] emits a [GDKResult] whose [code]data.was_updated[/code] reports whether the user submitted or changed a review.
+			</description>
+		</method>
+		<method name="show_redeem_token_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="token" type="String" />
+			<param index="2" name="allowed_store_ids" type="PackedStringArray" default="PackedStringArray()" />
+			<param index="3" name="disallow_csv_redemption" type="bool" default="false" />
+			<description>
+				Shows the system token-redemption UI for the supplied 5x5 token or token string. [code]allowed_store_ids[/code] optionally restricts which products may be redeemed; [code]disallow_csv_redemption[/code] blocks redeeming as Store credit.
+			</description>
+		</method>
+		<method name="show_gifting_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="store_id" type="String" />
+			<param index="2" name="name" type="String" default="&quot;&quot;" />
+			<param index="3" name="extended_json" type="String" default="&quot;&quot;" />
+			<description>
+				Shows the system gifting UI for the specified Store product ID. [code]name[/code] and [code]extended_json[/code] are optional gifting metadata forwarded to the Store.
+			</description>
+		</method>
 		<method name="get_cached_license_status" qualifiers="const">
 			<return type="GDKStoreLicenseStatus" />
 			<param index="0" name="store_id" type="String" />

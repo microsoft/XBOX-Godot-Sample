@@ -199,6 +199,10 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 | `show_player_profile_card_async(requesting_user, target_xuid)` | `Signal` | Show the profile card UI for a target XUID |
 | `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids, min_selection_count, max_selection_count)` | `Signal` | Show player picker UI; success data includes `selected_xuids` and `selection_count` |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Forward to users-service privilege remediation UI flow |
+| `show_achievements_async(requesting_user)` | `Signal` | Show the system achievements UI for the current title |
+| `show_error_dialog_async(error_code, context)` | `Signal` | Show the system error dialog for an HRESULT `error_code` with optional `context` text |
+| `show_send_game_invite_async(requesting_user, session_configuration_id, session_template_name, session_id, invitation_text, custom_activation_context)` | `Signal` | Show the system send-game-invite UI for a multiplayer session |
+| `show_text_entry_async(title_text, description_text, default_text, input_scope, max_text_length)` | `Signal` | Show the virtual-keyboard text entry UI; success data includes `text` |
 
 ### Validation
 
@@ -770,6 +774,11 @@ signed-in [`GDKUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-
 | `query_license_status_async(user, store_id)` | `Signal` | Query whether `user` can acquire a license for `store_id`. Completion `GDKResult.data` is a `GDKStoreLicenseStatus` on success. |
 | `refresh_entitlements_async(user, store_id)` | `Signal` | Refresh entitlements for `store_id` by re-querying license-acquire status. |
 | `show_purchase_ui_async(user, store_id)` | `Signal` | Show the system purchase UI for `store_id`. |
+| `show_product_page_ui_async(user, store_id)` | `Signal` | Show the system product page UI for `store_id`. |
+| `show_associated_products_ui_async(user, store_id, product_kinds)` | `Signal` | Show the associated-products UI. `product_kinds` is a comma-separated filter (`consumable`, `durable`, `game`, `pass`, `unmanaged_consumable`); empty includes all kinds. |
+| `show_rate_and_review_ui_async(user)` | `Signal` | Show the rate-and-review UI; success data includes `was_updated`. |
+| `show_redeem_token_ui_async(user, token, allowed_store_ids, disallow_csv_redemption)` | `Signal` | Show the token-redemption UI for `token`. `allowed_store_ids` optionally restricts redeemable products. |
+| `show_gifting_ui_async(user, store_id, name, extended_json)` | `Signal` | Show the gifting UI for `store_id` with optional gifting metadata. |
 | `get_cached_license_status(store_id)` | `GDKStoreLicenseStatus` | Returns the cached license status for `store_id`, or `null` when no cached value exists. |
 | `check_cached_license_status(store_id)` | `GDKResult` | Synchronous cache-only check; returns `license_status_not_cached` when no cached status exists. |
 
@@ -1281,3 +1290,51 @@ fan-out so both services see the same parsed invite dictionary.
 - If activation registration fails on this host (e.g., a partially registered
   package), the synchronous `accept_pending_invite` API still works; the
   signal-driven flow simply emits no events. A `push_warning` is logged once.
+
+## Speech service: `GDK.speech`
+
+`GDK.speech` is a `RefCounted` service object returned by `GDK.get_speech()`. It
+wraps `XSpeechSynthesizer.h` to turn text or SSML into PCM/WAV audio bytes on the
+local device with no network call, which makes it usable for accessibility
+narration, prompts, and announcer lines. The service lazily creates a single
+native synthesizer the first time a voice is selected or speech is synthesized,
+and releases it on `GDK.shutdown()`.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_installed_voices()` | `Array` | Installed voices as dictionaries with `id`, `display_name`, `language`, `gender` (`"male"`/`"female"`), and `description`. Empty before `GDK.initialize()` |
+| `set_default_voice()` | `GDKResult` | Select the platform default voice for subsequent synthesis |
+| `set_custom_voice(voice_id)` | `GDKResult` | Select a voice by `id`; rejects an empty id with `invalid_voice_id` |
+| `synthesize_text(text)` | `GDKResult` | Synthesize plain text; `data.audio_wav` is a `PackedByteArray` of RIFF/WAV bytes and `data.byte_count` is its length |
+| `synthesize_ssml(ssml)` | `GDKResult` | Synthesize an SSML document; same payload shape as `synthesize_text` |
+| `synthesize_to_stream(text)` | `AudioStreamWAV` | Convenience helper returning a ready-to-play stream, or `null` on failure |
+
+### Validation notes
+
+- Calls before `GDK.initialize()` return `not_initialized`.
+- Empty `text`/`ssml` returns `invalid_input`; an empty `voice_id` returns `invalid_voice_id`.
+- If the synthesizer cannot be created on this host, calls return `speech_synthesizer_unavailable`.
+
+### Usage
+
+```gdscript
+# Enumerate voices and pick one
+var voices: Array = GDK.speech.get_installed_voices()
+if voices.size() > 0:
+    GDK.speech.set_custom_voice(voices[0]["id"])
+
+# Synthesize to raw WAV bytes
+var result: GDKResult = GDK.speech.synthesize_text("Welcome to the game.")
+if result.ok:
+    var wav_bytes: PackedByteArray = result.data["audio_wav"]
+    # ...persist or hand off the WAV bytes...
+
+# Or play immediately through a Godot AudioStreamPlayer
+var stream := GDK.speech.synthesize_to_stream("Welcome to the game.")
+if stream != null:
+    $AudioStreamPlayer.stream = stream
+    $AudioStreamPlayer.play()
+```
+

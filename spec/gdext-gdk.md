@@ -38,6 +38,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Capture | Implemented | `GDK.capture` wraps PC-supported `XAppCapture` metadata/state APIs; console-only paths excluded |
 | Display | Implemented | `GDK.display` wraps `XDisplay.h`: HDR mode probe/enable and idle display-timeout deferrals |
 | Game activation events | Implemented | `GDK.activation` wraps `XGameActivation.h` (modern replacement for the deprecated `XGameProtocol.h`) |
+| Text-to-speech | Implemented | `GDK.speech` wraps `XSpeechSynthesizer.h`: enumerate installed voices, select default/custom voice, and synthesize text/SSML to WAV/PCM bytes locally (no network) |
 | Events | Excluded | Do not wrap `events_c.h` Xbox Services telemetry/configuration APIs or the per-title `XGameEvent.h` writer; titles that need event telemetry should use PlayFab or a separate analytics integration |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
@@ -437,6 +438,39 @@ launch_uri(uri: String, user: GDKUser = null) -> GDKResult
 - Unsupported URI destinations reject with `unsupported_launcher_destination`.
 - Optional `user` must be a signed-in `GDKUser` when provided (`invalid_user`).
 
+#### `GDK.speech` service
+
+##### Methods
+
+```gdscript
+get_installed_voices() -> Array            # [{id, display_name, language, gender, description}, ...]
+set_default_voice() -> GDKResult
+set_custom_voice(voice_id: String) -> GDKResult
+synthesize_text(text: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+synthesize_ssml(ssml: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on failure
+```
+
+##### Behavior contract
+
+- Synthesis runs locally on the device and produces WAV/PCM bytes with no network call, so it is headless-testable.
+- The service lazily creates a single native `XSpeechSynthesizer` the first time a voice is selected or speech is synthesized, and releases it on `GDK.shutdown`.
+- Voice selection (`set_default_voice` / `set_custom_voice`) applies to every subsequent `synthesize_*` call.
+- Empty input rejects with `invalid_input`; an empty voice id rejects with `invalid_voice_id`.
+- Calls before `GDK.initialize()` return a `not_initialized` error; a failure to create the synthesizer returns `speech_synthesizer_unavailable`.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `get_installed_voices()` | `XSpeechSynthesizerEnumerateInstalledVoices` | Collects `XSpeechSynthesizerVoiceInformation` rows into dictionaries. |
+| `set_default_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetDefaultVoice` | Creates the synthesizer lazily. |
+| `set_custom_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetCustomVoice` | Selects a voice by id. |
+| `synthesize_text()` | `XSpeechSynthesizerCreateStreamFromText`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | Returns RIFF/WAV bytes in `GDKResult.data.audio_wav`. |
+| `synthesize_ssml()` | `XSpeechSynthesizerCreateStreamFromSsml`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | SSML variant of `synthesize_text`. |
+| `synthesize_to_stream()` | (decodes the `synthesize_text` WAV bytes) | Parses the RIFF/WAV header and returns a ready-to-play `AudioStreamWAV`. |
+| service shutdown | `XSpeechSynthesizerCloseHandle` | Releases the cached synthesizer. |
+
 #### `GDK.users` service
 
 ##### Methods
@@ -525,6 +559,10 @@ set_notification_position_hint(position: String) -> GDKResult
 show_player_profile_card_async(requesting_user: GDKUser, target_xuid: String) -> Signal
 show_player_picker_async(requesting_user: GDKUser, prompt: String, selectable_xuids: PackedStringArray, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal
 resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
+show_achievements_async(requesting_user: GDKUser) -> Signal
+show_error_dialog_async(error_code: int, context := "") -> Signal
+show_send_game_invite_async(requesting_user: GDKUser, session_configuration_id: String, session_template_name: String, session_id: String, invitation_text := "", custom_activation_context := "") -> Signal
+show_text_entry_async(title_text := "", description_text := "", default_text := "", input_scope := "default", max_text_length := 0) -> Signal
 ```
 
 ##### Notes
@@ -543,6 +581,12 @@ resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
 | `show_player_profile_card_async()` | `XGameUiShowPlayerProfileCardAsync`, `XGameUiShowPlayerProfileCardResult` | Requires a signed-in `GDKUser` requesting handle and numeric target XUID. |
 | `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `GDKResult.data`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Delegate to `GDK.users` privilege-remediation flow so existing users-service behavior remains authoritative. |
+| `show_achievements_async()` | `XGameUiShowAchievementsAsync`, `XGameUiShowAchievementsResult` | Title ID resolved via `XGameGetXboxTitleId`. Requires a signed-in `GDKUser`. |
+| `show_error_dialog_async()` | `XGameUiShowErrorDialogAsync`, `XGameUiShowErrorDialogResult` | Takes an HRESULT `error_code` plus optional `context` text. |
+| `show_send_game_invite_async()` | `XGameUiShowSendGameInviteAsync`, `XGameUiShowSendGameInviteResult` | Requires session configuration/template/id; optional invitation text and custom activation context. Title owns the MPSD session identifiers. |
+| `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `GDKResult.data.text`. |
+
+> Excluded from `GDK.game_ui` (engine/host overlap): `XGameUiShowStateShareAsync` and `XGameUiShowWebAuthenticationAsync`/`WithOptions` — Godot already provides web-auth/state-share equivalents.
 
 #### `GDK.achievements` service
 

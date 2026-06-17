@@ -55,6 +55,21 @@ public:
             int64_t p_min_selection_count = 1,
             int64_t p_max_selection_count = 1);
     Signal resolve_privilege_with_ui_async(const Ref<GDKUser> &p_user, int64_t p_privilege);
+    Signal show_achievements_async(const Ref<GDKUser> &p_requesting_user);
+    Signal show_error_dialog_async(int64_t p_error_code, const String &p_context);
+    Signal show_send_game_invite_async(
+            const Ref<GDKUser> &p_requesting_user,
+            const String &p_session_configuration_id,
+            const String &p_session_template_name,
+            const String &p_session_id,
+            const String &p_invitation_text,
+            const String &p_custom_activation_context);
+    Signal show_text_entry_async(
+            const String &p_title_text,
+            const String &p_description_text,
+            const String &p_default_text,
+            const String &p_input_scope,
+            int64_t p_max_text_length);
 
     GDKRuntime *get_runtime_internal() const;
     GDKUsers *get_users_internal() const;

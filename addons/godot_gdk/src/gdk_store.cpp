@@ -132,6 +132,268 @@ public:
             StoreXAsyncContext(p_service, p_runtime, p_pending_signal, p_store_id) {}
 };
 
+class StoreProductPageUiAsyncContext final : public StoreXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store product page UI request cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XStoreShowProductPageUIResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store product page UI was dismissed."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the store product page UI flow.",
+                    "store_product_page_result_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["store_id"] = get_store_id();
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    StoreProductPageUiAsyncContext(
+            GDKStore *p_service,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const String &p_store_id) :
+            StoreXAsyncContext(p_service, p_runtime, p_pending_signal, p_store_id) {}
+};
+
+class StoreAssociatedProductsUiAsyncContext final : public StoreXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store associated products UI request cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XStoreShowAssociatedProductsUIResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store associated products UI was dismissed."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the store associated products UI flow.",
+                    "store_associated_products_result_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["store_id"] = get_store_id();
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    StoreAssociatedProductsUiAsyncContext(
+            GDKStore *p_service,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const String &p_store_id) :
+            StoreXAsyncContext(p_service, p_runtime, p_pending_signal, p_store_id) {}
+};
+
+class StoreRateAndReviewUiAsyncContext final : public StoreXAsyncContext {
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store rate and review UI request cancelled."));
+            return;
+        }
+
+        XStoreRateAndReviewResult native_result = {};
+        HRESULT result_hr = XStoreShowRateAndReviewUIResult(p_async_block, &native_result);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store rate and review UI was dismissed."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the store rate and review UI flow.",
+                    "store_rate_and_review_result_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["was_updated"] = native_result.wasUpdated;
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    StoreRateAndReviewUiAsyncContext(
+            GDKStore *p_service,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal) :
+            StoreXAsyncContext(p_service, p_runtime, p_pending_signal, String()) {}
+};
+
+class StoreRedeemTokenUiAsyncContext final : public StoreXAsyncContext {
+    std::string m_token_utf8;
+    std::vector<std::string> m_allowed_store_ids_utf8;
+    std::vector<const char *> m_allowed_store_id_ptrs;
+    bool m_disallow_csv_redemption = false;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store redeem token UI request cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XStoreShowRedeemTokenUIResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store redeem token UI was dismissed."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the store redeem token UI flow.",
+                    "store_redeem_token_result_failed"));
+            return;
+        }
+
+        get_pending_signal()->complete(GDKResult::ok_result(Dictionary()));
+    }
+
+public:
+    StoreRedeemTokenUiAsyncContext(
+            GDKStore *p_service,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const String &p_token,
+            const PackedStringArray &p_allowed_store_ids,
+            bool p_disallow_csv_redemption) :
+            StoreXAsyncContext(p_service, p_runtime, p_pending_signal, String()),
+            m_token_utf8(p_token.utf8().get_data()),
+            m_disallow_csv_redemption(p_disallow_csv_redemption) {
+        for (int64_t i = 0; i < p_allowed_store_ids.size(); ++i) {
+            const String entry = p_allowed_store_ids[i].strip_edges();
+            if (!entry.is_empty()) {
+                m_allowed_store_ids_utf8.push_back(entry.utf8().get_data());
+            }
+        }
+        m_allowed_store_id_ptrs.reserve(m_allowed_store_ids_utf8.size());
+        for (const std::string &id : m_allowed_store_ids_utf8) {
+            m_allowed_store_id_ptrs.push_back(id.c_str());
+        }
+    }
+
+    const char *get_token_utf8() const {
+        return m_token_utf8.c_str();
+    }
+
+    const char **get_allowed_store_ids() {
+        return m_allowed_store_id_ptrs.empty() ? nullptr : m_allowed_store_id_ptrs.data();
+    }
+
+    size_t get_allowed_store_ids_count() const {
+        return m_allowed_store_id_ptrs.size();
+    }
+
+    bool get_disallow_csv_redemption() const {
+        return m_disallow_csv_redemption;
+    }
+};
+
+class StoreGiftingUiAsyncContext final : public StoreXAsyncContext {
+    std::string m_name_utf8;
+    std::string m_extended_json_utf8;
+    bool m_has_name = false;
+    bool m_has_extended_json = false;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store gifting UI request cancelled."));
+            return;
+        }
+
+        HRESULT result_hr = XStoreShowGiftingUIResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(GDKResult::cancelled("Store gifting UI was dismissed."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(GDKResult::hresult_error(
+                    result_hr,
+                    "Failed to complete the store gifting UI flow.",
+                    "store_gifting_result_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["store_id"] = get_store_id();
+        get_pending_signal()->complete(GDKResult::ok_result(data));
+    }
+
+public:
+    StoreGiftingUiAsyncContext(
+            GDKStore *p_service,
+            GDKRuntime *p_runtime,
+            const Ref<GDKPendingSignal> &p_pending_signal,
+            const String &p_store_id,
+            const String &p_name,
+            const String &p_extended_json) :
+            StoreXAsyncContext(p_service, p_runtime, p_pending_signal, p_store_id) {
+        const String name = p_name.strip_edges();
+        if (!name.is_empty()) {
+            m_name_utf8 = name.utf8().get_data();
+            m_has_name = true;
+        }
+        const String extended_json = p_extended_json.strip_edges();
+        if (!extended_json.is_empty()) {
+            m_extended_json_utf8 = extended_json.utf8().get_data();
+            m_has_extended_json = true;
+        }
+    }
+
+    const char *get_name_utf8() const {
+        return m_has_name ? m_name_utf8.c_str() : nullptr;
+    }
+
+    const char *get_extended_json_utf8() const {
+        return m_has_extended_json ? m_extended_json_utf8.c_str() : nullptr;
+    }
+};
+
+XStoreProductKind parse_product_kinds(const String &p_product_kinds) {
+    const String normalized = p_product_kinds.strip_edges().to_lower();
+    if (normalized.is_empty()) {
+        return XStoreProductKind::Consumable | XStoreProductKind::Durable |
+                XStoreProductKind::Game | XStoreProductKind::Pass |
+                XStoreProductKind::UnmanagedConsumable;
+    }
+
+    XStoreProductKind kinds = XStoreProductKind::None;
+    const PackedStringArray tokens = normalized.split(",", false);
+    for (int64_t i = 0; i < tokens.size(); ++i) {
+        const String token = tokens[i].strip_edges();
+        if (token == "consumable") {
+            kinds |= XStoreProductKind::Consumable;
+        } else if (token == "durable") {
+            kinds |= XStoreProductKind::Durable;
+        } else if (token == "game") {
+            kinds |= XStoreProductKind::Game;
+        } else if (token == "pass") {
+            kinds |= XStoreProductKind::Pass;
+        } else if (token == "unmanaged_consumable" || token == "unmanagedconsumable") {
+            kinds |= XStoreProductKind::UnmanagedConsumable;
+        }
+    }
+    return kinds;
+}
+
 } // namespace
 
 void GDKStoreLicenseStatus::_bind_methods() {
@@ -166,6 +428,11 @@ void GDKStore::_bind_methods() {
     ClassDB::bind_method(D_METHOD("query_license_status_async", "user", "store_id"), &GDKStore::query_license_status_async);
     ClassDB::bind_method(D_METHOD("refresh_entitlements_async", "user", "store_id"), &GDKStore::refresh_entitlements_async);
     ClassDB::bind_method(D_METHOD("show_purchase_ui_async", "user", "store_id"), &GDKStore::show_purchase_ui_async);
+    ClassDB::bind_method(D_METHOD("show_product_page_ui_async", "user", "store_id"), &GDKStore::show_product_page_ui_async);
+    ClassDB::bind_method(D_METHOD("show_associated_products_ui_async", "user", "store_id", "product_kinds"), &GDKStore::show_associated_products_ui_async, DEFVAL(String()));
+    ClassDB::bind_method(D_METHOD("show_rate_and_review_ui_async", "user"), &GDKStore::show_rate_and_review_ui_async);
+    ClassDB::bind_method(D_METHOD("show_redeem_token_ui_async", "user", "token", "allowed_store_ids", "disallow_csv_redemption"), &GDKStore::show_redeem_token_ui_async, DEFVAL(PackedStringArray()), DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("show_gifting_ui_async", "user", "store_id", "name", "extended_json"), &GDKStore::show_gifting_ui_async, DEFVAL(String()), DEFVAL(String()));
     ClassDB::bind_method(D_METHOD("get_cached_license_status", "store_id"), &GDKStore::get_cached_license_status);
     ClassDB::bind_method(D_METHOD("check_cached_license_status", "store_id"), &GDKStore::check_cached_license_status);
 }
@@ -247,6 +514,191 @@ Signal GDKStore::show_purchase_ui_async(const Ref<GDKUser> &p_user, const String
                 "Failed to start the store purchase UI flow.",
                 "store_purchase_start_failed");
         pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+bool GDKStore::_prepare_store_ui_call(const Ref<GDKUser> &p_user, GDKRuntime *&r_runtime, XStoreContextHandle &r_store_context, Signal &r_error_signal) {
+    r_runtime = _get_runtime();
+    if (r_runtime == nullptr || !r_runtime->is_available()) {
+        r_error_signal = _make_error_signal(E_FAIL, "runtime_unavailable", "GDK runtime is unavailable in the current process.");
+        return false;
+    }
+    if (!m_runtime_ready || !r_runtime->is_initialized()) {
+        r_error_signal = _make_error_signal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+        return false;
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
+        r_error_signal = _make_error_signal(E_INVALIDARG, "invalid_user", "A signed-in GDKUser is required.");
+        return false;
+    }
+
+    // PC GDK uses the Microsoft Store signed-in account for XStore context and
+    // expects a nullptr user handle here. We still validate p_user above so the
+    // public Godot API keeps a consistent "signed-in local user required"
+    // contract across store calls.
+    HRESULT context_hr = S_OK;
+    r_store_context = _get_or_create_store_context(context_hr);
+    if (FAILED(context_hr) || r_store_context == nullptr) {
+        r_error_signal = _make_error_signal(context_hr, "store_context_create_failed", "Failed to create an XStore context for the user.");
+        return false;
+    }
+
+    return true;
+}
+
+Signal GDKStore::show_product_page_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id) {
+    const String store_id = _normalize_store_id(p_store_id);
+    if (store_id.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_product_id", "A non-empty Store product ID is required.");
+    }
+
+    GDKRuntime *runtime = nullptr;
+    XStoreContextHandle store_context = nullptr;
+    Signal error_signal;
+    if (!_prepare_store_ui_call(p_user, runtime, store_context, error_signal)) {
+        return error_signal;
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new StoreProductPageUiAsyncContext(this, runtime, pending_signal, store_id);
+    context->bind_cancel_handler();
+
+    HRESULT start_hr = XStoreShowProductPageUIAsync(store_context, context->get_store_id_utf8(), context->get_async_block());
+    if (FAILED(start_hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                start_hr,
+                "Failed to start the store product page UI flow.",
+                "store_product_page_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStore::show_associated_products_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id, const String &p_product_kinds) {
+    const String store_id = _normalize_store_id(p_store_id);
+    if (store_id.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_product_id", "A non-empty Store product ID is required.");
+    }
+
+    GDKRuntime *runtime = nullptr;
+    XStoreContextHandle store_context = nullptr;
+    Signal error_signal;
+    if (!_prepare_store_ui_call(p_user, runtime, store_context, error_signal)) {
+        return error_signal;
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new StoreAssociatedProductsUiAsyncContext(this, runtime, pending_signal, store_id);
+    context->bind_cancel_handler();
+
+    HRESULT start_hr = XStoreShowAssociatedProductsUIAsync(store_context, context->get_store_id_utf8(), parse_product_kinds(p_product_kinds), context->get_async_block());
+    if (FAILED(start_hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                start_hr,
+                "Failed to start the store associated products UI flow.",
+                "store_associated_products_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStore::show_rate_and_review_ui_async(const Ref<GDKUser> &p_user) {
+    GDKRuntime *runtime = nullptr;
+    XStoreContextHandle store_context = nullptr;
+    Signal error_signal;
+    if (!_prepare_store_ui_call(p_user, runtime, store_context, error_signal)) {
+        return error_signal;
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new StoreRateAndReviewUiAsyncContext(this, runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    HRESULT start_hr = XStoreShowRateAndReviewUIAsync(store_context, context->get_async_block());
+    if (FAILED(start_hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                start_hr,
+                "Failed to start the store rate and review UI flow.",
+                "store_rate_and_review_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStore::show_redeem_token_ui_async(const Ref<GDKUser> &p_user, const String &p_token, const PackedStringArray &p_allowed_store_ids, bool p_disallow_csv_redemption) {
+    const String token = p_token.strip_edges();
+    if (token.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_token", "A non-empty redemption token is required.");
+    }
+
+    GDKRuntime *runtime = nullptr;
+    XStoreContextHandle store_context = nullptr;
+    Signal error_signal;
+    if (!_prepare_store_ui_call(p_user, runtime, store_context, error_signal)) {
+        return error_signal;
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new StoreRedeemTokenUiAsyncContext(this, runtime, pending_signal, token, p_allowed_store_ids, p_disallow_csv_redemption);
+    context->bind_cancel_handler();
+
+    HRESULT start_hr = XStoreShowRedeemTokenUIAsync(
+            store_context,
+            context->get_token_utf8(),
+            context->get_allowed_store_ids(),
+            context->get_allowed_store_ids_count(),
+            context->get_disallow_csv_redemption(),
+            context->get_async_block());
+    if (FAILED(start_hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                start_hr,
+                "Failed to start the store redeem token UI flow.",
+                "store_redeem_token_start_failed"));
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal GDKStore::show_gifting_ui_async(const Ref<GDKUser> &p_user, const String &p_store_id, const String &p_name, const String &p_extended_json) {
+    const String store_id = _normalize_store_id(p_store_id);
+    if (store_id.is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_product_id", "A non-empty Store product ID is required.");
+    }
+
+    GDKRuntime *runtime = nullptr;
+    XStoreContextHandle store_context = nullptr;
+    Signal error_signal;
+    if (!_prepare_store_ui_call(p_user, runtime, store_context, error_signal)) {
+        return error_signal;
+    }
+
+    Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new StoreGiftingUiAsyncContext(this, runtime, pending_signal, store_id, p_name, p_extended_json);
+    context->bind_cancel_handler();
+
+    HRESULT start_hr = XStoreShowGiftingUIAsync(
+            store_context,
+            context->get_store_id_utf8(),
+            context->get_name_utf8(),
+            context->get_extended_json_utf8(),
+            context->get_async_block());
+    if (FAILED(start_hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+        pending_signal->complete_deferred(GDKResult::hresult_error(
+                start_hr,
+                "Failed to start the store gifting UI flow.",
+                "store_gifting_start_failed"));
     }
 
     return pending_signal->get_completed_signal();

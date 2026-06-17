@@ -34,6 +34,7 @@ add_library(godot_gdk SHARED
     src/gdk_xbox_services.cpp
     src/gdk_display.cpp
     src/gdk_activation.cpp
+    src/gdk_speech_synthesizer.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE

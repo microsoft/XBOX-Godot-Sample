@@ -30,6 +30,7 @@ class GDKProfile;
 class GDKResult;
 class GDKRuntime;
 class GDKSocial;
+class GDKSpeechSynthesizer;
 class GDKStats;
 class GDKStore;
 class GDKStringVerify;
@@ -67,6 +68,7 @@ class GDK : public Object {
     Ref<GDKSystem> m_system;
     Ref<GDKDisplay> m_display;
     Ref<GDKActivation> m_activation;
+    Ref<GDKSpeechSynthesizer> m_speech;
 
 protected:
     static void _bind_methods();
@@ -103,6 +105,7 @@ public:
     Ref<GDKSystem> get_system() const;
     Ref<GDKDisplay> get_display() const;
     Ref<GDKActivation> get_activation() const;
+    Ref<GDKSpeechSynthesizer> get_speech() const;
 
     GDKRuntime *get_runtime() const;
     GDKXboxServices *get_xbox_services() const;
