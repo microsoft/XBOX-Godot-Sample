@@ -13,4 +13,7 @@ public sealed class GdkSystem : GdkServiceBase
     public GdkResult GetSandboxId() => GdkResult.From(Call("get_sandbox_id").AsGodotObject());
     public GdkResult GetServiceConfigurationId() => GdkResult.From(Call("get_service_configuration_id").AsGodotObject());
     public bool IsXboxServicesInitialized() => Call("is_xbox_services_initialized").AsBool();
+
+    public bool IsFeatureAvailable(string featureName) =>
+        Call("is_feature_available", featureName).AsBool();
 }

@@ -31,4 +31,7 @@ public sealed class GdkAchievements : GdkServiceBase
 
     public Godot.Collections.Array GetCachedAchievements(GdkUser user) =>
         Call("get_cached_achievements", user?.Raw).AsGodotArray();
+
+    public GdkResult GetAchievementsByState(GdkUser user, string progressState) =>
+        GdkResult.From(Call("get_achievements_by_state", user?.Raw, progressState).AsGodotObject());
 }

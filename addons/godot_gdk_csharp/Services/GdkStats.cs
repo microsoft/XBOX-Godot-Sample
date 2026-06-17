@@ -46,4 +46,13 @@ public sealed class GdkStats : GdkServiceBase
 
     public Godot.Collections.Dictionary GetCachedStats(GdkUser user) =>
         Call("get_cached_stats", user?.Raw).AsGodotDictionary();
+
+    public Task<GdkResult> GetSingleStatAsync(GdkUser user, string statName) =>
+        CallResultAsync("get_single_stat_async", user?.Raw, statName);
+
+    public Task<GdkResult> WriteStatsAsync(GdkUser user, Godot.Collections.Dictionary stats) =>
+        CallResultAsync("write_stats_async", user?.Raw, stats);
+
+    public Task<GdkResult> DeleteStatsAsync(GdkUser user, string[] statNames) =>
+        CallResultAsync("delete_stats_async", user?.Raw, statNames);
 }

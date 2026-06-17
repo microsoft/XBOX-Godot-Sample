@@ -51,4 +51,10 @@ public sealed class GdkSocial : GdkServiceBase
 
     public Task<GdkResult> SubmitBatchReputationFeedbackAsync(GdkUser user, Godot.Collections.Array feedbackItems) =>
         CallResultAsync("submit_batch_reputation_feedback_async", user?.Raw, feedbackItems);
+
+    public GdkResult UpdateSocialUserGroup(GdkSocialGroup group, string[] xuids) =>
+        GdkResult.From(Call("update_social_user_group", group?.Raw, xuids).AsGodotObject());
+
+    public GdkResult SetRichPresencePolling(GdkUser user, bool enabled) =>
+        GdkResult.From(Call("set_rich_presence_polling", user?.Raw, enabled).AsGodotObject());
 }

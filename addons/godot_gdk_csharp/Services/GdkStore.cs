@@ -24,4 +24,20 @@ public sealed class GdkStore : GdkServiceBase
 
     public GdkResult CheckCachedLicenseStatus(string storeId) =>
         GdkResult.From(Call("check_cached_license_status", storeId).AsGodotObject());
+
+    public Task<GdkResult> ShowProductPageUiAsync(GdkUser user, string storeId) =>
+        CallResultAsync("show_product_page_ui_async", user?.Raw, storeId);
+
+    public Task<GdkResult> ShowAssociatedProductsUiAsync(GdkUser user, string storeId, string productKinds) =>
+        CallResultAsync("show_associated_products_ui_async", user?.Raw, storeId, productKinds);
+
+    public Task<GdkResult> ShowRateAndReviewUiAsync(GdkUser user) =>
+        CallResultAsync("show_rate_and_review_ui_async", user?.Raw);
+
+    public Task<GdkResult> ShowRedeemTokenUiAsync(
+        GdkUser user, string token, string[] allowedStoreIds, bool disallowCsvRedemption) =>
+        CallResultAsync("show_redeem_token_ui_async", user?.Raw, token, allowedStoreIds, disallowCsvRedemption);
+
+    public Task<GdkResult> ShowGiftingUiAsync(GdkUser user, string storeId, string name, string extendedJson) =>
+        CallResultAsync("show_gifting_ui_async", user?.Raw, storeId, name, extendedJson);
 }

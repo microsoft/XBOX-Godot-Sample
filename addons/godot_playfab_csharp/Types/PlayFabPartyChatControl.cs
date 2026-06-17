@@ -51,8 +51,11 @@ public sealed class PlayFabPartyChatControl : PlayFabObject
     public Task<PlayFabResult> SetPermissionsAsync(PlayFabPartyChatControl target, int permissions) =>
         CallResultAsync("set_permissions_async", target?.Raw, permissions);
 
-    public Task<PlayFabResult> SetMutedAsync(PlayFabPartyChatControl target, bool muted) =>
-        CallResultAsync("set_muted_async", target?.Raw, muted);
+    public Task<PlayFabResult> SetAudioMutedAsync(PlayFabPartyChatControl target, bool muted) =>
+        CallResultAsync("set_audio_muted_async", target?.Raw, muted);
+
+    public Task<PlayFabResult> SetTextMutedAsync(PlayFabPartyChatControl target, bool muted) =>
+        CallResultAsync("set_text_muted_async", target?.Raw, muted);
 
     public Task<PlayFabResult> DestroyAsync() =>
         CallResultAsync("destroy_async");

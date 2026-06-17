@@ -68,7 +68,9 @@ payloads.
 `Gdk` is a static entry point exposing every native service namespace as a lazily
 cached, typed accessor — `Gdk.Users`, `Gdk.Achievements`, `Gdk.Leaderboards`,
 `Gdk.Stats`, `Gdk.Social`, `Gdk.Store`, `Gdk.Presence`, `Gdk.Package`,
-`Gdk.TitleStorage`, and the rest (21 in total, matching the native members).
+`Gdk.TitleStorage`, and the rest of the 21 member services. The Game Chat 2,
+text-to-speech, Game Saves, and title-telemetry services are reached through the
+native getters as `Gdk.GameChat`, `Gdk.Speech`, `Gdk.GameSave`, and `Gdk.Events`.
 
 ```csharp
 // Lifecycle

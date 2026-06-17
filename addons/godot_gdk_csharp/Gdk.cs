@@ -137,4 +137,20 @@ public static class Gdk
 
     private static GdkActivation _activation;
     public static GdkActivation Activation => _activation ??= new GdkActivation(Service("activation"));
+
+    // The following services are reached via getter methods on the native
+    // singleton (no backing property member), so resolve them through Call.
+    private static GodotObject ServiceCall(string getter) => Require().Call(getter).AsGodotObject();
+
+    private static GdkGameChat _gameChat;
+    public static GdkGameChat GameChat => _gameChat ??= new GdkGameChat(ServiceCall("get_game_chat"));
+
+    private static GdkSpeechSynthesizer _speech;
+    public static GdkSpeechSynthesizer Speech => _speech ??= new GdkSpeechSynthesizer(ServiceCall("get_speech"));
+
+    private static GdkGameSave _gameSave;
+    public static GdkGameSave GameSave => _gameSave ??= new GdkGameSave(ServiceCall("get_game_save"));
+
+    private static GdkEvents _events;
+    public static GdkEvents Events => _events ??= new GdkEvents(ServiceCall("get_events"));
 }

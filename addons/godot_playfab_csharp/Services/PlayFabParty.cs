@@ -34,6 +34,9 @@ public sealed class PlayFabParty : PlayFabServiceBase
     public Task<PlayFabResult> LeaveNetworkAsync(PlayFabPartyNetwork network) =>
         CallResultAsync("leave_network_async", network?.Raw);
 
+    public Task<PlayFabResult> ReleaseLocalUserAsync(PlayFabUser user) =>
+        CallResultAsync("release_local_user_async", user?.Raw);
+
     public PlayFabPartyChat GetChat() =>
         PlayFabPartyChat.From(Call("get_chat").AsGodotObject());
 

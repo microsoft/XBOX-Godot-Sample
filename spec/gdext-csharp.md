@@ -25,7 +25,7 @@ parallel consumer of the same runtimes.
 
 | Addon | Native singleton | Registered classes | C# track |
 | --- | --- | --- | --- |
-| `godot_gdk` | `GDK` (abstract) | 42 (21 services + result + 19 value types) | Service/runtime facade |
+| `godot_gdk` | `GDK` (abstract) | 46 (25 services + result + 19 value types) | Service/runtime facade |
 | `godot_playfab` | `PlayFab` (abstract) | 46 (18 services + result + 27 value/config/state types) | Service/runtime facade |
 | `godot_gameinput` | `GameInput` (concrete) | 6 (singleton + 5 device/reading/mapping types) | **Input-integration facade** (different shape) |
 | `godot_gdk_packaging` | none (GDScript editor plugin) | 0 native | **No port** — runs unchanged; optional C# CLI shim |
@@ -176,6 +176,10 @@ and value type.
 | `GDK.activation` / `GDKActivation` | `Gdk.Activation` | service |
 | `GDK.launcher` / `GDKLauncher` | `Gdk.Launcher` / `GdkLauncher` | service |
 | `GDK.error_reporting` / `GDKErrorReporting` | `Gdk.ErrorReporting` | service |
+| `GDK.get_game_chat()` / `GDKGameChat` | `Gdk.GameChat` / `GdkGameChat` | service (Game Chat 2, via getter) |
+| `GDK.get_speech()` / `GDKSpeechSynthesizer` | `Gdk.Speech` / `GdkSpeechSynthesizer` | service (text-to-speech, via getter) |
+| `GDK.get_game_save()` / `GDKGameSave` | `Gdk.GameSave` / `GdkGameSave` | service (XGameSaveFiles, via getter) |
+| `GDK.get_events()` / `GDKEvents` | `Gdk.Events` / `GdkEvents` | service (XSAPI events, via getter) |
 | `GDKUser`, `GDKUserProfile` | `GdkUser`, `GdkUserProfile` | value |
 | `GDKAchievement` | `GdkAchievement` | value |
 | `GDKLeaderboard`, `GDKLeaderboardRow`, `GDKLeaderboardColumn` | matching wrappers | value |
@@ -496,9 +500,12 @@ end-to-end (GDK init → `user_changed` → Xbox primary user → cross-addon Pl
 sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
 
 - **Phase 1–2 — GDK facade: ✅ shipped.** `GodotGdk.Gdk` static entry point wiring
-  all 21 services, 19 value types, `GdkResult`, the Signal→`Task` bridge,
+  all 25 services, 19 value types, `GdkResult`, the Signal→`Task` bridge,
   `runtime_error`/root signal event wrappers, and the `GdkRuntime` autoload.
-  Compiles clean (`addons/godot_gdk_csharp`).
+  Compiles clean (`addons/godot_gdk_csharp`). The Game Chat 2, text-to-speech,
+  Game Saves, and XSAPI-events services (`Gdk.GameChat`, `Gdk.Speech`,
+  `Gdk.GameSave`, `Gdk.Events`, reached via native getters) were added in the
+  #94 parity catch-up.
 - **Phase 4–5 — PlayFab facade: ✅ shipped.** `GodotPlayFab.PlayFab` with all 18
   services, 26 value types (incl. Lobby/Matchmaking/Party), `PlayFabResult`,
   background error/state event wrappers, cross-addon
@@ -513,12 +520,17 @@ sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
 - **Phase 3 — GDK + PlayFab sample (`tutorial_app_csharp`): ✅ shipped.** All eight
   tutorial scenes, autoloads (`Auth`/`Lobby`/`Party`/bootstraps), and panels ported.
   In-engine headless smoke completes the full sign-in flow with no errors.
-- **Phase 7 — Tests: ✅ partial.** `tests/csharp/FacadeParity.Tests` (xUnit, 97
+- **Phase 7 — Tests: ✅ partial.** `tests/csharp/FacadeParity.Tests` (xUnit, 101
   tests) reflects over all three facade assemblies and asserts every native
   `doc_classes` method/member/signal has a managed wrapper; run via
-  `tools/run_csharp_tests.ps1`. The suite already caught and fixed real drift in
-  the GDK Social wrappers. Dedicated in-engine GoDotTest hosts remain a follow-up,
-  but the facades are now exercised in-engine via the sample smoke runs.
+  `tools/run_csharp_tests.ps1`. The suite caught real drift in the GDK Social
+  wrappers and, after the #94 native expansion, the four missing GDK services
+  (Game Chat 2, speech synthesis, Game Saves, XSAPI events), the new
+  `GdkStats`/`GdkStore`/`GdkGameUi`/`GdkSocial`/`GdkAchievements`/`GdkSystem`
+  members, and the independent Party voice/text-mute surface
+  (`PlayFabPartyChat`/`PlayFabPartyChatControl`/`PlayFabParty`) — all now closed.
+  Dedicated in-engine GoDotTest hosts remain a follow-up, but the facades are now
+  exercised in-engine via the sample smoke runs.
 - **Phase 8 — Docs: ✅ shipped.** `docs/gdk/csharp.md`, `docs/playfab/csharp.md`,
   `docs/gameinput/csharp.md`, and the C# section in `docs/README.md`.
 - **Phase 0 — `_mono` editor acquisition: ✅ done.** Validated against

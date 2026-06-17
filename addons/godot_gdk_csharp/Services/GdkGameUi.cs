@@ -31,4 +31,20 @@ public sealed class GdkGameUi : GdkServiceBase
 
     public Task<GdkResult> ResolvePrivilegeWithUiAsync(GdkUser user, int privilege) =>
         CallResultAsync("resolve_privilege_with_ui_async", user?.Raw, privilege);
+
+    public Task<GdkResult> ShowAchievementsAsync(GdkUser requestingUser) =>
+        CallResultAsync("show_achievements_async", requestingUser?.Raw);
+
+    public Task<GdkResult> ShowErrorDialogAsync(int errorCode, string context) =>
+        CallResultAsync("show_error_dialog_async", errorCode, context);
+
+    public Task<GdkResult> ShowSendGameInviteAsync(
+        GdkUser requestingUser, string sessionConfigurationId, string sessionTemplateName,
+        string sessionId, string invitationText, string customActivationContext) =>
+        CallResultAsync("show_send_game_invite_async", requestingUser?.Raw, sessionConfigurationId,
+            sessionTemplateName, sessionId, invitationText, customActivationContext);
+
+    public Task<GdkResult> ShowTextEntryAsync(
+        string titleText, string descriptionText, string defaultText, string inputScope, int maxTextLength) =>
+        CallResultAsync("show_text_entry_async", titleText, descriptionText, defaultText, inputScope, maxTextLength);
 }
