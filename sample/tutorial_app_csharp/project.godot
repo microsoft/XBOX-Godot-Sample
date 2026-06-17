@@ -1,0 +1,47 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="XBOX Godot Sample Tutorial App (C#)"
+run/main_scene="res://Shared/tutorial_picker.tscn"
+config/features=PackedStringArray("4.6", "C#")
+
+[dotnet]
+
+project/assembly_name="TutorialAppCSharp"
+
+[autoload]
+
+GDKBootstrap="*res://Autoload/GdkBootstrap.cs"
+PlayFabBootstrap="*res://Autoload/PlayFabBootstrap.cs"
+Auth="*res://Autoload/Auth.cs"
+Lobby="*res://Autoload/Lobby.cs"
+Party="*res://Autoload/Party.cs"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+
+[gdk]
+
+runtime/initialize_on_startup=true
+runtime/auto_add_primary_user=true
+
+[playfab]
+
+runtime/title_id="6BAB6"
+runtime/initialize_on_startup=true
+
+[rendering]
+
+rendering_device/driver="d3d12"
+rendering_device/driver.windows="d3d12"
+
