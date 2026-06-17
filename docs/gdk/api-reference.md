@@ -411,7 +411,7 @@ real-time statistic tracking, and a per-user in-memory cache.
 | `set_stat_integer(user, stat_name, value)` | `GDKResult` | Stage an integer title-managed statistic for the user |
 | `set_stat_number(user, stat_name, value)` | `GDKResult` | Stage a numeric title-managed statistic for the user |
 | `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user (merge semantics) |
-| `write_stats_async(user, stats)` | `Signal` | Replace-all write: the `stats` `Dictionary` (name → number/string) becomes the user's complete title-managed stat document. Live-write surface |
+| `write_stats_async(user, stats)` | `Signal` | Replace-all write: the `stats` `Dictionary` (name → number) becomes the user's complete title-managed stat document. Non-numeric values are rejected with `invalid_stat_value`. Live-write surface |
 | `delete_stats_async(user, stat_names)` | `Signal` | Delete the named title-managed stats for the user. Live-write surface |
 | `track_stats(user, stat_names)` | `GDKResult` | Start tracking real-time changes for named stats |
 | `stop_tracking_stats(user, stat_names := PackedStringArray())` | `GDKResult` | Stop tracking named stats, or all tracked stats for the user when empty |
@@ -1504,14 +1504,17 @@ var me: GDKUser = GDK.users.get_primary_user()
 var local := GDK.game_chat.add_local_user(me)
 GDK.game_chat.add_remote_user("2814639011419087", 1001)
 
-# Ferry Game Chat's encoded frames over your own transport. Here we loop them
-# straight back (single-process loopback) to exercise the round trip.
+# Ferry Game Chat's encoded frames over your own networking transport. Game Chat
+# hands each outgoing frame to this handler; forward it to the listed endpoints.
 GDK.game_chat.outgoing_data_frame.connect(
     func(target_endpoint_ids, bytes, transport_requirement):
         for endpoint in target_endpoint_ids:
-            my_transport.send(endpoint, bytes)  # or, for loopback:
-        GDK.game_chat.process_incoming_data_frame(1001, bytes)
+            my_transport.send(endpoint, bytes)
 )
+
+# On the receiving peer, feed bytes that arrive on your transport back into Game
+# Chat (for a single-process loopback test, call this with your own frames):
+#     GDK.game_chat.process_incoming_data_frame(source_endpoint_id, received_bytes)
 
 GDK.game_chat.text_chat_received.connect(
     func(sender_xuid, message): print("%s: %s" % [sender_xuid, message])

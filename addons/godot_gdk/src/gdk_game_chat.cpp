@@ -1,6 +1,7 @@
 #include "gdk_game_chat.h"
 
 #include <cstring>
+#include <vector>
 
 #include <godot_cpp/variant/char_string.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
@@ -165,6 +166,18 @@ int GDKGameChat::dispatch() {
 }
 
 int GDKGameChat::_pump_data_frames_count() {
+    // Extract every frame into local storage *before* emitting any Godot
+    // signal. Signals run synchronously, so a handler is free to call back into
+    // GameChat2 (e.g. process_incoming_data_frame, remove_user, cleanup) or
+    // recurse through GDK.dispatch(). GameChat2 forbids re-entering the
+    // start/finish_processing window, so we must close it first and emit after.
+    struct OutgoingFrame {
+        PackedInt64Array targets;
+        PackedByteArray bytes;
+        int transport = TRANSPORT_BEST_EFFORT;
+    };
+    std::vector<OutgoingFrame> outgoing;
+
     uint32_t count = 0;
     game_chat_data_frame_array frames = nullptr;
     chat_manager::singleton_instance().start_processing_data_frames(&count, &frames);
@@ -175,29 +188,42 @@ int GDKGameChat::_pump_data_frames_count() {
             continue;
         }
 
-        PackedInt64Array targets;
-        targets.resize(static_cast<int64_t>(frame->target_endpoint_identifier_count));
+        OutgoingFrame entry;
+        entry.targets.resize(static_cast<int64_t>(frame->target_endpoint_identifier_count));
         for (uint32_t t = 0; t < frame->target_endpoint_identifier_count; ++t) {
-            targets.set(static_cast<int64_t>(t), static_cast<int64_t>(frame->target_endpoint_identifiers[t]));
+            entry.targets.set(static_cast<int64_t>(t), static_cast<int64_t>(frame->target_endpoint_identifiers[t]));
         }
 
-        PackedByteArray bytes;
-        bytes.resize(static_cast<int64_t>(frame->packet_byte_count));
+        entry.bytes.resize(static_cast<int64_t>(frame->packet_byte_count));
         if (frame->packet_byte_count > 0) {
-            memcpy(bytes.ptrw(), frame->packet_buffer, frame->packet_byte_count);
+            memcpy(entry.bytes.ptrw(), frame->packet_buffer, frame->packet_byte_count);
         }
 
-        const int transport = frame->transport_requirement == game_chat_data_transport_requirement::guaranteed
+        entry.transport = frame->transport_requirement == game_chat_data_transport_requirement::guaranteed
                 ? TRANSPORT_GUARANTEED
                 : TRANSPORT_BEST_EFFORT;
-        emit_signal("outgoing_data_frame", targets, bytes, transport);
+        outgoing.push_back(std::move(entry));
     }
 
     chat_manager::singleton_instance().finish_processing_data_frames(frames);
+
+    for (const OutgoingFrame &entry : outgoing) {
+        emit_signal("outgoing_data_frame", entry.targets, entry.bytes, entry.transport);
+    }
     return static_cast<int>(count);
 }
 
 int GDKGameChat::_pump_state_changes_count() {
+    // As with data frames, copy out every state change and close GameChat2's
+    // processing window before emitting signals, so synchronous handlers cannot
+    // re-enter the start/finish_processing_state_changes window.
+    struct ChatMessage {
+        const char *signal_name;
+        String identity;
+        String message;
+    };
+    std::vector<ChatMessage> messages;
+
     uint32_t count = 0;
     game_chat_state_change_array changes = nullptr;
     chat_manager::singleton_instance().start_processing_state_changes(&count, &changes);
@@ -214,7 +240,7 @@ int GDKGameChat::_pump_state_changes_count() {
                 const String sender = change->sender == nullptr
                         ? String()
                         : wide_to_string(change->sender->xbox_user_id());
-                emit_signal("text_chat_received", sender, wide_to_string(change->message));
+                messages.push_back({ "text_chat_received", sender, wide_to_string(change->message) });
                 break;
             }
             case game_chat_state_change_type::transcribed_chat_received: {
@@ -222,7 +248,7 @@ int GDKGameChat::_pump_state_changes_count() {
                 const String speaker = change->speaker == nullptr
                         ? String()
                         : wide_to_string(change->speaker->xbox_user_id());
-                emit_signal("transcribed_chat_received", speaker, wide_to_string(change->message));
+                messages.push_back({ "transcribed_chat_received", speaker, wide_to_string(change->message) });
                 break;
             }
             default:
@@ -231,6 +257,10 @@ int GDKGameChat::_pump_state_changes_count() {
     }
 
     chat_manager::singleton_instance().finish_processing_state_changes(changes);
+
+    for (const ChatMessage &entry : messages) {
+        emit_signal(entry.signal_name, entry.identity, entry.message);
+    }
     return static_cast<int>(count);
 }
 
