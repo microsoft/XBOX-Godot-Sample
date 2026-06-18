@@ -521,7 +521,10 @@ sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
   services, 26 value types (incl. Lobby/Matchmaking/Party), `PlayFabResult`,
   background error/state event wrappers, cross-addon
   `SignInWithXUserAsync(GdkUser)` (duck-typed `GodotObject` pass-through via a
-  ProjectReference to the GDK facade), and `PlayFabRuntime` autoload.
+  ProjectReference to the GDK facade), and `PlayFabRuntime` autoload. The #95
+  parity catch-up added the token-based sign-in wrappers
+  (`SignInWithSteamAsync`, `SignInWithOpenIdConnectAsync`,
+  `SignInWithBattleNetAsync`).
 - **Phase 6 — GameInput facade + sample: ✅ shipped.** `GodotGameInput.GameInput`
   (sync poll model, hot-plug events, vibration), device/reading wrappers with
   `Button`/`Axis`/`Source`/`DeviceKind` enums, `GameInputActionMap`/`Binding`/

@@ -64,6 +64,29 @@ GdkUser xbox = Gdk.Users.GetPrimaryUser()
 PlayFabResult result = await PlayFab.Users.SignInWithXUserAsync(xbox);
 ```
 
+## Token-based sign-in (Steam, OpenID Connect, Battle.net)
+
+Besides the Xbox and custom-id flows, `PlayFab.Users` wraps the token-based
+identity providers available on the GDK SDK. The title authenticates the player
+with the provider first (its own SDK or OAuth flow) and forwards the resulting
+token; the returned `PlayFabUser` is keyed by its PlayFab entity id (`LocalId == 0`,
+empty `CustomId`).
+
+```csharp
+// Steam — steamTicket is a hex-encoded Steamworks session ticket.
+PlayFabResult steam = await PlayFab.Users.SignInWithSteamAsync(steamTicket, create_account: true, ticket_is_service_specific: false);
+
+// OpenID Connect — connectionId names the OIDC connection in PlayFab Game Manager.
+PlayFabResult oidc = await PlayFab.Users.SignInWithOpenIdConnectAsync("my-oidc-connection", idToken);
+
+// Battle.net — identityToken is the JWT from the Battle.net OAuth flow.
+PlayFabResult battleNet = await PlayFab.Users.SignInWithBattleNetAsync(identityToken);
+```
+
+The PlayFab-native credential flows (email/username/register) and other platform
+logins are not available in the GDK SDK build; see the sign-in coverage matrix in
+`spec/gdext-playfab.md`.
+
 ## Services
 
 `PlayFab` exposes all 18 native service namespaces as typed accessors:
