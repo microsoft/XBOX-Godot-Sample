@@ -22,8 +22,8 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 | Domain | Included | Notes |
 | --- | --- | --- |
 | Runtime init/shutdown | Yes | Process-lifetime Microsoft GDK runtime reference (`XGameRuntimeInitializeWithOptions` with `File` source when `res://MicrosoftGame.config` is on disk, otherwise `XGameRuntimeInitialize`), re-armable PlayFab init/shutdown, shared queue |
-| Manual sign-in | Yes | `GDKUser` object and custom-ID entry points |
-| Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id or custom id |
+| Manual sign-in | Yes | `GDKUser` object, custom-ID, and token-based identity providers (Steam, OpenID Connect, Battle.net) |
+| Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id, custom id, or PlayFab entity id |
 | Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
 | Leaderboards | Yes | submit, global, around-user, friends/social |
 | Client services | Yes | accounts, catalog, CloudScript, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data |
@@ -89,7 +89,7 @@ The addon uses one shared task queue owned by the PlayFab runtime. Native comple
 
 Rules:
 
-1. `PlayFab.users.sign_in_with_xuser_async()`, `PlayFab.users.sign_in_with_custom_id_async()`, Game Saves calls, leaderboard calls, Party calls, Multiplayer calls, and PlayFab service calls all return completion signals awaited directly.
+1. `PlayFab.users.sign_in_with_xuser_async()`, `PlayFab.users.sign_in_with_custom_id_async()`, `PlayFab.users.sign_in_with_steam_async()`, `PlayFab.users.sign_in_with_open_id_connect_async()`, `PlayFab.users.sign_in_with_battle_net_async()`, Game Saves calls, leaderboard calls, Party calls, Multiplayer calls, and PlayFab service calls all return completion signals awaited directly.
 2. Each completion signal is one-shot: it resolves at most once, always with a `PlayFabResult`.
 3. `PlayFabResult.data` uses Godot-native types (`Dictionary`, `Array`, `String`, `int`, etc.).
 4. Completions are main-thread work. SDK callbacks are drained by the manual completion queue when `PlayFab.dispatch()` runs; immediate and synchronous completion paths use Godot `call_deferred` before emitting.
@@ -102,7 +102,7 @@ For Multiplayer lobbies, successful local `PlayFabLobby.set_member_properties_as
 
 ## User/session model
 
-`PlayFabUser` represents one signed-in PlayFab session associated with either a local Xbox user id or a title-defined custom id.
+`PlayFabUser` represents one signed-in PlayFab session associated with a local Xbox user id, a title-defined custom id, or a token-based identity provider (Steam, OpenID Connect, Battle.net).
 
 Publicly exposed data is intentionally narrow:
 
@@ -111,9 +111,30 @@ Publicly exposed data is intentionally narrow:
 - `entity_key` (`Dictionary` with `id` / `type`)
 - `has_local_user_handle`
 
-Xbox-facing identity details do not belong on the PlayFab user wrapper. The wrapper only exposes what higher-level PlayFab systems need. Custom-ID users have `local_id == 0`, a populated `custom_id`, and no local user handle.
+Xbox-facing identity details do not belong on the PlayFab user wrapper. The wrapper only exposes what higher-level PlayFab systems need. Custom-ID users have `local_id == 0`, a populated `custom_id`, and no local user handle. Token-based identity-provider users (Steam, OpenID Connect, Battle.net) have `local_id == 0`, an empty `custom_id`, and no local user handle; they are identified and de-duplicated in the session cache by their PlayFab `entity_key.id`.
 
 `PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals. Titles should use explicit sign-in results plus cache lookups (`get_user_by_local_id()`, `get_user_by_custom_id()`, and `get_users()`) instead.
+
+### Sign-in method coverage
+
+PlayFab's authentication SDK exposes many login methods, but the GDK flavor of the PlayFab Core C SDK vendored by this addon compiles only a subset of them in. The table below records which sign-in flows the addon wraps, which are intentionally available, and which the GDK SDK build makes impossible to wrap natively.
+
+| Sign-in method | `PlayFab.users` entry point | Token source | Status |
+| --- | --- | --- | --- |
+| Local Xbox user | `sign_in_with_xuser_async(user)` | `GDKUser` object (GDK) | Wrapped |
+| Custom id | `sign_in_with_custom_id_async(custom_id)` | Title-defined string | Wrapped |
+| Steam | `sign_in_with_steam_async(steam_ticket, …)` | Steamworks SDK session ticket | Wrapped (title mints the ticket) |
+| OpenID Connect | `sign_in_with_open_id_connect_async(connection_id, id_token)` | Identity-provider JWT (`id_token`) | Wrapped (title runs the OIDC flow) |
+| Battle.net | `sign_in_with_battle_net_async(identity_token)` | Battle.net OAuth JWT | Wrapped (title runs the OAuth flow) |
+| Email + password | — | PlayFab credentials | Not available — `#if 0` in the GDK SDK headers |
+| PlayFab username + password | — | PlayFab credentials | Not available — `#if 0` in the GDK SDK headers |
+| Register PlayFab user | — | PlayFab credentials | Not available — `#if 0` in the GDK SDK headers |
+| Google / Apple / Facebook / PSN / Nintendo / Game Center / Twitch | — | Platform SDK token | Not available on GDK — gated to other `HC_PLATFORM` targets |
+
+Notes:
+
+- The three wrapped token-based methods (Steam, OpenID Connect, Battle.net) require the title to obtain a platform token through that platform's own SDK or OAuth flow; the addon only forwards the token to PlayFab and does not bundle any third-party SDK. With a placeholder or invalid token the call still completes through the normal async path and surfaces a service error (`playfab_<method>_sign_in_failed`).
+- Steam and Battle.net are gated to `HC_PLATFORM == HC_PLATFORM_GDK` in the SDK headers; OpenID Connect is ungated. The credential-based methods (email/username/register) are hard-disabled (`#if 0`) in the GDK SDK build and cannot be re-enabled from this addon. The PlayFab-native account flows therefore remain represented only by the custom-id and Xbox entry points.
 
 ## Game Saves
 
@@ -209,5 +230,6 @@ Use `sample\tutorial_playfab\` / `sample\tutorial_integrated\` and `tests\godot\
 
 ## Progress
 
+- Additional sign-in examples (#95): ✅ shipped — `PlayFab.users` gained `sign_in_with_steam_async()`, `sign_in_with_open_id_connect_async()`, and `sign_in_with_battle_net_async()` (token-based identity providers that the title authenticates first). Token logins yield an entity-keyed `PlayFabUser` (`local_id == 0`, empty `custom_id`), de-duplicated in the session cache by `entity_key.id`. The credential-based PlayFab flows (email/username/register) and other platform logins (Google, etc.) are unavailable in the GDK SDK build (`#if 0` / non-GDK `HC_PLATFORM` gates) and are documented in the sign-in coverage matrix rather than wrapped. No sample scene was added — the token-based flows cannot complete without a real platform token.
 - MP-test-automation: ✅ complete in the `feat/mpta-c5-c6-finalize` line. The C1 P0/P1 matrix is represented as one `mp_orchestrator` scenario file per scenario, P2/P3 remain deferred, and `tools\run_all_tests.ps1` is wired to run the P0/P1 set under `-Live` with live writes gated by `-AllowLiveWrites`.
 - Legacy PlayFab Multiplayer live harness: ✅ retired. `tools\run_playfab_multiplayer_live.ps1` and `tests\godot\playfab_multiplayer_worker\` have been removed; `tools\run_mp_orchestrator.ps1` is the canonical direct entry point.

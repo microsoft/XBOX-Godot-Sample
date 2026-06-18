@@ -1,5 +1,6 @@
 #include "playfab_users.h"
 
+#include <list>
 #include <string>
 #include <vector>
 
@@ -200,11 +201,120 @@ protected:
     }
 };
 
+// Shared completion handler for token-based PlayFab logins (Steam, OpenID
+// Connect, Battle.net). Each of these flows yields only a PFEntityHandle, so
+// the resulting PlayFabUser is keyed by its PlayFab entity id rather than a
+// local Xbox user id or a title-defined custom id. The PlayFab result
+// accessors share an identical signature, so the per-method size/result
+// functions are injected as function pointers.
+class SignInEntityAsyncContext final : public PlayFabSignalXAsyncContext {
+public:
+    using GetResultSizeFn = HRESULT (*)(XAsyncBlock *, size_t *);
+    using GetResultFn = HRESULT (*)(XAsyncBlock *, PFEntityHandle *, size_t, void *, PFAuthenticationLoginResult const **, size_t *);
+
+private:
+    PlayFabUsers *m_users = nullptr;
+    String m_method_label;
+    String m_error_prefix;
+    GetResultSizeFn m_get_result_size_fn = nullptr;
+    GetResultFn m_get_result_fn = nullptr;
+    std::list<std::string> m_interned_strings;
+    std::list<bool> m_interned_bools;
+
+public:
+    SignInEntityAsyncContext(
+            PlayFabUsers *p_users,
+            PlayFabRuntime *p_runtime,
+            const Ref<PlayFabPendingSignal> &p_pending_signal,
+            const String &p_method_label,
+            const String &p_error_prefix,
+            GetResultSizeFn p_get_result_size_fn,
+            GetResultFn p_get_result_fn) :
+            PlayFabSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_users(p_users),
+            m_method_label(p_method_label),
+            m_error_prefix(p_error_prefix),
+            m_get_result_size_fn(p_get_result_size_fn),
+            m_get_result_fn(p_get_result_fn) {}
+
+    // Copies the supplied value into storage owned by this context so the C
+    // string remains valid for the lifetime of the async request. std::list
+    // never relocates its elements, so previously returned pointers stay valid
+    // as additional values are interned.
+    const char *intern_string(const String &p_value) {
+        m_interned_strings.push_back(std::string(p_value.utf8().get_data()));
+        return m_interned_strings.back().c_str();
+    }
+
+    const bool *intern_bool(bool p_value) {
+        m_interned_bools.push_back(p_value);
+        return &m_interned_bools.back();
+    }
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        const String cancel_message = "PlayFab " + m_method_label + " sign-in cancelled.";
+
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(PlayFabResult::cancelled(cancel_message));
+            return;
+        }
+
+        HRESULT status_hr = XAsyncGetStatus(p_async_block, false);
+        if (status_hr == E_ABORT) {
+            get_pending_signal()->complete(PlayFabResult::cancelled(cancel_message));
+            return;
+        }
+        if (FAILED(status_hr)) {
+            get_pending_signal()->complete(PlayFabResult::hresult_error(status_hr, "Failed to sign in to PlayFab with " + m_method_label + ".", m_error_prefix + "_sign_in_failed"));
+            return;
+        }
+
+        size_t buffer_size = 0;
+        HRESULT size_hr = m_get_result_size_fn(p_async_block, &buffer_size);
+        if (FAILED(size_hr)) {
+            get_pending_signal()->complete(PlayFabResult::hresult_error(size_hr, "Failed to get the PlayFab " + m_method_label + " login result size.", m_error_prefix + "_sign_in_result_size_failed"));
+            return;
+        }
+
+        std::vector<char> buffer(buffer_size);
+        PFAuthenticationLoginResult const *login_result = nullptr;
+        PFEntityHandle entity_handle = nullptr;
+        HRESULT result_hr = m_get_result_fn(
+                p_async_block,
+                &entity_handle,
+                buffer.size(),
+                buffer.data(),
+                &login_result,
+                nullptr);
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(PlayFabResult::hresult_error(result_hr, "Failed to retrieve the PlayFab " + m_method_label + " login result.", m_error_prefix + "_sign_in_result_failed"));
+            return;
+        }
+
+        Ref<PlayFabUser> user;
+        user.instantiate();
+
+        HRESULT user_hr = user->adopt_entity_session(entity_handle);
+        if (FAILED(user_hr)) {
+            get_pending_signal()->complete(PlayFabResult::hresult_error(user_hr, "Failed to translate the PlayFab " + m_method_label + " login result into a Godot user wrapper.", m_error_prefix + "_user_wrapper_create_failed"));
+            return;
+        }
+
+        m_users->add_or_update_user_session(user);
+
+        get_pending_signal()->complete(PlayFabResult::ok_result(user));
+    }
+};
+
 } // namespace
 
 void PlayFabUsers::_bind_methods() {
     ClassDB::bind_method(D_METHOD("sign_in_with_xuser_async", "user", "create_account"), &PlayFabUsers::sign_in_with_xuser_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("sign_in_with_custom_id_async", "custom_id", "create_account"), &PlayFabUsers::sign_in_with_custom_id_async, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("sign_in_with_steam_async", "steam_ticket", "create_account", "ticket_is_service_specific"), &PlayFabUsers::sign_in_with_steam_async, DEFVAL(true), DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("sign_in_with_open_id_connect_async", "connection_id", "id_token", "create_account"), &PlayFabUsers::sign_in_with_open_id_connect_async, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("sign_in_with_battle_net_async", "identity_token", "create_account"), &PlayFabUsers::sign_in_with_battle_net_async, DEFVAL(true));
     ClassDB::bind_method(D_METHOD("get_user_by_local_id", "local_id"), &PlayFabUsers::get_user_by_local_id);
     ClassDB::bind_method(D_METHOD("get_user_by_custom_id", "custom_id"), &PlayFabUsers::get_user_by_custom_id);
     ClassDB::bind_method(D_METHOD("get_user", "user_or_local_id"), &PlayFabUsers::get_user);
@@ -306,6 +416,150 @@ Signal PlayFabUsers::sign_in_with_custom_id_async(const String &p_custom_id, boo
         delete context;
 
         Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab custom-ID login request.", "playfab_custom_id_sign_in_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal PlayFabUsers::sign_in_with_steam_async(const String &p_steam_ticket, bool p_create_account, bool p_ticket_is_service_specific) {
+    PlayFabRuntime *runtime = _get_runtime();
+    const String steam_ticket = p_steam_ticket.strip_edges();
+    if (steam_ticket.is_empty()) {
+        return make_users_error_signal(runtime, E_INVALIDARG, "invalid_steam_ticket", "PlayFab Steam sign-in requires a non-empty steam_ticket.");
+    }
+
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return make_users_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
+    }
+
+    if (!PLAYFAB_GDK_PLATFORM) {
+        return make_users_error_signal(runtime, E_FAIL, "platform_unsupported", "PlayFab sign-in is only supported on GDK platforms right now.");
+    }
+
+    Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new SignInEntityAsyncContext(
+            this,
+            runtime,
+            pending_signal,
+            "Steam",
+            "playfab_steam",
+            &PFAuthenticationLoginWithSteamGetResultSize,
+            &PFAuthenticationLoginWithSteamGetResult);
+    context->bind_cancel_handler();
+
+    PFAuthenticationLoginWithSteamRequest request = {};
+    request.createAccount = p_create_account;
+    request.steamTicket = context->intern_string(steam_ticket);
+    request.ticketIsServiceSpecific = context->intern_bool(p_ticket_is_service_specific);
+
+    HRESULT hr = PFAuthenticationLoginWithSteamAsync(
+            runtime->get_service_config_handle(),
+            &request,
+            context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab Steam login request.", "playfab_steam_sign_in_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal PlayFabUsers::sign_in_with_open_id_connect_async(const String &p_connection_id, const String &p_id_token, bool p_create_account) {
+    PlayFabRuntime *runtime = _get_runtime();
+    const String connection_id = p_connection_id.strip_edges();
+    const String id_token = p_id_token.strip_edges();
+    if (connection_id.is_empty()) {
+        return make_users_error_signal(runtime, E_INVALIDARG, "invalid_connection_id", "PlayFab OpenID Connect sign-in requires a non-empty connection_id.");
+    }
+    if (id_token.is_empty()) {
+        return make_users_error_signal(runtime, E_INVALIDARG, "invalid_id_token", "PlayFab OpenID Connect sign-in requires a non-empty id_token.");
+    }
+
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return make_users_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
+    }
+
+    if (!PLAYFAB_GDK_PLATFORM) {
+        return make_users_error_signal(runtime, E_FAIL, "platform_unsupported", "PlayFab sign-in is only supported on GDK platforms right now.");
+    }
+
+    Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new SignInEntityAsyncContext(
+            this,
+            runtime,
+            pending_signal,
+            "OpenID Connect",
+            "playfab_open_id_connect",
+            &PFAuthenticationLoginWithOpenIdConnectGetResultSize,
+            &PFAuthenticationLoginWithOpenIdConnectGetResult);
+    context->bind_cancel_handler();
+
+    PFAuthenticationLoginWithOpenIdConnectRequest request = {};
+    request.connectionId = context->intern_string(connection_id);
+    request.createAccount = p_create_account;
+    request.idToken = context->intern_string(id_token);
+
+    HRESULT hr = PFAuthenticationLoginWithOpenIdConnectAsync(
+            runtime->get_service_config_handle(),
+            &request,
+            context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab OpenID Connect login request.", "playfab_open_id_connect_sign_in_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Signal PlayFabUsers::sign_in_with_battle_net_async(const String &p_identity_token, bool p_create_account) {
+    PlayFabRuntime *runtime = _get_runtime();
+    const String identity_token = p_identity_token.strip_edges();
+    if (identity_token.is_empty()) {
+        return make_users_error_signal(runtime, E_INVALIDARG, "invalid_identity_token", "PlayFab Battle.net sign-in requires a non-empty identity_token.");
+    }
+
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return make_users_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
+    }
+
+    if (!PLAYFAB_GDK_PLATFORM) {
+        return make_users_error_signal(runtime, E_FAIL, "platform_unsupported", "PlayFab sign-in is only supported on GDK platforms right now.");
+    }
+
+    Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new SignInEntityAsyncContext(
+            this,
+            runtime,
+            pending_signal,
+            "Battle.net",
+            "playfab_battle_net",
+            &PFAuthenticationLoginWithBattleNetGetResultSize,
+            &PFAuthenticationLoginWithBattleNetGetResult);
+    context->bind_cancel_handler();
+
+    PFAuthenticationLoginWithBattleNetRequest request = {};
+    request.createAccount = p_create_account;
+    request.identityToken = context->intern_string(identity_token);
+
+    HRESULT hr = PFAuthenticationLoginWithBattleNetAsync(
+            runtime->get_service_config_handle(),
+            &request,
+            context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the PlayFab Battle.net login request.", "playfab_battle_net_sign_in_start_failed");
         pending_signal->complete_deferred(result);
     }
 
@@ -469,7 +723,8 @@ bool PlayFabUsers::_add_or_update_user(const Ref<PlayFabUser> &p_user) {
 
     const uint64_t local_id = p_user->get_local_id();
     const String custom_id = p_user->get_custom_id();
-    if (local_id == 0 && custom_id.is_empty()) {
+    const String entity_id = p_user->get_entity_id();
+    if (local_id == 0 && custom_id.is_empty() && entity_id.is_empty()) {
         return false;
     }
     XUserLocalId user_local_id = {};
@@ -484,6 +739,17 @@ bool PlayFabUsers::_add_or_update_user(const Ref<PlayFabUser> &p_user) {
             return false;
         }
         if (!custom_id.is_empty() && existing->matches_custom_id(custom_id)) {
+            existing = p_user;
+            return false;
+        }
+        // Token-only sessions (Steam/OpenID/Battle.net) carry no local id or
+        // custom id, so they are deduplicated by PlayFab entity id. Only match
+        // against another entity-only session: XUser and custom-id wrappers
+        // also populate entity_id, and replacing one of those richer sessions
+        // with a leaner token wrapper would drop its local-user handle.
+        if (local_id == 0 && custom_id.is_empty() && !entity_id.is_empty()
+                && existing->get_local_id() == 0 && existing->get_custom_id().is_empty()
+                && existing->matches_entity_id(entity_id)) {
             existing = p_user;
             return false;
         }

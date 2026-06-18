@@ -32,6 +32,10 @@ String PlayFabUser::get_custom_id() const {
     return m_custom_id;
 }
 
+String PlayFabUser::get_entity_id() const {
+    return m_entity_id;
+}
+
 Dictionary PlayFabUser::get_entity_key() const {
     Dictionary key;
     key["id"] = m_entity_id;
@@ -132,12 +136,34 @@ HRESULT PlayFabUser::adopt_custom_id_session(const String &p_custom_id, PFEntity
     return S_OK;
 }
 
+HRESULT PlayFabUser::adopt_entity_session(PFEntityHandle p_entity_handle) {
+    clear();
+
+    if (p_entity_handle == nullptr) {
+        return E_INVALIDARG;
+    }
+
+    m_entity_handle = p_entity_handle;
+
+    HRESULT hr = populate_from_entity_handle(m_entity_handle);
+    if (FAILED(hr)) {
+        clear();
+        return hr;
+    }
+
+    return S_OK;
+}
+
 bool PlayFabUser::matches_local_id(XUserLocalId p_local_id) const {
     return m_local_id.value != 0 && m_local_id.value == p_local_id.value;
 }
 
 bool PlayFabUser::matches_custom_id(const String &p_custom_id) const {
     return !m_custom_id.is_empty() && m_custom_id == p_custom_id.strip_edges();
+}
+
+bool PlayFabUser::matches_entity_id(const String &p_entity_id) const {
+    return !m_entity_id.is_empty() && m_entity_id == p_entity_id;
 }
 
 PFEntityHandle PlayFabUser::get_entity_handle() const {
