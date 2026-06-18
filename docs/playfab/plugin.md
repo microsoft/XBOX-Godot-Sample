@@ -15,7 +15,8 @@ This is the landing page for the `godot_playfab` docs set.
 - project-settings-backed PlayFab config through `playfab/runtime/title_id` and `playfab/runtime/endpoint`
 - manual XBOX-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`
 - custom-ID PlayFab sign-in through `PlayFab.users.sign_in_with_custom_id_async(...)`
-- cached `PlayFabUser` wrappers keyed by local XBOX user id or custom id
+- token-based identity-provider sign-in through `PlayFab.users.sign_in_with_steam_async(...)`, `PlayFab.users.sign_in_with_open_id_connect_async(...)`, and `PlayFab.users.sign_in_with_battle_net_async(...)` (the title authenticates with the platform first and forwards the resulting token)
+- cached `PlayFabUser` wrappers keyed by local XBOX user id, custom id, or PlayFab entity id
 - Game Saves add/sync, upload, folder/quota queries, cloud connectivity queries, save description updates, and cloud reset through `PlayFab.game_saves`
 - leaderboard submit, global query, around-user query, and friends/social leaderboard query
 - client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
@@ -29,6 +30,7 @@ This is the landing page for the `godot_playfab` docs set.
 
 - custom non-Windows Game Saves UI callback/response wrappers are not yet exposed as a public Godot surface
 - server/admin/title-secret PlayFab APIs are intentionally excluded from the client wrapper set
+- PlayFab-native credential sign-in (email + password, PlayFab username + password, register a PlayFab user) is **not wrappable** in this addon: those entry points are compiled out (`#if 0`) of the GDK flavor of the PlayFab Core C SDK. Other platform logins (Google, Apple, Facebook, PSN, Nintendo, Game Center, Twitch) are gated to non-GDK `HC_PLATFORM` targets and are likewise unavailable here. See the sign-in coverage matrix in `spec\gdext-playfab.md` for the full picture.
 
 ## Runtime configuration
 
@@ -140,6 +142,31 @@ if not stats_result.ok:
 ```
 
 Game Saves still requires an XBOX-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `GDKUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
+
+## Sign-in methods
+
+Besides the Xbox (`sign_in_with_xuser_async`) and custom-id (`sign_in_with_custom_id_async`) flows, `PlayFab.users` exposes three token-based identity providers. Each one requires the title to authenticate the player with that platform first and forward the resulting token; the addon does not bundle any third-party SDK. The returned `PlayFabUser` is keyed by its PlayFab entity id (`local_id == 0`, empty `custom_id`).
+
+```gdscript
+# Steam — steam_ticket is a hex-encoded Steamworks session ticket.
+# Pass ticket_is_service_specific = true when minted via GetAuthTicketForWebAPI("AzurePlayFab").
+var steam_result = await PlayFab.users.sign_in_with_steam_async(steam_ticket, true, false)
+if steam_result.ok:
+    print(steam_result.data.entity_key)
+
+# OpenID Connect — connection_id names the OIDC connection in PlayFab Game Manager;
+# id_token is the JWT returned by the identity provider.
+var oidc_result = await PlayFab.users.sign_in_with_open_id_connect_async("my-oidc-connection", id_token)
+if not oidc_result.ok:
+    push_warning(oidc_result.message)
+
+# Battle.net — identity_token is the JWT returned by the Battle.net OAuth flow.
+var battle_net_result = await PlayFab.users.sign_in_with_battle_net_async(identity_token)
+if not battle_net_result.ok:
+    push_warning(battle_net_result.message)
+```
+
+Validation failures resolve immediately with an error code (`invalid_steam_ticket`, `invalid_connection_id`, `invalid_id_token`, `invalid_identity_token`, or `not_initialized`). A well-formed but invalid/placeholder token still runs the full async request and surfaces a service error (`playfab_steam_sign_in_failed`, `playfab_open_id_connect_sign_in_failed`, or `playfab_battle_net_sign_in_failed`). PlayFab-native credential sign-in (email/username/register) is not available in the GDK SDK build; see the sign-in coverage matrix in `spec\gdext-playfab.md`.
 
 ## Leaderboard write path
 

@@ -16,7 +16,7 @@ func test_users_api() -> void:
 	if users == null:
 		return
 
-	for method_name in ["sign_in_with_xuser_async", "sign_in_with_custom_id_async", "get_user_by_local_id", "get_user_by_custom_id", "get_user", "get_users"]:
+	for method_name in ["sign_in_with_xuser_async", "sign_in_with_custom_id_async", "sign_in_with_steam_async", "sign_in_with_open_id_connect_async", "sign_in_with_battle_net_async", "get_user_by_local_id", "get_user_by_custom_id", "get_user", "get_users"]:
 		assert_has_method_named(users, method_name)
 
 	var blank_user_for_cache = instantiate_class("PlayFabUser")
@@ -78,6 +78,58 @@ func test_custom_id_sign_in_validation() -> void:
 	var users_signal = playfab.get_users().sign_in_with_custom_id_async("gdkfleet-test-custom-id")
 	await _assert_playfab_signal_result_error(
 		users_signal, "not_initialized", "PlayFab.users.sign_in_with_custom_id_async() before initialize()")
+
+
+func test_steam_sign_in_validation() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+
+	reset_playfab_runtime()
+
+	var empty_signal = playfab.get_users().sign_in_with_steam_async("  ")
+	await _assert_playfab_signal_result_error(
+		empty_signal, "invalid_steam_ticket", "PlayFab.users.sign_in_with_steam_async() rejects blank steam_ticket")
+
+	var not_init_signal = playfab.get_users().sign_in_with_steam_async("DEADBEEF")
+	await _assert_playfab_signal_result_error(
+		not_init_signal, "not_initialized", "PlayFab.users.sign_in_with_steam_async() before initialize()")
+
+
+func test_open_id_connect_sign_in_validation() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+
+	reset_playfab_runtime()
+
+	var empty_connection_signal = playfab.get_users().sign_in_with_open_id_connect_async("  ", "id-token")
+	await _assert_playfab_signal_result_error(
+		empty_connection_signal, "invalid_connection_id", "PlayFab.users.sign_in_with_open_id_connect_async() rejects blank connection_id")
+
+	var empty_token_signal = playfab.get_users().sign_in_with_open_id_connect_async("connection", "  ")
+	await _assert_playfab_signal_result_error(
+		empty_token_signal, "invalid_id_token", "PlayFab.users.sign_in_with_open_id_connect_async() rejects blank id_token")
+
+	var not_init_signal = playfab.get_users().sign_in_with_open_id_connect_async("connection", "id-token")
+	await _assert_playfab_signal_result_error(
+		not_init_signal, "not_initialized", "PlayFab.users.sign_in_with_open_id_connect_async() before initialize()")
+
+
+func test_battle_net_sign_in_validation() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+
+	reset_playfab_runtime()
+
+	var empty_signal = playfab.get_users().sign_in_with_battle_net_async("  ")
+	await _assert_playfab_signal_result_error(
+		empty_signal, "invalid_identity_token", "PlayFab.users.sign_in_with_battle_net_async() rejects blank identity_token")
+
+	var not_init_signal = playfab.get_users().sign_in_with_battle_net_async("battle-net-jwt")
+	await _assert_playfab_signal_result_error(
+		not_init_signal, "not_initialized", "PlayFab.users.sign_in_with_battle_net_async() before initialize()")
 
 
 # Mirror of the previous `assert_signal_result_error` but routes through the
