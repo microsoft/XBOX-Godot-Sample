@@ -4,7 +4,7 @@
 		Manual PlayFab sign-in and cached user lookup service.
 	</brief_description>
 	<description>
-		Accessed through [code]PlayFab.users[/code]. Use this service to manually sign a local Xbox user or title-defined custom id into PlayFab and inspect cached [PlayFabUser] sessions. For Xbox-backed sign-in, reuse [code]GDK.users.get_primary_user()[/code] when available or await [code]GDK.users.add_user_with_ui_async()[/code] to acquire a signed-in [code]GDKUser[/code], then pass that object to [method sign_in_with_xuser_async]. Never pass a raw local Xbox user id.
+		Accessed through [code]PlayFab.users[/code]. Use this service to manually sign a player into PlayFab and inspect cached [PlayFabUser] sessions. Sign-in supports a local Xbox user ([method sign_in_with_xuser_async]), a title-defined custom id ([method sign_in_with_custom_id_async]), and external identity providers that the title authenticates first: Steam ([method sign_in_with_steam_async]), OpenID Connect ([method sign_in_with_open_id_connect_async]), and Battle.net ([method sign_in_with_battle_net_async]). The token-based providers require the title to obtain a platform token through that platform's SDK or OAuth flow; this addon only forwards the token to PlayFab. For Xbox-backed sign-in, reuse [code]GDK.users.get_primary_user()[/code] when available or await [code]GDK.users.add_user_with_ui_async()[/code] to acquire a signed-in [code]GDKUser[/code], then pass that object to [method sign_in_with_xuser_async]. Never pass a raw local Xbox user id.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -22,6 +22,32 @@
 			<param index="1" name="create_account" type="bool" default="true" />
 			<description>
 				Starts PlayFab sign-in using a title-defined custom id. Await the returned completion [Signal] directly; the emitted [PlayFabResult] data contains a [PlayFabUser] with [member PlayFabUser.custom_id] populated and no local Xbox user handle. Failure codes include [code]invalid_custom_id[/code] and [code]not_initialized[/code].
+			</description>
+		</method>
+		<method name="sign_in_with_steam_async">
+			<return type="Signal" />
+			<param index="0" name="steam_ticket" type="String" />
+			<param index="1" name="create_account" type="bool" default="true" />
+			<param index="2" name="ticket_is_service_specific" type="bool" default="false" />
+			<description>
+				Starts PlayFab sign-in using a Steam session ticket. [param steam_ticket] is the authentication token returned by Steam (for example from [code]ISteamUser::GetAuthSessionTicket()[/code] or [code]GetAuthTicketForWebAPI()[/code]), converted to a hexadecimal string. Set [param ticket_is_service_specific] to [code]true[/code] when the ticket was generated with [code]GetAuthTicketForWebAPI()[/code] using the [code]AzurePlayFab[/code] identity string. The title must mint the ticket through the Steamworks SDK; this addon does not bundle Steam. Await the returned completion [Signal] directly; on success the emitted [PlayFabResult] data contains a [PlayFabUser] keyed by its PlayFab entity id (with [member PlayFabUser.local_id] of [code]0[/code], an empty [member PlayFabUser.custom_id], and no local Xbox user handle). The title must be configured with the Steam add-on in PlayFab Game Manager. Failure codes include [code]invalid_steam_ticket[/code], [code]not_initialized[/code], and [code]platform_unsupported[/code]; an invalid or placeholder ticket surfaces a [code]playfab_steam_sign_in_failed[/code] result.
+			</description>
+		</method>
+		<method name="sign_in_with_open_id_connect_async">
+			<return type="Signal" />
+			<param index="0" name="connection_id" type="String" />
+			<param index="1" name="id_token" type="String" />
+			<param index="2" name="create_account" type="bool" default="true" />
+			<description>
+				Starts PlayFab sign-in using an OpenID Connect identity provider. [param connection_id] names the OpenID Connect connection configured for the title in PlayFab Game Manager, and [param id_token] is the JSON Web Token (JWT) returned by that provider after the user authenticates. The title obtains the [param id_token] from its identity provider; this addon does not perform the OpenID Connect flow. Await the returned completion [Signal] directly; on success the emitted [PlayFabResult] data contains a [PlayFabUser] keyed by its PlayFab entity id. Failure codes include [code]invalid_connection_id[/code], [code]invalid_id_token[/code], [code]not_initialized[/code], and [code]platform_unsupported[/code]; an invalid or placeholder token surfaces a [code]playfab_open_id_connect_sign_in_failed[/code] result.
+			</description>
+		</method>
+		<method name="sign_in_with_battle_net_async">
+			<return type="Signal" />
+			<param index="0" name="identity_token" type="String" />
+			<param index="1" name="create_account" type="bool" default="true" />
+			<description>
+				Starts PlayFab sign-in using a Battle.net account. [param identity_token] is the JSON Web Token (JWT) returned by Battle.net after the user authenticates. The title obtains the [param identity_token] from the Battle.net OAuth flow; this addon does not perform that flow. Await the returned completion [Signal] directly; on success the emitted [PlayFabResult] data contains a [PlayFabUser] keyed by its PlayFab entity id. The title must enable Battle.net in PlayFab Game Manager. Failure codes include [code]invalid_identity_token[/code], [code]not_initialized[/code], and [code]platform_unsupported[/code]; an invalid or placeholder token surfaces a [code]playfab_battle_net_sign_in_failed[/code] result.
 			</description>
 		</method>
 		<method name="get_user_by_local_id" qualifiers="const">

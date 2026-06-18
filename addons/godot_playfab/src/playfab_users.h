@@ -48,6 +48,9 @@ public:
 
     Signal sign_in_with_xuser_async(Object *p_user, bool p_create_account = true);
     Signal sign_in_with_custom_id_async(const String &p_custom_id, bool p_create_account = true);
+    Signal sign_in_with_steam_async(const String &p_steam_ticket, bool p_create_account = true, bool p_ticket_is_service_specific = false);
+    Signal sign_in_with_open_id_connect_async(const String &p_connection_id, const String &p_id_token, bool p_create_account = true);
+    Signal sign_in_with_battle_net_async(const String &p_identity_token, bool p_create_account = true);
     Ref<PlayFabUser> get_user_by_local_id(int64_t p_local_id) const;
     Ref<PlayFabUser> get_user_by_custom_id(const String &p_custom_id) const;
     Ref<PlayFabUser> get_user(const Variant &p_user_or_local_id) const;

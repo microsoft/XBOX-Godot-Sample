@@ -43,13 +43,16 @@ public:
 
     uint64_t get_local_id() const;
     String get_custom_id() const;
+    String get_entity_id() const;
     Dictionary get_entity_key() const;
     bool has_local_user_handle() const;
 
     HRESULT adopt_session(XUserHandle p_user_handle, PFEntityHandle p_entity_handle, PFServiceConfigHandle p_service_config_handle);
     HRESULT adopt_custom_id_session(const String &p_custom_id, PFEntityHandle p_entity_handle);
+    HRESULT adopt_entity_session(PFEntityHandle p_entity_handle);
     bool matches_local_id(XUserLocalId p_local_id) const;
     bool matches_custom_id(const String &p_custom_id) const;
+    bool matches_entity_id(const String &p_entity_id) const;
     PFEntityHandle get_entity_handle() const;
     HRESULT duplicate_local_user_handle(PFLocalUserHandle *r_local_user_handle) const;
     void clear();
