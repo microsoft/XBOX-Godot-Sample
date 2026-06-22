@@ -31,7 +31,7 @@ This is the landing page for the `godot_gdk` docs set.
 - capture metadata + capture-state service (`GDK.capture`)
 - launcher service (`GDK.launcher`) — `XLaunchUri` only
 - display service (`GDK.display`) — `XDisplay.h` HDR mode + idle-timeout deferrals
-- activation service (`GDK.activation`) — `XGameActivation.h` activation events (modern replacement for the deprecated `XGameProtocol.h`)
+- activation service (`GDK.activation`) — activation events via `XGameActivation.h` (April 2026+ editions) or `XGameProtocol.h` / `XGameInvite.h` (October 2025 editions)
 - XStore commerce service (`GDK.store`)
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch

@@ -110,11 +110,11 @@ func test_path_normalisation_strips_backslashes() -> void:
 	# Pin the algorithm: any 6-digit numeric segment in a backslash-separated
 	# path must be discoverable.
 	var raw_examples := [
-		"C:\\Program Files (x86)\\Microsoft GDK\\260400\\",
-		"C:/Program Files (x86)/Microsoft GDK/260400/",
+		"C:\\Program Files (x86)\\Microsoft GDK\\251001\\",
+		"C:/Program Files (x86)/Microsoft GDK/251001/",
 		"D:\\custom\\path\\261000\\sub",
 	]
-	var expected_versions := ["260400", "260400", "261000"]
+	var expected_versions := ["251001", "251001", "261000"]
 	for i in raw_examples.size():
 		var raw: String = raw_examples[i]
 		var version := _extract_version_segment(raw)

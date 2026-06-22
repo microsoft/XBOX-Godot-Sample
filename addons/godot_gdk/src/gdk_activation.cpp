@@ -84,6 +84,7 @@ Ref<GDKResult> GDKActivation::on_runtime_initialized() {
         return GDKResult::ok_result();
     }
 
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
     HRESULT hr = XGameActivationRegisterForEvent(
             runtime->get_task_queue(),
             this,
@@ -107,6 +108,43 @@ Ref<GDKResult> GDKActivation::on_runtime_initialized() {
         m_runtime_ready = true;
         return GDKResult::ok_result();
     }
+#else
+    // October 2025 GDK: register the three legacy activation sources that the
+    // unified XGameActivation API later consolidated -- protocol activation plus
+    // pending and accepted game invites. Failure degrades gracefully (inbound
+    // events disabled) so accept_pending_invite() still works.
+    XTaskQueueHandle queue = runtime->get_task_queue();
+    HRESULT hr_protocol = XGameProtocolRegisterForActivation(queue, this, _protocol_callback, &m_protocol_token);
+    HRESULT hr_pending = XGameInviteRegisterForPendingEvent(queue, this, _pending_invite_callback, &m_pending_invite_token);
+    HRESULT hr_accepted = XGameInviteRegisterForEvent(queue, this, _accepted_invite_callback, &m_accepted_invite_token);
+    if (FAILED(hr_protocol) || FAILED(hr_pending) || FAILED(hr_accepted)) {
+        // Roll back whichever registrations succeeded so shutdown() stays simple
+        // (it only unregisters when m_activation_registered is true).
+        if (SUCCEEDED(hr_protocol)) {
+            XGameProtocolUnregisterForActivation(m_protocol_token, true);
+        }
+        if (SUCCEEDED(hr_pending)) {
+            XGameInviteUnregisterForPendingEvent(m_pending_invite_token, true);
+        }
+        if (SUCCEEDED(hr_accepted)) {
+            XGameInviteUnregisterForEvent(m_accepted_invite_token, true);
+        }
+        m_protocol_token = {};
+        m_pending_invite_token = {};
+        m_accepted_invite_token = {};
+
+        const HRESULT hr = FAILED(hr_protocol) ? hr_protocol : (FAILED(hr_pending) ? hr_pending : hr_accepted);
+        char hr_buf[16];
+        std::snprintf(hr_buf, sizeof(hr_buf), "0x%08X", static_cast<unsigned int>(hr));
+        UtilityFunctions::push_warning(
+                String("[GDK] XGameProtocol/XGameInvite activation registration failed (HRESULT ") +
+                String(hr_buf) +
+                ") — activation inbound events disabled, accept_pending_invite still available.");
+        m_activation_registered = false;
+        m_runtime_ready = true;
+        return GDKResult::ok_result();
+    }
+#endif
 
     m_runtime_ready = true;
     m_activation_registered = true;
@@ -117,9 +155,18 @@ void GDKActivation::shutdown() {
     m_runtime_ready = false;
 
     if (m_activation_registered) {
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
         XGameActivationUnregisterForEvent(m_activation_token, true);
-        m_activation_registered = false;
         m_activation_token = {};
+#else
+        XGameProtocolUnregisterForActivation(m_protocol_token, true);
+        XGameInviteUnregisterForPendingEvent(m_pending_invite_token, true);
+        XGameInviteUnregisterForEvent(m_accepted_invite_token, true);
+        m_protocol_token = {};
+        m_pending_invite_token = {};
+        m_accepted_invite_token = {};
+#endif
+        m_activation_registered = false;
     }
 
     m_activation_listeners.clear();
@@ -235,7 +282,11 @@ Ref<GDKResult> GDKActivation::accept_pending_invite(const String &p_invite_uri) 
     }
 
     const CharString invite_uri_utf8 = invite_uri.utf8();
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
     HRESULT hr = XGameActivationAcceptPendingInvite(invite_uri_utf8.get_data());
+#else
+    HRESULT hr = XGameInviteAcceptPendingInvite(invite_uri_utf8.get_data());
+#endif
     if (FAILED(hr)) {
         Dictionary data;
         data["invite_uri"] = invite_uri;
@@ -251,57 +302,110 @@ Ref<GDKResult> GDKActivation::accept_pending_invite(const String &p_invite_uri) 
     return GDKResult::ok_result(data);
 }
 
+void GDKActivation::finish_activation_dispatch_internal(const Dictionary &p_info) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    notify_activation_listeners_internal(p_info);
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    emit_signal("activated", p_info);
+}
+
+void GDKActivation::dispatch_protocol_activation_internal(const String &p_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_PROTOCOL);
+    info["uri"] = p_uri;
+    emit_signal("protocol_activated", p_uri);
+    finish_activation_dispatch_internal(info);
+}
+
+void GDKActivation::dispatch_file_activation_internal(const String &p_file) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_FILE);
+    info["file"] = p_file;
+    emit_signal("file_activated", p_file);
+    finish_activation_dispatch_internal(info);
+}
+
+void GDKActivation::dispatch_pending_invite_internal(const String &p_invite_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary invite = make_invite_dictionary_internal(p_invite_uri, "pending_game_invite");
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_PENDING_GAME_INVITE);
+    info["invite_uri"] = p_invite_uri;
+    info["invite"] = invite;
+    emit_signal("pending_invite_received", invite);
+    finish_activation_dispatch_internal(info);
+}
+
+void GDKActivation::dispatch_accepted_invite_internal(const String &p_invite_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary invite = make_invite_dictionary_internal(p_invite_uri, "accepted_game_invite");
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_ACCEPTED_GAME_INVITE);
+    info["invite_uri"] = p_invite_uri;
+    info["invite"] = invite;
+    emit_signal("invite_accepted", invite);
+    finish_activation_dispatch_internal(info);
+}
+
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
+
+// Guard against the SDK enum drifting away from the fixed public values.
+static_assert(GDKActivation::ACTIVATION_TYPE_PROTOCOL == static_cast<int>(XGameActivationType::Protocol),
+        "ACTIVATION_TYPE_PROTOCOL must match XGameActivationType::Protocol");
+static_assert(GDKActivation::ACTIVATION_TYPE_FILE == static_cast<int>(XGameActivationType::File),
+        "ACTIVATION_TYPE_FILE must match XGameActivationType::File");
+static_assert(GDKActivation::ACTIVATION_TYPE_PENDING_GAME_INVITE == static_cast<int>(XGameActivationType::PendingGameInvite),
+        "ACTIVATION_TYPE_PENDING_GAME_INVITE must match XGameActivationType::PendingGameInvite");
+static_assert(GDKActivation::ACTIVATION_TYPE_ACCEPTED_GAME_INVITE == static_cast<int>(XGameActivationType::AcceptedGameInvite),
+        "ACTIVATION_TYPE_ACCEPTED_GAME_INVITE must match XGameActivationType::AcceptedGameInvite");
+
 void GDKActivation::handle_activation_internal(const XGameActivationInfo *p_activation_info) {
     if (!m_runtime_ready || p_activation_info == nullptr) {
         return;
     }
 
-    Dictionary info;
-    info["type"] = static_cast<int64_t>(p_activation_info->type);
-
     switch (p_activation_info->type) {
-        case XGameActivationType::Protocol: {
-            const String uri = _utf8_or_empty(p_activation_info->protocolUri);
-            info["uri"] = uri;
-            emit_signal("protocol_activated", uri);
+        case XGameActivationType::Protocol:
+            dispatch_protocol_activation_internal(_utf8_or_empty(p_activation_info->protocolUri));
+            break;
+        case XGameActivationType::File:
+            dispatch_file_activation_internal(_utf8_or_empty(p_activation_info->file));
+            break;
+        case XGameActivationType::PendingGameInvite:
+            dispatch_pending_invite_internal(_utf8_or_empty(p_activation_info->inviteUri));
+            break;
+        case XGameActivationType::AcceptedGameInvite:
+            dispatch_accepted_invite_internal(_utf8_or_empty(p_activation_info->inviteUri));
+            break;
+        default: {
+            // Unknown/newer activation type: still surface a minimal info dict so
+            // internal listeners and the generic "activated" signal fire.
+            Dictionary info;
+            info["type"] = static_cast<int64_t>(p_activation_info->type);
+            finish_activation_dispatch_internal(info);
             break;
         }
-        case XGameActivationType::File: {
-            const String file = _utf8_or_empty(p_activation_info->file);
-            info["file"] = file;
-            emit_signal("file_activated", file);
-            break;
-        }
-        case XGameActivationType::PendingGameInvite: {
-            const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
-            Dictionary invite = make_invite_dictionary_internal(invite_uri, "pending_game_invite");
-            info["invite_uri"] = invite_uri;
-            info["invite"] = invite;
-            emit_signal("pending_invite_received", invite);
-            break;
-        }
-        case XGameActivationType::AcceptedGameInvite: {
-            const String invite_uri = _utf8_or_empty(p_activation_info->inviteUri);
-            Dictionary invite = make_invite_dictionary_internal(invite_uri, "accepted_game_invite");
-            info["invite_uri"] = invite_uri;
-            info["invite"] = invite;
-            emit_signal("invite_accepted", invite);
-            break;
-        }
-        default:
-            break;
     }
-
-    if (!m_runtime_ready) {
-        return;
-    }
-
-    notify_activation_listeners_internal(info);
-    if (!m_runtime_ready) {
-        return;
-    }
-
-    emit_signal("activated", info);
 }
 
 void CALLBACK GDKActivation::_activation_callback(void *p_context, const XGameActivationInfo *p_activation_info) {
@@ -310,5 +414,30 @@ void CALLBACK GDKActivation::_activation_callback(void *p_context, const XGameAc
         service->handle_activation_internal(p_activation_info);
     }
 }
+
+#else // October 2025 GDK: separate XGameProtocol + XGameInvite callbacks.
+
+void CALLBACK GDKActivation::_protocol_callback(void *p_context, const char *p_protocol_uri) {
+    auto *service = static_cast<GDKActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_protocol_activation_internal(_utf8_or_empty(p_protocol_uri));
+    }
+}
+
+void CALLBACK GDKActivation::_pending_invite_callback(void *p_context, const char *p_invite_uri) {
+    auto *service = static_cast<GDKActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_pending_invite_internal(_utf8_or_empty(p_invite_uri));
+    }
+}
+
+void CALLBACK GDKActivation::_accepted_invite_callback(void *p_context, const char *p_invite_uri) {
+    auto *service = static_cast<GDKActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_accepted_invite_internal(_utf8_or_empty(p_invite_uri));
+    }
+}
+
+#endif
 
 } // namespace godot

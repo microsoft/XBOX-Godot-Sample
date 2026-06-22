@@ -1003,7 +1003,11 @@ Ref<GDKResult> GDKMultiplayerActivity::accept_pending_invite(const String &p_inv
     }
 
     const CharString invite_uri_utf8 = invite_uri.utf8();
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
     HRESULT hr = XGameActivationAcceptPendingInvite(invite_uri_utf8.get_data());
+#else
+    HRESULT hr = XGameInviteAcceptPendingInvite(invite_uri_utf8.get_data());
+#endif
     if (FAILED(hr)) {
         return GDKResult::hresult_error(
                 hr,
@@ -1157,18 +1161,18 @@ void GDKMultiplayerActivity::handle_activation_internal(const Dictionary &p_acti
     Dictionary invite = p_activation_info.get("invite", Dictionary());
 
     if (invite.is_empty() && !invite_uri.is_empty()) {
-        if (activation_type == static_cast<int64_t>(XGameActivationType::PendingGameInvite)) {
+        if (activation_type == static_cast<int64_t>(GDKActivation::ACTIVATION_TYPE_PENDING_GAME_INVITE)) {
             invite = parse_invite_uri_internal(invite_uri, "pending_game_invite");
-        } else if (activation_type == static_cast<int64_t>(XGameActivationType::AcceptedGameInvite)) {
+        } else if (activation_type == static_cast<int64_t>(GDKActivation::ACTIVATION_TYPE_ACCEPTED_GAME_INVITE)) {
             invite = parse_invite_uri_internal(invite_uri, "accepted_game_invite");
         }
     }
 
-    switch (static_cast<XGameActivationType>(activation_type)) {
-        case XGameActivationType::PendingGameInvite:
+    switch (activation_type) {
+        case GDKActivation::ACTIVATION_TYPE_PENDING_GAME_INVITE:
             emit_signal("pending_invite_received", invite);
             break;
-        case XGameActivationType::AcceptedGameInvite:
+        case GDKActivation::ACTIVATION_TYPE_ACCEPTED_GAME_INVITE:
             emit_signal("invite_accepted", invite);
             break;
         default:

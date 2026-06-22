@@ -1256,8 +1256,10 @@ Construction is internal — instances are produced by
 ## Activation service: `GDK.activation`
 
 `GDK.activation` is a `RefCounted` service object returned by
-`GDK.get_activation()`. It wraps `XGameActivation.h`, the modern replacement for
-the deprecated `XGameProtocol.h` registration. Subscribe to the typed signals to
+`GDK.get_activation()`. It wraps `XGameActivation.h` on April 2026+ GDK editions,
+and transparently falls back to `XGameProtocol.h` + `XGameInvite.h` on October
+2025 editions (the backend is selected at compile time via `grdk.h`'s
+`_GRDK_EDITION`). Subscribe to the typed signals to
 react to protocol launches, file launches, pending invites, and accepted
 invites. `GDK.activation` owns the single native activation registration;
 `GDK.multiplayer_activity` receives invite events through the same internal
@@ -1267,7 +1269,7 @@ fan-out so both services see the same parsed invite dictionary.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `accept_pending_invite(invite_uri)` | `GDKResult` | Accept a pending invite URI via `XGameActivationAcceptPendingInvite` |
+| `accept_pending_invite(invite_uri)` | `GDKResult` | Accept a pending invite URI (`XGameActivationAcceptPendingInvite`, or `XGameInviteAcceptPendingInvite` on October 2025 editions) |
 
 ### Signals
 

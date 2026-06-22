@@ -19,7 +19,7 @@ The sample covers roughly **85–95% of the surface area** a Godot developer nee
 
 The **PlayFab extension sample code does not have a specific dependency on the Microsoft GDK extension sample code**, so the two can be adopted modularly — use either on its own, or compose them (e.g. sign in to PlayFab with the XBOX user provided by the GDK side).
 
-The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The sample is currently compatible with the **April 2026 Microsoft GDK** out of the box.
+The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The default (vcpkg) build targets the **April 2026 Microsoft GDK** out of the box; the sample also builds against an installed **October 2025 Microsoft GDK (edition `251001`)** or later via the `installed-gdk` preset and `-DGDK_VERSION=<edition>` — see [Source for the Microsoft GDK dependency](docs/getting-started.md#source-for-the-microsoft-gdk-dependency).
 
 This is the **first step** in our XBOX Godot Sample integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
 
