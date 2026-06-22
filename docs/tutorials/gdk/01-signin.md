@@ -279,7 +279,7 @@ Run `sample/tutorial_gdk`, open `g01_signin`, and press **Sign in**. You should 
 | `GdkAuth autoload missing` | The autoload is not registered or has the wrong name. | Register `autoload/gdk_auth.gd` as `GdkAuth`. |
 | `gdk.missing` | The GDK extension did not load. | Build the addons and confirm the mirrored `addons/godot_gdk/bin` files exist. |
 | `no_default_user` before UI | No Xbox app default user is available. | This is handled; choose a test account in the sign-in UI. |
-| `gdk.add_user_with_ui` failure | Sign-in UI dismissed without choosing an account (`cancelled`), wrong sandbox, or test account issue. | Dismissing now resolves with a `cancelled` result so the game can continue offline; otherwise retry, verify sandbox, and confirm the account has access to the title. |
+| `gdk.add_user_with_ui` failure | Sign-in UI dismissed, wrong sandbox, or test account issue. | When the platform reports the dismissal (`E_ABORT`), the result is `cancelled` so the game can continue offline. Whether dismissing the UI completes the request is GDK platform behavior and is not guaranteed (see issue #115). Otherwise retry, verify sandbox, and confirm the account has access to the title. |
 
 ## Reference implementation
 
