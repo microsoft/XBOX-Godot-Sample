@@ -4620,7 +4620,9 @@ Variant to_variant_PFInventoryInventoryItem(const PFInventoryInventoryItem *p_va
     if (p_value->expirationDate != nullptr) dictionary["expiration_date"] = static_cast<int64_t>(*p_value->expirationDate);
     dictionary["id"] = p_value->id != nullptr ? String::utf8(p_value->id) : String();
     dictionary["stack_id"] = p_value->stackId != nullptr ? String::utf8(p_value->stackId) : String();
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
     if (p_value->startDate != nullptr) dictionary["start_date"] = static_cast<int64_t>(*p_value->startDate);
+#endif
     dictionary["type"] = p_value->type != nullptr ? String::utf8(p_value->type) : String();
     return dictionary;
 }
@@ -5050,7 +5052,9 @@ Variant to_variant_PFInventoryRedemptionFailure(const PFInventoryRedemptionFailu
 Variant to_variant_PFInventoryRedemptionSuccess(const PFInventoryRedemptionSuccess *p_value) {
     if (p_value == nullptr) { return Variant(); }
     Dictionary dictionary;
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
     if (p_value->expirationTimestamp != nullptr) dictionary["expiration_timestamp"] = static_cast<int64_t>(*p_value->expirationTimestamp);
+#endif
     dictionary["marketplace_alternate_id"] = p_value->marketplaceAlternateId != nullptr ? String::utf8(p_value->marketplaceAlternateId) : String();
     dictionary["marketplace_transaction_id"] = p_value->marketplaceTransactionId != nullptr ? String::utf8(p_value->marketplaceTransactionId) : String();
     dictionary["success_timestamp"] = static_cast<int64_t>(p_value->successTimestamp);

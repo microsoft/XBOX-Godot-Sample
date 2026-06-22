@@ -276,7 +276,7 @@ Fields:
   `GDKLauncher` `XLaunchUri`-only launcher with destination validation.
 
 - `gdk_activation.cpp` / `gdk_activation.h`
-  `GDKActivation` owns the single native `XGameActivationRegisterForEvent` subscription and fans out activation dictionaries to internal service listeners.
+  `GDKActivation` owns the single native activation subscription (`XGameActivationRegisterForEvent` on April 2026+, or the `XGameProtocol` / `XGameInvite` registrations on October 2025) and fans out activation dictionaries to internal service listeners.
 
 - `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h`  
   `GDKMultiplayerActivity`, `GDKMultiplayerActivityInfo`, MPA cache, recent-players staging, and invite signals forwarded from `GDKActivation`.

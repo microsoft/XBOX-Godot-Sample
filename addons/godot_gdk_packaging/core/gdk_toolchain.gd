@@ -104,10 +104,10 @@ func launch_detached(exe_path: String, args: PackedStringArray) -> int:
 # ── Private ─────────────────────────────────────────────────────────────────
 
 ## Detects GDK installation: extracts version from GameDKCoreLatest env var
-## (e.g. "C:\Program Files (x86)\Microsoft GDK\260400\" → "260400"),
+## (e.g. "C:\Program Files (x86)\Microsoft GDK\251001\" → "251001"),
 ## then resolves the bin directory from GDK_BIN env var or default path.
 func _detect_gdk() -> void:
-	# GameDKCoreLatest is set by the GDK installer, e.g. "C:\...\Microsoft GDK\260400\"
+	# GameDKCoreLatest is set by the GDK installer, e.g. "C:\...\Microsoft GDK\251001\"
 	# Extract the 6-digit edition number from the path segments
 	var gdk_core: String = OS.get_environment("GameDKCoreLatest")
 	if gdk_core != "":

@@ -610,7 +610,8 @@ cmake --build --preset debug-gameinput
   Resolves the Microsoft GDK + GameInput from vcpkg; no machine-wide GDK
   install needed at build time.
 - No vcpkg, but the Microsoft GDK is installed on disk (auto-detected via
-  `%GRDKLatest%` / `%GameDK%`, or set explicitly with
+  `%GRDKLatest%` / `%GameDK%`, pinned to a pre-approved edition with
+  `-DGDK_VERSION=<edition>`, or set explicitly with
   `-DGDK_INSTALL_DIR=<path>`) → **`cmake --preset installed-gdk`**. No vcpkg
   checkout or `VCPKG_ROOT` required.
 - Neither → install [vcpkg](https://github.com/microsoft/vcpkg), set
@@ -626,12 +627,17 @@ do, for `makepkg.exe` / `wdapp.exe` / Game Config Editor), the
 at all** — no `VCPKG_ROOT`, no vcpkg checkout, no port restore:
 
 ```powershell
-# Consume an installed Microsoft GDK (auto-detected via %GRDKLatest% or %GameDK%)
+# Consume an installed Microsoft GDK. With no edition pinned, the oldest
+# pre-approved edition that is installed is selected (the broadest-compatible
+# baseline), auto-detected via %GRDKLatest% / %GameDK%.
 cmake --preset installed-gdk
 cmake --build --preset debug-installed-gdk
 
-# Override auto-detection with an explicit path
-cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft GDK/260400"
+# Pin a specific pre-approved edition (must be in GDK_SUPPORTED_VERSIONS)
+cmake --preset installed-gdk -DGDK_VERSION=251001
+
+# Override edition selection entirely with an explicit path
+cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft GDK/251001"
 ```
 
 > **Note:** the `installed-gdk` preset is the only supported way to
@@ -643,9 +649,13 @@ cmake --preset installed-gdk -DGDK_INSTALL_DIR="C:/Program Files (x86)/Microsoft
 
 Installed mode consumes the modern `windows\` subdirectory layout of the
 Microsoft GDK (`<install>\windows\include`, `<install>\windows\lib\x64`,
-`<install>\windows\bin\x64`) that ships in Microsoft GDK **260400 / April 2026 and
-later**. The legacy `GRDK\` peer layout is not supported; use the
-`default` preset (vcpkg) for older Microsoft GDK versions.
+`<install>\windows\bin\x64`) that first shipped in the **October 2025**
+Microsoft GDK. The addons build against any pre-approved edition
+(see the version-selection table below); the C++ source is edition-gated on
+`grdk.h`'s `_GRDK_EDITION`, so October 2025 builds fall back to the older
+`XGameProtocol` / `XGameInvite` activation APIs and skip the handful of PlayFab
+fields added in April 2026. The legacy `GRDK\` peer layout is not supported; use
+the `default` preset (vcpkg) for older Microsoft GDK versions.
 
 **GameInput in installed mode** — the installed Microsoft GDK ships GameInput v1
 only, but the `godot_gameinput` addon targets v3. The `installed-gdk`
@@ -665,10 +675,80 @@ Source-selection options:
 | `vcpkg` (default) | Use the `ms-gdk[playfab]` vcpkg port. Set automatically by the `default` preset. Requires `VCPKG_ROOT`. |
 | `installed` | Use a Microsoft GDK install on disk. Set automatically by the `installed-gdk` preset (which also drops the vcpkg toolchain — no `VCPKG_ROOT` required). Setting this alone on the `default` preset has no effect on the vcpkg restore. |
 
+When `GDK_DEPENDENCY_SOURCE=installed`, the edition is selected from a
+maintained, pre-approved allowlist:
+
+| Option | Default | Behavior |
+|---|---|---|
+| `GDK_VERSION` | _(empty)_ | 6-digit edition to build against (e.g. `251001`). Empty selects the **oldest** pre-approved edition that is installed. Ignored when `GDK_INSTALL_DIR` is set. |
+| `GDK_SUPPORTED_VERSIONS` | `251001;251002;251003;260400;260401` | Pre-approved editions the installed source may select. Maintainers extend this list as new editions are validated. |
+| `GDK_ALLOW_UNAPPROVED` | `OFF` | Escape hatch: allow `GDK_VERSION` to name an edition not in the allowlist (warns instead of failing). That edition is unvalidated — use at your own risk. |
+
 | `GAMEINPUT_SOURCE` | Behavior |
 |---|---|
 | `vcpkg` (default) | Use the `gameinput` vcpkg port. Requires `VCPKG_ROOT`. |
 | `nuget` | Fetch the `Microsoft.GameInput` NuGet package directly from nuget.org (no vcpkg required). Set automatically by the `installed-gdk` preset. The pinned version + SHA512 are tracked in `cmake/GDKDependencies.cmake` (override with `-DGDK_GAMEINPUT_NUGET_VERSION=<version> -DGDK_GAMEINPUT_NUGET_SHA512=<hash>`). |
+
+#### Switching GDK editions on the vcpkg path
+
+`GDK_VERSION` only applies to `GDK_DEPENDENCY_SOURCE=installed`. On the
+`default` (vcpkg) preset the Microsoft GDK edition is whatever the `ms-gdk`
+port resolves to, governed by vcpkg's own versioning — the
+`default-registry.baseline` in `vcpkg-configuration.json`. Everything
+downstream follows the port automatically: the vcpkg-provided `grdk.h` carries
+the matching `_GRDK_EDITION`, so the C++ edition gate (activation backend,
+April-2026-only PlayFab fields) and the XSAPI import lib both flip to match the
+selected edition with no extra flags.
+
+The cleanest way to pin a specific edition is a top-level `overrides` block in
+`vcpkg.json`, which forces an exact `ms-gdk` port version regardless of the
+baseline:
+
+```json
+"overrides": [
+  { "name": "ms-gdk", "version": "2510.1.6224" }
+]
+```
+
+Then reconfigure so vcpkg re-restores the port:
+
+```powershell
+cmake --preset default
+```
+
+The `ms-gdk` port version is `YYMM.N.<build>`, which maps to the 6-digit GDK
+edition `YYMM0N`:
+
+| `ms-gdk` version | GDK edition (`_GRDK_EDITION`) | Release |
+|---|---|---|
+| `2510.0.6194` | `251000` | October 2025 |
+| `2510.1.6224` | `251001` | October 2025 |
+| `2510.2.6247` | `251002` | October 2025 |
+| `2604.1.7839` | `260401` | April 2026 |
+| `2604.2.7849` | `260402` | April 2026 |
+
+> The exact versions available depend on the registry baseline; list them with
+> `vcpkg search ms-gdk`. Note that `260400` is **not** published to the public
+> vcpkg registry (only `2604.1` / `2604.2` are), so it is reachable only through
+> the `installed-gdk` path or a local overlay port. The version named in
+> `overrides` must exist in the registry's `versions/m-/ms-gdk.json` reachable
+> from the baseline, or vcpkg errors at configure time.
+
+Two coarser alternatives:
+
+- **Move the baseline** — bump `default-registry.baseline` in
+  `vcpkg-configuration.json` to a `microsoft/vcpkg` commit whose `ms-gdk`
+  baseline is the edition you want. Simpler, but it shifts *every* port.
+- **Overlay port** — supply a local `ports/ms-gdk/` (via `overlay-ports`) for an
+  edition that is not in the public registry (e.g. `260400`).
+
+> **PlayFab Game Save on October 2025 ports.** The `2510.x` `ms-gdk` ports ship
+> the PlayFab Game Save binaries (`PlayFabGameSave.{lib,dll}`) and headers, but
+> their exported CMake config omits the `Xbox::PlayFabGameSave` target (added in
+> the April 2026 `2604.x` ports). The build detects this and backfills the
+> target from the installed vcpkg layout, so `godot_playfab` configures and
+> builds against every supported edition without extra flags — see
+> `_gdk_backfill_vcpkg_playfab_gamesave` in `cmake/GDKDependencies.cmake`.
 
 ### CMake auto-detection
 

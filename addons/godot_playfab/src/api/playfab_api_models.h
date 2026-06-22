@@ -9,6 +9,7 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
 #include "playfab_api_helpers.h"
+#include "playfab_gdk_edition.h"
 #include <playfab/core/PFAuthentication.h>
 #include <playfab/core/PFEvents.h>
 #include <playfab/core/PFTypes.h>
@@ -11091,10 +11092,12 @@ struct OwnedPFInventoryInventoryItem {
             stackId_string = String(field_value).utf8().get_data();
             value.stackId = stackId_string.empty() ? nullptr : stackId_string.c_str();
         }
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
         if (get_request_value(p_request, "startDate", "start_date", &field_value)) {
             startDate_storage = static_cast<time_t>(static_cast<int64_t>(field_value));
             value.startDate = &startDate_storage;
         }
+#endif
         if (get_request_value(p_request, "type", "type", &field_value)) {
             type_string = String(field_value).utf8().get_data();
             value.type = type_string.empty() ? nullptr : type_string.c_str();
@@ -12200,10 +12203,12 @@ struct OwnedPFInventoryRedemptionSuccess {
 
     bool from_dictionary(const Dictionary &p_request, String *r_error) {
         Variant field_value;
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
         if (get_request_value(p_request, "expirationTimestamp", "expiration_timestamp", &field_value)) {
             expirationTimestamp_storage = static_cast<time_t>(static_cast<int64_t>(field_value));
             value.expirationTimestamp = &expirationTimestamp_storage;
         }
+#endif
         if (get_request_value(p_request, "marketplaceAlternateId", "marketplace_alternate_id", &field_value)) {
             marketplaceAlternateId_string = String(field_value).utf8().get_data();
             value.marketplaceAlternateId = marketplaceAlternateId_string.empty() ? nullptr : marketplaceAlternateId_string.c_str();

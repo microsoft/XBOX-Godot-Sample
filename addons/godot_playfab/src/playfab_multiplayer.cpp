@@ -12,6 +12,8 @@
 #include "playfab_runtime.h"
 #include "playfab_user.h"
 
+#include "api/playfab_gdk_edition.h"
+
 namespace godot {
 
 namespace {
@@ -1505,7 +1507,9 @@ Signal PlayFabMultiplayer::create_lobby_async(const Ref<PlayFabUser> &p_user, co
     create_config.lobbyPropertyCount = lobby_properties.count();
     create_config.lobbyPropertyKeys = lobby_properties.keys();
     create_config.lobbyPropertyValues = lobby_properties.values();
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
     create_config.restrictInvitesToLobbyOwner = config->get_restrict_invites_to_lobby_owner();
+#endif
 
     PFLobbyJoinConfiguration join_config = {};
     join_config.memberPropertyCount = member_properties.count();
@@ -1647,7 +1651,9 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
     join_config.memberPropertyCount = member_properties.count();
     join_config.memberPropertyKeys = member_properties.keys();
     join_config.memberPropertyValues = member_properties.values();
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
     join_config.restrictInvitesToLobbyOwner = false;
+#endif
 
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     PendingOperation *operation = _create_pending_operation(PlayFabLobby::PROPERTIES_UPDATED, pending_signal);

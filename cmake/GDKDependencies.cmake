@@ -18,10 +18,14 @@ include_guard(GLOBAL)
 #   - **installed GDK**: a developer's Microsoft GDK install on disk,
 #     typically at `C:\Program Files (x86)\Microsoft GDK\<version>\`.
 #     This module consumes the modern `windows\` subdirectory layout
-#     (`windows\include`, `windows\lib\x64`, `windows\bin\x64`) that GDK
-#     260400 / April 2026 and later ship. The legacy `GRDK\` peer layout
-#     (`ExtensionLibraries\*\Lib\x64\...`, per-library flat `Include\`)
-#     is **not** supported. Use the vcpkg source for older GDK versions.
+#     (`windows\include`, `windows\lib\x64`, `windows\bin\x64`) first
+#     shipped by the October 2025 GDK. Which edition to
+#     build against is chosen by `GDK_VERSION` from the pre-approved
+#     `GDK_SUPPORTED_VERSIONS` allowlist (see below); when unset, the oldest
+#     approved edition that is installed is used. The legacy `GRDK\` peer
+#     layout (`ExtensionLibraries\*\Lib\x64\...`, per-library flat
+#     `Include\`) is **not** supported. Use the vcpkg source for older GDK
+#     versions.
 #     Selected by the `installed-gdk` preset, which does *not* load the
 #     vcpkg toolchain at all -- a vcpkg checkout (or `VCPKG_ROOT`) is not
 #     required when building in installed mode.
@@ -87,9 +91,36 @@ set_property(CACHE GDK_DEPENDENCY_SOURCE PROPERTY STRINGS vcpkg installed)
 
 set(GDK_INSTALL_DIR "" CACHE PATH
     "Optional path to a Microsoft GDK install. May point at the version root \
-(e.g. `C:/Program Files (x86)/Microsoft GDK/260400/`), its `windows/` subdir, \
-or its `GRDK/` peer (auto-redirected to the sibling `windows/`). Only used \
-when GDK_DEPENDENCY_SOURCE is `installed`.")
+(e.g. `C:/Program Files (x86)/Microsoft GDK/251001/`), its `windows/` subdir, \
+or its `GRDK/` peer (auto-redirected to the sibling `windows/`). Takes \
+precedence over GDK_VERSION. Only used when GDK_DEPENDENCY_SOURCE is \
+`installed`.")
+
+# Pre-approved set of Microsoft GDK editions (6-digit, e.g. 251001 = October
+# 2025, 260400 = April 2026) that the installed-GDK source may build against.
+# Maintained in-repo: extend this default when a new edition is validated.
+# `GDK_VERSION` must name one of these unless `GDK_ALLOW_UNAPPROVED` is ON.
+set(GDK_SUPPORTED_VERSIONS "251001;251002;251003;260400;260401" CACHE STRING
+    "Semicolon-separated list of pre-approved 6-digit Microsoft GDK editions \
+the installed-GDK source may select. GDK_VERSION must be one of these unless \
+GDK_ALLOW_UNAPPROVED is ON.")
+
+# Select a specific installed Microsoft GDK edition to build against. Empty
+# (default) selects the oldest edition from GDK_SUPPORTED_VERSIONS that is
+# actually installed -- the broadest-compatible baseline. Only used when
+# GDK_DEPENDENCY_SOURCE is `installed` and GDK_INSTALL_DIR is not set.
+set(GDK_VERSION "" CACHE STRING
+    "6-digit Microsoft GDK edition to build against (e.g. 251001). Must be a \
+member of GDK_SUPPORTED_VERSIONS unless GDK_ALLOW_UNAPPROVED is ON. Empty \
+selects the oldest approved edition that is installed. Ignored when \
+GDK_INSTALL_DIR is set.")
+
+# Escape hatch: when ON, GDK_VERSION may name an edition outside
+# GDK_SUPPORTED_VERSIONS (a warning is emitted instead of a hard error),
+# letting a developer build against an edition we have not pre-approved.
+option(GDK_ALLOW_UNAPPROVED
+    "Allow GDK_VERSION to name a Microsoft GDK edition not in GDK_SUPPORTED_VERSIONS (warns instead of failing)."
+    OFF)
 
 set(GAMEINPUT_SOURCE "vcpkg" CACHE STRING
     "Source for the GameInput v3 dependency. One of: vcpkg, nuget. \
@@ -182,37 +213,72 @@ function(_gdk_normalize_install_path INPUT OUT_VAR)
     set(${OUT_VAR} "" PARENT_SCOPE)
 endfunction()
 
-# Pick the highest numbered version directory under a `%GameDK%`-style root,
-# returning its `windows/` subdir in `<OUT_VAR>` (or empty string).
-function(_gdk_pick_latest_version GAMEDK_ROOT OUT_VAR)
-    set(${OUT_VAR} "" PARENT_SCOPE)
-    if(NOT GAMEDK_ROOT OR NOT EXISTS "${GAMEDK_ROOT}")
-        return()
+# Validate an explicit GDK_VERSION value: must be a 6-digit edition, and a
+# member of GDK_SUPPORTED_VERSIONS unless GDK_ALLOW_UNAPPROVED is ON. Fails
+# loudly (or warns, with the escape hatch) so a typo'd or unvetted edition is
+# caught up front rather than surfacing as a confusing "no install found".
+function(_gdk_assert_version_value VERSION)
+    if(NOT VERSION MATCHES "^[0-9][0-9][0-9][0-9][0-9][0-9]$")
+        message(FATAL_ERROR
+            "GDK_VERSION='${VERSION}' is not a valid Microsoft GDK edition. "
+            "Expected a 6-digit edition such as 251001 (October 2025) or 260400 (April 2026).")
     endif()
-    file(GLOB _version_dirs RELATIVE "${GAMEDK_ROOT}" "${GAMEDK_ROOT}/*")
-    set(_best "")
-    set(_best_num 0)
-    foreach(_dir IN LISTS _version_dirs)
-        if(_dir MATCHES "^[0-9]+$")
-            # Numeric compare so e.g. "260400" sorts above "99999". STRGREATER
-            # is lexicographic and would mis-order versions that differ in
-            # digit count.
-            math(EXPR _dir_num "${_dir}")
-            if(_dir_num GREATER _best_num)
-                set(_best "${_dir}")
-                set(_best_num ${_dir_num})
-            endif()
+    if(NOT VERSION IN_LIST GDK_SUPPORTED_VERSIONS)
+        if(GDK_ALLOW_UNAPPROVED)
+            message(WARNING
+                "GDK_VERSION='${VERSION}' is not in the pre-approved list "
+                "(GDK_SUPPORTED_VERSIONS='${GDK_SUPPORTED_VERSIONS}'). Proceeding because "
+                "GDK_ALLOW_UNAPPROVED is ON -- this edition has not been validated.")
+        else()
+            message(FATAL_ERROR
+                "GDK_VERSION='${VERSION}' is not a pre-approved Microsoft GDK edition.\n"
+                "Approved editions: ${GDK_SUPPORTED_VERSIONS}.\n"
+                "Pick one of those, or set -DGDK_ALLOW_UNAPPROVED=ON to build against an "
+                "unvetted edition at your own risk.")
         endif()
-    endforeach()
-    if(_best AND EXISTS "${GAMEDK_ROOT}/${_best}/windows/include/XGameRuntime.h")
-        set(${OUT_VAR} "${GAMEDK_ROOT}/${_best}/windows" PARENT_SCOPE)
     endif()
 endfunction()
 
-# Discover a GDK install `windows/` path from explicit override, then env
-# vars, in preference order. Returns empty string if none found.
+# Resolve a GDK install `windows/` subdir under an install root (e.g.
+# `%GameDK%` or `C:/Program Files (x86)/Microsoft GDK`). When GDK_VERSION is
+# set, only that edition's `<root>/<version>/windows` is considered. When
+# unset, the oldest edition from GDK_SUPPORTED_VERSIONS that is installed
+# under this root is chosen (favoring the broadest-compatible baseline).
+# Sets `<OUT_VAR>` to the resolved `windows/` path, or empty string.
+function(_gdk_pick_approved_version ROOT OUT_VAR)
+    set(${OUT_VAR} "" PARENT_SCOPE)
+    if(NOT ROOT OR NOT EXISTS "${ROOT}")
+        return()
+    endif()
+
+    if(GDK_VERSION)
+        if(EXISTS "${ROOT}/${GDK_VERSION}/windows/include/XGameRuntime.h")
+            set(${OUT_VAR} "${ROOT}/${GDK_VERSION}/windows" PARENT_SCOPE)
+        endif()
+        return()
+    endif()
+
+    # Unset: oldest approved edition installed under this root. NATURAL sort
+    # orders editions numerically (251001 < 260400) regardless of digit count.
+    set(_approved ${GDK_SUPPORTED_VERSIONS})
+    list(SORT _approved COMPARE NATURAL)
+    foreach(_v IN LISTS _approved)
+        if(EXISTS "${ROOT}/${_v}/windows/include/XGameRuntime.h")
+            set(${OUT_VAR} "${ROOT}/${_v}/windows" PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
+endfunction()
+
+# Discover a GDK install `windows/` path. Resolution order:
+#   1. GDK_INSTALL_DIR (explicit override -- wins over edition selection).
+#   2. The edition chosen by GDK_VERSION (or the oldest approved installed
+#      edition when GDK_VERSION is unset), searched under %GameDK%, the
+#      default install root, and the %GRDKLatest% install root.
+# Returns empty string if none found.
 function(_gdk_discover_install_path OUT_VAR)
     set(${OUT_VAR} "" PARENT_SCOPE)
+    set(_default_root "C:/Program Files (x86)/Microsoft GDK")
 
     # 1. Explicit override.
     if(GDK_INSTALL_DIR)
@@ -224,34 +290,41 @@ function(_gdk_discover_install_path OUT_VAR)
             message(FATAL_ERROR
                 "GDK_INSTALL_DIR='${GDK_INSTALL_DIR}' does not look like a GDK install with "
                 "the modern `windows/` layout.\n"
-                "Expected a path to the version root (e.g. C:/Program Files (x86)/Microsoft GDK/260400/), "
+                "Expected a path to the version root (e.g. C:/Program Files (x86)/Microsoft GDK/251001/), "
                 "its `windows/` subdir, or its `GRDK/` peer. The resolved `windows/` directory must "
-                "contain `include/XGameRuntime.h`. GDK versions older than 260400 / April 2026 do not "
+                "contain `include/XGameRuntime.h`. GDK editions older than the October 2025 GDK do not "
                 "ship this layout -- use -DGDK_DEPENDENCY_SOURCE=vcpkg instead.")
         endif()
     endif()
 
-    # 2. %GRDKLatest% (points at <root>/<version>/GRDK; redirected to ../windows).
-    if(DEFINED ENV{GRDKLatest})
-        _gdk_normalize_install_path("$ENV{GRDKLatest}" _normalized)
-        if(_normalized)
-            set(${OUT_VAR} "${_normalized}" PARENT_SCOPE)
-            return()
-        endif()
+    # 2. Edition selection (GDK_VERSION pinned, or oldest approved installed).
+    if(GDK_VERSION)
+        _gdk_assert_version_value("${GDK_VERSION}")
     endif()
 
-    # 3. %GameDK% (root with version subdirs; pick the highest).
-    #    Note: %GameDKLatest% is NOT used. On some installs it pins to an
-    #    older version even when a newer one is also installed; the version
-    #    sort under %GameDK% is more reliable.
+    # Candidate install roots that hold `<edition>/windows/...` subdirs.
+    set(_roots "")
     if(DEFINED ENV{GameDK})
         file(TO_CMAKE_PATH "$ENV{GameDK}" _gamedk)
-        _gdk_pick_latest_version("${_gamedk}" _win)
+        list(APPEND _roots "${_gamedk}")
+    endif()
+    list(APPEND _roots "${_default_root}")
+    # %GRDKLatest% points at <root>/<edition>/GRDK; its grandparent is the root.
+    if(DEFINED ENV{GRDKLatest})
+        file(TO_CMAKE_PATH "$ENV{GRDKLatest}" _grdk)
+        get_filename_component(_grdk_edition_dir "${_grdk}" DIRECTORY)
+        get_filename_component(_grdk_root "${_grdk_edition_dir}" DIRECTORY)
+        list(APPEND _roots "${_grdk_root}")
+    endif()
+    list(REMOVE_DUPLICATES _roots)
+
+    foreach(_root IN LISTS _roots)
+        _gdk_pick_approved_version("${_root}" _win)
         if(_win)
             set(${OUT_VAR} "${_win}" PARENT_SCOPE)
             return()
         endif()
-    endif()
+    endforeach()
 endfunction()
 
 # Validate GDK_DEPENDENCY_SOURCE and, when set to `installed`, discover
@@ -265,7 +338,7 @@ endfunction()
 # (tracked via _GDK_RESOLVED_FOR_INPUT). Without this, switching presets
 # in the same build dir would silently keep the prior resolution.
 function(_gdk_resolve_dependency_source)
-    set(_input_signature "${GDK_DEPENDENCY_SOURCE}|${GDK_INSTALL_DIR}|$ENV{GRDKLatest}|$ENV{GameDK}")
+    set(_input_signature "${GDK_DEPENDENCY_SOURCE}|${GDK_INSTALL_DIR}|${GDK_VERSION}|${GDK_SUPPORTED_VERSIONS}|${GDK_ALLOW_UNAPPROVED}|$ENV{GRDKLatest}|$ENV{GameDK}")
     if(_GDK_RESOLVED_SOURCE AND _GDK_RESOLVED_FOR_INPUT STREQUAL "${_input_signature}")
         return()
     endif()
@@ -281,11 +354,20 @@ function(_gdk_resolve_dependency_source)
     if(_source STREQUAL "installed")
         _gdk_discover_install_path(_win)
         if(NOT _win)
+            if(GDK_VERSION)
+                set(_sel_desc "GDK_VERSION='${GDK_VERSION}'")
+            else()
+                set(_sel_desc "the oldest approved edition (GDK_SUPPORTED_VERSIONS='${GDK_SUPPORTED_VERSIONS}')")
+            endif()
             message(FATAL_ERROR
-                "GDK_DEPENDENCY_SOURCE=installed was requested but no GDK install was found.\n"
-                "Pass -DGDK_INSTALL_DIR=<path> explicitly, or set the GRDKLatest / GameDK environment "
-                "variable to point at a Microsoft GDK install. The resolved `windows/` directory must "
-                "contain `include/XGameRuntime.h` (260400 / April 2026 or later).")
+                "GDK_DEPENDENCY_SOURCE=installed was requested but no matching GDK install was "
+                "found for ${_sel_desc}.\n"
+                "Looked for `<root>/<edition>/windows/include/XGameRuntime.h` under %GameDK%, "
+                "`C:/Program Files (x86)/Microsoft GDK`, and the %GRDKLatest% root.\n"
+                "Install one of the approved editions (e.g. `winget install Microsoft.Gaming.GDK`), "
+                "select an installed edition with -DGDK_VERSION=<edition>, point at it with "
+                "-DGDK_INSTALL_DIR=<path>, or use the default vcpkg preset "
+                "(-DGDK_DEPENDENCY_SOURCE=vcpkg).")
         endif()
         set(_GDK_RESOLVED_WINDOWS_PATH "${_win}" CACHE INTERNAL "" FORCE)
         message(STATUS "GDK dependency source: installed (${_win})")
@@ -296,6 +378,24 @@ function(_gdk_resolve_dependency_source)
 
     set(_GDK_RESOLVED_SOURCE "${_source}" CACHE INTERNAL "" FORCE)
     set(_GDK_RESOLVED_FOR_INPUT "${_input_signature}" CACHE INTERNAL "" FORCE)
+endfunction()
+
+# Resolve the Xbox Services (XSAPI) C static lib + its Debug sibling under
+# `lib/x64`. Prefers the v143 (VS2022) variant and falls back to v142
+# (VS2019), which is binary-compatible (MSVC guarantees ABI compatibility
+# across VS2015-2022). The October 2025 GDK (251001) ships only the
+# v142 variant; April 2026 (260400) ships both. Sets `<OUT_LIB>` and
+# `<OUT_DEBUG>` to full paths, or empty strings if neither variant is present.
+function(_gdk_resolve_xsapi_lib LIB_DIR OUT_LIB OUT_DEBUG)
+    set(${OUT_LIB} "" PARENT_SCOPE)
+    set(${OUT_DEBUG} "" PARENT_SCOPE)
+    foreach(_ts IN ITEMS 143 142)
+        if(EXISTS "${LIB_DIR}/Microsoft.Xbox.Services.${_ts}.C.lib")
+            set(${OUT_LIB} "${LIB_DIR}/Microsoft.Xbox.Services.${_ts}.C.lib" PARENT_SCOPE)
+            set(${OUT_DEBUG} "${LIB_DIR}/Microsoft.Xbox.Services.${_ts}.C.Debug.lib" PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
 endfunction()
 
 # Define the Xbox::* + Xbox::PlayFab* imported targets pointing at an
@@ -319,6 +419,17 @@ function(_gdk_define_installed_targets WIN_ROOT)
     set(_lib "${WIN_ROOT}/lib/x64")
     set(_bin "${WIN_ROOT}/bin/x64")
 
+    # Resolve the toolset-versioned XSAPI C lib (v143 preferred, v142 fallback).
+    _gdk_resolve_xsapi_lib("${_lib}" _xsapi_lib _xsapi_lib_debug)
+    if(NOT _xsapi_lib)
+        message(FATAL_ERROR
+            "Installed GDK at ${WIN_ROOT} has no Xbox Services C lib (looked for "
+            "Microsoft.Xbox.Services.143.C.lib then Microsoft.Xbox.Services.142.C.lib under "
+            "${_lib}). The install may be incomplete -- reinstall the full GDK or use "
+            "-DGDK_DEPENDENCY_SOURCE=vcpkg.")
+    endif()
+    get_filename_component(_xsapi_name "${_xsapi_lib}" NAME)
+    message(STATUS "GDK XSAPI lib: ${_xsapi_name}")
     # Sanity check: every consumer expects these specific paths to exist.
     # Fail loudly here with the actual missing file rather than letting the
     # downstream linker complain about LNK1181 on a generated lib path.
@@ -329,8 +440,8 @@ function(_gdk_define_installed_targets WIN_ROOT)
     set(_required_files
         "${_inc}/XGameRuntime.h"
         "${_lib}/xgameruntime.lib"
-        "${_lib}/Microsoft.Xbox.Services.143.C.lib"
-        "${_lib}/Microsoft.Xbox.Services.143.C.Debug.lib"
+        "${_xsapi_lib}"
+        "${_xsapi_lib_debug}"
         "${_lib}/Microsoft.Xbox.Services.C.Thunks.lib"
         "${_bin}/Microsoft.Xbox.Services.C.Thunks.dll"
         "${_bin}/Microsoft.Xbox.Services.C.Thunks.Debug.dll"
@@ -366,8 +477,8 @@ function(_gdk_define_installed_targets WIN_ROOT)
         if(NOT EXISTS "${_f}")
             message(FATAL_ERROR
                 "Installed GDK at ${WIN_ROOT} is missing required file:\n  ${_f}\n"
-                "This usually means the install is incomplete or this GDK version pre-dates the "
-                "`windows/` layout this addon expects (260400 / April 2026 or later). Reinstall the "
+                "This usually means the install is incomplete or this GDK edition pre-dates the "
+                "`windows/` layout this addon expects (October 2025 or later). Reinstall the "
                 "full GDK from https://github.com/microsoft/GDK or switch to the vcpkg source with "
                 "-DGDK_DEPENDENCY_SOURCE=vcpkg.")
         endif()
@@ -401,16 +512,17 @@ function(_gdk_define_installed_targets WIN_ROOT)
         MAP_IMPORTED_CONFIG_RELWITHDEBINFO ""
         INTERFACE_INCLUDE_DIRECTORIES "${_inc}")
 
-    # Xbox::XSAPI (STATIC, VS2022/v143)
+    # Xbox::XSAPI (STATIC, v143 preferred / v142 fallback)
     #
-    # The installed GDK ships both Debug and Release variants under
-    # lib/x64/. CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release (set globally by
-    # the default preset and inherited by installed-gdk) maps the Debug
-    # addon build to the Release lib here, matching the vcpkg ms-gdk
-    # port's behavior.
+    # _xsapi_lib was resolved above (prefers the v143 VS2022 variant, falls
+    # back to the v142 VS2019 variant for editions that ship only v142, e.g.
+    # the October 2025 GDK). CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release (set
+    # globally by the default preset and inherited by installed-gdk) maps the
+    # Debug addon build to this Release lib, matching the vcpkg ms-gdk port's
+    # behavior.
     add_library(Xbox::XSAPI STATIC IMPORTED)
     set_target_properties(Xbox::XSAPI PROPERTIES
-        IMPORTED_LOCATION "${_lib}/Microsoft.Xbox.Services.143.C.lib"
+        IMPORTED_LOCATION "${_xsapi_lib}"
         MAP_IMPORTED_CONFIG_MINSIZEREL ""
         MAP_IMPORTED_CONFIG_RELWITHDEBINFO ""
         INTERFACE_INCLUDE_DIRECTORIES "${_inc}"
@@ -493,6 +605,63 @@ function(_gdk_define_installed_targets WIN_ROOT)
     endif()
 endfunction()
 
+# Backfill `Xbox::PlayFabGameSave` on the vcpkg path when the resolved
+# `ms-gdk` port did not export it.
+#
+# The October 2025 (2510.x) ms-gdk ports ship the PlayFab Game Save binaries
+# (`lib/PlayFabGameSave.lib` + `bin/PlayFabGameSave.dll`) and headers, but
+# their exported `ms-gdk-config.cmake` omits the `Xbox::PlayFabGameSave`
+# IMPORTED target -- that target was only added in the April 2026 (2604.x)
+# port. Without this backfill, godot_playfab (which links Xbox::PlayFabGameSave)
+# fails to configure against an October 2025 ms-gdk port even though the bits
+# are present.
+#
+# Mirrors the port's own single-location Xbox::PlayFab* target shape: the
+# PlayFab NuGet does not split Debug vs Release bits, so a single
+# IMPORTED_LOCATION/IMPORTED_IMPLIB (the release layout) is correct for every
+# config. The install prefix is derived from the always-present
+# Xbox::PlayFabCore target so this works regardless of triplet/install path.
+function(_gdk_backfill_vcpkg_playfab_gamesave)
+    if(TARGET Xbox::PlayFabGameSave)
+        return()
+    endif()
+    if(NOT TARGET Xbox::PlayFabCore)
+        return()
+    endif()
+
+    get_target_property(_implib Xbox::PlayFabCore IMPORTED_IMPLIB)
+    if(NOT _implib)
+        get_target_property(_implib Xbox::PlayFabCore IMPORTED_IMPLIB_RELEASE)
+    endif()
+    if(NOT _implib)
+        return()
+    endif()
+
+    get_filename_component(_lib_dir "${_implib}" DIRECTORY)
+    get_filename_component(_root "${_lib_dir}" DIRECTORY)
+    set(_gs_lib "${_root}/lib/PlayFabGameSave.lib")
+    set(_gs_dll "${_root}/bin/PlayFabGameSave.dll")
+
+    if(NOT (EXISTS "${_gs_lib}" AND EXISTS "${_gs_dll}"))
+        message(FATAL_ERROR
+            "The resolved ms-gdk vcpkg port did not export Xbox::PlayFabGameSave "
+            "and the PlayFab Game Save binaries were not found under '${_root}' "
+            "(expected lib/PlayFabGameSave.lib + bin/PlayFabGameSave.dll). This "
+            "edition of the ms-gdk port does not provide PlayFab Game Save; pin a "
+            "newer ms-gdk version or disable PlayFab (-DBUILD_GODOT_PLAYFAB=OFF).")
+    endif()
+
+    add_library(Xbox::PlayFabGameSave SHARED IMPORTED)
+    set_target_properties(Xbox::PlayFabGameSave PROPERTIES
+        IMPORTED_LOCATION "${_gs_dll}"
+        IMPORTED_IMPLIB "${_gs_lib}"
+        MAP_IMPORTED_CONFIG_MINSIZEREL ""
+        MAP_IMPORTED_CONFIG_RELWITHDEBINFO ""
+        INTERFACE_INCLUDE_DIRECTORIES "${_root}/include")
+    message(STATUS
+        "ms-gdk port omitted Xbox::PlayFabGameSave; backfilled from ${_root}/{lib,bin}")
+endfunction()
+
 # Require the GDK (Xbox::* + Xbox::PlayFab* targets). Dispatches on the
 # resolved source -- vcpkg's ms-gdk port or an installed GDK on disk.
 # Idempotent.
@@ -501,6 +670,9 @@ function(gdk_require_ms_gdk)
     if(_GDK_RESOLVED_SOURCE STREQUAL "vcpkg")
         _gdk_assert_vcpkg_toolchain()
         find_package(ms-gdk CONFIG REQUIRED)
+        if(BUILD_GODOT_PLAYFAB)
+            _gdk_backfill_vcpkg_playfab_gamesave()
+        endif()
     else() # installed
         _gdk_define_installed_targets("${_GDK_RESOLVED_WINDOWS_PATH}")
     endif()
