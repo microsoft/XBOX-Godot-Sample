@@ -143,7 +143,7 @@ func _ensure_xbox_user() -> GDKUser:
 
     print("[Auth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
-    # 3. UI fallback. Shows the system account picker.
+    # 3. UI fallback. Shows the system sign-in UI for the default user.
     var ui: GDKResult = await GDK.users.add_user_with_ui_async()
     if ui.ok and ui.data != null and ui.data.signed_in:
         return ui.data

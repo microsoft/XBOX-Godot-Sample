@@ -130,7 +130,7 @@ It currently owns:
 It currently exposes:
 
 - `add_default_user_async()` (returns a completion `Signal`)
-- `add_user_with_ui_async()` (returns a completion `Signal`)
+- `add_user_with_ui_async(allow_guests := false)` (returns a completion `Signal`)
 - `get_primary_user()`
 - `get_users()`
 - `check_privilege_async()` (returns a completion `Signal`)

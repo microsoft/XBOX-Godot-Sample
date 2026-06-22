@@ -139,7 +139,7 @@ if sandbox_result.ok:
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `add_default_user_async()` | `Signal` | Silent XBOX sign-in for a non-guest user |
-| `add_user_with_ui_async()` | `Signal` | XBOX sign-in with UI prompt for another local user or guest-capable picker flow; it does not replace the session primary user |
+| `add_user_with_ui_async(allow_guests := false)` | `Signal` | Interactive XBOX sign-in. **Requires the advanced user model**; under the simplified (PC-default) user model the native call returns a failed `GDKResult` (`E_INVALIDARG`), so PC titles should use the silent `add_default_user_async()`. By default resolves the launching default user with the system sign-in UI; pass `allow_guests = true` to open the guest-capable account picker. It does not replace the session primary user. When the platform reports cancellation, the result resolves with a failed `GDKResult` whose `code` is `cancelled`. |
 | `get_primary_user()` | `GDKUser` | Current primary user (or `null`) |
 | `get_users()` | `Array` | All local users |
 | `check_privilege_async(user, privilege)` | `Signal` | Check user privilege |

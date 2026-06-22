@@ -71,7 +71,7 @@ Current public signals:
 Current public methods:
 
 - `add_default_user_async() -> Signal`
-- `add_user_with_ui_async() -> Signal`
+- `add_user_with_ui_async(allow_guests := false) -> Signal`
 - `get_primary_user() -> GDKUser`
 - `get_users() -> Array`
 - `check_privilege_async(user, privilege) -> Signal`

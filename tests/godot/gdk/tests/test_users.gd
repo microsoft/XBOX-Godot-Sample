@@ -73,6 +73,9 @@ func test_users_full_flow() -> void:
 	var pre_init_add_with_ui_signal = users.add_user_with_ui_async()
 	await assert_signal_result_error(pre_init_add_with_ui_signal, "not_initialized", "add_user_with_ui_async() rejects before initialize")
 
+	var pre_init_add_guest_signal = users.add_user_with_ui_async(true)
+	await assert_signal_result_error(pre_init_add_guest_signal, "not_initialized", "add_user_with_ui_async(true) rejects before initialize")
+
 	var init_result = initialize_runtime()
 	assert_not_null(init_result, "GDK.initialize() for users behavior returns GDKResult")
 	if init_result == null:

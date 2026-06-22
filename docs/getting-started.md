@@ -407,7 +407,7 @@ func _exit_tree() -> void:
 `add_default_user_async()` is the XBOX **silent** sign-in. If no user is
 already signed into the XBOX app on the PC, it returns a non-ok result
 (commonly `no_default_user`). Use `add_user_with_ui_async()` to put the
-system account picker on screen instead.
+system sign-in UI on screen instead.
 
 For the full method/signal table see
 [Microsoft GDK API reference → `GDK.users`](gdk/api-reference.md#users-service-gdkusers).
