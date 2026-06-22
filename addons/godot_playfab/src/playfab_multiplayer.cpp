@@ -1509,6 +1509,13 @@ Signal PlayFabMultiplayer::create_lobby_async(const Ref<PlayFabUser> &p_user, co
     create_config.lobbyPropertyValues = lobby_properties.values();
 #if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
     create_config.restrictInvitesToLobbyOwner = config->get_restrict_invites_to_lobby_owner();
+#else
+    if (config->get_restrict_invites_to_lobby_owner()) {
+        return _make_error_signal(E_NOTIMPL, "unsupported_on_gdk_edition",
+                "PlayFabLobbyConfig.restrict_invites_to_lobby_owner requires the April 2026 GDK "
+                "(edition 260400+). This build targets the October 2025 GDK, which cannot enforce "
+                "owner-only invites; clear the property or build against April 2026 or later.");
+    }
 #endif
 
     PFLobbyJoinConfiguration join_config = {};

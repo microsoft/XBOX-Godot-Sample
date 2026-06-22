@@ -364,7 +364,7 @@ function(_gdk_resolve_dependency_source)
                 "found for ${_sel_desc}.\n"
                 "Looked for `<root>/<edition>/windows/include/XGameRuntime.h` under %GameDK%, "
                 "`C:/Program Files (x86)/Microsoft GDK`, and the %GRDKLatest% root.\n"
-                "Install one of the approved editions (e.g. `winget install Microsoft.Gaming.GDK`), "
+                "Install one of the approved editions (e.g. `winget install --id Microsoft.Gaming.GDK --exact`), "
                 "select an installed edition with -DGDK_VERSION=<edition>, point at it with "
                 "-DGDK_INSTALL_DIR=<path>, or use the default vcpkg preset "
                 "(-DGDK_DEPENDENCY_SOURCE=vcpkg).")
@@ -441,7 +441,6 @@ function(_gdk_define_installed_targets WIN_ROOT)
         "${_inc}/XGameRuntime.h"
         "${_lib}/xgameruntime.lib"
         "${_xsapi_lib}"
-        "${_xsapi_lib_debug}"
         "${_lib}/Microsoft.Xbox.Services.C.Thunks.lib"
         "${_bin}/Microsoft.Xbox.Services.C.Thunks.dll"
         "${_bin}/Microsoft.Xbox.Services.C.Thunks.Debug.dll"
@@ -473,6 +472,16 @@ function(_gdk_define_installed_targets WIN_ROOT)
             "${_lib}/PartyXboxLive.lib"
             "${_bin}/PartyXboxLive.dll")
     endif()
+
+    # The XSAPI Debug lib is never linked: Xbox::XSAPI links the release lib and
+    # CMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release maps Debug builds onto it. Require
+    # it only when the resolved edition actually ships it -- some editions and
+    # partial installs provide the release lib alone, and a hard requirement on
+    # the unused Debug sibling would raise a misleading "install incomplete".
+    if(EXISTS "${_xsapi_lib_debug}")
+        list(APPEND _required_files "${_xsapi_lib_debug}")
+    endif()
+
     foreach(_f IN LISTS _required_files)
         if(NOT EXISTS "${_f}")
             message(FATAL_ERROR

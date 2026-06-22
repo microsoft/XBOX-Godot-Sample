@@ -721,7 +721,7 @@ edition `YYMM0N`:
 
 | `ms-gdk` version | GDK edition (`_GRDK_EDITION`) | Release |
 |---|---|---|
-| `2510.0.6194` | `251000` | October 2025 |
+| `2510.0.6194` | `251000` | October 2025 — below the supported floor (`251001`); builds may work but are unsupported |
 | `2510.1.6224` | `251001` | October 2025 |
 | `2510.2.6247` | `251002` | October 2025 |
 | `2604.1.7839` | `260401` | April 2026 |
