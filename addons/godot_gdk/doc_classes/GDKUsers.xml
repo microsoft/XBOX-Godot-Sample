@@ -16,8 +16,9 @@
 		</method>
 		<method name="add_user_with_ui_async">
 			<return type="Signal" />
+			<param index="0" name="allow_guests" type="bool" default="false" />
 			<description>
-				Opens the system UI to add a user interactively, allowing guest selection when the platform offers it. This can add another local user, but it does not replace the session primary user once one has already been established. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser].
+				Adds a user interactively, surfacing the system sign-in UI. [b]Requires the advanced user model.[/b] Under the simplified (PC-default) user model the native call rejects every interactive add option with [code]E_INVALIDARG[/code]; PC titles should sign in with the silent [method add_default_user_async] instead. By default ([param allow_guests] is [code]false[/code]) it resolves the launching default user with the system sign-in UI. Pass [code]true[/code] to open the full account picker so the player can choose any account, including guests. This can add another local user, but it does not replace the session primary user once one has already been established. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser]. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation the completion [Signal] resolves with a failed [GDKResult] whose [code]code[/code] is [code]cancelled[/code].
 			</description>
 		</method>
 		<method name="get_primary_user" qualifiers="const">

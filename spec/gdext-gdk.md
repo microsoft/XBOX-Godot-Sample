@@ -600,7 +600,7 @@ transcribed_chat_received(speaker_xuid: String, message: String)
 
 ```gdscript
 add_default_user_async() -> Signal
-add_user_with_ui_async() -> Signal
+add_user_with_ui_async(allow_guests := false) -> Signal
 get_primary_user() -> GDKUser
 get_users() -> Array[GDKUser]
 check_privilege_async(user: GDKUser, privilege: int) -> Signal
@@ -636,7 +636,7 @@ is_store_user() -> bool
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
 | `add_default_user_async()` | `XUserAddAsync`, `XUserAddResult` | Uses the silent default-user path without guest support; on success, populate `GDKUser`, create `XblContextHandle`, and ensure change notifications are registered. |
-| `add_user_with_ui_async()` | `XUserAddAsync`, `XUserAddResult` | Uses the UI-driven add path with guest selection enabled; post-processing is the same as the default-user path except that later adds do not replace the session primary user once one already exists. |
+| `add_user_with_ui_async(allow_guests := false)` | `XUserAddAsync`, `XUserAddResult` | Interactive add path. **Requires the advanced user model** — under the simplified (PC-default) user model `XUserAddAsync` rejects every interactive option (`None`, `AddDefaultUserAllowingUI`, `AllowGuests`) with `E_INVALIDARG`; only the silent `add_default_user_async()` works there. By default (`allow_guests = false`) uses `AddDefaultUserAllowingUI` to resolve the launching default user with the system sign-in UI. Pass `allow_guests = true` to open the full account picker (`AllowGuests`, without the default/silent options) so the player can choose any account, including guests. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation (`E_ABORT`) the wrapper normalizes it to a cancelled `GDKResult`. Post-processing matches the default-user path except that later adds do not replace the session primary user once one already exists. |
 | `check_privilege_async()` | `XUserCheckPrivilege` | There is no documented async privilege-check API in `XUser`; this wrapper should convert the synchronous result into a deferred completion `Signal`. Successful results carry a `Dictionary` in `GDKResult.data` with `privilege`, `has_privilege`, `deny_reason`, and `deny_reason_value`. If the check returns `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED`, the request should fail and direct callers to `resolve_issue_with_ui_async()`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Use the native UI remediation path when `check_privilege_async()` reports that a privilege is denied and the title wants to let the player resolve it immediately. Successful results can carry a small `Dictionary` payload that echoes the resolved privilege id. |
 | `resolve_issue_with_ui_async()` | `XUserResolveIssueWithUiAsync`, `XUserResolveIssueWithUiResult` | This is the remediation path for `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED` from `XUser` getters such as age-group lookups and from privilege checks. Treat an empty `url` as the Xbox services/default flow and pass a URL only when the underlying issue is request-specific. |

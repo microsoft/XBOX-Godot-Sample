@@ -233,8 +233,9 @@ The recommended pattern is:
    the user already signed into the XBOX app on the PC without
    surfacing any UI.
 3. **If silent fails, fall back to UI.** `add_user_with_ui_async()`
-   shows the system account picker so the user can pick or add an
-   account interactively.
+   shows the system sign-in UI so the user can sign in or add an
+   account interactively. Pass `add_user_with_ui_async(true)` for the
+   guest-capable account picker (requires the advanced user model).
 
 ```gdscript
 extends Node

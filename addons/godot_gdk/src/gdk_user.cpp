@@ -734,7 +734,7 @@ void GDKUser::clear() {
 
 void GDKUsers::_bind_methods() {
     ClassDB::bind_method(D_METHOD("add_default_user_async"), &GDKUsers::add_default_user_async);
-    ClassDB::bind_method(D_METHOD("add_user_with_ui_async"), &GDKUsers::add_user_with_ui_async);
+    ClassDB::bind_method(D_METHOD("add_user_with_ui_async", "allow_guests"), &GDKUsers::add_user_with_ui_async, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("get_primary_user"), &GDKUsers::get_primary_user);
     ClassDB::bind_method(D_METHOD("get_users"), &GDKUsers::get_users);
     ClassDB::bind_method(D_METHOD("check_privilege_async", "user", "privilege"), &GDKUsers::check_privilege_async);
@@ -807,10 +807,29 @@ Signal GDKUsers::add_default_user_async() {
     return _start_add_user_async(XUserAddOptions::AddDefaultUserSilently, "Failed to add the default user.");
 }
 
-Signal GDKUsers::add_user_with_ui_async() {
-    return _start_add_user_async(
-            XUserAddOptions::AddDefaultUserAllowingUI | XUserAddOptions::AllowGuests,
-            "Failed to add a user with UI.");
+Signal GDKUsers::add_user_with_ui_async(bool p_allow_guests) {
+    // Interactive add-with-UI is an advanced-user-model feature. Under the
+    // simplified (PC-default) user model, XUserAddAsync rejects every UI/guest
+    // option (None, AllowGuests, AddDefaultUserAllowingUI) with E_INVALIDARG --
+    // only the silent add_default_user_async() path works there. Titles that
+    // call this method must be running the advanced user model.
+    //
+    // p_allow_guests selects the interactive flow:
+    //   false (default) -> AddDefaultUserAllowingUI: resolve the launching
+    //                      default user, surfacing the system sign-in UI.
+    //   true            -> AllowGuests: open the full account picker (without the
+    //                      default/silent flags) so the player can choose any
+    //                      account, including guests.
+    //
+    // When the GDK reports the player cancelled (E_ABORT), finalize() normalizes
+    // it to a cancelled GDKResult. Whether dismissing the system UI fires the
+    // completion callback at all is GDK platform behavior outside the addon's
+    // control (see issue #115); the addon faithfully surfaces whatever the GDK
+    // reports.
+    const XUserAddOptions options = p_allow_guests
+            ? XUserAddOptions::AllowGuests
+            : XUserAddOptions::AddDefaultUserAllowingUI;
+    return _start_add_user_async(options, "Failed to add a user with UI.");
 }
 
 Ref<GDKUser> GDKUsers::get_primary_user() const {

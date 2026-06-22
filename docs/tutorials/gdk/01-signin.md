@@ -2,7 +2,7 @@
 
 ## What you'll build
 
-Build the `GdkAuth` autoload used by the GDK track. It initializes `GDK`, checks for an already-signed-in primary user, tries silent sign-in, falls back to the system account picker, and exposes a read-only `xbox_user` once the state reaches `SIGNED_IN`. The scene `g01_signin` renders that state and lets the player retry.
+Build the `GdkAuth` autoload used by the GDK track. It initializes `GDK`, checks for an already-signed-in primary user, tries silent sign-in, falls back to the system sign-in UI, and exposes a read-only `xbox_user` once the state reaches `SIGNED_IN`. The scene `g01_signin` renders that state and lets the player retry.
 
 ## Prerequisites
 
@@ -164,8 +164,10 @@ func _ensure_xbox_user():
 
 	print("[GdkAuth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
-	# 3. UI fallback. Shows the system account picker.
-	var ui = await AddonApi.singleton("GDK").users.add_user_with_ui_async()
+	# 3. UI fallback. Shows the system sign-in UI for the default user.
+	#    Pass add_user_with_ui_async(true) for the guest-capable account
+	#    picker, which requires the advanced user model.
+	var ui = await AddonApi.singleton("GDK").users.add_user_with_ui_async()
 	if ui.ok and ui.data != null and ui.data.signed_in:
 		return ui.data
 
@@ -276,8 +278,8 @@ Run `sample/tutorial_gdk`, open `g01_signin`, and press **Sign in**. You should 
 |---|---|---|
 | `GdkAuth autoload missing` | The autoload is not registered or has the wrong name. | Register `autoload/gdk_auth.gd` as `GdkAuth`. |
 | `gdk.missing` | The GDK extension did not load. | Build the addons and confirm the mirrored `addons/godot_gdk/bin` files exist. |
-| `no_default_user` before UI | No Xbox app default user is available. | This is handled; choose a test account in the UI picker. |
-| `gdk.add_user_with_ui` failure | Picker canceled, wrong sandbox, or test account issue. | Retry, verify sandbox, and confirm the account has access to the title. |
+| `no_default_user` before UI | No Xbox app default user is available. | This is handled; choose a test account in the sign-in UI. |
+| `gdk.add_user_with_ui` failure | Sign-in UI dismissed without choosing an account (`cancelled`), wrong sandbox, or test account issue. | Dismissing now resolves with a `cancelled` result so the game can continue offline; otherwise retry, verify sandbox, and confirm the account has access to the title. |
 
 ## Reference implementation
 

@@ -92,10 +92,10 @@ title screen HUD shows **Microsoft GDK READY · SIGNED IN** with the test accoun
 gamertag and avatar. **If silent sign-in fails** — common when running
 unpackaged from the editor or right after a sandbox switch — the bootstrap
 automatically falls back to `GDK.users.add_user_with_ui_async()`, which
-pops the system identity picker. Pick the test account once and the HUD
+pops the system sign-in UI. Sign in the test account once and the HUD
 flips to signed-in for the rest of the session. (The fallback requires
 [Windows Developer Mode to be enabled](#enabling-windows-developer-mode);
-without it the picker silently no-ops.)
+without it the sign-in UI silently no-ops.)
 
 ### Option B — via `XblDevAccount.exe` (scripted / CI-friendly)
 
