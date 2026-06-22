@@ -4,7 +4,7 @@
 		Game activation event service accessed via GDK.activation.
 	</brief_description>
 	<description>
-		Wraps the [code]XGameActivation[/code] APIs so titles can react to URI/protocol launches, file-association launches, and pending/accepted invites. The deprecated [code]XGameProtocol[/code] APIs are not wrapped; use [signal protocol_activated] instead. This service owns the single native activation subscription; [GDKMultiplayerActivity] receives invite events through the same internal event fan-out.
+		Lets titles react to URI/protocol launches, file-association launches, and pending/accepted invites. The public surface is identical across GDK editions: on the April 2026 GDK ([code]260400[/code]+) it uses the unified [code]XGameActivation[/code] APIs, while on the October 2025 GDK ([code]251001[/code]) it falls back to the older [code]XGameProtocol[/code] and [code]XGameInvite[/code] APIs that XGameActivation superseded (file-association launches have no equivalent on that edition and do not fire). This service owns the single native activation subscription; [GDKMultiplayerActivity] receives invite events through the same internal event fan-out.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -13,7 +13,7 @@
 			<return type="GDKResult" />
 			<param index="0" name="invite_uri" type="String" />
 			<description>
-				Accepts a pending multiplayer invite by its URI. Wraps [code]XGameActivationAcceptPendingInvite[/code]. Returns [code]invalid_invite_uri[/code] for blank URIs and [code]accept_pending_invite_failed[/code] for HRESULT failures.
+				Accepts a pending multiplayer invite by its URI. Wraps [code]XGameActivationAcceptPendingInvite[/code] (or [code]XGameInviteAcceptPendingInvite[/code] on the October 2025 GDK). Returns [code]invalid_invite_uri[/code] for blank URIs and [code]accept_pending_invite_failed[/code] for HRESULT failures.
 			</description>
 		</method>
 	</methods>

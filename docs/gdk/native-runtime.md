@@ -389,8 +389,9 @@ results. Storage types accepted are `trusted_platform`, `global`, and
 
 `GDKMultiplayerActivity` is the XSAPI-backed Multiplayer Activity (MPA) layer
 plus recent-players staging. Invite launch notifications are forwarded from
-`GDKActivation`, which owns the single native `XGameActivationRegisterForEvent`
-subscription for the addon.
+`GDKActivation`, which owns the addon's single native activation subscription
+(`XGameActivationRegisterForEvent` on April 2026+, or the `XGameProtocol` /
+`XGameInvite` registrations on October 2025).
 
 It currently exposes:
 
@@ -536,9 +537,11 @@ release path.
 
 ## Activation service
 
-`GDKActivation` owns the addon's single native
-`XGameActivationRegisterForEvent` registration and fans protocol, file, and
-invite activation dictionaries out to script and interested services.
+`GDKActivation` owns the addon's single native activation registration
+(`XGameActivationRegisterForEvent` on April 2026+ editions, or the
+`XGameProtocol` / `XGameInvite` registrations on October 2025) and fans
+protocol, file, and invite activation dictionaries out to script and interested
+services.
 
 It currently exposes:
 
