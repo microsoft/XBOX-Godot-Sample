@@ -195,7 +195,7 @@ requires:
 
 - **`CloudSaves` block in `MicrosoftGame.config`.** The
   **Microsoft GDK → Create MicrosoftGame.config** menu (provided by the
-  `godot_gdk_packaging` addon) writes a template that includes the
+  `godot_gdk_editortools` addon) writes a template that includes the
   CloudSaves block. Configurations created before the template was
   added must be updated in `GameConfigEditor.exe` to include a
   `<CloudSaves>` section.

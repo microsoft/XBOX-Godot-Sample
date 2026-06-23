@@ -87,13 +87,13 @@ The generated files are gitignored, so your credentials stay local.
    `sample\tutorial_integrated\MicrosoftGame.config` and replace the Title ID,
    MSA App ID, Store ID, identity, publisher, and visual placeholders.
 3. Open `sample\tutorial_integrated\project.godot` in Godot. The committed project
-   already enables the `godot_gdk`, `godot_playfab`, and `godot_gdk_packaging`
+   already enables the `godot_gdk`, `godot_playfab`, and `godot_gdk_editortools`
    plugins after the CMake build mirrors them into `sample\tutorial_integrated\addons\`.
 4. Review **Project → Project Settings** for `gdk/runtime/*` startup settings
    and any PlayFab runtime values needed by the tutorial scenes.
 5. For editor-driven packaging, use **Project → Export… → Add… → `XBOX on PC`**.
    For scripted packaging and sandbox actions, use the separate
-   `godot_gdk_packaging` addon (`addons\godot_gdk_packaging\gdkpkg.cmd` or its
+   `godot_gdk_editortools` addon (`addons\godot_gdk_editortools\gdkpkg.cmd` or its
    top-level **Microsoft GDK** editor menu).
 
 ## Set your PC sandbox

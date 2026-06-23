@@ -1,7 +1,7 @@
 # Godot Microsoft GDK editor tools
 
 This document explains the current editor-side split between the `godot_gdk`
-runtime addon and the separate `godot_gdk_packaging` tooling addon.
+runtime addon and the separate `godot_gdk_editortools` tooling addon.
 
 See also:
 
@@ -21,7 +21,7 @@ The runtime addon's editor plugin owns startup wiring for the runtime addon
 in the editor's `Project > Export… > Add…` dropdown alongside the
 built-in platforms.
 
-The `godot_gdk_packaging` addon hosts the wider editor workflow
+The `godot_gdk_editortools` addon hosts the wider editor workflow
 (top-level **Microsoft GDK** menu, sandbox switcher, `MicrosoftGame.config`
 flows, tutorial wizard) and the headless packaging CLI.
 
@@ -38,7 +38,7 @@ Today it:
 
 `gdk_editor_plugin.gd` owns startup wiring for the runtime addon and
 the export-platform registration; the rest of the packaging UI lives in
-`godot_gdk_packaging`.
+`godot_gdk_editortools`.
 
 ## `gdk_setup_panel.gd`
 
@@ -63,20 +63,20 @@ so the platform appears in the editor's `Project > Export… > Add…`
 dropdown alongside Windows Desktop, Linux, etc.
 
 It is **not** the only packaging path: the headless packaging runner in
-`godot_gdk_packaging` (`tools/run.gd` / `gdkpkg.cmd`) remains the
+`godot_gdk_editortools` (`tools/run.gd` / `gdkpkg.cmd`) remains the
 canonical entry point for headless package, validate, install, and launch
 automation. The export platform exists for editor-driven workflows; the
 headless runner exists for CI and scripted automation. Keep both paths
 working when the underlying packaging primitives change.
 
-## `godot_gdk_packaging`
+## `godot_gdk_editortools`
 
 The active editor tooling for Microsoft GDK packaging now lives in
-`addons\godot_gdk_packaging\editor\`.
+`addons\godot_gdk_editortools\editor\`.
 
-Treat the root `addons\godot_gdk_packaging\` tree as the source of truth. The
+Treat the root `addons\godot_gdk_editortools\` tree as the source of truth. The
 repo build syncs that addon into the sample mirrors under
-`sample\...\addons\godot_gdk_packaging\`, so contributors should edit the root
+`sample\...\addons\godot_gdk_editortools\`, so contributors should edit the root
 addon rather than patching sample copies directly.
 
 That addon owns:
@@ -87,10 +87,10 @@ That addon owns:
 - `MicrosoftGame.config` helper flows
 
 When discussing the current editor workflow, treat `godot_gdk` and
-`godot_gdk_packaging` as separate layers:
+`godot_gdk_editortools` as separate layers:
 
 - `godot_gdk` owns the runtime/services addon
-- `godot_gdk_packaging` owns the supported packaging/editor workflow
+- `godot_gdk_editortools` owns the supported packaging/editor workflow
 
 ## Relationship to the runtime addon
 
@@ -101,5 +101,5 @@ addon is no longer the main place to look for packaging UI behavior.
 That means editor-side documentation should describe:
 
 - the retained `godot_gdk` helper scripts accurately
-- the active packaging workflow under `godot_gdk_packaging`
+- the active packaging workflow under `godot_gdk_editortools`
 - the separation between runtime/services behavior and editor tooling

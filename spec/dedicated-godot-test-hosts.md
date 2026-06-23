@@ -35,7 +35,7 @@ Automated Godot coverage must run from dedicated test projects instead of demo s
 
 | Host | Owns |
 | --- | --- |
-| `tests\godot\gdk` | GDK GUT suites, GDK packaging GUT suites, and GDK bootstrap mini-runners |
+| `tests\godot\gdk` | GDK GUT suites, GDK editor-tools GUT suites, and GDK bootstrap mini-runners |
 | `tests\godot\playfab` | PlayFab GUT suites and PlayFab custom-ID sign-in coverage |
 | `tests\godot\gameinput` | GameInput GUT suites and GameInput bootstrap mini-runners |
 

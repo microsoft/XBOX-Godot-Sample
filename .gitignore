@@ -45,7 +45,7 @@ tests/godot/*/addons/
 sample/*/addons/godot_gdk/
 sample/*/addons/godot_playfab/
 sample/*/addons/godot_gameinput/
-sample/*/addons/godot_gdk_packaging/
+sample/*/addons/godot_gdk_editortools/
 
 # ── Godot ────────────────────────────────────────────────────────
 .godot/
