@@ -233,8 +233,9 @@ The recommended pattern is:
    the user already signed into the XBOX app on the PC without
    surfacing any UI.
 3. **If silent fails, fall back to UI.** `add_user_with_ui_async()`
-   shows the system account picker so the user can pick or add an
-   account interactively.
+   shows the system sign-in UI so the user can sign in or add an
+   account interactively. Pass `add_user_with_ui_async(true)` for the
+   guest-capable account picker (requires the advanced user model).
 
 ```gdscript
 extends Node
@@ -270,7 +271,7 @@ func _ensure_xbox_user() -> GDKUser:
 
     print("[GDK] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
-    # 3. Fall back to the system account picker.
+    # 3. Fall back to the system sign-in UI for the default user.
     var ui: GDKResult = await GDK.users.add_user_with_ui_async()
     if ui.ok and ui.data != null and ui.data.signed_in:
         return ui.data
@@ -349,7 +350,7 @@ snippets above tells you which step failed.
 |--|--|--|
 | `GDExtension dynamic library not found` | The `bin/` folder didn't make it into the project copy. | Copy `addons/<addon>/` recursively, including `bin/`. |
 | `GDK singleton not registered` | Native DLL failed to load (wrong arch, missing Microsoft GDK install, missing `libHttpClient.dll`). | Install the Microsoft GDK on the machine that runs the game. |
-| Silent sign-in returns `no_default_user` | No test account signed into the XBOX app on the PC, or PC sandbox doesn't match Partner Center. | Sign in a test account via the XBOX app after switching to the right sandbox (step 4). The fallback `add_user_with_ui_async()` will surface the picker. |
+| Silent sign-in returns `no_default_user` | No test account signed into the XBOX app on the PC, or PC sandbox doesn't match Partner Center. | Sign in a test account via the XBOX app after switching to the right sandbox (step 4). The fallback `add_user_with_ui_async()` will surface the sign-in UI. |
 | XBOX Live calls fail with a registration error | `MicrosoftGame.config` is missing, malformed, or has placeholder Title Id / SCID. | Re-run **Microsoft GDK — Edit MicrosoftGame.config** and fill in real Partner Center values. |
 | `PlayFab.initialize()` fails immediately | `playfab/runtime/title_id` is empty. | Set it in Project Settings (step 2). |
 | `sign_in_with_xuser_async` returns `invalid_xuser` | Passing a null or signed-out Microsoft GDK user. | Confirm `xbox_user != null and xbox_user.signed_in` first. |

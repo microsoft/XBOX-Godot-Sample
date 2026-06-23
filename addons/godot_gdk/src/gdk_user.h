@@ -110,7 +110,7 @@ public:
     void shutdown();
 
     Signal add_default_user_async();
-    Signal add_user_with_ui_async();
+    Signal add_user_with_ui_async(bool p_allow_guests = false);
     Ref<GDKUser> get_primary_user() const;
     Array get_users() const;
     Signal check_privilege_async(const Ref<GDKUser> &p_user, int64_t p_privilege);
