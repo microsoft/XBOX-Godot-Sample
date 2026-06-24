@@ -216,7 +216,7 @@ a registered package supplies identity.
   **Project → Tools → Microsoft GDK → Create MicrosoftGame.config**, or
   through the CLI:
   ```powershell
-  & "<godot.exe>" --headless --path . --script res://addons/godot_gdk_editortools/core/editortools_cli.gd -- config_template
+  & "<godot.exe>" --headless --path . --script res://addons/godot_gdk_editortools/run.gd -- config_template
   ```
 - For packaged GDK launches, `wdapp register` the staged loose folder (or
   install a `.msixvc`) before launching the game so the registered package

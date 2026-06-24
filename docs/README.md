@@ -18,7 +18,7 @@ docs/
 ├── playfab/                                 — godot_playfab addon
 │   └── async-system.md                      — PlayFab completion/dispatch contract
 ├── gameinput/                               — godot_gameinput addon
-├── packaging/                               — godot_gdk_editortools addon
+├── editortools/                             — godot_gdk_editortools addon
 └── platform/                                — XBOX Sandbox + test-account setup
 ```
 

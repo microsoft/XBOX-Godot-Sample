@@ -64,7 +64,7 @@ C++ tests cover **pure logic only**. Where a helper is currently embedded in a G
 doctest covers only code that has no Godot, GDExtension-interface, or GDK dependency. **Crucially this excludes `godot::String`, `godot::Variant`, `godot::PackedByteArray`, and any other Variant-family type** — see the "godot::String constraint" note below.
 
 - HRESULT hex-formatting helpers that operate on a caller-provided `char[]` buffer (currently `gdk_internal::format_hresult_hex` and `playfab_internal::format_hresult_hex` in `addons/godot_gdk/src/gdk_result_codes_internal.{h,cpp}` and `addons/godot_playfab/src/playfab_result_codes_internal.{h,cpp}`).
-- Future packaging string helpers, **only if and when** they are extracted from `addons/godot_gdk_editortools/editor/editortools_content_preparer.gd` into a pure C++ module that does not depend on `godot::String` or `godot::RegEx`. As of Wave 2 the packaging helpers are GDScript-only and are tested via GUT — see `wave4-packaging-coverage`.
+- Future packaging string helpers, **only if and when** they are extracted from `addons/godot_gdk_editortools/core/editortools_content_preparer.gd` into a pure C++ module that does not depend on `godot::String` or `godot::RegEx`. As of Wave 2 the packaging helpers are GDScript-only and are tested via GUT — see `wave4-packaging-coverage`.
 
 ### godot::String constraint (verified Wave 2, `cpp-result-tests`)
 
