@@ -28,13 +28,13 @@ parallel consumer of the same runtimes.
 | `godot_gdk` | `GDK` (abstract) | 46 (25 services + result + 19 value types) | Service/runtime facade |
 | `godot_playfab` | `PlayFab` (abstract) | 46 (18 services + result + 27 value/config/state types) | Service/runtime facade |
 | `godot_gameinput` | `GameInput` (concrete) | 6 (singleton + 5 device/reading/mapping types) | **Input-integration facade** (different shape) |
-| `godot_gdk_packaging` | none (GDScript editor plugin) | 0 native | **No port** — runs unchanged; optional C# CLI shim |
+| `godot_gdk_editortools` | none (GDScript editor plugin) | 0 native | **No port** — runs unchanged; optional C# CLI shim |
 
 Per the repo's top-level conventions, `godot_gdk` and `godot_playfab` are treated as
 **service/runtime** addons (one root singleton with typed service namespaces beneath
 it); `godot_gameinput` is an **input-integration** addon (optimized for Godot's
 `Input`/`InputMap` flow, not forced into the same service shape); and
-`godot_gdk_packaging` is **editor tooling**, not a runtime service.
+`godot_gdk_editortools` is **editor tooling**, not a runtime service.
 
 ## Design goals
 
@@ -75,7 +75,7 @@ it); `godot_gameinput` is an **input-integration** addon (optimized for Godot's
 | C# sample track | Yes | Parallel C# ports of `sample/tutorial_app` and `sample/tutorial_gameinput` |
 | C# test hosts | Yes | In-engine C# tests (GoDotTest) per coverage host |
 | C# docs | Yes | `docs/*/csharp.md` usage + parity notes |
-| `godot_gdk_packaging` C# port | **No** | GDScript editor plugin runs unchanged in a .NET project; optional thin C# wrapper over the headless CLI only |
+| `godot_gdk_editortools` C# port | **No** | GDScript editor plugin runs unchanged in a .NET project; optional thin C# wrapper over the headless CLI only |
 | C++ DLL changes | **No** | DLLs are unchanged; see Rejected alternatives |
 | Editor tooling / export platform port | **No** | GDScript editor plugins run unchanged in a .NET project |
 
@@ -290,9 +290,9 @@ C#-specific considerations:
   a `GameInputResult` where one exists. Per-frame `Poll()` is driven by the bootstrap
   (`game_input/runtime/auto_poll`).
 
-## `godot_gdk_packaging` — no C# port
+## `godot_gdk_editortools` — no C# port
 
-`godot_gdk_packaging` is a **pure-GDScript editor plugin** (18 `.gd` files: headless
+`godot_gdk_editortools` is a **pure-GDScript editor plugin** (18 `.gd` files: headless
 packaging core under `core/`, editor dialogs/wizard under `editor/`, CLI entry
 `run.gd`). It registers **no native classes and no engine singleton**.
 
@@ -300,7 +300,7 @@ packaging core under `core/`, editor dialogs/wizard under `editor/`, CLI entry
   supports GDScript and C# side by side, and editor tooling executes in the editor
   regardless of the game's scripting language. **No C# port is required.**
 - The only optional C# work is a thin **C# wrapper over the headless packaging CLI**
-  (`packaging_cli.gd` / `run.gd`) for teams that prefer to invoke packaging from a C#
+  (`editortools_cli.gd` / `run.gd`) for teams that prefer to invoke packaging from a C#
   build pipeline. This is out of scope for the initial track and listed only for
   completeness.
 
@@ -334,7 +334,7 @@ addons/godot_playfab/             # unchanged
 addons/godot_playfab_csharp/      # NEW: PlayFab C# facade class library
 addons/godot_gameinput/           # unchanged
 addons/godot_gameinput_csharp/    # NEW: GameInput C# facade class library
-addons/godot_gdk_packaging/       # unchanged GDScript editor plugin (no C# port)
+addons/godot_gdk_editortools/       # unchanged GDScript editor plugin (no C# port)
 
 sample/tutorial_gdk_csharp/        # NEW: C# mirror of sample/tutorial_gdk (GDK only)
 sample/tutorial_playfab_csharp/    # NEW: C# mirror of sample/tutorial_playfab (PlayFab only)
@@ -404,7 +404,7 @@ same contract as `tests/godot/README.md`.
 - C# build = `dotnet build` on the generated sample/test `.csproj`.
 - Add a C# stage to the test orchestrator (build + headless GoDotTest run per host).
 - Validate an end-to-end **.NET MSIXVC export** early (see Risks #1) — this is the
-  intersection with `godot_gdk_packaging`, which assumes a native/GDScript export
+  intersection with `godot_gdk_editortools`, which assumes a native/GDScript export
   profile.
 
 ## Error/result conventions
@@ -419,7 +419,7 @@ same contract as `tests/godot/README.md`.
 
 1. **GDExtension + .NET co-existence in an exported Xbox-on-PC MSIXVC package.**
    Highest-risk unknown. Both work in-editor; the exported managed-runtime package is
-   unverified, and `godot_gdk_packaging` assumes a native/GDScript export profile.
+   unverified, and `godot_gdk_editortools` assumes a native/GDScript export profile.
    **Must validate a .NET export in Phase 0** before investing in full coverage.
 2. **Anonymous returned `Signal` await from C#** — confirm the bridge mechanism.
 3. **Main-thread `Task` continuation** after native `dispatch()`.
@@ -457,7 +457,7 @@ same contract as `tests/godot/README.md`.
   ergonomics ever become a measured problem, the narrower lever is a few `extern "C"`
   exports on the **existing** GDExtension DLLs (a thunk over the C++ layer, not the
   flat-C API), added only where profiled.
-- **Port `godot_gdk_packaging` to C#.** Rejected as unnecessary — the GDScript editor
+- **Port `godot_gdk_editortools` to C#.** Rejected as unnecessary — the GDScript editor
   plugin runs unchanged in a .NET project. Only a thin C# CLI shim over the headless
   packaging entry point is worth considering, and only on demand.
 
@@ -497,7 +497,7 @@ pattern.
 - **Phase 8 — Docs polish + README.** README addon-table note for the C# track,
   cross-links, and GDScript-parity notes across `docs/*/csharp.md`.
 
-(`godot_gdk_packaging` has no phase — it runs unchanged; an optional C# CLI shim can be
+(`godot_gdk_editortools` has no phase — it runs unchanged; an optional C# CLI shim can be
 added later on demand.)
 
 ## Progress

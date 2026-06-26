@@ -28,7 +28,7 @@ Party="*res://Autoload/Party.cs"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gdk_editortools/plugin.cfg")
 
 [gdk]
 
