@@ -2,6 +2,8 @@
 
 #include <godot_cpp/classes/json.hpp>
 
+#include "playfab_request_key.h"
+
 namespace godot {
 namespace playfab_api {
 
@@ -26,6 +28,12 @@ bool get_request_value(const Dictionary &p_request, const char *p_field_name, co
         return false;
     }
 
+    // Priority: snake_case name first, PascalCase fallback. The pure equivalent
+    // of this selection logic is playfab_internal::match_request_key, which
+    // is fuzz-tested in tests/cpp/fuzz/fuzz_playfab_key_lookup.cpp and
+    // doctest-covered in tests/cpp/request_key/test_playfab_request_key.cpp.
+    // Production code uses O(1) hash lookups via StringName to avoid the linear
+    // scan in match_request_key.
     const StringName snake_name(p_snake_name);
     if (p_request.has(snake_name)) {
         *r_value = p_request[snake_name];
@@ -47,3 +55,4 @@ String variant_to_json_string(const Variant &p_value) {
 
 } // namespace playfab_api
 } // namespace godot
+

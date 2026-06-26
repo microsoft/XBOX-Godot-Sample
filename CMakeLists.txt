@@ -158,10 +158,12 @@ godot_addon_mirror_test_support(
         ${GODOT_GUT_HOST_DIRS}
 )
 
-# ── C++ unit tests (doctest) ─────────────────────────────────────
-# Wired up by the parallel `infra-doctest-target` work; this option default
-# stays ON so once that branch lands, builds pick up the production exe.
-option(GDK_BUILD_TESTS "Build C++ unit tests (doctest)" ON)
-if(GDK_BUILD_TESTS)
+# ── C++ unit tests (doctest) + libFuzzer targets ─────────────────
+# GDK_BUILD_TESTS: builds gdk_unit_tests (doctest; no GDK SDK needed).
+# GDK_BUILD_FUZZ_TARGETS: builds libFuzzer targets (requires clang-cl; use
+#   the 'fuzz' preset). Either flag opens tests/cpp.
+option(GDK_BUILD_TESTS        "Build C++ unit tests (doctest)"                                      ON)
+option(GDK_BUILD_FUZZ_TARGETS "Build libFuzzer fuzz targets (requires clang-cl; use 'fuzz' preset)" OFF)
+if(GDK_BUILD_TESTS OR GDK_BUILD_FUZZ_TARGETS)
     add_subdirectory(tests/cpp)
 endif()
