@@ -187,9 +187,10 @@ static void s_variant_get_type_name(uint32_t p_type, void *r_name) {
         "PackedColorArray","PackedVector4Array",
     };
     const char *name = (p_type < 39) ? names[p_type] : "Unknown";
-    // r_name is an uninitialized StringName blob; intern it
-    auto *interned = new std::string(name);
-    sn_blob_set(r_name, interned);
+    // r_name is a StringName blob; point it at the shared intern pool so the
+    // pointer is stable and pool-owned (allocating a fresh std::string here and
+    // relying on the no-op StringName destructor would leak on every call).
+    sn_blob_set(r_name, sn_intern(name));
 }
 
 static void s_variant_stringify(const void *p_self, void *r_str) {
@@ -613,6 +614,11 @@ static void s_dict_has(void *p_base, const void *const *p_args, void *r_ret, int
 static void s_dict_keys(void *p_base, const void *const *, void *r_ret, int32_t) {
     StubDict *d = dict_blob_get(p_base);
     if (!r_ret) return;
+    // godot-cpp default-constructs the Array return value before invoking this
+    // method, so r_ret already owns a StubArray. Free it before reassigning to
+    // avoid leaking one array per call (mirrors s_array_ctor_default).
+    StubArray *old = arr_blob_get(r_ret);
+    if (old) { StubVariant ov{SVT_ARRAY, 0, {}}; ov.data.as_ptr = old; stub_variant_free_owned(&ov); }
     StubArray *a = new StubArray();
     if (d) {
         for (const auto &e : d->entries) {

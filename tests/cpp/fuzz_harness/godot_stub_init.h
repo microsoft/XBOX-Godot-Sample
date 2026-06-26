@@ -27,9 +27,9 @@
 //   - godot::String: each instance owns a heap-allocated std::u32string.
 //     The 8-byte godot::String opaque blob stores a `std::u32string *`.
 //   - godot::StringName: interned in a global std::unordered_set<std::string>.
-//   - godot::Dictionary: heap-allocated struct wrapping
-//     std::unordered_map<std::string, StubVariant>.
-//   - godot::Array: heap-allocated struct wrapping std::vector<StubVariant>.
+//   - godot::Dictionary: heap-allocated StubDict wrapping an ordered
+//     std::vector<Entry> (each Entry holds the string key-repr, key, value).
+//   - godot::Array: heap-allocated StubArray wrapping std::deque<StubVariant>.
 //   - godot::Variant: tagged union over NIL / bool / int64 / float64 /
 //     String* / Dictionary* / Array*.
 //   - Memory: malloc / realloc / free.
