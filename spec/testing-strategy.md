@@ -310,3 +310,142 @@ The Wave -1 spike surfaced seven behaviors that bind future waves. Each is a nor
 - **Sync `ReadToEnd()` deadlocks** on Godot's stderr in clean trees. Missing GDExtensions flood stderr with `Condition "!FileAccess::exists(path)"` lines and fill the pipe buffer in seconds. Both stdout and stderr are drained asynchronously (`BeginOutputReadLine()` / `BeginErrorReadLine()` or concurrent `ReadToEndAsync()`).
 - **The headless validator exclusion list is generalised** in Wave 1. Vendored or `extends GutTest` paths skip via `.gdignore` / sentinel marker file rather than a hard-coded array.
 - **Version pinning matches `--version` output, not the file name.** `Godot_v4.6.1-stable_win64_console.exe` reports `4.6.2.stable.official.71f334935`. Discovery and version-pinning logic compares against the runtime `--version` string; the file name is unreliable as a version identifier and is not used in `run-summary.md`.
+
+## AddressSanitizer preset (`debug-asan`)
+
+Branch `infra/fuzz-testing` adds a dedicated configure preset that compiles the doctest target with MSVC's AddressSanitizer instrumentation.
+
+**Configure preset:** `debug-asan` — inherits from `default`, sets `CMAKE_CXX_FLAGS=/fsanitize=address`, turns all addon builds OFF and `GDK_BUILD_TESTS=ON`.
+
+**Build preset:** `debug-asan` — targets the `asan` binary directory (`build\asan`), Debug configuration.
+
+```powershell
+cmake --preset debug-asan
+cmake --build build/asan --preset debug-asan --target gdk_unit_tests
+```
+
+**Runtime requirement:** MSVC ASan DLLs must be on PATH:
+
+```powershell
+$asanDir = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64"
+$env:PATH = "$asanDir;$env:PATH"
+.\build\asan\bin\Debug\gdk_unit_tests.exe
+```
+
+**Verified:** 16/16 doctest cases pass under ASan with no error report.
+
+The preset intentionally targets only the pure-C++ doctest exe. GDExtension addon builds and GDScript test hosts are out of scope for ASan standalone runs.
+
+## libFuzzer layout
+
+Branch `infra/fuzz-testing` adds a clang-cl + libFuzzer build path that is entirely separate from the default MSVC preset.
+
+### Configure and build presets
+
+| Preset | Role |
+| --- | --- |
+| `fuzz` (configure) | Inherits `_fuzz-base`: VS 17 2022 generator, ClangCL toolset, `build\fuzz` binary dir. Sets `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` (`/MT`, required by `clang_rt.fuzzer-x86_64.lib`), `CMAKE_CXX_FLAGS=-fsanitize=address` globally (required for consistent `annotate_string` FAILIFMISMATCH linking), `CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY` (avoids configure-time link failure when ASan runtime is not resolved), `GDK_BUILD_TESTS=OFF`, `GDK_BUILD_FUZZ_TARGETS=ON`. All addon builds (`BUILD_GODOT_GDK`, `BUILD_GODOT_GAMEINPUT`, `BUILD_GODOT_PLAYFAB`) are OFF. |
+| `debug-fuzz` (build) | Targets `build\fuzz`, Debug configuration. |
+
+```powershell
+cmake --preset fuzz
+cmake --build build/fuzz --preset debug-fuzz
+```
+
+### `godot_addon_fuzzer_target` CMake function
+
+Defined in `cmake\GodotExtensionCommon.cmake`. Adds a libFuzzer executable with:
+
+- `-fsanitize=fuzzer,address` compile flag (clang-cl uses `-`, not `/`)
+- Explicit link of `clang_rt.fuzzer-x86_64.lib`, `clang_rt.asan-x86_64.lib`, `clang_rt.asan_cxx-x86_64.lib` from the LLVM install alongside `clang-cl.exe` (lld-link does not auto-resolve `-fsanitize=...` to libraries)
+- `FATAL_ERROR` if called with a non-ClangCL compiler
+
+**Guard:** `GDK_BUILD_FUZZ_TARGETS` is declared at the root `CMakeLists.txt` level. The `tests/cpp` subdirectory is added when `GDK_BUILD_TESTS OR GDK_BUILD_FUZZ_TARGETS`. The doctest exe (`gdk_unit_tests`) is gated solely on `GDK_BUILD_TESTS`, so the fuzz preset (which sets `GDK_BUILD_TESTS=OFF`) does not attempt to build or link the doctest exe.
+
+### Seam extraction pattern
+
+Each fuzz target exercises a *pure seam* — a helper extracted from production code that has no GDK, GDExtension-interface, or Godot-type dependency.
+
+**Existing seams (Wave 2, `infra/fuzz-testing`):**
+- `addons\godot_playfab\src\playfab_request_key.{h,cpp}` — pure `std::string` / `std::string_view` key-match and signature helper. Does not touch `godot::String` or PlayFab SDK types. Covered by `tests\cpp\request_key\test_playfab_request_key.cpp` (doctest) and `tests\cpp\fuzz\fuzz_playfab_key_lookup.cpp` (libFuzzer).
+
+New pure seams follow the same extraction pattern: move pure logic to a `*_internal.{h,cpp}` sibling, call it from the production site, reference the same file from the fuzz target.
+
+### Fuzz target layout
+
+Fuzz sources live under `tests\cpp\fuzz\`:
+
+| File | Phase | Description |
+| --- | --- | --- |
+| `fuzz_playfab_key_lookup.cpp` | 2 | Key-match seam — no Godot types, no stub harness. |
+| `fuzz_gdk_result_formatting.cpp` | 3 | HRESULT-formatting helpers — uses `godot::String`, links `godot_stub_harness`. |
+| `fuzz_playfab_api_models.cpp` | 3 | PlayFab API model parsing — conditional; skipped when `PLAYFAB_SDK_PATH` is not set. |
+
+Each fuzz target defines `LLVMFuzzerTestOneInput` (and optionally `LLVMFuzzerInitialize`) but NOT `main()`. Targets that use Godot types call `godot_stub::init()` from `LLVMFuzzerInitialize`.
+
+## Phase 3 GDExtension stub harness
+
+The stub harness satisfies all 176 GDExtension interface function slots so `godot::String`, `godot::Dictionary`, `godot::Variant`, and `godot::Array` work in a standalone fuzz exe without a live Godot engine.
+
+### Constraint (why a stub harness is necessary)
+
+Every `godot::String` (and every other Variant-family type) constructor dispatches through `gdextension_interface::*` function pointers populated during the GDExtension entry-point handshake. In a standalone exe these pointers stay null and the first `String` construction segfaults. The doctest target avoids this by banning Variant-family types (see "godot::String constraint" above). The stub harness lifts that restriction for fuzz targets.
+
+### Blob size contract (float\_64 / x64 Windows)
+
+| Type | Blob size | Backing storage |
+| --- | --- | --- |
+| `godot::String` | 8 bytes | `std::u32string *` |
+| `godot::StringName` | 8 bytes | `std::string *` (interned; pool owns) |
+| `godot::NodePath` | 8 bytes | `std::string *` (same interned pool) |
+| `godot::Dictionary` | 8 bytes | `StubDict *` |
+| `godot::Array` | 8 bytes | `StubArray *` |
+| `godot::Variant` | 24 bytes | `{ uint32_t type_id; uint32_t _pad; StubVariantData data; }` |
+
+### Source layout
+
+All harness source lives under `tests\cpp\fuzz_harness\`:
+
+| File | Responsibility |
+| --- | --- |
+| `stub_types.h` | Shared internal header: `StubVariant` (24 bytes), `StubDict`, `StubArray`, blob accessor helpers, `sn_intern` declaration. |
+| `stub_memory.cpp` | `mem_alloc/realloc/free` wrappers; `print_error/warning` stubs. |
+| `stub_string.cpp` | String creation/mutation stubs via `std::u32string`; UTF-8/Latin-1/UTF-32/wide conversions; interned StringName pool via `std::unordered_set<std::string>`. |
+| `stub_variant.cpp` | Full Variant ctor/dtor/type system; `get_variant_from/to_type_constructor`; `variant_get_ptr_constructor/destructor`; `variant_get_ptr_builtin_method` dispatch (Array, Dictionary, String); `s_string_op_add` for `STRING + STRING` via `variant_get_ptr_operator_evaluator`; noop for all utility functions. |
+| `stub_dict_array.cpp` | Direct `dictionary_operator_index` / `array_operator_index` stubs. |
+| `stub_noop.cpp` | Single `s_stub_noop()` fallback; `get_godot_version`/`get_godot_version2` returning 4.6.0. |
+| `godot_stub_init.cpp` | 176-entry `unordered_map<string_view, void**>` dispatch table; `stub_get_proc_address`; `godot_stub::init()` bootstraps `GDExtensionBinding` with the stub proc address resolver. |
+| `godot_stub_init.h` | Public API: `godot_stub::init()`. |
+
+### Key design decisions
+
+- **String destruction uses `variant_get_ptr_destructor(STRING)`, not a direct `string_destroy` call.** There is no `string_destroy` interface function; the destructor slot for STRING is populated from `variant_get_ptr_destructor`.
+- **`string_new_with_*` functions free old content before assigning.** godot-cpp calls `string_new_with_utf8_chars_and_len2` on an already-initialized blob (from `String::parse_utf8`). The stub deletes the old `std::u32string*` before assigning the new one.
+- **`variant_get_ptr_operator_evaluator` returns real implementations, never null.** Returning null causes a PC=0 crash when godot-cpp calls `String::operator+(const String&)`. `OP_ADD + STRING + STRING` returns `s_string_op_add`; all other operator combinations return `s_noop_op_eval`.
+- **`variant_get_ptr_utility_function` returns a noop, never null.** Same reasoning — godot-cpp may cache the returned pointer and call it later.
+- **All TUs compiled with `/MT` (`MultiThreaded` static CRT).** `clang_rt.fuzzer-x86_64.lib` embeds `FAILIFMISMATCH:RuntimeLibrary=MT_StaticRelease`. Mixing `/MD` code with `/MT` runtime libs fails at link. The fuzz preset therefore sets `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` globally.
+- **`-fsanitize=address` is set globally in the fuzz preset.** Without it, `godot-cpp` objects emit `annotate_string=0` and fuzz-target objects emit `annotate_string=1`, causing a `FAILIFMISMATCH` link failure. Applying ASan globally makes all objects consistent.
+- **`CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY` is required for configure.** CMake's compiler detection builds a test executable; with `-fsanitize=address` in `CMAKE_CXX_FLAGS` it can't link without the ASan runtime. Setting the try-compile target to a static library skips the link step.
+
+### `godot_stub::init()` contract
+
+```cpp
+// In LLVMFuzzerInitialize:
+extern "C" int LLVMFuzzerInitialize(int *, char ***) {
+    godot_stub::init();   // call exactly once before any Godot type use
+    return 0;
+}
+```
+
+`godot_stub::init()` creates a `GDExtensionInitialization` on the stack, registers a no-op initializer (required — `init_callback` must be non-null), and calls `GDExtensionBinding::init()` with `stub_get_proc_address`. It aborts with a message if `init()` returns false.
+
+### Verification
+
+```powershell
+cmake --preset fuzz
+cmake --build build/fuzz --preset debug-fuzz
+.\build\fuzz\bin\Debug\playfab_fuzz_key_lookup.exe     -runs=10000
+.\build\fuzz\bin\Debug\gdk_fuzz_result_formatting.exe  -runs=10000
+```
+
+Both targets exit 0 with `Done 10000 runs in N second(s)`. The default-preset `gdk_unit_tests.exe` still passes 16/16 doctest cases (non-regression confirmed).
