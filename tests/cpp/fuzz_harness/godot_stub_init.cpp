@@ -117,6 +117,10 @@ extern void *stub_array_operator_index_const_ptr;
 extern void *stub_array_ref_ptr;
 extern void *stub_array_set_typed_ptr;
 
+// stub_packed_array.cpp
+extern void *stub_packed_byte_array_operator_index_ptr;
+extern void *stub_packed_byte_array_operator_index_const_ptr;
+
 // stub_object.cpp
 extern void *stub_classdb_construct_object_ptr;
 extern void *stub_classdb_construct_object2_ptr;
@@ -297,8 +301,8 @@ static const std::unordered_map<std::string_view, void **> &dispatch_table() {
         { "object_set_instance",                        &stub_object_set_instance_ptr },
         { "object_set_instance_binding",                &stub_object_set_instance_binding_ptr },
         { "object_set_script_instance",                 &stub_noop_ptr },
-        { "packed_byte_array_operator_index",           &stub_noop_ptr },
-        { "packed_byte_array_operator_index_const",     &stub_noop_ptr },
+        { "packed_byte_array_operator_index",           &stub_packed_byte_array_operator_index_ptr },
+        { "packed_byte_array_operator_index_const",     &stub_packed_byte_array_operator_index_const_ptr },
         { "packed_color_array_operator_index",          &stub_noop_ptr },
         { "packed_color_array_operator_index_const",    &stub_noop_ptr },
         { "packed_float32_array_operator_index",        &stub_noop_ptr },

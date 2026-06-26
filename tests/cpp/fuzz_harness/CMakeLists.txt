@@ -12,6 +12,7 @@ add_library(godot_stub_harness STATIC
     stub_string.cpp
     stub_variant.cpp
     stub_dict_array.cpp
+    stub_packed_array.cpp
     stub_object.cpp
     stub_noop.cpp
     godot_stub_init.cpp

@@ -480,6 +480,21 @@ static void s_array_dtor(void *p_base) {
     arr_blob_set(p_base, nullptr);
 }
 
+// ── PackedByteArray ctor / copy / dtor ────────────────────────────────────
+static void s_pba_ctor_default(void *p_base, const void *const *) {
+    delete pba_blob_get(p_base);
+    pba_blob_set(p_base, new std::vector<uint8_t>());
+}
+static void s_pba_ctor_copy(void *p_base, const void *const *p_args) {
+    const std::vector<uint8_t> *orig = pba_blob_get(p_args[0]);
+    delete pba_blob_get(p_base);
+    pba_blob_set(p_base, orig ? new std::vector<uint8_t>(*orig) : new std::vector<uint8_t>());
+}
+static void s_pba_dtor(void *p_base) {
+    delete pba_blob_get(p_base);
+    pba_blob_set(p_base, nullptr);
+}
+
 static void s_noop_ctor(void *p_base, const void *const *) { ::memset(p_base, 0, 8); }
 static void s_noop_dtor(void *) {}
 
@@ -501,6 +516,9 @@ static PFNCtor s_variant_get_ptr_constructor(uint32_t p_type, int32_t p_construc
     case SVT_ARRAY:
         return (p_constructor == 0) ? s_array_ctor_default :
                (p_constructor == 1) ? s_array_ctor_copy : s_noop_ctor;
+    case SVT_PACKED_BYTE_ARRAY:
+        return (p_constructor == 0) ? s_pba_ctor_default :
+               (p_constructor == 1) ? s_pba_ctor_copy : s_noop_ctor;
     default:
         return s_noop_ctor;
     }
@@ -513,6 +531,7 @@ static PFNDtor s_variant_get_ptr_destructor(uint32_t p_type) {
     case SVT_NODE_PATH:   return s_string_name_dtor;
     case SVT_DICTIONARY:  return s_dict_dtor;
     case SVT_ARRAY:       return s_array_dtor;
+    case SVT_PACKED_BYTE_ARRAY: return s_pba_dtor;
     default:              return s_noop_dtor;
     }
 }
@@ -626,6 +645,56 @@ static void s_string_length(void *p_base, const void *const *, void *r_ret, int3
     if (r_ret) *(int64_t *)r_ret = s ? (int64_t)s->size() : 0LL;
 }
 
+// ── PackedByteArray built-in method stubs ────────────────────────────────
+// Builtin-method ABI: void f(void *p_base, const void *const *p_args,
+//                            void *r_return, int32_t p_arg_count)
+// int parameters are PtrToArg<int64_t>-encoded (8-byte little-endian); the
+// PackedByteArray methods set/push_back/get treat the value as a byte.
+
+static void s_pba_resize(void *p_base, const void *const *p_args, void *r_ret, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    int64_t new_size = p_args ? *(const int64_t *)p_args[0] : 0;
+    if (v && new_size >= 0) v->resize((size_t)new_size, 0);
+    if (r_ret) *(int64_t *)r_ret = 0; // Error::OK
+}
+
+static void s_pba_size(void *p_base, const void *const *, void *r_ret, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (r_ret) *(int64_t *)r_ret = v ? (int64_t)v->size() : 0LL;
+}
+
+static void s_pba_is_empty(void *p_base, const void *const *, void *r_ret, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (r_ret) *(uint8_t *)r_ret = (!v || v->empty()) ? 1 : 0;
+}
+
+static void s_pba_set(void *p_base, const void *const *p_args, void *, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (!v || !p_args) return;
+    int64_t idx = *(const int64_t *)p_args[0];
+    int64_t val = *(const int64_t *)p_args[1];
+    if (idx < 0 || (size_t)idx >= v->size()) return;
+    (*v)[(size_t)idx] = (uint8_t)val;
+}
+
+static void s_pba_push_back(void *p_base, const void *const *p_args, void *r_ret, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (v && p_args) v->push_back((uint8_t)*(const int64_t *)p_args[0]);
+    if (r_ret) *(uint8_t *)r_ret = 1; // success
+}
+
+static void s_pba_get(void *p_base, const void *const *p_args, void *r_ret, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (!r_ret) return;
+    int64_t idx = (v && p_args) ? *(const int64_t *)p_args[0] : -1;
+    *(int64_t *)r_ret = (v && idx >= 0 && (size_t)idx < v->size()) ? (int64_t)(*v)[(size_t)idx] : 0LL;
+}
+
+static void s_pba_clear(void *p_base, const void *const *, void *, int32_t) {
+    std::vector<uint8_t> *v = pba_blob_get(p_base);
+    if (v) v->clear();
+}
+
 // ── Dispatch ──────────────────────────────────────────────────────────────
 
 static PFNBuiltin s_variant_get_ptr_builtin_method(uint32_t p_type, const void *p_method_name, int64_t /*p_hash*/) {
@@ -652,6 +721,15 @@ static PFNBuiltin s_variant_get_ptr_builtin_method(uint32_t p_type, const void *
     if (p_type == SVT_STRING) {
         if (name == "is_empty") return s_string_is_empty;
         if (name == "length")   return s_string_length;
+    }
+    if (p_type == SVT_PACKED_BYTE_ARRAY) {
+        if (name == "resize")    return s_pba_resize;
+        if (name == "size")      return s_pba_size;
+        if (name == "is_empty")  return s_pba_is_empty;
+        if (name == "set")       return s_pba_set;
+        if (name == "push_back" || name == "append") return s_pba_push_back;
+        if (name == "get")       return s_pba_get;
+        if (name == "clear")     return s_pba_clear;
     }
     return s_noop_builtin;
 }

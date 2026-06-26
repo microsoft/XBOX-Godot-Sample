@@ -368,8 +368,10 @@ Each fuzz target exercises a *pure seam* — a helper extracted from production 
 
 **Existing seams (Wave 2, `infra/fuzz-testing`):**
 - `addons\godot_playfab\src\playfab_request_key.{h,cpp}` — pure `std::string` / `std::string_view` key-match and signature helper. Does not touch `godot::String` or PlayFab SDK types. Covered by `tests\cpp\request_key\test_playfab_request_key.cpp` (doctest) and `tests\cpp\fuzz\fuzz_playfab_key_lookup.cpp` (libFuzzer).
+- `addons\godot_playfab\src\playfab_party_codec.{h,cpp}` — wire codec for the PlayFab Party transport (`build_*`/`parse_*`/`wrap_*`/`unwrap_*`). Uses `godot::String` and `godot::PackedByteArray` but no PlayFab Party SDK types, so it builds into both the addon and the stub harness. The `parse_*`/`unwrap_*` functions decode untrusted peer bytes — the addon's primary attacker-controlled-input surface. Covered by `tests\cpp\fuzz\fuzz_playfab_party_codec.cpp`.
+- `addons\godot_gdk\src\gdk_request_parsing.{h,cpp}` — GDK request-input parsing seam (`try_parse_xuid`, `parse_uint32`, `copy_utf8_to_buffer`, `to_packed_byte_array` / `to_byte_vector`). Uses godot-cpp built-in types plus the SDK-free `GDKResult`, with no Xbox GDK service headers. Consumed by `gdk_title_storage.cpp`, `gdk_game_ui.cpp`, and `gdk_profile.cpp` via thin private forwarders (game-UI passes `reject_zero=true`; the other two pass `false`). Covered by `tests\cpp\fuzz\fuzz_gdk_request_parsing.cpp`.
 
-New pure seams follow the same extraction pattern: move pure logic to a `*_internal.{h,cpp}` sibling, call it from the production site, reference the same file from the fuzz target.
+New pure seams follow the same extraction pattern: move pure logic to a `*_internal.{h,cpp}` (or a similarly SDK-free) sibling, call it from the production site, reference the same file from the fuzz target.
 
 ### Fuzz target layout
 
@@ -379,6 +381,10 @@ Fuzz sources live under `tests\cpp\fuzz\`:
 | --- | --- | --- |
 | `fuzz_playfab_key_lookup.cpp` | 2 | Key-match seam — no Godot types, no stub harness. |
 | `fuzz_gdk_result_formatting.cpp` | 3 | HRESULT-formatting helpers — uses `godot::String`, links `godot_stub_harness`. |
+| `fuzz_gdk_result_factories.cpp` | 3 | `GDKResult` / `PlayFabResult` factory + accessor round-trips — `Ref<RefCounted>`, links `godot_stub_harness`. |
+| `fuzz_playfab_request_dictionary.cpp` | 3 | `playfab_api::get_request_value` over arbitrary `Dictionary` content — links `godot_stub_harness`. |
+| `fuzz_playfab_party_codec.cpp` | 3 | PlayFab Party wire codec — decodes untrusted peer bytes (`PackedByteArray` + `String`); raw-decode + build/parse round-trip oracles. |
+| `fuzz_gdk_request_parsing.cpp` | 3 | GDK request-input parsing seam — `try_parse_xuid` (both reject-zero modes), `parse_uint32`, `copy_utf8_to_buffer`, `PackedByteArray`<->`std::vector` round-trip oracle. |
 | `fuzz_playfab_api_models.cpp` | 3 | PlayFab API model parsing — conditional; skipped when `PLAYFAB_SDK_PATH` is not set. |
 
 Each fuzz target defines `LLVMFuzzerTestOneInput` (and optionally `LLVMFuzzerInitialize`) but NOT `main()`. Targets that use Godot types call `godot_stub::init()` from `LLVMFuzzerInitialize`.
@@ -400,6 +406,7 @@ Every `godot::String` (and every other Variant-family type) constructor dispatch
 | `godot::NodePath` | 8 bytes | `std::string *` (same interned pool) |
 | `godot::Dictionary` | 8 bytes | `StubDict *` |
 | `godot::Array` | 8 bytes | `StubArray *` |
+| `godot::PackedByteArray` | 16 bytes | `std::vector<uint8_t> *` (blob zero-init; moved-from reads nullptr) |
 | `godot::Variant` | 24 bytes | `{ uint32_t type_id; uint32_t _pad; StubVariantData data; }` |
 
 ### Source layout
@@ -408,11 +415,12 @@ All harness source lives under `tests\cpp\fuzz_harness\`:
 
 | File | Responsibility |
 | --- | --- |
-| `stub_types.h` | Shared internal header: `StubVariant` (24 bytes), `StubDict`, `StubArray`, blob accessor helpers, `sn_intern` declaration. |
+| `stub_types.h` | Shared internal header: `StubVariant` (24 bytes), `StubDict`, `StubArray`, blob accessor helpers (incl. `SVT_PACKED_BYTE_ARRAY` / `pba_blob_*` for `std::vector<uint8_t>*`), `sn_intern` declaration. |
 | `stub_memory.cpp` | `mem_alloc/realloc/free` wrappers; `print_error/warning` stubs. |
 | `stub_string.cpp` | String creation/mutation stubs via `std::u32string`; UTF-8/Latin-1/UTF-32/wide conversions; interned StringName pool via `std::unordered_set<std::string>`. |
 | `stub_variant.cpp` | Full Variant ctor/dtor/type system; `get_variant_from/to_type_constructor`; `variant_get_ptr_constructor/destructor`; `variant_get_ptr_builtin_method` dispatch (Array, Dictionary, String); `s_string_op_add` for `STRING + STRING` via `variant_get_ptr_operator_evaluator`; noop for all utility functions. |
 | `stub_dict_array.cpp` | Direct `dictionary_operator_index` / `array_operator_index` stubs. |
+| `stub_packed_array.cpp` | `packed_byte_array_operator_index(_const)` stubs returning `&vec[index]` (bounds-checked, nullptr on OOB); PackedByteArray ctor/dtor and builtin methods (`resize`/`size`/`set`/`get`/`push_back`/`clear`) live in `stub_variant.cpp`. |
 | `stub_noop.cpp` | Single `s_stub_noop()` fallback; `get_godot_version`/`get_godot_version2` returning 4.6.0. |
 | `godot_stub_init.cpp` | 176-entry `unordered_map<string_view, void**>` dispatch table; `stub_get_proc_address`; `godot_stub::init()` bootstraps `GDExtensionBinding` with the stub proc address resolver. |
 | `godot_stub_init.h` | Public API: `godot_stub::init()`. |

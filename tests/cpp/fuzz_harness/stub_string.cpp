@@ -71,7 +71,10 @@ ptrdiff_t stub_str_to_utf8(const std::u32string *s, char *out, ptrdiff_t out_len
         else if (cp < 0x800)   bytes = 2;
         else if (cp < 0x10000) bytes = 3;
         else                   bytes = 4;
-        if (out && needed + bytes < out_len) {
+        // godot-cpp's String::utf8() passes out_len == content byte length and
+        // writes its own NUL at str[length]; write every byte that fits in the
+        // buffer (<=, not <) so the final content byte is never dropped.
+        if (out && needed + bytes <= out_len) {
             if (bytes == 1) { out[needed] = (char)cp; }
             else if (bytes == 2) {
                 out[needed]   = (char)(0xC0 | (cp >> 6));
@@ -89,7 +92,8 @@ ptrdiff_t stub_str_to_utf8(const std::u32string *s, char *out, ptrdiff_t out_len
         }
         needed += bytes;
     }
-    if (out && out_len > 0) out[needed < out_len ? needed : out_len - 1] = '\0';
+    // Only NUL-terminate when a spare slot exists beyond the content.
+    if (out && needed < out_len) out[needed] = '\0';
     return needed;
 }
 
@@ -97,10 +101,13 @@ ptrdiff_t stub_str_to_latin1(const std::u32string *s, char *out, ptrdiff_t out_l
     if (!s) { if (out && out_len > 0) out[0] = '\0'; return 0; }
     ptrdiff_t n = (ptrdiff_t)s->size();
     if (out) {
-        ptrdiff_t write = n < out_len ? n : out_len - 1;
+        // godot-cpp's String::ascii() passes out_len == content length and
+        // writes its own NUL at str[length]; only fill a spare slot here so the
+        // final content byte is never clobbered.
+        ptrdiff_t write = n < out_len ? n : out_len;
         for (ptrdiff_t i = 0; i < write; ++i)
             out[i] = (char)((*s)[i] & 0xFF);
-        if (out_len > 0) out[write] = '\0';
+        if (write < out_len) out[write] = '\0';
     }
     return n;
 }

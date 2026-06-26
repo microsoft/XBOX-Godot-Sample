@@ -11,6 +11,7 @@ add_library(godot_gdk SHARED
     src/gdk_runtime.cpp
     src/gdk_result.cpp
     src/gdk_result_codes_internal.cpp
+    src/gdk_request_parsing.cpp
     src/gdk_pending_signal.cpp
     src/gdk_signal_xasync_context.cpp
     src/gdk_user.cpp

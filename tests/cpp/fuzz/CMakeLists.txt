@@ -81,6 +81,42 @@ godot_addon_fuzzer_target(
         "${CMAKE_SOURCE_DIR}/tests/cpp/fuzz_harness"
 )
 
+# fuzz_playfab_party_codec: exercises the PlayFab Party wire codec — the parse_*
+# / unwrap_* functions decode untrusted peer bytes (PackedByteArray + String).
+# Requires the PackedByteArray stubs in godot_stub_harness.
+godot_addon_fuzzer_target(
+    TARGET_NAME playfab_fuzz_party_codec
+    SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_playfab_party_codec.cpp"
+        "${_PF_SRC}/playfab_party_codec.cpp"
+    LINK_LIBS
+        godot_stub_harness
+        godot::cpp
+    INCLUDES
+        "${_PF_SRC}"
+        "${CMAKE_SOURCE_DIR}/tests/cpp/fuzz_harness"
+)
+
+# fuzz_gdk_request_parsing: exercises the GDK request-input parsing seam
+# (try_parse_xuid, parse_uint32, copy_utf8_to_buffer, to_packed_byte_array /
+# to_byte_vector). These touch raw memory (strtoull, memcpy into fixed buffers,
+# byte-buffer round-trips) on script-supplied values. parse_uint32 /
+# copy_utf8_to_buffer return Ref<GDKResult>, so gdk_result.cpp is linked too.
+godot_addon_fuzzer_target(
+    TARGET_NAME gdk_fuzz_request_parsing
+    SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_gdk_request_parsing.cpp"
+        "${_GDK_SRC}/gdk_request_parsing.cpp"
+        "${_GDK_SRC}/gdk_result.cpp"
+        "${_GDK_SRC}/gdk_result_codes_internal.cpp"
+    LINK_LIBS
+        godot_stub_harness
+        godot::cpp
+    INCLUDES
+        "${_GDK_SRC}"
+        "${CMAKE_SOURCE_DIR}/tests/cpp/fuzz_harness"
+)
+
 if(PLAYFAB_SDK_PATH AND EXISTS "${PLAYFAB_SDK_PATH}/include/playfab/core/PFTypes.h")
     godot_addon_fuzzer_target(
         TARGET_NAME playfab_fuzz_api_models

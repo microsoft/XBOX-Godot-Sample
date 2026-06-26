@@ -7,6 +7,7 @@
 //   NodePath    8 bytes → stores std::string * (interned globally, same pool)
 //   Dictionary  8 bytes → stores StubDict *
 //   Array       8 bytes → stores StubArray *
+//   PackedByteArray 16 bytes → first 8 store std::vector<uint8_t> * (rest unused)
 //   Variant    24 bytes → { uint32_t type_id; uint32_t _pad; StubVariantData data; }
 //
 // All heap objects are owned by the blob that contains their pointer.
@@ -35,6 +36,7 @@ enum StubVariantType : uint32_t {
     SVT_NODE_PATH    = 22,
     SVT_DICTIONARY   = 27,
     SVT_ARRAY        = 28,
+    SVT_PACKED_BYTE_ARRAY = 29,
 };
 
 // ─── Forward declarations ──────────────────────────────────────────────────
@@ -177,4 +179,22 @@ inline StubArray *arr_blob_get(const void *blob) {
 }
 inline void arr_blob_set(void *blob, StubArray *a) {
     *arr_blob_ptr(blob) = a;
+}
+
+// ─── PackedByteArray blob accessors ──────────────────────────────────────
+// The opaque blob is 16 bytes (PACKED_BYTE_ARRAY_SIZE); we use the first 8 to
+// store a std::vector<uint8_t> *.  godot-cpp zero-initialises the opaque, so a
+// default/moved-from blob reads back as nullptr (safe to delete).
+
+inline std::vector<uint8_t> **pba_blob_ptr(void *blob) {
+    return reinterpret_cast<std::vector<uint8_t> **>(blob);
+}
+inline std::vector<uint8_t> *pba_blob_get(void *blob) {
+    return *pba_blob_ptr(blob);
+}
+inline std::vector<uint8_t> *pba_blob_get(const void *blob) {
+    return *reinterpret_cast<std::vector<uint8_t> * const *>(blob);
+}
+inline void pba_blob_set(void *blob, std::vector<uint8_t> *v) {
+    *pba_blob_ptr(blob) = v;
 }
