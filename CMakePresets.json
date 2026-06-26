@@ -75,7 +75,7 @@
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "ON",
                 "BUILD_GODOT_PLAYFAB": "ON",
-                "BUILD_GODOT_GDK_PACKAGING": "ON",
+                "BUILD_GODOT_GDK_EDITORTOOLS": "ON",
                 "GDK_BUILD_TESTS": "OFF"
             }
         },

@@ -9,7 +9,7 @@ Current addon targets:
 - `addons\godot_gdk` — GDK runtime and Xbox services integration
 - `addons\godot_playfab` — PlayFab runtime, users, Game Saves, and leaderboards
 - `addons\godot_gameinput` — GameInput integration
-- `addons\godot_gdk_packaging` — GDScript editor tooling for PC packaging
+- `addons\godot_gdk_editortools` — GDScript editor tooling for PC packaging
 
 Each addon owns its own `CMakeLists.txt`. The root `CMakeLists.txt` is a thin superproject that wires the addon-local targets together.
 
@@ -38,7 +38,7 @@ Output binaries land in each addon's `bin\` folder. Addon-local build logic may 
 - Do **not** assume `godot_gdk` conventions automatically apply to `godot_gameinput`, or vice versa.
 - Treat `godot_gdk` and `godot_playfab` as **service/runtime addons**: prefer one root singleton with typed service and wrapper surfaces beneath it.
 - Treat `godot_gameinput` as an **input integration addon**: optimize for compatibility with Godot's `Input` / `InputMap` flow and additive device functionality rather than forcing it into the same public API shape as the service/runtime addons.
-- Treat `godot_gdk_packaging` as **editor tooling**, not as a runtime service addon.
+- Treat `godot_gdk_editortools` as **editor tooling**, not as a runtime service addon.
 - When behavior changes, update the related addon-local docs, sample content, and tooling that define or demonstrate that behavior.
 - Prefer narrow, addon-local changes over repo-wide edits unless the task truly spans multiple addons.
 

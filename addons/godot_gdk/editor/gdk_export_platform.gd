@@ -69,7 +69,7 @@ func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool
 	if not _gdk_found:
 		return false
 	# MicrosoftGame.config is the source of truth for identity / shell visuals
-	# and is authored via the godot_gdk_packaging addon's "Create Game Config".
+	# and is authored via the godot_gdk_editortools addon's "Create Game Config".
 	# If it's missing the export pipeline cannot proceed.
 	if not FileAccess.file_exists("res://MicrosoftGame.config"):
 		return false
@@ -125,7 +125,7 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	# ── Step 2: Find Godot export template and export PCK ──
 	# Derive the .exe name from the project's MicrosoftGame.config so the
 	# staged executable matches what `<Executable Name="...">` declares. The
-	# config (authored by the godot_gdk_packaging addon's "Create Game Config"
+	# config (authored by the godot_gdk_editortools addon's "Create Game Config"
 	# flow) is the single source of truth for identity, shell visuals, and the
 	# executable name — no preset duplication.
 	var exe_name: String = _read_exe_name_from_project_config()
@@ -215,7 +215,7 @@ func _read_exe_name_from_project_config() -> String:
 
 # Copies the project's `MicrosoftGame.config` into the staging dir, injecting
 # `TargetDeviceFamily="PC"` on the `<Executable>` element if it's missing.
-# The config itself is authored by the `godot_gdk_packaging` addon's "Create
+# The config itself is authored by the `godot_gdk_editortools` addon's "Create
 # Game Config" flow (or by the developer directly via GameConfigEditor) —
 # never generated at export time.
 func _stage_microsoft_game_config(staging_dir: String) -> int:

@@ -12,7 +12,7 @@
     sandbox-installable build. Packaging steps (MicrosoftGame.config copy,
     VC14 injection, executable rename, logo copy, addon DLL staging,
     `wdapp` registration, MSIXVC creation) are handled by the
-    godot_gdk_packaging editor panel, not this script. Use this when you
+    godot_gdk_editortools editor panel, not this script. Use this when you
     want a quick PC export and `tools\run_all_tests.ps1` -style automation;
     use the editor panel for full GDK packaging.
 

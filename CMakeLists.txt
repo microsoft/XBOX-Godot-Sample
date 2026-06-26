@@ -27,9 +27,9 @@ set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
 # Per-sample directories. The tutorial samples have different addon
 # ownership so they are tracked individually rather than as a single
 # undifferentiated GODOT_SAMPLE_DIRS list:
-#   - tutorial_gdk:         gdk, gdk_packaging        (GDK only)
+#   - tutorial_gdk:         gdk, gdk_editortools       (GDK only)
 #   - tutorial_playfab:     playfab                   (PlayFab only)
-#   - tutorial_integrated:  gdk, playfab, gdk_packaging
+#   - tutorial_integrated:  gdk, playfab, gdk_editortools
 #   - tutorial_gameinput:   gameinput only
 # `GODOT_SAMPLE_DIRS` aggregates them all for tooling that walks every
 # sample (e.g. the GodotExtensionCommon fallback path).
@@ -95,26 +95,28 @@ include(GodotExtensionCommon)
 option(BUILD_GODOT_GDK "Build the godot_gdk addon" ON)
 option(BUILD_GODOT_GAMEINPUT "Build the godot_gameinput addon" ON)
 option(BUILD_GODOT_PLAYFAB "Build the godot_playfab addon" ON)
-option(BUILD_GODOT_GDK_PACKAGING "Sync the godot_gdk_packaging editor plugin into samples" ON)
+option(BUILD_GODOT_GDK_EDITORTOOLS "Sync the godot_gdk_editortools editor plugin into samples" ON)
 
-set(GODOT_GDK_PACKAGING_MIRROR_DIRS)
-set(GODOT_GDK_PACKAGING_PROJECT_DIRS
-    ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
-    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
-    "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
-)
-
-foreach(sample_dir IN LISTS GODOT_GDK_PACKAGING_PROJECT_DIRS)
-    list(APPEND GODOT_GDK_PACKAGING_MIRROR_DIRS
-        "${sample_dir}/addons/godot_gdk_packaging"
+if(BUILD_GODOT_GDK_EDITORTOOLS)
+    set(GODOT_GDK_EDITORTOOLS_MIRROR_DIRS)
+    set(GODOT_GDK_EDITORTOOLS_PROJECT_DIRS
+        ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
+        ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
+        "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
     )
-endforeach()
 
-godot_addon_sync_directory(
-    TARGET_NAME sync_godot_gdk_packaging
-    SOURCE_DIR "${CMAKE_SOURCE_DIR}/addons/godot_gdk_packaging"
-    MIRROR_DIRS ${GODOT_GDK_PACKAGING_MIRROR_DIRS}
-)
+    foreach(sample_dir IN LISTS GODOT_GDK_EDITORTOOLS_PROJECT_DIRS)
+        list(APPEND GODOT_GDK_EDITORTOOLS_MIRROR_DIRS
+            "${sample_dir}/addons/godot_gdk_editortools"
+        )
+    endforeach()
+
+    godot_addon_sync_directory(
+        TARGET_NAME sync_godot_gdk_editortools
+        SOURCE_DIR "${CMAKE_SOURCE_DIR}/addons/godot_gdk_editortools"
+        MIRROR_DIRS ${GODOT_GDK_EDITORTOOLS_MIRROR_DIRS}
+    )
+endif()
 
 add_subdirectory(godot-cpp)
 

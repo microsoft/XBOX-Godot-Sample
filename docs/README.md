@@ -18,7 +18,7 @@ docs/
 ├── playfab/                                 — godot_playfab addon
 │   └── async-system.md                      — PlayFab completion/dispatch contract
 ├── gameinput/                               — godot_gameinput addon
-├── packaging/                               — godot_gdk_packaging addon
+├── editortools/                             — godot_gdk_editortools addon
 └── platform/                                — XBOX Sandbox + test-account setup
 ```
 
@@ -113,11 +113,11 @@ docs/
   the statistic + leaderboard pair backing T3, the Lobby and Party
   feature switches, and the `configure_playfab_test_title.ps1` helper)
 
-## Packaging addon (`godot_gdk_packaging`)
+## Editor Tools addon (`godot_gdk_editortools`)
 
-- [**Packaging Plugin**](packaging/plugin.md) — headless runner and CLI
+- [**Editor Tools Plugin**](editortools/plugin.md) — headless runner and CLI
   reference for PC packaging verbs
-- [**Editor `GDK` menu**](packaging/editor-menu.md) — Create/Edit
+- [**Editor `GDK` menu**](editortools/editor-menu.md) — Create/Edit
   MicrosoftGame.config, sandbox switching, Package Manager, and documentation
   shortcuts
 

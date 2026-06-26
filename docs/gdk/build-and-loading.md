@@ -14,7 +14,7 @@ contains:
 
 - `godot_playfab` — PlayFab runtime/services addon
 - `godot_gameinput` — GameInput integration addon
-- `godot_gdk_packaging` — editor-side packaging tooling
+- `godot_gdk_editortools` — editor-side packaging tooling
 
 ### Native addon files
 
@@ -59,7 +59,7 @@ can share one script while still choosing automatic or manual startup.
 These files are still shipped and synced. The current `gdk_editor_plugin.gd`
 registers the custom `XBOX on PC` export platform and keeps the runtime
 autoload installed, but it no longer docks `gdk_setup_panel.gd`. The repo's
-broader packaging UI lives in the separate `godot_gdk_packaging` addon.
+broader packaging UI lives in the separate `godot_gdk_editortools` addon.
 
 ### Sample projects
 
@@ -67,13 +67,13 @@ The repository currently ships four tutorial-driven sample projects:
 
 - `sample\tutorial_gdk\` — GDK-only tutorial track (Microsoft GDK runtime/sign-in,
   achievements, title storage & stats, Multiplayer Activity). Receives
-  `godot_gdk` and `godot_gdk_packaging` mirrors from the CMake build (no PlayFab).
+  `godot_gdk` and `godot_gdk_editortools` mirrors from the CMake build (no PlayFab).
 - `sample\tutorial_playfab\` — PlayFab-only tutorial track. Receives only the
   `godot_playfab` mirror (no GDK).
 - `sample\tutorial_integrated\` — integrated tutorial track (Microsoft GDK
   runtime/sign-in, PlayFab-backed flows, Multiplayer Activity, Party, and the
   final integration scene). This project receives `godot_gdk`, `godot_playfab`,
-  and `godot_gdk_packaging` mirrors from the CMake build.
+  and `godot_gdk_editortools` mirrors from the CMake build.
 - `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
   wired for the GameInput addon and does not consume the Microsoft GDK runtime addon.
 
@@ -117,7 +117,7 @@ native C++ sources
 > **Note:** vcpkg only provides the build-time dependencies. Consumers who
 > want to **run** `makepkg.exe`, `wdapp.exe`, or the Game Config Editor
 > still need the full Microsoft GDK installed on their machine — see
-> [Editor tools](editor-tools.md) and [Packaging plugin](../packaging/plugin.md).
+> [Editor tools](editor-tools.md) and [Editor Tools plugin](../editortools/plugin.md).
 > The same install can also be used as the source of build-time headers
 > and libs in place of vcpkg via the `installed-gdk` preset (which then
 > needs no vcpkg checkout at all) —

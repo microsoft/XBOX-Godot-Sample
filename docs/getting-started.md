@@ -67,7 +67,7 @@ account.
 | `addons/godot_gdk` | Microsoft GDK runtime + PC-supported XBOX services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs a `GDKBootstrap` autoload. |
 | `addons/godot_playfab` | PlayFab runtime, sign-in (XBOX-backed or custom id), Game Saves, leaderboards, Lobby + Matchmaking, Party, and REST service wrappers. Installs a `PlayFabBootstrap` autoload (auto-init is opt-in). |
 | `addons/godot_gameinput` | GameInput controller integration (devices, polling, vibration, action-bridge into Godot's `InputMap`). Installs a `GameInputBootstrap` autoload. |
-| `addons/godot_gdk_packaging` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
+| `addons/godot_gdk_editortools` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
 
 The four addons are independent — ship one, several, or all of them.
 
@@ -143,7 +143,7 @@ for the canonical addon-side walk-through.
 > import libs** for Microsoft GDK + GameInput. You still need a full Microsoft GDK
 > install on any machine where you intend to run `makepkg.exe`, `wdapp.exe`,
 > or the Game Config Editor (see [Editor tools](gdk/editor-tools.md) and
-> [Packaging plugin](packaging/plugin.md)).
+> [Editor Tools plugin](editortools/plugin.md)).
 
 > **Note:** The Debug build of the Microsoft GDK addon requires Visual Studio to be
 > installed on the machine that *runs* the game, not just the machine that
@@ -250,7 +250,7 @@ files, then go to **Project → Project Settings → Plugins** and enable:
 | `GodotGDK` | Installs the `GDKBootstrap` autoload at `res://addons/godot_gdk/runtime/gdk_bootstrap.gd`. |
 | `GodotPlayFab` | Installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd`. The autoload only calls `PlayFab.initialize()` automatically when `playfab/runtime/initialize_on_startup` is `true` — sign-in stays in your code. |
 | `Godot GameInput` | Installs the `GameInputBootstrap` autoload at `res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd`. |
-| `GDK Packaging` | (Optional, editor-only) registers MSIXVC packaging tooling under the editor's tools menu. |
+| `GDK Editor Tools` | (Optional, editor-only) registers MSIXVC packaging tooling under the editor's tools menu. |
 
 Disabling a plugin removes its autoload again — there's no orphaned
 state.
@@ -265,7 +265,7 @@ addons you actually copied in):
 ```ini
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_editortools/plugin.cfg")
 ```
 
 Without this section Godot opens with every plugin disabled and prints
@@ -832,7 +832,7 @@ libHttpClient platform detection.
 addons/godot_gdk/         # GDK addon: metadata, editor scripts, native sources
 addons/godot_gameinput/   # GameInput addon: metadata, native sources
 addons/godot_playfab/     # PlayFab addon: metadata, native sources
-addons/godot_gdk_packaging/   # GDScript-only packaging tools (editor-only)
+addons/godot_gdk_editortools/   # GDScript-only packaging tools (editor-only)
 cmake/                    # Shared CMake helpers
 docs/                     # Documentation
 godot-cpp/                # godot-cpp submodule

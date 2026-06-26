@@ -18,7 +18,7 @@ addons/
   godot_gdk/             Microsoft GDK runtime + XBOX services
   godot_playfab/         PlayFab runtime, sign-in, Game Saves, leaderboards, multiplayer
   godot_gameinput/       GameInput controller integration (optional)
-  godot_gdk_packaging/   Editor-only: game config, sandbox, packaging, package manager
+  godot_gdk_editortools/   Editor-only: game config, sandbox, packaging, package manager
 ```
 
 Each addon is independent — copy in only the ones you need. Always copy
@@ -101,7 +101,7 @@ your Godot project's `addons/` directory.
    - **GodotPlayFab** — installs the `PlayFabBootstrap` autoload.
    - **Godot GameInput** *(optional)* — installs the
      `GameInputBootstrap` autoload.
-   - **Microsoft GDK Packaging** — registers the **Microsoft GDK** menu in the editor
+   - **Microsoft GDK Editor Tools** — registers the **Microsoft GDK** menu in the editor
      menu bar (game config, sandbox switcher, package manager,
      packaging).
 4. Restart the editor when prompted.
@@ -113,7 +113,7 @@ the addons you copied in:
 ```ini
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_packaging/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/godot_playfab/plugin.cfg", "res://addons/godot_gameinput/plugin.cfg", "res://addons/godot_gdk_editortools/plugin.cfg")
 ```
 
 Without it, Godot opens with every plugin disabled and prints no error —
@@ -173,7 +173,7 @@ runtime/initialize_on_startup=true
 ## 3. Create the game config
 
 `MicrosoftGame.config` is required for XBOX-backed sign-in and for
-packaging. The `godot_gdk_packaging` addon ships a one-click action:
+packaging. The `godot_gdk_editortools` addon ships a one-click action:
 
 1. From the editor menu bar, open **Microsoft GDK — Create MicrosoftGame.config**
    (the item is labeled **Edit MicrosoftGame.config** if a config
@@ -365,7 +365,7 @@ snippets above tells you which step failed.
 - Full API reference for `GDK.users`, `GDK.achievements`,
   `GDK.leaderboards`, etc. ships in the editor — press **F1** on any
   Microsoft GDK class name.
-- The `godot_gdk_packaging` addon also provides **Microsoft GDK — Package
+- The `godot_gdk_editortools` addon also provides **Microsoft GDK — Package
   Manager…** (list / install / uninstall registered packages) and
   **Project — Export…** integration for building MSIXVC or loose
   packages.
