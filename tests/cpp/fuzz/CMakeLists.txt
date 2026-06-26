@@ -8,6 +8,7 @@
 # To run a target: .\build\fuzz\bin\Debug\<target>.exe -runs=100000 -max_len=256
 
 set(_PF_SRC "${CMAKE_SOURCE_DIR}/addons/godot_playfab/src")
+set(_GDK_SRC "${CMAKE_SOURCE_DIR}/addons/godot_gdk/src")
 
 # ── Phase 2: pure seam fuzz targets ──────────────────────────────
 godot_addon_fuzzer_target(
@@ -43,6 +44,43 @@ godot_addon_fuzzer_target(
 # Enable by setting PLAYFAB_SDK_PATH and turning BUILD_GODOT_PLAYFAB=ON in the
 # fuzz configure preset, or by passing -DPLAYFAB_SDK_PATH=<path> explicitly.
 # The target is skipped automatically when the SDK is not found.
+
+# ── Wrapped API fuzz targets (factory + accessor round-trips) ────────────
+# fuzz_gdk_result_factories: exercises GDKResult and PlayFabResult factory
+# methods (ok_result, error_result, hresult_error, cancelled) and accessors.
+# Requires the object lifecycle stubs (stub_object.cpp) in godot_stub_harness.
+godot_addon_fuzzer_target(
+    TARGET_NAME gdk_fuzz_result_factories
+    SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_gdk_result_factories.cpp"
+        "${_GDK_SRC}/gdk_result.cpp"
+        "${_GDK_SRC}/gdk_result_codes_internal.cpp"
+        "${_PF_SRC}/playfab_result.cpp"
+        "${_PF_SRC}/playfab_result_codes_internal.cpp"
+    LINK_LIBS
+        godot_stub_harness
+        godot::cpp
+    INCLUDES
+        "${_GDK_SRC}"
+        "${_PF_SRC}"
+        "${CMAKE_SOURCE_DIR}/tests/cpp/fuzz_harness"
+)
+
+# fuzz_playfab_request_dictionary: exercises playfab_api::get_request_value
+# with arbitrary Dictionary content and field-name pairs.  No SDK headers needed.
+godot_addon_fuzzer_target(
+    TARGET_NAME playfab_fuzz_request_dictionary
+    SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_playfab_request_dictionary.cpp"
+        "${_PF_SRC}/playfab_request_value.cpp"
+    LINK_LIBS
+        godot_stub_harness
+        godot::cpp
+    INCLUDES
+        "${_PF_SRC}"
+        "${CMAKE_SOURCE_DIR}/tests/cpp/fuzz_harness"
+)
+
 if(PLAYFAB_SDK_PATH AND EXISTS "${PLAYFAB_SDK_PATH}/include/playfab/core/PFTypes.h")
     godot_addon_fuzzer_target(
         TARGET_NAME playfab_fuzz_api_models

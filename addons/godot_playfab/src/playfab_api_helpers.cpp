@@ -3,6 +3,7 @@
 #include <godot_cpp/classes/json.hpp>
 
 #include "playfab_request_key.h"
+#include "playfab_request_value.h"
 
 namespace godot {
 namespace playfab_api {
@@ -21,32 +22,6 @@ Signal make_error_signal(
     pending_signal.instantiate();
     pending_signal->complete_deferred(PlayFabResult::error_result(p_hresult, p_code, p_message, p_data));
     return pending_signal->get_completed_signal();
-}
-
-bool get_request_value(const Dictionary &p_request, const char *p_field_name, const char *p_snake_name, Variant *r_value) {
-    if (r_value == nullptr) {
-        return false;
-    }
-
-    // Priority: snake_case name first, PascalCase fallback. The pure equivalent
-    // of this selection logic is playfab_internal::match_request_key, which
-    // is fuzz-tested in tests/cpp/fuzz/fuzz_playfab_key_lookup.cpp and
-    // doctest-covered in tests/cpp/request_key/test_playfab_request_key.cpp.
-    // Production code uses O(1) hash lookups via StringName to avoid the linear
-    // scan in match_request_key.
-    const StringName snake_name(p_snake_name);
-    if (p_request.has(snake_name)) {
-        *r_value = p_request[snake_name];
-        return true;
-    }
-
-    const StringName field_name(p_field_name);
-    if (p_request.has(field_name)) {
-        *r_value = p_request[field_name];
-        return true;
-    }
-
-    return false;
 }
 
 String variant_to_json_string(const Variant &p_value) {

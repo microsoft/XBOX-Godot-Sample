@@ -12,6 +12,7 @@ add_library(godot_playfab SHARED
     src/playfab_result_codes_internal.cpp
     src/playfab_pending_signal.cpp
     src/playfab_api_helpers.cpp
+    src/playfab_request_value.cpp
     src/playfab_signal_xasync_context.cpp
     src/playfab_user.cpp
     src/playfab_users.cpp

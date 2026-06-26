@@ -117,6 +117,16 @@ extern void *stub_array_operator_index_const_ptr;
 extern void *stub_array_ref_ptr;
 extern void *stub_array_set_typed_ptr;
 
+// stub_object.cpp
+extern void *stub_classdb_construct_object_ptr;
+extern void *stub_classdb_construct_object2_ptr;
+extern void *stub_object_set_instance_ptr;
+extern void *stub_object_set_instance_binding_ptr;
+extern void *stub_object_get_instance_binding_ptr;
+extern void *stub_object_destroy_ptr;
+extern void *stub_classdb_get_method_bind_ptr;
+extern void *stub_object_method_bind_ptrcall_ptr;
+
 // stub_noop.cpp
 extern void *stub_noop_ptr;
 extern void *stub_get_godot_version_ptr;
@@ -239,10 +249,10 @@ static const std::unordered_map<std::string_view, void **> &dispatch_table() {
         { "array_set_typed",                         &stub_array_set_typed_ptr },
 
         // ── No-ops: class system, objects, scripts, editor, packed arrays ──
-        { "classdb_construct_object",                   &stub_noop_ptr },
-        { "classdb_construct_object2",                  &stub_noop_ptr },
+        { "classdb_construct_object",                   &stub_classdb_construct_object_ptr },
+        { "classdb_construct_object2",                  &stub_classdb_construct_object2_ptr },
         { "classdb_get_class_tag",                      &stub_noop_ptr },
-        { "classdb_get_method_bind",                    &stub_noop_ptr },
+        { "classdb_get_method_bind",                    &stub_classdb_get_method_bind_ptr },
         { "classdb_register_extension_class",           &stub_noop_ptr },
         { "classdb_register_extension_class2",          &stub_noop_ptr },
         { "classdb_register_extension_class3",          &stub_noop_ptr },
@@ -274,18 +284,18 @@ static const std::unordered_map<std::string_view, void **> &dispatch_table() {
         { "image_ptrw",                                 &stub_noop_ptr },
         { "object_call_script_method",                  &stub_noop_ptr },
         { "object_cast_to",                             &stub_noop_ptr },
-        { "object_destroy",                             &stub_noop_ptr },
+        { "object_destroy",                             &stub_object_destroy_ptr },
         { "object_free_instance_binding",               &stub_noop_ptr },
         { "object_get_class_name",                      &stub_noop_ptr },
-        { "object_get_instance_binding",                &stub_noop_ptr },
+        { "object_get_instance_binding",                &stub_object_get_instance_binding_ptr },
         { "object_get_instance_from_id",                &stub_noop_ptr },
         { "object_get_instance_id",                     &stub_noop_ptr },
         { "object_get_script_instance",                 &stub_noop_ptr },
         { "object_has_script_method",                   &stub_noop_ptr },
         { "object_method_bind_call",                    &stub_noop_ptr },
-        { "object_method_bind_ptrcall",                 &stub_noop_ptr },
-        { "object_set_instance",                        &stub_noop_ptr },
-        { "object_set_instance_binding",                &stub_noop_ptr },
+        { "object_method_bind_ptrcall",                 &stub_object_method_bind_ptrcall_ptr },
+        { "object_set_instance",                        &stub_object_set_instance_ptr },
+        { "object_set_instance_binding",                &stub_object_set_instance_binding_ptr },
         { "object_set_script_instance",                 &stub_noop_ptr },
         { "packed_byte_array_operator_index",           &stub_noop_ptr },
         { "packed_byte_array_operator_index_const",     &stub_noop_ptr },
