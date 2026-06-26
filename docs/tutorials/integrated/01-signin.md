@@ -20,7 +20,7 @@ Everything in tutorials 2–5 assumes you can reach this state.
 
 - The [addons quickstart](../../addon-getting-started.md) is complete:
   all four addons (`godot_gdk`, `godot_playfab`, optionally
-  `godot_gameinput`, plus `godot_gdk_packaging`) are enabled in
+  `godot_gameinput`, plus `godot_gdk_editortools`) are enabled in
   **Project Settings → Plugins**, and `MicrosoftGame.config` has
   real Title ID and SCID values (not the template defaults). See
   [Configuring XBOX services (Title ID + SCID)](https://learn.microsoft.com/en-us/gaming/gdk/docs/services/fundamentals/portal-config/live-service-config-ids-mp)

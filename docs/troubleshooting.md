@@ -101,7 +101,7 @@ winget install Microsoft.Gaming.GDK
 ```
 
 You can also point `GDK_BIN` at a non-default tools directory — see
-[Packaging plugin](packaging/plugin.md) for the full precedence list.
+[Editor Tools plugin](editortools/plugin.md) for the full precedence list.
 
 ## Godot editor cannot find the executable
 
@@ -216,7 +216,7 @@ a registered package supplies identity.
   **Project → Tools → Microsoft GDK → Create MicrosoftGame.config**, or
   through the CLI:
   ```powershell
-  & "<godot.exe>" --headless --path . --script res://addons/godot_gdk_packaging/core/packaging_cli.gd -- config_template
+  & "<godot.exe>" --headless --path . --script res://addons/godot_gdk_editortools/run.gd -- config_template
   ```
 - For packaged GDK launches, `wdapp register` the staged loose folder (or
   install a `.msixvc`) before launching the game so the registered package
@@ -315,11 +315,11 @@ schema. Two common slip-ups:
 - Edit `MicrosoftGame.config` so `Identity/@Name` is alphanumeric +
   hyphens only (`GodotGDK-Sample`, not `GodotGDK Sample`).
 - Keep `Identity/@Publisher` as `CN=<your publisher name>`.
-- If you generated the config from `GDKPackagingConfig`, re-run the
+- If you generated the config from `GDKEditorToolsConfig`, re-run the
   generator after fixing the source name; the generator sanitizes the
   Identity name automatically.
 
-See [Packaging plugin](packaging/plugin.md) for the full config
+See [Editor Tools plugin](editortools/plugin.md) for the full config
 schema.
 
 ## `PlayFab.initialize()` fails with `title_id_required`

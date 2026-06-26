@@ -32,7 +32,7 @@ The addons are designed to be dropped into any Godot 4.5+ project. This reposito
 | [`godot_gdk`](addons/godot_gdk/) | GDK runtime + PC-supported XBOX services: users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, system metadata |
 | [`godot_playfab`](addons/godot_playfab/) | PlayFab runtime, XBOX- and custom-ID sign-in, Game Saves, leaderboards, Multiplayer (lobby + matchmaking), Party, and client-safe service wrappers (accounts, catalog, cloud script, entity data, experimentation, friends, groups, inventory, localization, player data, statistics, title data) |
 | [`godot_gameinput`](addons/godot_gameinput/) | Native GameInput v3 controller support — devices, polling, vibration, and an action bridge into Godot's InputMap |
-| [`godot_gdk_packaging`](addons/godot_gdk_packaging/) | Pure-GDScript editor plugin for PC MSIXVC packaging via `makepkg.exe`, plus the in-editor Package Manager dialog |
+| [`godot_gdk_editortools`](addons/godot_gdk_editortools/) | Pure-GDScript editor plugin for PC MSIXVC packaging via `makepkg.exe`, plus the in-editor Package Manager dialog |
 
 ## Documentation
 
@@ -51,7 +51,7 @@ Per-addon documentation:
 - [`godot_gdk`](docs/gdk/plugin.md) — runtime, services, async system, build, editor tooling
 - [`godot_playfab`](docs/playfab/plugin.md) — runtime configuration, user sessions, Game Saves, leaderboards, client services
 - [`godot_gameinput`](docs/gameinput/plugin.md) — devices, polling, vibration, action bridge
-- [`godot_gdk_packaging`](docs/packaging/plugin.md) — headless packaging runner; see also the [editor `GDK` menu](docs/packaging/editor-menu.md)
+- [`godot_gdk_editortools`](docs/editortools/plugin.md) — headless packaging runner; see also the [editor `GDK` menu](docs/editortools/editor-menu.md)
 
 Platform setup:
 

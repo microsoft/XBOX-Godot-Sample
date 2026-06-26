@@ -75,7 +75,7 @@
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "ON",
                 "BUILD_GODOT_PLAYFAB": "ON",
-                "BUILD_GODOT_GDK_PACKAGING": "ON",
+                "BUILD_GODOT_GDK_EDITORTOOLS": "ON",
                 "GDK_BUILD_TESTS": "OFF"
             }
         },
@@ -88,6 +88,43 @@
                 "GDK_DEPENDENCY_SOURCE": "installed",
                 "GAMEINPUT_SOURCE": "nuget"
             }
+        },
+        {
+            "name": "debug-asan",
+            "displayName": "Debug + AddressSanitizer (MSVC)",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/asan",
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "/fsanitize=address",
+                "BUILD_GODOT_GDK": "OFF",
+                "BUILD_GODOT_GAMEINPUT": "OFF",
+                "BUILD_GODOT_PLAYFAB": "OFF",
+                "GDK_BUILD_TESTS": "ON"
+            }
+        },
+        {
+            "name": "_fuzz-base",
+            "hidden": true,
+            "generator": "Visual Studio 17 2022",
+            "architecture": "x64",
+            "toolset": "ClangCL",
+            "binaryDir": "${sourceDir}/build/fuzz",
+            "cacheVariables": {
+                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
+                "CMAKE_CXX_FLAGS": "-fsanitize=address",
+                "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+                "BUILD_GODOT_GDK": "OFF",
+                "BUILD_GODOT_GAMEINPUT": "OFF",
+                "BUILD_GODOT_PLAYFAB": "OFF",
+                "GDK_BUILD_TESTS": "OFF",
+                "GDK_BUILD_FUZZ_TARGETS": "ON"
+            }
+        },
+        {
+            "name": "fuzz",
+            "displayName": "LibFuzzer (clang-cl)",
+            "inherits": "_fuzz-base"
         }
     ],
     "buildPresets": [
@@ -190,6 +227,21 @@
             "displayName": "Release (installed GDK)",
             "configurePreset": "installed-gdk",
             "configuration": "Release"
+        },
+        {
+            "name": "debug-asan",
+            "displayName": "Debug + ASan (gdk_unit_tests)",
+            "configurePreset": "debug-asan",
+            "configuration": "Debug",
+            "targets": [
+                "gdk_unit_tests"
+            ]
+        },
+        {
+            "name": "debug-fuzz",
+            "displayName": "Debug fuzz targets (clang-cl)",
+            "configurePreset": "fuzz",
+            "configuration": "Debug"
         }
     ]
 }

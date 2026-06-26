@@ -2,6 +2,9 @@
 
 #include <godot_cpp/classes/json.hpp>
 
+#include "playfab_request_key.h"
+#include "playfab_request_value.h"
+
 namespace godot {
 namespace playfab_api {
 
@@ -21,29 +24,10 @@ Signal make_error_signal(
     return pending_signal->get_completed_signal();
 }
 
-bool get_request_value(const Dictionary &p_request, const char *p_field_name, const char *p_snake_name, Variant *r_value) {
-    if (r_value == nullptr) {
-        return false;
-    }
-
-    const StringName snake_name(p_snake_name);
-    if (p_request.has(snake_name)) {
-        *r_value = p_request[snake_name];
-        return true;
-    }
-
-    const StringName field_name(p_field_name);
-    if (p_request.has(field_name)) {
-        *r_value = p_request[field_name];
-        return true;
-    }
-
-    return false;
-}
-
 String variant_to_json_string(const Variant &p_value) {
     return JSON::stringify(p_value);
 }
 
 } // namespace playfab_api
 } // namespace godot
+

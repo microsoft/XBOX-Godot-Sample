@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document is the durable record of the test-coverage strategy for the four addons in this repository (`godot_gdk`, `godot_playfab`, `godot_gameinput`, `godot_gdk_packaging`), the GDScript test hosts that exercise them (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`), and the C++ helper code that backs them. It captures the framework choice (GUT for GDScript, doctest for C++), the vendoring and mirroring layout, the orchestrator contract, the live-tests guard semantics, the autoload/bootstrap mini-runner pattern, and the definition of "green" used in lieu of CI. GitHub Actions / CI workflows, expansion of the manual hardware checklist in `docs\gameinput\manual-tests.md`, and any testing of the sample projects are explicitly out of scope; the legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were demo projects, not coverage hosts. The tutorial-driven sample revamp reintroduced the tutorial samples (`sample\tutorial_gdk\`, `sample\tutorial_playfab\`, `sample\tutorial_integrated\`, `sample\tutorial_gameinput\`), which are likewise demo / tutorial reference projects, not coverage hosts.
+This document is the durable record of the test-coverage strategy for the four addons in this repository (`godot_gdk`, `godot_playfab`, `godot_gameinput`, `godot_gdk_editortools`), the GDScript test hosts that exercise them (`tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`), and the C++ helper code that backs them. It captures the framework choice (GUT for GDScript, doctest for C++), the vendoring and mirroring layout, the orchestrator contract, the live-tests guard semantics, the autoload/bootstrap mini-runner pattern, and the definition of "green" used in lieu of CI. GitHub Actions / CI workflows, expansion of the manual hardware checklist in `docs\gameinput\manual-tests.md`, and any testing of the sample projects are explicitly out of scope; the legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were demo projects, not coverage hosts. The tutorial-driven sample revamp reintroduced the tutorial samples (`sample\tutorial_gdk\`, `sample\tutorial_playfab\`, `sample\tutorial_integrated\`, `sample\tutorial_gameinput\`), which are likewise demo / tutorial reference projects, not coverage hosts.
 
 ## Test surface inventory
 
-- GDScript test hosts: `tests\godot\gdk` (covers `godot_gdk` and `godot_gdk_packaging`), `tests\godot\playfab` (covers `godot_playfab`), `tests\godot\gameinput` (covers `godot_gameinput`). The legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were intentionally excluded as demo projects and have since been removed; the tutorial samples (`sample\tutorial_gdk\`, `sample\tutorial_playfab\`, `sample\tutorial_integrated\`, `sample\tutorial_gameinput\`) likewise stay out of the coverage host set.
+- GDScript test hosts: `tests\godot\gdk` (covers `godot_gdk` and `godot_gdk_editortools`), `tests\godot\playfab` (covers `godot_playfab`), `tests\godot\gameinput` (covers `godot_gameinput`). The legacy sample projects (`gdk_demo`, `playfab_demo`, `gdk_launch_point`, `multiplayer_pong`) were intentionally excluded as demo projects and have since been removed; the tutorial samples (`sample\tutorial_gdk\`, `sample\tutorial_playfab\`, `sample\tutorial_integrated\`, `sample\tutorial_gameinput\`) likewise stay out of the coverage host set.
 - GUT framework, sourced as a git submodule at `third_party\Gut\` (upstream `https://github.com/bitwes/Gut.git`, pinned to tag `v9.6.0`); CMake mirrors the embedded `addons\gut\` into coverage hosts. Mirrored copies are git-ignored.
 - C++ unit tests via doctest, vendored at `tests\cpp\third_party\doctest\doctest.h`, built behind `GDK_BUILD_TESTS=ON` (default ON) into the `gdk_unit_tests` executable.
 - Headless GDScript validator `tools\check_gd_scripts_headless.ps1` (already enforced by the pre-commit hook).
@@ -64,7 +64,7 @@ C++ tests cover **pure logic only**. Where a helper is currently embedded in a G
 doctest covers only code that has no Godot, GDExtension-interface, or GDK dependency. **Crucially this excludes `godot::String`, `godot::Variant`, `godot::PackedByteArray`, and any other Variant-family type** — see the "godot::String constraint" note below.
 
 - HRESULT hex-formatting helpers that operate on a caller-provided `char[]` buffer (currently `gdk_internal::format_hresult_hex` and `playfab_internal::format_hresult_hex` in `addons/godot_gdk/src/gdk_result_codes_internal.{h,cpp}` and `addons/godot_playfab/src/playfab_result_codes_internal.{h,cpp}`).
-- Future packaging string helpers, **only if and when** they are extracted from `addons/godot_gdk_packaging/editor/packaging_content_preparer.gd` into a pure C++ module that does not depend on `godot::String` or `godot::RegEx`. As of Wave 2 the packaging helpers are GDScript-only and are tested via GUT — see `wave4-packaging-coverage`.
+- Future packaging string helpers, **only if and when** they are extracted from `addons/godot_gdk_editortools/core/editortools_content_preparer.gd` into a pure C++ module that does not depend on `godot::String` or `godot::RegEx`. As of Wave 2 the packaging helpers are GDScript-only and are tested via GUT — see `wave4-packaging-coverage`.
 
 ### godot::String constraint (verified Wave 2, `cpp-result-tests`)
 
@@ -255,7 +255,7 @@ The complete todo + dependency graph is enumerated below so this document is sel
 | `wave4-gdk-coverage` | 4 | Wave 4 — godot_gdk coverage expansion | `gdk-migrate-suites`, `infra-orchestrator` | `tests\godot\gdk\tests\test_multiplayer_activity.gd`, paired mini-runners under `tests\godot\gdk\tests\bootstrap\`, `tests\godot\gdk\tests\test_result_helpers.gd`, `tests\godot\gdk\tests\test_embed_dispatch.gd`, `tests\godot\gdk\tests\test_runtime_error_signals.gd`, and the test-only project setting `gdk/tests/live_required`. |
 | `wave4-playfab-coverage` | 4 | Wave 4 — godot_playfab coverage expansion | `playfab-migrate-suites`, `infra-orchestrator` | `tests\godot\playfab\tests\test_game_saves_live.gd`, `tests\godot\playfab\tests\test_leaderboards_live.gd`, `tests\godot\playfab\tests\test_user_entity_key_live.gd`, `tests\godot\playfab\tests\test_validation_walk.gd`, `tests\godot\playfab\project.godot` (test-only `playfab/tests/custom_id`, `playfab/tests/leaderboard_settle_msec`). |
 | `wave4-gameinput-coverage` | 4 | Wave 4 — godot_gameinput coverage expansion | `gameinput-migrate-suites`, `infra-orchestrator` | `GameInputReading` defaults / property-and-method shape; `GameInputDevice` defaults + soft-fail on accessors before init / after shutdown; `GameInputMapper` extensions (multiple mappers, `action_map` hot-swap, `target_device_id == -1` semantics); threading smoke (repeated `get_devices()` / `get_current_reading()` across many frames with no device); `gameinput_bootstrap.gd` autoload behavior via the same separate-mini-runner pattern. |
-| `wave4-packaging-coverage` | 4 | Wave 4 — godot_gdk_packaging coverage expansion | `gdk-migrate-suites`, `infra-orchestrator` | Extract pure slide-navigation logic from `gdk_tutorial_wizard.gd` (`tutorial_wizard_state.gd`) and test it; `config_import_plugin.gd` against fixture XML files (success, malformed, missing fields); plugin lifecycle with a stubbed `EditorInterface` double (asserts `add_*` / `remove_*` pairs are balanced and idempotent); `gdk_toolchain.gd` edge cases (malformed/missing `GameDKCoreLatest` paths, path normalization). All run in `--headless` (see "Packaging editor-vs-headless decision"). (The originally orphaned `packaging_panel.gd` / `packaging_panel_logic.gd` and their `test_packaging_panel_logic.gd` helper test were later removed when the wizard was updated to the menu-driven workflow.) |
+| `wave4-packaging-coverage` | 4 | Wave 4 — godot_gdk_editortools coverage expansion | `gdk-migrate-suites`, `infra-orchestrator` | Extract pure slide-navigation logic from `gdk_tutorial_wizard.gd` (`tutorial_wizard_state.gd`) and test it; `config_import_plugin.gd` against fixture XML files (success, malformed, missing fields); plugin lifecycle with a stubbed `EditorInterface` double (asserts `add_*` / `remove_*` pairs are balanced and idempotent); `gdk_toolchain.gd` edge cases (malformed/missing `GameDKCoreLatest` paths, path normalization). All run in `--headless` (see "Packaging editor-vs-headless decision"). (The originally orphaned `packaging_panel.gd` / `packaging_panel_logic.gd` and their `test_editortools_panel_logic.gd` helper test were later removed when the wizard was updated to the menu-driven workflow.) |
 | `xcut-docs` | 5 | Update docs to describe new test pipeline | `infra-orchestrator`, `wave4-gdk-coverage`, `wave4-playfab-coverage`, `wave4-gameinput-coverage`, `wave4-packaging-coverage`, `cpp-result-tests`, `cpp-packaging-helpers` | `docs\gdk\sample-and-tests.md` and per-addon testing-guide entries documenting `tools\run_all_tests.ps1`, the `LIVE_TESTS` env var and project settings (`gdk/tests/live_required`, `playfab/tests/leaderboard_settle_msec`), eventual-consistency expectations for leaderboards, the GUT layout, the doctest target, the definition of green, and the sandbox-state cleanup pointer to `tools\reset_player_data.ps1`. |
 
 The dependency graph (verbatim from the plan) is:
@@ -310,3 +310,150 @@ The Wave -1 spike surfaced seven behaviors that bind future waves. Each is a nor
 - **Sync `ReadToEnd()` deadlocks** on Godot's stderr in clean trees. Missing GDExtensions flood stderr with `Condition "!FileAccess::exists(path)"` lines and fill the pipe buffer in seconds. Both stdout and stderr are drained asynchronously (`BeginOutputReadLine()` / `BeginErrorReadLine()` or concurrent `ReadToEndAsync()`).
 - **The headless validator exclusion list is generalised** in Wave 1. Vendored or `extends GutTest` paths skip via `.gdignore` / sentinel marker file rather than a hard-coded array.
 - **Version pinning matches `--version` output, not the file name.** `Godot_v4.6.1-stable_win64_console.exe` reports `4.6.2.stable.official.71f334935`. Discovery and version-pinning logic compares against the runtime `--version` string; the file name is unreliable as a version identifier and is not used in `run-summary.md`.
+
+## AddressSanitizer preset (`debug-asan`)
+
+Branch `infra/fuzz-testing` adds a dedicated configure preset that compiles the doctest target with MSVC's AddressSanitizer instrumentation.
+
+**Configure preset:** `debug-asan` — inherits from `default`, sets `CMAKE_CXX_FLAGS=/fsanitize=address`, turns all addon builds OFF and `GDK_BUILD_TESTS=ON`.
+
+**Build preset:** `debug-asan` — targets the `asan` binary directory (`build\asan`), Debug configuration.
+
+```powershell
+cmake --preset debug-asan
+cmake --build build/asan --preset debug-asan --target gdk_unit_tests
+```
+
+**Runtime requirement:** MSVC ASan DLLs must be on PATH:
+
+```powershell
+$asanDir = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64"
+$env:PATH = "$asanDir;$env:PATH"
+.\build\asan\bin\Debug\gdk_unit_tests.exe
+```
+
+**Verified:** 16/16 doctest cases pass under ASan with no error report.
+
+The preset intentionally targets only the pure-C++ doctest exe. GDExtension addon builds and GDScript test hosts are out of scope for ASan standalone runs.
+
+## libFuzzer layout
+
+Branch `infra/fuzz-testing` adds a clang-cl + libFuzzer build path that is entirely separate from the default MSVC preset.
+
+### Configure and build presets
+
+| Preset | Role |
+| --- | --- |
+| `fuzz` (configure) | Inherits `_fuzz-base`: VS 17 2022 generator, ClangCL toolset, `build\fuzz` binary dir. Sets `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` (`/MT`, required by `clang_rt.fuzzer-x86_64.lib`), `CMAKE_CXX_FLAGS=-fsanitize=address` globally (required for consistent `annotate_string` FAILIFMISMATCH linking), `CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY` (avoids configure-time link failure when ASan runtime is not resolved), `GDK_BUILD_TESTS=OFF`, `GDK_BUILD_FUZZ_TARGETS=ON`. All addon builds (`BUILD_GODOT_GDK`, `BUILD_GODOT_GAMEINPUT`, `BUILD_GODOT_PLAYFAB`) are OFF. |
+| `debug-fuzz` (build) | Targets `build\fuzz`, Debug configuration. |
+
+```powershell
+cmake --preset fuzz
+cmake --build build/fuzz --preset debug-fuzz
+```
+
+### `godot_addon_fuzzer_target` CMake function
+
+Defined in `cmake\GodotExtensionCommon.cmake`. Adds a libFuzzer executable with:
+
+- `-fsanitize=fuzzer,address` compile flag (clang-cl uses `-`, not `/`)
+- Explicit link of `clang_rt.fuzzer-x86_64.lib`, `clang_rt.asan-x86_64.lib`, `clang_rt.asan_cxx-x86_64.lib` from the LLVM install alongside `clang-cl.exe` (lld-link does not auto-resolve `-fsanitize=...` to libraries)
+- `FATAL_ERROR` if called with a non-ClangCL compiler
+
+**Guard:** `GDK_BUILD_FUZZ_TARGETS` is declared at the root `CMakeLists.txt` level. The `tests/cpp` subdirectory is added when `GDK_BUILD_TESTS OR GDK_BUILD_FUZZ_TARGETS`. The doctest exe (`gdk_unit_tests`) is gated solely on `GDK_BUILD_TESTS`, so the fuzz preset (which sets `GDK_BUILD_TESTS=OFF`) does not attempt to build or link the doctest exe.
+
+### Seam extraction pattern
+
+Each fuzz target exercises a *pure seam* — a helper extracted from production code that has no GDK, GDExtension-interface, or Godot-type dependency.
+
+**Existing seams (Wave 2, `infra/fuzz-testing`):**
+- `addons\godot_playfab\src\playfab_request_key.{h,cpp}` — pure `std::string` / `std::string_view` key-match and signature helper. Does not touch `godot::String` or PlayFab SDK types. Covered by `tests\cpp\request_key\test_playfab_request_key.cpp` (doctest) and `tests\cpp\fuzz\fuzz_playfab_key_lookup.cpp` (libFuzzer).
+- `addons\godot_playfab\src\playfab_party_codec.{h,cpp}` — wire codec for the PlayFab Party transport (`build_*`/`parse_*`/`wrap_*`/`unwrap_*`). Uses `godot::String` and `godot::PackedByteArray` but no PlayFab Party SDK types, so it builds into both the addon and the stub harness. The `parse_*`/`unwrap_*` functions decode untrusted peer bytes — the addon's primary attacker-controlled-input surface. Covered by `tests\cpp\fuzz\fuzz_playfab_party_codec.cpp`.
+- `addons\godot_gdk\src\gdk_request_parsing.{h,cpp}` — GDK request-input parsing seam (`try_parse_xuid`, `parse_uint32`, `copy_utf8_to_buffer`, `to_packed_byte_array` / `to_byte_vector`). Uses godot-cpp built-in types plus the SDK-free `GDKResult`, with no Xbox GDK service headers. Consumed by `gdk_title_storage.cpp`, `gdk_game_ui.cpp`, and `gdk_profile.cpp` via thin private forwarders (game-UI passes `reject_zero=true`; the other two pass `false`). Covered by `tests\cpp\fuzz\fuzz_gdk_request_parsing.cpp`.
+
+New pure seams follow the same extraction pattern: move pure logic to a `*_internal.{h,cpp}` (or a similarly SDK-free) sibling, call it from the production site, reference the same file from the fuzz target.
+
+### Fuzz target layout
+
+Fuzz sources live under `tests\cpp\fuzz\`:
+
+| File | Phase | Description |
+| --- | --- | --- |
+| `fuzz_playfab_key_lookup.cpp` | 2 | Key-match seam — no Godot types, no stub harness. |
+| `fuzz_gdk_result_formatting.cpp` | 3 | HRESULT-formatting helpers — uses `godot::String`, links `godot_stub_harness`. |
+| `fuzz_gdk_result_factories.cpp` | 3 | `GDKResult` / `PlayFabResult` factory + accessor round-trips — `Ref<RefCounted>`, links `godot_stub_harness`. |
+| `fuzz_playfab_request_dictionary.cpp` | 3 | `playfab_api::get_request_value` over arbitrary `Dictionary` content — links `godot_stub_harness`. |
+| `fuzz_playfab_party_codec.cpp` | 3 | PlayFab Party wire codec — decodes untrusted peer bytes (`PackedByteArray` + `String`); raw-decode + build/parse round-trip oracles. |
+| `fuzz_gdk_request_parsing.cpp` | 3 | GDK request-input parsing seam — `try_parse_xuid` (both reject-zero modes), `parse_uint32`, `copy_utf8_to_buffer`, `PackedByteArray`<->`std::vector` round-trip oracle. |
+| `fuzz_playfab_api_models.cpp` | 3 | PlayFab API model parsing — conditional; skipped when `PLAYFAB_SDK_PATH` is not set. |
+
+Each fuzz target defines `LLVMFuzzerTestOneInput` (and optionally `LLVMFuzzerInitialize`) but NOT `main()`. Targets that use Godot types call `godot_stub::init()` from `LLVMFuzzerInitialize`.
+
+## Phase 3 GDExtension stub harness
+
+The stub harness satisfies all 176 GDExtension interface function slots so `godot::String`, `godot::Dictionary`, `godot::Variant`, and `godot::Array` work in a standalone fuzz exe without a live Godot engine.
+
+### Constraint (why a stub harness is necessary)
+
+Every `godot::String` (and every other Variant-family type) constructor dispatches through `gdextension_interface::*` function pointers populated during the GDExtension entry-point handshake. In a standalone exe these pointers stay null and the first `String` construction segfaults. The doctest target avoids this by banning Variant-family types (see "godot::String constraint" above). The stub harness lifts that restriction for fuzz targets.
+
+### Blob size contract (float\_64 / x64 Windows)
+
+| Type | Blob size | Backing storage |
+| --- | --- | --- |
+| `godot::String` | 8 bytes | `std::u32string *` |
+| `godot::StringName` | 8 bytes | `std::string *` (interned; pool owns) |
+| `godot::NodePath` | 8 bytes | `std::string *` (same interned pool) |
+| `godot::Dictionary` | 8 bytes | `StubDict *` |
+| `godot::Array` | 8 bytes | `StubArray *` |
+| `godot::PackedByteArray` | 16 bytes | `std::vector<uint8_t> *` (blob zero-init; moved-from reads nullptr) |
+| `godot::Variant` | 24 bytes | `{ uint32_t type_id; uint32_t _pad; StubVariantData data; }` |
+
+### Source layout
+
+All harness source lives under `tests\cpp\fuzz_harness\`:
+
+| File | Responsibility |
+| --- | --- |
+| `stub_types.h` | Shared internal header: `StubVariant` (24 bytes), `StubDict`, `StubArray`, blob accessor helpers (incl. `SVT_PACKED_BYTE_ARRAY` / `pba_blob_*` for `std::vector<uint8_t>*`), `sn_intern` declaration. |
+| `stub_memory.cpp` | `mem_alloc/realloc/free` wrappers; `print_error/warning` stubs. |
+| `stub_string.cpp` | String creation/mutation stubs via `std::u32string`; UTF-8/Latin-1/UTF-32/wide conversions; interned StringName pool via `std::unordered_set<std::string>`. |
+| `stub_variant.cpp` | Full Variant ctor/dtor/type system; `get_variant_from/to_type_constructor`; `variant_get_ptr_constructor/destructor`; `variant_get_ptr_builtin_method` dispatch (Array, Dictionary, String); `s_string_op_add` for `STRING + STRING` via `variant_get_ptr_operator_evaluator`; noop for all utility functions. |
+| `stub_dict_array.cpp` | Direct `dictionary_operator_index` / `array_operator_index` stubs. |
+| `stub_packed_array.cpp` | `packed_byte_array_operator_index(_const)` stubs returning `&vec[index]` (bounds-checked, nullptr on OOB); PackedByteArray ctor/dtor and builtin methods (`resize`/`size`/`set`/`get`/`push_back`/`clear`) live in `stub_variant.cpp`. |
+| `stub_noop.cpp` | Single `s_stub_noop()` fallback; `get_godot_version`/`get_godot_version2` returning 4.6.0. |
+| `godot_stub_init.cpp` | 176-entry `unordered_map<string_view, void**>` dispatch table; `stub_get_proc_address`; `godot_stub::init()` bootstraps `GDExtensionBinding` with the stub proc address resolver. |
+| `godot_stub_init.h` | Public API: `godot_stub::init()`. |
+
+### Key design decisions
+
+- **String destruction uses `variant_get_ptr_destructor(STRING)`, not a direct `string_destroy` call.** There is no `string_destroy` interface function; the destructor slot for STRING is populated from `variant_get_ptr_destructor`.
+- **`string_new_with_*` functions free old content before assigning.** godot-cpp calls `string_new_with_utf8_chars_and_len2` on an already-initialized blob (from `String::parse_utf8`). The stub deletes the old `std::u32string*` before assigning the new one.
+- **`variant_get_ptr_operator_evaluator` returns real implementations, never null.** Returning null causes a PC=0 crash when godot-cpp calls `String::operator+(const String&)`. `OP_ADD + STRING + STRING` returns `s_string_op_add`; all other operator combinations return `s_noop_op_eval`.
+- **`variant_get_ptr_utility_function` returns a noop, never null.** Same reasoning — godot-cpp may cache the returned pointer and call it later.
+- **All TUs compiled with `/MT` (`MultiThreaded` static CRT).** `clang_rt.fuzzer-x86_64.lib` embeds `FAILIFMISMATCH:RuntimeLibrary=MT_StaticRelease`. Mixing `/MD` code with `/MT` runtime libs fails at link. The fuzz preset therefore sets `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` globally.
+- **`-fsanitize=address` is set globally in the fuzz preset.** Without it, `godot-cpp` objects emit `annotate_string=0` and fuzz-target objects emit `annotate_string=1`, causing a `FAILIFMISMATCH` link failure. Applying ASan globally makes all objects consistent.
+- **`CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY` is required for configure.** CMake's compiler detection builds a test executable; with `-fsanitize=address` in `CMAKE_CXX_FLAGS` it can't link without the ASan runtime. Setting the try-compile target to a static library skips the link step.
+
+### `godot_stub::init()` contract
+
+```cpp
+// In LLVMFuzzerInitialize:
+extern "C" int LLVMFuzzerInitialize(int *, char ***) {
+    godot_stub::init();   // call exactly once before any Godot type use
+    return 0;
+}
+```
+
+`godot_stub::init()` creates a `GDExtensionInitialization` on the stack, registers a no-op initializer (required — `init_callback` must be non-null), and calls `GDExtensionBinding::init()` with `stub_get_proc_address`. It aborts with a message if `init()` returns false.
+
+### Verification
+
+```powershell
+cmake --preset fuzz
+cmake --build build/fuzz --preset debug-fuzz
+.\build\fuzz\bin\Debug\playfab_fuzz_key_lookup.exe     -runs=10000
+.\build\fuzz\bin\Debug\gdk_fuzz_result_formatting.exe  -runs=10000
+```
+
+Both targets exit 0 with `Done 10000 runs in N second(s)`. The default-preset `gdk_unit_tests.exe` still passes 16/16 doctest cases (non-regression confirmed).

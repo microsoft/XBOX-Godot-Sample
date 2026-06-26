@@ -258,9 +258,9 @@ function Copy-NativeAddon {
         ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $destBin -Force }
 }
 
-function Copy-PackagingAddon {
-    $sourceRoot = Join-Path $script:RepoRoot 'addons\godot_gdk_packaging'
-    $destRoot = Join-Path $script:StageDir 'addons\godot_gdk_packaging'
+function Copy-EditorToolsAddon {
+    $sourceRoot = Join-Path $script:RepoRoot 'addons\godot_gdk_editortools'
+    $destRoot = Join-Path $script:StageDir 'addons\godot_gdk_editortools'
 
     foreach ($fileName in @('plugin.cfg', 'run.gd', 'gdkpkg.cmd', 'gdkpkg.sh')) {
         Copy-RequiredFile -Source (Join-Path $sourceRoot $fileName) -DestinationDirectory $destRoot
@@ -340,8 +340,8 @@ foreach ($addon in $script:NativeAddons) {
     Copy-NativeAddon -AddonName $addon.Name -Manifest $addon.Manifest
 }
 
-Write-Host "  Staging godot_gdk_packaging"
-Copy-PackagingAddon
+Write-Host "  Staging godot_gdk_editortools"
+Copy-EditorToolsAddon
 
 Write-Host "  Staging GETTING_STARTED.md"
 Copy-RequiredFile `
