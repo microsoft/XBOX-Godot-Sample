@@ -16,6 +16,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "playfab_pending_signal.h"
+#include "playfab_request_value.h"
 #include "playfab_result.h"
 #include "playfab_runtime.h"
 #include "playfab_signal_xasync_context.h"
@@ -34,7 +35,6 @@ namespace playfab_api {
 using VariantEncoder = Variant (*)(const void *);
 
 Signal make_error_signal(PlayFabRuntime *p_runtime, HRESULT p_hresult, const String &p_code, const String &p_message, const Variant &p_data = Variant());
-bool get_request_value(const Dictionary &p_request, const char *p_field_name, const char *p_snake_name, Variant *r_value);
 String variant_to_json_string(const Variant &p_value);
 
 template <typename RequestOwner, typename RequestT, HRESULT (*StartFn)(PFEntityHandle, const RequestT *, XAsyncBlock *)>

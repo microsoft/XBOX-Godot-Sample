@@ -8,6 +8,7 @@
 
 #include "gdk.h"
 #include "gdk_pending_signal.h"
+#include "gdk_request_parsing.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_signal_xasync_context.h"
@@ -27,25 +28,7 @@ String _normalize_token(const String &p_value) {
 }
 
 bool _try_parse_xuid(const String &p_xuid, uint64_t *r_xuid) {
-    if (r_xuid == nullptr) {
-        return false;
-    }
-
-    const String normalized = p_xuid.strip_edges();
-    if (normalized.is_empty()) {
-        return false;
-    }
-
-    const CharString utf8 = normalized.utf8();
-    char *end_ptr = nullptr;
-    errno = 0;
-    const unsigned long long parsed = std::strtoull(utf8.get_data(), &end_ptr, 10);
-    if (errno != 0 || end_ptr == nullptr || *end_ptr != '\0') {
-        return false;
-    }
-
-    *r_xuid = static_cast<uint64_t>(parsed);
-    return true;
+    return gdk_request_parsing::try_parse_xuid(p_xuid, r_xuid, /*p_reject_zero=*/false);
 }
 
 bool _try_parse_storage_type(const String &p_storage_type, XblTitleStorageType *r_storage_type) {
@@ -114,31 +97,11 @@ bool _try_parse_match_condition(const String &p_match_condition, XblTitleStorage
 }
 
 Ref<GDKResult> _parse_uint32(const String &p_name, int64_t p_value, uint32_t *r_value) {
-    if (r_value == nullptr) {
-        return GDKResult::error_result(E_POINTER, "invalid_output", "Output storage is unavailable.");
-    }
-    if (p_value < 0 || p_value > static_cast<int64_t>(UINT32_MAX)) {
-        return GDKResult::error_result(E_INVALIDARG, String("invalid_") + p_name, p_name + String(" must fit in a non-negative 32-bit unsigned integer."));
-    }
-
-    *r_value = static_cast<uint32_t>(p_value);
-    return GDKResult::ok_result();
+    return gdk_request_parsing::parse_uint32(p_name, p_value, r_value);
 }
 
 Ref<GDKResult> _copy_utf8_to_buffer(const String &p_value, char *p_buffer, size_t p_buffer_size, const String &p_field_name) {
-    if (p_buffer == nullptr || p_buffer_size == 0) {
-        return GDKResult::error_result(E_POINTER, "invalid_output", "String output storage is unavailable.");
-    }
-
-    const CharString utf8 = p_value.utf8();
-    const size_t length = std::strlen(utf8.get_data());
-    if (length >= p_buffer_size) {
-        return GDKResult::error_result(E_INVALIDARG, String("invalid_") + p_field_name, p_field_name + String(" is too long."));
-    }
-
-    std::memset(p_buffer, 0, p_buffer_size);
-    std::memcpy(p_buffer, utf8.get_data(), length);
-    return GDKResult::ok_result();
+    return gdk_request_parsing::copy_utf8_to_buffer(p_value, p_buffer, p_buffer_size, p_field_name);
 }
 
 Ref<GDKResult> _make_blob_metadata(
@@ -195,21 +158,11 @@ Ref<GDKTitleStorageBlobMetadata> _make_metadata_ref(const XblTitleStorageBlobMet
 }
 
 PackedByteArray _make_packed_byte_array(const std::vector<uint8_t> &p_data) {
-    PackedByteArray result;
-    result.resize(static_cast<int64_t>(p_data.size()));
-    for (int64_t i = 0; i < result.size(); ++i) {
-        result.set(i, p_data[static_cast<size_t>(i)]);
-    }
-    return result;
+    return gdk_request_parsing::to_packed_byte_array(p_data);
 }
 
 std::vector<uint8_t> _make_byte_vector(const PackedByteArray &p_data) {
-    std::vector<uint8_t> result;
-    result.reserve(static_cast<size_t>(p_data.size()));
-    for (int64_t i = 0; i < p_data.size(); ++i) {
-        result.push_back(static_cast<uint8_t>(p_data[i]));
-    }
-    return result;
+    return gdk_request_parsing::to_byte_vector(p_data);
 }
 
 const XblTitleStorageBlobMetadata *_find_exact_metadata(const XblTitleStorageBlobMetadata *p_items, size_t p_count, const String &p_blob_path) {

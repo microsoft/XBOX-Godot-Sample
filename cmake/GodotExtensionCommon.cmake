@@ -428,3 +428,98 @@ function(godot_addon_doctest_target)
     )
 endfunction()
 
+
+#[[ godot_addon_fuzzer_target
+
+Defines a libFuzzer-based fuzz-test executable for an addon. Requires the
+ClangCL toolset (the `fuzz` configure preset sets this). Applies
+`-fsanitize=fuzzer,address` to both the compile and link steps; the linker
+then provides the LLVMFuzzerRunDriver entry point, so fuzz source files must
+define `LLVMFuzzerTestOneInput` (and optionally `LLVMFuzzerInitialize`) but
+NOT `main()`.
+
+This function may only be called when `GDK_BUILD_FUZZ_TARGETS` is ON (see
+`tests/cpp/CMakeLists.txt`). Calling it from an MSVC (non-ClangCL) build will
+emit a FATAL_ERROR pointing to the `fuzz` preset.
+
+Arguments:
+    TARGET_NAME    The CMake target name to create.
+    SOURCES        Fuzz source files (each contains LLVMFuzzerTestOneInput).
+    LINK_LIBS      Optional libraries to link (e.g. godot_stub_harness, or
+                   a static helper extracted from the addon under test).
+    INCLUDES       Extra include directories.
+
+Output binary: `${CMAKE_BINARY_DIR}/bin/<config>/<TARGET_NAME>.exe`
+
+Run a fuzz target:
+    .\\build\\fuzz\\bin\\Debug\\<TARGET_NAME>.exe [libFuzzer flags]
+    e.g.: -max_len=256 -runs=100000 -artifact_prefix=crashes/
+
+Corpus directory convention: `tests/cpp/fuzz/corpus/<TARGET_NAME>/`
+]]
+function(godot_addon_fuzzer_target)
+    set(one_value_args TARGET_NAME)
+    set(multi_value_args SOURCES LINK_LIBS INCLUDES)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT ARG_TARGET_NAME OR NOT ARG_SOURCES)
+        message(FATAL_ERROR
+            "godot_addon_fuzzer_target requires TARGET_NAME and SOURCES.")
+    endif()
+
+    # Guard: this function only works with clang-cl. The fuzz configure preset
+    # sets toolset=ClangCL which CMake surfaces as CMAKE_CXX_COMPILER_ID=Clang
+    # with MSVC-compatible flags. MSVC itself does not support /fsanitize=fuzzer.
+    if(MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR
+            "godot_addon_fuzzer_target requires the clang-cl toolset. "
+            "Configure with the 'fuzz' preset (toolset: ClangCL) instead of the default MSVC preset.")
+    endif()
+
+    add_executable(${ARG_TARGET_NAME}
+        ${ARG_SOURCES}
+    )
+
+    # -fsanitize=fuzzer,address instruments the code at compile time.
+    # Note: clang-cl uses '-' prefix for sanitizer flags (not '/' like MSVC flags).
+    target_compile_options(${ARG_TARGET_NAME} PRIVATE -fsanitize=fuzzer,address)
+
+    # lld-link (used by VS+ClangCL) does not auto-resolve -fsanitize=... to runtime
+    # libs. Link them explicitly from the LLVM install alongside clang-cl.exe.
+    # Paths: <Llvm>/bin/clang-cl.exe → <Llvm>/lib/clang/<ver>/lib/windows/*.lib
+    #
+    # All three libs are compiled with /MT (MT_StaticRelease), which matches the
+    # CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded setting in the fuzz configure preset.
+    get_filename_component(_clang_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    file(GLOB _clang_rt_dirs "${_clang_bin_dir}/../lib/clang/*/lib/windows")
+    if(_clang_rt_dirs)
+    list(GET _clang_rt_dirs 0 _clang_rt_dir)
+    get_filename_component(_clang_rt_dir "${_clang_rt_dir}" ABSOLUTE)
+    # Static ASan + fuzzer driver — no DLL dependency at runtime.
+    target_link_libraries(${ARG_TARGET_NAME} PRIVATE
+        "${_clang_rt_dir}/clang_rt.fuzzer-x86_64.lib"
+        "${_clang_rt_dir}/clang_rt.asan-x86_64.lib"
+        "${_clang_rt_dir}/clang_rt.asan_cxx-x86_64.lib"
+    )
+    else()
+    message(FATAL_ERROR
+        "godot_addon_fuzzer_target: cannot find LLVM runtime directory "
+        "alongside ${CMAKE_CXX_COMPILER}. Check that the LLVM toolchain is "
+        "installed via Visual Studio Installer.")
+    endif()
+
+    target_include_directories(${ARG_TARGET_NAME} PRIVATE
+        ${ARG_INCLUDES}
+    )
+
+    if(ARG_LINK_LIBS)
+        target_link_libraries(${ARG_TARGET_NAME} PRIVATE ${ARG_LINK_LIBS})
+    endif()
+
+    set_target_properties(${ARG_TARGET_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY         "${CMAKE_BINARY_DIR}/bin"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_BINARY_DIR}/bin/Debug"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release"
+        FOLDER                           "tests/fuzz"
+    )
+endfunction()
