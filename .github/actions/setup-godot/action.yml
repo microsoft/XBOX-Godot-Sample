@@ -2,7 +2,9 @@ name: Setup Godot
 description: >-
   Download, cache, and expose a Godot console (or editor) executable for a given
   version. The version is parameterized so callers can run a range of Godot
-  releases. Exports GODOT, GODOT_CONSOLE, and GODOT_BIN so the repo tooling
+  releases. The download is verified against the SHA-512 pinned in
+  .github/godot-versions.json before extraction (supply-chain hardening). Exports
+  GODOT, GODOT_CONSOLE, and GODOT_BIN so the repo tooling
   (tools\check_gd_scripts_headless.ps1, tools\run_all_tests.ps1) discovers the
   executable through its standard env precedence.
 
@@ -28,26 +30,57 @@ runs:
   steps:
     - name: Restore cached Godot
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ runner.temp }}\godot\${{ inputs.version }}
         key: godot-${{ runner.os }}-${{ inputs.version }}
 
-    - name: Download and extract Godot
+    - name: Download, verify, and extract Godot
       if: steps.cache.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
         $version = '${{ inputs.version }}'
-        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
-        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+        # The expected hash is pinned in-repo (single source of truth). Refuse to
+        # touch the network for a version we have not committed a hash for.
+        $manifestPath = Join-Path $env:GITHUB_WORKSPACE '.github/godot-versions.json'
+        if (-not (Test-Path $manifestPath)) {
+          throw "Godot versions manifest not found at $manifestPath. Check out the repository before calling setup-godot."
+        }
+        $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
+        $expected = $null
+        if ($manifest.PSObject.Properties.Name -contains 'sha512') {
+          $expected = $manifest.sha512.$version
+        }
+        if ([string]::IsNullOrWhiteSpace($expected)) {
+          throw "No pinned SHA-512 for Godot '$version' in .github/godot-versions.json ('sha512' map). Refusing to download an unverified binary -- add the hash of Godot_v${version}_win64.exe.zip to harden the supply chain."
+        }
+        $expected = $expected.ToLower()
+
         $asset = "Godot_v${version}_win64.exe.zip"
         $url = "https://github.com/godotengine/godot-builds/releases/download/$version/$asset"
-        $zip = Join-Path $dest $asset
+
+        # Download into a staging dir OUTSIDE the cached path. The cached path is
+        # only ever populated AFTER the hash verifies, so a tampered/corrupt
+        # download can never poison the per-version cache.
+        $staging = Join-Path '${{ runner.temp }}' "godot-download\$version"
+        if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $staging | Out-Null
+        $zip = Join-Path $staging $asset
         Write-Host "Downloading $url"
         Invoke-WebRequest -Uri $url -OutFile $zip -MaximumRedirection 5
+
+        $actual = (Get-FileHash -Algorithm SHA512 -Path $zip).Hash.ToLower()
+        if ($actual -ne $expected) {
+          throw "SHA-512 mismatch for ${asset}`n  expected: $expected`n  actual:   $actual`nAborting before extraction (possible tampering or a stale pin)."
+        }
+        Write-Host "SHA-512 verified for ${asset}: $actual"
+
+        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
         Expand-Archive -Path $zip -DestinationPath $dest -Force
-        Remove-Item $zip -Force
+        Remove-Item $staging -Recurse -Force
 
     - name: Resolve executable and export env
       id: resolve

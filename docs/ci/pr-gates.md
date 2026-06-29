@@ -12,12 +12,17 @@ This repo runs three CI gates on GitHub Actions, all on GitHub-hosted
 ## Godot version range
 
 The set of Godot versions CI exercises is data-driven in
-[`.github/godot-versions.json`](../../.github/godot-versions.json):
+[`.github/godot-versions.json`](../../.github/godot-versions.json). Policy:
+**support Godot 4.5 and newer** (latest patch of each minor line):
 
 ```json
 {
   "default": "4.6.1-stable",
-  "supported": ["4.6.1-stable"]
+  "supported": ["4.6.1-stable", "4.5.1-stable"],
+  "sha512": {
+    "4.6.1-stable": "67c63291…",
+    "4.5.1-stable": "ab84df90…"
+  }
 }
 ```
 
@@ -25,14 +30,15 @@ The set of Godot versions CI exercises is data-driven in
   `workflow_dispatch` default for it).
 - `supported` — the matrix the **parse gate** fans out over (one leg per
   version, `fail-fast: false` so each reports independently).
+- `sha512` — the supply-chain pin: the SHA-512 of each version's
+  `Godot_v<version>_win64.exe.zip` (see [Supply-chain hardening](#supply-chain-hardening)).
 
 **To add a Godot version to the range**, append its version string to
-`supported`. The only requirement is that `godotengine/godot-builds` publishes a
-release tagged `<version>` with the asset `Godot_v<version>_win64.exe.zip` (the
-zip bundles the `_console.exe` the gates use). Verified-available examples you
-can extend with today: `4.5.1-stable`, `4.4.1-stable`, `4.3-stable`. No workflow
-edits are needed — the `versions` job reads the manifest and the matrix updates
-automatically.
+`supported` **and** its zip's SHA-512 to `sha512`. The version must be a real
+`godotengine/godot-builds` release tag whose asset `Godot_v<version>_win64.exe.zip`
+exists (the zip bundles the `_console.exe` the gates use). No workflow edits are
+needed — the `versions` job reads the manifest and the matrix updates
+automatically. `setup-godot` **refuses** any version missing from `sha512`.
 
 The `setup-godot` composite action (`.github/actions/setup-godot/`) downloads,
 caches, and exposes any requested version via `GODOT` / `GODOT_CONSOLE` /
@@ -98,6 +104,31 @@ Configure these as **environment** secrets on an environment named
 > pre-provisioned title only needs client-side sign-in. That high-privilege
 > secret belongs only to a separate, manual title-provisioning step
 > (`tools/configure_playfab_test_title.ps1`), not to the per-run live gate.
+
+## Supply-chain hardening
+
+Both workflows are hardened so a compromised upstream (a third-party action, or
+the Godot download) cannot silently inject code into a CI run:
+
+- **Third-party actions are pinned to full commit SHAs**, not floating tags. Each
+  `uses:` references an immutable 40-char commit with a trailing `# vX.Y.Z`
+  comment for readability (`actions/checkout`, `actions/cache`,
+  `actions/upload-artifact`). Re-tagging `v4` upstream cannot change what runs.
+- **The Godot download is verified against a pinned SHA-512** committed in
+  `.github/godot-versions.json` (`sha512` map). `setup-godot` downloads the zip
+  into a staging directory **outside** the cached path, verifies the hash, and
+  only extracts into the cache **after** it matches — so a tampered or corrupt
+  download can never poison the per-version cache. A version with no pinned hash
+  is refused outright (no network fetch).
+- **Least privilege:** both workflows declare `permissions: contents: read`, and
+  every `actions/checkout` sets `persist-credentials: false` so the `GITHUB_TOKEN`
+  is not left in the local git config after checkout.
+
+When bumping a pinned action, resolve the new tag to its commit SHA (e.g.
+`gh api repos/actions/checkout/commits/v4.3.1 --jq .sha`) and update both the SHA
+and the `# vX.Y.Z` comment. When adding a Godot version, compute the zip hash with
+`(Get-FileHash -Algorithm SHA512 <zip>).Hash.ToLower()` (optionally cross-checked
+against the release's `SHA512-SUMS.txt`) and add it to the `sha512` map.
 
 ## Known limitations
 

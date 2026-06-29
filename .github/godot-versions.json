@@ -1,7 +1,13 @@
 {
-  "_comment": "Single source of truth for the Godot versions CI exercises. 'default' is used by single-version jobs (PlayFab live tier, local-dev parity). 'supported' is the matrix the parse gate fans out over. To widen the range, add a version string here -- it must be a real godotengine/godot-builds release tag whose asset 'Godot_v<version>_win64.exe.zip' exists (the zip bundles the '_console.exe' the gates use). Verified-available examples to extend with: 4.5.1-stable, 4.4.1-stable, 4.3-stable. No workflow edits are required when this list changes.",
+  "_comment": "Single source of truth for the Godot versions CI exercises. Policy: support Godot 4.5 and newer (latest patch of each minor line). 'default' is used by single-version jobs (PlayFab live tier, local-dev parity). 'supported' is the matrix the parse gate fans out over. To widen the range, add a version string to 'supported' AND its pinned hash to 'sha512' -- it must be a real godotengine/godot-builds release tag whose asset 'Godot_v<version>_win64.exe.zip' exists (the zip bundles the '_console.exe' the gates use). No workflow edits are required when this list changes.",
+  "_sha512_comment": "Supply-chain pin: SHA-512 (lowercase hex) of each version's 'Godot_v<version>_win64.exe.zip'. setup-godot REFUSES to download a version that has no entry here, and aborts before extraction on any mismatch. To add a version: run `(Get-FileHash -Algorithm SHA512 <zip>).Hash.ToLower()` (or cross-check godotengine/godot-builds SHA512-SUMS.txt) and paste the value below.",
   "default": "4.6.1-stable",
   "supported": [
-    "4.6.1-stable"
-  ]
+    "4.6.1-stable",
+    "4.5.1-stable"
+  ],
+  "sha512": {
+    "4.6.1-stable": "67c63291115c66ebe7145415b5aac235e1667e417d6cd3d1975848670a1d31cbfad111c8231cb53195bb62e6e4fde951d97aaca227736a94f93dcbf8f23b1fbb",
+    "4.5.1-stable": "ab84df90ead5a888530faaabe744a27678ef7635068883900174fae37f7fc6178d033b551d88963c7dc2466580915a582bbc79aca97c19085900655761f56a27"
+  }
 }
