@@ -126,7 +126,7 @@ the Godot download) cannot silently inject code into a CI run:
 - **Third-party actions are pinned to full commit SHAs**, not floating tags. Each
   `uses:` references an immutable 40-char commit with a trailing `# vX.Y.Z`
   comment for readability (`actions/checkout`, `actions/cache`,
-  `actions/upload-artifact`). Re-tagging `v4` upstream cannot change what runs.
+  `actions/upload-artifact`). Re-tagging a release upstream cannot change what runs.
 - **The Godot download is verified against a pinned SHA-512** committed in
   `.github/godot-versions.json` (`sha512` map). `setup-godot` downloads the zip
   into a staging directory **outside** the cached path, verifies the hash, and
