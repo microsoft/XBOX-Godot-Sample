@@ -140,6 +140,8 @@ Notes:
 
 Game Saves methods require an Xbox-backed signed-in `PlayFabUser`. The runtime initializes `PFGameSaveFiles` alongside the rest of the PlayFab bootstrap, and Xbox-backed user wrappers retain the internal `PFLocalUserHandle` needed by the Game Saves APIs. Custom-ID users are valid PlayFab sessions for services that use entity handles, but Game Saves methods reject them with `xbox_user_required`.
 
+`PFGameSaveFilesInitialize` requires a packaged GDK title identity, which custom-ID / unpackaged sessions and unpackaged CI runners do not have (it returns `E_INVALIDARG`). `PlayFab.initialize()` treats this as **non-fatal**: it logs a warning, leaves Game Saves unavailable, and keeps PlayFab Core/Services running so the rest of the runtime stays usable. Because Game Saves methods first require an Xbox-backed local user handle, non-Xbox callers still receive `xbox_user_required` in this degraded state rather than reaching the uninitialized Game Saves provider.
+
 Supported calls:
 
 - `add_user_with_ui_async(user, options := PlayFabGameSaves.ADD_USER_OPTION_NONE)`

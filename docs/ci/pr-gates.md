@@ -9,7 +9,7 @@ trigger model.
 | --- | --- | --- | --- |
 | GDScript parse | `.github/workflows/pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
 | Fuzz replay | `.github/workflows/pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
-| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-latest`, sandbox title |
+| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-2022`, sandbox title (GDK via vcpkg `ms-gdk`) |
 
 > The matrix-resolve / version-resolve steps (`versions`, `resolve-version`) run
 > on `ubuntu-latest`; the Windows runners above do the actual gate work.
@@ -100,6 +100,27 @@ It runs only on a nightly schedule and manual `workflow_dispatch` (never on
 `workflow_dispatch` form accepts an optional `godot_version` (defaults to the
 manifest `default`).
 
+### Runner provisioning (GDK runs on the hosted runner)
+
+The live job runs on a **hosted Windows Server 2022 runner** — no self-hosted
+runner is required. Three things make the Microsoft GDK runtime work there:
+
+1. **`VCPKG_ROOT` is exported** from the image's `VCPKG_INSTALLATION_ROOT` (the
+   `default` preset reads `VCPKG_ROOT`). Configuring the preset restores the
+   PlayFab SDK + GDK redist via the vcpkg `ms-gdk` port.
+2. **The runner is pinned to `windows-2022`** because the `default` preset
+   targets the `Visual Studio 17 2022` generator (`windows-2025` ships VS2026).
+3. **The GDK redist DLLs are staged next to `Godot.exe`** after configure
+   (`build/vcpkg_installed/x64-windows/bin/*.dll`). Without this, `xgameruntime.dll`
+   loads but its init returns `E_GAMERUNTIME_DLL_NOT_FOUND` (`0x89240101`) because
+   the thunk chain is not on the Godot **process** search path.
+
+Game Saves is the one live surface that stays unavailable on an unpackaged
+hosted runner: `PFGameSaveFilesInitialize` needs a packaged GDK title identity.
+`PlayFab.initialize()` treats that failure as **non-fatal** (logs a warning,
+keeps Core/Services up), so the rest of the live tier runs. The custom-ID Game
+Saves tests still execute and assert `xbox_user_required`.
+
 ### Required secrets (GitHub Environment `playfab-sandbox`)
 
 Configure these as **environment** secrets on an environment named
@@ -145,10 +166,11 @@ against the release's `SHA512-SUMS.txt`) and add it to the `sha512` map.
 
 ## Known limitations
 
-- **Microsoft GDK is out of scope on the runner (for now).** The live job
-  configures the `default` preset, which builds the PlayFab addon and needs the
-  PlayFab SDK provisioned on the hosted runner. Until that provisioning lands,
-  the configure step is the expected first point of failure — it fails loudly
-  rather than reporting a false green for live tests it never ran.
+- **Game Saves is unavailable on the unpackaged hosted runner.** `PFGameSaveFilesInitialize`
+  requires a packaged GDK title identity, which a hosted runner running a custom-ID
+  session does not have. `PlayFab.initialize()` degrades gracefully (warns, keeps
+  Core/Services up) so the rest of the live tier runs; the custom-ID Game Saves tests
+  assert the `xbox_user_required` rejection rather than exercising real cloud saves.
+  Full Game Saves coverage requires a packaged title run (out of scope for the hosted gate).
 - **Fuzz infra dependency.** The `fuzz-replay` job assumes the fuzz harness /
   `fuzz` preset (originally on `infra/fuzz-testing`) is present on `main`.

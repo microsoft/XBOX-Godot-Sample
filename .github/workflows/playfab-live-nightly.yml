@@ -58,13 +58,21 @@ jobs:
 
   playfab-live:
     needs: resolve-version
-    runs-on: windows-latest
+    runs-on: windows-2022
     environment: playfab-sandbox
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           submodules: recursive
           persist-credentials: false
+
+      - name: Export VCPKG_ROOT (hosted runners expose VCPKG_INSTALLATION_ROOT)
+        shell: pwsh
+        run: |
+          $vr = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
+          "VCPKG_ROOT=$vr" | Out-File $env:GITHUB_ENV -Append
+          Write-Host "VCPKG_ROOT=$vr (exists: $(Test-Path (Join-Path $vr 'scripts\buildsystems\vcpkg.cmake')))"
 
       - name: Guard -- require sandbox title id
         shell: pwsh
@@ -83,14 +91,39 @@ jobs:
           version: ${{ needs.resolve-version.outputs.godot }}
           flavor: console
 
-      # NOTE (GDK out of scope for now): configuring the default preset builds
-      # the PlayFab addon, which needs the PlayFab SDK provisioned on the runner.
-      # Until that provisioning story lands this step is expected to be the first
-      # point of failure on a hosted runner -- it fails loudly rather than
-      # letting the job report a false green for live tests it never executed.
+      # The gdk-live-tier experiment proved XGameRuntimeInitialize and the full
+      # PlayFab live tier run on a hosted Windows Server 2022 runner. Configure
+      # restores the PlayFab SDK via the vcpkg `ms-gdk` port (VCPKG_ROOT exported
+      # above) and populates build\vcpkg_installed with the GDK redist DLLs.
+      # Pinned to windows-2022 because the default preset targets the VS2022
+      # generator (windows-2025 ships VS2026).
       - name: Configure (default preset)
         shell: pwsh
         run: cmake --preset default
+
+      - name: Stage GDK/PlayFab redist DLLs onto the Godot process search path
+        shell: pwsh
+        run: |
+          # xgameruntime.dll loads inside Godot, but its init returns
+          # E_GAMERUNTIME_DLL_NOT_FOUND (0x89240101) unless the full thunk chain
+          # is on the Godot *process* search path. Copy the vcpkg redist DLLs
+          # next to Godot.exe so the loader resolves them.
+          $godotDir = Split-Path -Parent $env:GODOT
+          Write-Host "Godot dir: $godotDir"
+          $srcDirs = @(
+            'build\vcpkg_installed\x64-windows\bin',
+            'build\vcpkg_installed\x64-windows\debug\bin'
+          ) | Where-Object { Test-Path $_ }
+          $copied = 0
+          foreach ($d in $srcDirs) {
+            Get-ChildItem $d -Filter *.dll -ErrorAction SilentlyContinue | ForEach-Object {
+              Copy-Item $_.FullName $godotDir -Force
+              $copied++
+            }
+            break  # release bin is enough; stop after the first existing source
+          }
+          Write-Host "Copied $copied DLL(s) next to Godot.exe"
+          Get-ChildItem $godotDir -Filter 'xgameruntime*.dll' | Select-Object Name
 
       - name: Run live PlayFab tests (read + write)
         shell: pwsh
