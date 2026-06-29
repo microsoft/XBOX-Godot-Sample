@@ -9,9 +9,9 @@ trigger model.
 | --- | --- | --- | --- |
 | GDScript parse | `.github/workflows/pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
 | Fuzz replay | `.github/workflows/pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
-| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-2022`, sandbox title (GDK via vcpkg `ms-gdk`) |
+| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-2022`, sandbox title, **matrixed over GDK editions** (vcpkg `ms-gdk`) |
 
-> The matrix-resolve / version-resolve steps (`versions`, `resolve-version`) run
+> The matrix-resolve / version-resolve steps (`versions`, `resolve`) run
 > on `ubuntu-latest`; the Windows runners above do the actual gate work.
 
 ## Godot version range
@@ -98,7 +98,49 @@ tools/run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
 It runs only on a nightly schedule and manual `workflow_dispatch` (never on
 `pull_request`), so title secrets are never reachable from fork PRs. The
 `workflow_dispatch` form accepts an optional `godot_version` (defaults to the
-manifest `default`).
+manifest `default`) and an optional `gdk_version` (see the GDK edition matrix
+below).
+
+### GDK edition matrix
+
+The Microsoft GDK edition the live tier builds against is **not** fixed: the set
+of editions is data-driven in
+[`.github/gdk-versions.json`](../../.github/gdk-versions.json). Each entry is an
+`ms-gdk` vcpkg port version (`YYMM.N.<build>`, mapping to the 6-digit edition
+`YYMM0N`). Policy: **support edition 251001 and newer**, limited to editions
+published to the **public** vcpkg registry and reachable from the baseline in
+`vcpkg-configuration.json`:
+
+```json
+{
+  "default": "2604.1.7839",
+  "supported": [
+    { "version": "2604.1.7839", "edition": "260401", "release": "April 2026" },
+    { "version": "2510.2.6247", "edition": "251002", "release": "October 2025" },
+    { "version": "2510.1.6224", "edition": "251001", "release": "October 2025" }
+  ]
+}
+```
+
+The live job runs as a matrix, one leg per edition. Before configuring, each leg
+injects the selected `ms-gdk` version as a top-level `overrides` entry in
+`vcpkg.json`, so `cmake --preset default` restores exactly that edition (this
+automates the manual pin documented in
+[getting-started.md](../getting-started.md#switching-gdk-editions-on-the-vcpkg-path)).
+
+- **`default`** — the single edition the **nightly `schedule`** runs (keeps
+  nightly sandbox load low).
+- **`supported`** — the **full matrix**, run on manual `workflow_dispatch`. Pass
+  a specific `gdk_version` input (e.g. `2510.2.6247`) to run just one edition.
+- The matrix uses `max-parallel: 1` (the legs are live **writes** against the
+  shared sandbox title, so they must serialize) and `fail-fast: false` (one
+  edition failing still reports the others). Each leg uploads its run summary as
+  `playfab-live-run-summary-gdk-<edition>`.
+- Editions outside the public registry (e.g. `260400`, `260402`) are reachable
+  only via the `installed-gdk` path, not on a hosted runner, so they are not in
+  this matrix. To widen coverage, add an entry whose `version` exists in
+  `microsoft/vcpkg` `versions/m-/ms-gdk.json` reachable from the baseline — no
+  workflow edits are required.
 
 ### Runner provisioning (GDK runs on the hosted runner)
 

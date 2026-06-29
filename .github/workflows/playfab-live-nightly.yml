@@ -23,6 +23,10 @@ on:
         description: 'Godot version (blank = manifest default in .github/godot-versions.json)'
         required: false
         default: ''
+      gdk_version:
+        description: 'ms-gdk port version, e.g. 2510.2.6247 (blank = full supported matrix from .github/gdk-versions.json)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -35,10 +39,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  resolve-version:
+  resolve:
     runs-on: ubuntu-latest
     outputs:
       godot: ${{ steps.pick.outputs.godot }}
+      gdk_matrix: ${{ steps.pick.outputs.gdk_matrix }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -47,6 +52,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # --- Godot version (single) ---
           input='${{ github.event.inputs.godot_version }}'
           if [ -n "$input" ]; then
             v="$input"
@@ -56,11 +63,41 @@ jobs:
           echo "Resolved Godot version: $v"
           echo "godot=$v" >> "$GITHUB_OUTPUT"
 
+          # --- GDK edition matrix ---
+          # Schedule (nightly) -> the single 'default' edition.
+          # workflow_dispatch  -> the full 'supported' matrix, unless a specific
+          #                       gdk_version input names one supported edition.
+          manifest=.github/gdk-versions.json
+          gdk_input='${{ github.event.inputs.gdk_version }}'
+          if [ -n "$gdk_input" ]; then
+            matrix=$(jq -c --arg v "$gdk_input" \
+              '{include: [ .supported[] | select(.version == $v) | {gdk_version: .version, edition, release} ]}' "$manifest")
+            if [ "$(echo "$matrix" | jq '.include | length')" -eq 0 ]; then
+              echo "::error::gdk_version '$gdk_input' is not in $manifest 'supported'."; exit 1
+            fi
+          elif [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+            matrix=$(jq -c \
+              '{include: [ .supported[] | {gdk_version: .version, edition, release} ]}' "$manifest")
+          else
+            matrix=$(jq -c \
+              '. as $m | {include: [ $m.supported[] | select(.version == $m.default) | {gdk_version: .version, edition, release} ]}' "$manifest")
+          fi
+          echo "Resolved GDK matrix: $matrix"
+          echo "gdk_matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   playfab-live:
-    needs: resolve-version
+    needs: resolve
     runs-on: windows-2022
     environment: playfab-sandbox
     timeout-minutes: 60
+    strategy:
+      # Live-WRITE tests mutate shared sandbox state, so the editions must run
+      # one at a time. fail-fast: false so one edition failing still reports the
+      # others (we want full cross-edition coverage, not first-failure).
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.resolve.outputs.gdk_matrix) }}
+    name: playfab-live (GDK ${{ matrix.edition }})
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -85,11 +122,31 @@ jobs:
           }
           Write-Host "Live-write target sandbox title: $env:PLAYFAB_TITLE_ID"
 
-      - name: Setup Godot ${{ needs.resolve-version.outputs.godot }}
+      - name: Setup Godot ${{ needs.resolve.outputs.godot }}
         uses: ./.github/actions/setup-godot
         with:
-          version: ${{ needs.resolve-version.outputs.godot }}
+          version: ${{ needs.resolve.outputs.godot }}
           flavor: console
+
+      # Pin the Microsoft GDK edition for this matrix leg by injecting a top-level
+      # `overrides` entry into vcpkg.json. `cmake --preset default` (below) then
+      # restores exactly this ms-gdk port version regardless of the registry
+      # baseline. See docs/getting-started.md "Switching GDK editions on the vcpkg path".
+      - name: Pin ms-gdk edition ${{ matrix.gdk_version }} (vcpkg overrides)
+        shell: pwsh
+        run: |
+          $version = '${{ matrix.gdk_version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            Write-Host 'No ms-gdk version for this leg; using the registry baseline.'
+            exit 0
+          }
+          $path = 'vcpkg.json'
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $override = [pscustomobject]@{ name = 'ms-gdk'; version = $version }
+          $json | Add-Member -NotePropertyName 'overrides' -NotePropertyValue @($override) -Force
+          ($json | ConvertTo-Json -Depth 32) | Set-Content $path -Encoding utf8
+          Write-Host "Pinned ms-gdk -> $version"
+          Get-Content $path -Raw | Write-Host
 
       # The gdk-live-tier experiment proved XGameRuntimeInitialize and the full
       # PlayFab live tier run on a hosted Windows Server 2022 runner. Configure
@@ -132,6 +189,7 @@ jobs:
           PLAYFAB_CUSTOM_ID: ${{ secrets.PLAYFAB_CUSTOM_ID }}
           PLAYFAB_MULTIPLAYER_MATCH_QUEUE: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
         run: |
+          Write-Host "Live PlayFab tier against GDK edition ${{ matrix.edition }} (ms-gdk ${{ matrix.gdk_version }}, ${{ matrix.release }})"
           $extra = @()
           if ($env:PLAYFAB_CUSTOM_ID) { $extra += @('-PlayFabCustomId', $env:PLAYFAB_CUSTOM_ID) }
           if ($env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) { $extra += @('-PlayFabMatchmakingQueue', $env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) }
@@ -143,6 +201,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playfab-live-run-summary
+          name: playfab-live-run-summary-gdk-${{ matrix.edition }}
           path: build/test-results/run-summary.*
           if-no-files-found: warn
