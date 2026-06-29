@@ -138,7 +138,7 @@ the Godot download) cannot silently inject code into a CI run:
   is not left in the local git config after checkout.
 
 When bumping a pinned action, resolve the new tag to its commit SHA (e.g.
-`gh api repos/actions/checkout/commits/v4.3.1 --jq .sha`) and update both the SHA
+`gh api repos/actions/checkout/commits/v5.0.1 --jq .sha`) and update both the SHA
 and the `# vX.Y.Z` comment. When adding a Godot version, compute the zip hash with
 `(Get-FileHash -Algorithm SHA512 <zip>).Hash.ToLower()` (optionally cross-checked
 against the release's `SHA512-SUMS.txt`) and add it to the `sha512` map.
