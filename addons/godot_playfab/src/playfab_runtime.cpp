@@ -4,6 +4,7 @@
 #include <atomic>
 
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "playfab_pending_signal.h"
 #include "playfab_result.h"
@@ -207,7 +208,13 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         // gracefully: keep PlayFab Core/Services running and leave Game Saves
         // unavailable instead of taking the whole runtime down. Game Saves
         // methods still reject non-Xbox-backed users with xbox_user_required.
-        WARN_PRINT(String("PlayFab Game Save Files initialization failed (") + PlayFabResult::format_hresult(hr) + "); continuing without Game Saves. This is expected for custom-ID or unpackaged sessions.");
+        //
+        // This is logged via print() rather than WARN_PRINT on purpose: Game
+        // Saves being unavailable is an expected, handled condition for
+        // custom-ID / unpackaged sessions, and routing it through the engine
+        // error system would make GUT (which fails tests on unexpected engine
+        // errors) fail every live test that initializes PlayFab.
+        UtilityFunctions::print(String("[PlayFab] Game Save Files initialization failed (") + PlayFabResult::format_hresult(hr) + "); continuing without Game Saves. This is expected for custom-ID or unpackaged sessions.");
         game_save_files_initialized = false;
     } else {
         game_save_files_initialized = true;
