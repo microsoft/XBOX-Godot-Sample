@@ -68,7 +68,12 @@ jobs:
         run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
 
   fuzz-replay:
-    runs-on: windows-latest
+    # Pinned to windows-2022: the fuzz preset uses the "Visual Studio 17 2022"
+    # generator, but windows-latest now ships VS2026 (no VS2022 instance), which
+    # makes `cmake --preset fuzz` fail at project() with "could not find any
+    # instance of Visual Studio". windows-2022 carries VS2022 + the ClangCL
+    # toolset the fuzz build needs.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:

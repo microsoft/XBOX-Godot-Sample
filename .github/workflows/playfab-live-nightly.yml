@@ -27,6 +27,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Serialize live runs: a manual dispatch must never overlap the nightly run (or
+  # another dispatch). Queue instead of cancel -- the live-write tier mutates
+  # shared sandbox state, so cancelling a run mid-write is worse than waiting.
+  group: playfab-live
+  cancel-in-progress: false
+
 jobs:
   resolve-version:
     runs-on: ubuntu-latest

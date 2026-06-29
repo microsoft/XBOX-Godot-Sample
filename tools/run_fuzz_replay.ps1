@@ -13,8 +13,10 @@
     Fuzz executables are expected under <BuildDir>\bin\<Config>\<target>.exe
     (the layout produced by `cmake --build build/fuzz --preset debug-fuzz`).
     Each target's corpus lives at <CorpusRoot>\<target>\. A target with an empty
-    or missing corpus is still smoke-run with `-runs=0` so a link/load/ASan-init
-    failure is caught.
+    or missing corpus is still smoke-run with `-runs=0` -- libFuzzer executes the
+    initial inputs (the implicit empty input) once with zero additional mutations
+    and exits, so a link/load/ASan-init failure is caught. (libFuzzer's infinite
+    sentinel is `-runs=-1`, not `0`.)
 
     Build the targets first:
         cmake --preset fuzz

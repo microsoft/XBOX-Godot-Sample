@@ -28,22 +28,16 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Restore cached Godot
-      id: cache
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-      with:
-        path: ${{ runner.temp }}\godot\${{ inputs.version }}
-        key: godot-${{ runner.os }}-${{ inputs.version }}
-
-    - name: Download, verify, and extract Godot
-      if: steps.cache.outputs.cache-hit != 'true'
+    - name: Resolve pinned SHA-512
+      id: pin
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
         $version = '${{ inputs.version }}'
 
-        # The expected hash is pinned in-repo (single source of truth). Refuse to
-        # touch the network for a version we have not committed a hash for.
+        # The expected hash is pinned in-repo (single source of truth). This step
+        # runs on EVERY invocation (even cache hits) so an unpinned version is
+        # refused up front, and so the hash can be folded into the cache key.
         $manifestPath = Join-Path $env:GITHUB_WORKSPACE '.github/godot-versions.json'
         if (-not (Test-Path $manifestPath)) {
           throw "Godot versions manifest not found at $manifestPath. Check out the repository before calling setup-godot."
@@ -54,9 +48,28 @@ runs:
           $expected = $manifest.sha512.$version
         }
         if ([string]::IsNullOrWhiteSpace($expected)) {
-          throw "No pinned SHA-512 for Godot '$version' in .github/godot-versions.json ('sha512' map). Refusing to download an unverified binary -- add the hash of Godot_v${version}_win64.exe.zip to harden the supply chain."
+          throw "No pinned SHA-512 for Godot '$version' in .github/godot-versions.json ('sha512' map). Refusing to use an unverified binary -- add the hash of Godot_v${version}_win64.exe.zip to harden the supply chain."
         }
-        $expected = $expected.ToLower()
+        "hash=$($expected.ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+    - name: Restore cached Godot
+      id: cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ runner.temp }}\godot\${{ inputs.version }}
+        # The pinned hash is part of the key: cache hits skip re-verification, so
+        # if the SHA-512 for an existing version tag is ever updated, the old
+        # cached binary must NOT be treated as a hit. Keying on the hash forces a
+        # fresh download + verify whenever the pin changes.
+        key: godot-${{ runner.os }}-${{ inputs.version }}-${{ steps.pin.outputs.hash }}
+
+    - name: Download, verify, and extract Godot
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $expected = '${{ steps.pin.outputs.hash }}'
 
         $asset = "Godot_v${version}_win64.exe.zip"
         $url = "https://github.com/godotengine/godot-builds/releases/download/$version/$asset"

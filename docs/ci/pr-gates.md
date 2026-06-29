@@ -1,13 +1,18 @@
 # CI: PR Gates
 
-This repo runs three CI gates on GitHub Actions, all on GitHub-hosted
-`windows-latest` runners. They are split across two workflows by trigger model.
+This repo runs three CI gates on GitHub Actions, on GitHub-hosted runners. Each
+workflow first reads the Godot manifest in a tiny `ubuntu-latest` job, then runs
+the actual gate on a Windows runner. They are split across two workflows by
+trigger model.
 
 | Gate | Workflow | Trigger | Runner |
 | --- | --- | --- | --- |
-| GDScript parse | `.github/workflows/pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | hosted, **matrixed over Godot versions** |
-| Fuzz replay | `.github/workflows/pr-gates.yml` (`fuzz-replay`) | same as above | hosted, single |
-| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | hosted, sandbox title |
+| GDScript parse | `.github/workflows/pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
+| Fuzz replay | `.github/workflows/pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
+| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-latest`, sandbox title |
+
+> The matrix-resolve / version-resolve steps (`versions`, `resolve-version`) run
+> on `ubuntu-latest`; the Windows runners above do the actual gate work.
 
 ## Godot version range
 
@@ -67,8 +72,16 @@ the individual corpus files to each target, so libFuzzer runs every input exactl
 once and exits non-zero on the first crash/leak/timeout. (Passing a corpus
 *directory* would make libFuzzer fuzz indefinitely; the script deliberately
 passes files.) Corpora live at `tests/cpp/fuzz/corpus/<target>/`. A target with
-no corpus is still smoke-run with `-runs=0`. On failure, the workflow uploads any
+no corpus is still smoke-run with `-runs=0`, which executes the initial inputs
+(the implicit empty input) once with **zero** additional mutations and exits —
+a finite, deterministic load/link/ASan-init check. (libFuzzer's "run forever"
+sentinel is `-runs=-1`, not `0`.) On failure, the workflow uploads any
 `crash-*` / `leak-*` / `timeout-*` artifacts.
+
+The `fuzz-replay` job is pinned to **`windows-2022`** because the `fuzz` preset
+uses the `Visual Studio 17 2022` generator + `ClangCL` toolset; `windows-latest`
+has moved to a VS2026 image with no VS2022 instance, so the preset can't
+configure there.
 
 To add a regression input, drop the bytes into the matching
 `tests/cpp/fuzz/corpus/<target>/` directory and commit it.
