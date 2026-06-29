@@ -1,0 +1,7 @@
+{
+  "_comment": "Single source of truth for the Godot versions CI exercises. 'default' is used by single-version jobs (PlayFab live tier, local-dev parity). 'supported' is the matrix the parse gate fans out over. To widen the range, add a version string here -- it must be a real godotengine/godot-builds release tag whose asset 'Godot_v<version>_win64.exe.zip' exists (the zip bundles the '_console.exe' the gates use). Verified-available examples to extend with: 4.5.1-stable, 4.4.1-stable, 4.3-stable. No workflow edits are required when this list changes.",
+  "default": "4.6.1-stable",
+  "supported": [
+    "4.6.1-stable"
+  ]
+}

@@ -1,0 +1,95 @@
+name: PR Gates
+
+# Per-PR validation gates:
+#   * parse-gate  -- headless GDScript parse, fanned out across a configurable
+#                    range of Godot versions (.github/godot-versions.json).
+#   * fuzz-replay -- builds the libFuzzer targets and replays their committed
+#                    corpora (regression mode; no active fuzzing).
+#
+# PlayFab live tests are intentionally NOT here -- they run on a schedule /
+# manual dispatch from playfab-live-nightly.yml so secrets never reach fork PRs.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Reads the supported Godot range once and exposes it as a matrix so the
+  # parse gate fans out without hard-coding versions in the workflow.
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix=$(jq -c '.supported' .github/godot-versions.json)
+          echo "Supported Godot versions: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  parse-gate:
+    needs: versions
+    runs-on: windows-latest
+    name: parse-gate (${{ matrix.godot }})
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      # No submodules: an uninitialized third_party/Gut stays empty, so the
+      # parse gate never enumerates vendored GUT .gd files.
+      - uses: actions/checkout@v4
+
+      - name: Setup Godot ${{ matrix.godot }}
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ matrix.godot }}
+          flavor: console
+
+      - name: GDScript parse gate
+        shell: pwsh
+        run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
+
+  fuzz-replay:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure (fuzz preset, ClangCL + ASan)
+        shell: pwsh
+        run: cmake --preset fuzz
+
+      - name: Build fuzz targets
+        shell: pwsh
+        run: cmake --build build/fuzz --preset debug-fuzz
+
+      - name: Replay committed corpora
+        shell: pwsh
+        run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_fuzz_replay.ps1
+
+      - name: Upload libFuzzer crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: |
+            crash-*
+            leak-*
+            timeout-*
+            oom-*
+          if-no-files-found: ignore

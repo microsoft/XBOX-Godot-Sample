@@ -1,0 +1,76 @@
+name: Setup Godot
+description: >-
+  Download, cache, and expose a Godot console (or editor) executable for a given
+  version. The version is parameterized so callers can run a range of Godot
+  releases. Exports GODOT, GODOT_CONSOLE, and GODOT_BIN so the repo tooling
+  (tools\check_gd_scripts_headless.ps1, tools\run_all_tests.ps1) discovers the
+  executable through its standard env precedence.
+
+inputs:
+  version:
+    description: >-
+      Godot version string matching a godotengine/godot-builds release tag,
+      e.g. 4.6.1-stable. The release must publish the asset
+      Godot_v<version>_win64.exe.zip (which bundles the _console.exe).
+    required: true
+  flavor:
+    description: "Which executable to expose: 'console' (default) or 'editor'."
+    required: false
+    default: console
+
+outputs:
+  godot-path:
+    description: Absolute path to the resolved Godot executable.
+    value: ${{ steps.resolve.outputs.godot-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore cached Godot
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\godot\${{ inputs.version }}
+        key: godot-${{ runner.os }}-${{ inputs.version }}
+
+    - name: Download and extract Godot
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        $asset = "Godot_v${version}_win64.exe.zip"
+        $url = "https://github.com/godotengine/godot-builds/releases/download/$version/$asset"
+        $zip = Join-Path $dest $asset
+        Write-Host "Downloading $url"
+        Invoke-WebRequest -Uri $url -OutFile $zip -MaximumRedirection 5
+        Expand-Archive -Path $zip -DestinationPath $dest -Force
+        Remove-Item $zip -Force
+
+    - name: Resolve executable and export env
+      id: resolve
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $flavor = '${{ inputs.flavor }}'
+        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
+        $pattern = if ($flavor -eq 'editor') {
+          "Godot_v${version}_win64.exe"
+        } else {
+          "Godot_v${version}_win64_console.exe"
+        }
+        $exe = Get-ChildItem -Path $dest -Recurse -Filter $pattern -ErrorAction SilentlyContinue |
+          Select-Object -First 1
+        if (-not $exe) {
+          throw "Godot executable '$pattern' not found under $dest (download/extract failed?)."
+        }
+        $p = $exe.FullName
+        Write-Host "Resolved Godot ($flavor): $p"
+        & $p --version
+        "GODOT=$p"         | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GODOT_CONSOLE=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GODOT_BIN=$p"     | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "godot-path=$p"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8

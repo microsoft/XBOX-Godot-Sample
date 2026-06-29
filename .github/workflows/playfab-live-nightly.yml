@@ -1,0 +1,105 @@
+name: PlayFab Live Tests (nightly)
+
+# Live PlayFab tests (read + write) against a dedicated SANDBOX title.
+#
+# Trigger model: schedule + manual dispatch ONLY. This keeps title secrets off
+# pull_request runs (and therefore unreachable from forks). The live tier writes
+# persistent state, so it must only ever point at a sandbox title id.
+#
+# Secrets live in the 'playfab-sandbox' GitHub Environment:
+#   PLAYFAB_TITLE_ID                 (required -- the sandbox title)
+#   PLAYFAB_CUSTOM_ID                (optional -- pre-existing custom id)
+#   PLAYFAB_MULTIPLAYER_MATCH_QUEUE  (optional -- matchmaking queue name)
+# The high-privilege PLAYFAB_DEVELOPER_SECRET_KEY is deliberately NOT used here:
+# run_all_tests.ps1 scrubs it from child processes, and a pre-provisioned title
+# only needs client-side sign-in (LoginWithCustomID).
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # nightly 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      godot_version:
+        description: 'Godot version (blank = manifest default in .github/godot-versions.json)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      godot: ${{ steps.pick.outputs.godot }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+          input='${{ github.event.inputs.godot_version }}'
+          if [ -n "$input" ]; then
+            v="$input"
+          else
+            v=$(jq -r '.default' .github/godot-versions.json)
+          fi
+          echo "Resolved Godot version: $v"
+          echo "godot=$v" >> "$GITHUB_OUTPUT"
+
+  playfab-live:
+    needs: resolve-version
+    runs-on: windows-latest
+    environment: playfab-sandbox
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Guard -- require sandbox title id
+        shell: pwsh
+        env:
+          PLAYFAB_TITLE_ID: ${{ secrets.PLAYFAB_TITLE_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PLAYFAB_TITLE_ID)) {
+            Write-Error 'PLAYFAB_TITLE_ID is not configured for the playfab-sandbox environment; refusing to run live writes.'
+            exit 1
+          }
+          Write-Host "Live-write target sandbox title: $env:PLAYFAB_TITLE_ID"
+
+      - name: Setup Godot ${{ needs.resolve-version.outputs.godot }}
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ needs.resolve-version.outputs.godot }}
+          flavor: console
+
+      # NOTE (GDK out of scope for now): configuring the default preset builds
+      # the PlayFab addon, which needs the PlayFab SDK provisioned on the runner.
+      # Until that provisioning story lands this step is expected to be the first
+      # point of failure on a hosted runner -- it fails loudly rather than
+      # letting the job report a false green for live tests it never executed.
+      - name: Configure (default preset)
+        shell: pwsh
+        run: cmake --preset default
+
+      - name: Run live PlayFab tests (read + write)
+        shell: pwsh
+        env:
+          PLAYFAB_TITLE_ID: ${{ secrets.PLAYFAB_TITLE_ID }}
+          PLAYFAB_CUSTOM_ID: ${{ secrets.PLAYFAB_CUSTOM_ID }}
+          PLAYFAB_MULTIPLAYER_MATCH_QUEUE: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
+        run: |
+          $extra = @()
+          if ($env:PLAYFAB_CUSTOM_ID) { $extra += @('-PlayFabCustomId', $env:PLAYFAB_CUSTOM_ID) }
+          if ($env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) { $extra += @('-PlayFabMatchmakingQueue', $env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) }
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+            -Live -AllowLiveWrites `
+            -PlayFabTitleId $env:PLAYFAB_TITLE_ID @extra
+
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playfab-live-run-summary
+          path: build/test-results/run-summary.*
+          if-no-files-found: warn
