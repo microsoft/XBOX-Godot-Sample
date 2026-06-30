@@ -1,6 +1,21 @@
 name: PlayFab Live Tests (nightly)
 
-# Live PlayFab tests (read + write) against a dedicated SANDBOX title.
+# Nightly addon validation: build once per GDK edition, then test the cached
+# build output across Godot versions (offline tier) AND against a live SANDBOX
+# PlayFab title (live tier). Jobs:
+#   * resolve      -- emit the Godot default + supported matrix and the GDK
+#                     edition list from .github/{godot,gdk}-versions.json.
+#   * build        -- build the addon DLLs ONCE per GDK edition + the C++ doctest
+#                     (shared build-addons composite); cache + upload the output.
+#   * test-offline -- GDK edition x Godot supported: restore the build artifact
+#                     and run the GDExtension load/smoke + non-live GUT (shared
+#                     run-offline-tier composite). No rebuild per Godot version.
+#   * playfab-live -- GDK editions x single default Godot: restore the build
+#                     artifact and run the live (read + write) PlayFab tier. No
+#                     rebuild per edition.
+#
+# build / test-offline share their composites with pr-gates.yml (which runs the
+# default GDK + default Godot only). The live tier alone needs secrets.
 #
 # Trigger model: schedule + manual dispatch ONLY. This keeps title secrets off
 # pull_request runs (and therefore unreachable from forks). The live tier writes
@@ -43,7 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       godot: ${{ steps.pick.outputs.godot }}
-      gdk_matrix: ${{ steps.pick.outputs.gdk_matrix }}
+      godot_supported: ${{ steps.pick.outputs.godot_supported }}
+      gdk_list: ${{ steps.pick.outputs.gdk_list }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -53,40 +69,95 @@ jobs:
         run: |
           set -euo pipefail
 
-          # --- Godot version (single) ---
+          # --- Godot version (single default, for the live tier) ---
           input='${{ github.event.inputs.godot_version }}'
           if [ -n "$input" ]; then
             v="$input"
           else
             v=$(jq -r '.default' .github/godot-versions.json)
           fi
-          echo "Resolved Godot version: $v"
+          echo "Resolved default Godot version: $v"
           echo "godot=$v" >> "$GITHUB_OUTPUT"
 
-          # --- GDK edition matrix ---
+          # --- Godot supported matrix (for the offline tier) ---
+          # The build output is tested across every supported engine version.
+          godot_supported=$(jq -c '.supported' .github/godot-versions.json)
+          echo "Resolved Godot supported matrix: $godot_supported"
+          echo "godot_supported=$godot_supported" >> "$GITHUB_OUTPUT"
+
+          # --- GDK edition list (build / offline / live matrices) ---
           # Schedule (nightly) -> the single 'default' edition.
-          # workflow_dispatch  -> the full 'supported' matrix, unless a specific
+          # workflow_dispatch  -> the full 'supported' list, unless a specific
           #                       gdk_version input names one supported edition.
+          # Emitted as a plain array of {version, edition, release} objects so the
+          # downstream matrices reference matrix.gdk.version / .edition / .release.
           manifest=.github/gdk-versions.json
           gdk_input='${{ github.event.inputs.gdk_version }}'
           if [ -n "$gdk_input" ]; then
-            matrix=$(jq -c --arg v "$gdk_input" \
-              '{include: [ .supported[] | select(.version == $v) | {gdk_version: .version, edition, release} ]}' "$manifest")
-            if [ "$(echo "$matrix" | jq '.include | length')" -eq 0 ]; then
+            list=$(jq -c --arg v "$gdk_input" '[ .supported[] | select(.version == $v) ]' "$manifest")
+            if [ "$(echo "$list" | jq 'length')" -eq 0 ]; then
               echo "::error::gdk_version '$gdk_input' is not in $manifest 'supported'."; exit 1
             fi
           elif [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
-            matrix=$(jq -c \
-              '{include: [ .supported[] | {gdk_version: .version, edition, release} ]}' "$manifest")
+            list=$(jq -c '.supported' "$manifest")
           else
-            matrix=$(jq -c \
-              '. as $m | {include: [ $m.supported[] | select(.version == $m.default) | {gdk_version: .version, edition, release} ]}' "$manifest")
+            list=$(jq -c '. as $m | [ $m.supported[] | select(.version == $m.default) ]' "$manifest")
           fi
-          echo "Resolved GDK matrix: $matrix"
-          echo "gdk_matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Resolved GDK edition list: $list"
+          echo "gdk_list=$list" >> "$GITHUB_OUTPUT"
+
+  # Build the addon DLLs ONCE per GDK edition (shared build-addons composite):
+  # vcpkg restore + configure + build + the Godot-independent C++ doctest, with
+  # hybrid caching (actions/cache on build/ + an upload artifact per edition).
+  # The test-offline / playfab-live jobs consume these artifacts -- no rebuild.
+  build:
+    needs: resolve
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        gdk: ${{ fromJSON(needs.resolve.outputs.gdk_list) }}
+    name: build (GDK ${{ matrix.gdk.edition }})
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Build addons (ms-gdk ${{ matrix.gdk.version }}) + C++ doctest
+        uses: ./.github/actions/build-addons
+        with:
+          gdk_version: ${{ matrix.gdk.version }}
+          artifact_name: build-gdk-${{ matrix.gdk.edition }}
+
+  # Offline (non-live) tier across the FULL Godot supported matrix: for each GDK
+  # edition x Godot version, restore that edition's build artifact and run the
+  # GDExtension load/smoke + non-live GUT (shared run-offline-tier composite).
+  # This is the build-once / test-across-versions payoff -- no per-version build.
+  test-offline:
+    needs: [resolve, build]
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        gdk: ${{ fromJSON(needs.resolve.outputs.gdk_list) }}
+        godot: ${{ fromJSON(needs.resolve.outputs.godot_supported) }}
+    name: test-offline (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
+    steps:
+      # No submodules: the GUT mirror + addon DLLs arrive via the build artifact.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Offline tier (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
+        uses: ./.github/actions/run-offline-tier
+        with:
+          godot_version: ${{ matrix.godot }}
+          artifact_name: build-gdk-${{ matrix.gdk.edition }}
+          run_summary_artifact: offline-run-summary-gdk-${{ matrix.gdk.edition }}-godot-${{ matrix.godot }}
 
   playfab-live:
-    needs: resolve
+    needs: [resolve, build]
     runs-on: windows-2022
     environment: playfab-sandbox
     timeout-minutes: 60
@@ -96,20 +167,16 @@ jobs:
       # others (we want full cross-edition coverage, not first-failure).
       fail-fast: false
       max-parallel: 1
-      matrix: ${{ fromJSON(needs.resolve.outputs.gdk_matrix) }}
-    name: playfab-live (GDK ${{ matrix.edition }})
+      matrix:
+        gdk: ${{ fromJSON(needs.resolve.outputs.gdk_list) }}
+    name: playfab-live (GDK ${{ matrix.gdk.edition }})
     steps:
+      # No submodules: the build artifact carries the addon DLLs, the GUT mirror,
+      # the redist DLLs, and the doctest exe. The live tier reuses that build
+      # instead of rebuilding per edition.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          submodules: recursive
           persist-credentials: false
-
-      - name: Export VCPKG_ROOT (hosted runners expose VCPKG_INSTALLATION_ROOT)
-        shell: pwsh
-        run: |
-          $vr = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
-          "VCPKG_ROOT=$vr" | Out-File $env:GITHUB_ENV -Append
-          Write-Host "VCPKG_ROOT=$vr (exists: $(Test-Path (Join-Path $vr 'scripts\buildsystems\vcpkg.cmake')))"
 
       - name: Guard -- require sandbox title id
         shell: pwsh
@@ -122,41 +189,17 @@ jobs:
           }
           Write-Host "Live-write target sandbox title: $env:PLAYFAB_TITLE_ID"
 
+      - name: Restore build output (build-gdk-${{ matrix.gdk.edition }})
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: build-gdk-${{ matrix.gdk.edition }}
+          path: .
+
       - name: Setup Godot ${{ needs.resolve.outputs.godot }}
         uses: ./.github/actions/setup-godot
         with:
           version: ${{ needs.resolve.outputs.godot }}
           flavor: console
-
-      # Pin the Microsoft GDK edition for this matrix leg by injecting a top-level
-      # `overrides` entry into vcpkg.json. `cmake --preset default` (below) then
-      # restores exactly this ms-gdk port version regardless of the registry
-      # baseline. See docs/getting-started.md "Switching GDK editions on the vcpkg path".
-      - name: Pin ms-gdk edition ${{ matrix.gdk_version }} (vcpkg overrides)
-        shell: pwsh
-        run: |
-          $version = '${{ matrix.gdk_version }}'
-          if ([string]::IsNullOrWhiteSpace($version)) {
-            Write-Host 'No ms-gdk version for this leg; using the registry baseline.'
-            exit 0
-          }
-          $path = 'vcpkg.json'
-          $json = Get-Content $path -Raw | ConvertFrom-Json
-          $override = [pscustomobject]@{ name = 'ms-gdk'; version = $version }
-          $json | Add-Member -NotePropertyName 'overrides' -NotePropertyValue @($override) -Force
-          ($json | ConvertTo-Json -Depth 32) | Set-Content $path -Encoding utf8
-          Write-Host "Pinned ms-gdk -> $version"
-          Get-Content $path -Raw | Write-Host
-
-      # The gdk-live-tier experiment proved XGameRuntimeInitialize and the full
-      # PlayFab live tier run on a hosted Windows Server 2022 runner. Configure
-      # restores the PlayFab SDK via the vcpkg `ms-gdk` port (VCPKG_ROOT exported
-      # above) and populates build\vcpkg_installed with the GDK redist DLLs.
-      # Pinned to windows-2022 because the default preset targets the VS2022
-      # generator (windows-2025 ships VS2026).
-      - name: Configure (default preset)
-        shell: pwsh
-        run: cmake --preset default
 
       - name: Stage GDK/PlayFab redist DLLs onto the Godot process search path
         shell: pwsh
@@ -164,7 +207,7 @@ jobs:
           # xgameruntime.dll loads inside Godot, but its init returns
           # E_GAMERUNTIME_DLL_NOT_FOUND (0x89240101) unless the full thunk chain
           # is on the Godot *process* search path. Copy the vcpkg redist DLLs
-          # next to Godot.exe so the loader resolves them.
+          # (restored from the build artifact) next to Godot.exe.
           $godotDir = Split-Path -Parent $env:GODOT
           Write-Host "Godot dir: $godotDir"
           $srcDirs = @(
@@ -177,10 +220,9 @@ jobs:
               Copy-Item $_.FullName $godotDir -Force
               $copied++
             }
-            break  # release bin is enough; stop after the first existing source
           }
           Write-Host "Copied $copied DLL(s) next to Godot.exe"
-          Get-ChildItem $godotDir -Filter 'xgameruntime*.dll' | Select-Object Name
+          Get-ChildItem $godotDir -Filter 'xgameruntime*.dll' -ErrorAction SilentlyContinue | Select-Object Name
 
       - name: Run live PlayFab tests (read + write)
         shell: pwsh
@@ -189,11 +231,15 @@ jobs:
           PLAYFAB_CUSTOM_ID: ${{ secrets.PLAYFAB_CUSTOM_ID }}
           PLAYFAB_MULTIPLAYER_MATCH_QUEUE: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
         run: |
-          Write-Host "Live PlayFab tier against GDK edition ${{ matrix.edition }} (ms-gdk ${{ matrix.gdk_version }}, ${{ matrix.release }})"
+          Write-Host "Live PlayFab tier against GDK edition ${{ matrix.gdk.edition }} (ms-gdk ${{ matrix.gdk.version }}, ${{ matrix.gdk.release }})"
+          # -SkipBuild: reuse the build artifact. -SkipDoctest: the C++ doctest
+          # already ran in the build job (Godot-independent). The live tier keeps
+          # the orchestrator (live PlayFab Multiplayer) tier enabled.
           $extra = @()
           if ($env:PLAYFAB_CUSTOM_ID) { $extra += @('-PlayFabCustomId', $env:PLAYFAB_CUSTOM_ID) }
           if ($env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) { $extra += @('-PlayFabMatchmakingQueue', $env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) }
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+            -SkipBuild -SkipDoctest `
             -Live -AllowLiveWrites `
             -PlayFabTitleId $env:PLAYFAB_TITLE_ID @extra
 
@@ -201,6 +247,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playfab-live-run-summary-gdk-${{ matrix.edition }}
+          name: playfab-live-run-summary-gdk-${{ matrix.gdk.edition }}
           path: build/test-results/run-summary.*
           if-no-files-found: warn

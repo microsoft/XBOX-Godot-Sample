@@ -1,18 +1,85 @@
 # CI: PR Gates
 
-This repo runs three CI gates on GitHub Actions, on GitHub-hosted runners. Each
-workflow first reads the Godot manifest in a tiny `ubuntu-latest` job, then runs
-the actual gate on a Windows runner. They are split across two workflows by
-trigger model.
+This repo runs its CI on GitHub Actions, on GitHub-hosted runners, split across
+two workflows by trigger model. Both share one **build-once / test-across-Godot**
+model (see [below](#build-once-per-gdk-test-across-godot-versions)): the native
+addon DLLs are built once per Microsoft GDK edition, the build output is cached +
+handed off as an artifact, and the test tiers consume that output without
+rebuilding.
 
 | Gate | Workflow | Trigger | Runner |
 | --- | --- | --- | --- |
-| GDScript parse | `.github/workflows/pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
-| Fuzz replay | `.github/workflows/pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
-| PlayFab live (read + write) | `.github/workflows/playfab-live-nightly.yml` | nightly `schedule` + `workflow_dispatch` | `windows-2022`, sandbox title, **matrixed over GDK editions** (vcpkg `ms-gdk`) |
+| GDScript parse | `pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
+| Native build + C++ doctest | `pr-gates.yml` (`build`) | same as above | `windows-2022`, **default GDK edition** |
+| Offline tier (load/smoke + non-live GUT) | `pr-gates.yml` (`test-offline`) | same as above | `windows-2022`, **default Godot** |
+| Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
+| Native build + C++ doctest | `playfab-live-nightly.yml` (`build`) | nightly `schedule` + `workflow_dispatch` | `windows-2022`, **matrixed over GDK editions** |
+| Offline tier (load/smoke + non-live GUT) | `playfab-live-nightly.yml` (`test-offline`) | same | `windows-2022`, **GDK editions × Godot supported** |
+| PlayFab live (read + write) | `playfab-live-nightly.yml` (`playfab-live`) | same | `windows-2022`, sandbox title, **GDK editions × default Godot** |
 
 > The matrix-resolve / version-resolve steps (`versions`, `resolve`) run
 > on `ubuntu-latest`; the Windows runners above do the actual gate work.
+
+## Build once per GDK, test across Godot versions
+
+The addon `.gdextension` files declare `compatibility_minimum = "4.2"` and bind
+through godot-cpp's bundled API, so **one native build per GDK edition is valid
+across the whole Godot 4.x test matrix**. CI exploits this: it never rebuilds the
+DLLs per Godot version. Two shared local composite actions implement the model so
+`pr-gates.yml` and `playfab-live-nightly.yml` reuse one implementation:
+
+- **`.github/actions/build-addons`** — builds the addons against one GDK edition
+  and packages the output. Inputs: `gdk_version` (ms-gdk port version; blank =
+  registry baseline), `artifact_name`. It exports `VCPKG_ROOT`, pins the edition
+  via a `vcpkg.json` `overrides` entry, restores the per-edition build cache,
+  `cmake --preset default` + `cmake --build build --preset debug`, runs the C++
+  doctest **once** (`build\bin\Debug\gdk_unit_tests.exe`), saves the cache, and
+  uploads the build output as an artifact. Output: `artifact_name`, `cache_key`.
+- **`.github/actions/run-offline-tier`** — restores a build artifact and runs the
+  offline tier against one Godot version. Inputs: `godot_version`,
+  `artifact_name`. It downloads the artifact, sets up Godot via `setup-godot`,
+  stages the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the **GDExtension
+  load/smoke** (below), then `run_all_tests.ps1 -SkipBuild -SkipDoctest
+  -SkipOrchestrator` (non-live GUT + bootstrap), and uploads the run summary.
+
+### Caching and artifact handoff
+
+Caching is **hybrid**:
+
+- **Cross-run `actions/cache`** on the whole `build/` tree (which includes
+  `build/vcpkg_installed`), keyed on the GDK edition **and** a source fingerprint
+  (git object SHAs of `addons/`, `cmake/`, `tests/cpp/`, `CMakeLists.txt`,
+  `CMakePresets.json`, the `godot-cpp` + `third_party/Gut` submodule pins). A
+  `restore-keys` prefix (`build-<OS>-gdk-<edition>-`) seeds a warm vcpkg restore +
+  incremental object files from a prior build of the same edition, so the cache is
+  naturally per-edition and never cross-contaminates. The cache is saved only on a
+  non-exact restore.
+- **Per-run upload artifact** (`build-pr` for PRs, `build-gdk-<edition>` for the
+  nightly) for the intra-run handoff to the test jobs. It carries the
+  build-generated overlay the test tiers need: the mirrored `tests/godot/*/addons/`
+  tree (addon DLLs + the GUT mirror + the `godot_gdk_tests` bases — the whole tree
+  is `.gitignore`d), the doctest exe, and the vcpkg redist DLLs.
+
+The test jobs check out **without submodules** — the GUT mirror arrives via the
+artifact — and never run `cmake`.
+
+### GDExtension load/smoke
+
+Before the GUT suites, `run-offline-tier` fail-fasts with a clear per-version
+message if a native addon DLL cannot load under the matrix Godot build. It copies
+`tools/ci/gdextension_load_check.gd` into each coverage host (`gdk`, `playfab`,
+`gameinput`), runs `--import`, then runs the checker (a headless `SceneTree`) and
+asserts `GDExtensionManager.is_extension_loaded(<host .gdextension>)`. This turns
+"the DLL doesn't load on Godot X" into a precise, early failure instead of a
+confusing mid-suite GUT error.
+
+### The `-SkipDoctest` flag
+
+`tools/run_all_tests.ps1` takes a `-SkipDoctest` switch (mirrors `-SkipGut` /
+`-SkipOrchestrator`): it records the C++ doctest stage as `skip` instead of
+running it. The offline matrix passes it because the Godot-independent doctest
+already ran once in the `build` job — re-running it on every Godot version would
+be pure waste. The live tier also passes it (it reuses the same build artifact).
 
 ## Godot version range
 
@@ -31,10 +98,11 @@ The set of Godot versions CI exercises is data-driven in
 }
 ```
 
-- `default` — used by single-version jobs (the live tier, and the
-  `workflow_dispatch` default for it).
-- `supported` — the matrix the **parse gate** fans out over (one leg per
-  version, `fail-fast: false` so each reports independently).
+- `default` — used by single-version jobs: the PR `build` + `test-offline`
+  jobs, the nightly live tier, and the `workflow_dispatch` default.
+- `supported` — the matrix the **parse gate** and the **nightly offline tier**
+  fan out over (one leg per version, `fail-fast: false` so each reports
+  independently).
 - `sha512` — the supply-chain pin: the SHA-512 of each version's
   `Godot_v<version>_win64.exe.zip` (see [Supply-chain hardening](#supply-chain-hardening)).
 
@@ -54,7 +122,32 @@ version, so widening the range is purely additive.
 ## Parse gate
 
 Runs `tools/check_gd_scripts_headless.ps1` (headless `--check-only` over every
-`.gd` file). One matrix leg per supported Godot version.
+`.gd` file). One matrix leg per supported Godot version. The validator groups
+`.gd` files by context: scripts inside a Godot project are checked in place;
+repo-root `addons/` and `sample/addons/` scripts are checked against a
+lightweight temp project; and **standalone project-less scripts** (e.g. CI
+helpers under `tools/`, such as `tools/ci/gdextension_load_check.gd`) are copied
+into a shared bare temp project — preserving their repo-relative path — and
+checked there.
+
+## Native build + offline tier (PRs)
+
+Beyond the parse + fuzz gates, every PR also builds the addons natively and runs
+the offline test tier, via the two shared composites
+([above](#build-once-per-gdk-test-across-godot-versions)):
+
+- **`build`** (`windows-2022`) — resolves the **default** GDK edition from
+  `gdk-versions.json` and `uses: ./.github/actions/build-addons`. Produces the
+  `build-pr` artifact + the per-edition build cache, and runs the C++ doctest
+  once. (A cold cache pays the full ms-gdk + godot-cpp compile; the vcpkg +
+  build-output caches make repeat PRs fast.)
+- **`test-offline`** (`windows-2022`, single **default** Godot) — `needs:
+  build`; `uses: ./.github/actions/run-offline-tier` with the `build-pr`
+  artifact. Runs the GDExtension load/smoke + non-live GUT.
+
+Neither job uses secrets, so both are safe on fork PRs. The PR leg deliberately
+uses the single default GDK + default Godot for the fastest signal; the nightly
+fans the **same** composites across the full GDK × Godot matrix.
 
 ## Fuzz replay
 
@@ -86,18 +179,43 @@ configure there.
 To add a regression input, drop the bytes into the matching
 `tests/cpp/fuzz/corpus/<target>/` directory and commit it.
 
-## PlayFab live tests (nightly)
+## Nightly: build → offline → live (`playfab-live-nightly.yml`)
 
-`playfab-live-nightly.yml` runs the live tier against a **dedicated sandbox
-PlayFab title**:
+The nightly is decomposed into `resolve` → `build` → (`test-offline`,
+`playfab-live`) so the addons are built **once per GDK edition** and that output
+is tested across Godot versions and against the live sandbox without per-leg
+rebuilds:
+
+- **`resolve`** (`ubuntu-latest`) — emits the GDK edition list, the single
+  default Godot (live tier), and the Godot `supported` matrix (offline tier).
+- **`build`** (`windows-2022`, matrix = GDK editions) — `uses:
+  ./.github/actions/build-addons` per edition; uploads `build-gdk-<edition>` +
+  the per-edition build cache; runs the C++ doctest once.
+- **`test-offline`** (`windows-2022`, matrix = GDK editions × Godot `supported`)
+  — `needs: build`; `uses: ./.github/actions/run-offline-tier` per
+  edition×version, restoring `build-gdk-<edition>`. This is the build-once /
+  test-many payoff: the load/smoke + non-live GUT run on every supported engine
+  version with **no rebuild**. Each leg uploads
+  `offline-run-summary-gdk-<edition>-godot-<version>`.
+- **`playfab-live`** (`windows-2022`, matrix = GDK editions × default Godot) —
+  the live (read + write) tier (below). It also `needs: build` and **restores
+  the per-edition build artifact instead of rebuilding**.
+
+### Live tier
+
+`playfab-live` runs the live tier against a **dedicated sandbox PlayFab title**,
+reusing the cached build:
 
 ```powershell
-tools/run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
+# After restoring the build-gdk-<edition> artifact + staging redist DLLs:
+tools/run_all_tests.ps1 -SkipBuild -SkipDoctest -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
 ```
 
-It runs only on a nightly schedule and manual `workflow_dispatch` (never on
-`pull_request`), so title secrets are never reachable from fork PRs. The
-`workflow_dispatch` form accepts an optional `godot_version` (defaults to the
+`-SkipBuild` reuses the artifact and `-SkipDoctest` skips the doctest (it already
+ran in `build`); the live tier keeps the orchestrator (live PlayFab Multiplayer)
+stage enabled. It runs only on a nightly schedule and manual `workflow_dispatch`
+(never on `pull_request`), so title secrets are never reachable from fork PRs.
+The `workflow_dispatch` form accepts an optional `godot_version` (defaults to the
 manifest `default`) and an optional `gdk_version` (see the GDK edition matrix
 below).
 
@@ -122,20 +240,42 @@ published to the **public** vcpkg registry and reachable from the baseline in
 }
 ```
 
-The live job runs as a matrix, one leg per edition. Before configuring, each leg
-injects the selected `ms-gdk` version as a top-level `overrides` entry in
-`vcpkg.json`, so `cmake --preset default` restores exactly that edition (this
-automates the manual pin documented in
+The Microsoft GDK edition the addons build against is **not** fixed: the set
+of editions is data-driven in
+[`.github/gdk-versions.json`](../../.github/gdk-versions.json). Each entry is an
+`ms-gdk` vcpkg port version (`YYMM.N.<build>`, mapping to the 6-digit edition
+`YYMM0N`). Policy: **support edition 251001 and newer**, limited to editions
+published to the **public** vcpkg registry and reachable from the baseline in
+`vcpkg-configuration.json`:
+
+```json
+{
+  "default": "2604.1.7839",
+  "supported": [
+    { "version": "2604.1.7839", "edition": "260401", "release": "April 2026" },
+    { "version": "2510.2.6247", "edition": "251002", "release": "October 2025" },
+    { "version": "2510.1.6224", "edition": "251001", "release": "October 2025" }
+  ]
+}
+```
+
+The edition list drives the nightly `build`, `test-offline`, and `playfab-live`
+matrices. The `build` job (via the `build-addons` composite) injects the selected
+`ms-gdk` version as a top-level `overrides` entry in `vcpkg.json` before
+`cmake --preset default`, so vcpkg restores exactly that edition (this automates
+the manual pin documented in
 [getting-started.md](../getting-started.md#switching-gdk-editions-on-the-vcpkg-path)).
+`test-offline` and `playfab-live` then consume that edition's build artifact —
+they do not re-pin or rebuild.
 
 - **`default`** — the single edition the **nightly `schedule`** runs (keeps
-  nightly sandbox load low).
+  nightly sandbox load low), and the edition the PR `build` job uses.
 - **`supported`** — the **full matrix**, run on manual `workflow_dispatch`. Pass
   a specific `gdk_version` input (e.g. `2510.2.6247`) to run just one edition.
-- The matrix uses `max-parallel: 1` (the legs are live **writes** against the
-  shared sandbox title, so they must serialize) and `fail-fast: false` (one
-  edition failing still reports the others). Each leg uploads its run summary as
-  `playfab-live-run-summary-gdk-<edition>`.
+- The `playfab-live` matrix uses `max-parallel: 1` (the legs are live **writes**
+  against the shared sandbox title, so they must serialize) and `fail-fast:
+  false` (one edition failing still reports the others). Each leg uploads its run
+  summary as `playfab-live-run-summary-gdk-<edition>`.
 - Editions outside the public registry (e.g. `260400`, `260402`) are reachable
   only via the `installed-gdk` path, not on a hosted runner, so they are not in
   this matrix. To widen coverage, add an entry whose `version` exists in
@@ -144,18 +284,21 @@ automates the manual pin documented in
 
 ### Runner provisioning (GDK runs on the hosted runner)
 
-The live job runs on a **hosted Windows Server 2022 runner** — no self-hosted
+The native jobs run on **hosted Windows Server 2022 runners** — no self-hosted
 runner is required. Three things make the Microsoft GDK runtime work there:
 
 1. **`VCPKG_ROOT` is exported** from the image's `VCPKG_INSTALLATION_ROOT` (the
-   `default` preset reads `VCPKG_ROOT`). Configuring the preset restores the
+   `default` preset reads `VCPKG_ROOT`). The `build` job's configure restores the
    PlayFab SDK + GDK redist via the vcpkg `ms-gdk` port.
-2. **The runner is pinned to `windows-2022`** because the `default` preset
+2. **The runners are pinned to `windows-2022`** because the `default` preset
    targets the `Visual Studio 17 2022` generator (`windows-2025` ships VS2026).
-3. **The GDK redist DLLs are staged next to `Godot.exe`** after configure
-   (`build/vcpkg_installed/x64-windows/bin/*.dll`). Without this, `xgameruntime.dll`
-   loads but its init returns `E_GAMERUNTIME_DLL_NOT_FOUND` (`0x89240101`) because
-   the thunk chain is not on the Godot **process** search path.
+   The build runner ABI-matches the test runners so the native DLLs are
+   compatible end-to-end.
+3. **The GDK redist DLLs are staged next to `Godot.exe`** in every test job
+   (`build/vcpkg_installed/x64-windows/bin/*.dll`, restored from the build
+   artifact). Without this, `xgameruntime.dll` loads but its init returns
+   `E_GAMERUNTIME_DLL_NOT_FOUND` (`0x89240101`) because the thunk chain is not on
+   the Godot **process** search path.
 
 Game Saves is the one live surface that stays unavailable on an unpackaged
 hosted runner: `PFGameSaveFilesInitialize` needs a packaged GDK title identity.
@@ -189,7 +332,8 @@ the Godot download) cannot silently inject code into a CI run:
 - **Third-party actions are pinned to full commit SHAs**, not floating tags. Each
   `uses:` references an immutable 40-char commit with a trailing `# vX.Y.Z`
   comment for readability (`actions/checkout`, `actions/cache`,
-  `actions/upload-artifact`). Re-tagging a release upstream cannot change what runs.
+  `actions/upload-artifact`, `actions/download-artifact`). Re-tagging a release
+  upstream cannot change what runs.
 - **The Godot download is verified against a pinned SHA-512** committed in
   `.github/godot-versions.json` (`sha512` map). `setup-godot` downloads the zip
   into a staging directory **outside** the cached path, verifies the hash, and

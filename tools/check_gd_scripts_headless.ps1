@@ -14,7 +14,9 @@
     project.godot) are checked in-place against that project root.  Scripts
     under the repo-root addons/ directory — which has no project.godot of its
     own — are checked against a lightweight temporary project so that Godot can
-    resolve res:// paths for them.
+    resolve res:// paths for them.  Standalone repo scripts that belong to no
+    project at all (e.g. CI helpers under tools/) are copied into a shared
+    temporary project — preserving their repo-relative path — and checked there.
 
     Use -Projects to validate only specific Godot project roots or synthetic
     validator contexts, and -ExcludeProjects to skip specific contexts. This is
@@ -282,6 +284,27 @@ config/name="GDScriptHookValidation"
     return $tempRoot
 }
 
+function New-StandaloneValidationProject {
+    # Standalone repo scripts (CI helpers under tools/, etc.) belong to no Godot
+    # project, addons/ tree, or sample/addons/ tree. Build a single bare temp
+    # project that callers copy each such script into (preserving the script's
+    # repo-relative path so res:// resolves and basenames never collide).
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("godot-gd-standalone-" + [System.Guid]::NewGuid().ToString('N'))
+    New-Item -Path $tempRoot -ItemType Directory | Out-Null
+    $script:TempPaths.Add($tempRoot)
+
+    @'
+; Engine configuration file.
+; Temporary project used by the git hook for standalone (project-less) scripts.
+config_version=5
+
+[application]
+config/name="GDScriptHookStandaloneValidation"
+'@ | Set-Content -Path (Join-Path $tempRoot 'project.godot') -Encoding ASCII
+
+    return $tempRoot
+}
+
 function Get-ValidationContext {
     param(
         [Parameter(Mandatory = $true)]
@@ -291,7 +314,9 @@ function Get-ValidationContext {
         [Parameter(Mandatory = $true)]
         [ref]$AddonContext,
         [Parameter(Mandatory = $true)]
-        [ref]$SampleAddonContext
+        [ref]$SampleAddonContext,
+        [Parameter(Mandatory = $true)]
+        [ref]$StandaloneContext
     )
 
     # 1. Script lives inside a Godot project — check in-place.
@@ -354,7 +379,33 @@ function Get-ValidationContext {
         }
     }
 
-    throw "No Godot project context was found for '$FilePath'."
+    # 4. Standalone repo script that belongs to no project / addons tree (e.g. a
+    #    CI helper under tools/). Copy it into a shared bare temp project at its
+    #    repo-relative path so Godot can --check-only it via res://.
+    if ($null -eq $StandaloneContext.Value) {
+        $StandaloneContext.Value = [pscustomobject]@{
+            Key         = 'standalone'
+            DisplayName = 'standalone'
+            ProjectRoot = New-StandaloneValidationProject
+            RealRoot    = $script:RepoRoot
+        }
+    }
+
+    $relativePath = Get-RelativePath -BasePath $script:RepoRoot -TargetPath $FilePath
+    $destPath = Join-Path $StandaloneContext.Value.ProjectRoot $relativePath
+    $destDir = Split-Path -Parent $destPath
+    if (-not (Test-Path -LiteralPath $destDir)) {
+        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+    }
+    Copy-Item -Path $FilePath -Destination $destPath -Force
+
+    return [pscustomobject]@{
+        Key         = $StandaloneContext.Value.Key
+        DisplayName = $StandaloneContext.Value.DisplayName
+        ProjectRoot = $StandaloneContext.Value.ProjectRoot
+        RealRoot    = $StandaloneContext.Value.RealRoot
+        ScriptPath  = 'res://' + ($relativePath -replace '\\', '/')
+    }
 }
 
 function Convert-GodotOutput {
@@ -508,11 +559,12 @@ try {
     $contexts = @{}
     $addonContext = $null
     $sampleAddonContext = $null
+    $standaloneContext = $null
     $projectFilters = @(Get-NormalizedProjectFilters -ProjectFilters $Projects)
     $excludeProjectFilters = @(Get-NormalizedProjectFilters -ProjectFilters $ExcludeProjects)
 
     foreach ($filePath in $gdFiles) {
-        $context = Get-ValidationContext -FilePath $filePath -ProjectRoots $projectRoots -AddonContext ([ref]$addonContext) -SampleAddonContext ([ref]$sampleAddonContext)
+        $context = Get-ValidationContext -FilePath $filePath -ProjectRoots $projectRoots -AddonContext ([ref]$addonContext) -SampleAddonContext ([ref]$sampleAddonContext) -StandaloneContext ([ref]$standaloneContext)
         if (-not $contexts.ContainsKey($context.Key)) {
             $contexts[$context.Key] = [pscustomobject]@{
                 DisplayName = $context.DisplayName

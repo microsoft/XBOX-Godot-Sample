@@ -41,6 +41,12 @@
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
     must already exist from a prior build.
 
+.PARAMETER SkipDoctest
+    Skips the C++ doctest stage (stage 3); it is recorded as `skip` and does not
+    abort the pipeline. The doctest is Godot-version independent, so CI builds
+    that fan the Godot-dependent tiers across multiple engine versions run it
+    once in the build job and pass -SkipDoctest to each per-Godot test leg.
+
 .PARAMETER SkipGut
     Skips the GUT host stage (stage 4) entirely; each host is recorded as
     `skip` and does not abort the pipeline. Lets the PlayFab Multiplayer
@@ -101,6 +107,7 @@ param(
     [switch]$Live,
     [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
+    [switch]$SkipDoctest,
     [switch]$SkipGut,
     [switch]$SkipOrchestrator,
     [string]$OutDir = 'build/test-results',
@@ -966,7 +973,7 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipDoctest = $SkipDoctest   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) { $effectivePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
@@ -1002,7 +1009,15 @@ function Main {
     }
 
     # 3. C++ doctest
-    if (-not $abort) {
+    if ($SkipDoctest) {
+        Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (-SkipDoctest).'
+        $skip = New-StageRecord 'cpp-doctest'
+        $skip.status = 'skip'
+        $skip.message = 'Skipped (-SkipDoctest).'
+        [void]$stages.Add($skip)
+        Write-Host ''
+    } elseif (-not $abort) {
         Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
         $stage = Invoke-Doctest
         [void]$stages.Add($stage)
