@@ -205,6 +205,8 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
         // signed-in Xbox user. Custom-ID / headless sessions and CI runners
         // without a packaged identity legitimately cannot initialize them --
         // PFGameSaveFilesInitialize reports that expected case as E_INVALIDARG.
+        // (Confirmed on a headless Windows Server CI runner: the unpackaged /
+        // no-signed-in-user session returns 0x80070057 == E_INVALIDARG.)
         // Degrade gracefully ONLY for that HRESULT: keep PlayFab Core/Services
         // running and leave Game Saves unavailable instead of taking the whole
         // runtime down. Game Saves methods still reject non-Xbox-backed users
