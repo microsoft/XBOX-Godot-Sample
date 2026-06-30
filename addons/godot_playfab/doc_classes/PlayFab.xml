@@ -12,6 +12,7 @@
 			<return type="PlayFabResult" />
 			<description>
 				Initializes PlayFab Core, Services, Game Save Files, and the shared task queue using [code]playfab/runtime/title_id[/code] and [code]playfab/runtime/endpoint[/code] from Project Settings. Returns a [PlayFabResult] describing success or failure. The first successful XGameRuntime initialization also acquires this addon's process-lifetime XGameRuntime reference.
+				Game Save Files initialization is best-effort for the expected unpackaged case: if it reports [code]E_INVALIDARG[/code] (for example a custom-ID or unpackaged session without a packaged GDK title identity), an informational line is printed (not an engine warning), initialization still succeeds, and PlayFab Core/Services remain usable. Game Saves then stays unavailable and its methods reject non-Xbox-backed users with [code]xbox_user_required[/code]. Any other Game Save Files initialization failure aborts [method initialize] (tearing down Services and Core and returning a failed [PlayFabResult]) so a genuine fault on a packaged title is not masked.
 			</description>
 		</method>
 		<method name="shutdown">

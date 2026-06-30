@@ -10,7 +10,7 @@ This is the landing page for the `godot_playfab` docs set.
 
 - abstract root singleton registration through `PlayFab`
 - shared PlayFab runtime lifecycle with a process-lifetime `XGameRuntimeInitialize` reference and re-armable `PFInitialize` / `PFServicesInitialize` cycles
-- shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync`
+- shared Game Saves runtime lifecycle through `PFGameSaveFilesInitialize` and `PFGameSaveFilesUninitializeAsync` (Game Saves init is best-effort: a failure on custom-ID / unpackaged sessions is non-fatal and leaves the rest of PlayFab usable)
 - default auto-dispatch through `playfab/runtime/embed_dispatch`
 - project-settings-backed PlayFab config through `playfab/runtime/title_id` and `playfab/runtime/endpoint`
 - manual XBOX-backed PlayFab sign-in through `PlayFab.users.sign_in_with_xuser_async(...)`

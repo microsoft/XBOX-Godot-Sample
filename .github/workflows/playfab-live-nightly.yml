@@ -1,0 +1,206 @@
+name: PlayFab Live Tests (nightly)
+
+# Live PlayFab tests (read + write) against a dedicated SANDBOX title.
+#
+# Trigger model: schedule + manual dispatch ONLY. This keeps title secrets off
+# pull_request runs (and therefore unreachable from forks). The live tier writes
+# persistent state, so it must only ever point at a sandbox title id.
+#
+# Secrets live in the 'playfab-sandbox' GitHub Environment:
+#   PLAYFAB_TITLE_ID                 (required -- the sandbox title)
+#   PLAYFAB_CUSTOM_ID                (optional -- pre-existing custom id)
+#   PLAYFAB_MULTIPLAYER_MATCH_QUEUE  (optional -- matchmaking queue name)
+# The high-privilege PLAYFAB_DEVELOPER_SECRET_KEY is deliberately NOT used here:
+# run_all_tests.ps1 scrubs it from child processes, and a pre-provisioned title
+# only needs client-side sign-in (LoginWithCustomID).
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # nightly 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      godot_version:
+        description: 'Godot version (blank = manifest default in .github/godot-versions.json)'
+        required: false
+        default: ''
+      gdk_version:
+        description: 'ms-gdk port version, e.g. 2510.2.6247 (blank = full supported matrix from .github/gdk-versions.json)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize live runs: a manual dispatch must never overlap the nightly run (or
+  # another dispatch). Queue instead of cancel -- the live-write tier mutates
+  # shared sandbox state, so cancelling a run mid-write is worse than waiting.
+  group: playfab-live
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      godot: ${{ steps.pick.outputs.godot }}
+      gdk_matrix: ${{ steps.pick.outputs.gdk_matrix }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # --- Godot version (single) ---
+          input='${{ github.event.inputs.godot_version }}'
+          if [ -n "$input" ]; then
+            v="$input"
+          else
+            v=$(jq -r '.default' .github/godot-versions.json)
+          fi
+          echo "Resolved Godot version: $v"
+          echo "godot=$v" >> "$GITHUB_OUTPUT"
+
+          # --- GDK edition matrix ---
+          # Schedule (nightly) -> the single 'default' edition.
+          # workflow_dispatch  -> the full 'supported' matrix, unless a specific
+          #                       gdk_version input names one supported edition.
+          manifest=.github/gdk-versions.json
+          gdk_input='${{ github.event.inputs.gdk_version }}'
+          if [ -n "$gdk_input" ]; then
+            matrix=$(jq -c --arg v "$gdk_input" \
+              '{include: [ .supported[] | select(.version == $v) | {gdk_version: .version, edition, release} ]}' "$manifest")
+            if [ "$(echo "$matrix" | jq '.include | length')" -eq 0 ]; then
+              echo "::error::gdk_version '$gdk_input' is not in $manifest 'supported'."; exit 1
+            fi
+          elif [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+            matrix=$(jq -c \
+              '{include: [ .supported[] | {gdk_version: .version, edition, release} ]}' "$manifest")
+          else
+            matrix=$(jq -c \
+              '. as $m | {include: [ $m.supported[] | select(.version == $m.default) | {gdk_version: .version, edition, release} ]}' "$manifest")
+          fi
+          echo "Resolved GDK matrix: $matrix"
+          echo "gdk_matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  playfab-live:
+    needs: resolve
+    runs-on: windows-2022
+    environment: playfab-sandbox
+    timeout-minutes: 60
+    strategy:
+      # Live-WRITE tests mutate shared sandbox state, so the editions must run
+      # one at a time. fail-fast: false so one edition failing still reports the
+      # others (we want full cross-edition coverage, not first-failure).
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.resolve.outputs.gdk_matrix) }}
+    name: playfab-live (GDK ${{ matrix.edition }})
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Export VCPKG_ROOT (hosted runners expose VCPKG_INSTALLATION_ROOT)
+        shell: pwsh
+        run: |
+          $vr = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
+          "VCPKG_ROOT=$vr" | Out-File $env:GITHUB_ENV -Append
+          Write-Host "VCPKG_ROOT=$vr (exists: $(Test-Path (Join-Path $vr 'scripts\buildsystems\vcpkg.cmake')))"
+
+      - name: Guard -- require sandbox title id
+        shell: pwsh
+        env:
+          PLAYFAB_TITLE_ID: ${{ secrets.PLAYFAB_TITLE_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PLAYFAB_TITLE_ID)) {
+            Write-Error 'PLAYFAB_TITLE_ID is not configured for the playfab-sandbox environment; refusing to run live writes.'
+            exit 1
+          }
+          Write-Host "Live-write target sandbox title: $env:PLAYFAB_TITLE_ID"
+
+      - name: Setup Godot ${{ needs.resolve.outputs.godot }}
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ needs.resolve.outputs.godot }}
+          flavor: console
+
+      # Pin the Microsoft GDK edition for this matrix leg by injecting a top-level
+      # `overrides` entry into vcpkg.json. `cmake --preset default` (below) then
+      # restores exactly this ms-gdk port version regardless of the registry
+      # baseline. See docs/getting-started.md "Switching GDK editions on the vcpkg path".
+      - name: Pin ms-gdk edition ${{ matrix.gdk_version }} (vcpkg overrides)
+        shell: pwsh
+        run: |
+          $version = '${{ matrix.gdk_version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            Write-Host 'No ms-gdk version for this leg; using the registry baseline.'
+            exit 0
+          }
+          $path = 'vcpkg.json'
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $override = [pscustomobject]@{ name = 'ms-gdk'; version = $version }
+          $json | Add-Member -NotePropertyName 'overrides' -NotePropertyValue @($override) -Force
+          ($json | ConvertTo-Json -Depth 32) | Set-Content $path -Encoding utf8
+          Write-Host "Pinned ms-gdk -> $version"
+          Get-Content $path -Raw | Write-Host
+
+      # The gdk-live-tier experiment proved XGameRuntimeInitialize and the full
+      # PlayFab live tier run on a hosted Windows Server 2022 runner. Configure
+      # restores the PlayFab SDK via the vcpkg `ms-gdk` port (VCPKG_ROOT exported
+      # above) and populates build\vcpkg_installed with the GDK redist DLLs.
+      # Pinned to windows-2022 because the default preset targets the VS2022
+      # generator (windows-2025 ships VS2026).
+      - name: Configure (default preset)
+        shell: pwsh
+        run: cmake --preset default
+
+      - name: Stage GDK/PlayFab redist DLLs onto the Godot process search path
+        shell: pwsh
+        run: |
+          # xgameruntime.dll loads inside Godot, but its init returns
+          # E_GAMERUNTIME_DLL_NOT_FOUND (0x89240101) unless the full thunk chain
+          # is on the Godot *process* search path. Copy the vcpkg redist DLLs
+          # next to Godot.exe so the loader resolves them.
+          $godotDir = Split-Path -Parent $env:GODOT
+          Write-Host "Godot dir: $godotDir"
+          $srcDirs = @(
+            'build\vcpkg_installed\x64-windows\bin',
+            'build\vcpkg_installed\x64-windows\debug\bin'
+          ) | Where-Object { Test-Path $_ }
+          $copied = 0
+          foreach ($d in $srcDirs) {
+            Get-ChildItem $d -Filter *.dll -ErrorAction SilentlyContinue | ForEach-Object {
+              Copy-Item $_.FullName $godotDir -Force
+              $copied++
+            }
+            break  # release bin is enough; stop after the first existing source
+          }
+          Write-Host "Copied $copied DLL(s) next to Godot.exe"
+          Get-ChildItem $godotDir -Filter 'xgameruntime*.dll' | Select-Object Name
+
+      - name: Run live PlayFab tests (read + write)
+        shell: pwsh
+        env:
+          PLAYFAB_TITLE_ID: ${{ secrets.PLAYFAB_TITLE_ID }}
+          PLAYFAB_CUSTOM_ID: ${{ secrets.PLAYFAB_CUSTOM_ID }}
+          PLAYFAB_MULTIPLAYER_MATCH_QUEUE: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
+        run: |
+          Write-Host "Live PlayFab tier against GDK edition ${{ matrix.edition }} (ms-gdk ${{ matrix.gdk_version }}, ${{ matrix.release }})"
+          $extra = @()
+          if ($env:PLAYFAB_CUSTOM_ID) { $extra += @('-PlayFabCustomId', $env:PLAYFAB_CUSTOM_ID) }
+          if ($env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) { $extra += @('-PlayFabMatchmakingQueue', $env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) }
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+            -Live -AllowLiveWrites `
+            -PlayFabTitleId $env:PLAYFAB_TITLE_ID @extra
+
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playfab-live-run-summary-gdk-${{ matrix.edition }}
+          path: build/test-results/run-summary.*
+          if-no-files-found: warn

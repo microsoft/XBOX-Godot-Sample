@@ -1,0 +1,10 @@
+{
+  "_comment": "Single source of truth for the Microsoft GDK editions the PlayFab live tier exercises. Each entry is an `ms-gdk` vcpkg port version (YYMM.N.<build>, mapping to the 6-digit edition YYMM0N). The live job injects the selected version as a top-level `overrides` entry in vcpkg.json before `cmake --preset default`, so vcpkg restores that exact edition. Policy: support edition 251001 and newer. Only editions published to the PUBLIC vcpkg registry and reachable from the baseline pinned in vcpkg-configuration.json can be matrixed on a hosted runner (e.g. 260400 / 260402 are not in the public registry and require the installed-gdk path).",
+  "_maintenance_comment": "To widen coverage, add an entry whose 'version' exists in microsoft/vcpkg versions/m-/ms-gdk.json reachable from the baseline (verify with `vcpkg search ms-gdk`). No workflow edits are required when this list changes. 'default' is the single edition the nightly schedule runs; 'supported' is the full matrix run on manual workflow_dispatch.",
+  "default": "2604.1.7839",
+  "supported": [
+    { "version": "2604.1.7839", "edition": "260401", "release": "April 2026" },
+    { "version": "2510.2.6247", "edition": "251002", "release": "October 2025" },
+    { "version": "2510.1.6224", "edition": "251001", "release": "October 2025" }
+  ]
+}
