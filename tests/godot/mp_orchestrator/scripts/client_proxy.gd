@@ -182,12 +182,12 @@ func send_shutdown(reason: String) -> void:
 	_send_frame({ "kind": "shutdown", "reason": reason })
 
 
-func disconnect_client() -> void:
+func disconnect_client(reason: String = "orchestrator_initiated") -> void:
 	if _state == STATE_CLOSED:
 		return
 	if _peer != null and _peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
 		_peer.disconnect_from_host()
-	_close("orchestrator_initiated")
+	_close(reason)
 
 
 # ---------------------------------------------------------------------------
