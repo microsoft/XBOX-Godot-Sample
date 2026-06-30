@@ -200,22 +200,42 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
     game_save_init_args.saveFolder = nullptr;
 
     hr = PFGameSaveFilesInitialize(&game_save_init_args);
-    if (FAILED(hr)) {
+    if (hr == E_INVALIDARG) {
         // Game Save Files require a packaged GDK title identity and a
         // signed-in Xbox user. Custom-ID / headless sessions and CI runners
-        // without a packaged identity legitimately cannot initialize them
-        // (PFGameSaveFilesInitialize returns E_INVALIDARG). Degrade
-        // gracefully: keep PlayFab Core/Services running and leave Game Saves
-        // unavailable instead of taking the whole runtime down. Game Saves
-        // methods still reject non-Xbox-backed users with xbox_user_required.
+        // without a packaged identity legitimately cannot initialize them --
+        // PFGameSaveFilesInitialize reports that expected case as E_INVALIDARG.
+        // Degrade gracefully ONLY for that HRESULT: keep PlayFab Core/Services
+        // running and leave Game Saves unavailable instead of taking the whole
+        // runtime down. Game Saves methods still reject non-Xbox-backed users
+        // with xbox_user_required.
         //
-        // This is logged via print() rather than WARN_PRINT on purpose: Game
+        // This is surfaced via print() rather than WARN_PRINT on purpose: Game
         // Saves being unavailable is an expected, handled condition for
         // custom-ID / unpackaged sessions, and routing it through the engine
         // error system would make GUT (which fails tests on unexpected engine
         // errors) fail every live test that initializes PlayFab.
-        UtilityFunctions::print(String("[PlayFab] Game Save Files initialization failed (") + PlayFabResult::format_hresult(hr) + "); continuing without Game Saves. This is expected for custom-ID or unpackaged sessions.");
+        UtilityFunctions::print(String("[PlayFab] Game Save Files unavailable (") + PlayFabResult::format_hresult(hr) + "); continuing without Game Saves. This is expected for custom-ID or unpackaged sessions.");
         game_save_files_initialized = false;
+    } else if (FAILED(hr)) {
+        // Any other failure is unexpected (e.g. on a packaged title where Game
+        // Saves should be available) and must NOT be masked. Log the exact
+        // HRESULT for diagnosis, then fail fast and tear down Services + Core
+        // (in reverse init order) so the caller sees the real error instead of a
+        // silently-degraded runtime.
+        UtilityFunctions::print(String("[PlayFab] Unexpected Game Save Files initialization failure (") + PlayFabResult::format_hresult(hr) + "); failing PlayFab initialization.");
+
+        XAsyncBlock services_async = {};
+        wait_for_async_completion(PFServicesUninitializeAsync(&services_async), &services_async);
+
+        XAsyncBlock core_async = {};
+        wait_for_async_completion(PFUninitializeAsync(&core_async), &core_async);
+
+        XTaskQueueCloseHandle(m_task_queue);
+        m_task_queue = nullptr;
+
+        Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to initialize PlayFab Game Save Files.", "playfab_game_save_initialize_failed");
+        return result;
     } else {
         game_save_files_initialized = true;
     }
