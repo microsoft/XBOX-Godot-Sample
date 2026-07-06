@@ -49,7 +49,8 @@ Caching is **hybrid**:
 - **Cross-run `actions/cache`** on the whole `build/` tree (which includes
   `build/vcpkg_installed`), keyed on the GDK edition **and** a source fingerprint
   (git object SHAs of `addons/`, `cmake/`, `tests/cpp/`, `CMakeLists.txt`,
-  `CMakePresets.json`, the `godot-cpp` + `third_party/Gut` submodule pins). A
+  `CMakePresets.json`, the committed `vcpkg.json` + `vcpkg-configuration.json`
+  manifest/config, and the `godot-cpp` + `third_party/Gut` submodule pins). A
   `restore-keys` prefix (`build-<OS>-gdk-<edition>-`) seeds a warm vcpkg restore +
   incremental object files from a prior build of the same edition, so the cache is
   naturally per-edition and never cross-contaminates. The cache is saved only on a
@@ -196,10 +197,15 @@ rebuilds:
   edition×version, restoring `build-gdk-<edition>`. This is the build-once /
   test-many payoff: the load/smoke + non-live GUT run on every supported engine
   version with **no rebuild**. Each leg uploads
-  `offline-run-summary-gdk-<edition>-godot-<version>`.
+  `offline-run-summary-gdk-<edition>-godot-<version>`. Gated on
+  `!cancelled() && needs.resolve.result == 'success'` (not plain `success()`),
+  so a single failed `build` edition does **not** skip the rest of the matrix —
+  the affected legs fail loudly at artifact download while the others run.
 - **`playfab-live`** (`windows-2022`, matrix = GDK editions × default Godot) —
   the live (read + write) tier (below). It also `needs: build` and **restores
-  the per-edition build artifact instead of rebuilding**.
+  the per-edition build artifact instead of rebuilding**. Uses the same
+  `!cancelled() && needs.resolve.result == 'success'` gate as `test-offline` to
+  preserve per-edition signal when one build edition fails.
 
 ### Live tier
 

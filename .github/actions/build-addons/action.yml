@@ -70,10 +70,13 @@ runs:
         Get-Content $path -Raw | Write-Host
 
     # Cache key folds the GDK edition together with the committed-source and
-    # submodule-pin object SHAs (godot-cpp + GUT). The only build-affecting
-    # working-tree change is the vcpkg.json override above, which is already
-    # captured by `gdk_version` in the key -- so git object SHAs are a stable,
-    # precise fingerprint of everything else that the build output depends on.
+    # submodule-pin object SHAs (godot-cpp + GUT) AND the committed vcpkg
+    # manifest/config (vcpkg.json + vcpkg-configuration.json) -- so a dependency
+    # bump or registry-baseline change busts the cache. Every entry is a `HEAD:`
+    # object SHA (committed contents), so the working-tree vcpkg.json override
+    # above does NOT perturb them; that edition delta is captured separately by
+    # `$edition`. Together they are a stable, precise fingerprint of everything
+    # the build output depends on.
     - name: Compute build-output cache key
       id: key
       shell: pwsh
@@ -86,6 +89,8 @@ runs:
           (git rev-parse HEAD:tests/cpp),
           (git rev-parse HEAD:CMakeLists.txt),
           (git rev-parse HEAD:CMakePresets.json),
+          (git rev-parse HEAD:vcpkg.json),
+          (git rev-parse HEAD:vcpkg-configuration.json),
           (git rev-parse HEAD:godot-cpp),
           (git rev-parse HEAD:third_party/Gut),
           $edition

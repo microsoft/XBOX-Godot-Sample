@@ -90,7 +90,15 @@ runs:
           Copy-Item $checker $tempScript -Force
           try {
             Write-Host "== load/smoke $h -> $ext =="
-            & $godot --headless --path $h --import *> "$env:RUNNER_TEMP\import_$($h -replace '[\\/]','_').log"
+            $importLog = "$env:RUNNER_TEMP\import_$($h -replace '[\\/]','_').log"
+            & $godot --headless --path $h --import *> $importLog
+            $importExit = $LASTEXITCODE
+            if ($importExit -ne 0) {
+              Write-Host "::error::Project import FAILED for $h under Godot ${{ inputs.godot_version }} (exit $importExit). Tail of ${importLog}:"
+              Get-Content $importLog -ErrorAction SilentlyContinue | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
+              $failed += $h
+              continue
+            }
             & $godot --headless --path $h -s 'res://_ci_gdext_load_check.gd' -- $ext
             if ($LASTEXITCODE -ne 0) {
               Write-Host "::error::GDExtension load/smoke FAILED for $ext under Godot ${{ inputs.godot_version }} (exit $LASTEXITCODE)"

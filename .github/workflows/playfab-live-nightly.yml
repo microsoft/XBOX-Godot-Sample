@@ -136,6 +136,11 @@ jobs:
   # This is the build-once / test-across-versions payoff -- no per-version build.
   test-offline:
     needs: [resolve, build]
+    # Preserve per-edition/per-version signal: run as long as resolve produced
+    # the matrices and the run wasn't cancelled, even if some build editions
+    # failed. Legs whose edition build failed fail loudly at artifact download;
+    # the rest still execute (build uses fail-fast: false).
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -158,6 +163,9 @@ jobs:
 
   playfab-live:
     needs: [resolve, build]
+    # As with test-offline: keep cross-edition signal even if a build edition
+    # fails. Failed editions fail at artifact download; the rest still run.
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: windows-2022
     environment: playfab-sandbox
     timeout-minutes: 60
