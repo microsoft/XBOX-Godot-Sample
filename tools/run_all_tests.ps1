@@ -542,17 +542,31 @@ function Ensure-HostImported {
     # On a cold cache (fresh checkout, or after Select-GutForGodotVersion swapped
     # the GUT version and invalidated the cache) a single `--headless --import`
     # scans resources but does not always complete class-name registration, so
-    # GUT then aborts with "Some GUT class_names have not been imported". A second
-    # import pass reliably settles the class cache. Both passes are idempotent.
-    for ($pass = 1; $pass -le 2; $pass++) {
+    # GUT then aborts with "Some GUT class_names have not been imported". Two
+    # successful import passes reliably settle the class cache. A pass can also
+    # intermittently crash (access violation, exit 0xC0000005) mid-reimport of a
+    # font/resource after a GUT swap; the reimport is incremental, so we retry a
+    # crashed pass rather than failing. Require 2 clean passes within 4 attempts.
+    $successPasses = 0
+    $attempt = 0
+    $lastFail = $null
+    while ($successPasses -lt 2 -and $attempt -lt 4) {
+        $attempt++
         $r = Invoke-ChildProcess -FileName $GodotExe -Arguments @('--headless', '--import') `
             -WorkingDirectory $HostRoot -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
-        if ($r.ExitCode -ne 0) {
-            return [pscustomobject]@{
-                ExitCode = $r.ExitCode
-                Output   = ($r.Stdout + $r.Stderr).Trim()
-                TimedOut = $r.TimedOut
-            }
+        if ($r.ExitCode -eq 0) {
+            $successPasses++
+            continue
+        }
+        $lastFail = $r
+        if ($r.TimedOut) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    if ($successPasses -lt 2) {
+        return [pscustomobject]@{
+            ExitCode = $lastFail.ExitCode
+            Output   = ($lastFail.Stdout + $lastFail.Stderr).Trim()
+            TimedOut = $lastFail.TimedOut
         }
     }
     $markerDir = Split-Path -Parent $marker

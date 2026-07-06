@@ -122,10 +122,22 @@ runs:
           try {
             Write-Host "== load/smoke $h -> $ext =="
             $importLog = "$env:RUNNER_TEMP\import_$($h -replace '[\\/]','_').log"
-            & $godot --headless --path $h --import *> $importLog
-            $importExit = $LASTEXITCODE
+            # Godot's headless --import can intermittently crash (access
+            # violation, exit 0xC0000005 / -1073741819) mid-reimport -- notably
+            # when a prior step (the GUT version swap on 4.5.x legs) invalidated
+            # cached resource imports and forces a font/resource reimport. The
+            # reimport is incremental, so a fresh pass resumes and completes it.
+            # Retry up to 3 times; a deterministic failure still fails all 3.
+            $importExit = -1
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+              & $godot --headless --path $h --import *> $importLog
+              $importExit = $LASTEXITCODE
+              if ($importExit -eq 0) { break }
+              Write-Host "::warning::Project import attempt $attempt/3 for $h under Godot ${{ inputs.godot_version }} exited $importExit; retrying."
+              Start-Sleep -Seconds 2
+            }
             if ($importExit -ne 0) {
-              Write-Host "::error::Project import FAILED for $h under Godot ${{ inputs.godot_version }} (exit $importExit). Tail of ${importLog}:"
+              Write-Host "::error::Project import FAILED for $h under Godot ${{ inputs.godot_version }} (exit $importExit after 3 attempts). Tail of ${importLog}:"
               Get-Content $importLog -ErrorAction SilentlyContinue | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
               $failed += $h
               continue

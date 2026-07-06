@@ -113,8 +113,12 @@ CMake mirrors *both* trees into every coverage host — `addons/gut` (9.6.0) and
 Locally, `run_all_tests.ps1` does the same via `Select-GutForGodotVersion`, which
 re-establishes the correct GUT from whichever submodule is present (no-op in the
 artifact-only CI path). Swapping GUT invalidates Godot's cached `class_name`
-globals, so the orchestrator's one-time host import runs **two** `--import` passes
-to settle the class cache before GUT starts.
+globals **and** forces a reimport of GUT's font/resources, so the host import
+runs **two** `--import` passes to settle the class cache before GUT starts — and,
+because Godot 4.5.x's headless importer can intermittently crash (access
+violation) mid-reimport, both the load/smoke import and the orchestrator's import
+retry a crashed pass (the reimport is incremental, so a retry resumes it; a
+deterministic failure still fails).
 
 ### The `-SkipDoctest` flag
 
