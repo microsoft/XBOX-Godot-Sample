@@ -1,6 +1,6 @@
 [configuration]
 entry_symbol = "godot_gameinput_extension_init"
-compatibility_minimum = "4.2"
+compatibility_minimum = "4.5"
 
 [libraries]
 windows.debug.x86_64 = "res://addons/godot_gameinput/bin/godot_gameinput.windows.debug.x86_64.dll"

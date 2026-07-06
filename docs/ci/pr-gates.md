@@ -22,9 +22,16 @@ rebuilding.
 
 ## Build once per GDK, test across Godot versions
 
-The addon `.gdextension` files declare `compatibility_minimum = "4.2"` and bind
-through godot-cpp's bundled API, so **one native build per GDK edition is valid
-across the whole Godot 4.x test matrix**. CI exploits this: it never rebuilds the
+The addon `.gdextension` files declare `compatibility_minimum = "4.5"` and bind
+through the GDExtension interface bundled in the pinned `godot-cpp` submodule.
+A GDExtension is **forward-compatible only**: a DLL built against godot-cpp's
+`extension_api.json` for interface version *N* loads on engine *N* and every
+newer 4.x, but is rejected by any engine older than *N*. So the `godot-cpp` pin
+**must track the oldest supported Godot line** (currently the `4.5` branch, whose
+bundled API is `4.5`); a build against a newer line (e.g. `4.6`) would fail to
+load on 4.5.1 even though the manifest claims `4.5`. With the pin on 4.5, **one
+native build per GDK edition is valid across the whole Godot 4.x test matrix**.
+CI exploits this: it never rebuilds the
 DLLs per Godot version. Two shared local composite actions implement the model so
 `pr-gates.yml` and `playfab-live-nightly.yml` reuse one implementation:
 
