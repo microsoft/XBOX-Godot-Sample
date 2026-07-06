@@ -12,7 +12,8 @@ description: >-
 
   Requires: a windows-2022 runner (the `default` CMake preset targets the VS2022
   generator) with the repository checked out using `submodules: recursive`
-  (godot-cpp + third_party/Gut are needed to configure and to mirror GUT).
+  (godot-cpp + third_party/Gut + third_party/Gut-4.5 are needed to configure and
+  to mirror both GUT versions).
 
 inputs:
   gdk_version:
@@ -93,6 +94,7 @@ runs:
           (git rev-parse HEAD:vcpkg-configuration.json),
           (git rev-parse HEAD:godot-cpp),
           (git rev-parse HEAD:third_party/Gut),
+          (git rev-parse HEAD:third_party/Gut-4.5),
           $edition
         ) -join '-'
         $sha = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($parts))

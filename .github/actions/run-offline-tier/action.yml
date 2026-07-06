@@ -38,6 +38,37 @@ runs:
         name: ${{ inputs.artifact_name }}
         path: .
 
+    # GUT selection by Godot version. The default mirror at `addons/gut` is GUT
+    # 9.6.0, which hard-requires Godot 4.6+ (`required_godot_version = '4.6'`).
+    # Godot 4.5.x legs must instead use the 4.5-compatible mirror at
+    # `addons/gut-4.5` (bitwes/Gut b366b70 = v9.5.0 + the #778 push_warning fix;
+    # still `required_godot_version = '4.5'`, and matches 9.6.0's behaviour of
+    # not failing tests on push_warning()). Both mirrors are packaged in the
+    # artifact by CMake; here we swap the 4.5 copy over `addons/gut` for 4.5.x.
+    - name: Select GUT for Godot ${{ inputs.godot_version }}
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $ver = '${{ inputs.godot_version }}'
+        if ($ver -notmatch '^4\.5(\.|-|$)') {
+          Write-Host "Godot $ver uses the default GUT mirror (addons/gut); no swap."
+          exit 0
+        }
+        $hosts = @('tests\godot\gdk', 'tests\godot\playfab', 'tests\godot\gameinput')
+        $swapped = 0
+        foreach ($h in $hosts) {
+          $gut   = Join-Path $h 'addons\gut'
+          $gut45 = Join-Path $h 'addons\gut-4.5'
+          if (-not (Test-Path $gut45)) { Write-Host "skip (no gut-4.5): $h"; continue }
+          if (Test-Path $gut) { Remove-Item $gut -Recurse -Force }
+          Copy-Item $gut45 $gut -Recurse -Force
+          $swapped++
+          Write-Host "Swapped 4.5-compatible GUT into $gut"
+        }
+        if ($swapped -eq 0) {
+          throw "Godot $ver requires the 4.5-compatible GUT mirror, but no addons/gut-4.5 was found in the artifact."
+        }
+
     - name: Setup Godot ${{ inputs.godot_version }}
       uses: ./.github/actions/setup-godot
       with:

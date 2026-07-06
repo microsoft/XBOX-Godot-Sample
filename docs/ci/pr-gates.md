@@ -44,10 +44,12 @@ DLLs per Godot version. Two shared local composite actions implement the model s
   uploads the build output as an artifact. Output: `artifact_name`, `cache_key`.
 - **`.github/actions/run-offline-tier`** — restores a build artifact and runs the
   offline tier against one Godot version. Inputs: `godot_version`,
-  `artifact_name`. It downloads the artifact, sets up Godot via `setup-godot`,
-  stages the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the **GDExtension
-  load/smoke** (below), then `run_all_tests.ps1 -SkipBuild -SkipDoctest
-  -SkipOrchestrator` (non-live GUT + bootstrap), and uploads the run summary.
+  `artifact_name`. It downloads the artifact, **selects the GUT version for the
+  engine** (see [below](#per-version-gut-45-vs-46)), sets up Godot via
+  `setup-godot`, stages the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the
+  **GDExtension load/smoke** (below), then `run_all_tests.ps1 -SkipBuild
+  -SkipDoctest -SkipOrchestrator` (non-live GUT + bootstrap), and uploads the run
+  summary.
 
 ### Caching and artifact handoff
 
@@ -57,7 +59,8 @@ Caching is **hybrid**:
   `build/vcpkg_installed`), keyed on the GDK edition **and** a source fingerprint
   (git object SHAs of `addons/`, `cmake/`, `tests/cpp/`, `CMakeLists.txt`,
   `CMakePresets.json`, the committed `vcpkg.json` + `vcpkg-configuration.json`
-  manifest/config, and the `godot-cpp` + `third_party/Gut` submodule pins). A
+  manifest/config, and the `godot-cpp` + `third_party/Gut` + `third_party/Gut-4.5`
+  submodule pins). A
   `restore-keys` prefix (`build-<OS>-gdk-<edition>-`) seeds a warm vcpkg restore +
   incremental object files from a prior build of the same edition, so the cache is
   naturally per-edition and never cross-contaminates. The cache is saved only on a
@@ -65,8 +68,9 @@ Caching is **hybrid**:
 - **Per-run upload artifact** (`build-pr` for PRs, `build-gdk-<edition>` for the
   nightly) for the intra-run handoff to the test jobs. It carries the
   build-generated overlay the test tiers need: the mirrored `tests/godot/*/addons/`
-  tree (addon DLLs + the GUT mirror + the `godot_gdk_tests` bases — the whole tree
-  is `.gitignore`d), the doctest exe, and the vcpkg redist DLLs.
+  tree (addon DLLs + **both GUT mirrors** — `gut` (9.6.0) and `gut-4.5` — plus the
+  `godot_gdk_tests` bases; the whole tree is `.gitignore`d), the doctest exe, and
+  the vcpkg redist DLLs.
 
 The test jobs check out **without submodules** — the GUT mirror arrives via the
 artifact — and never run `cmake`.
@@ -80,6 +84,37 @@ message if a native addon DLL cannot load under the matrix Godot build. It copie
 asserts `GDExtensionManager.is_extension_loaded(<host .gdextension>)`. This turns
 "the DLL doesn't load on Godot X" into a precise, early failure instead of a
 confusing mid-suite GUT error.
+
+### Per-version GUT (4.5 vs 4.6)
+
+GUT itself has a hard engine floor: **9.6.0** (`required_godot_version = '4.6'` in
+`addons/gut/utils.gd`) refuses to run on Godot 4.5.x. But 4.5.1 is a supported
+engine, so the 4.5.x offline leg needs a GUT that runs there. There is no tagged
+GUT release that both runs on 4.5.x **and** matches 9.6.0's behaviour, so the repo
+carries **two** GUT submodules:
+
+- `third_party/Gut` — pinned to upstream tag **v9.6.0**; the default. Used for
+  every Godot 4.6+ leg.
+- `third_party/Gut-4.5` — pinned to upstream commit **b366b70** (`v9.5.0` + the
+  #778 `is_push_warning` fix, still `required_godot_version = '4.5'`). Used for
+  Godot 4.5.x legs.
+
+The `is_push_warning` fix matters: before it, GUT classified every `push_warning()`
+(including addon `UtilityFunctions::push_warning` on deliberately-tested bad-input
+paths) as a failable *engine* error, so the plain v9.5.0 tag reports ~50 spurious
+failures. `b366b70` exempts push_warnings exactly as 9.6.0 does, so **both legs
+produce identical results** (verified: gdk 225 / playfab 53 / gameinput 46 passing,
+0 failures, on both 4.5.1 and 4.6.x).
+
+CMake mirrors *both* trees into every coverage host — `addons/gut` (9.6.0) and
+`addons/gut-4.5` — and the artifact packages both. `run-offline-tier`'s
+**Select GUT** step swaps `addons/gut-4.5` over `addons/gut` only when
+`godot_version` matches `4.5.x`; 4.6+ legs use the default mirror untouched.
+Locally, `run_all_tests.ps1` does the same via `Select-GutForGodotVersion`, which
+re-establishes the correct GUT from whichever submodule is present (no-op in the
+artifact-only CI path). Swapping GUT invalidates Godot's cached `class_name`
+globals, so the orchestrator's one-time host import runs **two** `--import` passes
+to settle the class cache before GUT starts.
 
 ### The `-SkipDoctest` flag
 

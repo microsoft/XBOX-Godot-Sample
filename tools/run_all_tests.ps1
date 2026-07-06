@@ -538,13 +538,21 @@ function Ensure-HostImported {
     )
     $marker = Join-Path $HostRoot '.godot\orchestrator-imported'
     if (Test-Path $marker) { return $null }
-    $r = Invoke-ChildProcess -FileName $GodotExe -Arguments @('--headless', '--import') `
-        -WorkingDirectory $HostRoot -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
-    if ($r.ExitCode -ne 0) {
-        return [pscustomobject]@{
-            ExitCode = $r.ExitCode
-            Output   = ($r.Stdout + $r.Stderr).Trim()
-            TimedOut = $r.TimedOut
+    # GUT registers `class_name` globals into `.godot/global_script_class_cache.cfg`.
+    # On a cold cache (fresh checkout, or after Select-GutForGodotVersion swapped
+    # the GUT version and invalidated the cache) a single `--headless --import`
+    # scans resources but does not always complete class-name registration, so
+    # GUT then aborts with "Some GUT class_names have not been imported". A second
+    # import pass reliably settles the class cache. Both passes are idempotent.
+    for ($pass = 1; $pass -le 2; $pass++) {
+        $r = Invoke-ChildProcess -FileName $GodotExe -Arguments @('--headless', '--import') `
+            -WorkingDirectory $HostRoot -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
+        if ($r.ExitCode -ne 0) {
+            return [pscustomobject]@{
+                ExitCode = $r.ExitCode
+                Output   = ($r.Stdout + $r.Stderr).Trim()
+                TimedOut = $r.TimedOut
+            }
         }
     }
     $markerDir = Split-Path -Parent $marker
@@ -553,6 +561,47 @@ function Ensure-HostImported {
     }
     Set-Content -Path $marker -Value ("imported at " + (Get-Date -Format 'o')) -Encoding ASCII
     return $null
+}
+
+function Select-GutForGodotVersion {
+    # Ensure each coverage host's `addons/gut` matches the Godot version under
+    # test. The default CMake-mirrored GUT (`third_party/Gut`, 9.6.0) hard-requires
+    # Godot 4.6+; Godot 4.5.x must use the 4.5-compatible mirror
+    # (`third_party/Gut-4.5`, bitwes/Gut b366b70 = v9.5.0 + the #778 push_warning
+    # fix). This runs once before the GUT host loop and (re)establishes the right
+    # version deterministically, self-healing a tree left swapped by a prior run.
+    #
+    # Local dev only: it copies from the local submodule sources. In the
+    # artifact-only CI path (no submodules checked out) the sources are absent, so
+    # this is a no-op -- CI's run-offline-tier action performs the swap itself.
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotVersion,
+        [Parameter(Mandatory = $true)][string[]]$HostList
+    )
+
+    $want45 = $GodotVersion -match '^4\.5(\.|-|$)'
+    $srcRel = if ($want45) { 'third_party\Gut-4.5\addons\gut' } else { 'third_party\Gut\addons\gut' }
+    $srcFull = Join-Path $script:RepoRoot $srcRel
+
+    if (-not (Test-Path (Join-Path $srcFull 'gut_cmdln.gd'))) {
+        # Artifact-only (CI) or missing submodule: trust the mirror already in place.
+        return
+    }
+
+    foreach ($h in $HostList) {
+        $dest = Join-Path (Join-Path $script:RepoRoot $h) 'addons\gut'
+        Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item $srcFull $dest -Recurse -Force
+        # GUT registers class_name globals cached in `.godot`. Swapping the GUT
+        # files invalidates that cache, and GUT aborts with "class_names have not
+        # been imported" until a fresh `--headless --import`. Drop the orchestrator
+        # import marker (and the stale class cache) so Ensure-HostImported re-imports.
+        $hostGodot = Join-Path (Join-Path $script:RepoRoot $h) '.godot'
+        Remove-Item (Join-Path $hostGodot 'orchestrator-imported') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $hostGodot 'global_script_class_cache.cfg') -Force -ErrorAction SilentlyContinue
+    }
+    $label = if ($want45) { '4.5-compatible (Gut-4.5)' } else { 'default (Gut)' }
+    Write-Host "   GUT: selected $label mirror for Godot $GodotVersion." -ForegroundColor Cyan
 }
 
 function Invoke-GutHost {
@@ -1040,6 +1089,7 @@ function Main {
         Write-Host ''
     } elseif (-not $abort) {
         Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
+        Select-GutForGodotVersion -GodotVersion $godotVer -HostList $hostList
         foreach ($h in $hostList) {
             Write-Host "  - host: $h"
             $stage = Invoke-GutHost -RelativeHost $h -GodotExe $godotExe -ChildEnv $childEnv
