@@ -322,13 +322,11 @@ func _stage_logos(staging_dir: String) -> void:
 func _wdapp_register(staging_dir: String) -> int:
 	print("[GDK Export] Registering loose folder via wdapp...")
 	var global_path: String = ProjectSettings.globalize_path(staging_dir)
-	var output: Array = []
-	var exit_code: int = OS.execute(_wdapp, ["register", global_path], output, true)
-	for line: Variant in output:
-		print("[wdapp] ", line)
-	if exit_code != 0:
-		push_error("GDK Export: wdapp register failed (exit code %d)" % exit_code)
-		return ERR_BUG
+	var result: Dictionary = _run_tool_capture(_wdapp, PackedStringArray(["register", global_path]))
+	_print_tool_output("wdapp", result)
+	if int(result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("wdapp register", result))
+		return FAILED
 	print("[GDK Export] Registered successfully! Launch from Xbox app or Start menu.")
 	return OK
 
@@ -339,37 +337,164 @@ func _makepkg_pack(staging_dir: String, output_path: String, p_preset: EditorExp
 	# Step 1: genmap
 	print("[GDK Export] Generating file map...")
 	var layout_path: String = global_staging + "\\layout.xml"
-	var output1: Array = []
-	var exit1: int = OS.execute(_makepkg, [
+	var genmap_result: Dictionary = _run_tool_capture(_makepkg, PackedStringArray([
 		"genmap", "/f", layout_path, "/d", global_staging
-	], output1, true)
-	for line: Variant in output1:
-		print("[makepkg] ", line)
-	if exit1 != 0:
-		push_error("GDK Export: makepkg genmap failed")
-		return ERR_BUG
+	]))
+	_print_tool_output("makepkg", genmap_result)
+	if int(genmap_result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("makepkg genmap", genmap_result))
+		return FAILED
 
 	# Step 2: pack
 	print("[GDK Export] Packing MSIXVC...")
-	var output2: Array = []
-	var pack_args: Array = [
+	var pack_args: PackedStringArray = PackedStringArray([
 		"pack", "/f", layout_path, "/d", global_staging, "/pd", global_output.get_base_dir()
-	]
+	])
 
 	# Add EKB file if provided
 	var ekb: Variant = p_preset.get("packaging/ekb_file") if p_preset.has("packaging/ekb_file") else ""
 	if ekb != "":
-		pack_args.append_array(["/lk", ProjectSettings.globalize_path(ekb)])
+		pack_args.append("/lk")
+		pack_args.append(ProjectSettings.globalize_path(ekb))
 
-	var exit2 := OS.execute(_makepkg, pack_args, output2, true)
-	for line: Variant in output2:
-		print("[makepkg] ", line)
-	if exit2 != 0:
-		push_error("GDK Export: makepkg pack failed")
-		return ERR_BUG
+	var pack_result: Dictionary = _run_tool_capture(_makepkg, pack_args)
+	_print_tool_output("makepkg", pack_result)
+	if int(pack_result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("makepkg pack", pack_result))
+		return FAILED
 
 	print("[GDK Export] Package created: ", global_output)
 	return OK
+
+# ── GDK tool invocation + failure diagnostics ───────────────────
+
+# Runs a GDK CLI tool (makepkg / wdapp) capturing stdout and stderr on
+# SEPARATE pipes. These tools split their failure diagnostics across both
+# streams (e.g. makepkg `pack` prints "Failed with error (0x...)" to stdout
+# but "Mapfile ... does not exist." to stderr; `genmap` prints the
+# "error = 0x8007xxxx" line to stderr), so both must be captured to explain a
+# failure. Returns { "exit_code": int, "stdout": String, "stderr": String }.
+#
+# NOTE: the process exit code from these tools is NOT diagnostic — it is a
+# small value (often 2 or 3) that never corresponds to the real cause. The
+# actionable signal is the HRESULT embedded in the captured text; see
+# `_summarize_tool_failure` / `_extract_hresult`.
+func _run_tool_capture(exe_path: String, args: PackedStringArray) -> Dictionary:
+	if not FileAccess.file_exists(exe_path):
+		return {"exit_code": -1, "stdout": "", "stderr": "Tool not found: " + exe_path}
+
+	var pipes: Dictionary = OS.execute_with_pipe(exe_path, args, false)
+	if pipes.is_empty():
+		return {"exit_code": -1, "stdout": "", "stderr": "Failed to launch: " + exe_path}
+
+	var pid: int = int(pipes.get("pid", -1))
+	var stdout_pipe: FileAccess = pipes.get("stdio", null) as FileAccess
+	var stderr_pipe: FileAccess = pipes.get("stderr", null) as FileAccess
+	var stdout_text: String = ""
+	var stderr_text: String = ""
+
+	while pid >= 0 and OS.is_process_running(pid):
+		stdout_text += _drain_pipe_text(stdout_pipe)
+		stderr_text += _drain_pipe_text(stderr_pipe)
+		OS.delay_msec(10)
+	stdout_text += _drain_pipe_text(stdout_pipe)
+	stderr_text += _drain_pipe_text(stderr_pipe)
+
+	var exit_code: int = OS.get_process_exit_code(pid) if pid >= 0 else -1
+	if stdout_pipe != null:
+		stdout_pipe.close()
+	if stderr_pipe != null:
+		stderr_pipe.close()
+
+	return {"exit_code": exit_code, "stdout": stdout_text, "stderr": stderr_text}
+
+static func _drain_pipe_text(pipe: FileAccess) -> String:
+	if pipe == null or not pipe.is_open():
+		return ""
+	var bytes: PackedByteArray = PackedByteArray()
+	while true:
+		var chunk: PackedByteArray = pipe.get_buffer(4096)
+		if chunk.is_empty():
+			break
+		bytes.append_array(chunk)
+	return bytes.get_string_from_utf8()
+
+# Echoes a captured tool result to the editor console, tagging the stream so a
+# reader can tell stdout diagnostics from the stderr error line.
+static func _print_tool_output(tool_name: String, result: Dictionary) -> void:
+	for line: String in str(result.get("stdout", "")).split("\n"):
+		if line.strip_edges() != "":
+			print("[%s] %s" % [tool_name, line])
+	for line: String in str(result.get("stderr", "")).split("\n"):
+		if line.strip_edges() != "":
+			print("[%s:err] %s" % [tool_name, line])
+
+# Builds a human-readable failure summary from a captured tool result so the
+# editor's export dialog explains WHY the step failed instead of surfacing an
+# opaque engine error code. Extracts the HRESULT (the real signal) and echoes
+# the captured stdout+stderr tail.
+static func _summarize_tool_failure(step_label: String, result: Dictionary) -> String:
+	var stdout_text: String = str(result.get("stdout", ""))
+	var stderr_text: String = str(result.get("stderr", ""))
+	var combined: String = stdout_text
+	if stderr_text.strip_edges() != "":
+		combined += "\n" + stderr_text
+
+	var lines: Array[String] = []
+	lines.append("GDK Export: %s failed." % step_label)
+
+	var hresult: String = _extract_hresult(combined)
+	if hresult != "":
+		lines.append("  Error %s%s" % [hresult, _describe_hresult(hresult)])
+
+	var detail: String = combined.strip_edges()
+	if detail != "":
+		lines.append("  Tool output:")
+		for line: String in detail.split("\n"):
+			var trimmed: String = line.strip_edges()
+			if trimmed != "":
+				lines.append("    " + trimmed)
+	else:
+		lines.append("  (no output captured; process exit code %d)" % int(result.get("exit_code", -1)))
+
+	return "\n".join(lines)
+
+# Finds the first failure HRESULT (high-bit-set 8-hex value such as
+# 0x8007xxxx) in captured tool output. makepkg/wdapp print this as
+# "error = 0x8007xxxx" or "Failed with error (0x8007xxxx)". Returns "" when no
+# failure HRESULT is present. A successful 0x00000000 token is intentionally
+# ignored so it never masks a real failure code appearing later in the text.
+static func _extract_hresult(text: String) -> String:
+	var re: RegEx = RegEx.new()
+	re.compile("0[xX][0-9A-Fa-f]{8}")
+	for m: RegExMatch in re.search_all(text):
+		var token: String = m.get_string(0)
+		var normalized: String = "0x" + token.substr(2).to_upper()
+		if normalized.begins_with("0x8") or normalized.begins_with("0xC"):
+			return normalized
+	return ""
+
+# Decodes the most common FACILITY_WIN32 HRESULTs makepkg/wdapp surface into a
+# short actionable hint. Unknown codes return "" (the raw HRESULT + tool output
+# already carry the detail).
+static func _describe_hresult(hresult: String) -> String:
+	# Normalize to a lowercase "0x" prefix + upper-case hex digits so the match
+	# labels below are hit regardless of the caller's casing. (`to_upper()` on
+	# the whole string would uppercase the "x" and never match.)
+	var key: String = hresult.strip_edges()
+	if key.length() > 2:
+		key = "0x" + key.substr(2).to_upper()
+	match key:
+		"0x80070002":
+			return " (ERROR_FILE_NOT_FOUND — a referenced file is missing from the staging folder)"
+		"0x80070003":
+			return " (ERROR_PATH_NOT_FOUND — a referenced path is missing)"
+		"0x80070005":
+			return " (ERROR_ACCESS_DENIED — a file is locked or the tool needs elevation)"
+		"0x80070057":
+			return " (E_INVALIDARG — check MicrosoftGame.config, e.g. TargetDeviceFamily)"
+		_:
+			return ""
 
 # ── Helpers ─────────────────────────────────────────────────────
 
