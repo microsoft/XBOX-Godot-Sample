@@ -8,8 +8,11 @@ extends SceneTree
 ##
 ## Live-gated: a real signed-in user is only available on machines with a
 ## signed-in Xbox identity. This mini-runner exits 0 in either case (live
-## machine: assert a primary user is reachable within the startup budget;
-## non-live machine: print a `BOOTSTRAP_OK ... pending` line and exit 0).
+## machine with an identity: assert a primary user or a completed sign-in
+## result is reachable within the startup budget; live machine without an
+## interactive identity, e.g. a hosted CI runner: assert the autoload at least
+## kicked off the auto-add even though sign-in stays pending; non-live machine:
+## print a `BOOTSTRAP_OK ... pending` line and exit 0).
 
 const SETTING_INITIALIZE_ON_STARTUP := "gdk/runtime/initialize_on_startup"
 const SETTING_AUTO_ADD_PRIMARY_USER := "gdk/runtime/auto_add_primary_user"
@@ -75,7 +78,17 @@ func _finish() -> void:
 			print("BOOTSTRAP_OK: %s (live: auto-add attempted; sign-in returned %s)" % [SCENARIO, default_user_result.code])
 			quit(0)
 			return
-		printerr("BOOTSTRAP_FAIL: %s -- live mode but no primary user after %d ms (no error)" % [SCENARIO, STARTUP_BUDGET_MSEC])
+		# On machines without an interactive Xbox identity (e.g. hosted CI
+		# runners running a custom-id session) the silent sign-in stays pending
+		# past the startup budget and never completes, so there is neither a
+		# primary user nor a completed result. The autoload's contract is only
+		# that it *kicks off* the auto-add during startup, so a still-pending
+		# attempt is a pass; only a total no-attempt is a failure.
+		if bootstrap.has_attempted_default_user():
+			print("BOOTSTRAP_OK: %s (live: auto-add attempted; sign-in still pending after %d ms)" % [SCENARIO, STARTUP_BUDGET_MSEC])
+			quit(0)
+			return
+		printerr("BOOTSTRAP_FAIL: %s -- live mode but auto-add was never attempted after %d ms" % [SCENARIO, STARTUP_BUDGET_MSEC])
 		quit(7)
 		return
 	print("BOOTSTRAP_OK: %s (live: primary user gamertag=%s)" % [SCENARIO, primary.get_gamertag()])

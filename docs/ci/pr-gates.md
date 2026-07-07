@@ -427,5 +427,12 @@ against the release's `SHA512-SUMS.txt`) and add it to the `sha512` map.
   GUT live suites (gdk/playfab/gameinput) still run and gate the job. Full
   orchestrator coverage requires a self-hosted Win11 runner (which omits
   `-SkipOrchestrator`).
+- **No interactive Xbox identity on the hosted runner.** GDK silent sign-in
+  (`GDK.users.add_default_user_async()`) has no signed-in Xbox account to bind to
+  on a hosted custom-id session, so it stays pending and yields no primary user.
+  The `run_auto_add_primary_user_true` bootstrap mini-runner therefore asserts
+  only that the startup autoload *kicked off* the auto-add (a still-pending
+  attempt passes), not that a user actually signs in. A real signed-in user is
+  only reachable on a self-hosted Win11 runner or a developer machine.
 - **Fuzz infra dependency.** The `fuzz-replay` job assumes the fuzz harness /
   `fuzz` preset (originally on `infra/fuzz-testing`) is present on `main`.
