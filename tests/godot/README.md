@@ -8,6 +8,8 @@ This directory contains the Godot test hosts (one per addon) that the repo-root 
 
 Each host has its addon mirrored in by CMake when you run `cmake --build build --preset debug`. The shared test bases live at `addons\godot_gdk\tests_support\bases\` and are mirrored into each host as `addons\godot_gdk_tests\`.
 
+GUT is mirrored into each host in two flavors: `addons\gut\` (v9.6.0, the default, for Godot 4.6+) and `addons\gut-4.5\` (bitwes/Gut `b366b70` = v9.5.0 + the #778 push_warning fix, for Godot 4.5.x — GUT 9.6.0 hard-requires Godot 4.6+). The orchestrator picks the right one for the Godot under test via `Select-GutForGodotVersion`, so running against Godot 4.5.1 (`GODOT_CONSOLE=<4.5.1 console exe>`) or 4.6.x both "just work".
+
 The repo-root orchestrator now owns both GUT hosts and the PlayFab Multiplayer multi-process orchestrator. Use `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>` for the full live MP sweep.
 
 ## Test Tiers

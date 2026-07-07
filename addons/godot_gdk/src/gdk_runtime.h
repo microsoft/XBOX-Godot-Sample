@@ -14,9 +14,10 @@
 #include <XGameRuntimeInit.h>
 #include <XTaskQueue.h>
 
+#include "gdk_pending_signal.h"
+
 namespace godot {
 
-class GDKPendingSignal;
 class GDKResult;
 
 class GDKRuntime {

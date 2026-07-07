@@ -1,10 +1,24 @@
 name: PR Gates
 
 # Per-PR validation gates:
-#   * parse-gate  -- headless GDScript parse, fanned out across a configurable
-#                    range of Godot versions (.github/godot-versions.json).
-#   * fuzz-replay -- builds the libFuzzer targets and replays their committed
-#                    corpora (regression mode; no active fuzzing).
+#   * parse-gate   -- headless GDScript parse, fanned out across a configurable
+#                     range of Godot versions (.github/godot-versions.json).
+#   * build        -- native addon build against the DEFAULT GDK edition
+#                     (.github/gdk-versions.json) + the C++ doctest, via the
+#                     shared build-addons composite. Produces the build-pr
+#                     artifact (addon DLLs + redist + mirrored test support).
+#   * test-offline -- restores the build-pr artifact and runs the offline
+#                     (non-live) tier -- GDExtension load/smoke + non-live GUT --
+#                     against the single DEFAULT Godot version, via the shared
+#                     run-offline-tier composite. No rebuild.
+#   * fuzz-replay  -- builds the libFuzzer targets and replays their committed
+#                     corpora (regression mode; no active fuzzing).
+#
+# build / test-offline share their step logic with playfab-live-nightly.yml via
+# the .github/actions/build-addons + run-offline-tier composites: the addons are
+# built once per GDK edition and the build output is tested across Godot versions
+# without rebuilding. The PR leg uses the default GDK + default Godot for the
+# fastest signal; the nightly fans the same composites across the full matrix.
 #
 # PlayFab live tests are intentionally NOT here -- they run on a schedule /
 # manual dispatch from playfab-live-nightly.yml so secrets never reach fork PRs.
@@ -24,12 +38,15 @@ permissions:
   contents: read
 
 jobs:
-  # Reads the supported Godot range once and exposes it as a matrix so the
-  # parse gate fans out without hard-coding versions in the workflow.
+  # Reads the supported Godot range + the default Godot / GDK editions once and
+  # exposes them as job outputs: the parse gate fans out over `matrix`, while the
+  # PR build + offline tier use the single defaults (fastest signal).
   versions:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.read.outputs.matrix }}
+      default_godot: ${{ steps.read.outputs.default_godot }}
+      default_gdk: ${{ steps.read.outputs.default_gdk }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
@@ -39,8 +56,13 @@ jobs:
         run: |
           set -euo pipefail
           matrix=$(jq -c '.supported' .github/godot-versions.json)
+          default_godot=$(jq -r '.default' .github/godot-versions.json)
+          default_gdk=$(jq -r '.default' .github/gdk-versions.json)
           echo "Supported Godot versions: $matrix"
+          echo "Default Godot: $default_godot ; default GDK edition: $default_gdk"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "default_godot=$default_godot" >> "$GITHUB_OUTPUT"
+          echo "default_gdk=$default_gdk" >> "$GITHUB_OUTPUT"
 
   parse-gate:
     needs: versions
@@ -66,6 +88,47 @@ jobs:
       - name: GDScript parse gate
         shell: pwsh
         run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
+
+  # Native addon build for PRs: the DEFAULT GDK edition only (fastest signal),
+  # via the shared build-addons composite. Runs the C++ doctest once and uploads
+  # the build-pr artifact that test-offline consumes -- no rebuild downstream.
+  # windows-2022: the `default` CMake preset targets the VS2022 generator.
+  build:
+    needs: versions
+    runs-on: windows-2022
+    outputs:
+      artifact_name: ${{ steps.build.outputs.artifact_name }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Build addons (GDK ${{ needs.versions.outputs.default_gdk }}) + C++ doctest
+        id: build
+        uses: ./.github/actions/build-addons
+        with:
+          gdk_version: ${{ needs.versions.outputs.default_gdk }}
+          artifact_name: build-pr
+
+  # Offline (non-live) tier for PRs: restore the build-pr artifact and run the
+  # GDExtension load/smoke + non-live GUT against the single DEFAULT Godot
+  # version, via the shared run-offline-tier composite. No secrets -> fork-safe.
+  test-offline:
+    needs: [versions, build]
+    runs-on: windows-2022
+    steps:
+      # No submodules: the GUT mirror + addon DLLs arrive via the build artifact.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Offline tier (Godot ${{ needs.versions.outputs.default_godot }})
+        uses: ./.github/actions/run-offline-tier
+        with:
+          godot_version: ${{ needs.versions.outputs.default_godot }}
+          artifact_name: ${{ needs.build.outputs.artifact_name }}
+          run_summary_artifact: pr-offline-run-summary
 
   fuzz-replay:
     # Pinned to windows-2022: the fuzz preset uses the "Visual Studio 17 2022"

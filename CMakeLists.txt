@@ -20,6 +20,12 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut/plugin.cfg")
         "  git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/Gut-4.5/addons/gut/plugin.cfg")
+    message(FATAL_ERROR
+        "GUT (4.5-compatible) submodule not found at third_party/Gut-4.5/. Run:\n"
+        "  git submodule update --init --recursive")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(GODOT_ADDONS_ROOT "${CMAKE_SOURCE_DIR}/addons")
@@ -141,6 +147,22 @@ endif()
 godot_addon_mirror_test_support(
     SOURCE_DIR  "${CMAKE_SOURCE_DIR}/third_party/Gut/addons/gut"
     DEST_SUBDIR "gut"
+    HOST_DIRS
+        ${GODOT_GUT_HOST_DIRS}
+)
+
+# ── GUT (4.5-compatible) mirror ──────────────────────────────────
+# GUT 9.6.0 hard-requires Godot 4.6+ (`required_godot_version = '4.6'`), so
+# it cannot run on the Godot 4.5.x test leg. `third_party/Gut-4.5/` is a
+# second submodule pinned to bitwes/Gut b366b70 (v9.5.0 + the #778
+# `is_push_warning` fix, still `required_godot_version = '4.5'`), which runs
+# on Godot 4.5.x AND matches 9.6.0's behavior of not failing tests on
+# push_warning(). Mirror it into the same hosts as a sibling `addons/gut-4.5`
+# directory. The default `addons/gut` stays 9.6.0; run-offline-tier swaps in
+# this copy only for Godot 4.5.x legs (see .github/actions/run-offline-tier).
+godot_addon_mirror_test_support(
+    SOURCE_DIR  "${CMAKE_SOURCE_DIR}/third_party/Gut-4.5/addons/gut"
+    DEST_SUBDIR "gut-4.5"
     HOST_DIRS
         ${GODOT_GUT_HOST_DIRS}
 )

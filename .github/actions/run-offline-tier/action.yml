@@ -1,0 +1,171 @@
+name: Run offline test tier
+description: >-
+  Restore a build-addons artifact and run the offline (non-live) test tier
+  against a single Godot version: a fast GDExtension load/smoke per coverage
+  host, then the repo orchestrator's non-live stages (parse, GUT, bootstrap)
+  with the C++ doctest and build skipped (they already ran in the build job).
+
+  This is the Godot-version axis of the build-once / test-across-versions
+  matrix: the native addons are built once per GDK edition and this action
+  validates them against each supported engine version without rebuilding.
+
+  Requires: a windows-2022 runner with the repository checked out (no submodules
+  needed -- the GUT mirror + addon DLLs come from the artifact). The build job
+  for the matching GDK edition must have produced `artifact_name`.
+
+inputs:
+  godot_version:
+    description: Godot version to test against (matches a godot-versions.json entry).
+    required: true
+  artifact_name:
+    description: Name of the build-addons artifact to restore (the build output).
+    required: true
+  run_summary_artifact:
+    description: Name for the uploaded run-summary artifact.
+    required: false
+    default: offline-run-summary
+  gut_timeout_sec:
+    description: Per-host GUT / per-bootstrap timeout (seconds) forwarded to the orchestrator.
+    required: false
+    default: '600'
+
+runs:
+  using: composite
+  steps:
+    - name: Restore build output (${{ inputs.artifact_name }})
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: .
+
+    # GUT selection by Godot version. The default mirror at `addons/gut` is GUT
+    # 9.6.0, which hard-requires Godot 4.6+ (`required_godot_version = '4.6'`).
+    # Godot 4.5.x legs must instead use the 4.5-compatible mirror at
+    # `addons/gut-4.5` (bitwes/Gut b366b70 = v9.5.0 + the #778 push_warning fix;
+    # still `required_godot_version = '4.5'`, and matches 9.6.0's behaviour of
+    # not failing tests on push_warning()). Both mirrors are packaged in the
+    # artifact by CMake; here we swap the 4.5 copy over `addons/gut` for 4.5.x.
+    - name: Select GUT for Godot ${{ inputs.godot_version }}
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $ver = '${{ inputs.godot_version }}'
+        if ($ver -notmatch '^4\.5(\.|-|$)') {
+          Write-Host "Godot $ver uses the default GUT mirror (addons/gut); no swap."
+          exit 0
+        }
+        $hosts = @('tests\godot\gdk', 'tests\godot\playfab', 'tests\godot\gameinput')
+        $swapped = 0
+        foreach ($h in $hosts) {
+          $gut   = Join-Path $h 'addons\gut'
+          $gut45 = Join-Path $h 'addons\gut-4.5'
+          if (-not (Test-Path $gut45)) { Write-Host "skip (no gut-4.5): $h"; continue }
+          if (Test-Path $gut) { Remove-Item $gut -Recurse -Force }
+          Copy-Item $gut45 $gut -Recurse -Force
+          $swapped++
+          Write-Host "Swapped 4.5-compatible GUT into $gut"
+        }
+        if ($swapped -eq 0) {
+          throw "Godot $ver requires the 4.5-compatible GUT mirror, but no addons/gut-4.5 was found in the artifact."
+        }
+
+    - name: Setup Godot ${{ inputs.godot_version }}
+      uses: ./.github/actions/setup-godot
+      with:
+        version: ${{ inputs.godot_version }}
+        flavor: console
+
+    # xgameruntime.dll (and the PlayFab/GDK redist chain) loads inside the Godot
+    # process, but its init fails unless the full thunk chain is on the Godot
+    # *process* search path. Copy the vcpkg redist DLLs next to Godot.exe so the
+    # loader resolves them -- required for both the load/smoke and the GUT suites.
+    - name: Stage GDK/PlayFab redist DLLs next to Godot.exe
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $godotDir = Split-Path -Parent $env:GODOT
+        Write-Host "Godot dir: $godotDir"
+        $srcDirs = @(
+          'build\vcpkg_installed\x64-windows\bin',
+          'build\vcpkg_installed\x64-windows\debug\bin'
+        ) | Where-Object { Test-Path $_ }
+        $copied = 0
+        foreach ($d in $srcDirs) {
+          Get-ChildItem $d -Filter *.dll -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName $godotDir -Force
+            $copied++
+          }
+        }
+        Write-Host "Copied $copied DLL(s) next to Godot.exe"
+        Get-ChildItem $godotDir -Filter 'xgameruntime*.dll' -ErrorAction SilentlyContinue | Select-Object Name
+
+    # Fail fast (with a clear per-version message) if a native addon DLL cannot
+    # load under this Godot build, instead of a confusing mid-suite GUT error.
+    - name: GDExtension load/smoke (Godot ${{ inputs.godot_version }})
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $godot = $env:GODOT
+        $checker = (Resolve-Path 'tools\ci\gdextension_load_check.gd').Path
+        # host (relative) -> primary .gdextension res:// path it must load.
+        $hosts = [ordered]@{
+          'tests\godot\gdk'       = 'res://addons/godot_gdk/godot_gdk.gdextension'
+          'tests\godot\playfab'   = 'res://addons/godot_playfab/godot_playfab.gdextension'
+          'tests\godot\gameinput' = 'res://addons/godot_gameinput/godot_gameinput.gdextension'
+        }
+        $failed = @()
+        foreach ($h in $hosts.Keys) {
+          if (-not (Test-Path $h)) { Write-Host "skip (missing host): $h"; continue }
+          $ext = $hosts[$h]
+          $tempScript = Join-Path $h '_ci_gdext_load_check.gd'
+          Copy-Item $checker $tempScript -Force
+          try {
+            Write-Host "== load/smoke $h -> $ext =="
+            $importLog = "$env:RUNNER_TEMP\import_$($h -replace '[\\/]','_').log"
+            # Godot's headless --import can intermittently crash (access
+            # violation, exit 0xC0000005 / -1073741819) mid-reimport -- notably
+            # when a prior step (the GUT version swap on 4.5.x legs) invalidated
+            # cached resource imports and forces a font/resource reimport. The
+            # reimport is incremental, so a fresh pass resumes and completes it.
+            # Retry up to 3 times; a deterministic failure still fails all 3.
+            $importExit = -1
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+              & $godot --headless --path $h --import *> $importLog
+              $importExit = $LASTEXITCODE
+              if ($importExit -eq 0) { break }
+              Write-Host "::warning::Project import attempt $attempt/3 for $h under Godot ${{ inputs.godot_version }} exited $importExit; retrying."
+              Start-Sleep -Seconds 2
+            }
+            if ($importExit -ne 0) {
+              Write-Host "::error::Project import FAILED for $h under Godot ${{ inputs.godot_version }} (exit $importExit after 3 attempts). Tail of ${importLog}:"
+              Get-Content $importLog -ErrorAction SilentlyContinue | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
+              $failed += $h
+              continue
+            }
+            & $godot --headless --path $h -s 'res://_ci_gdext_load_check.gd' -- $ext
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::GDExtension load/smoke FAILED for $ext under Godot ${{ inputs.godot_version }} (exit $LASTEXITCODE)"
+              $failed += $h
+            }
+          } finally {
+            Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+          }
+        }
+        if ($failed.Count -gt 0) {
+          throw "GDExtension load/smoke failed for: $($failed -join ', ') under Godot ${{ inputs.godot_version }}."
+        }
+
+    - name: Run offline test tier (-SkipBuild -SkipDoctest -SkipOrchestrator)
+      shell: pwsh
+      run: |
+        pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+          -SkipBuild -SkipDoctest -SkipOrchestrator `
+          -GutTimeoutSec ${{ inputs.gut_timeout_sec }}
+
+    - name: Upload run summary
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.run_summary_artifact }}
+        path: build/test-results/run-summary.*
+        if-no-files-found: warn
