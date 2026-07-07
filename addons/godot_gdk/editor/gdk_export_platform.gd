@@ -5,6 +5,10 @@ extends EditorExportPlatformExtension
 const PLATFORM_NAME := "XBOX on PC"
 const OS_NAME := "Windows"
 
+# Max number of captured tool-output lines to embed in the export dialog error
+# summary. The full output is still printed to the editor Output panel.
+const _MAX_SUMMARY_OUTPUT_LINES := 12
+
 # GDK tool paths (resolved on init)
 var _gdk_root := ""
 var _makepkg := ""
@@ -420,19 +424,25 @@ static func _drain_pipe_text(pipe: FileAccess) -> String:
 	return bytes.get_string_from_utf8()
 
 # Echoes a captured tool result to the editor console, tagging the stream so a
-# reader can tell stdout diagnostics from the stderr error line.
+# reader can tell stdout diagnostics from the stderr error line. Lines are
+# trimmed because the tools emit CRLF and `split("\n")` would otherwise leave a
+# stray `\r` on every line.
 static func _print_tool_output(tool_name: String, result: Dictionary) -> void:
 	for line: String in str(result.get("stdout", "")).split("\n"):
-		if line.strip_edges() != "":
-			print("[%s] %s" % [tool_name, line])
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			print("[%s] %s" % [tool_name, trimmed])
 	for line: String in str(result.get("stderr", "")).split("\n"):
-		if line.strip_edges() != "":
-			print("[%s:err] %s" % [tool_name, line])
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			print("[%s:err] %s" % [tool_name, trimmed])
 
 # Builds a human-readable failure summary from a captured tool result so the
 # editor's export dialog explains WHY the step failed instead of surfacing an
 # opaque engine error code. Extracts the HRESULT (the real signal) and echoes
-# the captured stdout+stderr tail.
+# the TAIL of the captured stdout+stderr (last `_MAX_SUMMARY_OUTPUT_LINES`
+# non-empty lines) so the dialog stays readable — the full, untruncated output
+# is already sent to the editor Output panel by `_print_tool_output`.
 static func _summarize_tool_failure(step_label: String, result: Dictionary) -> String:
 	var stdout_text: String = str(result.get("stdout", ""))
 	var stderr_text: String = str(result.get("stderr", ""))
@@ -447,15 +457,24 @@ static func _summarize_tool_failure(step_label: String, result: Dictionary) -> S
 	if hresult != "":
 		lines.append("  Error %s%s" % [hresult, _describe_hresult(hresult)])
 
-	var detail: String = combined.strip_edges()
-	if detail != "":
-		lines.append("  Tool output:")
-		for line: String in detail.split("\n"):
-			var trimmed: String = line.strip_edges()
-			if trimmed != "":
-				lines.append("    " + trimmed)
-	else:
+	var detail_lines: Array[String] = []
+	for line: String in combined.split("\n"):
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			detail_lines.append(trimmed)
+
+	if detail_lines.is_empty():
 		lines.append("  (no output captured; process exit code %d)" % int(result.get("exit_code", -1)))
+		return "\n".join(lines)
+
+	var total: int = detail_lines.size()
+	if total > _MAX_SUMMARY_OUTPUT_LINES:
+		detail_lines = detail_lines.slice(total - _MAX_SUMMARY_OUTPUT_LINES)
+		lines.append("  Tool output (last %d of %d lines; see Output panel for full log):" % [_MAX_SUMMARY_OUTPUT_LINES, total])
+	else:
+		lines.append("  Tool output:")
+	for line: String in detail_lines:
+		lines.append("    " + line)
 
 	return "\n".join(lines)
 

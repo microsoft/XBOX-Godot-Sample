@@ -79,11 +79,13 @@ HRESULT (`error = 0x8007xxxx`, a `FACILITY_WIN32` code) that they print
 across **both** stdout and stderr, depending on the sub-command.
 
 `gdk_export_platform.gd` captures both streams (via `OS.execute_with_pipe`),
-echoes them to the editor Output panel tagged by stream, extracts the
-HRESULT, and includes it — with a short hint for the common codes
-(`0x80070002` file not found, `0x80070003` path not found, `0x80070005`
-access denied, `0x80070057` invalid config) — in the error surfaced by the
-export dialog.
+echoes the **full** output to the editor Output panel tagged by stream,
+extracts the HRESULT, and surfaces it — with a short hint for the common
+codes (`0x80070002` file not found, `0x80070003` path not found,
+`0x80070005` access denied, `0x80070057` invalid config) plus the **tail**
+of the captured output — in the error shown by the export dialog. The dialog
+text is capped to the last handful of lines so a large tool log stays
+readable; the full log remains in the Output panel.
 
 A failed tool step returns `FAILED`, **not** `ERR_BUG`. Returning `ERR_BUG`
 (Godot `Error` value `47`) is what produced the opaque *"unexpected error

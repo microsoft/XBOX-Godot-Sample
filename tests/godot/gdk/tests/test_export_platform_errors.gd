@@ -95,6 +95,27 @@ func test_summary_without_output_reports_exit_code() -> void:
 	assert_string_contains(summary, "9")
 
 
+func test_summary_caps_long_output_to_tail() -> void:
+	# 40 lines of stdout should be truncated to the tail in the dialog summary,
+	# with the HRESULT (on the last line) and a truncation notice preserved.
+	var many: Array[String] = []
+	for i in range(39):
+		many.append("noise line %d" % i)
+	many.append("Package was not created, error = 0x80070002.")
+	var result := {"exit_code": 3, "stdout": "\n".join(many), "stderr": ""}
+	var summary: String = ExportPlatform._summarize_tool_failure("makepkg pack", result)
+
+	# The HRESULT must survive truncation.
+	assert_string_contains(summary, "0x80070002")
+	# A truncation notice referencing the full line count is shown.
+	assert_string_contains(summary, "last 12 of 40 lines")
+	# Early noise lines are dropped; the final line is retained.
+	assert_false(summary.contains("noise line 0"), "leading lines are truncated")
+	assert_string_contains(summary, "Package was not created")
+	# The embedded output is bounded (well under the 40 source lines).
+	assert_true(summary.split("\n").size() <= 16, "summary stays compact")
+
+
 # ── Return-code regression (issue #123) ───────────────────────────────────
 
 func test_tool_steps_no_longer_return_err_bug() -> void:
