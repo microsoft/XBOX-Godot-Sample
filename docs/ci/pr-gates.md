@@ -260,13 +260,20 @@ reusing the cached build:
 
 ```powershell
 # After restoring the build-gdk-<edition> artifact + staging redist DLLs:
-tools/run_all_tests.ps1 -SkipBuild -SkipDoctest -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
+tools/run_all_tests.ps1 -SkipBuild -SkipDoctest -SkipOrchestrator -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
 ```
 
 `-SkipBuild` reuses the artifact and `-SkipDoctest` skips the doctest (it already
-ran in `build`); the live tier keeps the orchestrator (live PlayFab Multiplayer)
-stage enabled. It runs only on a nightly schedule and manual `workflow_dispatch`
-(never on `pull_request`), so title secrets are never reachable from fork PRs.
+ran in `build`). `-SkipOrchestrator` disables the multi-client PlayFab Multiplayer
+orchestrator (stage 5) on the hosted runner: hosted Windows Server runners can't
+reliably form the real-time Party P2P mesh between spawned client processes, and
+the live Lobby/Match service calls intermittently time out (host `create_lobby`
+hangs ~60-70s), whose respawn cascade also fails otherwise-healthy scenarios. The
+single-process GUT live suites (gdk/playfab/gameinput) still run and gate the job;
+a self-hosted Win11 runner should omit `-SkipOrchestrator` to exercise the full
+orchestrator. The live tier runs only on a nightly schedule and manual
+`workflow_dispatch` (never on `pull_request`), so title secrets are never
+reachable from fork PRs.
 The `workflow_dispatch` form accepts an optional `godot_version` (defaults to the
 manifest `default`) and an optional `gdk_version` (see the GDK edition matrix
 below).
@@ -410,5 +417,15 @@ against the release's `SHA512-SUMS.txt`) and add it to the `sha512` map.
   Core/Services up) so the rest of the live tier runs; the custom-ID Game Saves tests
   assert the `xbox_user_required` rejection rather than exercising real cloud saves.
   Full Game Saves coverage requires a packaged title run (out of scope for the hosted gate).
+- **The live Multiplayer orchestrator is skipped on hosted runners.** The
+  `playfab-live` job passes `-SkipOrchestrator`, so stage 5 (the multi-client
+  PlayFab Multiplayer/Party orchestrator) records as `skip`. Hosted Windows Server
+  runners can't reliably form the real-time Party P2P mesh between spawned client
+  processes, and live Lobby/Match service calls intermittently time out (host
+  `create_lobby` hangs ~60-70s -> `proxy_closed_request_timeout_host_create_lobby`),
+  whose respawn cascade also fails otherwise-healthy scenarios. The single-process
+  GUT live suites (gdk/playfab/gameinput) still run and gate the job. Full
+  orchestrator coverage requires a self-hosted Win11 runner (which omits
+  `-SkipOrchestrator`).
 - **Fuzz infra dependency.** The `fuzz-replay` job assumes the fuzz harness /
   `fuzz` preset (originally on `infra/fuzz-testing`) is present on `main`.
