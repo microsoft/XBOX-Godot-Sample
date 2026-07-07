@@ -41,6 +41,12 @@
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
     must already exist from a prior build.
 
+.PARAMETER SkipDoctest
+    Skips the C++ doctest stage (stage 3); it is recorded as `skip` and does not
+    abort the pipeline. The doctest is Godot-version independent, so CI builds
+    that fan the Godot-dependent tiers across multiple engine versions run it
+    once in the build job and pass -SkipDoctest to each per-Godot test leg.
+
 .PARAMETER SkipGut
     Skips the GUT host stage (stage 4) entirely; each host is recorded as
     `skip` and does not abort the pipeline. Lets the PlayFab Multiplayer
@@ -101,6 +107,7 @@ param(
     [switch]$Live,
     [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
+    [switch]$SkipDoctest,
     [switch]$SkipGut,
     [switch]$SkipOrchestrator,
     [string]$OutDir = 'build/test-results',
@@ -531,13 +538,35 @@ function Ensure-HostImported {
     )
     $marker = Join-Path $HostRoot '.godot\orchestrator-imported'
     if (Test-Path $marker) { return $null }
-    $r = Invoke-ChildProcess -FileName $GodotExe -Arguments @('--headless', '--import') `
-        -WorkingDirectory $HostRoot -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
-    if ($r.ExitCode -ne 0) {
+    # GUT registers `class_name` globals into `.godot/global_script_class_cache.cfg`.
+    # On a cold cache (fresh checkout, or after Select-GutForGodotVersion swapped
+    # the GUT version and invalidated the cache) a single `--headless --import`
+    # scans resources but does not always complete class-name registration, so
+    # GUT then aborts with "Some GUT class_names have not been imported". Two
+    # successful import passes reliably settle the class cache. A pass can also
+    # intermittently crash (access violation, exit 0xC0000005) mid-reimport of a
+    # font/resource after a GUT swap; the reimport is incremental, so we retry a
+    # crashed pass rather than failing. Require 2 clean passes within 4 attempts.
+    $successPasses = 0
+    $attempt = 0
+    $lastFail = $null
+    while ($successPasses -lt 2 -and $attempt -lt 4) {
+        $attempt++
+        $r = Invoke-ChildProcess -FileName $GodotExe -Arguments @('--headless', '--import') `
+            -WorkingDirectory $HostRoot -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
+        if ($r.ExitCode -eq 0) {
+            $successPasses++
+            continue
+        }
+        $lastFail = $r
+        if ($r.TimedOut) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    if ($successPasses -lt 2) {
         return [pscustomobject]@{
-            ExitCode = $r.ExitCode
-            Output   = ($r.Stdout + $r.Stderr).Trim()
-            TimedOut = $r.TimedOut
+            ExitCode = $lastFail.ExitCode
+            Output   = ($lastFail.Stdout + $lastFail.Stderr).Trim()
+            TimedOut = $lastFail.TimedOut
         }
     }
     $markerDir = Split-Path -Parent $marker
@@ -546,6 +575,47 @@ function Ensure-HostImported {
     }
     Set-Content -Path $marker -Value ("imported at " + (Get-Date -Format 'o')) -Encoding ASCII
     return $null
+}
+
+function Select-GutForGodotVersion {
+    # Ensure each coverage host's `addons/gut` matches the Godot version under
+    # test. The default CMake-mirrored GUT (`third_party/Gut`, 9.6.0) hard-requires
+    # Godot 4.6+; Godot 4.5.x must use the 4.5-compatible mirror
+    # (`third_party/Gut-4.5`, bitwes/Gut b366b70 = v9.5.0 + the #778 push_warning
+    # fix). This runs once before the GUT host loop and (re)establishes the right
+    # version deterministically, self-healing a tree left swapped by a prior run.
+    #
+    # Local dev only: it copies from the local submodule sources. In the
+    # artifact-only CI path (no submodules checked out) the sources are absent, so
+    # this is a no-op -- CI's run-offline-tier action performs the swap itself.
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotVersion,
+        [Parameter(Mandatory = $true)][string[]]$HostList
+    )
+
+    $want45 = $GodotVersion -match '^4\.5(\.|-|$)'
+    $srcRel = if ($want45) { 'third_party\Gut-4.5\addons\gut' } else { 'third_party\Gut\addons\gut' }
+    $srcFull = Join-Path $script:RepoRoot $srcRel
+
+    if (-not (Test-Path (Join-Path $srcFull 'gut_cmdln.gd'))) {
+        # Artifact-only (CI) or missing submodule: trust the mirror already in place.
+        return
+    }
+
+    foreach ($h in $HostList) {
+        $dest = Join-Path (Join-Path $script:RepoRoot $h) 'addons\gut'
+        Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item $srcFull $dest -Recurse -Force
+        # GUT registers class_name globals cached in `.godot`. Swapping the GUT
+        # files invalidates that cache, and GUT aborts with "class_names have not
+        # been imported" until a fresh `--headless --import`. Drop the orchestrator
+        # import marker (and the stale class cache) so Ensure-HostImported re-imports.
+        $hostGodot = Join-Path (Join-Path $script:RepoRoot $h) '.godot'
+        Remove-Item (Join-Path $hostGodot 'orchestrator-imported') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $hostGodot 'global_script_class_cache.cfg') -Force -ErrorAction SilentlyContinue
+    }
+    $label = if ($want45) { '4.5-compatible (Gut-4.5)' } else { 'default (Gut)' }
+    Write-Host "   GUT: selected $label mirror for Godot $GodotVersion." -ForegroundColor Cyan
 }
 
 function Invoke-GutHost {
@@ -966,7 +1036,7 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
+    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipDoctest = $SkipDoctest   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
     Write-Host "                   PlayFabTitleId = $(if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) { $effectivePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) { 'set' } else { 'unset' })" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
@@ -1002,7 +1072,15 @@ function Main {
     }
 
     # 3. C++ doctest
-    if (-not $abort) {
+    if ($SkipDoctest) {
+        Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (-SkipDoctest).'
+        $skip = New-StageRecord 'cpp-doctest'
+        $skip.status = 'skip'
+        $skip.message = 'Skipped (-SkipDoctest).'
+        [void]$stages.Add($skip)
+        Write-Host ''
+    } elseif (-not $abort) {
         Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
         $stage = Invoke-Doctest
         [void]$stages.Add($stage)
@@ -1025,6 +1103,7 @@ function Main {
         Write-Host ''
     } elseif (-not $abort) {
         Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
+        Select-GutForGodotVersion -GodotVersion $godotVer -HostList $hostList
         foreach ($h in $hostList) {
             Write-Host "  - host: $h"
             $stage = Invoke-GutHost -RelativeHost $h -GodotExe $godotExe -ChildEnv $childEnv

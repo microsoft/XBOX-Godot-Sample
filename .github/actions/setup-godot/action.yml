@@ -1,0 +1,122 @@
+name: Setup Godot
+description: >-
+  Download, cache, and expose a Godot console (or editor) executable for a given
+  version. The version is parameterized so callers can run a range of Godot
+  releases. The download is verified against the SHA-512 pinned in
+  .github/godot-versions.json before extraction (supply-chain hardening). Exports
+  GODOT, GODOT_CONSOLE, and GODOT_BIN so the repo tooling
+  (tools\check_gd_scripts_headless.ps1, tools\run_all_tests.ps1) discovers the
+  executable through its standard env precedence.
+
+inputs:
+  version:
+    description: >-
+      Godot version string matching a godotengine/godot-builds release tag,
+      e.g. 4.6.1-stable. The release must publish the asset
+      Godot_v<version>_win64.exe.zip (which bundles the _console.exe).
+    required: true
+  flavor:
+    description: "Which executable to expose: 'console' (default) or 'editor'."
+    required: false
+    default: console
+
+outputs:
+  godot-path:
+    description: Absolute path to the resolved Godot executable.
+    value: ${{ steps.resolve.outputs.godot-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve pinned SHA-512
+      id: pin
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+
+        # The expected hash is pinned in-repo (single source of truth). This step
+        # runs on EVERY invocation (even cache hits) so an unpinned version is
+        # refused up front, and so the hash can be folded into the cache key.
+        $manifestPath = Join-Path $env:GITHUB_WORKSPACE '.github/godot-versions.json'
+        if (-not (Test-Path $manifestPath)) {
+          throw "Godot versions manifest not found at $manifestPath. Check out the repository before calling setup-godot."
+        }
+        $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
+        $expected = $null
+        if ($manifest.PSObject.Properties.Name -contains 'sha512') {
+          $expected = $manifest.sha512.$version
+        }
+        if ([string]::IsNullOrWhiteSpace($expected)) {
+          throw "No pinned SHA-512 for Godot '$version' in .github/godot-versions.json ('sha512' map). Refusing to use an unverified binary -- add the hash of Godot_v${version}_win64.exe.zip to harden the supply chain."
+        }
+        "hash=$($expected.ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+    - name: Restore cached Godot
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}\godot\${{ inputs.version }}
+        # The pinned hash is part of the key: cache hits skip re-verification, so
+        # if the SHA-512 for an existing version tag is ever updated, the old
+        # cached binary must NOT be treated as a hit. Keying on the hash forces a
+        # fresh download + verify whenever the pin changes.
+        key: godot-${{ runner.os }}-${{ inputs.version }}-${{ steps.pin.outputs.hash }}
+
+    - name: Download, verify, and extract Godot
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $expected = '${{ steps.pin.outputs.hash }}'
+
+        $asset = "Godot_v${version}_win64.exe.zip"
+        $url = "https://github.com/godotengine/godot-builds/releases/download/$version/$asset"
+
+        # Download into a staging dir OUTSIDE the cached path. The cached path is
+        # only ever populated AFTER the hash verifies, so a tampered/corrupt
+        # download can never poison the per-version cache.
+        $staging = Join-Path '${{ runner.temp }}' "godot-download\$version"
+        if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $staging | Out-Null
+        $zip = Join-Path $staging $asset
+        Write-Host "Downloading $url"
+        Invoke-WebRequest -Uri $url -OutFile $zip -MaximumRedirection 5
+
+        $actual = (Get-FileHash -Algorithm SHA512 -Path $zip).Hash.ToLower()
+        if ($actual -ne $expected) {
+          throw "SHA-512 mismatch for ${asset}`n  expected: $expected`n  actual:   $actual`nAborting before extraction (possible tampering or a stale pin)."
+        }
+        Write-Host "SHA-512 verified for ${asset}: $actual"
+
+        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Expand-Archive -Path $zip -DestinationPath $dest -Force
+        Remove-Item $staging -Recurse -Force
+
+    - name: Resolve executable and export env
+      id: resolve
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $flavor = '${{ inputs.flavor }}'
+        $dest = Join-Path '${{ runner.temp }}' "godot\$version"
+        $pattern = if ($flavor -eq 'editor') {
+          "Godot_v${version}_win64.exe"
+        } else {
+          "Godot_v${version}_win64_console.exe"
+        }
+        $exe = Get-ChildItem -Path $dest -Recurse -Filter $pattern -ErrorAction SilentlyContinue |
+          Select-Object -First 1
+        if (-not $exe) {
+          throw "Godot executable '$pattern' not found under $dest (download/extract failed?)."
+        }
+        $p = $exe.FullName
+        Write-Host "Resolved Godot ($flavor): $p"
+        & $p --version
+        "GODOT=$p"         | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GODOT_CONSOLE=$p" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GODOT_BIN=$p"     | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "godot-path=$p"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8

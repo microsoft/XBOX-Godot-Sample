@@ -17,10 +17,11 @@
 #include <XUser.h>
 #include <xsapi-c/services_c.h>
 
+#include "gdk_pending_signal.h"
+
 namespace godot {
 
 class GDK;
-class GDKPendingSignal;
 class GDKResult;
 class GDKRuntime;
 class GDKUser;

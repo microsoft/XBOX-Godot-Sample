@@ -1,0 +1,162 @@
+name: Build addons (per GDK edition)
+description: >-
+  Build the XBOX Godot Sample addon DLLs against a single Microsoft GDK edition,
+  run the Godot-version-independent C++ doctest once, and package the build
+  output so the per-Godot test matrix can consume it without rebuilding.
+
+  Caching is hybrid: the whole `build/` tree (which includes
+  build/vcpkg_installed) is cached cross-run with actions/cache keyed on the GDK
+  edition + the committed-source / submodule-pin hash, so repeat builds restore
+  warm vcpkg dependencies + incremental object files. The build output is ALSO
+  uploaded as an artifact for the intra-run handoff to the test jobs.
+
+  Requires: a windows-2022 runner (the `default` CMake preset targets the VS2022
+  generator) with the repository checked out using `submodules: recursive`
+  (godot-cpp + third_party/Gut + third_party/Gut-4.5 are needed to configure and
+  to mirror both GUT versions).
+
+inputs:
+  gdk_version:
+    description: >-
+      ms-gdk vcpkg port version to pin (e.g. 2604.1.7839). Blank uses the
+      registry baseline from vcpkg-configuration.json. When set, a top-level
+      `overrides` entry is injected into vcpkg.json before configure so vcpkg
+      restores exactly this edition.
+    required: false
+    default: ''
+  artifact_name:
+    description: Name for the uploaded build-output artifact.
+    required: true
+  artifact_retention_days:
+    description: Retention (days) for the uploaded build-output artifact.
+    required: false
+    default: '7'
+
+outputs:
+  artifact_name:
+    description: The artifact name the test jobs should download.
+    value: ${{ inputs.artifact_name }}
+  cache_key:
+    description: The resolved build-output cache key (edition + source hash).
+    value: ${{ steps.key.outputs.cache_key }}
+
+runs:
+  using: composite
+  steps:
+    - name: Export VCPKG_ROOT (hosted runners expose VCPKG_INSTALLATION_ROOT)
+      shell: pwsh
+      run: |
+        $vr = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
+        "VCPKG_ROOT=$vr" | Out-File $env:GITHUB_ENV -Append
+        Write-Host "VCPKG_ROOT=$vr (exists: $(Test-Path (Join-Path $vr 'scripts\buildsystems\vcpkg.cmake')))"
+
+    # Pin the Microsoft GDK edition for this leg by injecting a top-level
+    # `overrides` entry into vcpkg.json. `cmake --preset default` then restores
+    # exactly this ms-gdk port version regardless of the registry baseline.
+    # See docs/getting-started.md "Switching GDK editions on the vcpkg path".
+    - name: Pin ms-gdk edition ${{ inputs.gdk_version }} (vcpkg overrides)
+      shell: pwsh
+      run: |
+        $version = '${{ inputs.gdk_version }}'
+        if ([string]::IsNullOrWhiteSpace($version)) {
+          Write-Host 'No ms-gdk version for this leg; using the registry baseline.'
+          exit 0
+        }
+        $path = 'vcpkg.json'
+        $json = Get-Content $path -Raw | ConvertFrom-Json
+        $override = [pscustomobject]@{ name = 'ms-gdk'; version = $version }
+        $json | Add-Member -NotePropertyName 'overrides' -NotePropertyValue @($override) -Force
+        ($json | ConvertTo-Json -Depth 32) | Set-Content $path -Encoding utf8
+        Write-Host "Pinned ms-gdk -> $version"
+        Get-Content $path -Raw | Write-Host
+
+    # Cache key folds the GDK edition together with the committed-source and
+    # submodule-pin object SHAs (godot-cpp + GUT) AND the committed vcpkg
+    # manifest/config (vcpkg.json + vcpkg-configuration.json) -- so a dependency
+    # bump or registry-baseline change busts the cache. Every entry is a `HEAD:`
+    # object SHA (committed contents), so the working-tree vcpkg.json override
+    # above does NOT perturb them; that edition delta is captured separately by
+    # `$edition`. Together they are a stable, precise fingerprint of everything
+    # the build output depends on.
+    - name: Compute build-output cache key
+      id: key
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $edition = if ([string]::IsNullOrWhiteSpace('${{ inputs.gdk_version }}')) { 'baseline' } else { '${{ inputs.gdk_version }}' }
+        $parts = @(
+          (git rev-parse HEAD:addons),
+          (git rev-parse HEAD:cmake),
+          (git rev-parse HEAD:tests/cpp),
+          (git rev-parse HEAD:CMakeLists.txt),
+          (git rev-parse HEAD:CMakePresets.json),
+          (git rev-parse HEAD:vcpkg.json),
+          (git rev-parse HEAD:vcpkg-configuration.json),
+          (git rev-parse HEAD:godot-cpp),
+          (git rev-parse HEAD:third_party/Gut),
+          (git rev-parse HEAD:third_party/Gut-4.5),
+          $edition
+        ) -join '-'
+        $sha = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($parts))
+        $hash = ([BitConverter]::ToString($sha)).Replace('-', '').Substring(0, 16).ToLower()
+        $key = "build-$($env:RUNNER_OS)-gdk-$edition-$hash"
+        $prefix = "build-$($env:RUNNER_OS)-gdk-$edition-"
+        Write-Host "Build cache key:    $key"
+        Write-Host "Build cache prefix: $prefix"
+        "cache_key=$key"         | Out-File $env:GITHUB_OUTPUT -Append
+        "restore_prefix=$prefix" | Out-File $env:GITHUB_OUTPUT -Append
+
+    # Restore the whole build/ tree (includes build/vcpkg_installed). An exact
+    # key hit gives a fully warm tree; a prefix hit (restore-keys) seeds warm
+    # vcpkg dependencies + incremental object files from a prior build of the
+    # same edition. cmake --build below is incremental either way.
+    - name: Restore build cache
+      id: build-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: build
+        key: ${{ steps.key.outputs.cache_key }}
+        restore-keys: ${{ steps.key.outputs.restore_prefix }}
+
+    - name: Configure (default preset)
+      shell: pwsh
+      run: cmake --preset default
+
+    - name: Build addons (debug)
+      shell: pwsh
+      run: cmake --build build --preset debug
+
+    # Godot-version independent: run it ONCE here so the per-Godot test matrix
+    # can pass -SkipDoctest and not re-run it on every engine version.
+    - name: C++ doctest (gdk_unit_tests.exe)
+      shell: pwsh
+      run: |
+        $exe = 'build\bin\Debug\gdk_unit_tests.exe'
+        if (-not (Test-Path $exe)) { throw "Doctest exe not found at $exe (build failed?)." }
+        & $exe
+        if ($LASTEXITCODE -ne 0) { throw "gdk_unit_tests.exe exited $LASTEXITCODE" }
+
+    # Save the build cache only on a non-exact (prefix or miss) restore.
+    - name: Save build cache
+      if: steps.build-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: build
+        key: ${{ steps.key.outputs.cache_key }}
+
+    # The intra-run handoff: the generated overlay the test jobs need. The whole
+    # tests/godot/*/addons/ tree is .gitignored (build-generated): it carries the
+    # addon DLLs, the GUT mirror, and the godot_gdk_tests bases. Plus the doctest
+    # exe (+ deps) and the vcpkg redist DLLs that must sit next to Godot.exe.
+    - name: Upload build output
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact_name }}
+        retention-days: ${{ inputs.artifact_retention_days }}
+        if-no-files-found: error
+        include-hidden-files: true
+        path: |
+          tests/godot/*/addons/**
+          build/bin/Debug/**
+          build/vcpkg_installed/x64-windows/bin/*.dll
+          build/vcpkg_installed/x64-windows/debug/bin/*.dll
