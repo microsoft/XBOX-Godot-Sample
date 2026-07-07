@@ -69,6 +69,30 @@ automation. The export platform exists for editor-driven workflows; the
 headless runner exists for CI and scripted automation. Keep both paths
 working when the underlying packaging primitives change.
 
+### Export failure diagnostics
+
+The final export step shells out to a GDK tool — `wdapp register` when
+**Dev Iteration ▸ Register Loose** is enabled, otherwise `makepkg genmap`
++ `makepkg pack`. These tools do **not** report a meaningful process exit
+code (it is usually a small value such as `2` or `3`); the real cause is an
+HRESULT (`error = 0x8007xxxx`, a `FACILITY_WIN32` code) that they print
+across **both** stdout and stderr, depending on the sub-command.
+
+`gdk_export_platform.gd` captures both streams (via `OS.execute_with_pipe`),
+echoes the **full** output to the editor Output panel tagged by stream,
+extracts the HRESULT, and surfaces it — with a short hint for the common
+codes (`0x80070002` file not found, `0x80070003` path not found,
+`0x80070005` access denied, `0x80070057` invalid config) plus the **tail**
+of the captured output — in the error shown by the export dialog. The dialog
+text is capped to the last handful of lines so a large tool log stays
+readable; the full log remains in the Output panel.
+
+A failed tool step returns `FAILED`, **not** `ERR_BUG`. Returning `ERR_BUG`
+(Godot `Error` value `47`) is what produced the opaque *"unexpected error
+code 47"* reported in issue #123; the packaging step never actually
+"hit a bug" — the underlying tool failed for a reportable reason, so the
+diagnostic must carry that reason instead of an internal error code.
+
 ## `godot_gdk_editortools`
 
 The active editor tooling for Microsoft GDK packaging now lives in
