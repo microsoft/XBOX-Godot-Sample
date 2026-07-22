@@ -222,36 +222,14 @@ func test_embed_dispatch_behavior() -> void:
 	var gdk = get_gdk()
 	var original_embed_dispatch: bool = get_embed_dispatch_enabled()
 
-	set_embed_dispatch_enabled(true)
-	var auto_init_result = initialize_runtime()
-	assert_not_null(auto_init_result, "initialize() returns GDKResult for auto-dispatch coverage")
-	if auto_init_result == null:
-		set_embed_dispatch_enabled(original_embed_dispatch)
-		return
-	if not auto_init_result.ok:
-		pending("Auto-dispatch behavior: %s" % auto_init_result.message)
-		set_embed_dispatch_enabled(original_embed_dispatch)
-		return
-
-	var auto_signal = gdk.users.add_default_user_async()
-	assert_true(typeof(auto_signal) == TYPE_SIGNAL, "add_default_user_async() returns Signal for auto-dispatch coverage")
-	if typeof(auto_signal) != TYPE_SIGNAL:
-		reset_runtime()
-		set_embed_dispatch_enabled(original_embed_dispatch)
-		return
-
-	var auto_state = track_signal(auto_signal)
-	if auto_state["completed"]:
-		pending("Auto-dispatch behavior: The default-user op completed synchronously before frame-based coverage could run.")
-	else:
-		var auto_result = await await_completion_state_no_dispatch(auto_state, 8000)
-		if auto_result == null:
-			pending("Auto-dispatch behavior: Timed out waiting for add_default_user_async() without manual GDK.dispatch().")
-		else:
-			assert_true(true, "Auto-dispatch behavior — completed without manual GDK.dispatch()")
-
-	reset_runtime()
-
+	# ── Manual-dispatch control (embed_dispatch=false) ───────────────────────
+	# First establish whether add_default_user_async() resolves at all on this
+	# host when GDK.dispatch() is pumped by hand. A signed-in Xbox identity is
+	# NOT required — the op completes with a failure result on identity-less
+	# machines — but if it does not resolve even under a manual pump we cannot
+	# make any claim about the frame-callback auto-pump and must report pending
+	# rather than fail (e.g. a hosted CI runner where the silent add never
+	# posts a completion).
 	set_embed_dispatch_enabled(false)
 	var manual_init_result = initialize_runtime()
 	assert_not_null(manual_init_result, "initialize() returns GDKResult for manual-dispatch coverage")
@@ -271,19 +249,66 @@ func test_embed_dispatch_behavior() -> void:
 		return
 
 	var manual_state = track_signal(manual_signal)
+	var manual_resolved: Variant = null
 	if manual_state["completed"]:
-		pending("Manual-dispatch fallback: The default-user op completed synchronously before disabled-mode coverage could run.")
+		manual_resolved = manual_state["result"]
 	else:
 		var advanced_frames = await advance_process_frames(5)
 		if not advanced_frames:
 			pending("Manual-dispatch fallback: The headless runner could not access process_frame for disabled-mode coverage.")
-		else:
-			assert_eq(manual_state["completed"], false, "embed_dispatch disabled keeps async completion pending")
+			reset_runtime()
+			set_embed_dispatch_enabled(original_embed_dispatch)
+			return
+		# With embed_dispatch=false and no manual pump yet, the completion must
+		# still be pending — proving the disabled path does not auto-pump.
+		assert_eq(manual_state["completed"], false, "embed_dispatch=false keeps async completion pending until GDK.dispatch() is pumped")
+		manual_resolved = await await_completion_state(manual_state, 8000)
 
-			var manual_result = await await_completion_state(manual_state, 8000)
-			if manual_result == null:
-				pending("Manual-dispatch fallback completion: Timed out waiting for completion after manual GDK.dispatch().")
-			else:
-				assert_true(true, "Manual-dispatch fallback completion — completed after manual GDK.dispatch()")
+	reset_runtime()
 
+	if manual_resolved == null:
+		# The op never resolved even under a manual pump (e.g. no Xbox identity
+		# and the silent add stays pending on this host). We cannot assess the
+		# auto-pump, so do not fail CI on an environment limitation.
+		pending("Auto-pump regression guard: add_default_user_async() did not resolve under manual GDK.dispatch() on this host; cannot assess the frame-callback pump.")
+		set_embed_dispatch_enabled(original_embed_dispatch)
+		return
+
+	# ── Auto-dispatch subject (embed_dispatch=true) ──────────────────────────
+	# The control above proved the op resolves on this host. Now verify the
+	# frame-callback auto-pump drains the SAME completion with NO manual
+	# GDK.dispatch(). A timeout here is a real regression (issue #126: the
+	# per-frame pump was silently compiled out via a missing GODOT_VERSION_MINOR
+	# include), so it is a hard failure — not a pending — because we have
+	# positive evidence the op resolves.
+	set_embed_dispatch_enabled(true)
+	var auto_init_result = initialize_runtime()
+	assert_not_null(auto_init_result, "initialize() returns GDKResult for auto-dispatch coverage")
+	if auto_init_result == null:
+		set_embed_dispatch_enabled(original_embed_dispatch)
+		return
+	if not auto_init_result.ok:
+		pending("Auto-dispatch behavior: %s" % auto_init_result.message)
+		set_embed_dispatch_enabled(original_embed_dispatch)
+		return
+
+	var auto_signal = gdk.users.add_default_user_async()
+	assert_true(typeof(auto_signal) == TYPE_SIGNAL, "add_default_user_async() returns Signal for auto-dispatch coverage")
+	if typeof(auto_signal) != TYPE_SIGNAL:
+		reset_runtime()
+		set_embed_dispatch_enabled(original_embed_dispatch)
+		return
+
+	var auto_state = track_signal(auto_signal)
+	var auto_resolved: Variant = null
+	if auto_state["completed"]:
+		auto_resolved = auto_state["result"]
+	else:
+		auto_resolved = await await_completion_state_no_dispatch(auto_state, 8000)
+	assert_true(
+		auto_resolved != null,
+		"Auto-pump regression (issue #126): add_default_user_async() resolves under manual GDK.dispatch() but the frame-callback auto-pump did not drain it with embed_dispatch=true — the per-frame GDK.dispatch() pump is not running.")
+
+	reset_runtime()
 	set_embed_dispatch_enabled(original_embed_dispatch)
+
