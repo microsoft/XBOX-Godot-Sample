@@ -69,6 +69,8 @@ Design specs live in [`spec/`](spec/) — design intent that is not always refle
 
 ## Support and contributing
 
+- [**Report a bug**](https://github.com/microsoft/XBOX-Godot-Sample/issues/new?template=bug_report.yml) — file a bug report with repro steps, Godot engine version, and GDK version
+- [**Open an issue**](https://github.com/microsoft/XBOX-Godot-Sample/issues/new/choose) — pick from the available issue templates
 - [`SUPPORT.md`](SUPPORT.md) — how to file issues
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — CLA and Code of Conduct
 - [`SECURITY.md`](SECURITY.md) — security vulnerability reporting (MSRC; please do **not** file security issues via GitHub)

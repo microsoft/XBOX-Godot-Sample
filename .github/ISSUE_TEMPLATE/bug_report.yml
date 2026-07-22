@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a problem with one of the Godot GDK sample addons
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report. Please fill out the sections below so we can reproduce and diagnose the issue quickly.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected to happen and what actually happened instead.
+      placeholder: Tell us what you saw, and what you expected to see.
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, reliable step-by-step sequence that reproduces the problem.
+      placeholder: |
+        1. Open the '...' sample project
+        2. Call '...'
+        3. Observe '...'
+    validations:
+      required: true
+  - type: input
+    id: engine-version
+    attributes:
+      label: Godot engine version
+      description: The Godot version you are running. Find it via Help > About, or run `godot --version`. This project supports Godot 4.5 and newer.
+      placeholder: "4.6.1-stable"
+    validations:
+      required: true
+  - type: input
+    id: gdk-version
+    attributes:
+      label: GDK version
+      description: The Microsoft GDK edition in use (6-digit edition, e.g. 260401). See your `vcpkg.json` `ms-gdk` override or the GDK installer.
+      placeholder: "260401"
+    validations:
+      required: true
