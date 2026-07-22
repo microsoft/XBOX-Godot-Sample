@@ -149,6 +149,8 @@ void PlayFab::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_available"), &PlayFab::is_available);
     ClassDB::bind_method(D_METHOD("is_initialized"), &PlayFab::is_initialized);
     ClassDB::bind_method(D_METHOD("dispatch"), &PlayFab::dispatch);
+    ClassDB::bind_method(D_METHOD("submit_dispatch_probe"), &PlayFab::submit_dispatch_probe);
+    ClassDB::bind_method(D_METHOD("get_dispatch_probe_count"), &PlayFab::get_dispatch_probe_count);
     ClassDB::bind_method(D_METHOD("get_users"), &PlayFab::get_users);
     ClassDB::bind_method(D_METHOD("get_game_saves"), &PlayFab::get_game_saves);
     ClassDB::bind_method(D_METHOD("get_leaderboards"), &PlayFab::get_leaderboards);
@@ -294,6 +296,14 @@ int64_t PlayFab::dispatch() {
         dispatched += static_cast<int64_t>(m_party->dispatch());
     }
     return dispatched;
+}
+
+bool PlayFab::submit_dispatch_probe() {
+    return m_runtime != nullptr ? m_runtime->submit_dispatch_probe() : false;
+}
+
+int64_t PlayFab::get_dispatch_probe_count() const {
+    return m_runtime != nullptr ? static_cast<int64_t>(m_runtime->get_dispatch_probe_count()) : 0;
 }
 
 Ref<PlayFabUsers> PlayFab::get_users() const {

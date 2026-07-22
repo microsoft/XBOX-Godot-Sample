@@ -371,6 +371,41 @@ int PlayFabRuntime::dispatch() {
     return dispatched;
 }
 
+void CALLBACK PlayFabRuntime::_dispatch_probe_completed(void *p_context, bool p_cancelled) {
+    // Runs on the thread that dispatches the Completion port (the Godot main
+    // thread, via the frame-callback auto-pump or a manual PlayFab.dispatch()).
+    // A cancelled invocation means the queue was terminating, not that the
+    // pump drained the port, so it must not count toward the probe.
+    if (p_cancelled || p_context == nullptr) {
+        return;
+    }
+
+    PlayFabRuntime *runtime = static_cast<PlayFabRuntime *>(p_context);
+    runtime->m_dispatch_probe_count.fetch_add(1, std::memory_order_relaxed);
+}
+
+bool PlayFabRuntime::submit_dispatch_probe() {
+    // Diagnostics/test hook: enqueue a no-op callback on the shared task queue's
+    // Completion port so callers can verify the per-frame auto-pump actually
+    // drains that port -- without a network round-trip or a signed-in user.
+    // The callback only runs when the Completion port is dispatched, i.e. by
+    // PlayFab.dispatch() (manual) or the extension frame callback (auto).
+    if (!m_initialized || m_task_queue == nullptr) {
+        return false;
+    }
+
+    HRESULT hr = XTaskQueueSubmitCallback(
+            m_task_queue,
+            XTaskQueuePort::Completion,
+            this,
+            &PlayFabRuntime::_dispatch_probe_completed);
+    return SUCCEEDED(hr);
+}
+
+uint64_t PlayFabRuntime::get_dispatch_probe_count() const {
+    return m_dispatch_probe_count.load(std::memory_order_relaxed);
+}
+
 bool PlayFabRuntime::is_initialized() const {
     return m_initialized;
 }

@@ -6,6 +6,7 @@
 #endif
 #include <windows.h>
 
+#include <atomic>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -33,8 +34,10 @@ class PlayFabRuntime {
     String m_title_id;
     String m_endpoint;
     std::vector<Ref<PlayFabPendingSignal>> m_active_pending_signals;
+    std::atomic<uint64_t> m_dispatch_probe_count{0};
 
     static void CALLBACK _queue_terminated(void *p_context);
+    static void CALLBACK _dispatch_probe_completed(void *p_context, bool p_cancelled);
 
 public:
     PlayFabRuntime();
@@ -43,6 +46,8 @@ public:
     Ref<PlayFabResult> initialize();
     void shutdown();
     int dispatch();
+    bool submit_dispatch_probe();
+    uint64_t get_dispatch_probe_count() const;
 
     bool is_initialized() const;
     bool is_shutting_down() const;

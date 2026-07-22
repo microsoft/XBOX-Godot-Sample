@@ -97,6 +97,7 @@ Rules:
 6. When embed dispatch is disabled, callers must pump the queue manually with `PlayFab.dispatch()`.
 7. `PlayFab.dispatch()` pumps the shared PlayFab runtime queue, PlayFab Multiplayer lobby/matchmaking state changes, and PlayFab Party state changes, then returns the number of completion work items processed.
 8. Shutdown cancels outstanding Party and Multiplayer completion signals before native SDK teardown, rejects new Party/Multiplayer work while shutdown is in progress, defers native teardown until any active SDK state-change batch has been finished, and only frees native async context storage after `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()` has returned.
+9. `PlayFab.submit_dispatch_probe()` and `PlayFab.get_dispatch_probe_count()` are offline, identity-free diagnostics hooks (test-only, not for gameplay code). `submit_dispatch_probe()` enqueues a no-op callback on the runtime's completion port; `get_dispatch_probe_count()` reports how many such probes have since been drained. The GUT suite uses them to assert the rule 5 frame-callback auto-pump actually drains the completion port in the offline PR gate — the coverage gap that let issue #126 (a silently compiled-out auto-pump, from a missing `GODOT_VERSION_MINOR` include) ship.
 
 For Multiplayer lobbies, successful local `PlayFabLobby.set_member_properties_async()` writes update the local member snapshot eagerly before the completion signal settles; remote member-property changes continue to arrive through SDK-driven `MEMBER_UPDATED` state changes.
 
