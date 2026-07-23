@@ -93,6 +93,24 @@ code 47"* reported in issue #123; the packaging step never actually
 "hit a bug" — the underlying tool failed for a reportable reason, so the
 diagnostic must carry that reason instead of an internal error code.
 
+### GDK detection lifecycle
+
+The platform locates the Microsoft GDK (install root + `makepkg.exe` /
+`wdapp.exe`) once and caches the result in `_gdk_found`; the export
+configuration checks (`_has_valid_export_configuration`,
+`_has_valid_project_configuration`) and `_export_project` all gate on it.
+
+Detection runs **lazily**, guarded by a one-shot `_ensure_detected()` helper,
+rather than depending on the engine calling the platform's `_initialize()`.
+Godot only began calling `EditorExportPlatform::initialize()` from
+`add_export_platform()` in **4.6**; on the supported **4.5.x** line
+`_initialize()` never fires, so eager-only detection left `_gdk_found` stuck at
+`false` and the `XBOX on PC` platform refused to export (issue #127).
+`_ensure_detected()` triggers detection from `_initialize()` (eager, on 4.6+)
+**and** from the first export/validation callback (lazy, on 4.5.x), while the
+guard keeps the repeatedly-polled validation callbacks from re-scanning the
+filesystem or re-emitting "GDK not found" warnings.
+
 ## `godot_gdk_editortools`
 
 The active editor tooling for Microsoft GDK packaging now lives in

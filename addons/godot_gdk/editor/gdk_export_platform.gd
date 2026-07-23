@@ -9,13 +9,37 @@ const OS_NAME := "Windows"
 # summary. The full output is still printed to the editor Output panel.
 const _MAX_SUMMARY_OUTPUT_LINES := 12
 
+# Project Setting (registered by the godot_gdk C++ extension) naming the
+# directory that holds MicrosoftGame.config and its logo assets. Export reads
+# the config from here but always stages it to the package root next to the
+# .exe. Defaults to the project root so existing projects keep working.
+const SETTING_GAME_CONFIG_DIR := "gdk/packaging/game_config_dir"
+const DEFAULT_GAME_CONFIG_DIR := "res://"
+
 # GDK tool paths (resolved on init)
 var _gdk_root := ""
 var _makepkg := ""
 var _wdapp := ""
 var _gdk_found := false
+# Guards one-shot GDK detection. Detection is lazy so the platform works even
+# when the engine never calls _initialize(): Godot only began calling
+# EditorExportPlatform::initialize() from add_export_platform() in 4.6, so on
+# Godot 4.5.x _initialize() never fires and detection must be triggered on
+# demand from the export-configuration/validation entry points instead.
+var _detected := false
 
 func _initialize() -> void:
+	_ensure_detected()
+
+# Runs GDK detection exactly once, regardless of entry point. Called eagerly
+# from _initialize() on engines that invoke it (4.6+) and lazily from the
+# export/validation callbacks on engines that don't (4.5.x). The guard also
+# keeps the export dialog — which polls _has_valid_export_configuration()
+# repeatedly — from re-scanning the filesystem and re-emitting warnings.
+func _ensure_detected() -> void:
+	if _detected:
+		return
+	_detected = true
 	_detect_gdk()
 
 func _get_name() -> String:
@@ -70,22 +94,26 @@ func _get_export_option_warning(p_preset: EditorExportPreset, p_option: StringNa
 	return ""
 
 func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool) -> bool:
+	_ensure_detected()
 	if not _gdk_found:
 		return false
 	# MicrosoftGame.config is the source of truth for identity / shell visuals
 	# and is authored via the godot_gdk_editortools addon's "Create Game Config".
-	# If it's missing the export pipeline cannot proceed.
-	if not FileAccess.file_exists("res://MicrosoftGame.config"):
+	# If it's missing the export pipeline cannot proceed. Its directory is
+	# configurable via the gdk/packaging/game_config_dir Project Setting.
+	if not FileAccess.file_exists(_game_config_src()):
 		return false
 	return true
 
 func _has_valid_project_configuration(p_preset: EditorExportPreset) -> bool:
+	_ensure_detected()
 	return _gdk_found
 
 func _can_export(p_preset: EditorExportPreset, p_debug: bool) -> bool:
 	return _has_valid_export_configuration(p_preset, p_debug)
 
 func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_flags: int) -> int:
+	_ensure_detected()
 	if not _gdk_found:
 		push_error("GDK not found. Install via: winget install Microsoft.Gaming.GDK")
 		return ERR_FILE_NOT_FOUND
@@ -135,9 +163,10 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	var exe_name: String = _read_exe_name_from_project_config()
 	if exe_name == "":
 		push_error(
-			"GDK Export: MicrosoftGame.config not found or missing <Executable Name=...> at project root.\n" +
+			"GDK Export: MicrosoftGame.config not found or missing <Executable Name=...> at %s.\n" % _game_config_src() +
 			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
-			"  or place a valid MicrosoftGame.config at the project root.")
+			"  or place a valid MicrosoftGame.config in the configured game-config\n" +
+			"  directory (gdk/packaging/game_config_dir).")
 		return ERR_FILE_NOT_FOUND
 	var exe_path: String = staging_dir.path_join(exe_name)
 	var pck_path: String = staging_dir.path_join(exe_name.get_basename() + ".pck")
@@ -199,12 +228,45 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 
 # ── MicrosoftGame.config staging ─────────────────────────────────
 
+# Returns the configured game-config directory as a filesystem-absolute path.
+# The gdk/packaging/game_config_dir Project Setting names the directory holding
+# MicrosoftGame.config + logos and defaults to the project root (res://).
+# Bare/relative values are treated as project-relative; trailing slashes are
+# trimmed except on root paths (res://, user://, drive roots).
+func _game_config_dir() -> String:
+	var raw: String = str(ProjectSettings.get_setting(
+		SETTING_GAME_CONFIG_DIR, DEFAULT_GAME_CONFIG_DIR)).strip_edges()
+	if raw.is_empty():
+		raw = DEFAULT_GAME_CONFIG_DIR
+	raw = raw.replace("\\", "/")
+	if not (raw.begins_with("res://") or raw.begins_with("user://") or raw.is_absolute_path()):
+		raw = "res://".path_join(raw)
+	var min_len: int = 0
+	if raw.begins_with("res://"):
+		min_len = "res://".length()
+	elif raw.begins_with("user://"):
+		min_len = "user://".length()
+	elif raw.is_absolute_path():
+		min_len = 1
+		if raw.length() == 3 and raw.substr(1, 1) == ":":
+			min_len = 3
+	while raw.length() > min_len and raw.ends_with("/"):
+		raw = raw.substr(0, raw.length() - 1)
+	if raw.begins_with("res://") or raw.begins_with("user://"):
+		return ProjectSettings.globalize_path(raw)
+	return raw
+
+# Returns the filesystem path to the source MicrosoftGame.config in the
+# configured game-config directory.
+func _game_config_src() -> String:
+	return _game_config_dir().path_join("MicrosoftGame.config")
+
 # Reads `<Executable Name="...">` from the project's MicrosoftGame.config.
 # Returns "" if the config is missing or has no Executable element. Centralized
 # here so `_export_project` (deriving the staged .exe name) and editor checks
 # can share one parse.
 func _read_exe_name_from_project_config() -> String:
-	var src: String = ProjectSettings.globalize_path("res://").path_join("MicrosoftGame.config")
+	var src: String = _game_config_src()
 	if not FileAccess.file_exists(src):
 		return ""
 	var content: String = FileAccess.get_file_as_string(src)
@@ -223,13 +285,13 @@ func _read_exe_name_from_project_config() -> String:
 # Game Config" flow (or by the developer directly via GameConfigEditor) —
 # never generated at export time.
 func _stage_microsoft_game_config(staging_dir: String) -> int:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var src: String = project_dir.path_join("MicrosoftGame.config")
+	var src: String = _game_config_src()
 	if not FileAccess.file_exists(src):
 		push_error(
-			"GDK Export: MicrosoftGame.config not found at project root.\n" +
+			"GDK Export: MicrosoftGame.config not found at %s.\n" % src +
 			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
-			"  or place a MicrosoftGame.config (and its logo PNGs) at the project root.")
+			"  or place a MicrosoftGame.config (and its logo PNGs) in the configured\n" +
+			"  game-config directory (gdk/packaging/game_config_dir).")
 		return ERR_FILE_NOT_FOUND
 
 	var content: String = FileAccess.get_file_as_string(src)
@@ -269,13 +331,15 @@ func _inject_target_device_family(content: String) -> String:
 	return content.substr(0, m.get_start()) + patched + content.substr(m.get_end())
 
 # Reads the staged MicrosoftGame.config to discover which logo files it
-# references, then copies each one from the project into the staging dir at
-# the same relative path. Sources are tried in order: <project>/<rel-from-config>,
-# <project>/storelogos/<filename>, <project>/<filename>. Missing logos surface
-# as warnings — the subsequent wdapp/makepkg step will then fail with a
-# specific 0x80070002 pointing at the offending file.
+# references, then copies each one from the configured game-config directory
+# into the staging dir at the same relative path (so they land next to the
+# .exe/config at the package root). Sources are tried in order:
+# <config-dir>/<rel-from-config>, <config-dir>/storelogos/<filename>,
+# <config-dir>/<filename>. Missing logos surface as warnings — the subsequent
+# wdapp/makepkg step will then fail with a specific 0x80070002 pointing at the
+# offending file.
 func _stage_logos(staging_dir: String) -> void:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var config_dir: String = _game_config_dir()
 	var config_path: String = staging_dir.path_join("MicrosoftGame.config")
 	var content: String = FileAccess.get_file_as_string(config_path)
 	if content == "":
@@ -298,9 +362,9 @@ func _stage_logos(staging_dir: String) -> void:
 		var filename: String = rel.get_file()
 
 		var candidates: PackedStringArray = PackedStringArray([
-			project_dir.path_join(rel),
-			project_dir.path_join("storelogos").path_join(filename),
-			project_dir.path_join(filename),
+			config_dir.path_join(rel),
+			config_dir.path_join("storelogos").path_join(filename),
+			config_dir.path_join(filename),
 		])
 		var src: String = ""
 		for c: String in candidates:
@@ -309,7 +373,7 @@ func _stage_logos(staging_dir: String) -> void:
 				break
 		if src == "":
 			push_warning(
-				"GDK Export: %s logo not found — expected at %s. " % [attr, project_dir.path_join(rel)] +
+				"GDK Export: %s logo not found — expected at %s. " % [attr, config_dir.path_join(rel)] +
 				"Run GDK ▸ Create Game Config to generate placeholders.")
 			continue
 
