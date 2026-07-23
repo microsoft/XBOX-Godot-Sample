@@ -13,6 +13,19 @@ name: PR Gates
 #                     run-offline-tier composite. No rebuild.
 #   * fuzz-replay  -- builds the libFuzzer targets and replays their committed
 #                     corpora (regression mode; no active fuzzing).
+#   * csharp       -- (experimental/dotnet only) builds the managed C# facade
+#                     libraries and runs the FacadeParity.Tests xUnit suite,
+#                     asserting every native doc_classes member has a managed
+#                     wrapper. Pure managed metadata -- no Godot binary, no
+#                     native build, no secrets -> fork-safe.
+#
+# This file gates BOTH main and the experimental/dotnet branch (see `on:`).
+# For a PR/push, GitHub uses the copy of this workflow on the *base* branch, so
+# main events run main's copy (which has no csharp job), and experimental/dotnet
+# events run this copy. The csharp job -- and tools/run_csharp_tests.ps1 + the
+# *_csharp projects it drives -- exist only on experimental/dotnet, so the C#
+# gate runs only for that branch while the GDScript/native/fuzz jobs revalidate
+# the inherited surface there too.
 #
 # build / test-offline share their step logic with playfab-live-nightly.yml via
 # the .github/actions/build-addons + run-offline-tier composites: the addons are
@@ -25,9 +38,9 @@ name: PR Gates
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, experimental/dotnet]
   push:
-    branches: [main]
+    branches: [main, experimental/dotnet]
   workflow_dispatch:
 
 concurrency:
@@ -166,3 +179,28 @@ jobs:
             timeout-*
             oom-*
           if-no-files-found: ignore
+
+  # C# facade parity gate -- experimental/dotnet track only (see the header note
+  # and `on:` above). Builds the three managed facade class libraries
+  # (godot_gdk_csharp / godot_playfab_csharp / godot_gameinput_csharp) and runs
+  # the FacadeParity.Tests xUnit suite, which reflects over the built assemblies
+  # and asserts every native doc_classes member has a managed wrapper -- catching
+  # C# facade drift as the native surface evolves. Pure managed metadata: it needs
+  # only the .NET SDK (no Godot binary, no native/CMake build, no submodules, no
+  # secrets), so it is fast and fork-safe. tools/run_csharp_tests.ps1 is the same
+  # script used locally, so CI and local runs stay in lockstep.
+  csharp:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET SDK 8.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: C# facade build + parity tests
+        shell: pwsh
+        run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_csharp_tests.ps1
