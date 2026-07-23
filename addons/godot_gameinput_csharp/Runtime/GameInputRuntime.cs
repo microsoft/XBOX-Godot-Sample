@@ -14,6 +14,7 @@ public partial class GameInputRuntime : Node
     private const string SettingAutoPoll = "game_input/runtime/auto_poll";
 
     private bool _autoPoll;
+    private bool _initializedHere;
 
     public override void _Ready()
     {
@@ -24,12 +25,16 @@ public partial class GameInputRuntime : Node
             return;
         }
 
-        bool initOnStartup = ProjectSettings.GetSetting(SettingInitializeOnStartup, true).AsBool();
+        bool initOnStartup = ProjectSettings.GetSetting(SettingInitializeOnStartup, false).AsBool();
         _autoPoll = ProjectSettings.GetSetting(SettingAutoPoll, true).AsBool();
 
         if (initOnStartup && !GameInput.IsInitialized)
         {
-            if (!GameInput.Initialize())
+            if (GameInput.Initialize())
+            {
+                _initializedHere = true;
+            }
+            else
             {
                 GD.PushWarning("[GameInput] Bootstrap: GameInput.Initialize() failed; the runtime stays disabled on this host.");
             }
@@ -48,9 +53,13 @@ public partial class GameInputRuntime : Node
 
     public override void _ExitTree()
     {
-        if (GameInput.IsAvailable && GameInput.IsInitialized)
+        // Only shut down if THIS autoload initialized the runtime; otherwise leave
+        // it to whoever brought it up (editor tooling, tests). Mirrors the native
+        // GameInputBootstrap "_initialized_here" rule.
+        if (_initializedHere && GameInput.IsAvailable && GameInput.IsInitialized)
         {
             GameInput.Shutdown();
+            _initializedHere = false;
         }
     }
 }
