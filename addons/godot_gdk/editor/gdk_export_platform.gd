@@ -228,11 +228,11 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 
 # ── MicrosoftGame.config staging ─────────────────────────────────
 
-# Returns the configured game-config directory as a globalized filesystem path.
-# Mirrors GameConfigManager.get_config_dir(): the gdk/packaging/game_config_dir
-# Project Setting names the directory holding MicrosoftGame.config + logos and
-# defaults to the project root. Bare/relative values are treated as
-# project-relative; trailing slashes are trimmed except on the res:// root.
+# Returns the configured game-config directory as a filesystem-absolute path.
+# The gdk/packaging/game_config_dir Project Setting names the directory holding
+# MicrosoftGame.config + logos and defaults to the project root (res://).
+# Bare/relative values are treated as project-relative; trailing slashes are
+# trimmed except on root paths (res://, user://, drive roots).
 func _game_config_dir() -> String:
 	var raw: String = str(ProjectSettings.get_setting(
 		SETTING_GAME_CONFIG_DIR, DEFAULT_GAME_CONFIG_DIR)).strip_edges()
@@ -241,7 +241,16 @@ func _game_config_dir() -> String:
 	raw = raw.replace("\\", "/")
 	if not (raw.begins_with("res://") or raw.begins_with("user://") or raw.is_absolute_path()):
 		raw = "res://".path_join(raw)
-	while raw.length() > DEFAULT_GAME_CONFIG_DIR.length() and raw.ends_with("/"):
+	var min_len: int = 0
+	if raw.begins_with("res://"):
+		min_len = "res://".length()
+	elif raw.begins_with("user://"):
+		min_len = "user://".length()
+	elif raw.is_absolute_path():
+		min_len = 1
+		if raw.length() == 3 and raw.substr(1, 1) == ":":
+			min_len = 3
+	while raw.length() > min_len and raw.ends_with("/"):
 		raw = raw.substr(0, raw.length() - 1)
 	if raw.begins_with("res://") or raw.begins_with("user://"):
 		return ProjectSettings.globalize_path(raw)
