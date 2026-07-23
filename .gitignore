@@ -51,6 +51,7 @@ sample/*/addons/godot_gdk_editortools/
 .godot/
 *.import
 *.uid
+_editor.log
 
 # ── GDK dev registration & packaging artifacts ──────────────────
 **/MicrosoftGame.config
