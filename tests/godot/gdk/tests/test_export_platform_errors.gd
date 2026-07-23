@@ -125,3 +125,56 @@ func test_tool_steps_no_longer_return_err_bug() -> void:
 		"tool-failure paths must not return ERR_BUG (Godot error 47) — issue #123")
 	assert_true(src.contains("return FAILED"),
 		"tool-failure paths return FAILED so the dialog shows a real error")
+
+
+# ── Lazy GDK detection regression (issue #127) ────────────────────────────
+#
+# Godot only began calling EditorExportPlatform::initialize() from
+# add_export_platform() in 4.6, so on the supported Godot 4.5.x line the
+# platform's _initialize() never fires. If detection only ran from
+# _initialize(), _gdk_found stayed false and "XBOX on PC" refused to export on
+# 4.5.x. Detection must therefore be triggered lazily from the export/
+# validation entry points as well. Pinned by source inspection because
+# EditorExportPlatformExtension can only be instantiated by the editor process.
+
+# Returns the source of a top-level GDScript function `p_name`: from its
+# `func p_name(` header up to (but not including) the next top-level `func`.
+func _func_body(p_src: String, p_name: String) -> String:
+	var header := "func %s(" % p_name
+	var start := p_src.find(header)
+	if start == -1:
+		return ""
+	var rest := p_src.substr(start + header.length())
+	var next := rest.find("\nfunc ")
+	if next == -1:
+		return rest
+	return rest.substr(0, next)
+
+
+func test_detection_triggered_lazily_not_only_from_initialize() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	assert_ne(src, "", "export platform source is readable")
+	assert_string_contains(src, "func _ensure_detected(",
+		"a one-shot _ensure_detected() detection helper exists")
+	# Every engine-invoked entry point that reads detection state must trigger
+	# detection itself, so the platform works on engines that never call
+	# _initialize() (Godot 4.5.x).
+	for fn: String in ["_has_valid_export_configuration", "_has_valid_project_configuration", "_export_project"]:
+		assert_string_contains(_func_body(src, fn), "_ensure_detected()",
+			"%s() triggers lazy GDK detection (issue #127)" % fn)
+
+
+func test_ensure_detected_is_guarded_one_shot() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_ensure_detected")
+	assert_ne(body, "", "_ensure_detected() is defined")
+	# Guarded by a flag so repeated dialog polls don't re-scan the filesystem
+	# or re-emit "GDK not found" warnings.
+	assert_string_contains(body, "_detected",
+		"_ensure_detected() is guarded by the _detected flag")
+	assert_string_contains(body, "_detect_gdk()",
+		"_ensure_detected() runs _detect_gdk()")
+	# _initialize() must funnel through the guarded helper (not call _detect_gdk
+	# directly) so eager (4.6+) and lazy (4.5.x) paths share one detection.
+	assert_string_contains(_func_body(src, "_initialize"), "_ensure_detected()",
+		"_initialize() routes through _ensure_detected()")
