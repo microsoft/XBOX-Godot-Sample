@@ -82,6 +82,8 @@ public:
     bool is_available() const;
     bool is_initialized() const;
     int64_t dispatch();
+    bool submit_dispatch_probe();
+    int64_t get_dispatch_probe_count() const;
     Ref<PlayFabUsers> get_users() const;
     Ref<PlayFabGameSaves> get_game_saves() const;
     Ref<PlayFabLeaderboards> get_leaderboards() const;

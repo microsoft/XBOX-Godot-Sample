@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/core/version.hpp>
 #include <godot_cpp/godot.hpp>
 
 #include "playfab.h"
@@ -227,7 +228,15 @@ GDExtensionBool GDE_EXPORT playfab_addon_init(
 #if GODOT_VERSION_MINOR >= 5
     init_obj.register_frame_callback(playfab_frame_callback);
 #endif
-    init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
+    // The per-frame dispatch pump is registered with the engine only during
+    // CORE-level init (godot-cpp's register_main_loop_callbacks). On editor
+    // hot-reload the engine re-initializes an extension from its declared minimum
+    // level upward, so a SCENE minimum would skip CORE and silently drop the pump,
+    // leaving every await *_async() hung with no notice. Declaring CORE instead makes
+    // the engine return LOAD_STATUS_NEEDS_RESTART on reload (an explicit "restart
+    // required" prompt); cold start/export are unaffected (first load always inits
+    // from CORE regardless of this minimum).
+    init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_CORE);
 
     return init_obj.init();
 }

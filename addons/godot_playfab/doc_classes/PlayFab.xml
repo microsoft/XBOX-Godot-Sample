@@ -39,6 +39,18 @@
 				Manually pumps the PlayFab async task queue. Use this when [code]playfab/runtime/embed_dispatch[/code] is disabled or when deterministic completion timing is required. Returns the number of completion work items processed during that call.
 			</description>
 		</method>
+		<method name="submit_dispatch_probe">
+			<return type="bool" />
+			<description>
+				Diagnostics hook. Enqueues a no-op callback on the internal async task queue's completion port and returns [code]true[/code] when the callback was accepted (requires the runtime to be initialized). The callback increments the counter reported by [method get_dispatch_probe_count] only when the completion port is drained, either by the per-frame auto-pump (when [code]playfab/runtime/embed_dispatch[/code] is enabled) or by an explicit [method dispatch] call. Used by the test suite to verify the auto-pump is wired without requiring a signed-in user or a network round-trip; not intended for gameplay code.
+			</description>
+		</method>
+		<method name="get_dispatch_probe_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Diagnostics hook. Returns the running total of completion-port probes submitted via [method submit_dispatch_probe] that have since been drained by a dispatch of the task queue. The count is monotonic for the lifetime of the runtime; compare deltas across frames to confirm the auto-pump is draining the completion port. Not intended for gameplay code.
+			</description>
+		</method>
 		<method name="get_users" qualifiers="const">
 			<return type="PlayFabUsers" />
 			<description>

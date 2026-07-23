@@ -11,6 +11,8 @@ const PLAYFAB_ROOT_METHODS := [
 	"is_available",
 	"is_initialized",
 	"dispatch",
+	"submit_dispatch_probe",
+	"get_dispatch_probe_count",
 	"get_users",
 	"get_game_saves",
 	"get_leaderboards",
@@ -297,3 +299,103 @@ func test_initialize_shutdown_rearms_runtime_lifecycle() -> void:
 	_restore_playfab_runtime_settings(original_title_id, original_endpoint)
 	reset_playfab_runtime()
 	_disconnect_playfab_lifecycle_handlers(playfab, initialized_handler, shutdown_handler)
+
+
+func _restore_embed_dispatch_settings(original_title_id, original_endpoint, original_embed_dispatch) -> void:
+	ProjectSettings.set_setting(PLAYFAB_EMBED_DISPATCH_SETTING, original_embed_dispatch)
+	_restore_playfab_runtime_settings(original_title_id, original_endpoint)
+	reset_playfab_runtime()
+
+
+# Regression guard for issue #126 (GDK/PlayFab async completions never fired
+# because the per-frame auto-pump was silently compiled out of the DLL). Rather
+# than a real async op — which needs a title id and a network round-trip — this
+# uses the offline, identity-free diagnostics probe: submit_dispatch_probe()
+# enqueues a no-op callback on the runtime's Manual XTaskQueue completion port,
+# and get_dispatch_probe_count() reports how many probes have since been drained.
+# The completion port is only dispatched by PlayFab.dispatch() (manual) or the
+# extension frame callback (auto), so the probe deterministically detects whether
+# the auto-pump is wired — in the offline PR gate, exactly where #126 slipped
+# through.
+func test_embed_dispatch_auto_pump() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+
+	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
+	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
+	var original_embed_dispatch = ProjectSettings.get_setting(PLAYFAB_EMBED_DISPATCH_SETTING, true)
+
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, REARM_TEST_TITLE_ID)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, "")
+
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop == null or not main_loop.has_signal("process_frame"):
+		pending("Auto-pump guard: the headless runner could not access process_frame.")
+		_restore_embed_dispatch_settings(original_title_id, original_endpoint, original_embed_dispatch)
+		return
+
+	# ── Manual-dispatch control (embed_dispatch=false) ───────────────────────
+	# Prove the probe mechanism is sound before using it to police the auto-pump:
+	# a completion-port probe must NOT drain on its own (no spurious increment)
+	# and MUST drain when PlayFab.dispatch() is pumped by hand. This makes an
+	# auto-phase failure unambiguously a frame-callback regression rather than a
+	# broken probe.
+	ProjectSettings.set_setting(PLAYFAB_EMBED_DISPATCH_SETTING, false)
+	reset_playfab_runtime()
+	var manual_init = playfab.initialize()
+	assert_not_null(manual_init, "initialize() returns PlayFabResult for manual-dispatch coverage")
+	if manual_init == null or not manual_init.ok:
+		pending("Auto-pump guard (manual control): %s" % (manual_init.message if manual_init != null else "initialize() returned null"))
+		_restore_embed_dispatch_settings(original_title_id, original_endpoint, original_embed_dispatch)
+		return
+
+	var manual_baseline: int = playfab.get_dispatch_probe_count()
+	assert_true(playfab.submit_dispatch_probe(), "submit_dispatch_probe() is accepted when the runtime is initialized")
+
+	# With embed_dispatch=false and no manual pump, advancing frames must NOT
+	# drain the probe — the frame callback skips PlayFab.dispatch() in this mode.
+	await advance_process_frames(5)
+	assert_eq(playfab.get_dispatch_probe_count(), manual_baseline,
+		"embed_dispatch=false: the completion-port probe stays undrained until PlayFab.dispatch() is pumped")
+
+	# A manual dispatch drains it — proving the probe + counter actually work.
+	playfab.dispatch()
+	assert_true(playfab.get_dispatch_probe_count() > manual_baseline,
+		"PlayFab.dispatch() drains the submitted completion-port probe")
+
+	reset_playfab_runtime()
+
+	# ── Auto-dispatch subject (embed_dispatch=true) ──────────────────────────
+	# The control proved the probe drains only on a real completion-port dispatch.
+	# Now verify the per-frame auto-pump drains a probe with NO manual dispatch.
+	# A timeout here is issue #126: the frame-callback auto-pump was silently
+	# compiled out (missing GODOT_VERSION_MINOR include via <godot_cpp/core/version.hpp>),
+	# so nothing drained the Manual XTaskQueue completion port and every
+	# await *_async() hung.
+	ProjectSettings.set_setting(PLAYFAB_EMBED_DISPATCH_SETTING, true)
+	reset_playfab_runtime()
+	var auto_init = playfab.initialize()
+	assert_not_null(auto_init, "initialize() returns PlayFabResult for auto-dispatch coverage")
+	if auto_init == null or not auto_init.ok:
+		pending("Auto-pump guard (auto subject): %s" % (auto_init.message if auto_init != null else "initialize() returned null"))
+		_restore_embed_dispatch_settings(original_title_id, original_endpoint, original_embed_dispatch)
+		return
+
+	var auto_baseline: int = playfab.get_dispatch_probe_count()
+	assert_true(playfab.submit_dispatch_probe(), "submit_dispatch_probe() is accepted for auto-dispatch coverage")
+
+	var drained := false
+	var started_msec := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - started_msec < 8000:
+		await main_loop.process_frame
+		if playfab.get_dispatch_probe_count() > auto_baseline:
+			drained = true
+			break
+
+	assert_true(drained,
+		"Auto-pump regression (issue #126): a completion-port probe submitted with embed_dispatch=true was not drained by the per-frame auto-pump — PlayFab's frame-callback PlayFab.dispatch() is not running.")
+
+	reset_playfab_runtime()
+	_restore_embed_dispatch_settings(original_title_id, original_endpoint, original_embed_dispatch)

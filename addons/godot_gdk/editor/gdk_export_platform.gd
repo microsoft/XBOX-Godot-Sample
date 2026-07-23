@@ -5,13 +5,41 @@ extends EditorExportPlatformExtension
 const PLATFORM_NAME := "XBOX on PC"
 const OS_NAME := "Windows"
 
+# Max number of captured tool-output lines to embed in the export dialog error
+# summary. The full output is still printed to the editor Output panel.
+const _MAX_SUMMARY_OUTPUT_LINES := 12
+
+# Project Setting (registered by the godot_gdk C++ extension) naming the
+# directory that holds MicrosoftGame.config and its logo assets. Export reads
+# the config from here but always stages it to the package root next to the
+# .exe. Defaults to the project root so existing projects keep working.
+const SETTING_GAME_CONFIG_DIR := "gdk/packaging/game_config_dir"
+const DEFAULT_GAME_CONFIG_DIR := "res://"
+
 # GDK tool paths (resolved on init)
 var _gdk_root := ""
 var _makepkg := ""
 var _wdapp := ""
 var _gdk_found := false
+# Guards one-shot GDK detection. Detection is lazy so the platform works even
+# when the engine never calls _initialize(): Godot only began calling
+# EditorExportPlatform::initialize() from add_export_platform() in 4.6, so on
+# Godot 4.5.x _initialize() never fires and detection must be triggered on
+# demand from the export-configuration/validation entry points instead.
+var _detected := false
 
 func _initialize() -> void:
+	_ensure_detected()
+
+# Runs GDK detection exactly once, regardless of entry point. Called eagerly
+# from _initialize() on engines that invoke it (4.6+) and lazily from the
+# export/validation callbacks on engines that don't (4.5.x). The guard also
+# keeps the export dialog — which polls _has_valid_export_configuration()
+# repeatedly — from re-scanning the filesystem and re-emitting warnings.
+func _ensure_detected() -> void:
+	if _detected:
+		return
+	_detected = true
 	_detect_gdk()
 
 func _get_name() -> String:
@@ -66,22 +94,26 @@ func _get_export_option_warning(p_preset: EditorExportPreset, p_option: StringNa
 	return ""
 
 func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool) -> bool:
+	_ensure_detected()
 	if not _gdk_found:
 		return false
 	# MicrosoftGame.config is the source of truth for identity / shell visuals
 	# and is authored via the godot_gdk_editortools addon's "Create Game Config".
-	# If it's missing the export pipeline cannot proceed.
-	if not FileAccess.file_exists("res://MicrosoftGame.config"):
+	# If it's missing the export pipeline cannot proceed. Its directory is
+	# configurable via the gdk/packaging/game_config_dir Project Setting.
+	if not FileAccess.file_exists(_game_config_src()):
 		return false
 	return true
 
 func _has_valid_project_configuration(p_preset: EditorExportPreset) -> bool:
+	_ensure_detected()
 	return _gdk_found
 
 func _can_export(p_preset: EditorExportPreset, p_debug: bool) -> bool:
 	return _has_valid_export_configuration(p_preset, p_debug)
 
 func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_flags: int) -> int:
+	_ensure_detected()
 	if not _gdk_found:
 		push_error("GDK not found. Install via: winget install Microsoft.Gaming.GDK")
 		return ERR_FILE_NOT_FOUND
@@ -131,9 +163,10 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	var exe_name: String = _read_exe_name_from_project_config()
 	if exe_name == "":
 		push_error(
-			"GDK Export: MicrosoftGame.config not found or missing <Executable Name=...> at project root.\n" +
+			"GDK Export: MicrosoftGame.config not found or missing <Executable Name=...> at %s.\n" % _game_config_src() +
 			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
-			"  or place a valid MicrosoftGame.config at the project root.")
+			"  or place a valid MicrosoftGame.config in the configured game-config\n" +
+			"  directory (gdk/packaging/game_config_dir).")
 		return ERR_FILE_NOT_FOUND
 	var exe_path: String = staging_dir.path_join(exe_name)
 	var pck_path: String = staging_dir.path_join(exe_name.get_basename() + ".pck")
@@ -195,12 +228,45 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 
 # ── MicrosoftGame.config staging ─────────────────────────────────
 
+# Returns the configured game-config directory as a filesystem-absolute path.
+# The gdk/packaging/game_config_dir Project Setting names the directory holding
+# MicrosoftGame.config + logos and defaults to the project root (res://).
+# Bare/relative values are treated as project-relative; trailing slashes are
+# trimmed except on root paths (res://, user://, drive roots).
+func _game_config_dir() -> String:
+	var raw: String = str(ProjectSettings.get_setting(
+		SETTING_GAME_CONFIG_DIR, DEFAULT_GAME_CONFIG_DIR)).strip_edges()
+	if raw.is_empty():
+		raw = DEFAULT_GAME_CONFIG_DIR
+	raw = raw.replace("\\", "/")
+	if not (raw.begins_with("res://") or raw.begins_with("user://") or raw.is_absolute_path()):
+		raw = "res://".path_join(raw)
+	var min_len: int = 0
+	if raw.begins_with("res://"):
+		min_len = "res://".length()
+	elif raw.begins_with("user://"):
+		min_len = "user://".length()
+	elif raw.is_absolute_path():
+		min_len = 1
+		if raw.length() == 3 and raw.substr(1, 1) == ":":
+			min_len = 3
+	while raw.length() > min_len and raw.ends_with("/"):
+		raw = raw.substr(0, raw.length() - 1)
+	if raw.begins_with("res://") or raw.begins_with("user://"):
+		return ProjectSettings.globalize_path(raw)
+	return raw
+
+# Returns the filesystem path to the source MicrosoftGame.config in the
+# configured game-config directory.
+func _game_config_src() -> String:
+	return _game_config_dir().path_join("MicrosoftGame.config")
+
 # Reads `<Executable Name="...">` from the project's MicrosoftGame.config.
 # Returns "" if the config is missing or has no Executable element. Centralized
 # here so `_export_project` (deriving the staged .exe name) and editor checks
 # can share one parse.
 func _read_exe_name_from_project_config() -> String:
-	var src: String = ProjectSettings.globalize_path("res://").path_join("MicrosoftGame.config")
+	var src: String = _game_config_src()
 	if not FileAccess.file_exists(src):
 		return ""
 	var content: String = FileAccess.get_file_as_string(src)
@@ -219,13 +285,13 @@ func _read_exe_name_from_project_config() -> String:
 # Game Config" flow (or by the developer directly via GameConfigEditor) —
 # never generated at export time.
 func _stage_microsoft_game_config(staging_dir: String) -> int:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
-	var src: String = project_dir.path_join("MicrosoftGame.config")
+	var src: String = _game_config_src()
 	if not FileAccess.file_exists(src):
 		push_error(
-			"GDK Export: MicrosoftGame.config not found at project root.\n" +
+			"GDK Export: MicrosoftGame.config not found at %s.\n" % src +
 			"  Open the project in the editor and run GDK ▸ Create Game Config,\n" +
-			"  or place a MicrosoftGame.config (and its logo PNGs) at the project root.")
+			"  or place a MicrosoftGame.config (and its logo PNGs) in the configured\n" +
+			"  game-config directory (gdk/packaging/game_config_dir).")
 		return ERR_FILE_NOT_FOUND
 
 	var content: String = FileAccess.get_file_as_string(src)
@@ -265,13 +331,15 @@ func _inject_target_device_family(content: String) -> String:
 	return content.substr(0, m.get_start()) + patched + content.substr(m.get_end())
 
 # Reads the staged MicrosoftGame.config to discover which logo files it
-# references, then copies each one from the project into the staging dir at
-# the same relative path. Sources are tried in order: <project>/<rel-from-config>,
-# <project>/storelogos/<filename>, <project>/<filename>. Missing logos surface
-# as warnings — the subsequent wdapp/makepkg step will then fail with a
-# specific 0x80070002 pointing at the offending file.
+# references, then copies each one from the configured game-config directory
+# into the staging dir at the same relative path (so they land next to the
+# .exe/config at the package root). Sources are tried in order:
+# <config-dir>/<rel-from-config>, <config-dir>/storelogos/<filename>,
+# <config-dir>/<filename>. Missing logos surface as warnings — the subsequent
+# wdapp/makepkg step will then fail with a specific 0x80070002 pointing at the
+# offending file.
 func _stage_logos(staging_dir: String) -> void:
-	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var config_dir: String = _game_config_dir()
 	var config_path: String = staging_dir.path_join("MicrosoftGame.config")
 	var content: String = FileAccess.get_file_as_string(config_path)
 	if content == "":
@@ -294,9 +362,9 @@ func _stage_logos(staging_dir: String) -> void:
 		var filename: String = rel.get_file()
 
 		var candidates: PackedStringArray = PackedStringArray([
-			project_dir.path_join(rel),
-			project_dir.path_join("storelogos").path_join(filename),
-			project_dir.path_join(filename),
+			config_dir.path_join(rel),
+			config_dir.path_join("storelogos").path_join(filename),
+			config_dir.path_join(filename),
 		])
 		var src: String = ""
 		for c: String in candidates:
@@ -305,7 +373,7 @@ func _stage_logos(staging_dir: String) -> void:
 				break
 		if src == "":
 			push_warning(
-				"GDK Export: %s logo not found — expected at %s. " % [attr, project_dir.path_join(rel)] +
+				"GDK Export: %s logo not found — expected at %s. " % [attr, config_dir.path_join(rel)] +
 				"Run GDK ▸ Create Game Config to generate placeholders.")
 			continue
 
@@ -322,13 +390,11 @@ func _stage_logos(staging_dir: String) -> void:
 func _wdapp_register(staging_dir: String) -> int:
 	print("[GDK Export] Registering loose folder via wdapp...")
 	var global_path: String = ProjectSettings.globalize_path(staging_dir)
-	var output: Array = []
-	var exit_code: int = OS.execute(_wdapp, ["register", global_path], output, true)
-	for line: Variant in output:
-		print("[wdapp] ", line)
-	if exit_code != 0:
-		push_error("GDK Export: wdapp register failed (exit code %d)" % exit_code)
-		return ERR_BUG
+	var result: Dictionary = _run_tool_capture(_wdapp, PackedStringArray(["register", global_path]))
+	_print_tool_output("wdapp", result)
+	if int(result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("wdapp register", result))
+		return FAILED
 	print("[GDK Export] Registered successfully! Launch from Xbox app or Start menu.")
 	return OK
 
@@ -339,37 +405,179 @@ func _makepkg_pack(staging_dir: String, output_path: String, p_preset: EditorExp
 	# Step 1: genmap
 	print("[GDK Export] Generating file map...")
 	var layout_path: String = global_staging + "\\layout.xml"
-	var output1: Array = []
-	var exit1: int = OS.execute(_makepkg, [
+	var genmap_result: Dictionary = _run_tool_capture(_makepkg, PackedStringArray([
 		"genmap", "/f", layout_path, "/d", global_staging
-	], output1, true)
-	for line: Variant in output1:
-		print("[makepkg] ", line)
-	if exit1 != 0:
-		push_error("GDK Export: makepkg genmap failed")
-		return ERR_BUG
+	]))
+	_print_tool_output("makepkg", genmap_result)
+	if int(genmap_result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("makepkg genmap", genmap_result))
+		return FAILED
 
 	# Step 2: pack
 	print("[GDK Export] Packing MSIXVC...")
-	var output2: Array = []
-	var pack_args: Array = [
+	var pack_args: PackedStringArray = PackedStringArray([
 		"pack", "/f", layout_path, "/d", global_staging, "/pd", global_output.get_base_dir()
-	]
+	])
 
 	# Add EKB file if provided
 	var ekb: Variant = p_preset.get("packaging/ekb_file") if p_preset.has("packaging/ekb_file") else ""
 	if ekb != "":
-		pack_args.append_array(["/lk", ProjectSettings.globalize_path(ekb)])
+		pack_args.append("/lk")
+		pack_args.append(ProjectSettings.globalize_path(ekb))
 
-	var exit2 := OS.execute(_makepkg, pack_args, output2, true)
-	for line: Variant in output2:
-		print("[makepkg] ", line)
-	if exit2 != 0:
-		push_error("GDK Export: makepkg pack failed")
-		return ERR_BUG
+	var pack_result: Dictionary = _run_tool_capture(_makepkg, pack_args)
+	_print_tool_output("makepkg", pack_result)
+	if int(pack_result.get("exit_code", -1)) != 0:
+		push_error(_summarize_tool_failure("makepkg pack", pack_result))
+		return FAILED
 
 	print("[GDK Export] Package created: ", global_output)
 	return OK
+
+# ── GDK tool invocation + failure diagnostics ───────────────────
+
+# Runs a GDK CLI tool (makepkg / wdapp) capturing stdout and stderr on
+# SEPARATE pipes. These tools split their failure diagnostics across both
+# streams (e.g. makepkg `pack` prints "Failed with error (0x...)" to stdout
+# but "Mapfile ... does not exist." to stderr; `genmap` prints the
+# "error = 0x8007xxxx" line to stderr), so both must be captured to explain a
+# failure. Returns { "exit_code": int, "stdout": String, "stderr": String }.
+#
+# NOTE: the process exit code from these tools is NOT diagnostic — it is a
+# small value (often 2 or 3) that never corresponds to the real cause. The
+# actionable signal is the HRESULT embedded in the captured text; see
+# `_summarize_tool_failure` / `_extract_hresult`.
+func _run_tool_capture(exe_path: String, args: PackedStringArray) -> Dictionary:
+	if not FileAccess.file_exists(exe_path):
+		return {"exit_code": -1, "stdout": "", "stderr": "Tool not found: " + exe_path}
+
+	var pipes: Dictionary = OS.execute_with_pipe(exe_path, args, false)
+	if pipes.is_empty():
+		return {"exit_code": -1, "stdout": "", "stderr": "Failed to launch: " + exe_path}
+
+	var pid: int = int(pipes.get("pid", -1))
+	var stdout_pipe: FileAccess = pipes.get("stdio", null) as FileAccess
+	var stderr_pipe: FileAccess = pipes.get("stderr", null) as FileAccess
+	var stdout_text: String = ""
+	var stderr_text: String = ""
+
+	while pid >= 0 and OS.is_process_running(pid):
+		stdout_text += _drain_pipe_text(stdout_pipe)
+		stderr_text += _drain_pipe_text(stderr_pipe)
+		OS.delay_msec(10)
+	stdout_text += _drain_pipe_text(stdout_pipe)
+	stderr_text += _drain_pipe_text(stderr_pipe)
+
+	var exit_code: int = OS.get_process_exit_code(pid) if pid >= 0 else -1
+	if stdout_pipe != null:
+		stdout_pipe.close()
+	if stderr_pipe != null:
+		stderr_pipe.close()
+
+	return {"exit_code": exit_code, "stdout": stdout_text, "stderr": stderr_text}
+
+static func _drain_pipe_text(pipe: FileAccess) -> String:
+	if pipe == null or not pipe.is_open():
+		return ""
+	var bytes: PackedByteArray = PackedByteArray()
+	while true:
+		var chunk: PackedByteArray = pipe.get_buffer(4096)
+		if chunk.is_empty():
+			break
+		bytes.append_array(chunk)
+	return bytes.get_string_from_utf8()
+
+# Echoes a captured tool result to the editor console, tagging the stream so a
+# reader can tell stdout diagnostics from the stderr error line. Lines are
+# trimmed because the tools emit CRLF and `split("\n")` would otherwise leave a
+# stray `\r` on every line.
+static func _print_tool_output(tool_name: String, result: Dictionary) -> void:
+	for line: String in str(result.get("stdout", "")).split("\n"):
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			print("[%s] %s" % [tool_name, trimmed])
+	for line: String in str(result.get("stderr", "")).split("\n"):
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			print("[%s:err] %s" % [tool_name, trimmed])
+
+# Builds a human-readable failure summary from a captured tool result so the
+# editor's export dialog explains WHY the step failed instead of surfacing an
+# opaque engine error code. Extracts the HRESULT (the real signal) and echoes
+# the TAIL of the captured stdout+stderr (last `_MAX_SUMMARY_OUTPUT_LINES`
+# non-empty lines) so the dialog stays readable — the full, untruncated output
+# is already sent to the editor Output panel by `_print_tool_output`.
+static func _summarize_tool_failure(step_label: String, result: Dictionary) -> String:
+	var stdout_text: String = str(result.get("stdout", ""))
+	var stderr_text: String = str(result.get("stderr", ""))
+	var combined: String = stdout_text
+	if stderr_text.strip_edges() != "":
+		combined += "\n" + stderr_text
+
+	var lines: Array[String] = []
+	lines.append("GDK Export: %s failed." % step_label)
+
+	var hresult: String = _extract_hresult(combined)
+	if hresult != "":
+		lines.append("  Error %s%s" % [hresult, _describe_hresult(hresult)])
+
+	var detail_lines: Array[String] = []
+	for line: String in combined.split("\n"):
+		var trimmed: String = line.strip_edges()
+		if trimmed != "":
+			detail_lines.append(trimmed)
+
+	if detail_lines.is_empty():
+		lines.append("  (no output captured; process exit code %d)" % int(result.get("exit_code", -1)))
+		return "\n".join(lines)
+
+	var total: int = detail_lines.size()
+	if total > _MAX_SUMMARY_OUTPUT_LINES:
+		detail_lines = detail_lines.slice(total - _MAX_SUMMARY_OUTPUT_LINES)
+		lines.append("  Tool output (last %d of %d lines; see Output panel for full log):" % [_MAX_SUMMARY_OUTPUT_LINES, total])
+	else:
+		lines.append("  Tool output:")
+	for line: String in detail_lines:
+		lines.append("    " + line)
+
+	return "\n".join(lines)
+
+# Finds the first failure HRESULT (high-bit-set 8-hex value such as
+# 0x8007xxxx) in captured tool output. makepkg/wdapp print this as
+# "error = 0x8007xxxx" or "Failed with error (0x8007xxxx)". Returns "" when no
+# failure HRESULT is present. A successful 0x00000000 token is intentionally
+# ignored so it never masks a real failure code appearing later in the text.
+static func _extract_hresult(text: String) -> String:
+	var re: RegEx = RegEx.new()
+	re.compile("0[xX][0-9A-Fa-f]{8}")
+	for m: RegExMatch in re.search_all(text):
+		var token: String = m.get_string(0)
+		var normalized: String = "0x" + token.substr(2).to_upper()
+		if normalized.begins_with("0x8") or normalized.begins_with("0xC"):
+			return normalized
+	return ""
+
+# Decodes the most common FACILITY_WIN32 HRESULTs makepkg/wdapp surface into a
+# short actionable hint. Unknown codes return "" (the raw HRESULT + tool output
+# already carry the detail).
+static func _describe_hresult(hresult: String) -> String:
+	# Normalize to a lowercase "0x" prefix + upper-case hex digits so the match
+	# labels below are hit regardless of the caller's casing. (`to_upper()` on
+	# the whole string would uppercase the "x" and never match.)
+	var key: String = hresult.strip_edges()
+	if key.length() > 2:
+		key = "0x" + key.substr(2).to_upper()
+	match key:
+		"0x80070002":
+			return " (ERROR_FILE_NOT_FOUND — a referenced file is missing from the staging folder)"
+		"0x80070003":
+			return " (ERROR_PATH_NOT_FOUND — a referenced path is missing)"
+		"0x80070005":
+			return " (ERROR_ACCESS_DENIED — a file is locked or the tool needs elevation)"
+		"0x80070057":
+			return " (E_INVALIDARG — check MicrosoftGame.config, e.g. TargetDeviceFamily)"
+		_:
+			return ""
 
 # ── Helpers ─────────────────────────────────────────────────────
 

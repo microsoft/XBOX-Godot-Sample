@@ -100,9 +100,17 @@ func _detect_config_problems() -> Array:
 		})
 
 	# 2. MicrosoftGame.config — either missing entirely or still has
-	#    template placeholder values. GDK initialize loads this file at
-	#    startup; with FFFFFFFF / 9NXX / 00000000 placeholders, sign-in
-	#    fails with an opaque GDK error.
+	#    template placeholder values. This is a development-time (editor)
+	#    check only: in the editor / dev run the GDK runtime loads this file
+	#    explicitly (XGameRuntimeInitializeWithOptions), so a missing or
+	#    placeholder config makes sign-in fail with an opaque GDK error. In an
+	#    exported build the config source is stripped from the PCK and the
+	#    runtime instead gets identity from the package (XGameRuntimeInitialize,
+	#    no options), so res://MicrosoftGame.config is expected to be absent —
+	#    skip the check there to avoid a false "missing" report (issue #125).
+	if not OS.has_feature("editor"):
+		return problems
+
 	var config_path := "res://MicrosoftGame.config"
 	if not FileAccess.file_exists(config_path):
 		problems.append({
