@@ -136,9 +136,10 @@ The set of Godot versions CI exercises is data-driven in
 
 ```json
 {
-  "default": "4.6.1-stable",
-  "supported": ["4.6.1-stable", "4.5.1-stable"],
+  "default": "4.7.1-stable",
+  "supported": ["4.7.1-stable", "4.6.1-stable", "4.5.1-stable"],
   "sha512": {
+    "4.7.1-stable": "a6b02c52…",
     "4.6.1-stable": "67c63291…",
     "4.5.1-stable": "ab84df90…"
   }
