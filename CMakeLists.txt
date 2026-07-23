@@ -43,6 +43,20 @@ set(GODOT_SAMPLE_TUTORIAL_GDK_DIR         "${CMAKE_SOURCE_DIR}/sample/tutorial_g
 set(GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR     "${CMAKE_SOURCE_DIR}/sample/tutorial_playfab")
 set(GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR  "${CMAKE_SOURCE_DIR}/sample/tutorial_integrated")
 set(GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR   "${CMAKE_SOURCE_DIR}/sample/tutorial_gameinput")
+
+# C#/.NET tutorial samples. Each mirrors the GDScript tutorial of the same name
+# scene-for-scene using the *_csharp facades, and has identical native-addon
+# ownership, so it receives the same synced GDExtension binaries as its GDScript
+# counterpart (the facades are thin managed wrappers over the shared native DLL,
+# not a separate binding surface):
+#   - tutorial_gdk_csharp:        gdk, gdk_editortools
+#   - tutorial_playfab_csharp:    playfab
+#   - tutorial_integrated_csharp: gdk, playfab, gdk_editortools
+#   - tutorial_gameinput_csharp:  gameinput
+set(GODOT_SAMPLE_TUTORIAL_GDK_CSHARP_DIR         "${CMAKE_SOURCE_DIR}/sample/tutorial_gdk_csharp")
+set(GODOT_SAMPLE_TUTORIAL_PLAYFAB_CSHARP_DIR     "${CMAKE_SOURCE_DIR}/sample/tutorial_playfab_csharp")
+set(GODOT_SAMPLE_TUTORIAL_INTEGRATED_CSHARP_DIR  "${CMAKE_SOURCE_DIR}/sample/tutorial_integrated_csharp")
+set(GODOT_SAMPLE_TUTORIAL_GAMEINPUT_CSHARP_DIR   "${CMAKE_SOURCE_DIR}/sample/tutorial_gameinput_csharp")
 set(GODOT_SAMPLE_DIRS
     ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
     ${GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR}
@@ -68,6 +82,8 @@ option(GODOT_PLAYFAB_TEST_HOST_WITH_GDK
 set(GODOT_GDK_PROJECT_DIRS
     ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
     ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GDK_CSHARP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_CSHARP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
 )
 
@@ -80,12 +96,15 @@ endif()
 set(GODOT_PLAYFAB_PROJECT_DIRS
     ${GODOT_SAMPLE_TUTORIAL_PLAYFAB_DIR}
     ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_PLAYFAB_CSHARP_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_CSHARP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/playfab"
     "${CMAKE_SOURCE_DIR}/tests/godot/mp_test_client"
 )
 
 set(GODOT_GAMEINPUT_PROJECT_DIRS
     ${GODOT_SAMPLE_TUTORIAL_GAMEINPUT_DIR}
+    ${GODOT_SAMPLE_TUTORIAL_GAMEINPUT_CSHARP_DIR}
     "${CMAKE_SOURCE_DIR}/tests/godot/gameinput"
 )
 
@@ -108,6 +127,8 @@ if(BUILD_GODOT_GDK_EDITORTOOLS)
     set(GODOT_GDK_EDITORTOOLS_PROJECT_DIRS
         ${GODOT_SAMPLE_TUTORIAL_GDK_DIR}
         ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_DIR}
+        ${GODOT_SAMPLE_TUTORIAL_GDK_CSHARP_DIR}
+        ${GODOT_SAMPLE_TUTORIAL_INTEGRATED_CSHARP_DIR}
         "${CMAKE_SOURCE_DIR}/tests/godot/gdk"
     )
 
