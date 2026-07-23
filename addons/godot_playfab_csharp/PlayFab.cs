@@ -50,6 +50,21 @@ public static class PlayFab
 
     public static int Dispatch() => Singleton?.Call("dispatch").AsInt32() ?? 0;
 
+    /// <summary>
+    /// Test-only diagnostics hook mirroring the native <c>submit_dispatch_probe</c>.
+    /// Enqueues a no-op callback on the runtime's async completion port and returns
+    /// <c>true</c> when it was accepted. Used to verify the frame-callback auto-pump
+    /// is wired; not intended for gameplay code.
+    /// </summary>
+    public static bool SubmitDispatchProbe() => Singleton?.Call("submit_dispatch_probe").AsBool() ?? false;
+
+    /// <summary>
+    /// Test-only diagnostics hook mirroring the native <c>get_dispatch_probe_count</c>.
+    /// Running total of completion-port probes (see <see cref="SubmitDispatchProbe"/>)
+    /// drained by a queue dispatch. Not intended for gameplay code.
+    /// </summary>
+    public static int DispatchProbeCount => Singleton?.Call("get_dispatch_probe_count").AsInt32() ?? 0;
+
     public static string TitleId => Singleton?.Call("get_title_id").AsString() ?? string.Empty;
 
     public static string Endpoint => Singleton?.Call("get_endpoint").AsString() ?? string.Empty;
