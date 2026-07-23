@@ -13,7 +13,7 @@ name: PR Gates
 #                     run-offline-tier composite. No rebuild.
 #   * fuzz-replay  -- builds the libFuzzer targets and replays their committed
 #                     corpora (regression mode; no active fuzzing).
-#   * csharp       -- (experimental/dotnet only) builds the managed C# facade
+#   * csharp       -- (both branches) builds the managed C# facade
 #                     libraries and runs the FacadeParity.Tests xUnit suite,
 #                     asserting every native doc_classes member has a managed
 #                     wrapper. Pure managed metadata -- no Godot binary, no
