@@ -12,16 +12,16 @@ config_version=5
 
 config/name="XBOX Godot Sample — GDK Tutorial (C#)"
 run/main_scene="res://Shared/tutorial_picker.tscn"
-config/features=PackedStringArray("4.6", "C#")
-
-[dotnet]
-
-project/assembly_name="TutorialGdkCSharp"
+config/features=PackedStringArray("4.7", "C#")
 
 [autoload]
 
 GDKBootstrap="*res://Autoload/GdkBootstrap.cs"
 GdkAuth="*res://Autoload/GdkAuth.cs"
+
+[dotnet]
+
+project/assembly_name="TutorialGdkCSharp"
 
 [editor_plugins]
 
