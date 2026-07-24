@@ -38,6 +38,10 @@ public static class GameInput
                 return _singleton;
             }
 
+            // Re-resolving: the previous singleton is gone (first access or an
+            // extension/editor reload). Clear the connected flag so the new
+            // singleton's device signals get reconnected below.
+            _signalsConnected = false;
             _singleton = Engine.HasSingleton("GameInput") ? Engine.GetSingleton("GameInput") : null;
             EnsureSignalsConnected();
             return _singleton;

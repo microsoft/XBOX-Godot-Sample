@@ -26,6 +26,11 @@ public static class PlayFab
                 return _singleton;
             }
 
+            // Re-resolving: the previous singleton is gone (first access, an
+            // extension reload, or an editor restart). Drop per-instance state
+            // so root signals reconnect and cached service wrappers rebind to
+            // the new native instance instead of returning stale ones.
+            ResetSingletonState();
             _singleton = Engine.HasSingleton("PlayFab") ? Engine.GetSingleton("PlayFab") : null;
             EnsureSignalsConnected();
             return _singleton;
@@ -139,4 +144,30 @@ public static class PlayFab
 
     private static PlayFabTitleData _titleData;
     public static PlayFabTitleData TitleData => _titleData ??= new PlayFabTitleData(Service("title_data"));
+
+    // Invalidate all singleton-bound cached state. Called from the Singleton
+    // getter when the native instance is re-resolved. Keep this in sync with
+    // the cached wrapper fields above.
+    private static void ResetSingletonState()
+    {
+        _signalsConnected = false;
+        _users = null;
+        _gameSaves = null;
+        _leaderboards = null;
+        _multiplayer = null;
+        _party = null;
+        _accounts = null;
+        _catalog = null;
+        _cloudScript = null;
+        _entityData = null;
+        _events = null;
+        _experimentation = null;
+        _friends = null;
+        _groups = null;
+        _inventory = null;
+        _localization = null;
+        _playerData = null;
+        _statistics = null;
+        _titleData = null;
+    }
 }

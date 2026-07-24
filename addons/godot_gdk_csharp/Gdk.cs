@@ -27,6 +27,11 @@ public static class Gdk
                 return _singleton;
             }
 
+            // Re-resolving: the previous singleton is gone (first access, an
+            // extension reload, or an editor restart). Drop per-instance state
+            // so root signals reconnect and cached service wrappers rebind to
+            // the new native instance instead of returning stale ones.
+            ResetSingletonState();
             _singleton = Engine.HasSingleton("GDK") ? Engine.GetSingleton("GDK") : null;
             EnsureSignalsConnected();
             return _singleton;
@@ -153,4 +158,37 @@ public static class Gdk
 
     private static GdkEvents _events;
     public static GdkEvents Events => _events ??= new GdkEvents(ServiceCall("get_events"));
+
+    // Invalidate all singleton-bound cached state. Called from the Singleton
+    // getter when the native instance is re-resolved. Keep this in sync with
+    // the cached wrapper fields above.
+    private static void ResetSingletonState()
+    {
+        _signalsConnected = false;
+        _users = null;
+        _gameUi = null;
+        _achievements = null;
+        _package = null;
+        _stats = null;
+        _leaderboards = null;
+        _privacy = null;
+        _accessibility = null;
+        _presence = null;
+        _social = null;
+        _store = null;
+        _profile = null;
+        _stringVerify = null;
+        _titleStorage = null;
+        _errorReporting = null;
+        _launcher = null;
+        _multiplayerActivity = null;
+        _capture = null;
+        _system = null;
+        _display = null;
+        _activation = null;
+        _gameChat = null;
+        _speech = null;
+        _gameSave = null;
+        _events = null;
+    }
 }
