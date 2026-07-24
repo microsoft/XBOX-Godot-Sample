@@ -18,8 +18,10 @@ bridge.
    </ItemGroup>
    ```
 
-3. (Optional) C# bootstrap autoload — initializes on startup and polls each
-   frame, driven by the `game_input/runtime/*` project settings:
+3. (Optional) C# bootstrap autoload — initializes on startup, polls each frame,
+   and (when `game_input/mapper/default_action_map` points at a
+   `GameInputActionMap`) spawns a default `GameInputMapper` child, driven by the
+   same `game_input/*` project settings the GDScript bootstrap reads:
 
    ```csharp
    // Autoload/GameInputBootstrap.cs

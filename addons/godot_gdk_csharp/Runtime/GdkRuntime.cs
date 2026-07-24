@@ -7,17 +7,26 @@ namespace GodotGdk.Runtime;
 /// Register this as an autoload (instead of the GDScript bootstrap) in a C#
 /// project: it initializes the GDK runtime on startup and optionally adds the
 /// default user, both driven by the same project settings the GDScript
-/// bootstrap reads.
+/// bootstrap reads. Like the native bootstrap it stays inert under the GDScript
+/// parse gate (<c>--gd-script-check</c>) and the headless test runner
+/// (<c>res://tests/run_tests.gd</c>).
 /// </summary>
 public partial class GdkRuntime : Node
 {
     private const string SettingInitializeOnStartup = "gdk/runtime/initialize_on_startup";
     private const string SettingAutoAddPrimaryUser = "gdk/runtime/auto_add_primary_user";
+    private const string GdScriptCheckFlag = "--gd-script-check";
+    private const string TestScriptPath = "res://tests/run_tests.gd";
 
     private bool _startupUserInProgress;
 
     public override void _Ready()
     {
+        if (ShouldSkipBootstrap())
+        {
+            return;
+        }
+
         if (!Gdk.IsAvailable)
         {
             GD.PushWarning("[GDK] Bootstrap: 'GDK' singleton not registered. Is the godot_gdk GDExtension built and loaded?");
@@ -87,6 +96,29 @@ public partial class GdkRuntime : Node
         {
             GD.PushWarning($"[GDK] Bootstrap: silent sign-in did not complete successfully: {result.Message}");
         }
+    }
+
+    private static bool ShouldSkipBootstrap()
+    {
+        // Mirrors gdk_bootstrap.gd::_should_skip_bootstrap(): stay inert under the
+        // GDScript parse gate (--gd-script-check) and the headless test runner
+        // (res://tests/run_tests.gd) so validation/test contexts don't initialize
+        // GDK or kick off silent sign-in.
+        string[] userArgs = OS.GetCmdlineUserArgs();
+        if (System.Array.IndexOf(userArgs, GdScriptCheckFlag) >= 0)
+        {
+            return true;
+        }
+
+        string[] args = OS.GetCmdlineArgs();
+        bool runningScript = System.Array.IndexOf(args, "--script") >= 0 || System.Array.IndexOf(args, "-s") >= 0;
+        if (runningScript && System.Array.IndexOf(args, TestScriptPath) >= 0)
+        {
+            GD.Print("[GDK] Bootstrap skipped for headless tests");
+            return true;
+        }
+
+        return false;
     }
 
     public override void _ExitTree()
