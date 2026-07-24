@@ -45,6 +45,49 @@ public abstract class PlayFabObject
     }
 
     /// <summary>
+    /// Subscribes <paramref name="handler"/> to a C# event, connecting the backing
+    /// native <paramref name="signal"/> only on the first subscription. Wrappers are
+    /// created fresh on every <c>From()</c> / property read, so connecting eagerly in
+    /// the constructor would leak the wrapper (the native signal retains the Callable
+    /// closure) and duplicate delivery when the same native object is wrapped twice.
+    /// Connecting lazily keeps unsubscribed wrappers cheap and collectable.
+    /// </summary>
+    protected void AddSignal<TDelegate>(
+        ref TDelegate backing, TDelegate handler, string signal, ref Callable callable, Func<Callable> makeCallable)
+        where TDelegate : Delegate
+    {
+        bool wasEmpty = backing is null;
+        backing = (TDelegate)Delegate.Combine(backing, handler);
+        if (wasEmpty && backing is not null && IsLive)
+        {
+            callable = makeCallable();
+            _o.Connect(signal, callable);
+        }
+    }
+
+    /// <summary>
+    /// Unsubscribes <paramref name="handler"/>, disconnecting the backing native
+    /// <paramref name="signal"/> once the last handler is removed. Pairs with
+    /// <see cref="AddSignal{TDelegate}"/>.
+    /// </summary>
+    protected void RemoveSignal<TDelegate>(
+        ref TDelegate backing, TDelegate handler, string signal, ref Callable callable)
+        where TDelegate : Delegate
+    {
+        if (backing is null)
+        {
+            return;
+        }
+
+        backing = (TDelegate)Delegate.Remove(backing, handler);
+        if (backing is null && IsLive && _o.IsConnected(signal, callable))
+        {
+            _o.Disconnect(signal, callable);
+            callable = default;
+        }
+    }
+
+    /// <summary>
     /// Reflection helper used by result payload typing: constructs a wrapper of
     /// type <typeparamref name="T"/> around <paramref name="o"/> via its
     /// non-public <c>(GodotObject)</c> constructor.

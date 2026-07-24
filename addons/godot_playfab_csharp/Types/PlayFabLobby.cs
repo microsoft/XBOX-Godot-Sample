@@ -9,13 +9,20 @@ public sealed class PlayFabLobby : PlayFabObject
 {
     internal PlayFabLobby(GodotObject o) : base(o)
     {
-        _o.Connect("state_changed", Callable.From((Variant a0) =>
-            StateChanged?.Invoke(PlayFabLobbyStateChange.From(a0.AsGodotObject()))));
     }
 
     public static PlayFabLobby From(GodotObject o) => o == null ? null : new PlayFabLobby(o);
 
-    public event Action<PlayFabLobbyStateChange> StateChanged;
+    private Action<PlayFabLobbyStateChange> _stateChanged;
+    private Callable _stateChangedCallable;
+
+    public event Action<PlayFabLobbyStateChange> StateChanged
+    {
+        add => AddSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable,
+            () => Callable.From((Variant a0) =>
+                _stateChanged?.Invoke(PlayFabLobbyStateChange.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable);
+    }
 
     public const int MEMBERADDED = 1;
 

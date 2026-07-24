@@ -26,9 +26,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 $facades = @(
-    'addons/godot_gdk_csharp',
-    'addons/godot_playfab_csharp',
-    'addons/godot_gameinput_csharp'
+    'addons/godot_gdk_csharp/GodotGdkCSharp.csproj',
+    'addons/godot_playfab_csharp/GodotPlayFabCSharp.csproj',
+    'addons/godot_gameinput_csharp/GodotGameInputCSharp.csproj'
 )
 
 foreach ($facade in $facades) {
@@ -38,7 +38,7 @@ foreach ($facade in $facades) {
 }
 
 Write-Host '==> Running FacadeParity.Tests' -ForegroundColor Cyan
-dotnet test (Join-Path $repoRoot 'tests/csharp/FacadeParity.Tests') -v minimal --nologo
+dotnet test (Join-Path $repoRoot 'tests/csharp/FacadeParity.Tests/FacadeParity.Tests.csproj') -v minimal --nologo
 if ($LASTEXITCODE -ne 0) { throw 'C# parity tests failed.' }
 
 Write-Host 'C# facade build + parity tests passed.' -ForegroundColor Green

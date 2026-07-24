@@ -9,19 +9,40 @@ public sealed class PlayFabPartyChatControl : PlayFabObject
 {
     internal PlayFabPartyChatControl(GodotObject o) : base(o)
     {
-        _o.Connect("state_changed", Callable.From((Variant a0) =>
-            StateChanged?.Invoke(PlayFabPartyChatStateChange.From(a0.AsGodotObject()))));
-        _o.Connect("message_received", Callable.From((Variant a0) =>
-            MessageReceived?.Invoke(PlayFabPartyChatMessage.From(a0.AsGodotObject()))));
-        _o.Connect("transcription_received", Callable.From((Variant a0) =>
-            TranscriptionReceived?.Invoke(PlayFabPartyChatMessage.From(a0.AsGodotObject()))));
     }
 
     public static PlayFabPartyChatControl From(GodotObject o) => o == null ? null : new PlayFabPartyChatControl(o);
 
-    public event Action<PlayFabPartyChatStateChange> StateChanged;
-    public event Action<PlayFabPartyChatMessage> MessageReceived;
-    public event Action<PlayFabPartyChatMessage> TranscriptionReceived;
+    private Action<PlayFabPartyChatStateChange> _stateChanged;
+    private Callable _stateChangedCallable;
+    private Action<PlayFabPartyChatMessage> _messageReceived;
+    private Callable _messageReceivedCallable;
+    private Action<PlayFabPartyChatMessage> _transcriptionReceived;
+    private Callable _transcriptionReceivedCallable;
+
+    public event Action<PlayFabPartyChatStateChange> StateChanged
+    {
+        add => AddSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable,
+            () => Callable.From((Variant a0) =>
+                _stateChanged?.Invoke(PlayFabPartyChatStateChange.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable);
+    }
+
+    public event Action<PlayFabPartyChatMessage> MessageReceived
+    {
+        add => AddSignal(ref _messageReceived, value, "message_received", ref _messageReceivedCallable,
+            () => Callable.From((Variant a0) =>
+                _messageReceived?.Invoke(PlayFabPartyChatMessage.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _messageReceived, value, "message_received", ref _messageReceivedCallable);
+    }
+
+    public event Action<PlayFabPartyChatMessage> TranscriptionReceived
+    {
+        add => AddSignal(ref _transcriptionReceived, value, "transcription_received", ref _transcriptionReceivedCallable,
+            () => Callable.From((Variant a0) =>
+                _transcriptionReceived?.Invoke(PlayFabPartyChatMessage.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _transcriptionReceived, value, "transcription_received", ref _transcriptionReceivedCallable);
+    }
 
     public string Id => GetString("id");
 

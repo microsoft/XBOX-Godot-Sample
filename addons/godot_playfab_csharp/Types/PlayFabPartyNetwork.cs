@@ -9,13 +9,20 @@ public sealed class PlayFabPartyNetwork : PlayFabObject
 {
     internal PlayFabPartyNetwork(GodotObject o) : base(o)
     {
-        _o.Connect("state_changed", Callable.From((Variant a0) =>
-            StateChanged?.Invoke(PlayFabPartyNetworkStateChange.From(a0.AsGodotObject()))));
     }
 
     public static PlayFabPartyNetwork From(GodotObject o) => o == null ? null : new PlayFabPartyNetwork(o);
 
-    public event Action<PlayFabPartyNetworkStateChange> StateChanged;
+    private Action<PlayFabPartyNetworkStateChange> _stateChanged;
+    private Callable _stateChangedCallable;
+
+    public event Action<PlayFabPartyNetworkStateChange> StateChanged
+    {
+        add => AddSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable,
+            () => Callable.From((Variant a0) =>
+                _stateChanged?.Invoke(PlayFabPartyNetworkStateChange.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable);
+    }
 
     public string NetworkId => GetString("network_id");
 

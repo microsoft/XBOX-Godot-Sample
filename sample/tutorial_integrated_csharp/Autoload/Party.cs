@@ -25,7 +25,7 @@ public partial class Party : Node
     public event Action NetworkDestroyed;
     public event Action<int> PeerConnected;
     public event Action<int> PeerDisconnected;
-    public event Action<int, string> ChatReceived;
+    public event Action<string, string> ChatReceived;
     public event Action<int, string> RpcReceived;
 
     private State _state = State.Uninitialized;
@@ -33,6 +33,7 @@ public partial class Party : Node
     private Lobby _lobbyNode;
     private PlayFabLobby _lobby;
     private PlayFabPartyNetwork _network;
+    private PlayFabPartyChat _chat;
     private bool _isHost;
     private bool _lobbySignalsConnected;
     private bool _pfPartySignalsConnected;
@@ -110,6 +111,12 @@ public partial class Party : Node
         if (!_pfPartySignalsConnected)
         {
             PlayFab.Party.PartyError += OnPartyError;
+            // Chat is meshed by PlayFab Party and lives on the persistent
+            // PlayFab.party.chat surface (not the per-network transport peer),
+            // so wire its signals once here rather than per network attach.
+            _chat = PlayFab.Party.GetChat();
+            _chat.TextMessageReceived += OnPartyTextReceived;
+            _chat.ChatControlAdded += OnChatControlAdded;
             _pfPartySignalsConnected = true;
         }
         return true;
@@ -135,6 +142,12 @@ public partial class Party : Node
         Godot.Collections.Dictionary caps = await ResolveChatCapabilitiesAsync();
         PlayFabPartyConfig cfg = TutorialSupport.PartyConfig(4, PlayFabParty.DIRECTPEERCONNECTIVITYANY,
             TutorialSupport.DictBool(caps, "voice"), TutorialSupport.DictBool(caps, "text"), _lobby?.LobbyId ?? string.Empty);
+        if (!await EnsureLocalChatControlAsync(_auth.PlayFabUser, cfg))
+        {
+            _isHost = false;
+            SetState(State.Ready);
+            return false;
+        }
         PlayFabResult result = await PlayFab.Party.CreateAndJoinNetworkAsync(_auth.PlayFabUser, cfg);
         if (_abortPartyOp || _state != State.Hosting)
         {
@@ -179,6 +192,11 @@ public partial class Party : Node
         Godot.Collections.Dictionary caps = await ResolveChatCapabilitiesAsync();
         PlayFabPartyConfig cfg = TutorialSupport.PartyConfig(4, PlayFabParty.DIRECTPEERCONNECTIVITYANY,
             TutorialSupport.DictBool(caps, "voice"), TutorialSupport.DictBool(caps, "text"), _lobby?.LobbyId ?? string.Empty);
+        if (!await EnsureLocalChatControlAsync(_auth.PlayFabUser, cfg))
+        {
+            SetState(State.Ready);
+            return false;
+        }
         PlayFabResult result = await PlayFab.Party.JoinNetworkAsync(_auth.PlayFabUser, descriptor, cfg);
         if (_abortPartyOp || _state != State.Joining)
         {
@@ -231,26 +249,38 @@ public partial class Party : Node
         return new Godot.Collections.Dictionary { ["text"] = textAllowed, ["voice"] = voiceAllowed };
     }
 
-    public async Task<bool> ToggleMuteAsync(int peerId, bool muted)
+    private async Task<bool> EnsureLocalChatControlAsync(PlayFabUser user, PlayFabPartyConfig cfg)
     {
-        if (_state != State.InNetwork || _network?.LocalPeer == null)
+        if (!cfg.EnableVoiceChat && !cfg.EnableTextChat) return true;
+        PlayFabResult result = await _chat.CreateLocalChatControlAsync(user, cfg);
+        if (!result.Ok)
+        {
+            GD.PushWarning($"[Party] create_local_chat_control failed: {result.Message} ({result.Code})");
+            return false;
+        }
+        return true;
+    }
+
+    public async Task<bool> ToggleMuteAsync(Godot.Collections.Dictionary entityKey, bool muted)
+    {
+        if (_state != State.InNetwork || _chat == null)
         {
             GD.PushWarning($"[Party] toggle_mute rejected — not in a network (state={(int)_state})");
             return false;
         }
-        PlayFabResult pf = await _network.LocalPeer.SetPeerMutedAsync(peerId, muted);
+        PlayFabResult pf = await _chat.SetAudioMutedAsync(entityKey, muted);
         if (!pf.Ok) GD.PushWarning($"[Party] mute toggle failed: {pf.Message}");
         return pf.Ok;
     }
 
     public async Task<bool> SendChatAsync(string text)
     {
-        if (_state != State.InNetwork || _network?.LocalPeer == null)
+        if (_state != State.InNetwork || _chat == null)
         {
             GD.PushWarning($"[Party] send_chat rejected — not in a network (state={(int)_state})");
             return false;
         }
-        PlayFabResult pf = await _network.LocalPeer.SendTextAsync(text);
+        PlayFabResult pf = await _chat.SendTextAsync(text, new Godot.Collections.Array());
         if (!pf.Ok) GD.PushWarning($"[Party] send_text failed: {pf.Message}");
         return pf.Ok;
     }
@@ -342,25 +372,22 @@ public partial class Party : Node
         PlayFabPartyPeer peer = _network.LocalPeer;
         if (peer == null) return;
         Multiplayer.MultiplayerPeer = peer.AsMultiplayerPeer;
-        peer.TextMessageReceived += OnPartyTextReceived;
         peer.ConnectionStateChanged += OnPartyConnectionStateChanged;
-        peer.ChatControlAdded += OnChatControlAdded;
+        // Replay peer_connected for peers already registered before this attach
+        // wired its handler. Chat controls mesh on the persistent
+        // PlayFab.party.chat surface (signals wired once at init), so no
+        // per-attach chat replay is needed here.
+        int localId = peer.AsMultiplayerPeer?.GetUniqueId() ?? 0;
         foreach (Variant rawId in peer.GetPeers())
         {
             int peerId = rawId.AsInt32();
-            peer_connected(peerId, peer);
+            if (peerId == localId) continue;
+            PeerConnected?.Invoke(peerId);
         }
         if (peer.AsMultiplayerPeer != null && peer.AsMultiplayerPeer.GetConnectionStatus() == MultiplayerPeer.ConnectionStatus.Connected)
         {
             Rpc(MethodName.HandshakeMessage, "ready");
         }
-    }
-
-    private void peer_connected(int peerId, PlayFabPartyPeer peer)
-    {
-        PeerConnected?.Invoke(peerId);
-        PlayFabPartyChatControl ctrl = peer.GetPeerChatControl(peerId);
-        if (ctrl != null) _ = HandleChatControlAddedAsync(peerId, ctrl);
     }
 
     private void DetachNetwork()
@@ -371,9 +398,7 @@ public partial class Party : Node
             PlayFabPartyPeer peer = _network.LocalPeer;
             if (peer != null)
             {
-                peer.TextMessageReceived -= OnPartyTextReceived;
                 peer.ConnectionStateChanged -= OnPartyConnectionStateChanged;
-                peer.ChatControlAdded -= OnChatControlAdded;
             }
         }
         ClearMultiplayerPeer();
@@ -452,10 +477,11 @@ public partial class Party : Node
         Multiplayer.MultiplayerPeer = null;
     }
 
-    private void OnPartyTextReceived(int peerId, PlayFabPartyChatMessage message)
+    private void OnPartyTextReceived(Godot.Collections.Dictionary entityKey, PlayFabPartyChatMessage message)
     {
-        GD.Print($"[Party] Text from peer {peerId}: \"{message.Text}\"");
-        ChatReceived?.Invoke(peerId, message.Text);
+        string senderId = TutorialSupport.DictString(entityKey, "id");
+        GD.Print($"[Party] Text from {senderId}: \"{message.Text}\"");
+        ChatReceived?.Invoke(senderId, message.Text);
     }
 
     private void OnPartyConnectionStateChanged(int status)
@@ -463,27 +489,26 @@ public partial class Party : Node
         if (status == (int)MultiplayerPeer.ConnectionStatus.Disconnected) GD.Print("[Party] Multiplayer peer disconnected");
     }
 
-    private void OnChatControlAdded(int peerId, PlayFabPartyChatControl control) => _ = HandleChatControlAddedAsync(peerId, control);
+    private void OnChatControlAdded(Godot.Collections.Dictionary entityKey, PlayFabPartyChatControl control) => _ = HandleChatControlAddedAsync(entityKey);
 
-    private async Task HandleChatControlAddedAsync(int peerId, PlayFabPartyChatControl control)
+    private async Task HandleChatControlAddedAsync(Godot.Collections.Dictionary entityKey)
     {
-        string peerXuid = XuidForPeer(peerId);
+        string peerXuid = XuidForEntityKey(entityKey);
         if (string.IsNullOrEmpty(peerXuid)) return;
         bool allowVoice = await CheckPermissionAsync("communicate_using_voice", peerXuid);
         bool allowText = await CheckPermissionAsync("communicate_using_text", peerXuid);
         int permissions = PartyChatNone;
         if (allowVoice) permissions |= PartyChatSendAudio | PartyChatReceiveAudio;
         if (allowText) permissions |= PartyChatSendText | PartyChatReceiveText;
-        if (_state != State.InNetwork || _network?.LocalPeer == null) return;
-        PlayFabResult pf = await _network.LocalPeer.SetPeerChatPermissionsAsync(peerId, permissions);
-        if (!pf.Ok) GD.PushWarning($"[Party] chat permissions for peer {peerId} failed: {pf.Message}");
+        if (_state != State.InNetwork || _chat == null) return;
+        PlayFabResult pf = await _chat.SetChatPermissionsAsync(entityKey, permissions);
+        if (!pf.Ok) GD.PushWarning($"[Party] chat permissions for {TutorialSupport.DictString(entityKey, "id")} failed: {pf.Message}");
     }
 
-    private string XuidForPeer(int peerId)
+    private string XuidForEntityKey(Godot.Collections.Dictionary entityKey)
     {
-        if (_network?.LocalPeer == null || _lobby == null) return string.Empty;
-        Godot.Collections.Dictionary key = _network.LocalPeer.GetPeerEntityKey(peerId);
-        string entityId = TutorialSupport.DictString(key, "id");
+        if (_lobby == null) return string.Empty;
+        string entityId = TutorialSupport.DictString(entityKey, "id");
         if (string.IsNullOrEmpty(entityId)) return string.Empty;
         foreach (Variant memberValue in _lobby.Members)
         {

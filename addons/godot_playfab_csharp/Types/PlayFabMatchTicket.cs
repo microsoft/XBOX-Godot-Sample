@@ -9,13 +9,20 @@ public sealed class PlayFabMatchTicket : PlayFabObject
 {
     internal PlayFabMatchTicket(GodotObject o) : base(o)
     {
-        _o.Connect("state_changed", Callable.From((Variant a0) =>
-            StateChanged?.Invoke(PlayFabMatchTicketStateChange.From(a0.AsGodotObject()))));
     }
 
     public static PlayFabMatchTicket From(GodotObject o) => o == null ? null : new PlayFabMatchTicket(o);
 
-    public event Action<PlayFabMatchTicketStateChange> StateChanged;
+    private Action<PlayFabMatchTicketStateChange> _stateChanged;
+    private Callable _stateChangedCallable;
+
+    public event Action<PlayFabMatchTicketStateChange> StateChanged
+    {
+        add => AddSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable,
+            () => Callable.From((Variant a0) =>
+                _stateChanged?.Invoke(PlayFabMatchTicketStateChange.From(a0.AsGodotObject()))));
+        remove => RemoveSignal(ref _stateChanged, value, "state_changed", ref _stateChangedCallable);
+    }
 
     public const int CREATED = 100;
 
