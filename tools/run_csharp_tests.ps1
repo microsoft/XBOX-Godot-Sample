@@ -6,11 +6,15 @@
 .DESCRIPTION
     The C# track is validated with `dotnet build` + `dotnet test` rather than the
     GDScript parse gate / GUT (which are GDScript-only). This script:
-      1. Builds the three facade class libraries (godot_gdk_csharp,
-         godot_playfab_csharp, godot_gameinput_csharp).
-      2. Runs the FacadeParity.Tests xUnit suite, which reflects over the facade
-         assemblies and asserts every native doc_classes member has a managed
-         wrapper.
+      1. Builds the FacadeParity.Tests project once. Its ProjectReferences pull
+         in all three facade class libraries (godot_gdk_csharp,
+         godot_playfab_csharp, godot_gameinput_csharp), so this single build
+         compiles the facades too -- a separate per-facade build loop would just
+         compile them a second time.
+      2. Runs the FacadeParity.Tests xUnit suite with `--no-build` (the facades
+         and test assembly are already compiled from step 1). The suite reflects
+         over the facade assemblies and asserts every native doc_classes member
+         has a managed wrapper.
 
     These tests run fully headless (no Godot _mono editor required), because they
     only inspect managed metadata. In-engine GoDotTest hosts (which exercise the
@@ -25,20 +29,19 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
-$facades = @(
-    'addons/godot_gdk_csharp/GodotGdkCSharp.csproj',
-    'addons/godot_playfab_csharp/GodotPlayFabCSharp.csproj',
-    'addons/godot_gameinput_csharp/GodotGameInputCSharp.csproj'
-)
+# Build the FacadeParity.Tests project once. Its ProjectReferences pull in all
+# three facade class libraries (godot_gdk_csharp, godot_playfab_csharp,
+# godot_gameinput_csharp), so this single build compiles the facades too --
+# building them in a separate loop first would just compile them twice.
+$testProject = 'tests/csharp/FacadeParity.Tests/FacadeParity.Tests.csproj'
 
-foreach ($facade in $facades) {
-    Write-Host "==> Building $facade" -ForegroundColor Cyan
-    dotnet build (Join-Path $repoRoot $facade) -v minimal --nologo
-    if ($LASTEXITCODE -ne 0) { throw "Build failed: $facade" }
-}
+Write-Host "==> Building $testProject (compiles the three facades via ProjectReferences)" -ForegroundColor Cyan
+dotnet build (Join-Path $repoRoot $testProject) -v minimal --nologo
+if ($LASTEXITCODE -ne 0) { throw "Build failed: $testProject" }
 
-Write-Host '==> Running FacadeParity.Tests' -ForegroundColor Cyan
-dotnet test (Join-Path $repoRoot 'tests/csharp/FacadeParity.Tests/FacadeParity.Tests.csproj') -v minimal --nologo
+# Run with --no-build so the facades + test assembly are compiled only once.
+Write-Host '==> Running FacadeParity.Tests (--no-build)' -ForegroundColor Cyan
+dotnet test (Join-Path $repoRoot $testProject) --no-build -v minimal --nologo
 if ($LASTEXITCODE -ne 0) { throw 'C# parity tests failed.' }
 
 Write-Host 'C# facade build + parity tests passed.' -ForegroundColor Green

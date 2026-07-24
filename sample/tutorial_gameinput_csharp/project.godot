@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.6", "C#")
 
 [autoload]
 
-GameInputRuntime="*res://Autoload/GameInputBootstrap.cs"
+GameInputBootstrap="*res://Autoload/GameInputBootstrap.cs"
 
 [dotnet]
 
