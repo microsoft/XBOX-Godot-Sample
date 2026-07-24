@@ -14,7 +14,11 @@ public sealed class PlayFabResult : PlayFabObject
     {
     }
 
-    public static PlayFabResult From(GodotObject o) => new PlayFabResult(o);
+    public static PlayFabResult From(GodotObject o) =>
+        o == null
+            ? Failed("null_native_result",
+                "godot_playfab produced no result object (native call returned null; possible method/signature drift).")
+            : new PlayFabResult(o);
 
     internal static PlayFabResult Failed(string code, string message)
     {

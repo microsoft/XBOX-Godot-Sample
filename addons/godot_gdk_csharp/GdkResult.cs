@@ -14,7 +14,11 @@ public sealed class GdkResult : GdkObject
     {
     }
 
-    public static GdkResult From(GodotObject o) => new GdkResult(o);
+    public static GdkResult From(GodotObject o) =>
+        o == null
+            ? Failed("null_native_result",
+                "godot_gdk produced no result object (native call returned null; possible method/signature drift).")
+            : new GdkResult(o);
 
     internal static GdkResult Failed(string code, string message)
     {
