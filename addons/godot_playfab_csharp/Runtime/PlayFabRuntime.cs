@@ -58,7 +58,12 @@ public partial class PlayFabRuntime : Node
 
     public override void _ExitTree()
     {
-        if (PlayFab.IsAvailable && PlayFab.IsInitialized)
+        if (!PlayFab.IsAvailable)
+        {
+            return;
+        }
+        PlayFab.Initialized -= OnInitialized;
+        if (PlayFab.IsInitialized)
         {
             PlayFab.Shutdown();
         }

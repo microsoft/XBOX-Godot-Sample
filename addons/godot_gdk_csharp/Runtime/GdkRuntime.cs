@@ -91,7 +91,14 @@ public partial class GdkRuntime : Node
 
     public override void _ExitTree()
     {
-        if (Gdk.IsAvailable && Gdk.IsInitialized)
+        if (!Gdk.IsAvailable)
+        {
+            return;
+        }
+        Gdk.Initialized -= OnInitialized;
+        Gdk.RuntimeError -= OnRuntimeError;
+        Gdk.Users.UserChanged -= OnUserChanged;
+        if (Gdk.IsInitialized)
         {
             Gdk.Shutdown();
         }

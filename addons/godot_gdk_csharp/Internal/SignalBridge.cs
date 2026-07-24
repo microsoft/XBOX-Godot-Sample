@@ -21,6 +21,12 @@ internal static class SignalBridge
 
         Variant[] payload = await owner.ToSignal(owner, completion.Name);
         GodotObject result = payload.Length > 0 ? payload[0].AsGodotObject() : null;
+        if (result == null)
+        {
+            return GdkResult.Failed(
+                "signal_payload_missing",
+                $"Async signal '{completion.Name}' completed without a result payload.");
+        }
         return GdkResult.From(result);
     }
 }
