@@ -9,10 +9,11 @@ rebuilding.
 
 | Gate | Workflow | Trigger | Runner |
 | --- | --- | --- | --- |
-| GDScript parse | `pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
+| GDScript parse | `pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main` or `experimental/dotnet`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
 | Native build + C++ doctest | `pr-gates.yml` (`build`) | same as above | `windows-2022`, **default GDK edition** |
 | Offline tier (load/smoke + non-live GUT) | `pr-gates.yml` (`test-offline`) | same as above | `windows-2022`, **default Godot** |
 | Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
+| C# facade parity | `pr-gates.yml` (`csharp`) | `pull_request` / `push` to **`experimental/dotnet`** only | `windows-latest`, .NET 8 SDK |
 | Native build + C++ doctest | `playfab-live-nightly.yml` (`build`) | nightly `schedule` + `workflow_dispatch` | `windows-2022`, **matrixed over GDK editions** |
 | Offline tier (load/smoke + non-live GUT) | `playfab-live-nightly.yml` (`test-offline`) | same | `windows-2022`, **GDK editions × Godot supported** |
 | PlayFab live (read + write) | `playfab-live-nightly.yml` (`playfab-live`) | same | `windows-2022`, sandbox title, **GDK editions × default Godot** |
@@ -226,6 +227,39 @@ configure there.
 
 To add a regression input, drop the bytes into the matching
 `tests/cpp/fuzz/corpus/<target>/` directory and commit it.
+
+## C# facade parity gate (`experimental/dotnet`)
+
+The `experimental/dotnet` branch adds a managed C# facade layer over the native
+addons: `addons/godot_gdk_csharp/`, `addons/godot_playfab_csharp/`, and
+`addons/godot_gameinput_csharp/` wrap the same GDExtension singletons the
+GDScript API uses. The facades do **not** re-bind anything — they call straight
+through the native singletons (`GodotObject.Call` / `Get`), so the native DLL
+stays the single binding surface. The `csharp` job guards that layer:
+
+```powershell
+pwsh -File tools/run_csharp_tests.ps1
+```
+
+which `dotnet build`s the three facade class libraries and then runs the
+`tests/csharp/FacadeParity.Tests` xUnit suite. `FacadeParity.Tests` reflects over
+the built facade assemblies and asserts that **every** method / member / signal
+documented in each native `doc_classes/*.xml` has a matching managed member — so
+when the native surface gains an API (e.g. a new bound method), the C# facade
+must grow a wrapper in the same change or the gate fails.
+
+It is pure managed metadata: `net8.0` + the `Godot.NET.Sdk` NuGet SDK, with **no
+Godot binary, no native/CMake build, no submodules, and no secrets**. It runs on
+a bare `windows-latest` with only the .NET 8 SDK provisioned by
+`actions/setup-dotnet`, so it is fast and fork-safe.
+
+**Trigger scoping.** The `csharp` job lives in `pr-gates.yml` but exists only on
+the `experimental/dotnet` branch. GitHub runs the copy of a workflow taken from a
+PR's *base* branch (or a push's branch), so `main` events use `main`'s copy —
+which has no `csharp` job — and only `experimental/dotnet` events run it. That is
+also why `experimental/dotnet` was added to the `pull_request` / `push` branch
+filters: on that branch the GDScript/native/fuzz jobs revalidate the inherited
+surface, and the `csharp` job adds the C# parity check on top.
 
 ## Nightly: build → offline → live (`playfab-live-nightly.yml`)
 

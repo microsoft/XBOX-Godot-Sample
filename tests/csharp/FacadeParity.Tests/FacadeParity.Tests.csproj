@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+    <!-- This is a plain xUnit project, not a Godot project; disable the Godot
+         script-path source generator to avoid a benign GodotProjectDir warning. -->
+    <GodotProjectDir>$(MSBuildProjectDirectory)</GodotProjectDir>
+    <NoWarn>$(NoWarn);CS8785</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\addons\godot_gdk_csharp\GodotGdkCSharp.csproj" />
+    <ProjectReference Include="..\..\..\addons\godot_playfab_csharp\GodotPlayFabCSharp.csproj" />
+    <ProjectReference Include="..\..\..\addons\godot_gameinput_csharp\GodotGameInputCSharp.csproj" />
+  </ItemGroup>
+</Project>

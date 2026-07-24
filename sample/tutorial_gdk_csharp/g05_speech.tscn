@@ -1,0 +1,71 @@
+[gd_scene load_steps=2 format=3 uid="uid://bgdkcsg05speech"]
+
+[ext_resource type="Script" path="res://G05Speech.cs" id="1_g05"]
+
+[node name="G05Speech" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_g05")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "G5 — Text-to-Speech"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "GDK.speech wraps XSpeechSynthesizer: list voices, synthesize text/SSML to WAV, and play it back. Local-only — no network or signed-in user required."
+autowrap_mode = 3
+
+[node name="TextInput" type="LineEdit" parent="Root"]
+layout_mode = 2
+text = "Hello from the Xbox GDK text to speech engine."
+placeholder_text = "Text to speak"
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="VoicesBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "List voices"
+
+[node name="SpeakBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Speak (default voice)"
+
+[node name="SsmlBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Synthesize SSML"
+
+[node name="BackBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "← Back"
+
+[node name="LogPanel" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Log" type="RichTextLabel" parent="Root/LogPanel"]
+layout_mode = 2
+bbcode_enabled = true
+scroll_following = true
+
+[node name="AudioPlayer" type="AudioStreamPlayer" parent="."]

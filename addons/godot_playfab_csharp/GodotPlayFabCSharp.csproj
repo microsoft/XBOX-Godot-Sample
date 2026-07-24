@@ -1,0 +1,13 @@
+<Project Sdk="Godot.NET.Sdk/4.7.1">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>disable</Nullable>
+    <RootNamespace>GodotPlayFab</RootNamespace>
+    <AssemblyName>GodotPlayFabCSharp</AssemblyName>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\godot_gdk_csharp\GodotGdkCSharp.csproj" />
+  </ItemGroup>
+</Project>
