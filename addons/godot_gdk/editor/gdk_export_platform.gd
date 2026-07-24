@@ -171,15 +171,36 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	var exe_path: String = staging_dir.path_join(exe_name)
 	var pck_path: String = staging_dir.path_join(exe_name.get_basename() + ".pck")
 
-	# Copy Windows export template (or fallback to current Godot exe for dev)
+	# Copy the Windows export template. The Godot editor binary is NOT a valid
+	# game template: it makes OS.has_feature("editor") true at runtime (which
+	# breaks the sample's config pre-flight) and resolves GDExtension DLLs from
+	# the dev machine's source tree, so a package built from it fails on every
+	# other machine with "GDExtension dynamic library not found" (issue #134).
+	# Only tolerate it for a same-machine loose dev-register build, never when
+	# producing a distributable package.
+	var config_label: String = "debug" if p_debug else "release"
+	var use_loose: bool = bool(p_preset.get("dev/register_loose")) if p_preset.has("dev/register_loose") else false
 	var template_path: String = _find_windows_template(p_debug)
 	if template_path == "":
-		# Fallback: use the running Godot executable for dev iteration
+		var godot_ver: String = str(Engine.get_version_info().get("string", ""))
+		if not use_loose:
+			push_error(
+				"GDK Export: No Windows %s export template found for Godot %s.\n" % [config_label, godot_ver] +
+				"  Refusing to package with the Godot editor binary as a stand-in — the\n" +
+				"  resulting package fails at launch with \"GDExtension dynamic library not\n" +
+				"  found\". Install export templates via Editor \u25b8 Manage Export Templates\u2026\n" +
+				"  (match your exact Godot version) and re-export.")
+			return ERR_FILE_NOT_FOUND
+		# Loose dev-register only: allow the editor binary but make the
+		# limitation unmistakable in the console.
 		template_path = OS.get_executable_path()
 		if template_path == "":
-			push_error("GDK Export: No export template found and cannot locate Godot executable. Install export templates via Editor → Manage Export Templates.")
+			push_error("GDK Export: No export template found and cannot locate the Godot executable. Install export templates via Editor \u25b8 Manage Export Templates.")
 			return ERR_FILE_NOT_FOUND
-		push_warning("GDK Export: Using Godot editor binary as template (install export templates for release builds)")
+		push_warning(
+			"GDK Export: No Windows %s export template found for Godot %s \u2014 using the Godot " % [config_label, godot_ver] +
+			"editor binary for this LOOSE dev-register build only. Do NOT distribute the result; " +
+			"install export templates before packaging (issue #134).")
 
 	var copy_err: int = DirAccess.copy_absolute(template_path, exe_path)
 	if copy_err != OK:
@@ -219,8 +240,7 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	_stage_logos(staging_dir)
 
 	# ── Step 5: Package or register ──
-	var use_loose: Variant = p_preset.get("dev/register_loose") if p_preset.has("dev/register_loose") else false
-
+	# `use_loose` was resolved above; template selection depends on it.
 	if use_loose:
 		return _wdapp_register(staging_dir)
 	else:
@@ -643,20 +663,39 @@ func _detect_gdk() -> void:
 		push_warning("GDK Export: GDK tools not found")
 		_gdk_found = false
 
+# Ordered export-templates subdirectory-name candidates for a Godot version.
+# Godot names the `export_templates\<version>\` subdir differently across
+# releases, and the correct name must include the patch component on patch
+# releases:
+#   - patch release (4.6.2):  "4.6.2.stable"  (major.minor.patch.status)
+#   - x.y.0 release (4.5.0):  "4.5.stable"    (patch omitted when zero)
+#   - dev / custom builds:    "4.6.2" / "4.6" (no status)
+# Emitting only "4.6.stable" for 4.6.2 (the old behavior) never matched the
+# real "4.6.2.stable" directory, so patch releases silently fell back to the
+# Godot editor binary as a stand-in template — producing a package that fails
+# at launch with "GDExtension dynamic library not found" (issue #134).
+# Most-specific name first so the real template wins.
+static func _template_version_dirs(p_version: Dictionary) -> PackedStringArray:
+	var major: int = int(p_version.get("major", 0))
+	var minor: int = int(p_version.get("minor", 0))
+	var patch: int = int(p_version.get("patch", 0))
+	var status: String = str(p_version.get("status", ""))
+	var dirs: PackedStringArray = PackedStringArray()
+	if status != "":
+		dirs.append("%d.%d.%d.%s" % [major, minor, patch, status])
+		dirs.append("%d.%d.%s" % [major, minor, status])
+	dirs.append("%d.%d.%d" % [major, minor, patch])
+	dirs.append("%d.%d" % [major, minor])
+	return dirs
+
 func _find_windows_template(p_debug: bool) -> String:
 	var app_data: String = OS.get_environment("APPDATA")
 	var templates_dir: String = app_data.path_join("Godot").path_join("export_templates")
-	var ver: Dictionary = Engine.get_version_info()
-	var ver_string: String = "%d.%d.%s" % [ver["major"], ver["minor"], ver["status"]]
-	var suffix: String = "debug" if p_debug else "release"
-	var template: String = templates_dir.path_join(ver_string).path_join("windows_%s_x86_64.exe" % suffix)
-	if FileAccess.file_exists(template):
-		return template
-	# Fallback: try without status
-	var ver_string2: String = "%d.%d" % [ver["major"], ver["minor"]]
-	template = templates_dir.path_join(ver_string2).path_join("windows_%s_x86_64.exe" % suffix)
-	if FileAccess.file_exists(template):
-		return template
+	var file_name: String = "windows_%s_x86_64.exe" % ("debug" if p_debug else "release")
+	for ver_dir: String in _template_version_dirs(Engine.get_version_info()):
+		var template: String = templates_dir.path_join(ver_dir).path_join(file_name)
+		if FileAccess.file_exists(template):
+			return template
 	return ""
 
 # Walks every `addons/<name>/bin/` directory and copies:
@@ -732,7 +771,28 @@ func _copy_addon_dlls(staging_dir: String, p_debug: bool) -> int:
 	addons.list_dir_end()
 
 	print("[GDK Export] Copied %d GDExtension main DLL(s), %d support DLL(s)" % [main_copied, support_copied])
+
+	# A build with zero GDExtension main DLLs staged loads with "GDExtension
+	# dynamic library not found" at launch. This happens when the requested
+	# config's DLL was never built/synced into addons/*/bin — e.g. exporting
+	# release after only a debug build. Fail loudly at export time with the
+	# exact fix instead of shipping a broken package (issue #134).
+	if main_copied == 0:
+		push_error(_missing_main_dll_message(this_config))
+		return ERR_FILE_NOT_FOUND
+
 	return OK
+
+# Actionable diagnostic for the zero-GDExtension-DLL failure mode (issue #134).
+static func _missing_main_dll_message(p_config: String) -> String:
+	var build_preset: String = "debug" if p_config == "debug" else "release"
+	return (
+		"GDK Export: no GDExtension main DLL for the '%s' configuration was found in any addons/*/bin.\n" % p_config +
+		"  A '%s' export must stage godot_*.windows.%s.x86_64.dll next to its .gdextension, or the\n" % [p_config, p_config] +
+		"  packaged game fails at launch with \"GDExtension dynamic library not found\".\n" +
+		"  Build the native addons in this configuration first:\n" +
+		"      cmake --build build --preset %s\n" % build_preset +
+		"  then re-export. (In the Godot export dialog, \"Export With Debug\" unchecked selects release.)")
 
 func _export_pck(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_flags: int) -> int:
 	return export_pack(p_preset, p_debug, p_path, p_flags)

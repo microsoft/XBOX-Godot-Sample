@@ -178,3 +178,94 @@ func test_ensure_detected_is_guarded_one_shot() -> void:
 	# directly) so eager (4.6+) and lazy (4.5.x) paths share one detection.
 	assert_string_contains(_func_body(src, "_initialize"), "_ensure_detected()",
 		"_initialize() routes through _ensure_detected()")
+
+
+# ── Export template version-dir resolution (issue #134) ───────────────────
+#
+# `_find_windows_template` used to build the export_templates subdir name as
+# "<major>.<minor>.<status>" (e.g. "4.6.stable"), which never matched the real
+# "4.6.2.stable" directory on a patch release — so patch releases silently fell
+# back to the Godot editor binary as a stand-in template and shipped a package
+# that failed at launch with "GDExtension dynamic library not found". The
+# candidate names now include the patch component, most-specific first.
+
+func test_template_version_dirs_prefers_patch_qualified() -> void:
+	var dirs := ExportPlatform._template_version_dirs(
+		{"major": 4, "minor": 6, "patch": 2, "status": "stable"})
+	assert_eq(dirs[0], "4.6.2.stable",
+		"patch-qualified dir name is tried first (issue #134)")
+	assert_true(dirs.has("4.6.2.stable"),
+		"the real patch-release template dir is a candidate")
+
+
+func test_template_version_dirs_handles_x_y_zero() -> void:
+	# Godot omits the patch component for x.y.0 releases ("4.5.stable"), so that
+	# form must stay a candidate alongside the patch-qualified name.
+	var dirs := ExportPlatform._template_version_dirs(
+		{"major": 4, "minor": 5, "patch": 0, "status": "stable"})
+	assert_true(dirs.has("4.5.stable"),
+		"patch-less dir name (x.y.0) is still a candidate")
+
+
+func test_template_version_dirs_statusless_fallbacks() -> void:
+	# Dev/custom builds may carry no status; bare "major.minor.patch" and
+	# "major.minor" must still be offered.
+	var dirs := ExportPlatform._template_version_dirs(
+		{"major": 4, "minor": 6, "patch": 2, "status": ""})
+	assert_true(dirs.has("4.6.2"), "statusless patch dir is a candidate")
+	assert_true(dirs.has("4.6"), "statusless minor dir is a candidate")
+
+
+func test_find_windows_template_uses_version_dir_helper() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	assert_string_contains(_func_body(src, "_find_windows_template"),
+		"_template_version_dirs",
+		"_find_windows_template resolves candidates via _template_version_dirs")
+
+
+# ── Zero-GDExtension-DLL guard (issue #134) ───────────────────────────────
+#
+# A build that stages no GDExtension main DLL loads with "GDExtension dynamic
+# library not found". The exporter must abort at export time with an actionable
+# message instead of silently packaging the broken build.
+
+func test_missing_main_dll_message_is_actionable() -> void:
+	var msg: String = ExportPlatform._missing_main_dll_message("release")
+	assert_string_contains(msg, "release", "message names the failing config")
+	assert_string_contains(msg, "GDExtension dynamic library not found",
+		"message ties the failure to the runtime symptom")
+	assert_string_contains(msg, "cmake --build build --preset release",
+		"message gives the exact build command to fix a release export")
+
+
+func test_missing_main_dll_message_debug_variant() -> void:
+	var msg: String = ExportPlatform._missing_main_dll_message("debug")
+	assert_string_contains(msg, "cmake --build build --preset debug",
+		"debug variant names the debug build preset")
+
+
+func test_copy_addon_dlls_fails_when_zero_main_dlls() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_copy_addon_dlls")
+	assert_string_contains(body, "main_copied == 0",
+		"_copy_addon_dlls detects the zero-main-DLL case")
+	assert_string_contains(body, "_missing_main_dll_message",
+		"_copy_addon_dlls surfaces the actionable message")
+	assert_string_contains(body, "return ERR_FILE_NOT_FOUND",
+		"_copy_addon_dlls aborts the export when no main DLL was staged")
+
+
+# ── Editor-binary-as-template guard (issue #134) ──────────────────────────
+#
+# The Godot editor binary is not a valid game template: it enables
+# has_feature("editor") and resolves GDExtension DLLs from the dev machine's
+# source tree, so a package built from it fails "not found" elsewhere. Packaged
+# exports must refuse it; only same-machine loose dev-register may fall back.
+
+func test_export_refuses_editor_binary_when_packaging() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_project")
+	assert_string_contains(body, "if not use_loose:",
+		"a non-loose (packaged) export refuses to continue without a real template")
+	assert_string_contains(body, "OS.get_executable_path()",
+		"the editor-binary fallback remains reachable for loose dev-register")

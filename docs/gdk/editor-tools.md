@@ -93,6 +93,30 @@ code 47"* reported in issue #123; the packaging step never actually
 "hit a bug" — the underlying tool failed for a reportable reason, so the
 diagnostic must carry that reason instead of an internal error code.
 
+### Template and GDExtension-DLL prerequisites (issue #134)
+
+Two silent ways an `XBOX on PC` export used to produce a package that failed at
+launch with *"GDExtension dynamic library not found"* are now hard errors:
+
+- **No export template for the running Godot version.** The exporter looks for
+  `%APPDATA%\Godot\export_templates\<version>\windows_<config>_x86_64.exe` and
+  now tries the patch-qualified directory first (`4.6.2.stable`), then the
+  patch-less form (`4.6.stable`, used by `x.y.0` releases). If no template is
+  found it **refuses to package** rather than substituting the Godot editor
+  binary — that binary makes `OS.has_feature("editor")` true at runtime and
+  resolves the GDExtension from the dev machine's source tree, so a package
+  built from it fails on any other machine. A **loose** dev-register build still
+  tolerates the editor binary, with a loud warning. Install export templates via
+  **Editor ▸ Manage Export Templates…** (match your patch version).
+
+- **No GDExtension DLL for the requested config.** A **release** export stages
+  `godot_gdk.windows.release.x86_64.dll`; a **debug** export stages the debug
+  DLL. `cmake --build build --preset debug` (the default) only produces the
+  debug DLL, so a release export after a debug-only build would stage zero
+  GDExtension DLLs. The exporter now aborts with the exact build command
+  (`cmake --build build --preset release`) instead of shipping a DLL-less
+  package. In the export dialog, **Export With Debug** unchecked selects release.
+
 ### GDK detection lifecycle
 
 The platform locates the Microsoft GDK (install root + `makepkg.exe` /

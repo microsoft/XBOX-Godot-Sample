@@ -39,6 +39,51 @@ godot_gdk.windows.debug.x86_64.dll
   cmake --build build --config Release
   ```
 
+## GDExtension dynamic library not found (packaged / exported build)
+
+**Symptom:**
+
+```
+ERROR: GDExtension dynamic library not found: 'res://addons/godot_gdk/godot_gdk.gdextension'.
+   at: open_library (core/extension/gdextension.cpp:...)
+```
+
+The loose `_gdk_staging\<Game>.exe` may run fine while the installed `.msixvc`
+fails (or the reverse).
+
+**This is a different failure from [Error 126](#dll-load-failure-error-126).**
+"Not found" means the DLL the `.gdextension` points to is **absent on disk** (or
+no `[libraries]` entry matched this build) — the loader never got far enough to
+check dependencies. "Can't open … Error 126" means the DLL was found but a
+**dependency** (or a GDK/version-incompatible DLL) failed to load. If you *also*
+see `No GDExtension library found for current OS and architecture
+(windows.x86_64)`, the config/feature tags matched no entry; **without** that
+line, an entry matched but the file is missing.
+
+**Causes and fixes:**
+
+- **Release export after only a debug build.** A release export needs
+  `godot_gdk.windows.release.x86_64.dll`, but `cmake --build build --preset
+  debug` (the default) only builds and syncs the **debug** DLL. In the Godot
+  export dialog, leaving **Export With Debug** unchecked selects *release*.
+  Build the release native addon first, then re-export:
+  ```powershell
+  cmake --build build --preset release
+  ```
+  The GDK exporter now aborts with this exact guidance instead of silently
+  shipping a package that contains no GDExtension DLL.
+
+- **Export templates not installed for your exact Godot version.** Without a
+  matching template directory (e.g. `4.6.2.stable`), the exporter used to fall
+  back to the Godot **editor binary**, which resolves the GDExtension from your
+  dev machine's source tree — so it "works" loose on your PC but fails "not
+  found" once installed anywhere else. Install export templates via **Editor ▸
+  Manage Export Templates…** (match your patch version) and re-export. The GDK
+  exporter now refuses to *package* with the editor binary.
+
+- **Stale package.** Rebuild the native addon, re-run `tools\setup_sample.ps1`,
+  and re-export so the staged `addons\godot_gdk\bin\` holds the current DLL.
+
 ## Microsoft GDK headers or import libs not found during CMake configure
 
 **Symptom:**
