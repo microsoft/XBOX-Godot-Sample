@@ -246,17 +246,21 @@ or, in a downstream surface that depends on the game config:
 or a system-level "no package identity" / `0x80073D54`-class error from the
 Microsoft GDK runtime itself.
 
-**Cause:** Both `godot_gdk` and `godot_playfab` look for
-`res://MicrosoftGame.config` on disk and call
-`XGameRuntimeInitializeWithOptions` with `File` source pointing at that path,
-so unpackaged Godot dev runs (editor or `godot project.godot`) get explicit
-package identity. When the file is missing, the addons fall back to plain
-`XGameRuntimeInitialize()`, which only succeeds in a packaged GDK launch where
-a registered package supplies identity.
+**Cause:** In Godot editor sessions (the editor and editor-launched
+`godot project.godot` runs, which have no package identity), both `godot_gdk`
+and `godot_playfab` call `XGameRuntimeInitializeWithOptions` with `File` source
+pointing at `res://MicrosoftGame.config` so those dev runs get explicit package
+identity from the project-root config. When that file is missing in the editor,
+the addons fall back to plain `XGameRuntimeInitialize()`, which has no identity
+to bind to. Every exported/templated build — packaged, registered, or loose —
+always uses plain `XGameRuntimeInitialize()` and gets identity from its package
+instead, so an exported build that has not been packaged and
+registered/installed will also fail here.
 
 **Fix:**
 
-- For unpackaged dev runs, put `MicrosoftGame.config` at the project root next
+- For editor / dev runs (editor or `godot project.godot`), put
+  `MicrosoftGame.config` at the project root next
   to `project.godot`. The packaging tooling can create a starter file via
   **Project → Tools → Microsoft GDK → Create MicrosoftGame.config**, or
   through the CLI:
@@ -270,6 +274,33 @@ a registered package supplies identity.
   was found but the runtime rejected it — open it with the GDK
   `GameConfigEditor.exe` (or **Project → Tools → Microsoft GDK → Edit
   MicrosoftGame.config**) and confirm the schema is valid.
+
+## Custom initialization options cannot be used with packaged builds (`0x8924010A`)
+
+**Symptom:**
+
+A packaged (`.msixvc`-installed or `wdapp register`-ed) build fails at startup
+with:
+
+```
+Failed to initialize GDK runtime. (HRESULT 0x8924010A)
+```
+
+`0x8924010A` is `E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED` — *"Custom initialization
+options cannot be used with packaged builds."*
+
+**Cause:** `XGameRuntimeInitializeWithOptions` (the `File`-source path that hands
+the runtime a `MicrosoftGame.config`) is only legal for identity-less editor
+sessions. Packaged builds already carry package identity and reject custom
+options. `MicrosoftGame.config` is still staged next to the `.exe` in packaged
+builds (makepkg/genmap needs it), so its on-disk presence cannot be used to
+detect a dev run — `godot_gdk` / `godot_playfab` therefore gate `WithOptions` to
+the `editor` feature tag and use plain `XGameRuntimeInitialize()` in every
+exported build.
+
+**Fix:** Rebuild the addons so the packaged build carries the editor-gated
+runtime (`cmake --build build --preset release`), then re-export and re-package.
+A packaged build should never take the `WithOptions` path.
 
 ## SCID does not match between `MicrosoftGame.config` and Partner Center
 

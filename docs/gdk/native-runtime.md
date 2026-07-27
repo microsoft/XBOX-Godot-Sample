@@ -73,10 +73,12 @@ Current public shape:
 It is responsible for:
 
 - calling `XGameRuntimeInitializeWithOptions()` with `File` source pointing at
-  `<project_root>/MicrosoftGame.config` when that file is on disk (so
-  unpackaged Godot dev runs get explicit package identity); falling back to
-  `XGameRuntimeInitialize()` for packaged GDK launches that get identity from
-  the registered package
+  `<project_root>/MicrosoftGame.config` **only in Godot editor sessions** (the
+  editor and editor-launched project runs, detected via the `editor` feature
+  tag) so they get explicit package identity; every exported/templated build
+  uses plain `XGameRuntimeInitialize()` and gets identity from its package
+  (packaged builds reject custom options with
+  `E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED`, `0x8924010A`)
 - creating the shared `XTaskQueue`
 - retaining in-flight completion signals
 - pumping manual completion dispatch

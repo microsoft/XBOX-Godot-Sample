@@ -68,6 +68,7 @@ summary_*.json
 
 # ── Dev-time Godot exe copies (for wdapp register) ─────────────
 sample/**/*.exe
+Godot/**/*.exe
 
 # ── Placeholder logos (generated for wdapp/makepkg) ─────────────
 # GameConfigEditor and the packaging addon write these standard-named logos to
