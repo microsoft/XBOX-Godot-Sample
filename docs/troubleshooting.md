@@ -302,6 +302,58 @@ exported build.
 runtime (`cmake --build build --preset release`), then re-export and re-package.
 A packaged build should never take the `WithOptions` path.
 
+## Packaged build doesn't launch like a retail install (`wdapp install /bootstrapper`)
+
+**Symptom:**
+
+A packaged build installed with a bare `wdapp install <package>.msixvc`
+launches inconsistently, doesn't behave like a Microsoft Store / Xbox App
+install, or the package deregisters itself after the first launch.
+
+**Cause:** A plain `wdapp install` performs a developer streaming install that
+skips the **PC Bootstrapper** flow. The bootstrapper is the retail launch
+front-end that handles license acquisition, mandatory update checks,
+cloud-save sync, the pre-launch splash, and single-instance enforcement — the
+same experience an end user gets from the Store / Xbox App. Without it, the
+title runs through a reduced developer path that doesn't match the retail
+install/launch experience.
+
+**Fix:** Reinstall the package with the full bootstrapper flow by adding the
+`/bootstrapper` flag:
+
+```powershell
+$wdapp  = "C:\Program Files (x86)\Microsoft GDK\bin\wdapp.exe"
+$msixvc = "sample\tutorial_gdk\Build\out\<PackageFullName>.msixvc"
+
+# Full retail-style install (license, update check, cloud saves, splash).
+# On success wdapp prints the package's AUMID (ends in !Game).
+& $wdapp install $msixvc /bootstrapper
+
+# Launch through the bootstrapper using the AUMID wdapp printed, e.g.
+# 41336MicrosoftATG.GodotTestApp_zjr0dfhgjwvde!Game
+& $wdapp launch "<AppUserModelId>"
+```
+
+Notes:
+
+- `/bootstrapper` only applies to packaged (`.msixvc`) builds, not loose
+  `wdapp register` deployments.
+- The bootstrapper performs a **license / sign-in step**, so it needs XBOX
+  services to be reachable and your PC to be in the correct sandbox. During an
+  XBOX service outage this step can stall or fail even though the install and
+  your build are correct — retry once services recover.
+- For fast inner-loop iteration where you only need the game process to start
+  (e.g. verifying runtime init), a bare `wdapp install <package>.msixvc` — or
+  `wdapp register` of the loose staging folder — is still fine; use
+  `/bootstrapper` when you specifically want to validate the end-user
+  install/launch experience.
+
+See
+[Application Management (`wdapp.exe`)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-pc/commandlinetools/gr-wdapp)
+and
+[PC Bootstrapper](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/overviews/gr-pc-bootstrapper)
+for the canonical Microsoft reference.
+
 ## SCID does not match between `MicrosoftGame.config` and Partner Center
 
 **Symptom:**
