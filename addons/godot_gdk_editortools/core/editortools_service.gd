@@ -320,7 +320,8 @@ func run_install(resolved: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(package_path):
 		return EditorToolsResult.fail(verb, "Package file does not exist: %s" % package_path,
 			EditorToolsResult.EXIT_CONFIG)
-	var result: Dictionary = _get_wdapp().install_package(package_path)
+	var bootstrapper: bool = bool(resolved.get("bootstrapper", true))
+	var result: Dictionary = _get_wdapp().install_package(package_path, bootstrapper)
 	var duration: int = Time.get_ticks_msec() - t0
 	var exit_code: int = int(result.get("exit_code", -1))
 	if exit_code != 0:
@@ -328,10 +329,11 @@ func run_install(resolved: Dictionary) -> Dictionary:
 			"wdapp install failed (exit %d)" % exit_code,
 			EditorToolsResult.EXIT_TOOL,
 			str(result.get("stderr", "")),
-			{"package_path": package_path},
+			{"package_path": package_path, "bootstrapper": bootstrapper},
 			str(result.get("stdout", "")), duration)
-	return EditorToolsResult.ok(verb, "Installed %s" % package_path,
-		{"package_path": package_path},
+	return EditorToolsResult.ok(verb,
+		"Installed %s%s" % [package_path, " (bootstrapper)" if bootstrapper else ""],
+		{"package_path": package_path, "bootstrapper": bootstrapper},
 		str(result.get("stdout", "")), duration)
 
 

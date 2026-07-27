@@ -151,7 +151,7 @@ Verb list (14):
 | `prepare_content`  | `--content-dir`               | Standalone content-prep step; honors `--config`.        |
 | `export`           | `--preset`, `--output-dir`    | `--release`; optional `--no-prepare`.                  |
 | `register_loose`   | `--content-dir`               | wdapp register.                                        |
-| `install`          | `--package`                   | wdapp install.                                         |
+| `install`          | `--package`, `--bootstrapper` | wdapp install; `--bootstrapper` (default on) routes through the full PC Bootstrapper flow for a retail-style launch. |
 | `uninstall`        | `--package-name`              | wdapp uninstall.                                       |
 | `launch`           | `--package-name` or `--aumid` | Resolves AUMID via `wdapp list` when only PFN given.   |
 | `terminate`        | `--package-name`              | Falls back to taskkill only for the exact bare `.exe` basename named by MicrosoftGame.config, with path/wildcard/quote characters rejected and the file required in the build dir. |

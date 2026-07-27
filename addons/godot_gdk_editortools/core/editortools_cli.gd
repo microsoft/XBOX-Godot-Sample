@@ -124,6 +124,8 @@ const VERBS := {
 		"flags": {
 			"package": {"type": _TYPE_PATH, "required": true,
 						"doc": ".msixvc file to install."},
+			"bootstrapper": {"type": _TYPE_BOOL, "default": true,
+						"doc": "Install via the full PC Bootstrapper flow (license, update check, cloud saves) so the package launches like a retail install. Default on; pass --bootstrapper=false for a bare developer install."},
 		},
 		"positional": [],
 	},

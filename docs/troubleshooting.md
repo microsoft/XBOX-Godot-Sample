@@ -336,6 +336,11 @@ $msixvc = "sample\tutorial_gdk\Build\out\<PackageFullName>.msixvc"
 
 Notes:
 
+- The GDK **Package Manager** dialog (the **Use bootstrapper** checkbox) and
+  the `gdkpkg install` CLI verb (the `--bootstrapper` flag) both **default to
+  the full bootstrapper flow**, so packages you install through the addon
+  tooling already get this behavior — the manual `wdapp install /bootstrapper`
+  above is only needed when you invoke `wdapp` directly.
 - `/bootstrapper` only applies to packaged (`.msixvc`) builds, not loose
   `wdapp register` deployments.
 - The bootstrapper performs a **license / sign-in step**, so it needs XBOX
@@ -343,10 +348,10 @@ Notes:
   XBOX service outage this step can stall or fail even though the install and
   your build are correct — retry once services recover.
 - For fast inner-loop iteration where you only need the game process to start
-  (e.g. verifying runtime init), a bare `wdapp install <package>.msixvc` — or
-  `wdapp register` of the loose staging folder — is still fine; use
-  `/bootstrapper` when you specifically want to validate the end-user
-  install/launch experience.
+  (e.g. verifying runtime init), a bare install is still fine — uncheck **Use
+  bootstrapper** in the Package Manager, pass `--bootstrapper=false` to
+  `gdkpkg install`, or run `wdapp install <package>.msixvc` (or `wdapp
+  register` of the loose staging folder) directly.
 
 See
 [Application Management (`wdapp.exe`)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-pc/commandlinetools/gr-wdapp)
