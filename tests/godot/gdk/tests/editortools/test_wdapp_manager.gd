@@ -68,13 +68,36 @@ func test_direct_wdapp_verbs_forward_expected_argv_and_propagate_result() -> voi
 
 	assert_eq(fake.calls.size(), 4)
 	assert_eq(_argv(fake.calls[0]["args"]), ["register", content_dir])
-	assert_eq(_argv(fake.calls[1]["args"]), ["install", package_path])
+	assert_eq(_argv(fake.calls[1]["args"]), ["install", package_path, "/bootstrapper"])
 	assert_eq(_argv(fake.calls[2]["args"]), ["uninstall", "Publisher.Game_1.0.0.0_x64__abc123"])
 	assert_eq(_argv(fake.calls[3]["args"]), ["launch", "Publisher.Game!Game"])
 	assert_eq(register_result.get("stdout", ""), "wdapp ok")
 	assert_eq(install_result.get("exit_code", -1), 0)
 	assert_eq(uninstall_result.get("stderr", "unexpected"), "")
 	assert_eq(launch_result.get("stdout", ""), "wdapp ok")
+
+
+func test_install_package_bootstrapper_toggle_controls_flag() -> void:
+	var root: String = _make_temp_root("install_bootstrapper_toggle")
+	var bin_dir: String = root.path_join("gdk bin")
+	var package_path: String = root.path_join("build/Game.msixvc")
+	DirAccess.make_dir_recursive_absolute(bin_dir)
+	_write_file(bin_dir.path_join("wdapp.exe"), "")
+	_write_file(package_path, "package")
+	var fake := FakeToolchain.new(bin_dir)
+	fake.exit_code = 0
+	var manager: RefCounted = WdappManager.new(fake)
+
+	var with_default: Dictionary = manager.install_package(package_path)
+	var opt_out: Dictionary = manager.install_package(package_path, false)
+
+	assert_eq(fake.calls.size(), 2)
+	assert_eq(_argv(fake.calls[0]["args"]), ["install", package_path, "/bootstrapper"],
+		"default install opts into the full PC Bootstrapper flow")
+	assert_eq(_argv(fake.calls[1]["args"]), ["install", package_path],
+		"bootstrapper=false yields a bare wdapp install")
+	assert_eq(with_default.get("exit_code", -1), 0)
+	assert_eq(opt_out.get("exit_code", -1), 0)
 
 
 func test_list_registered_apps_parses_wdapp_table_rows() -> void:

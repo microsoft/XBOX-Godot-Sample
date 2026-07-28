@@ -97,8 +97,15 @@ func terminate_app(pfn: String, build_dir: String) -> Dictionary:
 	return _execute_taskkill(exe_name)
 
 
-func install_package(msixvc_path: String) -> Dictionary:
-	return _toolchain.execute_tool(_get_wdapp_path(), PackedStringArray(["install", msixvc_path]))
+## Installs an .msixvc package via wdapp. When [param bootstrapper] is true
+## (the default) the install routes through the full PC Bootstrapper flow
+## (license acquisition, update check, cloud-save sync) so the package
+## launches like a retail install; pass false for a bare developer install.
+func install_package(msixvc_path: String, bootstrapper: bool = true) -> Dictionary:
+	var args := PackedStringArray(["install", msixvc_path])
+	if bootstrapper:
+		args.append("/bootstrapper")
+	return _toolchain.execute_tool(_get_wdapp_path(), args)
 
 
 func uninstall_package(package_full_name: String) -> Dictionary:
@@ -136,8 +143,8 @@ func list_registered_apps_async() -> bool:
 	return _start_async(_run_list, [])
 
 
-func install_package_async(msixvc_path: String) -> bool:
-	return _start_async(_run_install, [msixvc_path])
+func install_package_async(msixvc_path: String, bootstrapper: bool = true) -> bool:
+	return _start_async(_run_install, [msixvc_path, bootstrapper])
 
 
 func uninstall_package_async(package_full_name: String) -> bool:
@@ -172,8 +179,8 @@ func _finish_list(result: Dictionary) -> void:
 	list_completed.emit(result)
 
 
-func _run_install(msixvc_path: String) -> void:
-	var result: Dictionary = install_package(msixvc_path)
+func _run_install(msixvc_path: String, bootstrapper: bool = true) -> void:
+	var result: Dictionary = install_package(msixvc_path, bootstrapper)
 	_finish_install.call_deferred(result)
 
 

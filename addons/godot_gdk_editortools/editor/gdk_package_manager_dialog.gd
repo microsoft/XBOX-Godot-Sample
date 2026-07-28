@@ -30,6 +30,7 @@ var _wdapp_manager: RefCounted
 
 var _status_label: Label
 var _install_btn: Button
+var _bootstrapper_check: CheckBox
 var _refresh_btn: Button
 var _export_btn: Button
 var _uninstall_btn: Button
@@ -179,6 +180,12 @@ func _build_ui() -> void:
 	_install_btn.pressed.connect(_on_install_pressed)
 	toolbar.add_child(_install_btn)
 
+	_bootstrapper_check = CheckBox.new()
+	_bootstrapper_check.text = "Use bootstrapper"
+	_bootstrapper_check.button_pressed = true
+	_bootstrapper_check.tooltip_text = "Install via the full PC Bootstrapper flow (license, update check, cloud saves) so the package launches like a retail install. Uncheck for a bare developer install with a faster inner loop."
+	toolbar.add_child(_bootstrapper_check)
+
 	_export_btn = Button.new()
 	_export_btn.text = "Export Project…"
 	_export_btn.tooltip_text = "Open Project > Export... to build a new MSIXVC for the current project"
@@ -315,12 +322,13 @@ func _on_export_pressed() -> void:
 func _on_install_file_chosen(path: String) -> void:
 	if path == "" or _wdapp_manager == null:
 		return
-	if not _wdapp_manager.install_package_async(path):
+	var bootstrapper: bool = _bootstrapper_check == null or _bootstrapper_check.button_pressed
+	if not _wdapp_manager.install_package_async(path, bootstrapper):
 		_set_status("Busy with another wdapp operation; please wait...")
 		return
 	_pending_install_path = path
 	_set_wdapp_buttons_busy(true)
-	_set_status("Installing %s..." % path)
+	_set_status("Installing %s%s..." % [path, " (bootstrapper)" if bootstrapper else ""])
 
 
 func _on_install_completed(result: Dictionary) -> void:
@@ -414,6 +422,8 @@ func _set_wdapp_buttons_busy(busy: bool) -> void:
 		_refresh_btn.disabled = busy
 	if _install_btn:
 		_install_btn.disabled = busy
+	if _bootstrapper_check:
+		_bootstrapper_check.disabled = busy
 	if _uninstall_btn:
 		# Even when not busy, only enable uninstall if there is a current
 		# selection. _on_tree_item_selected will re-enable it on selection.

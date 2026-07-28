@@ -39,6 +39,10 @@ func test_verb_table_pins_documented_non_required_flags() -> void:
 		"export documents --no-prepare")
 	assert_true(EditorToolsCli.VERBS["config_template"]["flags"].has("output"),
 		"config_template documents --output")
+	assert_true(EditorToolsCli.VERBS["install"]["flags"].has("bootstrapper"),
+		"install documents --bootstrapper")
+	assert_eq(EditorToolsCli.VERBS["install"]["flags"]["bootstrapper"].get("default", false), true,
+		"install --bootstrapper defaults on")
 
 
 # ── Empty argv ─────────────────────────────────────────────────────────────
@@ -142,6 +146,25 @@ func test_bool_flag_with_explicit_false_is_false() -> void:
 	assert_true(parsed["ok"], "parse ok")
 	assert_eq(parsed["options"]["no-prepare"], false,
 		"explicit false is honored")
+
+
+func test_install_bootstrapper_defaults_true_when_absent() -> void:
+	var parsed: Dictionary = EditorToolsCli.parse(PackedStringArray([
+		"install", "--package", "Game.msixvc",
+	]))
+	assert_true(parsed["ok"], "parse ok")
+	assert_eq(parsed["verb"], "install", "verb resolved")
+	assert_eq(parsed["options"]["bootstrapper"], true,
+		"bootstrapper default is applied when the flag is omitted")
+
+
+func test_install_bootstrapper_can_be_disabled() -> void:
+	var parsed: Dictionary = EditorToolsCli.parse(PackedStringArray([
+		"install", "--package", "Game.msixvc", "--bootstrapper=false",
+	]))
+	assert_true(parsed["ok"], "parse ok")
+	assert_eq(parsed["options"]["bootstrapper"], false,
+		"--bootstrapper=false opts out of the bootstrapper flow")
 
 
 func test_inline_equals_value_form_is_supported() -> void:

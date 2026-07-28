@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 
 #include "gdk_pending_signal.h"
@@ -57,20 +58,37 @@ String _resolve_game_config_path() {
     return resolved;
 }
 
-// Calls XGameRuntimeInitializeWithOptions when res://MicrosoftGame.config is
-// on disk so unpackaged Godot dev runs (editor or `godot project.godot`) pick
-// up the game config explicitly and avoid the "no package identity" HRESULT
-// class that XGameGetXboxTitleId / XblInitialize otherwise surface downstream
-// as xbox_title_id_unavailable. Falls back to XGameRuntimeInitialize() for
-// packaged GDK launches, where the registered package supplies identity.
+// Chooses the correct XGameRuntime initializer for the current launch context.
+//
+// Custom initialization options (XGameRuntimeInitializeWithOptions) are gated to
+// Godot editor sessions only - the editor process itself and project runs
+// launched from the editor, which share the editor binary and therefore carry
+// the "editor" feature tag. Those sessions have no package identity, so they
+// must hand XGameRuntime the game config explicitly to avoid the "no package
+// identity" HRESULT class that XGameGetXboxTitleId / XblInitialize otherwise
+// surface downstream as xbox_title_id_unavailable.
+//
+// Every exported/templated build gets identity from its package instead and
+// uses the plain XGameRuntimeInitialize(): packaged/registered builds actively
+// reject custom options with E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED (0x8924010A).
+// MicrosoftGame.config is still staged next to the .exe for makepkg/genmap even
+// in packaged builds, so its on-disk presence cannot distinguish editor from
+// exported - the "editor" feature tag is the correct discriminator.
 //
 // r_config_path is set to the absolute path passed into
-// XGameRuntimeInitializeWithOptions, or to an empty String when the fall-back
-// path was taken; callers include it in their failure message.
+// XGameRuntimeInitializeWithOptions, or to an empty String when a plain
+// XGameRuntimeInitialize() was used; callers include it in their failure
+// message.
 HRESULT _initialize_xgame_runtime(String &r_config_path) {
+    r_config_path = String();
+
+    OS *os = OS::get_singleton();
+    if (os == nullptr || !os->has_feature("editor")) {
+        return XGameRuntimeInitialize();
+    }
+
     String resolved = _resolve_game_config_path();
     if (resolved.is_empty()) {
-        r_config_path = String();
         return XGameRuntimeInitialize();
     }
 

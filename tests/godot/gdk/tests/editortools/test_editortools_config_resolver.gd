@@ -75,9 +75,18 @@ func test_defaults_apply_when_nothing_is_supplied() -> void:
 	assert_eq(resolved["encrypt"], "none", "default encrypt is 'none'")
 	assert_eq(resolved["action"], "get", "default sandbox action is 'get'")
 	assert_eq(resolved["release"], false, "default release flag is false")
+	assert_eq(resolved["bootstrapper"], true, "default bootstrapper is on")
 
 
 # ── CLI > defaults ─────────────────────────────────────────────────────────
+
+func test_cli_bootstrapper_false_overrides_default() -> void:
+	var resolved: Dictionary = EditorToolsConfig.resolve(
+		{"package": "Game.msixvc", "bootstrapper": false},
+		_project_dir(), "", "")
+	assert_eq(resolved["package_path"], "Game.msixvc", "package remapped to package_path")
+	assert_eq(resolved["bootstrapper"], false,
+		"CLI --bootstrapper=false overrides the default-on bootstrapper flag")
 
 func test_cli_overrides_default() -> void:
 	var resolved: Dictionary = EditorToolsConfig.resolve(

@@ -39,6 +39,51 @@ godot_gdk.windows.debug.x86_64.dll
   cmake --build build --config Release
   ```
 
+## GDExtension dynamic library not found (packaged / exported build)
+
+**Symptom:**
+
+```
+ERROR: GDExtension dynamic library not found: 'res://addons/godot_gdk/godot_gdk.gdextension'.
+   at: open_library (core/extension/gdextension.cpp:...)
+```
+
+The loose `_gdk_staging\<Game>.exe` may run fine while the installed `.msixvc`
+fails (or the reverse).
+
+**This is a different failure from [Error 126](#dll-load-failure-error-126).**
+"Not found" means the DLL the `.gdextension` points to is **absent on disk** (or
+no `[libraries]` entry matched this build) — the loader never got far enough to
+check dependencies. "Can't open … Error 126" means the DLL was found but a
+**dependency** (or a GDK/version-incompatible DLL) failed to load. If you *also*
+see `No GDExtension library found for current OS and architecture
+(windows.x86_64)`, the config/feature tags matched no entry; **without** that
+line, an entry matched but the file is missing.
+
+**Causes and fixes:**
+
+- **Release export after only a debug build.** A release export needs
+  `godot_gdk.windows.release.x86_64.dll`, but `cmake --build build --preset
+  debug` (the default) only builds and syncs the **debug** DLL. In the Godot
+  export dialog, leaving **Export With Debug** unchecked selects *release*.
+  Build the release native addon first, then re-export:
+  ```powershell
+  cmake --build build --preset release
+  ```
+  The GDK exporter now aborts with this exact guidance instead of silently
+  shipping a package that contains no GDExtension DLL.
+
+- **Export templates not installed for your exact Godot version.** Without a
+  matching template directory (e.g. `4.6.2.stable`), the exporter used to fall
+  back to the Godot **editor binary**, which resolves the GDExtension from your
+  dev machine's source tree — so it "works" loose on your PC but fails "not
+  found" once installed anywhere else. Install export templates via **Editor ▸
+  Manage Export Templates…** (match your patch version) and re-export. The GDK
+  exporter now refuses to *package* with the editor binary.
+
+- **Stale package.** Rebuild the native addon, re-run `tools\setup_sample.ps1`,
+  and re-export so the staged `addons\godot_gdk\bin\` holds the current DLL.
+
 ## Microsoft GDK headers or import libs not found during CMake configure
 
 **Symptom:**
@@ -201,17 +246,21 @@ or, in a downstream surface that depends on the game config:
 or a system-level "no package identity" / `0x80073D54`-class error from the
 Microsoft GDK runtime itself.
 
-**Cause:** Both `godot_gdk` and `godot_playfab` look for
-`res://MicrosoftGame.config` on disk and call
-`XGameRuntimeInitializeWithOptions` with `File` source pointing at that path,
-so unpackaged Godot dev runs (editor or `godot project.godot`) get explicit
-package identity. When the file is missing, the addons fall back to plain
-`XGameRuntimeInitialize()`, which only succeeds in a packaged GDK launch where
-a registered package supplies identity.
+**Cause:** In Godot editor sessions (the editor and editor-launched
+`godot project.godot` runs, which have no package identity), both `godot_gdk`
+and `godot_playfab` call `XGameRuntimeInitializeWithOptions` with `File` source
+pointing at `res://MicrosoftGame.config` so those dev runs get explicit package
+identity from the project-root config. When that file is missing in the editor,
+the addons fall back to plain `XGameRuntimeInitialize()`, which has no identity
+to bind to. Every exported/templated build — packaged, registered, or loose —
+always uses plain `XGameRuntimeInitialize()` and gets identity from its package
+instead, so an exported build that has not been packaged and
+registered/installed will also fail here.
 
 **Fix:**
 
-- For unpackaged dev runs, put `MicrosoftGame.config` at the project root next
+- For editor / dev runs (editor or `godot project.godot`), put
+  `MicrosoftGame.config` at the project root next
   to `project.godot`. The packaging tooling can create a starter file via
   **Project → Tools → Microsoft GDK → Create MicrosoftGame.config**, or
   through the CLI:
@@ -225,6 +274,90 @@ a registered package supplies identity.
   was found but the runtime rejected it — open it with the GDK
   `GameConfigEditor.exe` (or **Project → Tools → Microsoft GDK → Edit
   MicrosoftGame.config**) and confirm the schema is valid.
+
+## Custom initialization options cannot be used with packaged builds (`0x8924010A`)
+
+**Symptom:**
+
+A packaged (`.msixvc`-installed or `wdapp register`-ed) build fails at startup
+with:
+
+```
+Failed to initialize GDK runtime. (HRESULT 0x8924010A)
+```
+
+`0x8924010A` is `E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED` — *"Custom initialization
+options cannot be used with packaged builds."*
+
+**Cause:** `XGameRuntimeInitializeWithOptions` (the `File`-source path that hands
+the runtime a `MicrosoftGame.config`) is only legal for identity-less editor
+sessions. Packaged builds already carry package identity and reject custom
+options. `MicrosoftGame.config` is still staged next to the `.exe` in packaged
+builds (makepkg/genmap needs it), so its on-disk presence cannot be used to
+detect a dev run — `godot_gdk` / `godot_playfab` therefore gate `WithOptions` to
+the `editor` feature tag and use plain `XGameRuntimeInitialize()` in every
+exported build.
+
+**Fix:** Rebuild the addons so the packaged build carries the editor-gated
+runtime (`cmake --build build --preset release`), then re-export and re-package.
+A packaged build should never take the `WithOptions` path.
+
+## Packaged build doesn't launch like a retail install (`wdapp install /bootstrapper`)
+
+**Symptom:**
+
+A packaged build installed with a bare `wdapp install <package>.msixvc`
+launches inconsistently, doesn't behave like a Microsoft Store / Xbox App
+install, or the package deregisters itself after the first launch.
+
+**Cause:** A plain `wdapp install` performs a developer streaming install that
+skips the **PC Bootstrapper** flow. The bootstrapper is the retail launch
+front-end that handles license acquisition, mandatory update checks,
+cloud-save sync, the pre-launch splash, and single-instance enforcement — the
+same experience an end user gets from the Store / Xbox App. Without it, the
+title runs through a reduced developer path that doesn't match the retail
+install/launch experience.
+
+**Fix:** Reinstall the package with the full bootstrapper flow by adding the
+`/bootstrapper` flag:
+
+```powershell
+$wdapp  = "C:\Program Files (x86)\Microsoft GDK\bin\wdapp.exe"
+$msixvc = "sample\tutorial_gdk\Build\out\<PackageFullName>.msixvc"
+
+# Full retail-style install (license, update check, cloud saves, splash).
+# On success wdapp prints the package's AUMID (ends in !Game).
+& $wdapp install $msixvc /bootstrapper
+
+# Launch through the bootstrapper using the AUMID wdapp printed, e.g.
+# 41336MicrosoftATG.GodotTestApp_zjr0dfhgjwvde!Game
+& $wdapp launch "<AppUserModelId>"
+```
+
+Notes:
+
+- The GDK **Package Manager** dialog (the **Use bootstrapper** checkbox) and
+  the `gdkpkg install` CLI verb (the `--bootstrapper` flag) both **default to
+  the full bootstrapper flow**, so packages you install through the addon
+  tooling already get this behavior — the manual `wdapp install /bootstrapper`
+  above is only needed when you invoke `wdapp` directly.
+- `/bootstrapper` only applies to packaged (`.msixvc`) builds, not loose
+  `wdapp register` deployments.
+- The bootstrapper performs a **license / sign-in step**, so it needs XBOX
+  services to be reachable and your PC to be in the correct sandbox. During an
+  XBOX service outage this step can stall or fail even though the install and
+  your build are correct — retry once services recover.
+- For fast inner-loop iteration where you only need the game process to start
+  (e.g. verifying runtime init), a bare install is still fine — uncheck **Use
+  bootstrapper** in the Package Manager, pass `--bootstrapper=false` to
+  `gdkpkg install`, or run `wdapp install <package>.msixvc` (or `wdapp
+  register` of the loose staging folder) directly.
+
+See
+[Application Management (`wdapp.exe`)](https://learn.microsoft.com/en-us/gaming/gdk/docs/tools/tools-pc/commandlinetools/gr-wdapp)
+and
+[PC Bootstrapper](https://learn.microsoft.com/en-us/gaming/gdk/docs/gdk-dev/pc-dev/overviews/gr-pc-bootstrapper)
+for the canonical Microsoft reference.
 
 ## SCID does not match between `MicrosoftGame.config` and Partner Center
 

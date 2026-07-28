@@ -33,6 +33,7 @@ const _CLI_KEY_REMAP := {
 	"release":        "release",
 	"content-dir":    "content_dir",
 	"package":        "package_path",
+	"bootstrapper":   "bootstrapper",
 	"package-name":   "package_name",
 	"aumid":          "aumid",
 	"action":         "action",
@@ -67,6 +68,7 @@ const _CLI_KEY_REMAP := {
 ##   release           : bool      — use --export-release instead of --export-debug
 ##   content_dir       : String   — register_loose target
 ##   package_path      : String   — install target .msixvc
+##   bootstrapper      : bool      — install via full PC Bootstrapper flow (default true)
 ##   package_name      : String   — uninstall/launch/terminate target
 ##   aumid             : String
 ##   action            : String   — sandbox sub-action
@@ -101,6 +103,7 @@ const _FLAT_DEFAULTS := {
 	"release": false,
 	"content_dir": "",
 	"package_path": "",
+	"bootstrapper": true,
 	"package_name": "",
 	"aumid": "",
 	"action": "get",
