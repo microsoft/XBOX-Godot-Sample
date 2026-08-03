@@ -2,18 +2,18 @@
 
 ## What you'll build
 
-Add a GDK-only storage and progression scene. The Title Storage half uploads a binary blob with storage type `TrustedPlatform`, lists metadata, and downloads it back. The Stats half tracks two title-managed stats, stages integer values, flushes them to Xbox services, and queries them back.
+Add a GDK-only storage and progression scene. The Title Storage half lists blob metadata for storage type `TrustedPlatform` and downloads an existing blob — untrusted platforms (PC) can't upload, so it only reads. The Stats half tracks two title-managed stats, stages integer values, flushes them to Xbox services, and queries them back.
 
 ## Prerequisites
 
 - Complete [GDK Tutorial 2](02-achievement.md).
-- Configure Title Storage for your Partner Center title and sandbox.
+- Configure Title Storage for your Partner Center title and sandbox, and provision the blob at `tutorial/save.bin` from a console or Partner Center — untrusted platforms (PC) can't upload.
 - Declare title-managed statistics named `HighScore` and `LevelsCleared`, or update the constants in the script.
 - Stay in the same Xbox sandbox used by `MicrosoftGame.config`.
 
 ## Relevant addon surfaces
 
-- [`GDKTitleStorage`](../../../addons/godot_gdk/doc_classes/GDKTitleStorage.xml) — `upload_blob_async`, `list_blob_metadata_async`, `download_blob_async`.
+- [`GDKTitleStorage`](../../../addons/godot_gdk/doc_classes/GDKTitleStorage.xml) — `list_blob_metadata_async`, `download_blob_async`.
 - [`GDKStats`](../../../addons/godot_gdk/doc_classes/GDKStats.xml) — `track_stats`, `set_stat_integer`, `flush_stats_async`, `query_user_stats_async`, `stat_changed`.
 - [`GDKUser`](../../../addons/godot_gdk/doc_classes/GDKUser.xml) — `GdkAuth.xbox_user`.
 
@@ -21,7 +21,7 @@ Add a GDK-only storage and progression scene. The Title Storage half uploads a b
 
 ### Step 1 — Use the GDK-only scene script
 
-The complete reference script below is copy-pasteable. It waits for `GdkAuth`, uploads/lists/downloads the blob, then sets and queries stats.
+The complete reference script below is copy-pasteable. It waits for `GdkAuth`, lists metadata and downloads an existing blob, then sets and queries stats.
 
 ```gdscript
 extends Control
@@ -31,9 +31,10 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ## GDK Tutorial 3 reference scene — Title Storage + user statistics.
 ##
 ## GDK-only surfaces, no PlayFab. Buttons drive each step:
-##   - Upload a small blob to Title Storage, then list + download it back
-##     (GDK.title_storage.upload_blob_async / list_blob_metadata_async /
-##     download_blob_async).
+##   - List Title Storage blob metadata, then download an existing blob
+##     (GDK.title_storage.list_blob_metadata_async / download_blob_async).
+##     Untrusted platforms (PC) can't upload to Title Storage, so writes
+##     are omitted here — provision blobs from a console or Partner Center.
 ##   - Stage and flush a couple of title-managed statistics, then query
 ##     them back (GDK.stats.set_stat_integer / flush_stats_async /
 ##     query_user_stats_async).
@@ -97,23 +98,17 @@ func _on_storage_pressed() -> void:
 	if user == null:
 		return
 
-	# 1. Upload a small blob.
-	var payload := "tutorial-payload @ %d" % int(Time.get_unix_time_from_system())
-	var bytes := payload.to_utf8_buffer()
-	var up = await AddonApi.singleton("GDK").title_storage.upload_blob_async(
-		user, STORAGE_TYPE, BLOB_PATH, bytes, "Tutorial Save")
-	if not up.ok:
-		_append("[color=orange][Storage] upload failed: %s (%s)[/color]" % [up.message, up.code])
-		return
-	_append("[Storage] Uploaded %d bytes to %s." % [bytes.size(), BLOB_PATH])
-
-	# 2. List blob metadata so the developer can see what's stored.
+	# Untrusted platforms (PC) can't write Title Storage — uploads are
+	# rejected with HTTP 403. Provision the blob from a console or Partner
+	# Center, then read it back with the list + download surfaces below.
+
+	# 1. List blob metadata so the developer can see what's stored.
 	var list = await AddonApi.singleton("GDK").title_storage.list_blob_metadata_async(
 		user, STORAGE_TYPE)
 	if list.ok and list.data != null:
 		_append("[Storage] Listed blob metadata for %s." % STORAGE_TYPE)
 
-	# 3. Download the blob back and verify the round-trip.
+	# 2. Download an existing blob.
 	var down = await AddonApi.singleton("GDK").title_storage.download_blob_async(
 		user, STORAGE_TYPE, BLOB_PATH)
 	if not down.ok:
@@ -179,14 +174,13 @@ The two buttons intentionally run separate flows. Storage failures should not pr
 
 ## Verify
 
-Run `g03_storage_stats`, click **Title Storage**, then **Stats**. Output should show an uploaded byte count, downloaded payload, flushed values, tracked changes, and queried stat data.
+Run `g03_storage_stats`, click **Storage list + download**, then **Stats flush + query**. Output should show listed blob metadata, a downloaded payload, flushed values, tracked changes, and queried stat data.
 
 ## Common failures
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| `upload failed` | Title Storage not configured, wrong storage type, or sandbox mismatch. | Verify Partner Center storage setup and `MicrosoftGame.config`. |
-| `download failed` | Blob path/type does not match the upload or upload failed. | Use the same `STORAGE_TYPE` and `BLOB_PATH`. |
+| `download failed` | No blob provisioned, or blob path/type mismatch. Untrusted platforms (PC) can't upload, so the blob must already exist. | Provision the blob from a console or Partner Center using the same `STORAGE_TYPE` and `BLOB_PATH`. |
 | `flush failed` | Statistic names are not registered for this title. | Create the stats or update the constants. |
 | No `stat_changed` output | You did not track the stat names before setting/flushing. | Call `track_stats` with the same names you set. |
 

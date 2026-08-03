@@ -5,9 +5,10 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ## GDK Tutorial 3 reference scene — Title Storage + user statistics.
 ##
 ## GDK-only surfaces, no PlayFab. Buttons drive each step:
-##   - Upload a small blob to Title Storage, then list + download it back
-##     (GDK.title_storage.upload_blob_async / list_blob_metadata_async /
-##     download_blob_async).
+##   - List Title Storage blob metadata, then download an existing blob
+##     (GDK.title_storage.list_blob_metadata_async / download_blob_async).
+##     Untrusted platforms (PC) can't upload to Title Storage, so writes
+##     are omitted here — provision blobs from a console or Partner Center.
 ##   - Stage and flush a couple of title-managed statistics, then query
 ##     them back (GDK.stats.set_stat_integer / flush_stats_async /
 ##     query_user_stats_async).
@@ -71,23 +72,17 @@ func _on_storage_pressed() -> void:
 	if user == null:
 		return
 
-	# 1. Upload a small blob.
-	var payload := "tutorial-payload @ %d" % int(Time.get_unix_time_from_system())
-	var bytes := payload.to_utf8_buffer()
-	var up = await AddonApi.singleton("GDK").title_storage.upload_blob_async(
-		user, STORAGE_TYPE, BLOB_PATH, bytes, "Tutorial Save")
-	if not up.ok:
-		_append("[color=orange][Storage] upload failed: %s (%s)[/color]" % [up.message, up.code])
-		return
-	_append("[Storage] Uploaded %d bytes to %s." % [bytes.size(), BLOB_PATH])
+	# Untrusted platforms (PC) can't write Title Storage — uploads are
+	# rejected with HTTP 403. Provision the blob from a console or Partner
+	# Center, then read it back with the list + download surfaces below.
 
-	# 2. List blob metadata so the developer can see what's stored.
+	# 1. List blob metadata so the developer can see what's stored.
 	var list = await AddonApi.singleton("GDK").title_storage.list_blob_metadata_async(
 		user, STORAGE_TYPE)
 	if list.ok and list.data != null:
 		_append("[Storage] Listed blob metadata for %s." % STORAGE_TYPE)
 
-	# 3. Download the blob back and verify the round-trip.
+	# 2. Download an existing blob.
 	var down = await AddonApi.singleton("GDK").title_storage.download_blob_async(
 		user, STORAGE_TYPE, BLOB_PATH)
 	if not down.ok:
