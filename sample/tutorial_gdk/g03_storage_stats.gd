@@ -79,7 +79,9 @@ func _on_storage_pressed() -> void:
 	# 1. List blob metadata so the developer can see what's stored.
 	var list = await AddonApi.singleton("GDK").title_storage.list_blob_metadata_async(
 		user, STORAGE_TYPE)
-	if list.ok and list.data != null:
+	if not list.ok:
+		_append("[color=orange][Storage] list failed: %s (%s)[/color]" % [list.message, list.code])
+	elif list.data != null:
 		_append("[Storage] Listed blob metadata for %s." % STORAGE_TYPE)
 
 	# 2. Download an existing blob.

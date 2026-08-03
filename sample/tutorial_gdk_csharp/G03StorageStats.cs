@@ -81,6 +81,7 @@ public partial class G03StorageStats : Control
         GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 0);
         if (!IsInsideTree()) return;
         if (list.Ok) Append($"[Storage] Listed blob metadata for {StorageType}.");
+        else Append($"[color=orange][Storage] list failed: {list.Message} ({list.Code})[/color]");
 
         // 2. Download an existing blob.
         GdkResult down = await Gdk.TitleStorage.DownloadBlobAsync(user, StorageType, BlobPath);
