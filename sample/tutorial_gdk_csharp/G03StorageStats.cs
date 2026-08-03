@@ -78,7 +78,9 @@ public partial class G03StorageStats : Control
         // Center, then read it back with the list + download surfaces below.
 
         // 1. List blob metadata so the developer can see what's stored.
-        GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 0);
+        // Pass maxItems=25 to mirror the GDScript sample's binding default
+        // (the C# facade has no default; the native list forwards it as-is).
+        GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 25);
         if (!IsInsideTree()) return;
         if (list.Ok) Append($"[Storage] Listed blob metadata for {StorageType}.");
         else Append($"[color=orange][Storage] list failed: {list.Message} ({list.Code})[/color]");
