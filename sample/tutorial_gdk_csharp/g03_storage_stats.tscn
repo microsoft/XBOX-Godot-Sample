@@ -31,7 +31,7 @@ theme_override_font_sizes/font_size = 24
 
 [node name="Subtitle" type="Label" parent="Root"]
 layout_mode = 2
-text = "GDK.title_storage upload/list/download + GDK.stats stage/flush/query."
+text = "GDK.title_storage list/download + GDK.stats stage/flush/query."
 autowrap_mode = 3
 
 [node name="Buttons" type="HBoxContainer" parent="Root"]
@@ -40,7 +40,7 @@ theme_override_constants/separation = 12
 
 [node name="StorageBtn" type="Button" parent="Root/Buttons"]
 layout_mode = 2
-text = "Storage round-trip (Step 1)"
+text = "Storage list + download (Step 1)"
 
 [node name="StatsBtn" type="Button" parent="Root/Buttons"]
 layout_mode = 2

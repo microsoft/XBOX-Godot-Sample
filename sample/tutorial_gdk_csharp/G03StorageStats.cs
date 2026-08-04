@@ -7,8 +7,9 @@ using GodotGdk.Types;
 /// GDK Tutorial 3 reference scene — Title Storage + user statistics.
 ///
 /// GDK-only surfaces, no PlayFab. Buttons drive each step:
-///   - Upload a small blob to Title Storage, then list + download it back
-///     (GDK.title_storage upload/list/download).
+///   - List Title Storage blob metadata, then download an existing blob
+///     (GDK.title_storage list/download). Untrusted platforms (PC) can't
+///     upload to Title Storage, so writes are omitted here.
 ///   - Stage and flush a couple of title-managed statistics, then query
 ///     them back (GDK.stats set/flush/query).
 /// </summary>
@@ -72,20 +73,19 @@ public partial class G03StorageStats : Control
         GdkUser user = _auth.XboxUser;
         if (user == null) return;
 
-        // 1. Upload a small blob.
-        string payload = $"tutorial-payload @ {(long)Time.GetUnixTimeFromSystem()}";
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(payload);
-        GdkResult up = await Gdk.TitleStorage.UploadBlobAsync(user, StorageType, BlobPath, bytes, "Tutorial Save");
-        if (!IsInsideTree()) return;
-        if (!up.Ok) { Append($"[color=orange][Storage] upload failed: {up.Message} ({up.Code})[/color]"); return; }
-        Append($"[Storage] Uploaded {bytes.Length} bytes to {BlobPath}.");
+        // Untrusted platforms (PC) can't write Title Storage — uploads are
+        // rejected with HTTP 403. Provision the blob from a console or Partner
+        // Center, then read it back with the list + download surfaces below.
 
-        // 2. List blob metadata so the developer can see what's stored.
-        GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 0);
+        // 1. List blob metadata so the developer can see what's stored.
+        // Pass maxItems=25 to mirror the GDScript sample's binding default
+        // (the C# facade has no default; the native list forwards it as-is).
+        GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 25);
         if (!IsInsideTree()) return;
         if (list.Ok) Append($"[Storage] Listed blob metadata for {StorageType}.");
+        else Append($"[color=orange][Storage] list failed: {list.Message} ({list.Code})[/color]");
 
-        // 3. Download the blob back and verify the round-trip.
+        // 2. Download an existing blob.
         GdkResult down = await Gdk.TitleStorage.DownloadBlobAsync(user, StorageType, BlobPath);
         if (!IsInsideTree()) return;
         if (!down.Ok) { Append($"[color=orange][Storage] download failed: {down.Message}[/color]"); return; }

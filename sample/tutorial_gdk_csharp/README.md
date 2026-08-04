@@ -46,7 +46,7 @@ the GDScript samples demonstrate, expressed in C#.
 
 - `Gdk.Users` — `GetPrimaryUser`, `AddDefaultUserAsync`, `AddUserWithUiAsync`
 - `Gdk.Achievements` — `QueryPlayerAchievementsAsync`, `GetCachedAchievements`, `UpdateAchievementAsync`, `AchievementUnlocked`
-- `Gdk.TitleStorage` — `UploadBlobAsync`, `ListBlobMetadataAsync`, `DownloadBlobAsync`
+- `Gdk.TitleStorage` — `ListBlobMetadataAsync`, `DownloadBlobAsync`
 - `Gdk.Stats` — `TrackStats`, `SetStatInteger`, `FlushStatsAsync`, `QueryUserStatsAsync`, `StatChanged`
 - `Gdk.Social` — `StartSocialGraph`, `GetFriendsAsync`, `GetGroupUsers`, `DestroySocialGroup`, `StopSocialGraph`
 - `Gdk.Privacy` — `BatchCheckPermissionAsync`
