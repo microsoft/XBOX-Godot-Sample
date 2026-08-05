@@ -659,8 +659,12 @@ function Invoke-LiveEnvironmentProbe {
     $rec = New-StageRecord ("live-probe:" + ($RelativeHost -replace '\\','/'))
     $capabilities = $script:HostLiveCapabilities[$RelativeHost]
     if ($null -eq $capabilities -or $capabilities.Count -eq 0) {
-        $rec.status  = 'skip'
-        $rec.message = "No live capability requirements declared for '$RelativeHost'."
+        # Backstop. Main validates -Hosts up front, so reaching here means the
+        # capability map and the host list have drifted apart. Failing is the
+        # only safe answer: skipping would run the host's suite with no runtime
+        # preflight at all, which is the degradation this stage exists to catch.
+        $rec.status  = 'fail'
+        $rec.message = "No live capability requirements declared for '$RelativeHost'. Add it to `$script:HostLiveCapabilities."
         return $rec
     }
 
@@ -1157,8 +1161,30 @@ function Main {
     }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
-    # Normalize separators
-    $hostList = @($hostList | ForEach-Object { ($_ -replace '/', '\').TrimEnd('\') })
+    # Normalize separators. Also split on commas: `pwsh -File` passes each
+    # argument as a literal string, so `-Hosts a,b` arrives as the single value
+    # "a,b" rather than a two-element array. Order is preserved (unlike the
+    # parse-gate filter helper) so hosts still run in the sequence given.
+    $hostList = @(
+        $hostList |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_ -split ',' } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { ($_ -replace '/', '\').Trim().TrimEnd('\') }
+    )
+    # An unrecognized -Hosts value must abort, not quietly select nothing. A
+    # typo would otherwise sail through the live probe as "no capabilities
+    # declared" and report a green run that tested nothing.
+    $unknownHosts = @($hostList | Where-Object { $script:DefaultHosts -notcontains $_ })
+    if ($unknownHosts.Count -gt 0) {
+        Write-Host ''
+        Write-Host 'ERROR: -Hosts contains values that are not coverage hosts:' -ForegroundColor Red
+        foreach ($u in $unknownHosts) { Write-Host "  * '$u'" -ForegroundColor Red }
+        Write-Host 'Valid hosts:' -ForegroundColor Yellow
+        foreach ($v in $script:DefaultHosts) { Write-Host "  * $v" -ForegroundColor Yellow }
+        Write-Host ''
+        throw "Unknown -Hosts value(s): $($unknownHosts -join ', ')."
+    }
     $parseProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseProjects)
     $parseExcludeProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseExcludeProjects)
 

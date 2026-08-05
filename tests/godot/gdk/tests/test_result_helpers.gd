@@ -23,8 +23,9 @@ func test_format_hresult_string_shape() -> void:
 		# ClassDB::bind_static_method, so it is not callable through GDScript.
 		# The orchestrator's doctest target covers `format_hresult_hex`
 		# directly; this end-to-end pin is only meaningful if/when the
-		# static is exposed to script.
-		pending("GDKResult.format_hresult is not exposed to GDScript as a callable static.")
+		# static is exposed to script. That is a standing design decision
+		# rather than a missing live prerequisite, so it stays tolerated.
+		pending_tolerated("GDKResult.format_hresult is not exposed to GDScript as a callable static.")
 		return
 
 	var s_ok_text: String = format_hresult.call(0)
@@ -89,15 +90,26 @@ func test_gdk_result_error_message_format() -> void:
 	# initialized runtime. The result.code is "already_initialized" with
 	# hresult E_FAIL — this exercises code_or_format_hresult() (provided code
 	# wins over the formatted hex fallback).
-	var first_init = gdk.initialize()
-	if first_init == null or not first_init.ok:
-		pending("Could not establish a runtime baseline for result-format coverage.")
-		return
+	#
+	# An earlier test in the same process may already have brought the runtime
+	# up. That is a perfectly good baseline here — all this test needs is an
+	# initialized runtime to call initialize() against a second time — so treat
+	# it as such instead of bailing out. Only tear the runtime back down if we
+	# were the ones who started it.
+	var initialized_here := false
+	if not gdk.is_initialized():
+		var first_init = gdk.initialize()
+		if first_init == null or not first_init.ok:
+			assert_true(false, "GDK runtime baseline for result-format coverage: %s" % (
+				first_init.message if first_init != null else "GDK.initialize() returned null"))
+			return
+		initialized_here = true
 
 	var repeat_init = gdk.initialize()
 	assert_not_null(repeat_init, "second initialize() returns GDKResult for format coverage")
 	if repeat_init == null:
-		gdk.shutdown()
+		if initialized_here:
+			gdk.shutdown()
 		return
 
 	assert_false(repeat_init.ok, "second initialize() reports failure")
@@ -107,7 +119,8 @@ func test_gdk_result_error_message_format() -> void:
 	assert_true(repeat_init.message.find("0x") >= 0, "format_hresult_message() embeds the hex literal")
 	assert_true(repeat_init.message.find(E_FAIL_HEX) >= 0, "format_hresult_message() renders the E_FAIL hex literal exactly")
 
-	gdk.shutdown()
+	if initialized_here:
+		gdk.shutdown()
 
 
 func test_format_hresult_message_empty_action() -> void:
