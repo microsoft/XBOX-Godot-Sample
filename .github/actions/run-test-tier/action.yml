@@ -1,13 +1,18 @@
-name: Run offline test tier
+name: Run test tier
 description: >-
-  Restore a build-addons artifact and run the offline (non-live) test tier
-  against a single Godot version: a fast GDExtension load/smoke per coverage
-  host, then the repo orchestrator's non-live stages (parse, GUT, bootstrap)
-  with the C++ doctest and build skipped (they already ran in the build job).
+  Restore a build-addons artifact and run the test tier against a single Godot
+  version: a fast GDExtension load/smoke per coverage host, then the repo
+  orchestrator's stages (parse, GUT, bootstrap) with the C++ doctest and build
+  skipped (they already ran in the build job).
 
   This is the Godot-version axis of the build-once / test-across-versions
   matrix: the native addons are built once per GDK edition and this action
   validates them against each supported engine version without rebuilding.
+
+  NOTE: the live and live-write tiers are MANDATORY -- run_all_tests.ps1 hard-
+  fails in preflight when PlayFab configuration is absent. This action therefore
+  REQUIRES the sandbox PlayFab inputs below and is NOT usable from fork pull
+  requests (forks cannot read repository secrets).
 
   Requires: a windows-2022 runner with the repository checked out (no submodules
   needed -- the GUT mirror + addon DLLs come from the artifact). The build job
@@ -20,10 +25,21 @@ inputs:
   artifact_name:
     description: Name of the build-addons artifact to restore (the build output).
     required: true
+  playfab_title_id:
+    description: >-
+      Sandbox PlayFab title id. REQUIRED -- the live-write tier is always on and
+      mutates this title. Never pass a shared or production title id.
+    required: true
+  playfab_custom_id:
+    description: Pre-existing PlayFab custom id used for live sign-in. REQUIRED.
+    required: true
+  playfab_matchmaking_queue:
+    description: Configured PlayFab matchmaking queue name. REQUIRED.
+    required: true
   run_summary_artifact:
     description: Name for the uploaded run-summary artifact.
     required: false
-    default: offline-run-summary
+    default: test-tier-run-summary
   gut_timeout_sec:
     description: Per-host GUT / per-bootstrap timeout (seconds) forwarded to the orchestrator.
     required: false
@@ -155,9 +171,21 @@ runs:
           throw "GDExtension load/smoke failed for: $($failed -join ', ') under Godot ${{ inputs.godot_version }}."
         }
 
-    - name: Run offline test tier (-SkipBuild -SkipDoctest -SkipOrchestrator)
+    - name: Run test tier (-SkipBuild -SkipDoctest -SkipOrchestrator)
       shell: pwsh
+      env:
+        PLAYFAB_TITLE_ID: ${{ inputs.playfab_title_id }}
+        PLAYFAB_CUSTOM_ID: ${{ inputs.playfab_custom_id }}
+        PLAYFAB_MULTIPLAYER_MATCH_QUEUE: ${{ inputs.playfab_matchmaking_queue }}
       run: |
+        # The live + live-write tiers are always on; run_all_tests.ps1 refuses
+        # to start unless all three PlayFab settings above are present.
+        #
+        # -SkipOrchestrator: the multi-client PlayFab Multiplayer orchestrator
+        # (stage 5) is disabled on GitHub-hosted runners -- the live Lobby/Match
+        # calls intermittently time out and the Party P2P mesh cannot form
+        # between spawned client processes. A self-hosted Win11 runner should
+        # omit this flag to run the full orchestrator.
         pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
           -SkipBuild -SkipDoctest -SkipOrchestrator `
           -GutTimeoutSec ${{ inputs.gut_timeout_sec }}

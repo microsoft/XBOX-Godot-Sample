@@ -23,7 +23,7 @@ The companion files in this directory are:
 6. **Mandatory per-scenario reset** — after every scenario (pass or fail), the orchestrator sends `reset_client` to every connected client; on timeout or crash, the affected client is killed and respawned. Scenarios cannot leak state across runs.
 7. **Stable wire protocol with capability negotiation** — clients announce protocol version, addon version, Party availability, and platform during handshake. The orchestrator rejects mismatches loudly rather than silently degrading.
 8. **Fresh process per CI run** — the orchestrator and all spawned clients are short-lived (one orchestrator run = one scenario batch). This sidesteps Godot's script cache for runtime-loaded scenarios and keeps test isolation simple.
-9. **Side-by-side with the legacy harness during transition** — the new harness ships alongside the existing PowerShell + file-IPC runner. `tools\run_all_tests.ps1 -Live` runs both during C4 and C5 for parity verification; the legacy harness is deleted only in C6 once the new harness has soaked clean.
+9. **Side-by-side with the legacy harness during transition** — the new harness ships alongside the existing PowerShell + file-IPC runner. The full orchestrator (`run_all_tests.ps1`) runs both during C4 and C5 for parity verification; the legacy harness is deleted only in C6 once the new harness has soaked clean.
 
 ## Component overview
 
@@ -165,7 +165,7 @@ C6 retired the legacy harness in favor of this orchestrator:
 - `tests\godot\playfab_multiplayer_worker\`
 - The inline 18 lobby + match scenarios encoded in the PowerShell.
 
-`tools\run_all_tests.ps1 -Live` now invokes `tools\run_mp_orchestrator.ps1` for the C1 P0/P1 scenario set, with persistent writes gated by `-AllowLiveWrites`.
+`tools\run_all_tests.ps1` now invokes `tools\run_mp_orchestrator.ps1` for the C1 P0/P1 scenario set.
 
 ## Open questions
 

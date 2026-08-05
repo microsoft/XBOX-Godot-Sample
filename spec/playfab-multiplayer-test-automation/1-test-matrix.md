@@ -16,10 +16,10 @@ Companions:
 
 | Priority | Definition |
 | --- | --- |
-| **P0** | Must pass on every `run_all_tests.ps1 -Live` invocation. Blocks a release if red. A failure here means PlayFab Multiplayer or Party is non-functional for a major flow. |
-| **P1** | Should pass on every `-Live` invocation. Blocks a release after one re-run if still red. A failure here means a real feature is broken but a major flow may still work. |
-| **P2** | Runs on `-Live`, surfaces in reports, does not block release on its own. Edge cases, boundary conditions, and non-critical features. |
-| **P3** | Opt-in via `--include-p3` (or a separate `-LiveSoak` switch in `run_all_tests.ps1`). Long, expensive, or quarantine-prone scenarios. |
+| **P0** | Must pass on every `run_all_tests.ps1` invocation. Blocks a release if red. A failure here means PlayFab Multiplayer or Party is non-functional for a major flow. |
+| **P1** | Should pass on every invocation. Blocks a release after one re-run if still red. A failure here means a real feature is broken but a major flow may still work. |
+| **P2** | Runs unconditionally, surfaces in reports, does not block release on its own. Edge cases, boundary conditions, and non-critical features. |
+| **P3** | Not yet wired into any invocation. Long, expensive, or quarantine-prone scenarios; a dedicated soak switch on `run_all_tests.ps1` is still to be designed. |
 
 ## Categories
 
@@ -55,7 +55,7 @@ Capabilities are announced by clients in the handshake (`3-harness-spec.md`). Th
 | `playfab_multiplayer_available` | Client linked and initialized PlayFab Multiplayer. | Always required by Lobby + Match scenarios. |
 | `playfab_party_available` | Client linked and initialized PlayFab Party. | Always required by Party scenarios. |
 | `matchmaking_queue_configured` | `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set and resolves to a real queue. | Match scenarios. |
-| `live_write_allowed` | Orchestrator launched with `-AllowLiveWrites`. | Scenarios that persist title-side state (statistics, leaderboard entries, etc.). |
+| `live_write_allowed` | Orchestrator always sets `LIVE_WRITE_TESTS=1`; this capability is always announced. | Scenarios that persist title-side state (statistics, leaderboard entries, etc.). Ensure the configured title is a dedicated sandbox — the live-write tier mutates it. |
 | `multi_host_processes` | At least two distinct test client processes are connected. | Two-role scenarios; orchestrator can spawn two clients on the same machine to satisfy this. |
 | `multi_machine_eligible` | Two clients connected from distinct hosts. Currently only set when run via a future `--remote-clients` mode. | None today. Reserved. |
 
@@ -321,4 +321,4 @@ The retired 18-scenario PowerShell runner mapped 1:1 onto the matrix entries mar
 - Voice chat audio path verification — requires audio capture/playback fixtures that this harness does not own.
 - PartyXbl (Xbox-platform Party identity bridging) — not initialized by the addon; see `spec\gdext-playfab-party.md`.
 - Multi-machine remote-client orchestration — design exists in `0-architecture.md`, implementation deferred until a real same-host gap is identified.
-- Long soak (1-hour+) reliability runs — `P3` placeholder, opt-in via `-LiveSoak` once the harness is steady.
+- Long soak (1-hour+) reliability runs — `P3` placeholder; a dedicated soak switch is still to be designed once the harness is steady.

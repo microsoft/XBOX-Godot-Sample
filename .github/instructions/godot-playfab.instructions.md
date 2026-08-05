@@ -57,20 +57,23 @@ cmake --build build --preset debug
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
 ```
 
-- The headless test entry point for this addon is the repo-root orchestrator:
+- The headless test entry point for this addon is the repo-root orchestrator. All three test tiers (`contract`, `live_read`, `live_write`) run unconditionally; supply the three required parameters:
 
 ```powershell
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+    -PlayFabTitleId <sandbox-title> `
+    -PlayFabCustomId <custom-id> `
+    -PlayFabMatchmakingQueue <queue>
 ```
 
-  PlayFab tests run in the `gut:tests/godot/playfab` stage. To iterate on the PlayFab host alone:
+  The orchestrator performs a preflight check and exits with code 1 listing all missing values if any required parameter is absent. Always supply a **dedicated sandbox PlayFab title** — the live-write tier mutates the configured title and must never target a shared or production title. PlayFab tests run in the `gut:tests/godot/playfab` stage. To iterate on the PlayFab host alone:
 
 ```powershell
 cd tests\godot\playfab
 ..\..\..\Godot_v4.6.1-stable_win64_console.exe --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 ```
 
-- Live PlayFab coverage is opt-in. Pass `-Live` to the orchestrator to expose `LIVE_TESTS=1` for tests that talk to PlayFab, including tests that write online state. Prefer `-PlayFabTitleId "<title-id>" -PlayFabCustomId "<existing-custom-id>"` for live custom-ID tests; the runner forwards those values as `PLAYFAB_TITLE_ID` and `PLAYFAB_CUSTOM_ID` only to Godot child processes. Custom-ID live sign-in uses `create_account=false`, so the account must already exist. Use a dedicated sandbox PlayFab title for live write coverage and never point live write tests at a shared or production title.
+- Live PlayFab coverage requires three mandatory parameters (`-PlayFabTitleId`, `-PlayFabCustomId`, `-PlayFabMatchmakingQueue`); missing any one aborts the run at preflight. All three tiers run unconditionally. Use a dedicated sandbox PlayFab title for every run — the live-write tier mutates the configured title (leaderboard entries, player data, etc.) and must never target a shared or production title. Custom-ID live sign-in uses `create_account=false`, so the account must already exist.
 
 ## Documentation Contract
 

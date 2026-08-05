@@ -72,25 +72,45 @@ A local run is green when all of the following are true:
 - Every per-host baseline in `tests\baselines\<host>.json` has `post.asserts >= pre.asserts`, with zero post-migration failures.
 - Bootstrap mini-runners either pass or are explicitly skipped because the selected host filter excluded them.
 
+## Required configuration
+
+All three test tiers (`contract`, `live_read`, `live_write`) run on every invocation. The orchestrator performs a **preflight check** before any stage and exits with code 1 if any required value is missing, listing everything that is absent.
+
+Three values are required:
+
+| Parameter | Env var fallback | Purpose |
+|-----------|-----------------|---------|
+| `-PlayFabTitleId <id>` | `PLAYFAB_TITLE_ID` | The PlayFab sandbox title to run against. Must be a **dedicated sandbox title** — the live-write tier mutates it (leaderboard entries, player data, etc.). Never use a shared or production title. |
+| `-PlayFabCustomId <id>` | `PLAYFAB_CUSTOM_ID` | Pre-existing custom id for PlayFab live sign-in tests (`create_account=false`). |
+| `-PlayFabMatchmakingQueue <name>` | `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` | Matchmaking queue name configured on the sandbox title. |
+
+Parameters take precedence over environment variables. The canonical invocation is:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+    -PlayFabTitleId <sandbox-title> `
+    -PlayFabCustomId <custom-id> `
+    -PlayFabMatchmakingQueue <queue>
+```
+
 ## Env-var matrix
 
-| Var | Effect | Default |
-|---|---|---|
-| `LIVE_TESTS=1` | Enables tests that need a live Microsoft GDK or PlayFab session. | unset |
-| `LIVE_WRITE_TESTS=1` | Enables sandbox-only tests that write online state. Use only with sandbox titles. | unset |
-| `PLAYFAB_TITLE_ID` | Overrides `playfab/runtime/title_id` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. | unset |
-| `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. | unset |
-| `PLAYFAB_DEVELOPER_SECRET_KEY` | Supplies the PlayFab title developer secret key to `tools\configure_playfab_test_title.ps1` only. The script reads it from the process, user, or machine environment. Never forwarded to Godot child processes. | unset |
-| `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` | Optional prefix for pre-created Multiplayer worker custom IDs. If unset, the runner derives `<PLAYFAB_CUSTOM_ID>-multiplayer`. | unset |
+| Var | Effect |
+|---|---|
+| `LIVE_TESTS=1` | Set unconditionally by the orchestrator on every run. All live-read tests execute. |
+| `LIVE_WRITE_TESTS=1` | Set unconditionally by the orchestrator on every run. All live-write tests execute. |
+| `PLAYFAB_TITLE_ID` | Overrides `playfab/runtime/title_id` inside PlayFab test hosts. Prefer `-PlayFabTitleId` when using the orchestrator. |
+| `PLAYFAB_CUSTOM_ID` | Supplies a pre-existing custom id for PlayFab live sign-in tests. |
+| `PLAYFAB_DEVELOPER_SECRET_KEY` | Supplies the PlayFab title developer secret key to `tools\configure_playfab_test_title.ps1` only. The script reads it from the process, user, or machine environment. Never forwarded to Godot child processes. |
+| `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` | Optional prefix for pre-created Multiplayer worker custom IDs. If unset, the runner derives `<PLAYFAB_CUSTOM_ID>-multiplayer`. |
 
-The orchestrator forwards the live/test variables to child Godot processes and scrubs `PLAYFAB_DEVELOPER_SECRET_KEY` from child environments. Prefer the script switches instead of mutating `$env:*` yourself:
+The orchestrator sets `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` unconditionally and forwards all live/test variables to child Godot processes, scrubbing `PLAYFAB_DEVELOPER_SECRET_KEY` from child environments. Prefer the script switches instead of mutating `$env:*` yourself:
 
 | Switch | Effect |
 |--------|--------|
-| `-Live` | Sets `LIVE_TESTS=1` for every Godot child process. |
-| `-AllowLiveWrites` | Sets `LIVE_WRITE_TESTS=1` for every Godot child process. Use only with sandbox titles. |
-| `-PlayFabTitleId <id>` | Sets `PLAYFAB_TITLE_ID` for Godot child processes; the PlayFab test base applies it to `playfab/runtime/title_id`. |
-| `-PlayFabCustomId <id>` | Sets `PLAYFAB_CUSTOM_ID` for Godot child processes; PlayFab live tests use it with `create_account=false`. |
+| `-PlayFabTitleId <id>` | Sets `PLAYFAB_TITLE_ID` for Godot child processes; the PlayFab test base applies it to `playfab/runtime/title_id`. **Required.** |
+| `-PlayFabCustomId <id>` | Sets `PLAYFAB_CUSTOM_ID` for Godot child processes; PlayFab live tests use it with `create_account=false`. **Required.** |
+| `-PlayFabMatchmakingQueue <name>` | Sets `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` for Godot child processes. **Required.** |
 | `-SkipBuild` | Skips the CMake build stage. Use only when the debug build and mirrored GUT support are already current. |
 | `-OutDir <dir>` | Writes `run-summary.json` and `run-summary.md` to another directory. The default is `build\test-results`. |
 
@@ -108,8 +128,14 @@ The script reads the secret from the process, user, or machine environment witho
 After setup, run the PlayFab live suite with:
 
 ```powershell
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -AllowLiveWrites -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+    -Hosts tests\godot\playfab `
+    -PlayFabTitleId "10D176" `
+    -PlayFabCustomId "godot-gdk-ext-live-smoke" `
+    -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
 ```
+
+> **Sandbox titles only.** The live-write tier mutates the configured title (leaderboard entries, player data, etc.). Always supply a dedicated sandbox title id — never a shared or production title.
 
 ## Live test settings
 
@@ -184,7 +210,7 @@ PlayFab leaderboard writes may take several seconds to appear in subsequent read
 - Put addon coverage in the owning host: Microsoft GDK and packaging tests in `tests\godot\gdk\tests\`, PlayFab tests in `tests\godot\playfab\tests\`, and GameInput tests in `tests\godot\gameinput\tests\`.
 - Extend the matching shared base: `res://addons/godot_gdk_tests/gdk_test_base.gd`, `res://addons/godot_gdk_tests/playfab_test_base.gd`, or `res://addons/godot_gdk_tests/gameinput_test_base.gd`.
 - Use `await_completion(...)` or `await_completion_state(...)` for async signal waits. PlayFab tests inherit a dual-pump override that dispatches both PlayFab and, when the optional Microsoft GDK mirror is present, Microsoft GDK queues.
-- Use `pending_unless_live()` for live gates, and derive mutating identifiers with `with_unique_id(...)`.
+- Use `requires_live()` for live gates (returns `false` and **fails** the test when live config is absent), and derive mutating identifiers with `with_unique_id(...)`.
 - Use `assert_has_method_named(...)` and `assert_has_signal_named(...)` for reflection checks.
 - If a directory tree contains GUT-extending `.gd` files, place an empty `.gut_skip_validation` sentinel at that tree root so `tools\check_gd_scripts_headless.ps1` skips standalone parsing that would otherwise produce UID or GUT class-name warnings.
 - For startup-only autoload or project-setting behavior, add a bootstrap mini-runner under `tests\bootstrap\` instead of trying to mutate those settings inside a normal GUT test.

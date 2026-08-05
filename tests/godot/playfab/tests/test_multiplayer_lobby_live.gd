@@ -285,7 +285,7 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 		var joined_lobby = join_result.data
 		if joined_lobby != null:
 			await await_completion(joined_lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
-		pending("PlayFab service accepted a stale lobby connection string; failure-cleanup path was not exercised.")
+		pending_tolerated("PlayFab service accepted a stale lobby connection string; failure-cleanup path was not exercised.")
 		_finish_session(playfab, null)
 		return
 

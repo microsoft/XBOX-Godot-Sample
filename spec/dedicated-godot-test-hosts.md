@@ -92,7 +92,7 @@ Live custom-ID tests should use a configured pre-existing custom id with `create
 
 CI should be added after local host conversion is stable. The CI matrix should cover the current supported Godot version plus the two previous supported versions (`current`, `current - 1`, `current - 2`), bounded by the repository's minimum supported Godot version. Each matrix entry should use a pinned Godot console executable and record the executable path plus `--version` in the run summary.
 
-CI should run the default non-live validation only: CMake configure/build, C++ doctest, and the default GUT hosts. It should not run `-Live` by default.
+CI should run the default validation only: CMake configure/build, C++ doctest, and the default GUT hosts. It should not attempt live runs without a properly configured sandbox title environment.
 
 ## Acceptance criteria
 

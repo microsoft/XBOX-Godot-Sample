@@ -566,4 +566,4 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - completed tickets reporting `arranged_lobby_connection_string` without automatically joining an arranged lobby;
 - shutdown cleanup for tracked lobbies and tickets.
 
-Live PlayFab Multiplayer tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner covers multi-client lobby flows and, when a configured matchmaking queue is supplied, match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
+Live PlayFab Multiplayer tests require a dedicated sandbox title. All three tiers (`contract`, `live_read`, `live_write`) run unconditionally; missing configuration aborts the run at preflight. The live runner covers multi-client lobby flows and, when a configured matchmaking queue is supplied, match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup. Always supply a dedicated sandbox title id — the live-write tier mutates the configured title.

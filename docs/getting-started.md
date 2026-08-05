@@ -873,7 +873,7 @@ cmake --build build --preset debug
 1. Rebuild the addon or run the full orchestrator.
 2. Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1`.
 3. Open the relevant sample in the editor and verify the user-facing flow still loads.
-4. If XBOX Live or PlayFab live features changed, test with `-Live` against a sandbox title and test account.
+4. If XBOX Live or PlayFab live features changed, run the full orchestrator with the required `-PlayFabTitleId`, `-PlayFabCustomId`, and `-PlayFabMatchmakingQueue` parameters against a dedicated sandbox title.
 
 #### Optional pre-commit hook
 

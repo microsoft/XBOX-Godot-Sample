@@ -1,30 +1,33 @@
 name: PlayFab Live Tests (nightly)
 
 # Nightly addon validation: build once per GDK edition, then test the cached
-# build output across Godot versions (offline tier) AND against a live SANDBOX
-# PlayFab title (live tier). Jobs:
+# build output across Godot versions AND against a live SANDBOX PlayFab title.
+# The live + live-write tiers are mandatory in every run. Jobs:
 #   * resolve      -- emit the Godot default + supported matrix and the GDK
 #                     edition list from .github/{godot,gdk}-versions.json.
 #   * build        -- build the addon DLLs ONCE per GDK edition + the C++ doctest
 #                     (shared build-addons composite); cache + upload the output.
-#   * test-offline -- GDK edition x Godot supported: restore the build artifact
-#                     and run the GDExtension load/smoke + non-live GUT (shared
-#                     run-offline-tier composite). No rebuild per Godot version.
+#   * test-tier    -- GDK edition x Godot supported: restore the build artifact
+#                     and run the GDExtension load/smoke + GUT suites (shared
+#                     run-test-tier composite). No rebuild per Godot version.
 #   * playfab-live -- GDK editions x single default Godot: restore the build
 #                     artifact and run the live (read + write) PlayFab tier. No
 #                     rebuild per edition.
 #
-# build / test-offline share their composites with pr-gates.yml (which runs the
-# default GDK + default Godot only). The live tier alone needs secrets.
+# build / test-tier share their composites with pr-gates.yml (which runs the
+# default GDK + default Godot only). Every test job needs the sandbox secrets
+# now that the live tiers cannot be skipped.
 #
-# Trigger model: schedule + manual dispatch ONLY. This keeps title secrets off
-# pull_request runs (and therefore unreachable from forks). The live tier writes
+# Trigger model: schedule + manual dispatch ONLY. The live tier writes
 # persistent state, so it must only ever point at a sandbox title id.
 #
 # Secrets live in the 'playfab-sandbox' GitHub Environment:
 #   PLAYFAB_TITLE_ID                 (required -- the sandbox title)
-#   PLAYFAB_CUSTOM_ID                (optional -- pre-existing custom id)
-#   PLAYFAB_MULTIPLAYER_MATCH_QUEUE  (optional -- matchmaking queue name)
+#   PLAYFAB_CUSTOM_ID                (required -- pre-existing custom id)
+#   PLAYFAB_MULTIPLAYER_MATCH_QUEUE  (required -- matchmaking queue name)
+# The high-privilege PLAYFAB_DEVELOPER_SECRET_KEY is deliberately NOT used here:
+# run_all_tests.ps1 scrubs it from child processes, and a pre-provisioned title
+# only needs client-side sign-in (LoginWithCustomID).
 # The high-privilege PLAYFAB_DEVELOPER_SECRET_KEY is deliberately NOT used here:
 # run_all_tests.ps1 scrubs it from child processes, and a pre-provisioned title
 # only needs client-side sign-in (LoginWithCustomID).
@@ -109,7 +112,7 @@ jobs:
   # Build the addon DLLs ONCE per GDK edition (shared build-addons composite):
   # vcpkg restore + configure + build + the Godot-independent C++ doctest, with
   # hybrid caching (actions/cache on build/ + an upload artifact per edition).
-  # The test-offline / playfab-live jobs consume these artifacts -- no rebuild.
+  # The test-tier / playfab-live jobs consume these artifacts -- no rebuild.
   build:
     needs: resolve
     runs-on: windows-2022
@@ -130,11 +133,12 @@ jobs:
           gdk_version: ${{ matrix.gdk.version }}
           artifact_name: build-gdk-${{ matrix.gdk.edition }}
 
-  # Offline (non-live) tier across the FULL Godot supported matrix: for each GDK
-  # edition x Godot version, restore that edition's build artifact and run the
-  # GDExtension load/smoke + non-live GUT (shared run-offline-tier composite).
+  # Test tier across the FULL Godot supported matrix: for each GDK edition x
+  # Godot version, restore that edition's build artifact and run the
+  # GDExtension load/smoke + GUT suites (shared run-test-tier composite).
   # This is the build-once / test-across-versions payoff -- no per-version build.
-  test-offline:
+  # The live tiers are mandatory, so this job needs the sandbox environment.
+  test-tier:
     needs: [resolve, build]
     # Preserve per-edition/per-version signal: run as long as resolve produced
     # the matrices and the run wasn't cancelled, even if some build editions
@@ -142,28 +146,32 @@ jobs:
     # the rest still execute (build uses fail-fast: false).
     if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: windows-2022
+    environment: playfab-sandbox
     strategy:
       fail-fast: false
       matrix:
         gdk: ${{ fromJSON(needs.resolve.outputs.gdk_list) }}
         godot: ${{ fromJSON(needs.resolve.outputs.godot_supported) }}
-    name: test-offline (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
+    name: test-tier (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
     steps:
       # No submodules: the GUT mirror + addon DLLs arrive via the build artifact.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
 
-      - name: Offline tier (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
-        uses: ./.github/actions/run-offline-tier
+      - name: Test tier (GDK ${{ matrix.gdk.edition }} / Godot ${{ matrix.godot }})
+        uses: ./.github/actions/run-test-tier
         with:
           godot_version: ${{ matrix.godot }}
           artifact_name: build-gdk-${{ matrix.gdk.edition }}
-          run_summary_artifact: offline-run-summary-gdk-${{ matrix.gdk.edition }}-godot-${{ matrix.godot }}
+          playfab_title_id: ${{ secrets.PLAYFAB_TITLE_ID }}
+          playfab_custom_id: ${{ secrets.PLAYFAB_CUSTOM_ID }}
+          playfab_matchmaking_queue: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
+          run_summary_artifact: run-summary-gdk-${{ matrix.gdk.edition }}-godot-${{ matrix.godot }}
 
   playfab-live:
     needs: [resolve, build]
-    # As with test-offline: keep cross-edition signal even if a build edition
+    # As with test-tier: keep cross-edition signal even if a build edition
     # fails. Failed editions fail at artifact download; the rest still run.
     if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: windows-2022
@@ -258,7 +266,6 @@ jobs:
           if ($env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) { $extra += @('-PlayFabMatchmakingQueue', $env:PLAYFAB_MULTIPLAYER_MATCH_QUEUE) }
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
             -SkipBuild -SkipDoctest -SkipOrchestrator `
-            -Live -AllowLiveWrites `
             -PlayFabTitleId $env:PLAYFAB_TITLE_ID @extra
 
       - name: Upload run summary

@@ -252,7 +252,7 @@ func test_capture_metadata_start_stop_flow() -> void:
 	if not requires_live():
 		return
 	if OS.get_environment("GDK_CAPTURE_METADATA_STATE_TESTS") != "1":
-		pending("Skipped without GDK_CAPTURE_METADATA_STATE_TESTS=1")
+		pending_tolerated("Skipped without GDK_CAPTURE_METADATA_STATE_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()
@@ -313,7 +313,7 @@ func test_capture_enable_disable_after_init() -> void:
 	if not requires_live():
 		return
 	if OS.get_environment("GDK_CAPTURE_STATE_TESTS") != "1":
-		pending("Skipped without GDK_CAPTURE_STATE_TESTS=1")
+		pending_tolerated("Skipped without GDK_CAPTURE_STATE_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()
@@ -364,7 +364,7 @@ func test_capture_record_clip_live() -> void:
 	if not requires_live():
 		return
 	if OS.get_environment("GDK_CAPTURE_DIAGNOSTIC_TESTS") != "1":
-		pending("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
+		pending_tolerated("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()
@@ -405,7 +405,7 @@ func test_capture_take_screenshot_live() -> void:
 	if not requires_live():
 		return
 	if OS.get_environment("GDK_CAPTURE_DIAGNOSTIC_TESTS") != "1":
-		pending("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
+		pending_tolerated("Skipped without GDK_CAPTURE_DIAGNOSTIC_TESTS=1")
 		return
 
 	var init_result = initialize_runtime()

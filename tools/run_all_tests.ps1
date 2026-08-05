@@ -6,16 +6,34 @@
 .DESCRIPTION
     Pipeline (each stage gates the next; a failure aborts downstream work):
 
+      0. Preflight           -- required live configuration is present, else abort
       1. Parse gate          -- tools\check_gd_scripts_headless.ps1
       2. CMake build         -- cmake --build build --preset debug   (skippable)
       3. C++ doctest         -- build\bin\Debug\gdk_unit_tests.exe
-      4. GUT host runs       -- per coverage host:
+      4. Live env probe      -- per coverage host, assert the RUNTIME prerequisites
+                                the mandatory live tiers need (GDK runtime up, an
+                                Xbox identity signed in, a gamepad attached) via
+                                tools\ci\live_env_probe.gd. Stage 0 validates the
+                                settings; this validates the machine.
+      5. GUT host runs       -- per coverage host:
                                   a. one-time `--headless --import` (marker file)
                                   b. `--headless -s res://addons/gut/gut_cmdln.gd
                                       -gdir=res://tests -gexit`
-      5. PlayFab Multiplayer orchestrator -- opt-in C1 P0/P1 multi-client scenarios
-      6. Bootstrap runners   -- `<host>\tests\bootstrap\*.gd` if present
-      7. Aggregate           -- writes <OutDir>\run-summary.{json,md}
+      6. PlayFab Multiplayer orchestrator -- C1 P0/P1 multi-client scenarios
+      7. Bootstrap runners   -- `<host>\tests\bootstrap\*.gd` if present
+      8. Aggregate           -- writes <OutDir>\run-summary.{json,md}
+
+    The live and live-write tiers are ALWAYS ENABLED. There is no opt-out: every
+    run sets LIVE_TESTS=1 and LIVE_WRITE_TESTS=1 for every Godot child, talks to
+    live services, and mutates the configured PlayFab title. Runs therefore
+    REQUIRE a dedicated sandbox title -- see the preflight check in Main.
+
+    Because the tiers cannot be skipped, a test that cannot reach its live
+    prerequisite must FAIL rather than degrade to `pending`. The shared GUT bases
+    enforce this: `pending()` is overridden to fail whenever LIVE_TESTS=1, so a
+    dormant test can no longer report green. Genuinely tolerated conditions
+    (eventual-consistency settle timeouts, best-effort cleanup) call
+    `pending_tolerated()` instead.
 
     Environment propagation goes through [System.Diagnostics.ProcessStartInfo]
     with UseShellExecute = $false. The orchestrator NEVER mutates $env:* in the
@@ -25,17 +43,6 @@
     GUT exits 0 even when zero tests are discovered. The orchestrator parses
     GUT's own summary block and asserts Tests > 0 per host; otherwise a
     misconfigured `-gdir` would silently be reported as green.
-
-.PARAMETER Live
-    Sets LIVE_TESTS=1 in the child env for every Godot stage. Live tests may
-    talk to services but must not perform persistent writes unless
-    -AllowLiveWrites is also specified.
-
-.PARAMETER AllowLiveWrites
-    Requires -Live and -PlayFabTitleId. Sets LIVE_WRITE_TESTS=1 in the child
-    env for live tests that create lobbies, write leaderboards, save Game Saves,
-    or otherwise mutate the configured sandbox title. Prints the active PlayFab
-    title id so live writes are visibly scoped to an explicit sandbox title.
 
 .PARAMETER SkipBuild
     Skips the CMake build stage. The doctest exe and the GUT mirrored copies
@@ -76,17 +83,21 @@
     active while skipping the PlayFab test host.
 
 .PARAMETER PlayFabTitleId
-    Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
+    REQUIRED PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
     The PlayFab test base applies it to ProjectSettings['playfab/runtime/title_id'].
-    Required when -AllowLiveWrites is set; must identify a dedicated sandbox title.
+    May also be supplied via the PLAYFAB_TITLE_ID environment variable. Must
+    identify a dedicated sandbox title: the live-write tier is always on and
+    mutates whatever title this names.
 
 .PARAMETER PlayFabCustomId
-    Optional pre-existing PlayFab custom id forwarded to Godot children as
+    REQUIRED pre-existing PlayFab custom id forwarded to Godot children as
     PLAYFAB_CUSTOM_ID. Live custom-ID tests sign in with create_account=false.
+    May also be supplied via the PLAYFAB_CUSTOM_ID environment variable.
 
 .PARAMETER PlayFabMatchmakingQueue
-    Optional PlayFab matchmaking queue name forwarded to child processes as
-    PLAYFAB_MULTIPLAYER_MATCH_QUEUE for Multiplayer live smoke coverage.
+    REQUIRED PlayFab matchmaking queue name forwarded to child processes as
+    PLAYFAB_MULTIPLAYER_MATCH_QUEUE for Multiplayer live coverage. May also be
+    supplied via the PLAYFAB_MULTIPLAYER_MATCH_QUEUE environment variable.
 
 .PARAMETER GutTimeoutSec
     Per-host GUT and per-bootstrap-script timeout in seconds. Default: 600.
@@ -95,8 +106,15 @@
     Streams child stdout/stderr to the host console as it arrives.
 
 .NOTES
-    -AllowLiveWrites is a sandbox-only live-write tier. It is refused unless
-    -Live and -PlayFabTitleId are both set.
+    The live and live-write tiers are ALWAYS ON and cannot be opted out of.
+    Every run talks to live services and mutates the configured PlayFab title,
+    so -PlayFabTitleId MUST name a dedicated sandbox title -- never a shared or
+    production title id.
+
+    Missing live configuration is a hard failure, not a skip: the preflight
+    check below aborts the run before any stage executes when a required
+    setting is absent. This is deliberate -- a run that cannot reach live
+    services must never report green.
 
 .OUTPUTS
     Writes <OutDir>\run-summary.json and <OutDir>\run-summary.md.
@@ -104,8 +122,6 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Live,
-    [switch]$AllowLiveWrites,
     [switch]$SkipBuild,
     [switch]$SkipDoctest,
     [switch]$SkipGut,
@@ -145,6 +161,17 @@ $script:PlayFabMultiplayerOrchestratorRunner = Join-Path $script:RepoRoot 'tools
 # `Failing Tests`, `Risky/Pending`, `Orphans`. Wave 4 / docs may reference this
 # regex to keep summary parsing in one place.
 $script:GutSummaryRegex = '^\s*(?<label>Scripts|Tests|Passing Tests|Failing Tests|Risky/Pending|Asserts|Orphans|Time)\s+(?<value>\d+(?:/\d+)?|none|[\d\.]+s)\s*$'
+
+# Runtime capabilities each coverage host must have available before its GUT
+# suite runs. The live tiers are mandatory, so a host whose runtime prerequisites
+# are absent must fail loudly in preflight rather than let hundreds of individual
+# tests degrade to `pending`. Consumed by Invoke-LiveEnvironmentProbe; the
+# capability names are parsed by tools\ci\live_env_probe.gd.
+$script:HostLiveCapabilities = @{
+    'tests\godot\gdk'       = @('gdk', 'xuser')
+    'tests\godot\playfab'   = @('gdk', 'xuser', 'playfab')
+    'tests\godot\gameinput' = @('gameinput', 'gamepad')
+}
 
 # ------------------------------------------------------------------------
 # Godot discovery (mirrors tools\check_gd_scripts_headless.ps1)
@@ -235,11 +262,11 @@ function Invoke-ChildProcess {
         $psi.EnvironmentVariables[[string]$entry.Key] = [string]$entry.Value
     }
     $psi.EnvironmentVariables.Remove('PLAYFAB_DEVELOPER_SECRET_KEY')
-    # Scrub ambient LIVE_TESTS / LIVE_WRITE_TESTS so they can only reach
-    # children via $EnvOverrides (which the orchestrator only populates when
-    # -Live / -AllowLiveWrites are explicitly passed). Without this, a user
-    # who has LIVE_WRITE_TESTS=1 in their shell env would bypass the
-    # -AllowLiveWrites gate and silently drive live-write tests.
+    # Scrub ambient LIVE_TESTS / LIVE_WRITE_TESTS so the tier flags can only
+    # reach children via $EnvOverrides, which Main populates unconditionally.
+    # Without this, an ambient LIVE_TESTS=0 in the developer's shell would
+    # survive the overwrite order on some hosts and silently disable a tier
+    # that is supposed to be mandatory.
     $psi.EnvironmentVariables.Remove('LIVE_TESTS')
     $psi.EnvironmentVariables.Remove('LIVE_WRITE_TESTS')
     foreach ($k in $EnvOverrides.Keys) {
@@ -587,7 +614,7 @@ function Select-GutForGodotVersion {
     #
     # Local dev only: it copies from the local submodule sources. In the
     # artifact-only CI path (no submodules checked out) the sources are absent, so
-    # this is a no-op -- CI's run-offline-tier action performs the swap itself.
+    # this is a no-op -- CI's run-test-tier action performs the swap itself.
     param(
         [Parameter(Mandatory = $true)][string]$GodotVersion,
         [Parameter(Mandatory = $true)][string[]]$HostList
@@ -616,6 +643,71 @@ function Select-GutForGodotVersion {
     }
     $label = if ($want45) { '4.5-compatible (Gut-4.5)' } else { 'default (Gut)' }
     Write-Host "   GUT: selected $label mirror for Godot $GodotVersion." -ForegroundColor Cyan
+}
+
+function Invoke-LiveEnvironmentProbe {
+    # Runtime half of the live preflight. Assert-LiveConfiguration validates the
+    # *settings*; this validates that the machine can actually exercise the
+    # mandatory live tiers -- GDK runtime up, an Xbox identity signed in, a
+    # gamepad attached. Without it those conditions surface only as hundreds of
+    # individual in-test failures, which is slow and unreadable.
+    param(
+        [Parameter(Mandatory = $true)][string]$RelativeHost,
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][hashtable]$ChildEnv
+    )
+    $rec = New-StageRecord ("live-probe:" + ($RelativeHost -replace '\\','/'))
+    $capabilities = $script:HostLiveCapabilities[$RelativeHost]
+    if ($null -eq $capabilities -or $capabilities.Count -eq 0) {
+        $rec.status  = 'skip'
+        $rec.message = "No live capability requirements declared for '$RelativeHost'."
+        return $rec
+    }
+
+    $hostRoot = Join-Path $script:RepoRoot $RelativeHost
+    $sourceProbe = Join-Path $script:RepoRoot 'tools\ci\live_env_probe.gd'
+    if (-not (Test-Path $sourceProbe)) {
+        $rec.status  = 'fail'
+        $rec.message = 'Live environment probe script not found at tools\ci\live_env_probe.gd.'
+        return $rec
+    }
+
+    $importErr = Ensure-HostImported -HostRoot $hostRoot -GodotExe $GodotExe -ChildEnv $ChildEnv
+    if ($null -ne $importErr) {
+        $rec.status    = 'fail'
+        $rec.exit_code = $importErr.ExitCode
+        $rec.message   = "One-time '--headless --import' for $RelativeHost failed (exit $($importErr.ExitCode))."
+        $rec.details   = $importErr.Output
+        return $rec
+    }
+
+    # Staged at the host root as a temp script, mirroring how the CI load/smoke
+    # step stages tools\ci\gdextension_load_check.gd, then removed.
+    $tempProbe = Join-Path $hostRoot '_live_env_probe.gd'
+    Copy-Item -Path $sourceProbe -Destination $tempProbe -Force
+    try {
+        $args = @('--headless', '-s', 'res://_live_env_probe.gd', '--') + $capabilities
+        $r = Invoke-ChildProcess -FileName $GodotExe -Arguments $args -WorkingDirectory $hostRoot `
+            -EnvOverrides $ChildEnv -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
+    } finally {
+        Remove-Item -Path $tempProbe -Force -ErrorAction SilentlyContinue
+    }
+
+    $rec.exit_code = $r.ExitCode
+    $rec.details   = ($r.Stdout + $r.Stderr).Trim()
+    if ($r.TimedOut) {
+        $rec.status  = 'fail'
+        $rec.message = "Live environment probe timed out after $GutTimeoutSec s."
+        return $rec
+    }
+    if ($r.ExitCode -ne 0) {
+        $rec.status  = 'fail'
+        $rec.message = "Live environment probe failed for $RelativeHost (requires: $($capabilities -join ', '))."
+        return $rec
+    }
+    $rec.status  = 'pass'
+    $rec.message = "All required capabilities available ($($capabilities -join ', '))."
+    return $rec
 }
 
 function Invoke-GutHost {
@@ -777,29 +869,16 @@ function Invoke-PlayFabMultiplayerOrchestrator {
         [Parameter(Mandatory = $true)][string]$GodotExe,
         [Parameter(Mandatory = $true)][hashtable]$ChildEnv,
         [Parameter(Mandatory = $true)][string[]]$HostList,
-        [Parameter(Mandatory = $true)][bool]$LiveEnabled,
-        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesEnabled,
         [Parameter(Mandatory = $true)][string]$OutDirAbsolute
     )
 
     $rec = New-StageRecord 'playfab-multiplayer-orchestrator'
-    if (-not $LiveEnabled) {
-        $rec.status = 'skip'
-        $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
-        return $rec
-    }
-    if (-not $AllowLiveWritesEnabled) {
-        # Every scenario in the live Multiplayer runner creates / updates /
-        # leaves lobbies (and optionally match tickets) so the entire stage
-        # is gated behind -AllowLiveWrites / LIVE_WRITE_TESTS=1 to keep
-        # default -Live runs read-only.
-        $rec.status = 'skip'
-        $rec.message = 'Skipped without -AllowLiveWrites / LIVE_WRITE_TESTS=1 (live Multiplayer orchestration mutates lobbies).'
-        return $rec
-    }
+    # The live-write tier is mandatory, so this stage always runs. Every
+    # scenario creates / updates / leaves lobbies (and optionally match
+    # tickets) against the sandbox title validated by the preflight check.
     # The orchestrator is its own stage, independent of the GUT -Hosts filter
     # (use -SkipOrchestrator to exclude it, or -SkipGut to run it without the
-    # GUT suites). It is gated only on the live-write tier below.
+    # GUT suites).
     if (-not (Test-Path $script:PlayFabMultiplayerOrchestratorRunner)) {
         $rec.status = 'fail'
         $rec.message = "PlayFab Multiplayer orchestrator runner not found at $script:PlayFabMultiplayerOrchestratorRunner."
@@ -885,8 +964,7 @@ function Write-RunSummary {
         [Parameter(Mandatory = $true)][string]$OverallStatus,
         [Parameter(Mandatory = $true)][datetime]$StartedAtUtc,
         [Parameter(Mandatory = $true)][datetime]$FinishedAtUtc,
-        [Parameter(Mandatory = $true)][bool]$LiveFlag,
-        [Parameter(Mandatory = $true)][bool]$AllowLiveWritesFlag,
+        [Parameter(Mandatory = $true)][string]$PlayFabTitleIdUsed,
         [Parameter(Mandatory = $true)][string]$GodotVersion
     )
 
@@ -902,8 +980,9 @@ function Write-RunSummary {
         started_at        = $StartedAtUtc.ToString("o")
         finished_at       = $FinishedAtUtc.ToString("o")
         total_duration_ms = $totalMs
-        live              = $LiveFlag
-        live_writes       = $AllowLiveWritesFlag
+        live              = $true
+        live_writes       = $true
+        playfab_title_id  = $PlayFabTitleIdUsed
         godot_version     = $GodotVersion
         stages            = @($Stages)
     }
@@ -919,8 +998,9 @@ function Write-RunSummary {
     [void]$mdLines.Add("- **Started (UTC)**: $($StartedAtUtc.ToString('o'))")
     [void]$mdLines.Add("- **Finished (UTC)**: $($FinishedAtUtc.ToString('o'))")
     [void]$mdLines.Add("- **Duration**: ${totalMs} ms")
-    [void]$mdLines.Add("- **Live**: $LiveFlag")
-    [void]$mdLines.Add("- **Live writes**: $AllowLiveWritesFlag")
+    [void]$mdLines.Add("- **Live**: True (always on)")
+    [void]$mdLines.Add("- **Live writes**: True (always on)")
+    [void]$mdLines.Add("- **PlayFab title id**: ``$PlayFabTitleIdUsed`` (sandbox)")
     [void]$mdLines.Add("- **Godot**: $GodotVersion")
     [void]$mdLines.Add('')
     [void]$mdLines.Add('| Stage | Status | Duration (ms) | Exit | Tests | Pass | Fail | Pend | Asserts Validated | Asserts Failed |')
@@ -986,22 +1066,57 @@ function Write-RunSummary {
     }
 }
 
+function Assert-LiveConfiguration {
+    <#
+        Hard-fail preflight for the mandatory live / live-write tiers.
+
+        The live and live-write tiers are always on, so a run that lacks the
+        configuration to reach live services cannot produce a meaningful
+        result. Rather than let those tests degrade to `pending` (which would
+        report green while verifying nothing), abort before any stage runs and
+        name every missing setting at once.
+    #>
+    param(
+        [string]$TitleId,
+        [string]$CustomId,
+        [string]$MatchmakingQueue
+    )
+
+    $missing = New-Object System.Collections.Generic.List[string]
+
+    if ([string]::IsNullOrWhiteSpace($TitleId)) {
+        [void]$missing.Add('PlayFab title id      -- pass -PlayFabTitleId <sandbox-title> or set PLAYFAB_TITLE_ID. Must be a DEDICATED SANDBOX title: the live-write tier mutates it.')
+    }
+    if ([string]::IsNullOrWhiteSpace($CustomId)) {
+        [void]$missing.Add('PlayFab custom id     -- pass -PlayFabCustomId <custom-id> or set PLAYFAB_CUSTOM_ID. Live sign-in uses create_account=false, so the account must already exist (see tools\configure_playfab_test_title.ps1).')
+    }
+    if ([string]::IsNullOrWhiteSpace($MatchmakingQueue)) {
+        [void]$missing.Add('PlayFab match queue   -- pass -PlayFabMatchmakingQueue <queue> or set PLAYFAB_MULTIPLAYER_MATCH_QUEUE. Required by the Multiplayer match scenarios (see tools\configure_playfab_test_title.ps1).')
+    }
+
+    if ($missing.Count -eq 0) { return }
+
+    Write-Host ''
+    Write-Host '=== PREFLIGHT FAILED: required live configuration is missing ===' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'The live and live-write test tiers are always enabled and cannot be skipped.' -ForegroundColor Red
+    Write-Host 'A run without this configuration would verify nothing, so it is refused.' -ForegroundColor Red
+    Write-Host ''
+    foreach ($m in $missing) { Write-Host "  * $m" -ForegroundColor Yellow }
+    Write-Host ''
+    Write-Host 'Provision a sandbox title with tools\configure_playfab_test_title.ps1, then re-run.' -ForegroundColor Red
+    Write-Host ''
+    throw "Preflight failed: $($missing.Count) required live setting(s) missing. See the list above."
+}
+
 # ------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------
 
 function Main {
-    if ($AllowLiveWrites -and -not $Live) {
-        throw "-AllowLiveWrites requires -Live. Aborting before any test starts."
-    }
-    if ($AllowLiveWrites -and [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
-        throw "-AllowLiveWrites requires -PlayFabTitleId <sandbox title id>. Refusing to run write-tier tests against an unspecified title."
-    }
-
     $startedAt = (Get-Date).ToUniversalTime()
-    $godotExe  = Get-GodotExecutable
-    $godotVer  = Get-GodotVersion -GodotExe $godotExe
 
+    # Resolve live configuration from parameters first, then the environment.
     $effectivePlayFabTitleId = if (-not [string]::IsNullOrWhiteSpace($PlayFabTitleId)) {
         $PlayFabTitleId.Trim()
     } elseif (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_TITLE_ID'))) {
@@ -1009,18 +1124,36 @@ function Main {
     } else {
         ''
     }
+    $effectivePlayFabCustomId = if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
+        $PlayFabCustomId.Trim()
+    } elseif (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) {
+        ([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID')).Trim()
+    } else {
+        ''
+    }
+    $effectivePlayFabMatchQueue = if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) {
+        $PlayFabMatchmakingQueue.Trim()
+    } elseif (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) {
+        ([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE')).Trim()
+    } else {
+        ''
+    }
 
-    $childEnv = @{}
-    if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
-    if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
-    if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
-        $childEnv['PLAYFAB_TITLE_ID'] = $effectivePlayFabTitleId
-    }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabCustomId)) {
-        $childEnv['PLAYFAB_CUSTOM_ID'] = $PlayFabCustomId.Trim()
-    }
-    if (-not [string]::IsNullOrWhiteSpace($PlayFabMatchmakingQueue)) {
-        $childEnv['PLAYFAB_MULTIPLAYER_MATCH_QUEUE'] = $PlayFabMatchmakingQueue.Trim()
+    # 0. Preflight -- abort before any stage when live config is incomplete.
+    Assert-LiveConfiguration -TitleId $effectivePlayFabTitleId `
+        -CustomId $effectivePlayFabCustomId `
+        -MatchmakingQueue $effectivePlayFabMatchQueue
+
+    $godotExe  = Get-GodotExecutable
+    $godotVer  = Get-GodotVersion -GodotExe $godotExe
+
+    # The live tiers are mandatory: always forwarded, never conditional.
+    $childEnv = @{
+        LIVE_TESTS                      = '1'
+        LIVE_WRITE_TESTS                = '1'
+        PLAYFAB_TITLE_ID                = $effectivePlayFabTitleId
+        PLAYFAB_CUSTOM_ID               = $effectivePlayFabCustomId
+        PLAYFAB_MULTIPLAYER_MATCH_QUEUE = $effectivePlayFabMatchQueue
     }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
@@ -1036,25 +1169,23 @@ function Main {
     }
 
     Write-Host "run_all_tests.ps1: Godot = $godotExe ($godotVer)" -ForegroundColor Cyan
-    Write-Host "                   Live  = $Live   AllowLiveWrites = $AllowLiveWrites   SkipBuild = $SkipBuild   SkipDoctest = $SkipDoctest   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
-    Write-Host "                   PlayFabTitleId = $(if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) { $effectivePlayFabTitleId } else { 'unset' })   PlayFabCustomId = $(if ($childEnv.ContainsKey('PLAYFAB_CUSTOM_ID') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_CUSTOM_ID'))) { 'set' } else { 'unset' })   PlayFabMatchmakingQueue = $(if ($childEnv.ContainsKey('PLAYFAB_MULTIPLAYER_MATCH_QUEUE') -or -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('PLAYFAB_MULTIPLAYER_MATCH_QUEUE'))) { 'set' } else { 'unset' })" -ForegroundColor Cyan
+    Write-Host "                   SkipBuild = $SkipBuild   SkipDoctest = $SkipDoctest   SkipGut = $SkipGut   SkipOrchestrator = $SkipOrchestrator" -ForegroundColor Cyan
+    Write-Host "                   PlayFabCustomId = set   PlayFabMatchmakingQueue = set" -ForegroundColor Cyan
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
     Write-Host "                   OutDir= $outDirAbsolute" -ForegroundColor Cyan
-    if ($AllowLiveWrites) {
-        Write-Host "" -ForegroundColor Yellow
-        Write-Host "[run_all_tests] === LIVE WRITE TIER ENABLED ===" -ForegroundColor Yellow
-        Write-Host "[run_all_tests] Active PlayFab title id: $effectivePlayFabTitleId" -ForegroundColor Yellow
-        Write-Host "[run_all_tests] This MUST be a dedicated sandbox title. Never run against a shared or production title id." -ForegroundColor Yellow
-    }
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "[run_all_tests] === LIVE + LIVE-WRITE TIERS ENABLED (always on) ===" -ForegroundColor Yellow
+    Write-Host "[run_all_tests] Active PlayFab title id: $effectivePlayFabTitleId" -ForegroundColor Yellow
+    Write-Host "[run_all_tests] This MUST be a dedicated sandbox title. Never run against a shared or production title id." -ForegroundColor Yellow
     Write-Host ''
 
     $stages = New-Object System.Collections.Generic.List[object]
     $abort = $false
 
     # 1. Parse gate
-    Write-Host '== [1/7] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
+    Write-Host '== [1/8] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
     $stage = Invoke-ParseGate -Projects $parseProjectList -ExcludeProjects $parseExcludeProjectList
     [void]$stages.Add($stage)
     Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -1062,7 +1193,7 @@ function Main {
 
     # 2. Build
     if (-not $abort) {
-        Write-Host '== [2/7] CMake build (debug) ==' -ForegroundColor Cyan
+        Write-Host '== [2/8] CMake build (debug) ==' -ForegroundColor Cyan
         $stage = Invoke-Build
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -1073,7 +1204,7 @@ function Main {
 
     # 3. C++ doctest
     if ($SkipDoctest) {
-        Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
+        Write-Host '== [3/8] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
         Write-Host '   SKIP: Skipped (-SkipDoctest).'
         $skip = New-StageRecord 'cpp-doctest'
         $skip.status = 'skip'
@@ -1081,7 +1212,7 @@ function Main {
         [void]$stages.Add($skip)
         Write-Host ''
     } elseif (-not $abort) {
-        Write-Host '== [3/7] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
+        Write-Host '== [3/8] C++ doctest (gdk_unit_tests.exe) ==' -ForegroundColor Cyan
         $stage = Invoke-Doctest
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
@@ -1090,9 +1221,49 @@ function Main {
         $skip = New-StageRecord 'cpp-doctest'; $skip.message = 'Skipped (upstream stage failed).'; [void]$stages.Add($skip)
     }
 
-    # 4. GUT runs
+    # 4. Live environment probe
     if ($SkipGut) {
-        Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
+        Write-Host '== [4/8] Live environment probe ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (-SkipGut).'
+        foreach ($h in $hostList) {
+            $skip = New-StageRecord ("live-probe:" + ($h -replace '\\','/'))
+            $skip.status = 'skip'
+            $skip.message = 'Skipped (-SkipGut).'
+            [void]$stages.Add($skip)
+        }
+        Write-Host ''
+    } elseif (-not $abort) {
+        Write-Host '== [4/8] Live environment probe ==' -ForegroundColor Cyan
+        Select-GutForGodotVersion -GodotVersion $godotVer -HostList $hostList
+        foreach ($h in $hostList) {
+            Write-Host "  - host: $h"
+            $stage = Invoke-LiveEnvironmentProbe -RelativeHost $h -GodotExe $godotExe -ChildEnv $childEnv
+            [void]$stages.Add($stage)
+            Write-Host "    $($stage.status.ToUpper()): $($stage.message)"
+            if ($stage.status -eq 'fail') {
+                if (-not [string]::IsNullOrWhiteSpace($stage.details)) {
+                    foreach ($line in ($stage.details -split "`r?`n")) {
+                        if ($line -match '\[live-probe\]') { Write-Host "      $line" -ForegroundColor Red }
+                    }
+                }
+                $abort = $true
+            }
+        }
+        Write-Host ''
+    } else {
+        Write-Host '== [4/8] Live environment probe ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (upstream stage failed).'
+        foreach ($h in $hostList) {
+            $skip = New-StageRecord ("live-probe:" + ($h -replace '\\','/'))
+            $skip.message = 'Skipped (upstream stage failed).'
+            [void]$stages.Add($skip)
+        }
+        Write-Host ''
+    }
+
+    # 5. GUT runs
+    if ($SkipGut) {
+        Write-Host '== [5/8] GUT host runs ==' -ForegroundColor Cyan
         Write-Host '   SKIP: Skipped (-SkipGut).'
         foreach ($h in $hostList) {
             $skip = New-StageRecord ("gut:" + ($h -replace '\\','/'))
@@ -1102,7 +1273,7 @@ function Main {
         }
         Write-Host ''
     } elseif (-not $abort) {
-        Write-Host '== [4/7] GUT host runs ==' -ForegroundColor Cyan
+        Write-Host '== [5/8] GUT host runs ==' -ForegroundColor Cyan
         Select-GutForGodotVersion -GodotVersion $godotVer -HostList $hostList
         foreach ($h in $hostList) {
             Write-Host "  - host: $h"
@@ -1113,37 +1284,42 @@ function Main {
         }
         Write-Host ''
     } else {
+        Write-Host '== [5/8] GUT host runs ==' -ForegroundColor Cyan
+        Write-Host '   SKIP: Skipped (upstream stage failed).'
         foreach ($h in $hostList) {
             $skip = New-StageRecord ("gut:" + ($h -replace '\\','/'))
             $skip.message = 'Skipped (upstream stage failed).'
             [void]$stages.Add($skip)
         }
+        Write-Host ''
     }
 
-    # 5. PlayFab Multiplayer orchestrator
+    # 6. PlayFab Multiplayer orchestrator
     if ($SkipOrchestrator) {
-        Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        Write-Host '== [6/8] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
         $skip = New-StageRecord 'playfab-multiplayer-orchestrator'
         $skip.status = 'skip'
         $skip.message = 'Skipped (-SkipOrchestrator).'
         [void]$stages.Add($skip)
         Write-Host "   SKIP: $($skip.message)`n"
     } elseif (-not $abort) {
-        Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
-        $stage = Invoke-PlayFabMultiplayerOrchestrator -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -LiveEnabled:([bool]$Live) -AllowLiveWritesEnabled:([bool]$AllowLiveWrites) -OutDirAbsolute $outDirAbsolute
+        Write-Host '== [6/8] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        $stage = Invoke-PlayFabMultiplayerOrchestrator -GodotExe $godotExe -ChildEnv $childEnv -HostList $hostList -OutDirAbsolute $outDirAbsolute
         [void]$stages.Add($stage)
         Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
         if ($stage.status -eq 'fail') { $abort = $true }
     } else {
+        Write-Host '== [6/8] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        Write-Host "   SKIP: Skipped (upstream stage failed).`n"
         $skip = New-StageRecord 'playfab-multiplayer-orchestrator'
         $skip.message = 'Skipped (upstream stage failed).'
         [void]$stages.Add($skip)
     }
 
-    # 6. Bootstrap mini-runners (run even if GUT failed? spec says abort on failure;
+    # 7. Bootstrap mini-runners (run even if GUT failed? spec says abort on failure;
     # we honor the abort to keep the pipeline simple.)
     if (-not $abort) {
-        Write-Host '== [6/7] Bootstrap mini-runners ==' -ForegroundColor Cyan
+        Write-Host '== [7/8] Bootstrap mini-runners ==' -ForegroundColor Cyan
         $bootstrapHosts = @(@('tests\godot\gdk', 'tests\godot\gameinput', 'tests\godot\playfab') |
             Where-Object { $hostList -contains $_ })
         if ($bootstrapHosts.Count -eq 0) {
@@ -1164,18 +1340,20 @@ function Main {
         }
         Write-Host ''
     } else {
+        Write-Host '== [7/8] Bootstrap mini-runners ==' -ForegroundColor Cyan
+        Write-Host "   SKIP: Skipped (upstream stage failed).`n"
         $skip = New-StageRecord 'bootstrap'
         $skip.message = 'Skipped (upstream stage failed).'
         [void]$stages.Add($skip)
     }
 
-    # 7. Aggregate
-    Write-Host '== [7/7] Aggregate run summary ==' -ForegroundColor Cyan
+    # 8. Aggregate
+    Write-Host '== [8/8] Aggregate run summary ==' -ForegroundColor Cyan
     $finishedAt = (Get-Date).ToUniversalTime()
     $overall = if ($stages | Where-Object { $_.status -eq 'fail' }) { 'fail' } else { 'pass' }
     $written = Write-RunSummary -Stages $stages -OutDirAbsolute $outDirAbsolute `
         -OverallStatus $overall -StartedAtUtc $startedAt -FinishedAtUtc $finishedAt `
-        -LiveFlag:([bool]$Live) -AllowLiveWritesFlag:([bool]$AllowLiveWrites) -GodotVersion $godotVer
+        -PlayFabTitleIdUsed $effectivePlayFabTitleId -GodotVersion $godotVer
     Write-Host "   wrote $($written.JsonPath)"
     Write-Host "   wrote $($written.MdPath)"
     Write-Host ''

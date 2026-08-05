@@ -181,7 +181,7 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 
 func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 	if not TestEnv.live_tests_enabled():
-		pending("Set LIVE_TESTS=1 plus DLC package env vars to exercise live XPackage mounts.")
+		pending_tolerated("Set LIVE_TESTS=1 plus DLC package env vars to exercise live XPackage mounts.")
 		return
 	if pending_unless_runtime_available():
 		return
@@ -189,7 +189,7 @@ func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 	var package_id := OS.get_environment(LIVE_DLC_PACKAGE_ID_ENV).strip_edges()
 	var pack_path := OS.get_environment(LIVE_DLC_PACK_PATH_ENV).strip_edges()
 	if package_id.is_empty() or pack_path.is_empty():
-		pending("Set %s and %s to exercise live XPackage resource-pack loading." % [LIVE_DLC_PACKAGE_ID_ENV, LIVE_DLC_PACK_PATH_ENV])
+		pending_tolerated("Set %s and %s to exercise live XPackage resource-pack loading." % [LIVE_DLC_PACKAGE_ID_ENV, LIVE_DLC_PACK_PATH_ENV])
 		return
 
 	var gdk = get_gdk()

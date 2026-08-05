@@ -51,15 +51,18 @@ This is the landing page for the `godot_gdk` docs set.
 
 `godot_gdk` is exercised by the `tests\godot\gdk\` host. Coverage lives under `tests\godot\gdk\tests\` and includes files such as `test_core.gd`, `test_users.gd`, `test_achievements.gd`, `test_presence.gd`, `test_social.gd`, `test_multiplayer_activity.gd`, `test_system.gd`, `test_result_helpers.gd`, and `test_embed_dispatch.gd`. Startup-only behavior is covered by `tests\godot\gdk\tests\bootstrap\run_*.gd`, and packaging/editor-helper logic is covered under `tests\godot\gdk\tests\editortools\`.
 
-Most deterministic coverage runs in the default orchestrator pass. Live Microsoft GDK flows are gated by `LIVE_TESTS=1` through `-Live`; any live write coverage should use a test sandbox.
+Most deterministic coverage runs in the default orchestrator pass. Live Microsoft GDK flows require the orchestrator's required configuration (see `gdk/sample-and-tests.md`); any live write coverage must use a dedicated sandbox title.
 
 Run the standard pipeline from the repository root:
 
 ```powershell
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+    -PlayFabTitleId <sandbox-title> `
+    -PlayFabCustomId <custom-id> `
+    -PlayFabMatchmakingQueue <queue>
 ```
 
-See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages, GUT layout, live switch, baselines, and troubleshooting pointers.
+See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages, GUT layout, required configuration, baselines, and troubleshooting pointers.
 
 ## Document map
 

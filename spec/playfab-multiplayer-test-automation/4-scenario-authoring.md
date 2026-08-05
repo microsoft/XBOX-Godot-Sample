@@ -428,7 +428,7 @@ The JSON shape is documented in the orchestrator's source as the schema is small
 - **Implicit "primary" state on the client** — always pass `as: "name"` on create commands and `handle: "name"` on follow-up commands. Implicit globals work for smoke tests and break for multi-lobby coverage.
 - **Forgetting to await** — every `client.send(...)` returns a coroutine. Forgetting `await` does not error at parse time but races the response into the next scenario.
 - **Long unbounded waits** — every `wait()` and `wait_until()` requires a `timeout_ms`. The default `TIMEOUT_SEC = 60` only catches catastrophic hangs; per-wait timeouts catch the cases where the scenario "almost works".
-- **Mutating fixture state** — scenarios run sequentially and `reset_client` runs between them, but anything stored title-side (PlayFab profiles, statistics, leaderboards) persists. Scenarios that mutate title-side state must clean up in their `cleanup()` hook, and live-write coverage stays gated behind `LIVE_WRITE_TESTS=1` (orchestrator surfaces this as a capability gate `live_write_allowed`).
+- **Mutating fixture state** — scenarios run sequentially and `reset_client` runs between them, but anything stored title-side (PlayFab profiles, statistics, leaderboards) persists. Scenarios that mutate title-side state must clean up in their `cleanup()` hook, and live-write coverage always executes (orchestrator surfaces this as capability `live_write_allowed`, which is always announced). Always supply a dedicated sandbox title — the live-write tier mutates the configured title.
 
 ## Style
 

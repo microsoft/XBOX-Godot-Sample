@@ -120,20 +120,26 @@ Two traps are baked into this contract because they were verified by the spike:
 - `$env:NAME = "..."` mutated in the parent shell does **not** propagate into a child started with `Process.Start(psi)` and `UseShellExecute = $false`. The only reliable channel is `psi.EnvironmentVariables`.
 - Sync `Process.StandardOutput.ReadToEnd()` plus `Process.StandardError.ReadToEnd()` deadlocks. Godot floods stderr with `Condition "!FileAccess::exists(path)"` lines whenever a GDExtension is missing (the canonical clean-tree-error pattern in this project), filling the stderr pipe buffer in seconds. The orchestrator uses `BeginOutputReadLine()` / `BeginErrorReadLine()` (or `ReadToEndAsync()` on both streams concurrently) to drain both pipes without blocking.
 
-## Live tests two-mode contract
+## Live tests contract
 
-Tests have two runtime modes, gated by the environment variable that the orchestrator forwards through `psi.EnvironmentVariables`:
+**The live and live-write tiers are mandatory.** `tools\run_all_tests.ps1` sets `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` unconditionally on every child process; there is no opt-in switch and no opt-out. The earlier two-mode (default-offline / `-Live`) model has been removed because a default run silently degraded all live coverage to `pending(...)` and still reported green.
 
-- **Default** — `LIVE_TESTS` is unset. Every live-network test falls through to `pending(...)` when its prerequisites are not met (no signed-in user, no PlayFab title id, etc.). The suite is green on any developer workstation.
-- **`LIVE_TESTS=1`** — live tests run strict. Missing prerequisites are real failures (`fail_test()`), not skips. Live calls execute against the configured service, including read-side calls (`add_user_with_ui_async` / sign-in, `get_folder`, `get_folder_size`, `get_leaderboard_async`, `get_leaderboard_around_user_async`, `get_friend_leaderboard_async`) and online-state writes (`submit_score_async`, `set_save_description_async`, `reset_cloud_async`, `set_activity_async` / `delete_activity_async`, `update_achievement_async`). Live write tests require:
+- **Preflight is a hard gate.** Before any stage runs, the orchestrator validates that a PlayFab title id, custom id, and matchmaking queue are configured (`-PlayFabTitleId` / `-PlayFabCustomId` / `-PlayFabMatchmakingQueue`, or `PLAYFAB_TITLE_ID` / `PLAYFAB_CUSTOM_ID` / `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`). Missing configuration aborts the run non-zero with a list of what is absent. It never falls back to a reduced run.
+- **The runtime is probed, not assumed.** Configuration preflight only proves settings exist. Stage `[4/8]` stages `tools\ci\live_env_probe.gd` into each coverage host and asserts the capabilities that host's tier actually needs — `gdk` + `xuser` for `tests\godot\gdk`, `gdk` + `xuser` + `playfab` for `tests\godot\playfab`, `gameinput` + `gamepad` for `tests\godot\gameinput`. A machine with no signed-in Xbox user, no PlayFab reachability, or no gamepad aborts the run with the specific missing capability instead of producing a suite full of pendings.
+- **Live tests run strict.** Missing prerequisites are real failures (`fail_test()`), not skips. `requires_live()` / `requires_live_write()` in the shared bases call `assert_true(false, ...)` rather than `pending(...)`, and the multiplayer scenario helpers in `mp_scenario_utils.gd` return `fail(...)` rather than `skip(...)`.
+- **`pending()` fails under the live tier.** `gdk_test_base.gd` and `gameinput_test_base.gd` override `pending()` to call `assert_true(false, ...)` whenever `LIVE_TESTS` is set, closing the loophole where ~280 inline guards degraded coverage to pending while the run still reported green. `pending_tolerated(...)` preserves stock behavior and is reserved for opt-in axes outside the live-tier contract (`GDK_CAPTURE_*`, `GDK_TEST_DLC_*`, `GameDKCoreLatest`, documented service variance). Direct `gut_cmdln.gd` invocations do not set `LIVE_TESTS`, so single-suite iteration keeps stock `pending()` behavior.
+- **Every run mutates the configured title.** Point it at a dedicated sandbox title only — never a shared or production title id. The orchestrator prints the active title id in its banner and records it in `run-summary.json` as `playfab_title_id`.
+
+Live calls execute against the configured service, including read-side calls (`add_user_with_ui_async` / sign-in, `get_folder`, `get_folder_size`, `get_leaderboard_async`, `get_leaderboard_around_user_async`, `get_friend_leaderboard_async`) and online-state writes (`submit_score_async`, `set_save_description_async`, `reset_cloud_async`, `set_activity_async` / `delete_activity_async`, `update_achievement_async`). Live write tests require:
+
   - Each test id is unique-per-run, formatted as `gdkfleet-<datetime>-<rand>`:
 
     ```gdscript
     var run_id := "gdkfleet-" + Time.get_datetime_string_from_system().replace(":", "-") + "-" + str(randi() % 100000)
     ```
 
-  - Every live write test pairs setup with best-effort cleanup where the public API supports it; cleanup failure logs `pending`, not `fail`.
-  - Leaderboard read-back after `submit_score_async` polls `get_leaderboard_async` up to `playfab/tests/leaderboard_settle_msec` (default `30000`) for the per-run id; timeout reports `pending(...)` (eventual-consistency flake), not `fail_test()`. Game Saves polls `get_folder_size` for the expected delta on the same pattern.
+  - Every live write test pairs setup with best-effort cleanup where the public API supports it; a cleanup failure that cannot corrupt the next run reports `pending_tolerated(...)`, not `fail`.
+  - Leaderboard read-back after `submit_score_async` polls `get_leaderboard_async` up to `playfab/tests/leaderboard_settle_msec` (default `30000`) for the per-run id. A timeout is a real `fail(...)` — the budget exists so that eventual consistency is absorbed by waiting, not by downgrading the result. Game Saves polls `get_folder_size` for the expected delta on the same pattern.
 
 Manual sandbox cleanup is documented in `tools\reset_player_data.ps1`. Live write coverage should run only against sandbox titles and test accounts.
 
@@ -164,29 +170,33 @@ Tests that genuinely need a live `EditorInterface` instance or a real `EditorPlu
 `tools\run_all_tests.ps1` is the single command for the full local test pass. Implementation lands in Wave 3 (`infra-orchestrator`).
 
 ```powershell
-tools\run_all_tests.ps1 [-Live] [-SkipBuild] [-OutDir <dir>]
+tools\run_all_tests.ps1 -PlayFabTitleId <sandbox> -PlayFabCustomId <custom-id> -PlayFabMatchmakingQueue <queue> [-SkipBuild] [-OutDir <dir>]
 ```
 
 The pipeline runs in this order. Any stage failing exits the orchestrator non-zero and skips downstream stages.
 
+0. **Preflight**: validates the required PlayFab configuration. Missing settings abort the run before anything else executes.
 1. **Parse gate**: `tools\check_gd_scripts_headless.ps1`. Fails fast on any parse error.
 2. **CMake build**: `cmake --build build --preset debug`. Skipped when `-SkipBuild` is supplied.
-3. **C++ doctest**: `build\bin\Debug\gdk_unit_tests.exe --reporters=console --no-colors`. Exit code propagates.
-4. **Per-host import**: one-time `& $godot --headless --import` per coverage host (idempotent; covers the GUT class-name registration requirement).
+3. **C++ doctest**: `build\bin\Debug\gdk_unit_tests.exe --reporters=console --no-colors`. Exit code propagates. Skipped when `-SkipDoctest` is supplied.
+4. **Live environment probe**: for each coverage host, `tools\ci\live_env_probe.gd` is staged into the host project as `_live_env_probe.gd`, run headless with the host's required capability list, and removed again. Failure aborts before any test executes, so an unusable machine reports the missing capability rather than a wall of pendings. Skipped together with stage 5 under `-SkipGut`.
 5. **GUT runs**: for each of `tests\godot\gdk`, `tests\godot\playfab`, `tests\godot\gameinput`, in turn:
 
     ```powershell
-    & $godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
+    & $godot --headless -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
     ```
 
-   The orchestrator asserts `Tests > 0` from GUT's own summary; a zero-discovery run is a failure regardless of exit code.
-6. **Bootstrap mini-runners**: each mini-runner under `tests\godot\gdk\tests\bootstrap\` and `tests\godot\gameinput\tests\bootstrap\` is launched as a fresh `Process.Start(psi)` with the desired project settings already injected. Per-scenario exit codes feed the aggregate.
-7. **Aggregate**: results written to `<OutDir>\run-<timestamp>\run-summary.json` and `run-summary.md`. The Markdown summary is what gets pasted into PR descriptions.
+   The orchestrator asserts `Tests > 0` from GUT's own summary; a zero-discovery run is a failure regardless of exit code. A one-time `--headless --import` per host precedes the run (idempotent; covers the GUT class-name registration requirement).
+6. **PlayFab Multiplayer orchestrator**: the C1 P0/P1 scenario sweep via `tests\godot\mp_orchestrator\`. Skipped when `-SkipOrchestrator` is supplied.
+7. **Bootstrap mini-runners**: each mini-runner under `tests\godot\<host>\tests\bootstrap\` is launched as a fresh `Process.Start(psi)` with the desired project settings already injected. Per-scenario exit codes feed the aggregate.
+8. **Aggregate**: results written to `<OutDir>\run-summary.json` and `run-summary.md`. The Markdown summary is what gets pasted into PR descriptions.
 
 Switches:
 
-- `-Live` sets `LIVE_TESTS=1` in the per-child `psi.EnvironmentVariables`.
-- `-SkipBuild` skips stage 2.
+- `LIVE_TESTS=1` and `LIVE_WRITE_TESTS=1` are set unconditionally in the per-child `psi.EnvironmentVariables`, alongside `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`. There is no switch to disable them.
+- `-PlayFabTitleId` / `-PlayFabCustomId` / `-PlayFabMatchmakingQueue` are required (each falls back to its environment variable).
+- `-SkipBuild` / `-SkipDoctest` / `-SkipGut` / `-SkipOrchestrator` narrow the run for iteration. Narrowing is allowed but must be stated when reporting results; it is never the "green" bar.
+- `-Hosts <list>` restricts stages 4, 5, and 7 to the named coverage hosts.
 - `-OutDir <dir>` overrides the run-summary destination.
 
 Env propagation across every stage uses `psi.EnvironmentVariables` and async stdout/stderr drains as described in the env-propagation contract above.
@@ -195,14 +205,14 @@ Env propagation across every stage uses `psi.EnvironmentVariables` and async std
 
 A PR against `tests\coverage-expansion` is green when all of the following hold:
 
-- `tools\run_all_tests.ps1` (default flags) was run on the agent's worktree at the head SHA of the PR branch and exited `0`.
+- `tools\run_all_tests.ps1` was run against the dedicated sandbox title on the agent's worktree at the head SHA of the PR branch and exited `0`.
 - `run-summary.md` from that run is pasted into the PR description and includes:
   - The head SHA the run executed against.
   - The Godot console executable's `--version` output (the runtime version string, **not** the file name — `Godot_v4.6.1-stable_win64_console.exe` reports `4.6.2.stable.official.71f334935`).
   - Per-host counts from GUT's own summary: `Tests`, `Passing`, `Failing`, `Pending`.
   - C++ doctest counts: test cases (passed/failed/skipped) and assertions (passed/failed).
   - The baseline-parity check: post-migration assertion count is `>=` the count recorded in `tests\baselines\<host>.json`. For a host with no baseline (a brand-new host), the summary states "no baseline" and the PR description records explicit reviewer acknowledgement.
-- For Wave 4 todos that touch live behavior, an additional run with `-Live` against the dedicated sandbox is attached to the PR description.
+- For Wave 4 todos that touch live behavior, the PR description names the sandbox title id the run targeted.
 
 The trigger to re-open the CI question is recorded here: if process-only validation produces three or more PRs with stale or fabricated `run-summary.md` blocks, this spec is updated to require a minimal CI workflow.
 
@@ -251,7 +261,7 @@ The complete todo + dependency graph is enumerated below so this document is sel
 | `gdk-migrate-suites` | 3 | Migrate GDK suites to GUT | `infra-vendor-gut`, `infra-shared-base` | Rewrite the GDK coverage suite as GUT `test_*.gd` files extending `gdk_test_base`. Map `log_skip` -> `pending()`. Records `tests\baselines\gdk.json`; post-migration assertion count must be `>=`. |
 | `playfab-migrate-suites` | 3 | Migrate PlayFab suites to GUT | `infra-vendor-gut`, `infra-shared-base` | Same shape for `tests\godot\playfab`. Records `tests\baselines\playfab.json`. |
 | `gameinput-migrate-suites` | 3 | Migrate GameInput suites to GUT | `infra-vendor-gut`, `infra-shared-base` | Same shape for the GameInput coverage suite. Records `tests\baselines\gameinput.json`. |
-| `infra-orchestrator` | 3 | `tools\run_all_tests.ps1` | `infra-doctest-target`, `infra-shared-base` | Pipeline: parse gate → cmake build (skippable) → C++ doctest exe → GUT runs for the three coverage hosts → bootstrap mini-runners → aggregate → write `run-summary.{json,md}`. Sets child env via `ProcessStartInfo.EnvironmentVariables` (no `--env-file`). Honors `-Live`, `-SkipBuild`, `-OutDir`. |
+| `infra-orchestrator` | 3 | `tools\run_all_tests.ps1` | `infra-doctest-target`, `infra-shared-base` | Pipeline: preflight config check → parse gate → cmake build (skippable) → C++ doctest exe → GUT runs for the three coverage hosts → bootstrap mini-runners → aggregate → write `run-summary.{json,md}`. Sets child env via `ProcessStartInfo.EnvironmentVariables` (no `--env-file`). Honors `-PlayFabTitleId`, `-PlayFabCustomId`, `-PlayFabMatchmakingQueue`, `-SkipBuild`, `-OutDir`. |
 | `wave4-gdk-coverage` | 4 | Wave 4 — godot_gdk coverage expansion | `gdk-migrate-suites`, `infra-orchestrator` | `tests\godot\gdk\tests\test_multiplayer_activity.gd`, paired mini-runners under `tests\godot\gdk\tests\bootstrap\`, `tests\godot\gdk\tests\test_result_helpers.gd`, `tests\godot\gdk\tests\test_embed_dispatch.gd`, `tests\godot\gdk\tests\test_runtime_error_signals.gd`, and the test-only project setting `gdk/tests/live_required`. |
 | `wave4-playfab-coverage` | 4 | Wave 4 — godot_playfab coverage expansion | `playfab-migrate-suites`, `infra-orchestrator` | `tests\godot\playfab\tests\test_game_saves_live.gd`, `tests\godot\playfab\tests\test_leaderboards_live.gd`, `tests\godot\playfab\tests\test_user_entity_key_live.gd`, `tests\godot\playfab\tests\test_validation_walk.gd`, `tests\godot\playfab\project.godot` (test-only `playfab/tests/custom_id`, `playfab/tests/leaderboard_settle_msec`). |
 | `wave4-gameinput-coverage` | 4 | Wave 4 — godot_gameinput coverage expansion | `gameinput-migrate-suites`, `infra-orchestrator` | `GameInputReading` defaults / property-and-method shape; `GameInputDevice` defaults + soft-fail on accessors before init / after shutdown; `GameInputMapper` extensions (multiple mappers, `action_map` hot-swap, `target_device_id == -1` semantics); threading smoke (repeated `get_devices()` / `get_current_reading()` across many frames with no device); `gameinput_bootstrap.gd` autoload behavior via the same separate-mini-runner pattern. |
@@ -293,8 +303,8 @@ cpp-packaging-helpers        → xcut-docs
 | **0** | `git diff --stat spec/` shows `spec\testing-strategy.md` added. | n/a | n/a | The spec exists and includes every section enumerated in this document. |
 | **1** | `cmake --preset default && cmake --build build --preset debug && build\bin\Debug\gdk_unit_tests.exe` | `0`; GUT addon mirrors present in coverage hosts and absent from demo-only projects. | The exe runs an empty test suite cleanly (`Status: SUCCESS`). | Mirror tree output pasted in PR. |
 | **2** | `cmake --build build --preset debug && build\bin\Debug\gdk_unit_tests.exe --reporters=console --no-colors` | `0`. | n/a (C++ doctest has no live deps). | Per-source-file assertion counts from doctest output. |
-| **3** | `tools\run_all_tests.ps1` (default flags). | `0`; for each migrated host, asserted-test count `>=` the recorded pre-migration count. | Host-environment-dependent (no signed-in user, no PlayFab title id) tests show `pending`, never `fail`. | A per-migration `parity.json` file under `tests\baselines\` listing `{ host, pre_migration_assertions, post_migration_assertions }`. |
-| **4 (each addon)** | `tools\run_all_tests.ps1` plus, where a live opt-in is implemented, `tools\run_all_tests.ps1 -Live` against the dedicated sandbox. | `0` for the default run on every machine; `0` for `-Live` runs on a configured workstation. | New live tests show `pending` in default runs. | The default run's `run-summary.md` plus, for live runs, the eventual-consistency wait times observed (logged as `info`). |
+| **3** | `tools\run_all_tests.ps1` against the sandbox title. | `0`; for each migrated host, asserted-test count `>=` the recorded pre-migration count. | None. Host-environment-dependent tests (no signed-in user, no PlayFab title id) `fail` — the preflight aborts the run before they get a chance to `pending`. | A per-migration `parity.json` file under `tests\baselines\` listing `{ host, pre_migration_assertions, post_migration_assertions }`. |
+| **4 (each addon)** | `tools\run_all_tests.ps1` against the dedicated sandbox title. | `0` on a configured workstation. A machine without configuration exits `1` at preflight — that is the intended behavior, not a pass. | None. New live tests execute or fail. | The run's `run-summary.md` (which records the sandbox `playfab_title_id`) plus the eventual-consistency wait times observed (logged as `info`). |
 | **5** | `markdownlint docs/` (only if already configured; otherwise visual review). | n/a | n/a | The PR description links each updated doc section to the corresponding spec section. |
 
 If a wave's acceptance criterion fails, the responsible agent's PR is held back; the wave does not advance with stragglers.

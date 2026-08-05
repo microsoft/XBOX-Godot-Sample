@@ -54,33 +54,66 @@ func assert_has_signal_named(obj: Object, signal_name: String, test_name: String
 	assert_true(obj.has_signal(signal_name), label)
 
 
+# ── Pending semantics ────────────────────────────────────────────────────
+
+# The live tiers are mandatory (see tools\run_all_tests.ps1), so a test that
+# quietly degrades to `pending` is indistinguishable from coverage that never
+# ran — which is exactly how the GameInput suite used to report green with no
+# controller attached while its assertion count collapsed by 99%.
+#
+# When the live tier is active, `pending()` therefore FAILS instead. The
+# orchestrator's live environment probe (stage 4) checks for an attached
+# gamepad before the suite starts; anything that still reaches a `pending()`
+# here is a real gap that must be visible.
+#
+# Direct GUT invocation (`godot -s res://addons/gut/gut_cmdln.gd` from a host
+# root, the documented iterate-on-one-host workflow) does not set LIVE_TESTS, so
+# `pending()` keeps its stock behavior there.
+func pending(text := "") -> void:
+	if TestEnv.live_tests_enabled():
+		assert_true(false, "Test degraded to pending while the live tier is active — the live tier is mandatory, so this is a coverage gap, not a skip. Reason: " + text)
+		return
+	super.pending(text)
+
+
+# Escape hatch for conditions that are legitimately tolerated even on a fully
+# configured live machine. Always pends, never fails. Do NOT use this for "the
+# environment isn't set up" — that is a failure.
+func pending_tolerated(text := "") -> void:
+	super.pending(text)
+
+
 # ── TestEnv convenience wrappers ─────────────────────────────────────────
 
-# Tier=live_read. Returns true when LIVE_TESTS=1 is set (the test should
-# proceed). Returns false when not set (and marks the current test pending
-# with a clear reason — caller should `return` immediately after).
+# Tier=live_read. The live tier is MANDATORY: `tools\run_all_tests.ps1` always
+# sets LIVE_TESTS=1 and hard-fails in preflight when live configuration is
+# missing. A missing flag means the suite was launched outside the supported
+# entry point, so this FAILS the test rather than marking it pending.
+#
+# The bool return is retained so existing `if not requires_live(): return`
+# call sites keep short-circuiting after the failure is recorded.
 func requires_live() -> bool:
 	if not TestEnv.live_tests_enabled():
-		pending("Tier=live_read: skipped without LIVE_TESTS=1. Run via `tools\\run_all_tests.ps1 -Live`.")
+		assert_true(false, "Tier=live_read requires LIVE_TESTS=1. The live tier is mandatory — run via `tools\\run_all_tests.ps1` (it sets the flag and validates live config in preflight).")
 		return false
 	return true
 
 
-# Tier=live_write. Returns true when both LIVE_TESTS=1 and LIVE_WRITE_TESTS=1
-# are set. Tests that write state persisting in the live PlayFab title
-# (create lobby, post leaderboard entry, save Game Save, …) MUST gate on
-# this rather than on requires_live(), so they only run when the developer
-# has explicitly opted into the live-write tier against a sandbox title.
+# Tier=live_write. Destructive tier — writes state that persists in the live
+# SANDBOX title. Like requires_live(), the tier is mandatory and a missing
+# flag is a FAILURE, not a skip.
 func requires_live_write() -> bool:
 	if not TestEnv.live_tests_enabled():
-		pending("Tier=live_write: skipped without LIVE_TESTS=1.")
+		assert_true(false, "Tier=live_write requires LIVE_TESTS=1. The live tier is mandatory — run via `tools\\run_all_tests.ps1`.")
 		return false
 	if not TestEnv.live_write_tests_enabled():
-		pending("Tier=live_write: skipped without LIVE_WRITE_TESTS=1. Run via `tools\\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox-title>` against a sandbox title.")
+		assert_true(false, "Tier=live_write requires LIVE_WRITE_TESTS=1. The live-write tier is mandatory — run via `tools\\run_all_tests.ps1`, which sets it and validates the sandbox title id in preflight.")
 		return false
 	return true
 
 
+# Legacy aliases. These no longer mark the test pending — they fail it, per
+# requires_live() / requires_live_write() above.
 func pending_unless_live() -> bool:
 	return not requires_live()
 

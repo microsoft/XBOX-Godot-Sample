@@ -579,7 +579,7 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - mute/permission helper result shapes;
 - shutdown cleanup for active networks, endpoints, and chat controls.
 
-Live Party tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title.
+Live Party tests require a dedicated sandbox PlayFab title. All three tiers run unconditionally; missing required configuration aborts the run at preflight.
 
 ## Plan
 
@@ -591,7 +591,7 @@ self-contained slice with its own validation.
   `pf.role=host` shared property; clients read it to target the join
   handshake at the host deterministically instead of contacting every
   remote and relying on "only the host replies." No public API change;
-  star topology unchanged. Tier: non-live GUT + single-client live Party.
+  star topology unchanged. Tier: contract GUT + single-client live Party.
 - **Phase B — full mesh (deferred, may not be needed).** Optionally flip
   Godot peer registration to full uid-based mesh using
   `PartyEndpoint::GetUniqueIdentifier()` (network-consistent) so chat,
@@ -606,7 +606,7 @@ self-contained slice with its own validation.
   audio devices and voice/text/transcription flags are applied where the
   control lives; network join only *connects* an existing control and never
   creates one. **Breaking:** titles must create the chat control before joining
-  with chat. Tier: non-live GUT (API surface) + live Party/MP orchestrator
+  with chat. Tier: contract GUT (API surface) + live Party/MP orchestrator
   (runtime).
 - **Phase D — independent voice/text mute.** Split the single audio-only
   `set_muted_async` into `set_audio_muted_async` (Party `SetIncomingAudioMuted`)
@@ -614,7 +614,7 @@ self-contained slice with its own validation.
   `PlayFabPartyChat` (entity-key keyed) and `PlayFabPartyChatControl`, with
   matching `audio_muted_changed` / `text_muted_changed` signals. Voice and text
   mute are independent in the SDK; the prior API could only mute voice.
-  **Breaking:** `set_muted_async` / `muted_changed` are renamed. Tier: non-live
+  **Breaking:** `set_muted_async` / `muted_changed` are renamed. Tier: contract
   GUT (API surface) + live MP orchestrator (`party.chat.mute_peer` mutes text and
   asserts text delivery is blocked; `party.chat.text.three_clients` validates host
   fan-out to both guests).
@@ -625,7 +625,7 @@ self-contained slice with its own validation.
   host sets `pf.role=host` on its endpoint; `endpoint_is_handshake_target()`
   drives client→host handshake targeting in both the join-enumeration loop
   and `EndpointCreated`. Validated: debug build + addon mirror, parse gate,
-  full **non-live** orchestrator (`run_all_tests.ps1`) green, and all **live**
+  full orchestrator (`run_all_tests.ps1`) green, and all **live**
   GUT hosts green against sandbox title `10D176` (single-client live Party +
   lobby tests exercise the marker path). The multi-client MP orchestrator
   shows the **same** 34/27 pass/fail with and without Phase A (verified by an
@@ -649,7 +649,7 @@ self-contained slice with its own validation.
   (`sample/tutorial_playfab`, `sample/tutorial_integrated`), the MP harness
   (`tests/godot/mp_test_client/scripts/playfab_party_ops.gd`), and the
   `test_party.gd` API-surface list. Validated: debug build + addon mirror,
-  parse gate, and the full non-live tier (`run_all_tests.ps1 -SkipOrchestrator`:
+  parse gate, and the full tier (`run_all_tests.ps1 -SkipOrchestrator`:
   368 GUT tests, 0 failed). **Live Party / MP orchestrator runtime validation
   attempted against title `10D176` but inconclusive** — that title is not
   provisioned for the orchestrator (host `create_lobby` calls time out at 60 s;
@@ -685,7 +685,7 @@ self-contained slice with its own validation.
     host (peer id 1) on each guest via the retrying `party_set_peer_chat_permissions`
     gate — the same readiness probe the issue #73 rejoin scenario uses — before
     broadcasting, and re-sends until delivered. With this it passes reliably (~3–6s).
-  - Validated: debug build + addon mirror, parse gate, non-live GUT tier, and
+  - Validated: debug build + addon mirror, parse gate, contract GUT tier, and
     **live** on sandbox title `10D176`: `party.chat.text.round_trip`,
     `party.chat.mute.peer` (text mute blocks delivery), and
     `party.chat.text.three_clients` all green.

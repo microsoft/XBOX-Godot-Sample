@@ -20,18 +20,17 @@ static var _cached_run_id := ""
 
 # True if LIVE_TESTS=1 in the process environment. Read directly from
 # OS.get_environment so the value reflects what the orchestrator actually
-# forwarded for this Godot child process. Tests guarded by this should call
-# `pending(...)` (not `skip(...)`) when false so the orchestrator's "Pending"
-# count stays meaningful.
+# forwarded for this Godot child process. The orchestrator always sets this,
+# so a false result means the suite was launched outside the supported entry
+# point; tests guarded by this fail rather than pend.
 static func live_tests_enabled() -> bool:
 	return OS.get_environment(LIVE_TESTS_ENV) == "1"
 
 
 # True if LIVE_TESTS=1 AND LIVE_WRITE_TESTS=1 are both set. Tests gated by
 # this must run against a dedicated sandbox PlayFab title (never against
-# a shared title id and never against production). The orchestrator
-# enforces -AllowLiveWrites implies -Live and prints the active sandbox
-# title id when both are set.
+# a shared title id and never against production). The orchestrator sets both
+# unconditionally and prints the active sandbox title id in its banner.
 static func live_write_tests_enabled() -> bool:
 	if not live_tests_enabled():
 		return false

@@ -43,7 +43,7 @@ summary (`build\test-results\run-summary.md`).
 - Contract (offline) tests added/removed: …
 - Live-read tests added/removed: …
 - Live-write tests added/removed: …
-- Live title id used (if any): …
+- Sandbox PlayFab title id used for the validation run: …
 
 ## Validation run
 
@@ -55,9 +55,10 @@ was run locally.
 
 ```text
 # Example:
-# pwsh ...\check_gd_scripts_headless.ps1   -> PASS (52 files)
-# pwsh ...\run_all_tests.ps1               -> PASS (parse, build, doctest, GUT, bootstrap)
-# pwsh ...\run_all_tests.ps1 -Live         -> PASS (live reads only; live writes pending)
+# pwsh ...\check_gd_scripts_headless.ps1           -> PASS (52 files)
+# pwsh ...\run_all_tests.ps1 -PlayFabTitleId 10D176 \
+#     -PlayFabCustomId godot-gdk-ext-live-smoke \
+#     -PlayFabMatchmakingQueue godot_gdk_ext_live_smoke_queue  -> PASS (parse, build, doctest, GUT, bootstrap, live)
 ```
 
 ## Migration notes

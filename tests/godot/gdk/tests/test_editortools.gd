@@ -29,7 +29,7 @@ func test_toolchain_detection() -> void:
 			assert_true(version.length() == 6, "GDK version is 6 digits: %s" % version)
 			assert_true(version.is_valid_int(), "GDK version is numeric: %s" % version)
 		else:
-			pending("GDK version: GameDKCoreLatest env var not set")
+			pending_tolerated("GDK version: GameDKCoreLatest env var not set")
 	else:
 		pending("toolchain paths: GDK not installed")
 

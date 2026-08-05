@@ -7,10 +7,10 @@ name: PR Gates
 #                     (.github/gdk-versions.json) + the C++ doctest, via the
 #                     shared build-addons composite. Produces the build-pr
 #                     artifact (addon DLLs + redist + mirrored test support).
-#   * test-offline -- restores the build-pr artifact and runs the offline
-#                     (non-live) tier -- GDExtension load/smoke + non-live GUT --
-#                     against the single DEFAULT Godot version, via the shared
-#                     run-offline-tier composite. No rebuild.
+#   * test-tier    -- restores the build-pr artifact and runs the test tier
+#                     -- GDExtension load/smoke + GUT (live + live-write tiers,
+#                     which are mandatory) -- against the single DEFAULT Godot
+#                     version, via the shared run-test-tier composite. No rebuild.
 #   * fuzz-replay  -- builds the libFuzzer targets and replays their committed
 #                     corpora (regression mode; no active fuzzing).
 #   * csharp       -- (both branches) builds the managed C# facade
@@ -25,20 +25,43 @@ name: PR Gates
 # -- live on both branches, so the C# gate runs alongside the GDScript/native/
 # fuzz jobs for events targeting either branch.
 #
-# build / test-offline share their step logic with playfab-live-nightly.yml via
-# the .github/actions/build-addons + run-offline-tier composites: the addons are
+# build / test-tier share their step logic with playfab-live-nightly.yml via
+# the .github/actions/build-addons + run-test-tier composites: the addons are
 # built once per GDK edition and the build output is tested across Godot versions
 # without rebuilding. The PR leg uses the default GDK + default Godot for the
 # fastest signal; the nightly fans the same composites across the full matrix.
 #
-# PlayFab live tests are intentionally NOT here -- they run on a schedule /
-# manual dispatch from playfab-live-nightly.yml so secrets never reach fork PRs.
+# PlayFab live tests ARE part of this workflow: the live and live-write tiers
+# are mandatory and cannot be skipped, so test-tier below reads the sandbox
+# secrets from the 'playfab-sandbox' GitHub Environment.
+#
+# CONSEQUENCE: the test-tier job CANNOT succeed on pull requests from forks --
+# GitHub does not expose repository or environment secrets to fork PRs, so the
+# orchestrator's preflight will hard-fail there. This is the intended tradeoff:
+# a run that cannot reach live services must fail rather than report a green
+# tick for coverage it never executed.
+#
+# MAINTAINER RE-RUN POLICY (fork PRs): a `Fork PR guard` step in test-tier
+# fails fast with this procedure so contributors are not left guessing. To
+# validate a fork contribution, a maintainer with write access pushes the PR
+# head to a `pr/<number>-<slug>` branch in THIS repository:
+#
+#     gh pr checkout <number>
+#     git push origin HEAD:pr/<number>-<slug>
+#
+# The `push` trigger below includes `pr/**`, so that lands a full run -- fork
+# guard inactive, secrets available, live tiers exercised. Link the run back on
+# the PR, then delete the branch once merged. Never use pull_request_target to
+# work around this: it would execute untrusted fork code with access to the
+# sandbox secrets.
 
 on:
   pull_request:
     branches: [main, experimental/dotnet]
   push:
-    branches: [main, experimental/dotnet]
+    # `pr/**` is the maintainer re-run lane for fork contributions -- see the
+    # CONSEQUENCE note above and docs/ci/pr-gates.md.
+    branches: [main, experimental/dotnet, 'pr/**']
   workflow_dispatch:
 
 concurrency:
@@ -51,7 +74,7 @@ permissions:
 jobs:
   # Reads the supported Godot range + the default Godot / GDK editions once and
   # exposes them as job outputs: the parse gate fans out over `matrix`, while the
-  # PR build + offline tier use the single defaults (fastest signal).
+  # PR build + test tier use the single defaults (fastest signal).
   versions:
     runs-on: ubuntu-latest
     outputs:
@@ -102,7 +125,7 @@ jobs:
 
   # Native addon build for PRs: the DEFAULT GDK edition only (fastest signal),
   # via the shared build-addons composite. Runs the C++ doctest once and uploads
-  # the build-pr artifact that test-offline consumes -- no rebuild downstream.
+  # the build-pr artifact that test-tier consumes -- no rebuild downstream.
   # windows-2022: the `default` CMake preset targets the VS2022 generator.
   build:
     needs: versions
@@ -122,24 +145,42 @@ jobs:
           gdk_version: ${{ needs.versions.outputs.default_gdk }}
           artifact_name: build-pr
 
-  # Offline (non-live) tier for PRs: restore the build-pr artifact and run the
-  # GDExtension load/smoke + non-live GUT against the single DEFAULT Godot
-  # version, via the shared run-offline-tier composite. No secrets -> fork-safe.
-  test-offline:
+  # Test tier for PRs: restore the build-pr artifact and run the GDExtension
+  # load/smoke + GUT suites against the single DEFAULT Godot version, via the
+  # shared run-test-tier composite. The live + live-write tiers are mandatory,
+  # so this job needs the playfab-sandbox environment secrets and will fail on
+  # fork PRs (see the header note).
+  test-tier:
     needs: [versions, build]
     runs-on: windows-2022
+    environment: playfab-sandbox
     steps:
+      # Fork PRs cannot pass this job: GitHub withholds repository and
+      # environment secrets from `pull_request` events raised by forks, and the
+      # live tiers cannot be skipped, so the orchestrator's preflight aborts.
+      # Fail here instead, with the maintainer re-run procedure spelled out,
+      # rather than 20 minutes later with an opaque "title id missing" error.
+      - name: Fork PR guard
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
+        shell: pwsh
+        run: |
+          Write-Host "::error title=Fork PR cannot run the test tier::This pull request originates from a fork, so GitHub withholds the playfab-sandbox secrets and the mandatory live tiers cannot run. A maintainer must re-run this branch from within the repository -- see docs/ci/pr-gates.md#maintainer-re-run-policy-for-fork-prs."
+          throw 'Fork PR: the test tier requires the playfab-sandbox secrets, which GitHub does not expose to fork pull requests. A maintainer re-run is required (docs/ci/pr-gates.md#maintainer-re-run-policy-for-fork-prs).'
+
       # No submodules: the GUT mirror + addon DLLs arrive via the build artifact.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
 
-      - name: Offline tier (Godot ${{ needs.versions.outputs.default_godot }})
-        uses: ./.github/actions/run-offline-tier
+      - name: Test tier (Godot ${{ needs.versions.outputs.default_godot }})
+        uses: ./.github/actions/run-test-tier
         with:
           godot_version: ${{ needs.versions.outputs.default_godot }}
           artifact_name: ${{ needs.build.outputs.artifact_name }}
-          run_summary_artifact: pr-offline-run-summary
+          playfab_title_id: ${{ secrets.PLAYFAB_TITLE_ID }}
+          playfab_custom_id: ${{ secrets.PLAYFAB_CUSTOM_ID }}
+          playfab_matchmaking_queue: ${{ secrets.PLAYFAB_MULTIPLAYER_MATCH_QUEUE }}
+          run_summary_artifact: pr-run-summary
 
   fuzz-replay:
     # Pinned to windows-2022: the fuzz preset uses the "Visual Studio 17 2022"

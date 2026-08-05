@@ -11,11 +11,11 @@ rebuilding.
 | --- | --- | --- | --- |
 | GDScript parse | `pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main` or `experimental/dotnet`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
 | Native build + C++ doctest | `pr-gates.yml` (`build`) | same as above | `windows-2022`, **default GDK edition** |
-| Offline tier (load/smoke + non-live GUT) | `pr-gates.yml` (`test-offline`) | same as above | `windows-2022`, **default Godot** |
+| Test tier (load/smoke + full GUT) | `pr-gates.yml` (`test-tier`) | same as above | `windows-2022`, **default Godot**, sandbox title |
 | Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
 | C# facade parity | `pr-gates.yml` (`csharp`) | `pull_request` / `push` to **`experimental/dotnet`** only | `windows-latest`, .NET 8 SDK |
 | Native build + C++ doctest | `playfab-live-nightly.yml` (`build`) | nightly `schedule` + `workflow_dispatch` | `windows-2022`, **matrixed over GDK editions** |
-| Offline tier (load/smoke + non-live GUT) | `playfab-live-nightly.yml` (`test-offline`) | same | `windows-2022`, **GDK editions × Godot supported** |
+| Test tier (load/smoke + full GUT) | `playfab-live-nightly.yml` (`test-tier`) | same | `windows-2022`, sandbox title, **GDK editions × Godot supported** |
 | PlayFab live (read + write) | `playfab-live-nightly.yml` (`playfab-live`) | same | `windows-2022`, sandbox title, **GDK editions × default Godot** |
 
 > The matrix-resolve / version-resolve steps (`versions`, `resolve`) run
@@ -43,14 +43,17 @@ DLLs per Godot version. Two shared local composite actions implement the model s
   `cmake --preset default` + `cmake --build build --preset debug`, runs the C++
   doctest **once** (`build\bin\Debug\gdk_unit_tests.exe`), saves the cache, and
   uploads the build output as an artifact. Output: `artifact_name`, `cache_key`.
-- **`.github/actions/run-offline-tier`** — restores a build artifact and runs the
-  offline tier against one Godot version. Inputs: `godot_version`,
-  `artifact_name`. It downloads the artifact, **selects the GUT version for the
-  engine** (see [below](#per-version-gut-45-vs-46)), sets up Godot via
-  `setup-godot`, stages the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the
-  **GDExtension load/smoke** (below), then `run_all_tests.ps1 -SkipBuild
-  -SkipDoctest -SkipOrchestrator` (non-live GUT + bootstrap), and uploads the run
-  summary.
+- **`.github/actions/run-test-tier`** — restores a build artifact and runs the
+  test tier against one Godot version. Inputs: `godot_version`,
+  `artifact_name`, and the three required PlayFab settings `playfab_title_id`,
+  `playfab_custom_id`, `playfab_matchmaking_queue`. It downloads the artifact,
+  **selects the GUT version for the engine** (see
+  [below](#per-version-gut-45-vs-46)), sets up Godot via `setup-godot`, stages
+  the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the **GDExtension
+  load/smoke** (below), then `run_all_tests.ps1 -SkipBuild -SkipDoctest
+  -SkipOrchestrator` (full GUT + bootstrap, live tiers included), and uploads
+  the run summary. Because it needs the sandbox secrets, this action is **not
+  usable from fork PRs**.
 
 ### Caching and artifact handoff
 
@@ -78,7 +81,7 @@ artifact — and never run `cmake`.
 
 ### GDExtension load/smoke
 
-Before the GUT suites, `run-offline-tier` fail-fasts with a clear per-version
+Before the GUT suites, `run-test-tier` fail-fasts with a clear per-version
 message if a native addon DLL cannot load under the matrix Godot build. It copies
 `tools/ci/gdextension_load_check.gd` into each coverage host (`gdk`, `playfab`,
 `gameinput`), runs `--import`, then runs the checker (a headless `SceneTree`) and
@@ -90,7 +93,7 @@ confusing mid-suite GUT error.
 
 GUT itself has a hard engine floor: **9.6.0** (`required_godot_version = '4.6'` in
 `addons/gut/utils.gd`) refuses to run on Godot 4.5.x. But 4.5.1 is a supported
-engine, so the 4.5.x offline leg needs a GUT that runs there. There is no tagged
+engine, so the 4.5.x test leg needs a GUT that runs there. There is no tagged
 GUT release that both runs on 4.5.x **and** matches 9.6.0's behaviour, so the repo
 carries **two** GUT submodules:
 
@@ -108,7 +111,7 @@ produce identical results** (verified: gdk 225 / playfab 53 / gameinput 46 passi
 0 failures, on both 4.5.1 and 4.6.x).
 
 CMake mirrors *both* trees into every coverage host — `addons/gut` (9.6.0) and
-`addons/gut-4.5` — and the artifact packages both. `run-offline-tier`'s
+`addons/gut-4.5` — and the artifact packages both. `run-test-tier`'s
 **Select GUT** step swaps `addons/gut-4.5` over `addons/gut` only when
 `godot_version` matches `4.5.x`; 4.6+ legs use the default mirror untouched.
 Locally, `run_all_tests.ps1` does the same via `Select-GutForGodotVersion`, which
@@ -125,7 +128,7 @@ deterministic failure still fails).
 
 `tools/run_all_tests.ps1` takes a `-SkipDoctest` switch (mirrors `-SkipGut` /
 `-SkipOrchestrator`): it records the C++ doctest stage as `skip` instead of
-running it. The offline matrix passes it because the Godot-independent doctest
+running it. The test matrix passes it because the Godot-independent doctest
 already ran once in the `build` job — re-running it on every Godot version would
 be pure waste. The live tier also passes it (it reuses the same build artifact).
 
@@ -147,9 +150,9 @@ The set of Godot versions CI exercises is data-driven in
 }
 ```
 
-- `default` — used by single-version jobs: the PR `build` + `test-offline`
+- `default` — used by single-version jobs: the PR `build` + `test-tier`
   jobs, the nightly live tier, and the `workflow_dispatch` default.
-- `supported` — the matrix the **parse gate** and the **nightly offline tier**
+- `supported` — the matrix the **parse gate** and the **nightly test tier**
   fan out over (one leg per version, `fail-fast: false` so each reports
   independently).
 - `sha512` — the supply-chain pin: the SHA-512 of each version's
@@ -179,10 +182,10 @@ helpers under `tools/`, such as `tools/ci/gdextension_load_check.gd`) are copied
 into a shared bare temp project — preserving their repo-relative path — and
 checked there.
 
-## Native build + offline tier (PRs)
+## Native build + test tier (PRs)
 
 Beyond the parse + fuzz gates, every PR also builds the addons natively and runs
-the offline test tier, via the two shared composites
+the full test tier, via the two shared composites
 ([above](#build-once-per-gdk-test-across-godot-versions)):
 
 - **`build`** (`windows-2022`) — resolves the **default** GDK edition from
@@ -190,13 +193,52 @@ the offline test tier, via the two shared composites
   `build-pr` artifact + the per-edition build cache, and runs the C++ doctest
   once. (A cold cache pays the full ms-gdk + godot-cpp compile; the vcpkg +
   build-output caches make repeat PRs fast.)
-- **`test-offline`** (`windows-2022`, single **default** Godot) — `needs:
-  build`; `uses: ./.github/actions/run-offline-tier` with the `build-pr`
-  artifact. Runs the GDExtension load/smoke + non-live GUT.
+- **`test-tier`** (`windows-2022`, single **default** Godot) — `needs:
+  build`; `uses: ./.github/actions/run-test-tier` with the `build-pr`
+  artifact. Runs the GDExtension load/smoke + the full GUT suite, including the
+  mandatory live and live-write tiers. Declares `environment: playfab-sandbox`
+  to read the sandbox title id, custom id, and matchmaking queue.
 
-Neither job uses secrets, so both are safe on fork PRs. The PR leg deliberately
-uses the single default GDK + default Godot for the fastest signal; the nightly
-fans the **same** composites across the full GDK × Godot matrix.
+> **Fork PRs cannot pass `test-tier`.** GitHub never exposes repository or
+> environment secrets to `pull_request` events from forks, and the live tiers
+> can no longer be skipped, so the job's preflight aborts. A `Fork PR guard`
+> step fails the job immediately with the re-run procedure rather than letting
+> it burn 20 minutes and end in an opaque "title id missing" error. See
+> [Maintainer re-run policy for fork PRs](#maintainer-re-run-policy-for-fork-prs).
+
+The `build` job itself uses no secrets. The PR leg deliberately uses the single
+default GDK + default Godot for the fastest signal; the nightly fans the
+**same** composites across the full GDK × Godot matrix.
+
+### Maintainer re-run policy for fork PRs
+
+External contributions still need a full validation run before merge. A
+maintainer with write access re-runs the contribution from inside this
+repository, where the `playfab-sandbox` secrets are available:
+
+```bash
+gh pr checkout <number>
+git push origin HEAD:pr/<number>-<slug>
+```
+
+`pr/**` is included in the `push` trigger, so this produces a complete
+`pr-gates.yml` run — fork guard inactive, secrets available, live tiers
+exercised. Link the run back on the pull request, and delete the branch once
+the PR merges.
+
+Rules for this lane:
+
+- **Read the diff before pushing it.** The re-run branch executes contributor
+  code with access to the sandbox title. Treat the push as an endorsement that
+  the change is not malicious.
+- **Re-push after every substantive update** to the fork branch; a stale
+  `pr/**` branch validates code that is no longer under review.
+- **Never switch this workflow to `pull_request_target`.** That trigger runs
+  with the base repository's secrets while checking out fork code, which would
+  hand the sandbox credentials to any drive-by contributor.
+- The `parse-gate`, `build`, `fuzz-replay`, and `csharp` jobs use no secrets, so
+  they still run normally on the fork PR itself and give contributors immediate
+  feedback without maintainer involvement.
 
 ## Fuzz replay
 
@@ -261,42 +303,51 @@ also why `experimental/dotnet` was added to the `pull_request` / `push` branch
 filters: on that branch the GDScript/native/fuzz jobs revalidate the inherited
 surface, and the `csharp` job adds the C# parity check on top.
 
-## Nightly: build → offline → live (`playfab-live-nightly.yml`)
+## Nightly: build → test tier → live (`playfab-live-nightly.yml`)
 
-The nightly is decomposed into `resolve` → `build` → (`test-offline`,
+The nightly is decomposed into `resolve` → `build` → (`test-tier`,
 `playfab-live`) so the addons are built **once per GDK edition** and that output
 is tested across Godot versions and against the live sandbox without per-leg
 rebuilds:
 
 - **`resolve`** (`ubuntu-latest`) — emits the GDK edition list, the single
-  default Godot (live tier), and the Godot `supported` matrix (offline tier).
+  default Godot (live tier), and the Godot `supported` matrix (test tier).
 - **`build`** (`windows-2022`, matrix = GDK editions) — `uses:
   ./.github/actions/build-addons` per edition; uploads `build-gdk-<edition>` +
   the per-edition build cache; runs the C++ doctest once.
-- **`test-offline`** (`windows-2022`, matrix = GDK editions × Godot `supported`)
-  — `needs: build`; `uses: ./.github/actions/run-offline-tier` per
+- **`test-tier`** (`windows-2022`, matrix = GDK editions × Godot `supported`)
+  — `needs: build`; `uses: ./.github/actions/run-test-tier` per
   edition×version, restoring `build-gdk-<edition>`. This is the build-once /
-  test-many payoff: the load/smoke + non-live GUT run on every supported engine
-  version with **no rebuild**. Each leg uploads
-  `offline-run-summary-gdk-<edition>-godot-<version>`. Gated on
+  test-many payoff: the load/smoke + full GUT suite run on every supported
+  engine version with **no rebuild**. Declares `environment: playfab-sandbox`.
+  Each leg uploads
+  `test-tier-run-summary-gdk-<edition>-godot-<version>`. Gated on
   `!cancelled() && needs.resolve.result == 'success'` (not plain `success()`),
   so a single failed `build` edition does **not** skip the rest of the matrix —
   the affected legs fail loudly at artifact download while the others run.
 - **`playfab-live`** (`windows-2022`, matrix = GDK editions × default Godot) —
   the live (read + write) tier (below). It also `needs: build` and **restores
   the per-edition build artifact instead of rebuilding**. Uses the same
-  `!cancelled() && needs.resolve.result == 'success'` gate as `test-offline` to
+  `!cancelled() && needs.resolve.result == 'success'` gate as `test-tier` to
   preserve per-edition signal when one build edition fails.
 
 ### Live tier
 
-`playfab-live` runs the live tier against a **dedicated sandbox PlayFab title**,
-reusing the cached build:
+The live and live-write tiers are mandatory in **every** orchestrator
+invocation, so both `test-tier` and `playfab-live` talk to the sandbox title.
+`playfab-live` is the leg that also exercises the multi-client scenarios where
+the runner allows it. Both reuse the cached build:
 
 ```powershell
 # After restoring the build-gdk-<edition> artifact + staging redist DLLs:
-tools/run_all_tests.ps1 -SkipBuild -SkipDoctest -SkipOrchestrator -Live -AllowLiveWrites -PlayFabTitleId <sandbox> ...
+tools/run_all_tests.ps1 -SkipBuild -SkipDoctest -SkipOrchestrator `
+    -PlayFabTitleId <sandbox> -PlayFabCustomId <custom-id> -PlayFabMatchmakingQueue <queue>
 ```
+
+> The live-write tier **mutates the configured PlayFab title**. It must be a
+> dedicated sandbox title — never a shared or production title id. There is no
+> flag to disable it; a run with missing configuration aborts at preflight
+> rather than degrading to a green tick.
 
 `-SkipBuild` reuses the artifact and `-SkipDoctest` skips the doctest (it already
 ran in `build`). `-SkipOrchestrator` disables the multi-client PlayFab Multiplayer
@@ -353,13 +404,13 @@ published to the **public** vcpkg registry and reachable from the baseline in
 }
 ```
 
-The edition list drives the nightly `build`, `test-offline`, and `playfab-live`
+The edition list drives the nightly `build`, `test-tier`, and `playfab-live`
 matrices. The `build` job (via the `build-addons` composite) injects the selected
 `ms-gdk` version as a top-level `overrides` entry in `vcpkg.json` before
 `cmake --preset default`, so vcpkg restores exactly that edition (this automates
 the manual pin documented in
 [getting-started.md](../getting-started.md#switching-gdk-editions-on-the-vcpkg-path)).
-`test-offline` and `playfab-live` then consume that edition's build artifact —
+`test-tier` and `playfab-live` then consume that edition's build artifact —
 they do not re-pin or rebuild.
 
 - **`default`** — the single edition the **nightly `schedule`** runs (keeps

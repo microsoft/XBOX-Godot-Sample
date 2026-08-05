@@ -183,8 +183,8 @@ godot_addon_mirror_test_support(
 # `is_push_warning` fix, still `required_godot_version = '4.5'`), which runs
 # on Godot 4.5.x AND matches 9.6.0's behavior of not failing tests on
 # push_warning(). Mirror it into the same hosts as a sibling `addons/gut-4.5`
-# directory. The default `addons/gut` stays 9.6.0; run-offline-tier swaps in
-# this copy only for Godot 4.5.x legs (see .github/actions/run-offline-tier).
+# directory. The default `addons/gut` stays 9.6.0; run-test-tier swaps in
+# this copy only for Godot 4.5.x legs (see .github/actions/run-test-tier).
 godot_addon_mirror_test_support(
     SOURCE_DIR  "${CMAKE_SOURCE_DIR}/third_party/Gut-4.5/addons/gut"
     DEST_SUBDIR "gut-4.5"

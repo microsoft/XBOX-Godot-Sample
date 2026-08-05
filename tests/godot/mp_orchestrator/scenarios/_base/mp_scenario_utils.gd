@@ -48,11 +48,17 @@ func assert_has(dict: Dictionary, key: String, reason: String = "missing_key") -
 	return fail(reason, { "key": key, "dict": dict })
 
 
+# The live and live-write tiers are MANDATORY. `tools\run_all_tests.ps1`
+# always sets LIVE_TESTS=1 / LIVE_WRITE_TESTS=1 and hard-fails in preflight
+# when PLAYFAB_TITLE_ID is absent, so reaching these branches means the
+# scenario was launched outside the supported entry point with no live
+# configuration. That is a FAILURE, not a skip — skipping here would report
+# a green multiplayer sweep that never contacted PlayFab.
 func requires_live(orch) -> Variant:
 	if orch.env("LIVE_TESTS", "") != "1":
-		return skip("LIVE_TESTS != 1")
+		return fail("live_tier_not_enabled", { "detail": "LIVE_TESTS != 1; the live tier is mandatory. Run via tools\\run_all_tests.ps1." })
 	if String(orch.env("PLAYFAB_TITLE_ID", "")).strip_edges().is_empty():
-		return skip("PLAYFAB_TITLE_ID is not set")
+		return fail("playfab_title_id_missing", { "detail": "PLAYFAB_TITLE_ID is not set; a sandbox title id is required." })
 	return null
 
 
@@ -61,7 +67,7 @@ func requires_live_write(orch) -> Variant:
 	if live_gate != null:
 		return live_gate
 	if orch.env("LIVE_WRITE_TESTS", "") != "1":
-		return skip("LIVE_WRITE_TESTS != 1")
+		return fail("live_write_tier_not_enabled", { "detail": "LIVE_WRITE_TESTS != 1; the live-write tier is mandatory. Run via tools\\run_all_tests.ps1." })
 	return null
 
 
@@ -284,7 +290,9 @@ func _create_join_lobby(orch, roles: Array, handle: String = "main", access_poli
 func _configured_queue(orch) -> Variant:
 	var queue: String = String(orch.env("PLAYFAB_MULTIPLAYER_MATCH_QUEUE", "")).strip_edges()
 	if queue.is_empty():
-		return skip("PLAYFAB_MULTIPLAYER_MATCH_QUEUE is not set")
+		# Mandatory config: the orchestrator preflight refuses to start without
+		# it, so an empty queue here is a failure rather than a skip.
+		return fail("playfab_match_queue_missing", { "detail": "PLAYFAB_MULTIPLAYER_MATCH_QUEUE is not set; a configured matchmaking queue is required." })
 	return queue
 
 

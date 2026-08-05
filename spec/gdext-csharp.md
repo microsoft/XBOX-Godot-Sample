@@ -394,7 +394,7 @@ Each C# host is wired into the canonical green bar via a new orchestrator stage 
 sibling `tools/run_csharp_tests.ps1`) so a C# build + headless test run joins
 `tools/run_all_tests.ps1`. Note: `tools/check_gd_scripts_headless.ps1` is GDScript-only
 and does **not** cover C#; the C# track adds its own `dotnet build` + headless test
-gate. Live-service tiering (`-Live`, `-AllowLiveWrites`, sandbox title id) follows the
+gate. Live-service tiering (sandbox title id, required configuration) follows the
 same contract as `tests/godot/README.md`.
 
 ## Build & CI integration
