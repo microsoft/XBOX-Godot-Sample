@@ -19,6 +19,30 @@ const PLAYFAB_TEST_CUSTOM_ID_SETTING := "playfab/tests/custom_id"
 const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_TEST_CUSTOM_ID_ENV := "PLAYFAB_CUSTOM_ID"
 
+# Custom-ID sign-in is the single busiest live call in this host: every live
+# test signs in independently, so a full suite run fires ~20 LoginWithCustomID
+# calls at the same title player within a few seconds. That reliably trips the
+# service-side 429 (E_PF_API_CLIENT_REQUEST_RATE_LIMIT_EXCEEDED), which under
+# the mandatory live tier turns every downstream test red for a reason that has
+# nothing to do with the code under test.
+#
+# Mirrors the proven pacing/retry approach in
+# tests/godot/mp_test_client/scripts/playfab_runtime.gd: proactively space the
+# calls out, then reactively back off when the service says no anyway.
+const PLAYFAB_RATE_LIMIT_HRESULT := "0x892354DD"
+const PLAYFAB_RATE_LIMIT_SERVICE_SIGNALS := [
+	"rate limit",
+	"too many requests",
+]
+const PLAYFAB_SIGN_IN_MAX_ATTEMPTS := 6
+const PLAYFAB_SIGN_IN_BACKOFF_MSEC := 3_000
+const PLAYFAB_SIGN_IN_BACKOFF_CAP_MSEC := 20_000
+# Minimum spacing between two custom-ID sign-ins anywhere in the run. Static so
+# it is shared by every test script that extends this base.
+const PLAYFAB_SIGN_IN_MIN_SPACING_MSEC := 1_200
+
+static var _last_sign_in_started_msec := -1
+
 var _playfab_extension: Resource = null
 
 
@@ -79,7 +103,7 @@ func get_configured_playfab_custom_id() -> String:
 	return ""
 
 
-func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dictionary:
+func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC, create_account: bool = false) -> Dictionary:
 	var outcome := {
 		"custom_id": "",
 		"playfab_user": null,
@@ -94,13 +118,31 @@ func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_m
 		outcome["skip_reason"] = "custom_id_unconfigured"
 		return outcome
 
-	var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, false)
-	if typeof(sign_in_signal) != TYPE_SIGNAL:
-		pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
-		outcome["skip_reason"] = "sign_in_did_not_start"
-		return outcome
+	var sign_in_result: Variant = null
+	for attempt in range(PLAYFAB_SIGN_IN_MAX_ATTEMPTS):
+		await _space_out_custom_id_sign_in()
 
-	var sign_in_result = await await_completion(sign_in_signal, timeout_msec)
+		var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, create_account)
+		if typeof(sign_in_signal) != TYPE_SIGNAL:
+			pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
+			outcome["skip_reason"] = "sign_in_did_not_start"
+			return outcome
+
+		sign_in_result = await await_completion(sign_in_signal, timeout_msec)
+		if sign_in_result != null and sign_in_result.ok:
+			break
+		if attempt + 1 >= PLAYFAB_SIGN_IN_MAX_ATTEMPTS:
+			break
+		if not is_playfab_rate_limit_error(sign_in_result):
+			break
+
+		var backoff_msec: int = mini(
+			PLAYFAB_SIGN_IN_BACKOFF_CAP_MSEC,
+			PLAYFAB_SIGN_IN_BACKOFF_MSEC * (attempt + 1))
+		print("[playfab_test_base] %s: custom-ID sign-in rate-limited; attempt %d/%d, waiting %dms" % [
+			label, attempt + 1, PLAYFAB_SIGN_IN_MAX_ATTEMPTS, backoff_msec])
+		await sleep_msec(backoff_msec)
+
 	outcome["result"] = sign_in_result
 	if sign_in_result == null:
 		pending("%s skipped: custom-ID sign-in timed out." % label)
@@ -113,6 +155,50 @@ func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_m
 
 	outcome["playfab_user"] = sign_in_result.data
 	return outcome
+
+
+# True when `result` carries a PlayFab service-side rate-limit (HTTP 429).
+func is_playfab_rate_limit_error(result: Variant) -> bool:
+	if result == null:
+		return false
+	var message := ""
+	if "message" in result:
+		message = str(result.message)
+	if message.findn(PLAYFAB_RATE_LIMIT_HRESULT) >= 0:
+		return true
+	for service_signal in PLAYFAB_RATE_LIMIT_SERVICE_SIGNALS:
+		if message.findn(service_signal) >= 0:
+			return true
+	return false
+
+
+# Sleep that keeps pumping the PlayFab (and GDK) dispatchers, so in-flight
+# operations still settle while we wait out a rate-limit backoff.
+func sleep_msec(duration_msec: int) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var deadline := Time.get_ticks_msec() + maxi(0, duration_msec)
+	while Time.get_ticks_msec() < deadline:
+		var playfab: Object = get_playfab()
+		if playfab != null:
+			playfab.dispatch()
+		var gdk = get_gdk()
+		if gdk != null:
+			gdk.dispatch()
+		if tree != null:
+			await tree.process_frame
+		else:
+			OS.delay_msec(16)
+
+
+# Proactively space consecutive custom-ID sign-ins so a full-suite run does not
+# burst past the service quota in the first place.
+func _space_out_custom_id_sign_in() -> void:
+	var now := Time.get_ticks_msec()
+	if _last_sign_in_started_msec >= 0:
+		var elapsed := now - _last_sign_in_started_msec
+		if elapsed < PLAYFAB_SIGN_IN_MIN_SPACING_MSEC:
+			await sleep_msec(PLAYFAB_SIGN_IN_MIN_SPACING_MSEC - elapsed)
+	_last_sign_in_started_msec = Time.get_ticks_msec()
 
 
 # ── Async helpers (override) ─────────────────────────────────────────────

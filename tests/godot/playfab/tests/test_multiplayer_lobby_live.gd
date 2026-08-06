@@ -379,24 +379,12 @@ func _begin_multiplayer_session() -> Dictionary:
 # only needs an entity-token-bearing user; pass create_account=true so the
 # tests work against any sandbox title without separate pre-provisioning.
 func _sign_in_with_or_create_custom_id(playfab: Object, label: String) -> Dictionary:
-	var outcome := {"playfab_user": null}
-	var custom_id := get_configured_playfab_custom_id()
-	if custom_id.is_empty():
-		pending("Set ProjectSettings['playfab/tests/custom_id'] or PLAYFAB_CUSTOM_ID to exercise %s." % label)
-		return outcome
-	var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, true)
-	if typeof(sign_in_signal) != TYPE_SIGNAL:
-		pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
-		return outcome
-	var sign_in_result = await await_completion(sign_in_signal, _DEFAULT_OP_TIMEOUT_MSEC)
-	if sign_in_result == null:
-		fail_test("%s sign_in_with_custom_id_async timed out." % label)
-		return outcome
-	if not sign_in_result.ok:
-		pending("%s skipped: %s" % [label, sign_in_result.message])
-		return outcome
-	outcome["playfab_user"] = sign_in_result.data
-	return outcome
+	# Delegates to the shared base helper so this suite inherits its rate-limit
+	# pacing and backoff. Custom-ID sign-in is the busiest live call in the
+	# host, and a local copy of this logic silently opted these lobby tests out
+	# of that protection.
+	return await sign_in_with_configured_custom_id(
+		playfab, label, _DEFAULT_OP_TIMEOUT_MSEC, true)
 
 
 func _finish_session(playfab: Object, _ignored) -> void:
