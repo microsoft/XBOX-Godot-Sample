@@ -21,6 +21,10 @@ const _LOGO_FILES := [
 	"custom150.png",
 ]
 
+# Byte snapshot of any real project-root artifacts that existed before this
+# suite ran, restored in after_all(). See before_all().
+var _restore_snapshot: Dictionary = {}
+
 
 class FakeToolchain:
 	extends RefCounted
@@ -51,6 +55,36 @@ class FakeToolchain:
 
 	func launch_detached(_exe_path: String, _args: PackedStringArray) -> int:
 		return -1
+
+
+func before_all() -> void:
+	# These tests scribble on the REAL project root (that is the contract they
+	# pin: the addon keeps logos next to the config). The GDK host also keeps a
+	# live `MicrosoftGame.config` there, which is what gives an unpackaged run
+	# its title identity — without it silent sign-in fails with
+	# E_GAMEUSER_NO_DEFAULT_USER and every user-dependent live test in the host
+	# fails. That file is gitignored, so once these tests deleted it nothing
+	# restored it and the damage persisted across runs. Snapshot anything real
+	# that is already there and put it back when the suite finishes.
+	_restore_snapshot = {}
+	var tracked: Array = [_CONFIG_FILE] + _LOGO_FILES
+	for name: String in tracked:
+		var p: String = _project_path(name)
+		if FileAccess.file_exists(p):
+			var f := FileAccess.open(p, FileAccess.READ)
+			if f != null:
+				_restore_snapshot[name] = f.get_buffer(f.get_length())
+				f.close()
+
+
+func after_all() -> void:
+	_cleanup_project_artifacts()
+	for name: String in _restore_snapshot.keys():
+		var f := FileAccess.open(_project_path(name), FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(_restore_snapshot[name])
+			f.close()
+	_restore_snapshot = {}
 
 
 func before_each() -> void:

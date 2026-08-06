@@ -104,7 +104,18 @@ func test_config_template_creation() -> void:
 	var config_mgr = GameConfigManagerScript.new(toolchain)
 
 	var config_path = config_mgr.get_config_path()
-	if FileAccess.file_exists(config_path):
+	# The GDK host keeps a real MicrosoftGame.config at the project root to give
+	# unpackaged runs their title identity, and it is gitignored so nothing
+	# restores it if we delete it. Back it up and put it back afterwards.
+	var original_bytes: PackedByteArray = PackedByteArray()
+	var had_original := FileAccess.file_exists(config_path)
+	if had_original:
+		var original_file = FileAccess.open(config_path, FileAccess.READ)
+		if original_file == null:
+			assert_true(false, "backup original config — cannot open existing MicrosoftGame.config")
+			return
+		original_bytes = original_file.get_buffer(original_file.get_length())
+		original_file.close()
 		DirAccess.remove_absolute(config_path)
 
 	var err = config_mgr.create_template("TestTitle", "CN=TestPub", "Test Title")
@@ -119,6 +130,13 @@ func test_config_template_creation() -> void:
 	assert_eq(err, ERR_ALREADY_EXISTS, "create_template rejects duplicate")
 
 	DirAccess.remove_absolute(config_path)
+
+	if had_original:
+		var restore_file = FileAccess.open(config_path, FileAccess.WRITE)
+		assert_not_null(restore_file, "restore original MicrosoftGame.config")
+		if restore_file != null:
+			restore_file.store_buffer(original_bytes)
+			restore_file.close()
 
 
 func test_makepkg_argument_construction() -> void:

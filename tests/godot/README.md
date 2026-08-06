@@ -103,6 +103,20 @@ A failed probe aborts the run and prints the specific missing capability, e.g.:
 
 This is the difference between "your config is wrong" (caught by the configuration preflight, stage 0) and "your machine cannot run this tier" (caught here). Both abort; neither degrades to a green tick.
 
+#### Prerequisite: `MicrosoftGame.config` in the host project root
+
+The `xuser` capability needs more than an Xbox sign-in. A Godot session run from the editor binary is **unpackaged**, so it has no package identity of its own. `godot_gdk` covers this by handing `res://MicrosoftGame.config` to `XGameRuntimeInitializeWithOptions()` for `editor`-feature-tag runs (see `addons\godot_gdk\src\gdk_runtime.cpp`). Without that file the runtime still initializes, but silent sign-in fails with `E_GAMEUSER_NO_DEFAULT_USER` (`0x89245110`) and every user-dependent test in the host fails.
+
+`.gitignore` excludes `**/MicrosoftGame.config`, so **a fresh clone never has one** and each machine needs its own copy:
+
+```powershell
+Copy-Item sample\tutorial_gdk\MicrosoftGame.config tests\godot\gdk\MicrosoftGame.config
+```
+
+The GDK host already carries the five logo assets that config references (`StoreLogo.png`, `Square150x150Logo.png`, `Square44x44Logo.png`, `Square480x480Logo.png`, `SplashScreenImage.png`), so no other staging is required. The probe detects the missing file and says so in its `xuser` failure message.
+
+Note that packaged/registered builds get identity from the package instead and must *not* take the `WithOptions` path — they reject it with `E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED` (`0x8924010A`). The `editor` feature tag is the discriminator, not the file's presence.
+
 ### Pending semantics
 
 `pending()` used to mean two unrelated things: *"this tier was not selected"* and *"this precondition is unavailable"*. The first meaning is gone — tiers are always selected — so `pending()` is now strict:

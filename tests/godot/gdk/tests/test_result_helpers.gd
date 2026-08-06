@@ -114,10 +114,17 @@ func test_gdk_result_error_message_format() -> void:
 
 	assert_false(repeat_init.ok, "second initialize() reports failure")
 	assert_eq(repeat_init.code, "already_initialized", "code_or_format_hresult: provided code wins over hex fallback")
-	assert_true(repeat_init.message.length() > 0, "format_hresult_message(): non-empty message even with provided code")
-	assert_true(repeat_init.message.find("(HRESULT ") >= 0, "format_hresult_message() embeds '(HRESULT 0x...)'")
-	assert_true(repeat_init.message.find("0x") >= 0, "format_hresult_message() embeds the hex literal")
-	assert_true(repeat_init.message.find(E_FAIL_HEX) >= 0, "format_hresult_message() renders the E_FAIL hex literal exactly")
+	assert_true(repeat_init.message.length() > 0, "error_result(): non-empty message even with provided code")
+	# `GDKRuntime::initialize()` builds this failure with
+	# `GDKResult::error_result(E_FAIL, "already_initialized", "...")`, which
+	# stores the caller's message verbatim. Only `GDKResult::hresult_error()`
+	# routes through `format_hresult_message()` and appends "(HRESULT 0x...)".
+	# Pin the verbatim contract here so this stays consistent with
+	# `test_format_hresult_message_empty_action()`; the appended-hex shape is
+	# covered by the live-tier failure paths that go through hresult_error().
+	assert_true(repeat_init.message.find("(HRESULT ") < 0, "error_result() keeps the provided message verbatim (no HRESULT suffix)")
+	assert_true(repeat_init.message.find(E_FAIL_HEX) < 0, "error_result() does not append the E_FAIL hex literal")
+	assert_eq(repeat_init.hresult, -2147467259, "already_initialized still carries E_FAIL as the numeric hresult")
 
 	if initialized_here:
 		gdk.shutdown()

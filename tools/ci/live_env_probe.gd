@@ -215,6 +215,18 @@ func _evaluate() -> void:
 				detail = " Silent sign-in returned %s: %s." % [result.code, result.message]
 			elif _signin_started:
 				detail = " Silent sign-in never completed."
+			# An unpackaged Godot session has no package identity, so
+			# XGameRuntime can only bind a default user when the project root
+			# carries a MicrosoftGame.config (handed to
+			# XGameRuntimeInitializeWithOptions for "editor" feature-tag runs).
+			# That file is gitignored repo-wide, so a fresh clone always lacks
+			# it -- surface the fix rather than leaving it to be rediscovered.
+			if not FileAccess.file_exists("res://MicrosoftGame.config"):
+				detail += (" NOTE: this project has no res://MicrosoftGame.config;" +
+					" without it an unpackaged run has no title identity and" +
+					" cannot resolve a default user. Copy" +
+					" sample/tutorial_gdk/MicrosoftGame.config into this project root" +
+					" (it is gitignored, so each clone needs its own copy).")
 			_failures.append("xuser: no signed-in Xbox user is available on this machine.%s Sign in to the Xbox app / Gaming Services before running the live tier." % detail)
 		else:
 			_notes.append("xuser: signed in as '%s'." % str(user.get_gamertag()))
