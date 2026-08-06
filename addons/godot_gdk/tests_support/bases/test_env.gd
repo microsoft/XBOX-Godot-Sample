@@ -87,7 +87,14 @@ static func poll_until(pollable: Callable, total_msec: int = -1, interval_msec: 
 	var started_msec := Time.get_ticks_msec()
 
 	while true:
-		var value: Variant = pollable.call()
+		# `pollable` is frequently a coroutine (read-after-write checks await a
+		# service call before they can report anything). Calling a coroutine
+		# without `await` raises "Trying to call an async function without
+		# await" and yields null on every iteration, so the poll can never
+		# observe a settled value and always burns the full budget before
+		# failing. Awaiting here handles coroutine and plain callables alike —
+		# `await` on a non-coroutine result just returns the value.
+		var value: Variant = await pollable.call()
 		if _poll_value_is_present(value):
 			return value
 		if Time.get_ticks_msec() - started_msec >= budget_msec:
