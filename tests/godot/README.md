@@ -122,7 +122,7 @@ Note that packaged/registered builds get identity from the package instead and m
 `pending()` used to mean two unrelated things: *"this tier was not selected"* and *"this precondition is unavailable"*. The first meaning is gone — tiers are always selected — so `pending()` is now strict:
 
 - **`pending(reason)`** — when `LIVE_TESTS` is set (i.e. every orchestrator run), the shared bases override `pending()` to **fail** the test. A live-tier run that degrades to pending is degraded coverage reported as green, which is exactly the failure mode this model exists to prevent.
-- **`pending_tolerated(reason)`** — always behaves like stock GUT `pending()`. Reserved for genuinely separate opt-in axes that are *not* part of the live-tier contract: `GDK_CAPTURE_*` tests, `GDK_TEST_DLC_*` package tests, the `GameDKCoreLatest` version probe, and documented service variance.
+- **`pending_tolerated(reason)`** — always behaves like stock GUT `pending()`. Reserved for genuinely separate opt-in axes that are *not* part of the live-tier contract: `GDK_CAPTURE_*` tests, `GDK_TEST_DLC_*` package tests, the `GameDKCoreLatest` version probe, GameChat2 end-to-end text delivery (needs a second device with its own signed-in Xbox user — a single host can only cover the frame plumbing), and documented service variance.
 
 Running GUT directly from a host root (`godot -s res://addons/gut/gut_cmdln.gd …`) does not set `LIVE_TESTS`, so `pending()` keeps stock behavior there. Only orchestrator runs are strict — iterating on a single suite stays cheap.
 
