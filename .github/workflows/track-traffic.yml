@@ -1,0 +1,197 @@
+name: Track repository traffic
+
+# Snapshots GitHub's repository traffic metrics into CSVs on the orphan
+# `metrics` branch.
+#
+# Why this exists
+# ---------------
+# GitHub retains traffic data for a rolling **14 days** and then discards it
+# permanently. There is no way to backfill it. Anything not captured inside
+# that window is gone. This workflow is the capture mechanism.
+#
+# Why traffic and not release download counts
+# -------------------------------------------
+# `download_count` only exists on release assets that were explicitly uploaded.
+# The auto-generated "Source code (zip/tar.gz)" links are synthesized from the
+# git tag on demand, are not stored objects, and are never counted -- and
+# neither are clones. This repo currently publishes no release assets, so the
+# release-download API would report 0 indefinitely. Traffic (clones + views) is
+# the only meaningful consumption signal here today. If uploaded release assets
+# land later, download tracking can be added alongside this without changing
+# the storage model.
+#
+# Why a GitHub App instead of GITHUB_TOKEN
+# -----------------------------------------
+# The traffic endpoints require *write/admin* access to the repository. That
+# maps to the fine-grained "Administration: Read" permission, which is NOT an
+# assignable scope for the built-in GITHUB_TOKEN (the `permissions:` key has no
+# `administration` option). GITHUB_TOKEN therefore gets a hard 403 on these
+# endpoints no matter how it is configured, so a separate credential is
+# required.
+#
+# That credential is a GitHub App rather than a PAT. A PAT is bound to one
+# human: it expires on a fixed date (and when it does, the snapshots stop and
+# the 14-day window starts dropping data permanently), and it dies outright if
+# that person changes roles or leaves. The App is owned by the org, mints a
+# fresh installation token scoped to this repo on every run, and that token is
+# revoked automatically when the job ends -- so there is no long-lived
+# credential sitting in the secret store at all. Only the App's private key is
+# stored, and it has no expiry to babysit.
+#
+# The App needs exactly two repository permissions:
+#   Administration: Read   -- read the traffic endpoints
+#   Contents:       Write  -- push snapshots to the metrics branch
+# See docs/ci/traffic-metrics.md for registration and installation.
+#
+# Why an orphan branch
+# --------------------
+# Committing a daily snapshot to `main` would churn history and retrigger the
+# PR gates. The `metrics` branch shares no history with `main`, so it stays out
+# of the way of normal development and of any `main`-scoped automation.
+
+on:
+  schedule:
+    # 06:17 UTC daily. Deliberately offset from playfab-live-nightly (09:00) and
+    # off the hour: GitHub delays scheduled runs during on-the-hour spikes, and
+    # a delayed run risks skipping a day at the edge of the 14-day window.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+# The snapshot is pushed with the PAT below, not GITHUB_TOKEN, so the default
+# token only ever needs to read this repo's own checkout.
+permissions:
+  contents: read
+
+concurrency:
+  # Never let a manual dispatch race the scheduled run: both push to the same
+  # branch, and a concurrent push would fail or lose a snapshot. Queue rather
+  # than cancel, since a cancelled run silently drops that day's capture.
+  group: track-traffic
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    # Scheduled workflows do not run on forks by default, but a fork that
+    # enables Actions would otherwise fail this job daily against a secret it
+    # cannot have.
+    if: github.repository == 'microsoft/XBOX-Godot-Sample'
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Guard -- require the App credentials
+        env:
+          APP_ID: ${{ vars.TRAFFIC_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}
+        run: |
+          missing=""
+          [ -z "${APP_ID:-}" ] && missing="$missing vars.TRAFFIC_APP_ID"
+          [ -z "${APP_PRIVATE_KEY:-}" ] && missing="$missing secrets.TRAFFIC_APP_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing App credential(s):$missing. The traffic API rejects GITHUB_TOKEN with 403, so the App is required; see docs/ci/traffic-metrics.md."
+            exit 1
+          fi
+          echo "App credentials present (app id $APP_ID)."
+
+      # Mints an installation token scoped to this repository, carrying only the
+      # App's granted permissions. The action revokes it in its post step, so
+      # the credential's lifetime is this job and nothing longer.
+      - name: Mint App installation token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.TRAFFIC_APP_ID }}
+          private-key: ${{ secrets.TRAFFIC_APP_PRIVATE_KEY }}
+
+      - name: Snapshot traffic into the metrics branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TRAFFIC_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          REPO="$GITHUB_REPOSITORY"
+          DATE=$(date -u +%Y-%m-%d)
+          MERGE="$GITHUB_WORKSPACE/.github/scripts/merge_traffic_csv.sh"
+
+          # The installation token lives only in this URL. The token-minting
+          # action registers it as a masked value, and nothing here echoes the
+          # command, so it does not reach the log.
+          REMOTE="https://x-access-token:${TRAFFIC_TOKEN}@github.com/${REPO}.git"
+
+          # Shallow single-branch working copy of `metrics`. `git init -b metrics`
+          # leaves HEAD on an unborn branch, so the same code path bootstraps the
+          # branch on the very first run and updates it on every run after.
+          mkdir -p _metrics
+          cd _metrics
+          git init -q -b metrics
+          git remote add origin "$REMOTE"
+          if git fetch -q --depth 1 origin metrics 2>/dev/null; then
+            git reset -q --hard FETCH_HEAD
+            echo "Updating existing metrics branch."
+          else
+            echo "No metrics branch yet -- bootstrapping it."
+          fi
+
+          # --- Daily time series -------------------------------------------
+          # `count`/`uniques` are per-day buckets aligned to UTC midnight. The
+          # merge upserts on the date, so the 13 days of overlap between
+          # consecutive snapshots collapse to one row per day, and the current
+          # (still partial) day self-corrects on tomorrow's run.
+          gh api "repos/$REPO/traffic/clones?per=day" \
+            --jq '.clones[] | [(.timestamp[0:10]), (.count|tostring), (.uniques|tostring)] | join(",")' \
+            | bash "$MERGE" data/clones.csv 'date,count,uniques' 1
+
+          gh api "repos/$REPO/traffic/views?per=day" \
+            --jq '.views[] | [(.timestamp[0:10]), (.count|tostring), (.uniques|tostring)] | join(",")' \
+            | bash "$MERGE" data/views.csv 'date,count,uniques' 1
+
+          # --- Top-10 rollups ----------------------------------------------
+          # These are NOT daily values: each row is the trailing-14-day total as
+          # observed on snapshot_date, so consecutive rows overlap heavily. Do
+          # not sum them across dates. Keyed on (snapshot_date, name) so a
+          # re-run replaces the day's rollup instead of duplicating it.
+          # Commas and quotes are stripped from the free-text key to keep the
+          # CSV single-line and unquoted.
+          gh api "repos/$REPO/traffic/popular/referrers" \
+            | jq -r --arg d "$DATE" '.[] | [$d, (.referrer|gsub("[,\"]"; " ")), (.count|tostring), (.uniques|tostring)] | join(",")' \
+            | bash "$MERGE" data/referrers.csv 'snapshot_date,referrer,count,uniques' 2
+
+          gh api "repos/$REPO/traffic/popular/paths" \
+            | jq -r --arg d "$DATE" '.[] | [$d, (.path|gsub("[,\"]"; " ")), (.count|tostring), (.uniques|tostring)] | join(",")' \
+            | bash "$MERGE" data/paths.csv 'snapshot_date,path,count,uniques' 2
+
+          # Schema notes travel with the data, since the metrics branch is read
+          # on its own without the rest of the repo for context.
+          cp "$GITHUB_WORKSPACE/.github/scripts/metrics-branch-README.md" README.md
+
+          # Pin LF so the data files are byte-stable regardless of who clones
+          # them. Without this, a Windows clone with core.autocrlf=true would
+          # rewrite every line on checkout and could push back a whole-file diff.
+          printf '* text eol=lf\n' > .gitattributes
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No traffic changes to commit."
+            echo "No change in this snapshot." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m "chore(metrics): traffic snapshot $DATE"
+          git push -q origin metrics
+          echo "Pushed traffic snapshot for $DATE."
+
+          {
+            echo "### Traffic snapshot $DATE"
+            echo
+            echo "| series | rows |"
+            echo "| --- | --- |"
+            for f in clones views referrers paths; do
+              n=$(($(wc -l < "data/$f.csv") - 1))
+              echo "| $f | $n |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
