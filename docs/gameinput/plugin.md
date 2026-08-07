@@ -61,9 +61,39 @@ reads project settings and runs the lifecycle for you:
 | --- | --- | --- |
 | `game_input/runtime/initialize_on_startup` | `false` | When `true`, the bootstrap calls `GameInput.initialize()` on `_ready`. |
 | `game_input/runtime/auto_poll` | `true` | When `true`, the bootstrap calls `GameInput.poll()` from `_process`. |
+| `game_input/runtime/singleton_name` | `"GameInput"` | Name the extension registers its Engine singleton under. See [Renaming the singleton](#renaming-the-singleton). |
 | `game_input/mapper/default_action_map` | `""` | Path to a `.tres` `GameInputActionMap`. When set, the bootstrap spawns a `GameInputMapper` named `DefaultMapper` as its own child and assigns the loaded resource — so your project's `InputMap` can be driven from a GameInput action map without dropping a Mapper node into any scene. User-placed `GameInputMapper` nodes do not consult this setting; assign their `action_map` explicitly. |
 
 Disabling the plugin removes the autoload — there is no orphaned state.
+
+## Renaming the singleton
+
+`game_input/runtime/singleton_name` controls the name the extension registers
+its Engine singleton under, for titles that need to avoid a collision with an
+existing global or prefer a project-specific name.
+
+The extension reads the setting **once, at load time**, before any project
+script runs — so it must already be in `project.godot` (or an `override.cfg`)
+when Godot starts. Changing it at runtime has no effect until the next launch.
+
+A configured name is rejected, with a warning, when it is blank, is not a valid
+ASCII identifier, or collides with an already-registered singleton. In those
+cases the extension stays registered as `GameInput` so the addon never becomes
+unreachable.
+
+Once renamed, the `GameInput` global no longer resolves in GDScript. Look the
+singleton up by name instead:
+
+```gdscript
+var singleton_name: String = ProjectSettings.get_setting(
+        "game_input/runtime/singleton_name", "GameInput")
+var gi: Object = Engine.get_singleton(singleton_name)
+gi.poll()
+```
+
+The bundled `GameInputBootstrap` autoload, the C# `GameInput` facade, and the
+shared GUT test base all resolve the singleton this way, so they keep working
+across a rename with no further changes.
 
 If you want full control instead, leave `initialize_on_startup` off and call
 the lifecycle yourself; `GameInputMapper` nodes also call `poll()` defensively

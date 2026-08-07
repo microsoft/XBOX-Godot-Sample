@@ -6,6 +6,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/version.hpp>
 #include <godot_cpp/godot.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "playfab.h"
 #include "playfab_gamesaves.h"
@@ -35,14 +36,26 @@ constexpr const char *PLAYFAB_ENDPOINT_SETTING = "playfab/runtime/endpoint";
 constexpr const char *PLAYFAB_ENDPOINT_DEFAULT = "";
 constexpr const char *PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_SETTING = "playfab/party/local_udp_socket_bind_port";
 constexpr int PLAYFAB_PARTY_LOCAL_UDP_BIND_PORT_DEFAULT = -1;
+constexpr const char *PLAYFAB_RUNTIME_SINGLETON_NAME_SETTING = "playfab/runtime/singleton_name";
+constexpr const char *PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT = "PlayFab";
 
-void register_string_project_setting(ProjectSettings *p_project_settings, const char *p_name, const String &p_default_value) {
+// Name the singleton was actually registered under. Captured at initialize
+// time so uninitialize unregisters the same name even if the project setting
+// is edited while the extension is loaded. Function-local so the String is
+// constructed on first use: a file-scope String would run its constructor from
+// DllMain, before the GDExtension interface pointers exist, and fail the load.
+String &registered_singleton_name() {
+    static String name;
+    return name;
+}
+
+void register_string_project_setting(ProjectSettings *p_project_settings, const char *p_name, const String &p_default_value, bool p_basic = true) {
     if (!p_project_settings->has_setting(p_name)) {
         p_project_settings->set_setting(p_name, p_default_value);
     }
 
     p_project_settings->set_initial_value(p_name, p_default_value);
-    p_project_settings->set_as_basic(p_name, true);
+    p_project_settings->set_as_basic(p_name, p_basic);
 
     Dictionary setting_info;
     setting_info["name"] = p_name;
@@ -88,6 +101,7 @@ void register_playfab_project_settings() {
 
     register_string_project_setting(project_settings, PLAYFAB_TITLE_ID_SETTING, PLAYFAB_TITLE_ID_DEFAULT);
     register_string_project_setting(project_settings, PLAYFAB_ENDPOINT_SETTING, PLAYFAB_ENDPOINT_DEFAULT);
+    register_string_project_setting(project_settings, PLAYFAB_RUNTIME_SINGLETON_NAME_SETTING, PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT, false);
 
     // Opt-in override for PlayFab Party's PartyOption::LocalUdpSocketBindAddress.
     // Default -1 means "use the SDK's default bind address" — the right
@@ -109,6 +123,44 @@ void register_playfab_project_settings() {
     local_udp_bind_port_info["hint"] = PROPERTY_HINT_RANGE;
     local_udp_bind_port_info["hint_string"] = "-1,65535,1";
     project_settings->add_property_info(local_udp_bind_port_info);
+}
+
+// Resolves the Engine singleton name from `playfab/runtime/singleton_name`,
+// falling back to "PlayFab" when the configured value is unusable. Rejecting a
+// bad value instead of honouring it keeps the addon reachable: an
+// unregisterable name would leave every `PlayFab.*` call in a project
+// unresolved with no clue why.
+String resolve_playfab_singleton_name() {
+    ProjectSettings *project_settings = ProjectSettings::get_singleton();
+    if (project_settings == nullptr) {
+        return String(PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT);
+    }
+
+    const String configured = String(project_settings->get_setting(
+                                             PLAYFAB_RUNTIME_SINGLETON_NAME_SETTING,
+                                             PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT))
+                                      .strip_edges();
+    if (configured.is_empty() || configured == PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT) {
+        return String(PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT);
+    }
+
+    if (!configured.is_valid_ascii_identifier()) {
+        UtilityFunctions::push_warning(
+                String("[PlayFab] Project setting '") + PLAYFAB_RUNTIME_SINGLETON_NAME_SETTING +
+                "' is not a valid identifier ('" + configured + "'). Falling back to '" +
+                PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT + "'.");
+        return String(PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT);
+    }
+
+    if (Engine::get_singleton()->has_singleton(configured)) {
+        UtilityFunctions::push_warning(
+                String("[PlayFab] Project setting '") + PLAYFAB_RUNTIME_SINGLETON_NAME_SETTING + "' requests '" +
+                configured + "', which is already a registered singleton. Falling back to '" +
+                PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT + "'.");
+        return String(PLAYFAB_RUNTIME_SINGLETON_NAME_DEFAULT);
+    }
+
+    return configured;
 }
 
 bool is_embed_dispatch_enabled() {
@@ -193,8 +245,9 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<PlayFabParty>();
 
     playfab_singleton = memnew(PlayFab);
-    Engine::get_singleton()->register_singleton("PlayFab", PlayFab::get_singleton());
     register_playfab_project_settings();
+    registered_singleton_name() = resolve_playfab_singleton_name();
+    Engine::get_singleton()->register_singleton(registered_singleton_name(), PlayFab::get_singleton());
 }
 
 void uninitialize_playfab_extension(ModuleInitializationLevel p_level) {
@@ -207,7 +260,10 @@ void uninitialize_playfab_extension(ModuleInitializationLevel p_level) {
         return;
     }
 
-    Engine::get_singleton()->unregister_singleton("PlayFab");
+    if (!registered_singleton_name().is_empty()) {
+        Engine::get_singleton()->unregister_singleton(registered_singleton_name());
+        registered_singleton_name() = String();
+    }
 
     if (playfab_singleton != nullptr) {
         memdelete(playfab_singleton);

@@ -14,11 +14,35 @@ const TestEnv = preload("res://addons/godot_gdk_tests/test_env.gd")
 
 const FLOAT_EPSILON := 0.0001
 
+const GAMEINPUT_SINGLETON_NAME_SETTING := "game_input/runtime/singleton_name"
+const GAMEINPUT_DEFAULT_SINGLETON_NAME := "GameInput"
+
 
 # ── Singleton helpers ────────────────────────────────────────────────────
 
+## Returns the Engine singleton name configured by
+## `game_input/runtime/singleton_name`, falling back to `"GameInput"`. Kept in
+## sync with the resolution in the addon's `register_types.cpp` and
+## `gameinput_bootstrap.gd`.
+func gameinput_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(
+					GAMEINPUT_SINGLETON_NAME_SETTING, GAMEINPUT_DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return GAMEINPUT_DEFAULT_SINGLETON_NAME
+	return configured
+
+
+# Resolves the singleton by configured name, retrying under the default name
+# because the C++ side falls back to "GameInput" when the configured name is
+# unusable.
 func get_gameinput():
-	return Engine.get_singleton("GameInput") if Engine.has_singleton("GameInput") else null
+	var configured := gameinput_singleton_name()
+	if Engine.has_singleton(configured):
+		return Engine.get_singleton(configured)
+	if configured != GAMEINPUT_DEFAULT_SINGLETON_NAME and Engine.has_singleton(GAMEINPUT_DEFAULT_SINGLETON_NAME):
+		return Engine.get_singleton(GAMEINPUT_DEFAULT_SINGLETON_NAME)
+	return null
 
 
 # Pending the current test if the GameInput singleton is unavailable.

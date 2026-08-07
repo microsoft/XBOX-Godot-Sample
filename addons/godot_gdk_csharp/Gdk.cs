@@ -15,8 +15,44 @@ public static class Gdk
     private static GodotObject _singleton;
     private static bool _signalsConnected;
 
+    private const string SingletonNameSetting = "gdk/runtime/singleton_name";
+    private const string DefaultSingletonName = "GDK";
+
+    /// <summary>
+    /// Engine singleton name configured by <c>gdk/runtime/singleton_name</c>,
+    /// falling back to <c>GDK</c>. Mirrors the resolution in the addon's
+    /// <c>register_types.cpp</c>.
+    /// </summary>
+    public static string SingletonName
+    {
+        get
+        {
+            string configured = ProjectSettings
+                .GetSetting(SingletonNameSetting, DefaultSingletonName)
+                .AsString()
+                .Trim();
+            return string.IsNullOrEmpty(configured) ? DefaultSingletonName : configured;
+        }
+    }
+
+    // Resolves the singleton by configured name, retrying under the default
+    // name because the native side falls back to "GDK" when the configured name
+    // is unusable (for example when it collides with an existing singleton).
+    private static GodotObject ResolveSingleton()
+    {
+        string configured = SingletonName;
+        if (Engine.HasSingleton(configured))
+        {
+            return Engine.GetSingleton(configured);
+        }
+
+        return configured != DefaultSingletonName && Engine.HasSingleton(DefaultSingletonName)
+            ? Engine.GetSingleton(DefaultSingletonName)
+            : null;
+    }
+
     /// <summary>True when the <c>godot_gdk</c> GDExtension is loaded.</summary>
-    public static bool IsAvailable => Engine.HasSingleton("GDK");
+    public static bool IsAvailable => ResolveSingleton() != null;
 
     internal static GodotObject Singleton
     {
@@ -32,7 +68,7 @@ public static class Gdk
             // so root signals reconnect and cached service wrappers rebind to
             // the new native instance instead of returning stale ones.
             ResetSingletonState();
-            _singleton = Engine.HasSingleton("GDK") ? Engine.GetSingleton("GDK") : null;
+            _singleton = ResolveSingleton();
             EnsureSignalsConnected();
             return _singleton;
         }

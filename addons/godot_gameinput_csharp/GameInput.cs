@@ -27,7 +27,45 @@ public static class GameInput
     }
 
     /// <summary>True when the <c>godot_gameinput</c> GDExtension is loaded.</summary>
-    public static bool IsAvailable => Engine.HasSingleton("GameInput");
+    public static bool IsAvailable => ResolveSingleton() != null;
+
+    private const string SingletonNameSetting = "game_input/runtime/singleton_name";
+    private const string DefaultSingletonName = "GameInput";
+
+    /// <summary>
+    /// Engine singleton name configured by
+    /// <c>game_input/runtime/singleton_name</c>, falling back to
+    /// <c>GameInput</c>. Mirrors the resolution in the addon's
+    /// <c>register_types.cpp</c>.
+    /// </summary>
+    public static string SingletonName
+    {
+        get
+        {
+            string configured = ProjectSettings
+                .GetSetting(SingletonNameSetting, DefaultSingletonName)
+                .AsString()
+                .Trim();
+            return string.IsNullOrEmpty(configured) ? DefaultSingletonName : configured;
+        }
+    }
+
+    // Resolves the singleton by configured name, retrying under the default
+    // name because the native side falls back to "GameInput" when the
+    // configured name is unusable (for example when it collides with an
+    // existing singleton).
+    private static GodotObject ResolveSingleton()
+    {
+        string configured = SingletonName;
+        if (Engine.HasSingleton(configured))
+        {
+            return Engine.GetSingleton(configured);
+        }
+
+        return configured != DefaultSingletonName && Engine.HasSingleton(DefaultSingletonName)
+            ? Engine.GetSingleton(DefaultSingletonName)
+            : null;
+    }
 
     internal static GodotObject Singleton
     {
@@ -42,7 +80,7 @@ public static class GameInput
             // extension/editor reload). Clear the connected flag so the new
             // singleton's device signals get reconnected below.
             _signalsConnected = false;
-            _singleton = Engine.HasSingleton("GameInput") ? Engine.GetSingleton("GameInput") : null;
+            _singleton = ResolveSingleton();
             EnsureSignalsConnected();
             return _singleton;
         }

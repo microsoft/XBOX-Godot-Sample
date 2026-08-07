@@ -18,23 +18,49 @@ const PLAYFAB_INITIALIZE_ON_STARTUP_SETTING := "playfab/runtime/initialize_on_st
 const PLAYFAB_TEST_CUSTOM_ID_SETTING := "playfab/tests/custom_id"
 const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_TEST_CUSTOM_ID_ENV := "PLAYFAB_CUSTOM_ID"
+const PLAYFAB_SINGLETON_NAME_SETTING := "playfab/runtime/singleton_name"
+const PLAYFAB_DEFAULT_SINGLETON_NAME := "PlayFab"
 
 var _playfab_extension: Resource = null
 
 
 # ── Singleton + runtime helpers ──────────────────────────────────────────
 
+## Returns the Engine singleton name configured by
+## `playfab/runtime/singleton_name`, falling back to `"PlayFab"`. Kept in sync
+## with the resolution in the addon's `register_types.cpp` and
+## `playfab_bootstrap.gd`.
+func playfab_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(
+					PLAYFAB_SINGLETON_NAME_SETTING, PLAYFAB_DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return PLAYFAB_DEFAULT_SINGLETON_NAME
+	return configured
+
+
+# Resolves the singleton by configured name, retrying under the default name
+# because the C++ side falls back to "PlayFab" when the configured name is
+# unusable.
+func _find_playfab_singleton() -> Object:
+	var configured := playfab_singleton_name()
+	if Engine.has_singleton(configured):
+		return Engine.get_singleton(configured)
+	if configured != PLAYFAB_DEFAULT_SINGLETON_NAME and Engine.has_singleton(PLAYFAB_DEFAULT_SINGLETON_NAME):
+		return Engine.get_singleton(PLAYFAB_DEFAULT_SINGLETON_NAME)
+	return null
+
+
 func get_playfab() -> Object:
 	apply_playfab_env_configuration()
-	if Engine.has_singleton("PlayFab"):
-		return Engine.get_singleton("PlayFab")
+	var playfab: Object = _find_playfab_singleton()
+	if playfab != null:
+		return playfab
 
 	if _playfab_extension == null and FileAccess.file_exists(PLAYFAB_EXTENSION_PATH):
 		_playfab_extension = load(PLAYFAB_EXTENSION_PATH)
 
-	if Engine.has_singleton("PlayFab"):
-		return Engine.get_singleton("PlayFab")
-	return null
+	return _find_playfab_singleton()
 
 
 func apply_playfab_env_configuration() -> void:

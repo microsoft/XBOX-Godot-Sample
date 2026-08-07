@@ -96,6 +96,13 @@ The C# facade exists to replace that stringly-typed access with typed members. E
 facade type **wraps**, never copies: it holds the underlying `GodotObject` and exposes
 `Get()`/`Call()`-backed typed properties and methods.
 
+Each facade also owns singleton *resolution*. Because the engine singleton name is a
+Project Setting (`gdk/runtime/singleton_name`, `playfab/runtime/singleton_name`,
+`game_input/runtime/singleton_name`), `Gdk`, `PlayFab`, and `GameInput` each expose a
+static `SingletonName` that reads the setting and fall back to the default name when
+the configured one was rejected natively. Facade code must never call
+`Engine.GetSingleton("GDK")` with a hardcoded literal.
+
 ### Async bridge (the central design problem for `gdk` + `playfab`)
 
 Every `_async` method on `godot_gdk` and `godot_playfab` returns a one-shot Godot
@@ -147,7 +154,7 @@ failure rather than a silent runtime mismatch.
 
 ## `godot_gdk` — C# layer map
 
-Singleton facade `Gdk` (lazy `Engine.GetSingleton("GDK")`), result type `GdkResult`
+Singleton facade `Gdk` (lazy `Engine.GetSingleton(Gdk.SingletonName)`), result type `GdkResult`
 (`Ok`, `Message`, `Code`, `Data`, `DataAs<T>()`), and one wrapper per service member
 and value type.
 
@@ -209,7 +216,7 @@ Gdk.Achievements.RuntimeError += r => GD.PushWarning($"[Ach] {r.Message}");
 
 ## `godot_playfab` — C# layer map
 
-Singleton facade `PlayFab` (lazy `Engine.GetSingleton("PlayFab")`), result type
+Singleton facade `PlayFab` (lazy `Engine.GetSingleton(PlayFab.SingletonName)`), result type
 `PlayFabResult`, config props (`TitleId`, `Endpoint`), one wrapper per service member,
 plus the Multiplayer/Party value/config/state types.
 

@@ -98,6 +98,9 @@ sample/**/sample_pf_config.cfg
 # ── GDK packaging settings (user-specific editor state) ─────────
 **/.gdk_packaging.cfg
 
+# ── Godot per-project setting overrides (test scaffolding, never checked in) ──
+**/override.cfg
+
 # ── OS ───────────────────────────────────────────────────────────
 Thumbs.db
 .DS_Store

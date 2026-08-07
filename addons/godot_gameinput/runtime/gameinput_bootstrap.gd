@@ -2,6 +2,8 @@ extends Node
 ## Godot GameInput — Bootstrap autoload
 ##
 ## Installed by `GameInputEditorPlugin`. Reads Project Settings and:
+##  * Resolves the Engine singleton name from `game_input/runtime/singleton_name`
+##    (default `"GameInput"`).
 ##  * Calls `GameInput.initialize()` if `game_input/runtime/initialize_on_startup` is true.
 ##  * Calls `GameInput.poll()` every `_process` if `game_input/runtime/auto_poll` is true.
 ##  * Spawns a `GameInputMapper` child if `game_input/mapper/default_action_map`
@@ -19,6 +21,8 @@ extends Node
 const SETTING_INITIALIZE_ON_STARTUP := "game_input/runtime/initialize_on_startup"
 const SETTING_AUTO_POLL := "game_input/runtime/auto_poll"
 const SETTING_DEFAULT_ACTION_MAP := "game_input/mapper/default_action_map"
+const SETTING_SINGLETON_NAME := "game_input/runtime/singleton_name"
+const DEFAULT_SINGLETON_NAME := "GameInput"
 const GD_SCRIPT_CHECK_FLAG := "--gd-script-check"
 const TEST_SCRIPT_PATH := "res://tests/run_tests.gd"
 
@@ -27,12 +31,38 @@ var _initialized_here: bool = false
 var _default_mapper: Node = null
 
 
+## Returns the Engine singleton name configured by
+## `game_input/runtime/singleton_name`, falling back to `"GameInput"` when the
+## setting is unset or not a valid identifier. Mirrors the resolution in the
+## addon's `register_types.cpp`.
+static func get_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(SETTING_SINGLETON_NAME, DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return DEFAULT_SINGLETON_NAME
+	return configured
+
+
+## Resolves the registered singleton by configured name, retrying under the
+## default name because the C++ side falls back to `"GameInput"` when the
+## configured name is unusable (for example when it collides with an existing
+## singleton).
+static func find_singleton() -> Object:
+	var configured := get_singleton_name()
+	if Engine.has_singleton(configured):
+		return Engine.get_singleton(configured)
+	if configured != DEFAULT_SINGLETON_NAME and Engine.has_singleton(DEFAULT_SINGLETON_NAME):
+		return Engine.get_singleton(DEFAULT_SINGLETON_NAME)
+	return null
+
+
 func _ready() -> void:
 	if _should_skip_bootstrap():
 		return
 
-	if not Engine.has_singleton("GameInput"):
-		push_warning("[GameInput] Bootstrap: 'GameInput' singleton not registered. " +
+	var gi: Object = find_singleton()
+	if gi == null:
+		push_warning("[GameInput] Bootstrap: '%s' singleton not registered. " % get_singleton_name() +
 				"Is the godot_gameinput GDExtension built and loaded?")
 		set_process(false)
 		return
@@ -42,7 +72,6 @@ func _ready() -> void:
 	var initialize_on_startup := bool(
 			ProjectSettings.get_setting(SETTING_INITIALIZE_ON_STARTUP, false))
 	if initialize_on_startup:
-		var gi := Engine.get_singleton("GameInput")
 		if gi.is_initialized():
 			# Editor reload or another caller already initialised it — skip.
 			pass
@@ -61,7 +90,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not _auto_poll:
 		return
-	var gi := Engine.get_singleton("GameInput")
+	var gi: Object = find_singleton()
 	if gi != null:
 		gi.poll()
 
@@ -70,8 +99,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		# Only call shutdown() if WE initialized it. Otherwise leave it to the caller
 		# that brought it up (e.g. tests, editor tooling).
-		if _initialized_here and Engine.has_singleton("GameInput"):
-			var gi := Engine.get_singleton("GameInput")
+		if _initialized_here:
+			var gi: Object = find_singleton()
 			if gi != null and gi.is_initialized():
 				gi.shutdown()
 				_initialized_here = false

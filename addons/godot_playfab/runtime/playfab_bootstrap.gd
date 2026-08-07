@@ -3,6 +3,8 @@ extends Node
 ##
 ## Installed by `GodotPlayFab` when the editor plugin is enabled. Reads
 ## Project Settings and:
+##  * Resolves the Engine singleton name from `playfab/runtime/singleton_name`
+##    (default `"PlayFab"`).
 ##  * Calls `PlayFab.initialize()` when `playfab/runtime/initialize_on_startup`
 ##    is true.
 ##  * Skips headless validation and sample test runs.
@@ -17,24 +19,49 @@ const PLAYFAB_EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdexte
 const GD_SCRIPT_CHECK_FLAG := "--gd-script-check"
 const TEST_SCRIPT_PATH := "res://tests/run_tests.gd"
 const SETTING_INITIALIZE_ON_STARTUP := "playfab/runtime/initialize_on_startup"
+const SETTING_SINGLETON_NAME := "playfab/runtime/singleton_name"
+const DEFAULT_SINGLETON_NAME := "PlayFab"
 
 var _playfab_extension: Variant = null
 var _playfab_load_attempted := false
 var _last_initialize_result: Variant = null
 
 
+## Returns the Engine singleton name configured by
+## `playfab/runtime/singleton_name`, falling back to `"PlayFab"` when the
+## setting is unset or not a valid identifier. Mirrors the resolution in the
+## addon's `register_types.cpp`.
+static func get_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(SETTING_SINGLETON_NAME, DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return DEFAULT_SINGLETON_NAME
+	return configured
+
+
+## Resolves the registered singleton by configured name, retrying under the
+## default name because the C++ side falls back to `"PlayFab"` when the
+## configured name is unusable (for example when it collides with an existing
+## singleton).
+static func find_singleton() -> Object:
+	var configured := get_singleton_name()
+	if Engine.has_singleton(configured):
+		return Engine.get_singleton(configured)
+	if configured != DEFAULT_SINGLETON_NAME and Engine.has_singleton(DEFAULT_SINGLETON_NAME):
+		return Engine.get_singleton(DEFAULT_SINGLETON_NAME)
+	return null
+
+
 func get_playfab() -> Object:
-	if Engine.has_singleton("PlayFab"):
-		return Engine.get_singleton("PlayFab")
+	var playfab: Object = find_singleton()
+	if playfab != null:
+		return playfab
 
 	if not _playfab_load_attempted and _playfab_extension == null and FileAccess.file_exists(PLAYFAB_EXTENSION_PATH):
 		_playfab_load_attempted = true
 		_playfab_extension = load(PLAYFAB_EXTENSION_PATH)
 
-	if Engine.has_singleton("PlayFab"):
-		return Engine.get_singleton("PlayFab")
-
-	return null
+	return find_singleton()
 
 
 ## Returns the PlayFabResult from the most recent bootstrap-driven
@@ -52,7 +79,8 @@ func _ready() -> void:
 
 	var playfab: Object = get_playfab()
 	if playfab == null:
-		push_warning("[PlayFab] Bootstrap: 'PlayFab' singleton not registered. Is the godot_playfab GDExtension built and loaded?")
+		push_warning("[PlayFab] Bootstrap: '%s' singleton not registered. Is the godot_playfab GDExtension built and loaded?"
+				% get_singleton_name())
 		return
 
 	_bind_playfab_signals(playfab)
