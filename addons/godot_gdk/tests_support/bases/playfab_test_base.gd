@@ -20,6 +20,9 @@ const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_TEST_CUSTOM_ID_ENV := "PLAYFAB_CUSTOM_ID"
 const PLAYFAB_SINGLETON_NAME_SETTING := "playfab/runtime/singleton_name"
 const PLAYFAB_DEFAULT_SINGLETON_NAME := "PlayFab"
+# Native class the singleton must be an instance of. The singleton *name* is
+# configurable; the class it resolves to is not.
+const PLAYFAB_SINGLETON_CLASS_NAME := "PlayFab"
 
 var _playfab_extension: Resource = null
 
@@ -41,13 +44,19 @@ func playfab_singleton_name() -> String:
 
 # Resolves the singleton by configured name, retrying under the default name
 # because the C++ side falls back to "PlayFab" when the configured name is
-# unusable.
+# unusable. Candidates are class-checked so a configured name that collides
+# with an unrelated engine singleton (say `Input`) is not mistaken for the
+# runtime.
 func _find_playfab_singleton() -> Object:
 	var configured := playfab_singleton_name()
 	if Engine.has_singleton(configured):
-		return Engine.get_singleton(configured)
+		var candidate: Object = Engine.get_singleton(configured)
+		if candidate != null and candidate.is_class(PLAYFAB_SINGLETON_CLASS_NAME):
+			return candidate
 	if configured != PLAYFAB_DEFAULT_SINGLETON_NAME and Engine.has_singleton(PLAYFAB_DEFAULT_SINGLETON_NAME):
-		return Engine.get_singleton(PLAYFAB_DEFAULT_SINGLETON_NAME)
+		var fallback: Object = Engine.get_singleton(PLAYFAB_DEFAULT_SINGLETON_NAME)
+		if fallback != null and fallback.is_class(PLAYFAB_SINGLETON_CLASS_NAME):
+			return fallback
 	return null
 
 

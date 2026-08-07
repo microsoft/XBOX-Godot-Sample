@@ -32,6 +32,10 @@ public static class GameInput
     private const string SingletonNameSetting = "game_input/runtime/singleton_name";
     private const string DefaultSingletonName = "GameInput";
 
+    // Native class the singleton must be an instance of. The singleton *name*
+    // is configurable; the class it resolves to is not.
+    private const string SingletonClassName = "GameInput";
+
     /// <summary>
     /// Engine singleton name configured by
     /// <c>game_input/runtime/singleton_name</c>, falling back to
@@ -53,18 +57,32 @@ public static class GameInput
     // Resolves the singleton by configured name, retrying under the default
     // name because the native side falls back to "GameInput" when the
     // configured name is unusable (for example when it collides with an
-    // existing singleton).
+    // existing singleton). Candidates are class-checked: a configured name that
+    // collides with an unrelated engine singleton (say `Input`) still resolves
+    // through Engine.HasSingleton, and returning it would report
+    // IsAvailable = true while handing callers the wrong object.
     private static GodotObject ResolveSingleton()
     {
         string configured = SingletonName;
         if (Engine.HasSingleton(configured))
         {
-            return Engine.GetSingleton(configured);
+            GodotObject candidate = Engine.GetSingleton(configured);
+            if (candidate != null && candidate.IsClass(SingletonClassName))
+            {
+                return candidate;
+            }
         }
 
-        return configured != DefaultSingletonName && Engine.HasSingleton(DefaultSingletonName)
-            ? Engine.GetSingleton(DefaultSingletonName)
-            : null;
+        if (configured != DefaultSingletonName && Engine.HasSingleton(DefaultSingletonName))
+        {
+            GodotObject fallback = Engine.GetSingleton(DefaultSingletonName);
+            if (fallback != null && fallback.IsClass(SingletonClassName))
+            {
+                return fallback;
+            }
+        }
+
+        return null;
     }
 
     internal static GodotObject Singleton

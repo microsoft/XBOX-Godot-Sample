@@ -20,6 +20,10 @@ const SETTING_INITIALIZE_ON_STARTUP := "gdk/runtime/initialize_on_startup"
 const SETTING_AUTO_ADD_PRIMARY_USER := "gdk/runtime/auto_add_primary_user"
 const SETTING_SINGLETON_NAME := "gdk/runtime/singleton_name"
 const DEFAULT_SINGLETON_NAME := "GDK"
+## Native class the singleton must be an instance of. The singleton *name* is
+## configurable; the class it resolves to is not, so this is what proves a
+## looked-up singleton is actually the GDK runtime.
+const SINGLETON_CLASS_NAME := "GDK"
 
 var _startup_user_in_progress := false
 var _gdk_extension: Variant = null
@@ -44,12 +48,21 @@ static func get_singleton_name() -> String:
 ## Resolves the registered singleton by configured name, retrying under the
 ## default name because the C++ side falls back to `"GDK"` when the configured
 ## name is unusable (for example when it collides with an existing singleton).
+##
+## Each candidate is class-checked: a configured name that collides with an
+## unrelated engine singleton (say `Input`) still resolves through
+## `Engine.has_singleton()`, and returning that object would silently hand
+## callers the wrong runtime.
 static func find_singleton() -> Object:
 	var configured := get_singleton_name()
 	if Engine.has_singleton(configured):
-		return Engine.get_singleton(configured)
+		var candidate: Object = Engine.get_singleton(configured)
+		if candidate != null and candidate.is_class(SINGLETON_CLASS_NAME):
+			return candidate
 	if configured != DEFAULT_SINGLETON_NAME and Engine.has_singleton(DEFAULT_SINGLETON_NAME):
-		return Engine.get_singleton(DEFAULT_SINGLETON_NAME)
+		var fallback: Object = Engine.get_singleton(DEFAULT_SINGLETON_NAME)
+		if fallback != null and fallback.is_class(SINGLETON_CLASS_NAME):
+			return fallback
 	return null
 
 

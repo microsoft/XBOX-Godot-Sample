@@ -79,7 +79,9 @@ func _initialize() -> void:
 
 func _remove_override() -> void:
 	if FileAccess.file_exists(OVERRIDE_PATH):
-		DirAccess.remove_absolute(OVERRIDE_PATH)
+		# Globalized: DirAccess.remove_absolute() is documented against filesystem
+		# paths, so don't rely on res:// being resolved for us here.
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(OVERRIDE_PATH))
 
 
 func _find_probe_line(output: Array) -> String:

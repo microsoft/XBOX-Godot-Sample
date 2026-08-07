@@ -99,9 +99,11 @@ facade type **wraps**, never copies: it holds the underlying `GodotObject` and e
 Each facade also owns singleton *resolution*. Because the engine singleton name is a
 Project Setting (`gdk/runtime/singleton_name`, `playfab/runtime/singleton_name`,
 `game_input/runtime/singleton_name`), `Gdk`, `PlayFab`, and `GameInput` each expose a
-static `SingletonName` that reads the setting and fall back to the default name when
-the configured one was rejected natively. Facade code must never call
-`Engine.GetSingleton("GDK")` with a hardcoded literal.
+static `SingletonName` that reads the setting, class-check the resolved object so a
+configured name colliding with an unrelated engine singleton is not mistaken for the
+runtime, and fall back to the default name when the configured one was rejected
+natively. Facade code must never call `Engine.GetSingleton("GDK")` with a hardcoded
+literal.
 
 ### Async bridge (the central design problem for `gdk` + `playfab`)
 

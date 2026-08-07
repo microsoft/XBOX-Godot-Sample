@@ -93,7 +93,10 @@ gi.poll()
 
 The bundled `GameInputBootstrap` autoload, the C# `GameInput` facade, and the
 shared GUT test base all resolve the singleton this way, so they keep working
-across a rename with no further changes.
+across a rename with no further changes. They also verify the resolved object is
+really a `GameInput` instance, so a configured name that happens to match an
+unrelated engine singleton (`Input`, say) falls back to the real runtime instead
+of silently binding to the wrong object.
 
 If you want full control instead, leave `initialize_on_startup` off and call
 the lifecycle yourself; `GameInputMapper` nodes also call `poll()` defensively

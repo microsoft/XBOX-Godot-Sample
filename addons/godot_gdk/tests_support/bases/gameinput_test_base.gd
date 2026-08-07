@@ -16,6 +16,9 @@ const FLOAT_EPSILON := 0.0001
 
 const GAMEINPUT_SINGLETON_NAME_SETTING := "game_input/runtime/singleton_name"
 const GAMEINPUT_DEFAULT_SINGLETON_NAME := "GameInput"
+# Native class the singleton must be an instance of. The singleton *name* is
+# configurable; the class it resolves to is not.
+const GAMEINPUT_SINGLETON_CLASS_NAME := "GameInput"
 
 
 # ── Singleton helpers ────────────────────────────────────────────────────
@@ -35,13 +38,29 @@ func gameinput_singleton_name() -> String:
 
 # Resolves the singleton by configured name, retrying under the default name
 # because the C++ side falls back to "GameInput" when the configured name is
-# unusable.
+# unusable. Candidates are class-checked so a configured name that collides
+# with an unrelated engine singleton (say `Input`) is not mistaken for the
+# runtime.
 func get_gameinput():
 	var configured := gameinput_singleton_name()
 	if Engine.has_singleton(configured):
-		return Engine.get_singleton(configured)
+		var candidate: Object = Engine.get_singleton(configured)
+		if candidate != null and candidate.is_class(GAMEINPUT_SINGLETON_CLASS_NAME):
+			return candidate
 	if configured != GAMEINPUT_DEFAULT_SINGLETON_NAME and Engine.has_singleton(GAMEINPUT_DEFAULT_SINGLETON_NAME):
-		return Engine.get_singleton(GAMEINPUT_DEFAULT_SINGLETON_NAME)
+		var fallback: Object = Engine.get_singleton(GAMEINPUT_DEFAULT_SINGLETON_NAME)
+		if fallback != null and fallback.is_class(GAMEINPUT_SINGLETON_CLASS_NAME):
+			return fallback
+	return null
+
+
+## Returns a project setting's registered default (its revert value) rather than
+## its current value, so registration contracts can be asserted even when a test
+## or a crashed earlier run left the live value changed. Mirrors the helper on
+## `gdk_test_base.gd`, which this base deliberately does not extend.
+func get_setting_default(setting_name: String):
+	if ProjectSettings.property_can_revert(setting_name):
+		return ProjectSettings.property_get_revert(setting_name)
 	return null
 
 

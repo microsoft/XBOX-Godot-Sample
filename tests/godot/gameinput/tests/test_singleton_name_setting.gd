@@ -27,7 +27,7 @@ func after_each() -> void:
 func test_setting_registered_with_default() -> void:
 	assert_true(ProjectSettings.has_setting(SETTING_SINGLETON_NAME),
 			"game_input/runtime/singleton_name project setting registered")
-	assert_eq(String(ProjectSettings.get_setting(SETTING_SINGLETON_NAME, "")), DEFAULT_SINGLETON_NAME,
+	assert_eq(String(get_setting_default(SETTING_SINGLETON_NAME)), DEFAULT_SINGLETON_NAME,
 			"game_input/runtime/singleton_name defaults to 'GameInput'")
 	assert_eq(typeof(ProjectSettings.get_setting(SETTING_SINGLETON_NAME, "")), TYPE_STRING,
 			"game_input/runtime/singleton_name is a String setting")
@@ -58,6 +58,23 @@ func test_resolver_falls_back_to_default_singleton_when_rename_rejected() -> voi
 	# so the lookup retries under the default name.
 	ProjectSettings.set_setting(SETTING_SINGLETON_NAME, "NeverRegisteredName")
 	assert_not_null(get_gameinput(), "get_gameinput() falls back to the default singleton registration")
+
+
+func test_resolver_rejects_singleton_of_a_different_class() -> void:
+	# `Input` is a valid identifier AND an already-registered engine singleton,
+	# so the native side rejects it and keeps the default registration. The
+	# GDScript resolver must not hand back the colliding `Input` singleton just
+	# because `Engine.has_singleton()` succeeds for that name.
+	ProjectSettings.set_setting(SETTING_SINGLETON_NAME, "Input")
+	assert_eq(gameinput_singleton_name(), "Input", "the colliding name is still what the setting resolves to")
+
+	var resolved = get_gameinput()
+	assert_not_null(resolved, "resolver still returns a singleton under a colliding name")
+	assert_ne(resolved, Engine.get_singleton("Input"),
+			"resolver does not return the colliding 'Input' singleton")
+	if resolved != null:
+		assert_true(resolved.is_class(DEFAULT_SINGLETON_NAME),
+				"resolver falls back to the real GameInput singleton")
 
 
 func test_bootstrap_resolver_agrees_with_test_base() -> void:

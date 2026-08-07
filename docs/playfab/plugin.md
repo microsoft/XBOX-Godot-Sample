@@ -79,7 +79,7 @@ var playfab: Object = Engine.get_singleton(singleton_name)
 var result = playfab.initialize()
 ```
 
-The bundled `PlayFabBootstrap` autoload, the C# `PlayFab` facade, and the shared GUT test base all resolve the singleton this way, so they keep working across a rename with no further changes.
+The bundled `PlayFabBootstrap` autoload, the C# `PlayFab` facade, and the shared GUT test base all resolve the singleton this way, so they keep working across a rename with no further changes. They also verify the resolved object is really a `PlayFab` instance, so a configured name that happens to match an unrelated engine singleton (`Input`, say) falls back to the real runtime instead of silently binding to the wrong object.
 
 `PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled when returning to a title screen or changing test fixtures: shutdown tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached users, then a later initialize recreates them. The underlying Microsoft GDK `XGameRuntimeInitialize` reference is process-lifetime state, so the first successful runtime initialization acquires it and extension teardown releases it once. This mirrors `godot_gdk` and lets both addons coexist safely; each addon owns exactly one matching Microsoft GDK runtime reference.
 

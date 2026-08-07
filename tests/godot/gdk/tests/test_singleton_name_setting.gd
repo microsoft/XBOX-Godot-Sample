@@ -60,6 +60,23 @@ func test_resolver_falls_back_to_default_singleton_when_rename_rejected() -> voi
 	assert_not_null(get_gdk(), "get_gdk() falls back to the default singleton registration")
 
 
+func test_resolver_rejects_singleton_of_a_different_class() -> void:
+	# `Input` is a valid identifier AND an already-registered engine singleton,
+	# so the native side rejects it and keeps the default registration. The
+	# GDScript resolver must not hand back the colliding `Input` singleton just
+	# because `Engine.has_singleton()` succeeds for that name.
+	ProjectSettings.set_setting(SETTING_SINGLETON_NAME, "Input")
+	assert_eq(gdk_singleton_name(), "Input", "the colliding name is still what the setting resolves to")
+
+	var resolved = get_gdk()
+	assert_not_null(resolved, "resolver still returns a singleton under a colliding name")
+	assert_ne(resolved, Engine.get_singleton("Input"),
+			"resolver does not return the colliding 'Input' singleton")
+	if resolved != null:
+		assert_true(resolved.is_class(DEFAULT_SINGLETON_NAME),
+				"resolver falls back to the real GDK singleton")
+
+
 func test_bootstrap_resolver_agrees_with_test_base() -> void:
 	var bootstrap_script: GDScript = load(BOOTSTRAP_SCRIPT_PATH)
 	assert_not_null(bootstrap_script, "gdk_bootstrap.gd loads")

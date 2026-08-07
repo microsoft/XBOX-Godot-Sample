@@ -77,7 +77,10 @@ var result = gdk.initialize()
 
 The bundled `GDKBootstrap` autoload, the C# `Gdk` facade, and the shared GUT
 test base all resolve the singleton this way, so they keep working across a
-rename with no further changes.
+rename with no further changes. They also verify the resolved object is really
+a `GDK` instance, so a configured name that happens to match an unrelated
+engine singleton (`Input`, say) falls back to the real runtime instead of
+silently binding to the wrong object.
 
 ### Editor-side scripts
 
