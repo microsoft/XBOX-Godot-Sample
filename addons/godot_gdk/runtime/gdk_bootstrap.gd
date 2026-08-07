@@ -3,6 +3,8 @@ extends Node
 ##
 ## Installed by `GodotGDK` when the editor plugin is enabled. Reads Project
 ## Settings and:
+##  * Resolves the Engine singleton name from `gdk/runtime/singleton_name`
+##    (default `"GDK"`).
 ##  * Calls `GDK.initialize()` when `gdk/runtime/initialize_on_startup` is true.
 ##  * Starts `GDK.users.add_default_user_async()` when
 ##    `gdk/runtime/auto_add_primary_user` is true.
@@ -16,6 +18,12 @@ const TEST_SCRIPT_PATH := "res://tests/run_tests.gd"
 const GUT_COMMAND_SCRIPT_PATH := "res://addons/gut/gut_cmdln.gd"
 const SETTING_INITIALIZE_ON_STARTUP := "gdk/runtime/initialize_on_startup"
 const SETTING_AUTO_ADD_PRIMARY_USER := "gdk/runtime/auto_add_primary_user"
+const SETTING_SINGLETON_NAME := "gdk/runtime/singleton_name"
+const DEFAULT_SINGLETON_NAME := "GDK"
+## Native class the singleton must be an instance of. The singleton *name* is
+## configurable; the class it resolves to is not, so this is what proves a
+## looked-up singleton is actually the GDK runtime.
+const SINGLETON_CLASS_NAME := "GDK"
 
 var _startup_user_in_progress := false
 var _gdk_extension: Variant = null
@@ -25,18 +33,49 @@ var _last_default_user_result: Variant = null
 var _default_user_attempted := false
 
 
+## Returns the Engine singleton name configured by `gdk/runtime/singleton_name`,
+## falling back to `"GDK"` when the setting is unset or not a valid identifier.
+## Mirrors the resolution in the addon's `register_types.cpp` so renaming the
+## singleton keeps the bootstrap, tooling, and tests wired up.
+static func get_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(SETTING_SINGLETON_NAME, DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return DEFAULT_SINGLETON_NAME
+	return configured
+
+
+## Resolves the registered singleton by configured name, retrying under the
+## default name because the C++ side falls back to `"GDK"` when the configured
+## name is unusable (for example when it collides with an existing singleton).
+##
+## Each candidate is class-checked: a configured name that collides with an
+## unrelated engine singleton (say `Input`) still resolves through
+## `Engine.has_singleton()`, and returning that object would silently hand
+## callers the wrong runtime.
+static func find_singleton() -> Object:
+	var configured := get_singleton_name()
+	if Engine.has_singleton(configured):
+		var candidate: Object = Engine.get_singleton(configured)
+		if candidate != null and candidate.is_class(SINGLETON_CLASS_NAME):
+			return candidate
+	if configured != DEFAULT_SINGLETON_NAME and Engine.has_singleton(DEFAULT_SINGLETON_NAME):
+		var fallback: Object = Engine.get_singleton(DEFAULT_SINGLETON_NAME)
+		if fallback != null and fallback.is_class(SINGLETON_CLASS_NAME):
+			return fallback
+	return null
+
+
 func get_gdk() -> Object:
-	if Engine.has_singleton("GDK"):
-		return Engine.get_singleton("GDK")
+	var gdk: Object = find_singleton()
+	if gdk != null:
+		return gdk
 
 	if not _gdk_load_attempted and _gdk_extension == null and FileAccess.file_exists(GDK_EXTENSION_PATH):
 		_gdk_load_attempted = true
 		_gdk_extension = load(GDK_EXTENSION_PATH)
 
-	if Engine.has_singleton("GDK"):
-		return Engine.get_singleton("GDK")
-
-	return null
+	return find_singleton()
 
 
 ## Returns the GDKResult from the most recent bootstrap-driven `GDK.initialize()`
@@ -68,7 +107,8 @@ func _ready() -> void:
 
 	var gdk: Object = get_gdk()
 	if gdk == null:
-		push_warning("[GDK] Bootstrap: 'GDK' singleton not registered. Is the godot_gdk GDExtension built and loaded?")
+		push_warning("[GDK] Bootstrap: '%s' singleton not registered. Is the godot_gdk GDExtension built and loaded?"
+				% get_singleton_name())
 		return
 
 	_bind_gdk_signals(gdk)

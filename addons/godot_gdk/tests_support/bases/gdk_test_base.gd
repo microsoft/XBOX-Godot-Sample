@@ -18,22 +18,54 @@ const FLOAT_EPSILON := 0.0001
 
 const GDK_EXTENSION_PATH := "res://addons/godot_gdk/godot_gdk.gdextension"
 const EMBED_DISPATCH_SETTING := "gdk/runtime/embed_dispatch"
+const GDK_SINGLETON_NAME_SETTING := "gdk/runtime/singleton_name"
+const GDK_DEFAULT_SINGLETON_NAME := "GDK"
+# Native class the singleton must be an instance of. The singleton *name* is
+# configurable; the class it resolves to is not.
+const GDK_SINGLETON_CLASS_NAME := "GDK"
 
 var _gdk_extension: Resource = null
 
 
 # ── Singleton + runtime helpers ──────────────────────────────────────────
 
+## Returns the Engine singleton name configured by `gdk/runtime/singleton_name`,
+## falling back to `"GDK"`. Kept in sync with the resolution in the addon's
+## `register_types.cpp` and `gdk_bootstrap.gd`.
+func gdk_singleton_name() -> String:
+	var configured := str(
+			ProjectSettings.get_setting(GDK_SINGLETON_NAME_SETTING, GDK_DEFAULT_SINGLETON_NAME)).strip_edges()
+	if configured.is_empty() or not configured.is_valid_ascii_identifier():
+		return GDK_DEFAULT_SINGLETON_NAME
+	return configured
+
+
+# Resolves the singleton by configured name, retrying under the default name
+# because the C++ side falls back to "GDK" when the configured name is unusable.
+# Candidates are class-checked so a configured name that collides with an
+# unrelated engine singleton (say `Input`) is not mistaken for the runtime.
+func _find_gdk_singleton() -> Object:
+	var configured := gdk_singleton_name()
+	if Engine.has_singleton(configured):
+		var candidate: Object = Engine.get_singleton(configured)
+		if candidate != null and candidate.is_class(GDK_SINGLETON_CLASS_NAME):
+			return candidate
+	if configured != GDK_DEFAULT_SINGLETON_NAME and Engine.has_singleton(GDK_DEFAULT_SINGLETON_NAME):
+		var fallback: Object = Engine.get_singleton(GDK_DEFAULT_SINGLETON_NAME)
+		if fallback != null and fallback.is_class(GDK_SINGLETON_CLASS_NAME):
+			return fallback
+	return null
+
+
 func get_gdk():
-	if Engine.has_singleton("GDK"):
-		return Engine.get_singleton("GDK")
+	var gdk: Object = _find_gdk_singleton()
+	if gdk != null:
+		return gdk
 
 	if _gdk_extension == null and FileAccess.file_exists(GDK_EXTENSION_PATH):
 		_gdk_extension = load(GDK_EXTENSION_PATH)
 
-	if Engine.has_singleton("GDK"):
-		return Engine.get_singleton("GDK")
-	return null
+	return _find_gdk_singleton()
 
 
 func reset_runtime() -> void:

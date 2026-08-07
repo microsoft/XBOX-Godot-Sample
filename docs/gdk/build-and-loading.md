@@ -50,6 +50,38 @@ startup automation. It reads `gdk/runtime/initialize_on_startup` and
 `gdk/runtime/auto_add_primary_user` from Project Settings so different samples
 can share one script while still choosing automatic or manual startup.
 
+### Renaming the singleton
+
+`gdk/runtime/singleton_name` (default `GDK`) controls the name the extension
+registers its Engine singleton under, for titles that need to avoid a collision
+with an existing global or prefer a project-specific name.
+
+The extension reads the setting **once, at load time**, before any project
+script runs — so it must already be in `project.godot` (or an `override.cfg`)
+when Godot starts. Changing it at runtime has no effect until the next launch.
+
+A configured name is rejected, with a warning, when it is blank, is not a valid
+ASCII identifier, or collides with an already-registered singleton. In those
+cases the extension stays registered as `GDK` so the addon never becomes
+unreachable.
+
+Once renamed, the `GDK` global no longer resolves in GDScript. Look the
+singleton up by name instead:
+
+```gdscript
+var singleton_name: String = ProjectSettings.get_setting(
+        "gdk/runtime/singleton_name", "GDK")
+var gdk: Object = Engine.get_singleton(singleton_name)
+var result = gdk.initialize()
+```
+
+The bundled `GDKBootstrap` autoload, the C# `Gdk` facade, and the shared GUT
+test base all resolve the singleton this way, so they keep working across a
+rename with no further changes. They also verify the resolved object is really
+a `GDK` instance, so a configured name that happens to match an unrelated
+engine singleton (`Input`, say) falls back to the real runtime instead of
+silently binding to the wrong object.
+
 ### Editor-side scripts
 
 - `editor\gdk_editor_plugin.gd`

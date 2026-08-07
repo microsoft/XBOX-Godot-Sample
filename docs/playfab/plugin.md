@@ -57,9 +57,29 @@ The addon registers these Project Settings. Only the first two are read by `Play
 | `playfab/runtime/endpoint` | `""` | `PlayFabRuntime::initialize()` | Optional; leave blank to derive `https://<titleid>.playfabapi.com`. |
 | `playfab/runtime/initialize_on_startup` | `false` | `PlayFabBootstrap` autoload | When `true`, the autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code. |
 | `playfab/runtime/embed_dispatch` | `true` | extension frame callback | Auto-pumps `PlayFab.dispatch()` each process frame while initialized; disable only when you pump manually. |
+| `playfab/runtime/singleton_name` | `"PlayFab"` | extension registration | Name the extension registers its Engine singleton under. See [Renaming the singleton](#renaming-the-singleton). |
 | `playfab/party/local_udp_socket_bind_port` | `-1` | `PlayFab.party` | Valid range `-1..65535`. Leave `-1` for the SDK default; use `0` in same-host dev/CI to request an ephemeral UDP port and avoid Party bind collisions; use `1..65535` to pin a port. |
 
 The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
+
+### Renaming the singleton
+
+`playfab/runtime/singleton_name` controls the name the extension registers its Engine singleton under, for titles that need to avoid a collision with an existing global or prefer a project-specific name.
+
+The extension reads the setting **once, at load time**, before any project script runs — so it must already be in `project.godot` (or an `override.cfg`) when Godot starts. Changing it at runtime has no effect until the next launch.
+
+A configured name is rejected, with a warning, when it is blank, is not a valid ASCII identifier, or collides with an already-registered singleton. In those cases the extension stays registered as `PlayFab` so the addon never becomes unreachable.
+
+Once renamed, the `PlayFab` global no longer resolves in GDScript. Look the singleton up by name instead:
+
+```gdscript
+var singleton_name: String = ProjectSettings.get_setting(
+        "playfab/runtime/singleton_name", "PlayFab")
+var playfab: Object = Engine.get_singleton(singleton_name)
+var result = playfab.initialize()
+```
+
+The bundled `PlayFabBootstrap` autoload, the C# `PlayFab` facade, and the shared GUT test base all resolve the singleton this way, so they keep working across a rename with no further changes. They also verify the resolved object is really a `PlayFab` instance, so a configured name that happens to match an unrelated engine singleton (`Input`, say) falls back to the real runtime instead of silently binding to the wrong object.
 
 `PlayFab.initialize()` / `PlayFab.shutdown()` may be cycled when returning to a title screen or changing test fixtures: shutdown tears down PlayFab Core, Services, Game Save Files, the shared task queue, and cached users, then a later initialize recreates them. The underlying Microsoft GDK `XGameRuntimeInitialize` reference is process-lifetime state, so the first successful runtime initialization acquires it and extension teardown releases it once. This mirrors `godot_gdk` and lets both addons coexist safely; each addon owns exactly one matching Microsoft GDK runtime reference.
 

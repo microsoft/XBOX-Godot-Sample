@@ -27,7 +27,63 @@ public static class GameInput
     }
 
     /// <summary>True when the <c>godot_gameinput</c> GDExtension is loaded.</summary>
-    public static bool IsAvailable => Engine.HasSingleton("GameInput");
+    public static bool IsAvailable => ResolveSingleton() != null;
+
+    private const string SingletonNameSetting = "game_input/runtime/singleton_name";
+    private const string DefaultSingletonName = "GameInput";
+
+    // Native class the singleton must be an instance of. The singleton *name*
+    // is configurable; the class it resolves to is not.
+    private const string SingletonClassName = "GameInput";
+
+    /// <summary>
+    /// Engine singleton name configured by
+    /// <c>game_input/runtime/singleton_name</c>, falling back to
+    /// <c>GameInput</c>. Mirrors the resolution in the addon's
+    /// <c>register_types.cpp</c>.
+    /// </summary>
+    public static string SingletonName
+    {
+        get
+        {
+            string configured = ProjectSettings
+                .GetSetting(SingletonNameSetting, DefaultSingletonName)
+                .AsString()
+                .Trim();
+            return string.IsNullOrEmpty(configured) ? DefaultSingletonName : configured;
+        }
+    }
+
+    // Resolves the singleton by configured name, retrying under the default
+    // name because the native side falls back to "GameInput" when the
+    // configured name is unusable (for example when it collides with an
+    // existing singleton). Candidates are class-checked: a configured name that
+    // collides with an unrelated engine singleton (say `Input`) still resolves
+    // through Engine.HasSingleton, and returning it would report
+    // IsAvailable = true while handing callers the wrong object.
+    private static GodotObject ResolveSingleton()
+    {
+        string configured = SingletonName;
+        if (Engine.HasSingleton(configured))
+        {
+            GodotObject candidate = Engine.GetSingleton(configured);
+            if (candidate != null && candidate.IsClass(SingletonClassName))
+            {
+                return candidate;
+            }
+        }
+
+        if (configured != DefaultSingletonName && Engine.HasSingleton(DefaultSingletonName))
+        {
+            GodotObject fallback = Engine.GetSingleton(DefaultSingletonName);
+            if (fallback != null && fallback.IsClass(SingletonClassName))
+            {
+                return fallback;
+            }
+        }
+
+        return null;
+    }
 
     internal static GodotObject Singleton
     {
@@ -42,7 +98,7 @@ public static class GameInput
             // extension/editor reload). Clear the connected flag so the new
             // singleton's device signals get reconnected below.
             _signalsConnected = false;
-            _singleton = Engine.HasSingleton("GameInput") ? Engine.GetSingleton("GameInput") : null;
+            _singleton = ResolveSingleton();
             EnsureSignalsConnected();
             return _singleton;
         }
