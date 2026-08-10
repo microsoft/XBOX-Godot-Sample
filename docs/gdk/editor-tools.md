@@ -117,6 +117,49 @@ launch with *"GDExtension dynamic library not found"* are now hard errors:
   (`cmake --build build --preset release`) instead of shipping a DLL-less
   package. In the export dialog, **Export With Debug** unchecked selects release.
 
+### Export-plugin shared objects / C# assemblies (issue #144)
+
+A third silent failure mode was that an `XBOX on PC` export produced a package
+containing **no C# assemblies at all** — the `data_<assembly>_windows_x86_64`
+folder that a Godot .NET build normally places next to the `.exe` was simply
+absent, so a C# project failed at launch.
+
+Godot hands an export platform two separate things: the resource `.pck`, and a
+list of **shared objects** that export plugins registered via
+`add_shared_object()` during `_export_begin`. The C# export plugin publishes the
+managed assemblies to a temp directory and registers **every published file** as
+a shared object targeted at `data_<assembly>_windows_x86_64/`. That list is the
+*only* channel through which those assemblies reach a package.
+
+The platform used to build the `.pck` with `EditorExportPlatform.export_pack()`,
+which is the wrong primitive for a custom platform:
+
+- it calls `save_pack()` with a **null shared-object sink**, discarding every
+  registered shared object, and
+- it opens a **second** `ExportNotifier` inside the one
+  `EditorExportPlatformExtension` already opens around `_export_project()`, so
+  each export plugin's `_export_begin` / `_export_end` runs **twice** (the C#
+  publish ran twice) and the inner `_export_end` deleted the C# publish temp
+  directory before the platform could copy anything out of it.
+
+`_export_pck()` now calls `EditorExportPlatform.save_pack()` — available since
+Godot 4.4 — which returns `{"result": Error, "so_files": Array}`. Each entry is
+`{path, tags, target_folder}`; `_stage_shared_objects()` copies it into the
+staging directory, placing an entry with an empty `target_folder` next to the
+`.exe` and everything else inside that folder, exactly as Godot's built-in
+desktop exporter does. Targets that would escape the staging root are rejected.
+
+Shared objects living directly in `addons/<name>/bin/` are skipped, because
+`_copy_addon_dlls()` already stages those with debug/release filtering and the
+`addons/` layout the `.gdextension` expects; staging them twice would also leave
+an unfiltered duplicate in the package root. Shared objects from anywhere else
+(the C# publish temp dir, a GDExtension that does not use the `bin/` layout) are
+staged by `_stage_shared_objects()`.
+
+Projects that enable **Embed Build Outputs** are unaffected either way: in that
+mode the C# plugin writes the assemblies into the `.pck` via `add_file()`
+instead of registering shared objects.
+
 ### GDK detection lifecycle
 
 The platform locates the Microsoft GDK (install root + `makepkg.exe` /

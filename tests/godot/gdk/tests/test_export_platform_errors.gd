@@ -269,3 +269,90 @@ func test_export_refuses_editor_binary_when_packaging() -> void:
 		"a non-loose (packaged) export refuses to continue without a real template")
 	assert_string_contains(body, "OS.get_executable_path()",
 		"the editor-binary fallback remains reachable for loose dev-register")
+
+
+# ── Export-plugin shared objects / C# assemblies (issue #144) ─────────────
+#
+# `export_pack()` calls `save_pack()` with a null shared-object sink and opens a
+# second ExportNotifier inside the one EditorExportPlatformExtension already
+# opened around `_export_project()`. That ran every export plugin's
+# `_export_begin`/`_export_end` twice AND discarded everything the plugins
+# registered via `add_shared_object()`. Godot ships a C#/.NET project's
+# published assemblies exclusively as shared objects targeted at
+# `data_<assembly>_windows_x86_64/`, so an `XBOX on PC` export produced a
+# package with zero managed DLLs. `save_pack()` returns those entries so the
+# platform can stage them itself.
+
+func test_export_pck_uses_save_pack_to_capture_shared_objects() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_pck")
+	assert_string_contains(body, "save_pack(",
+		"_export_pck() uses save_pack() so so_files come back to the platform")
+	assert_false(body.contains("export_pack("),
+		"export_pack() drops add_shared_object() entries and double-fires " +
+		"every export plugin's _export_begin/_export_end — issue #144")
+
+
+func test_export_project_stages_shared_objects_before_addon_dlls() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_project")
+	assert_string_contains(body, "_stage_shared_objects(",
+		"the export stages the shared objects save_pack() reported")
+	assert_string_contains(body, "so_files",
+		"the export reads save_pack()'s so_files list")
+	var so_at := body.find("_stage_shared_objects(")
+	var dll_at := body.find("_copy_addon_dlls(")
+	assert_true(so_at != -1 and dll_at != -1 and so_at < dll_at,
+		"shared objects are staged before _copy_addon_dlls() so its " +
+		"already-present guard keeps addon DLLs authoritative")
+
+
+func test_shared_object_without_target_lands_next_to_the_exe() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "")
+	assert_eq(dest, "C:/out/_gdk_staging/Game.dll",
+		"an empty target folder means the package root")
+
+
+func test_shared_object_target_folder_is_preserved() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "data_Game_windows_x86_64")
+	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/Game.dll",
+		"the C# data_<assembly>_windows_x86_64 target folder is honoured")
+
+
+func test_shared_object_nested_target_folder_is_preserved() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/sub/dep.dll",
+		"data_Game_windows_x86_64/sub")
+	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/sub/dep.dll",
+		"nested publish subdirectories keep their relative layout")
+
+
+func test_shared_object_target_cannot_escape_the_staging_dir() -> void:
+	for target: String in ["..", "../../elsewhere", "/abs/path", "C:/abs", "res://x"]:
+		var dest: String = ExportPlatform._shared_object_destination(
+			"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", target)
+		assert_eq(dest, "",
+			"target %s must be rejected instead of writing outside the package" % target)
+
+
+func test_addon_bin_libraries_are_left_to_copy_addon_dlls() -> void:
+	var project := "C:/proj/"
+	assert_true(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll", project),
+		"addons/<name>/bin/ DLLs are staged by _copy_addon_dlls with config filtering")
+
+
+func test_non_addon_bin_shared_objects_are_staged() -> void:
+	var project := "C:/proj/"
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/tmp/godot-publish-dotnet/1234-ExportRelease-win-x64/Game.dll", project),
+		"C# publish output is outside the project and must be staged")
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/other/lib/native.dll", project),
+		"a GDExtension outside addons/<name>/bin/ still needs staging")
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/godot_gdk/bin/sub/nested.dll", project),
+		"only files directly in addons/<name>/bin/ are owned by _copy_addon_dlls")
+

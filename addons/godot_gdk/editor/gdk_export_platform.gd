@@ -209,12 +209,20 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	print("[GDK Export] Template copied: ", exe_path)
 
 	# Export PCK
-	var pck_err: int = _export_pck(p_preset, p_debug, pck_path, p_flags)
+	var pck_result: Dictionary = _export_pck(p_preset, p_debug, pck_path, p_flags)
+	var pck_err: int = int(pck_result.get("result", FAILED))
 	if pck_err != OK:
 		push_error("GDK Export: PCK export failed")
 		return pck_err
 
 	print("[GDK Export] PCK exported: ", pck_path)
+
+	# ── Step 2b: Stage export-plugin shared objects (C#/.NET assemblies, …) ──
+	# These never live inside the .pck; they are handed back by save_pack() and
+	# must be copied next to the .exe (or into their declared target folder).
+	var so_err: int = _stage_shared_objects(staging_dir, pck_result.get("so_files", []))
+	if so_err != OK:
+		return so_err
 
 	# ── Step 3: Copy addon GDExtension main DLLs + support runtime DLLs ──
 	# - Main DLLs (godot_*.windows.<config>.x86_64.dll) go to staging/addons/<name>/bin/
@@ -794,8 +802,150 @@ static func _missing_main_dll_message(p_config: String) -> String:
 		"      cmake --build build --preset %s\n" % build_preset +
 		"  then re-export. (In the Godot export dialog, \"Export With Debug\" unchecked selects release.)")
 
-func _export_pck(p_preset: EditorExportPreset, p_debug: bool, p_path: String, p_flags: int) -> int:
-	return export_pack(p_preset, p_debug, p_path, p_flags)
+## Writes the project PCK and returns [method EditorExportPlatform.save_pack]'s
+## raw dictionary: [code]{"result": Error, "so_files": Array}[/code].
+##
+## Using [code]save_pack()[/code] instead of [code]export_pack()[/code] is
+## deliberate and load-bearing:
+##
+## - [code]export_pack()[/code] opens a *second* [code]ExportNotifier[/code]
+##   inside the one [code]EditorExportPlatformExtension[/code] already opened
+##   around [code]_export_project()[/code], so every export plugin's
+##   [code]_export_begin[/code] / [code]_export_end[/code] runs twice (the C#
+##   plugin publishes the whole assembly set twice), and its
+##   [code]_export_end[/code] deletes the C# publish temp directory before this
+##   platform ever gets a chance to stage it.
+## - [code]export_pack()[/code] calls [code]save_pack()[/code] with a null
+##   shared-object sink, so every file an export plugin registered via
+##   [code]add_shared_object()[/code] is silently discarded.
+##
+## Godot delivers a C#/.NET project's published assemblies *exclusively* as
+## shared objects targeted at [code]data_<assembly>_windows_x86_64/[/code], so
+## the discarded set was the entire managed runtime: the packaged game shipped
+## without a single C# DLL (issue #144). [code]save_pack()[/code] hands the
+## list back so [method _stage_shared_objects] can place it.
+func _export_pck(p_preset: EditorExportPreset, p_debug: bool, p_path: String, _p_flags: int) -> Dictionary:
+	return save_pack(p_preset, p_debug, p_path)
+
+## Copies the shared objects that export plugins registered during
+## [code]_export_begin[/code] into [param staging_dir], mirroring what Godot's
+## built-in desktop exporter does with [code]save_pack()[/code]'s
+## [code]so_files[/code]: an entry with an empty [code]target_folder[/code]
+## lands next to the .exe, any other entry lands in that subfolder.
+##
+## This is the only channel through which a C#/.NET project's assemblies reach
+## the package (issue #144).
+##
+## Entries directly under [code]addons/<name>/bin/[/code] are skipped —
+## [method _copy_addon_dlls] already stages those with debug/release filtering
+## and the [code]addons/[/code] layout the .gdextension expects, so copying
+## them here would drop an unfiltered duplicate in the package root.
+func _stage_shared_objects(staging_dir: String, so_files: Variant) -> int:
+	if not (so_files is Array):
+		return OK
+	var project_dir: String = ProjectSettings.globalize_path("res://")
+	var staged: int = 0
+	for entry: Variant in (so_files as Array):
+		if not (entry is Dictionary):
+			continue
+		var shared_object: Dictionary = entry
+		var raw_path: String = str(shared_object.get("path", ""))
+		if raw_path.is_empty():
+			continue
+		var src: String = ProjectSettings.globalize_path(raw_path)
+		if _is_addon_bin_library(src, project_dir):
+			continue
+		var dest: String = _shared_object_destination(
+			staging_dir, src, str(shared_object.get("target_folder", "")))
+		if dest.is_empty():
+			push_warning("GDK Export: Skipping shared object with unusable target: %s" % src)
+			continue
+		var dest_dir: String = dest.get_base_dir()
+		var mk_err: int = DirAccess.make_dir_recursive_absolute(dest_dir)
+		if mk_err != OK:
+			push_error("GDK Export: Failed to create %s (err %d)" % [dest_dir, mk_err])
+			return mk_err
+		var copy_err: int = OK
+		if DirAccess.dir_exists_absolute(src):
+			copy_err = _copy_dir_recursive(src, dest)
+		else:
+			copy_err = DirAccess.copy_absolute(src, dest)
+		if copy_err != OK:
+			push_error("GDK Export: Failed to copy shared object %s -> %s (err %d)" % [
+				src, dest, copy_err])
+			return copy_err
+		staged += 1
+	if staged > 0:
+		print("[GDK Export] Staged %d export-plugin shared object(s)" % staged)
+	return OK
+
+# Resolves where a save_pack() shared-object entry must land inside the staging
+# directory. An empty target folder means "next to the .exe". Returns "" for any
+# entry whose target would escape the staging root (absolute, drive-qualified,
+# res://-style, or `..`-relative), so a misbehaving export plugin cannot write
+# outside the package.
+static func _shared_object_destination(staging_dir: String, src_path: String,
+		target_folder: String) -> String:
+	var file_name: String = src_path.replace("\\", "/").simplify_path().get_file()
+	if file_name.is_empty():
+		return ""
+	var target: String = target_folder.replace("\\", "/").strip_edges()
+	var dest_dir: String = staging_dir
+	if not target.is_empty():
+		if target.begins_with("/") or target.contains("://") or _has_windows_drive(target):
+			return ""
+		dest_dir = staging_dir.path_join(target)
+	var dest: String = dest_dir.path_join(file_name).replace("\\", "/").simplify_path()
+	if not _is_path_inside_dir(dest, staging_dir):
+		return ""
+	return dest
+
+# True when `src_path` is a file directly inside `<project>/addons/<name>/bin/`,
+# i.e. the set _copy_addon_dlls() already owns.
+static func _is_addon_bin_library(src_path: String, project_dir: String) -> bool:
+	var src: String = src_path.replace("\\", "/").simplify_path()
+	var root: String = project_dir.replace("\\", "/").simplify_path()
+	if not root.ends_with("/"):
+		root += "/"
+	var addons_root: String = root + "addons/"
+	if not src.to_lower().begins_with(addons_root.to_lower()):
+		return false
+	var parts: PackedStringArray = src.substr(addons_root.length()).split("/")
+	return parts.size() == 3 and parts[1] == "bin"
+
+static func _has_windows_drive(path: String) -> bool:
+	return path.length() >= 2 and path.substr(1, 1) == ":"
+
+static func _is_path_inside_dir(candidate_path: String, root_dir: String) -> bool:
+	var candidate: String = candidate_path.replace("\\", "/").simplify_path().to_lower()
+	var root: String = root_dir.replace("\\", "/").simplify_path().to_lower()
+	if not root.ends_with("/"):
+		root += "/"
+	return candidate.begins_with(root)
+
+static func _copy_dir_recursive(src_dir: String, dest_dir: String) -> int:
+	var mk_err: int = DirAccess.make_dir_recursive_absolute(dest_dir)
+	if mk_err != OK:
+		return mk_err
+	var dir: DirAccess = DirAccess.open(src_dir)
+	if dir == null:
+		return ERR_CANT_OPEN
+	dir.list_dir_begin()
+	var entry: String = dir.get_next()
+	while entry != "":
+		var src: String = src_dir.path_join(entry)
+		var dest: String = dest_dir.path_join(entry)
+		var err: int = OK
+		if dir.current_is_dir():
+			err = _copy_dir_recursive(src, dest)
+		else:
+			err = DirAccess.copy_absolute(src, dest)
+		if err != OK:
+			dir.list_dir_end()
+			return err
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return OK
 
 func _rmdir_recursive(path: String) -> void:
 	var da := DirAccess.open(path)
