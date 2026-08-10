@@ -2,7 +2,7 @@ extends SceneTree
 ## Wave 4 bootstrap mini-runner.
 ##
 ## Asserts: when both `gdk/runtime/initialize_on_startup` and
-## `gdk/runtime/auto_add_primary_user` are `true`, the `GDKBootstrap`
+## `gdk/runtime/auto_add_primary_user` are `true`, the `XboxBootstrap`
 ## autoload kicks off `GDK.users.add_default_user_async()` during `_ready()`
 ## once the runtime is initialized.
 ##
@@ -37,9 +37,9 @@ func _finish() -> void:
 		printerr("BOOTSTRAP_FAIL: %s -- Engine.get_singleton('GDK') returned null" % SCENARIO)
 		quit(3)
 		return
-	var bootstrap = root.get_node_or_null("GDKBootstrap")
+	var bootstrap = root.get_node_or_null("XboxBootstrap")
 	if bootstrap == null:
-		printerr("BOOTSTRAP_FAIL: %s -- GDKBootstrap autoload not registered under root" % SCENARIO)
+		printerr("BOOTSTRAP_FAIL: %s -- XboxBootstrap autoload not registered under root" % SCENARIO)
 		quit(8)
 		return
 

@@ -24,8 +24,8 @@ When it works, the editor Output ends with:
 ## Prerequisites
 
 - [GDK Tutorial 2 — Sign in a user](01-signin.md) is complete and
-  reaches `[GdkAuth] Sign-in complete.`. The snippets below read
-  `GdkAuth.xbox_user`.
+  reaches `[XboxAuth] Sign-in complete.`. The snippets below read
+  `XboxAuth.xbox_user`.
 - Your title is set up in
   [Partner Center](https://partner.microsoft.com/dashboard) with at
   least one declared achievement. See
@@ -51,12 +51,12 @@ When it works, the editor Output ends with:
 
 ## Relevant addon surfaces
 
-- [`GDK.achievements`](../../../addons/godot_gdk/doc_classes/GDKAchievements.xml)
+- [`GDK.achievements`](../../../addons/godot_gdk/doc_classes/XboxAchievements.xml)
   — `query_player_achievements_async`,
   `update_achievement_async`, `get_cached_achievements`,
   signal `achievement_unlocked(user, achievement_id)`,
   `runtime_error` for service-level failures.
-- [`GDKAchievement`](../../../addons/godot_gdk/doc_classes/GDKAchievement.xml)
+- [`XboxAchievement`](../../../addons/godot_gdk/doc_classes/XboxAchievement.xml)
   — the cached snapshot wrapper. Read `id`, `name`,
   `progress_percent`, `is_secret`.
 - One-page primer on the addons' async model:
@@ -74,15 +74,15 @@ extends Node
 const FIRST_SCORE_ID := "1"
 
 func _ready() -> void:
-    if not await GdkAuth.sign_in():
+    if not await XboxAuth.sign_in():
         return
 
     await _print_cached_achievements()
 
 func _print_cached_achievements() -> void:
-    var user: GDKUser = GdkAuth.xbox_user
+    var user: XboxUser = XboxAuth.xbox_user
 
-    var result: GDKResult = await GDK.achievements.query_player_achievements_async(user)
+    var result: XboxResult = await GDK.achievements.query_player_achievements_async(user)
     if not result.ok:
         push_warning("[Ach] query failed: %s" % result.message)
         return
@@ -90,7 +90,7 @@ func _print_cached_achievements() -> void:
     var cache: Array = GDK.achievements.get_cached_achievements(user)
     print("[Ach] %d achievement(s) declared for this title" % cache.size())
     for entry in cache:
-        var ach: GDKAchievement = entry
+        var ach: XboxAchievement = entry
         print("[Ach]   %s (%s) — %d%%" % [ach.id, ach.name, ach.progress_percent])
 ```
 
@@ -111,7 +111,7 @@ not on the 50% intermediate step:
 
 ```gdscript
 func _ready() -> void:
-    if not await GdkAuth.sign_in():
+    if not await XboxAuth.sign_in():
         return
 
     GDK.achievements.achievement_unlocked.connect(_on_achievement_unlocked)
@@ -120,18 +120,18 @@ func _ready() -> void:
     await _push_progress(100)
 
 func _push_progress(percent: int) -> void:
-    var user: GDKUser = GdkAuth.xbox_user
-    var result: GDKResult = await GDK.achievements.update_achievement_async(
+    var user: XboxUser = XboxAuth.xbox_user
+    var result: XboxResult = await GDK.achievements.update_achievement_async(
         user, FIRST_SCORE_ID, percent)
     if result.ok:
         print("[Ach] Updated to %d%% — result ok" % percent)
     else:
         push_warning("[Ach] Update to %d%% failed: %s (%s)" % [percent, result.message, result.code])
 
-func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
+func _on_achievement_unlocked(user: XboxUser, achievement_id: String) -> void:
     var cache: Array = GDK.achievements.get_cached_achievements(user)
     for entry in cache:
-        var ach: GDKAchievement = entry
+        var ach: XboxAchievement = entry
         if ach.id == achievement_id:
             print("[Ach] Unlocked: %s" % ach.name)
             return
@@ -156,7 +156,7 @@ A couple of notes:
 In a real game the score update lives at the gameplay layer, not in
 a demo `_ready`. The bridge from "gameplay progress" to "XBOX
 progress" is small enough that it usually fits in one helper on
-your `GdkAuth` autoload or a peer achievements singleton:
+your `XboxAuth` autoload or a peer achievements singleton:
 
 ```gdscript
 # In a new res://achievements/achievements_service.gd autoload.
@@ -170,7 +170,7 @@ func _ready() -> void:
     GDK.achievements.achievement_unlocked.connect(_on_unlocked)
 
 func report_score(score: int) -> void:
-    var user: GDKUser = GdkAuth.xbox_user
+    var user: XboxUser = XboxAuth.xbox_user
     if user == null:
         return
 
@@ -179,12 +179,12 @@ func report_score(score: int) -> void:
     if _unlocked.get(FIRST_SCORE_ID, false):
         return
 
-    var result: GDKResult = await GDK.achievements.update_achievement_async(
+    var result: XboxResult = await GDK.achievements.update_achievement_async(
         user, FIRST_SCORE_ID, percent)
     if not result.ok:
         push_warning("[Ach] update failed: %s" % result.message)
 
-func _on_unlocked(user: GDKUser, achievement_id: String) -> void:
+func _on_unlocked(user: XboxUser, achievement_id: String) -> void:
     _unlocked[achievement_id] = true
 ```
 
@@ -205,7 +205,7 @@ func _ready() -> void:
     GDK.achievements.achievement_unlocked.connect(_on_unlocked)
     GDK.achievements.runtime_error.connect(_on_achievements_runtime_error)
 
-func _on_achievements_runtime_error(result: GDKResult) -> void:
+func _on_achievements_runtime_error(result: XboxResult) -> void:
     push_warning("[Ach] Achievements subsystem error: %s (0x%08X)" % [result.message, result.hresult])
 ```
 
@@ -248,7 +248,7 @@ The GDK-track reference implementation lives in
 
 - Scene: [`sample/tutorial_gdk/g02_achievement.tscn`](../../../sample/tutorial_gdk/g02_achievement.tscn)
 - Script: [`sample/tutorial_gdk/g02_achievement.gd`](../../../sample/tutorial_gdk/g02_achievement.gd)
-- Reuses the `GdkAuth` autoload from GDK Tutorial 1
+- Reuses the `XboxAuth` autoload from GDK Tutorial 1
   ([`sample/tutorial_gdk/autoload/gdk_auth.gd`](../../../sample/tutorial_gdk/autoload/gdk_auth.gd)).
 
 ## What's next

@@ -1,6 +1,6 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
+using GodotXbox;
 
 public partial class PanelMpa : VBoxContainer
 {
@@ -25,10 +25,10 @@ public partial class PanelMpa : VBoxContainer
         if (_auth != null) _auth.StateChanged -= OnAuthStateChanged;
         if (!_initialized) return;
         GodotPlayFab.PlayFab.Multiplayer.StateChanged -= OnMultiplayerStateChanged;
-        if (Gdk.IsAvailable)
+        if (Xbox.IsAvailable)
         {
-            Gdk.MultiplayerActivity.InviteAccepted -= OnInviteAccepted;
-            Gdk.MultiplayerActivity.PendingInviteReceived -= OnPendingInviteReceived;
+            Xbox.MultiplayerActivity.InviteAccepted -= OnInviteAccepted;
+            Xbox.MultiplayerActivity.PendingInviteReceived -= OnPendingInviteReceived;
         }
         if (_lobbyNode != null)
         {
@@ -43,8 +43,8 @@ public partial class PanelMpa : VBoxContainer
     private async Task InitializeAfterSignInAsync()
     {
         if (_initialized) return; _initialized = true; _refresh.Pressed += async () => await OnRefreshPressed(); _send.Pressed += async () => await OnSendPressed(); _picker.Pressed += async () => await OnPickerPressed(); _inviteDialog.Confirmed += async () => await OnInviteDialogConfirmed(); _inviteDialog.Canceled += () => _lobbyNode.RejectPendingInvite(_dialogInviteId);
-        Gdk.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
-        Gdk.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
+        Xbox.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
+        Xbox.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
         _lobbyNode.InvitePendingConfirmation += OnInvitePendingConfirmation; _lobbyNode.InvitePendingCleared += OnInvitePendingCleared; GodotPlayFab.PlayFab.Multiplayer.StateChanged += OnMultiplayerStateChanged; RefreshState(); await OnRefreshPressed();
     }
     private void RefreshState()

@@ -1,0 +1,443 @@
+#include "xbox_activation.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <utility>
+
+#include <godot_cpp/variant/packed_string_array.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/variant.hpp>
+
+#include "xbox.h"
+#include "xbox_result.h"
+#include "xbox_runtime.h"
+
+namespace godot {
+
+namespace {
+
+String _utf8_or_empty(const char *p_value) {
+    if (p_value == nullptr) {
+        return String();
+    }
+    return String::utf8(p_value);
+}
+
+String _normalize_invite_action(const String &p_action) {
+    if (p_action == "inviteHandleAccept") {
+        return "invite_handle_accept";
+    }
+    if (p_action == "activityHandleJoin") {
+        return "activity_handle_join";
+    }
+    return p_action.to_lower();
+}
+
+String _normalize_invite_key(const String &p_key) {
+    if (p_key == "invitedXuid") {
+        return "invited_xuid";
+    }
+    if (p_key == "senderXuid") {
+        return "sender_xuid";
+    }
+    if (p_key == "joinerXuid") {
+        return "joiner_xuid";
+    }
+    if (p_key == "joineeXuid") {
+        return "joinee_xuid";
+    }
+    return p_key.to_lower();
+}
+
+} // namespace
+
+void XboxActivation::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("accept_pending_invite", "invite_uri"), &XboxActivation::accept_pending_invite);
+
+    ADD_SIGNAL(MethodInfo("protocol_activated", PropertyInfo(Variant::STRING, "uri")));
+    ADD_SIGNAL(MethodInfo("file_activated", PropertyInfo(Variant::STRING, "file")));
+    ADD_SIGNAL(MethodInfo("pending_invite_received", PropertyInfo(Variant::DICTIONARY, "invite")));
+    ADD_SIGNAL(MethodInfo("invite_accepted", PropertyInfo(Variant::DICTIONARY, "invite")));
+    ADD_SIGNAL(MethodInfo("activated", PropertyInfo(Variant::DICTIONARY, "info")));
+
+    BIND_ENUM_CONSTANT(ACTIVATION_TYPE_PROTOCOL);
+    BIND_ENUM_CONSTANT(ACTIVATION_TYPE_FILE);
+    BIND_ENUM_CONSTANT(ACTIVATION_TYPE_PENDING_GAME_INVITE);
+    BIND_ENUM_CONSTANT(ACTIVATION_TYPE_ACCEPTED_GAME_INVITE);
+}
+
+void XboxActivation::set_owner(Xbox *p_owner) {
+    m_owner = p_owner;
+}
+
+Ref<XboxResult> XboxActivation::on_runtime_initialized() {
+    XboxRuntime *runtime = m_owner != nullptr ? m_owner->get_runtime() : nullptr;
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return XboxResult::error_result(
+                E_FAIL,
+                "runtime_not_initialized",
+                "Cannot initialize the activation service before the GDK runtime.");
+    }
+
+    if (m_activation_registered) {
+        m_runtime_ready = true;
+        return XboxResult::ok_result();
+    }
+
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
+    HRESULT hr = XGameActivationRegisterForEvent(
+            runtime->get_task_queue(),
+            this,
+            _activation_callback,
+            &m_activation_token);
+    if (FAILED(hr)) {
+        // Activation registration is an optional inbound-event listener.
+        // On PC GDK with strict GamingServices builds it can return
+        // ERROR_NOT_SUPPORTED (0x80070032) when the title is not running
+        // inside a fully-registered package context (e.g. F5-from-editor
+        // or partially-registered loose builds). Degrade gracefully so the
+        // synchronous accept_pending_invite() path still works and the
+        // entire GDK init does not fail.
+        char hr_buf[16];
+        std::snprintf(hr_buf, sizeof(hr_buf), "0x%08X", static_cast<unsigned int>(hr));
+        UtilityFunctions::push_warning(
+                String("[GDK] XGameActivationRegisterForEvent failed (HRESULT ") +
+                String(hr_buf) +
+                ") — activation inbound events disabled, accept_pending_invite still available.");
+        m_activation_registered = false;
+        m_runtime_ready = true;
+        return XboxResult::ok_result();
+    }
+#else
+    // October 2025 GDK: register the three legacy activation sources that the
+    // unified XGameActivation API later consolidated -- protocol activation plus
+    // pending and accepted game invites. Failure degrades gracefully (inbound
+    // events disabled) so accept_pending_invite() still works.
+    XTaskQueueHandle queue = runtime->get_task_queue();
+    HRESULT hr_protocol = XGameProtocolRegisterForActivation(queue, this, _protocol_callback, &m_protocol_token);
+    HRESULT hr_pending = XGameInviteRegisterForPendingEvent(queue, this, _pending_invite_callback, &m_pending_invite_token);
+    HRESULT hr_accepted = XGameInviteRegisterForEvent(queue, this, _accepted_invite_callback, &m_accepted_invite_token);
+    if (FAILED(hr_protocol) || FAILED(hr_pending) || FAILED(hr_accepted)) {
+        // Roll back whichever registrations succeeded so shutdown() stays simple
+        // (it only unregisters when m_activation_registered is true).
+        if (SUCCEEDED(hr_protocol)) {
+            XGameProtocolUnregisterForActivation(m_protocol_token, true);
+        }
+        if (SUCCEEDED(hr_pending)) {
+            XGameInviteUnregisterForPendingEvent(m_pending_invite_token, true);
+        }
+        if (SUCCEEDED(hr_accepted)) {
+            XGameInviteUnregisterForEvent(m_accepted_invite_token, true);
+        }
+        m_protocol_token = {};
+        m_pending_invite_token = {};
+        m_accepted_invite_token = {};
+
+        const HRESULT hr = FAILED(hr_protocol) ? hr_protocol : (FAILED(hr_pending) ? hr_pending : hr_accepted);
+        char hr_buf[16];
+        std::snprintf(hr_buf, sizeof(hr_buf), "0x%08X", static_cast<unsigned int>(hr));
+        UtilityFunctions::push_warning(
+                String("[GDK] XGameProtocol/XGameInvite activation registration failed (HRESULT ") +
+                String(hr_buf) +
+                ") — activation inbound events disabled, accept_pending_invite still available.");
+        m_activation_registered = false;
+        m_runtime_ready = true;
+        return XboxResult::ok_result();
+    }
+#endif
+
+    m_runtime_ready = true;
+    m_activation_registered = true;
+    return XboxResult::ok_result();
+}
+
+void XboxActivation::shutdown() {
+    m_runtime_ready = false;
+
+    if (m_activation_registered) {
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
+        XGameActivationUnregisterForEvent(m_activation_token, true);
+        m_activation_token = {};
+#else
+        XGameProtocolUnregisterForActivation(m_protocol_token, true);
+        XGameInviteUnregisterForPendingEvent(m_pending_invite_token, true);
+        XGameInviteUnregisterForEvent(m_accepted_invite_token, true);
+        m_protocol_token = {};
+        m_pending_invite_token = {};
+        m_accepted_invite_token = {};
+#endif
+        m_activation_registered = false;
+    }
+
+    m_activation_listeners.clear();
+}
+
+uint64_t XboxActivation::add_activation_listener(std::function<void(const Dictionary &)> p_callback) {
+    if (!p_callback) {
+        return 0;
+    }
+
+    ActivationListener listener;
+    listener.id = m_next_activation_listener_id++;
+    listener.callback = std::move(p_callback);
+    m_activation_listeners.push_back(std::move(listener));
+    return m_activation_listeners.back().id;
+}
+
+void XboxActivation::remove_activation_listener(uint64_t p_listener_id) {
+    if (p_listener_id == 0) {
+        return;
+    }
+
+    m_activation_listeners.erase(
+            std::remove_if(
+                    m_activation_listeners.begin(),
+                    m_activation_listeners.end(),
+                    [p_listener_id](const ActivationListener &p_listener) {
+                        return p_listener.id == p_listener_id;
+                    }),
+            m_activation_listeners.end());
+}
+
+void XboxActivation::notify_activation_listeners_internal(const Dictionary &p_info) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    std::vector<std::function<void(const Dictionary &)>> callbacks;
+    callbacks.reserve(m_activation_listeners.size());
+    for (const ActivationListener &listener : m_activation_listeners) {
+        if (listener.callback) {
+            callbacks.push_back(listener.callback);
+        }
+    }
+
+    for (const std::function<void(const Dictionary &)> &callback : callbacks) {
+        if (!m_runtime_ready) {
+            break;
+        }
+        callback(p_info);
+    }
+}
+
+Dictionary XboxActivation::make_invite_dictionary_internal(const String &p_uri, const String &p_activation_type) {
+    Dictionary data;
+    data["raw_uri"] = p_uri;
+    data["activation_type"] = p_activation_type;
+
+    const String uri = p_uri.strip_edges();
+    const int64_t scheme_separator = uri.find("://");
+    String remainder = uri;
+    if (scheme_separator >= 0) {
+        data["scheme"] = uri.substr(0, scheme_separator);
+        remainder = uri.substr(scheme_separator + 3);
+    } else {
+        data["scheme"] = String();
+    }
+
+    const int64_t query_separator = remainder.find("?");
+    String action = remainder;
+    String query;
+    if (query_separator >= 0) {
+        action = remainder.substr(0, query_separator);
+        query = remainder.substr(query_separator + 1);
+    }
+
+    data["action"] = _normalize_invite_action(action);
+
+    if (query.begins_with("&")) {
+        query = query.substr(1);
+    }
+
+    PackedStringArray query_parts = query.split("&", false);
+    for (int64_t i = 0; i < query_parts.size(); ++i) {
+        const String pair = query_parts[i];
+        if (pair.is_empty()) {
+            continue;
+        }
+
+        const int64_t equals_index = pair.find("=");
+        const String key = equals_index >= 0 ? pair.substr(0, equals_index) : pair;
+        const String value = equals_index >= 0 ? pair.substr(equals_index + 1) : String();
+        data[_normalize_invite_key(key)] = value.uri_decode();
+    }
+
+    return data;
+}
+
+Ref<XboxResult> XboxActivation::accept_pending_invite(const String &p_invite_uri) {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(
+                E_FAIL,
+                "not_initialized",
+                "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    const String invite_uri = p_invite_uri.strip_edges();
+    if (invite_uri.is_empty()) {
+        return XboxResult::error_result(
+                E_INVALIDARG,
+                "invalid_invite_uri",
+                "A non-empty invite URI is required.");
+    }
+
+    const CharString invite_uri_utf8 = invite_uri.utf8();
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
+    HRESULT hr = XGameActivationAcceptPendingInvite(invite_uri_utf8.get_data());
+#else
+    HRESULT hr = XGameInviteAcceptPendingInvite(invite_uri_utf8.get_data());
+#endif
+    if (FAILED(hr)) {
+        Dictionary data;
+        data["invite_uri"] = invite_uri;
+        return XboxResult::hresult_error(
+                hr,
+                "Failed to accept pending invite.",
+                "accept_pending_invite_failed",
+                data);
+    }
+
+    Dictionary data;
+    data["invite_uri"] = invite_uri;
+    return XboxResult::ok_result(data);
+}
+
+void XboxActivation::finish_activation_dispatch_internal(const Dictionary &p_info) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    notify_activation_listeners_internal(p_info);
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    emit_signal("activated", p_info);
+}
+
+void XboxActivation::dispatch_protocol_activation_internal(const String &p_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_PROTOCOL);
+    info["uri"] = p_uri;
+    emit_signal("protocol_activated", p_uri);
+    finish_activation_dispatch_internal(info);
+}
+
+void XboxActivation::dispatch_file_activation_internal(const String &p_file) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_FILE);
+    info["file"] = p_file;
+    emit_signal("file_activated", p_file);
+    finish_activation_dispatch_internal(info);
+}
+
+void XboxActivation::dispatch_pending_invite_internal(const String &p_invite_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary invite = make_invite_dictionary_internal(p_invite_uri, "pending_game_invite");
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_PENDING_GAME_INVITE);
+    info["invite_uri"] = p_invite_uri;
+    info["invite"] = invite;
+    emit_signal("pending_invite_received", invite);
+    finish_activation_dispatch_internal(info);
+}
+
+void XboxActivation::dispatch_accepted_invite_internal(const String &p_invite_uri) {
+    if (!m_runtime_ready) {
+        return;
+    }
+
+    Dictionary invite = make_invite_dictionary_internal(p_invite_uri, "accepted_game_invite");
+    Dictionary info;
+    info["type"] = static_cast<int64_t>(ACTIVATION_TYPE_ACCEPTED_GAME_INVITE);
+    info["invite_uri"] = p_invite_uri;
+    info["invite"] = invite;
+    emit_signal("invite_accepted", invite);
+    finish_activation_dispatch_internal(info);
+}
+
+#if GDK_EDITION_HAS_XGAME_ACTIVATION
+
+// Guard against the SDK enum drifting away from the fixed public values.
+static_assert(XboxActivation::ACTIVATION_TYPE_PROTOCOL == static_cast<int>(XGameActivationType::Protocol),
+        "ACTIVATION_TYPE_PROTOCOL must match XGameActivationType::Protocol");
+static_assert(XboxActivation::ACTIVATION_TYPE_FILE == static_cast<int>(XGameActivationType::File),
+        "ACTIVATION_TYPE_FILE must match XGameActivationType::File");
+static_assert(XboxActivation::ACTIVATION_TYPE_PENDING_GAME_INVITE == static_cast<int>(XGameActivationType::PendingGameInvite),
+        "ACTIVATION_TYPE_PENDING_GAME_INVITE must match XGameActivationType::PendingGameInvite");
+static_assert(XboxActivation::ACTIVATION_TYPE_ACCEPTED_GAME_INVITE == static_cast<int>(XGameActivationType::AcceptedGameInvite),
+        "ACTIVATION_TYPE_ACCEPTED_GAME_INVITE must match XGameActivationType::AcceptedGameInvite");
+
+void XboxActivation::handle_activation_internal(const XGameActivationInfo *p_activation_info) {
+    if (!m_runtime_ready || p_activation_info == nullptr) {
+        return;
+    }
+
+    switch (p_activation_info->type) {
+        case XGameActivationType::Protocol:
+            dispatch_protocol_activation_internal(_utf8_or_empty(p_activation_info->protocolUri));
+            break;
+        case XGameActivationType::File:
+            dispatch_file_activation_internal(_utf8_or_empty(p_activation_info->file));
+            break;
+        case XGameActivationType::PendingGameInvite:
+            dispatch_pending_invite_internal(_utf8_or_empty(p_activation_info->inviteUri));
+            break;
+        case XGameActivationType::AcceptedGameInvite:
+            dispatch_accepted_invite_internal(_utf8_or_empty(p_activation_info->inviteUri));
+            break;
+        default: {
+            // Unknown/newer activation type: still surface a minimal info dict so
+            // internal listeners and the generic "activated" signal fire.
+            Dictionary info;
+            info["type"] = static_cast<int64_t>(p_activation_info->type);
+            finish_activation_dispatch_internal(info);
+            break;
+        }
+    }
+}
+
+void CALLBACK XboxActivation::_activation_callback(void *p_context, const XGameActivationInfo *p_activation_info) {
+    auto *service = static_cast<XboxActivation *>(p_context);
+    if (service != nullptr) {
+        service->handle_activation_internal(p_activation_info);
+    }
+}
+
+#else // October 2025 GDK: separate XGameProtocol + XGameInvite callbacks.
+
+void CALLBACK XboxActivation::_protocol_callback(void *p_context, const char *p_protocol_uri) {
+    auto *service = static_cast<XboxActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_protocol_activation_internal(_utf8_or_empty(p_protocol_uri));
+    }
+}
+
+void CALLBACK XboxActivation::_pending_invite_callback(void *p_context, const char *p_invite_uri) {
+    auto *service = static_cast<XboxActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_pending_invite_internal(_utf8_or_empty(p_invite_uri));
+    }
+}
+
+void CALLBACK XboxActivation::_accepted_invite_callback(void *p_context, const char *p_invite_uri) {
+    auto *service = static_cast<XboxActivation *>(p_context);
+    if (service != nullptr) {
+        service->dispatch_accepted_invite_internal(_utf8_or_empty(p_invite_uri));
+    }
+}
+
+#endif
+
+} // namespace godot

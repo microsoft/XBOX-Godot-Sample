@@ -101,7 +101,7 @@
 			<param index="0" name="user" type="PlayFabUser" />
 			<param index="1" name="request" type="Dictionary" default="{}" />
 			<description>
-				Starts [code]PFInventoryRedeemMicrosoftStoreInventoryItems[/code] for [param user]. For this operation, [param request] must include [code]user[/code] with a signed-in GDKUser object; raw local ids are not accepted. The completed result data is a Dictionary returned by the PlayFab SDK.
+				Starts [code]PFInventoryRedeemMicrosoftStoreInventoryItems[/code] for [param user]. For this operation, [param request] must include [code]user[/code] with a signed-in XboxUser object; raw local ids are not accepted. The completed result data is a Dictionary returned by the PlayFab SDK.
 			</description>
 		</method>
 		<method name="redeem_play_station_store_inventory_items_async">

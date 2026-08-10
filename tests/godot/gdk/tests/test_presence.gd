@@ -28,22 +28,22 @@ func test_presence_full_flow() -> void:
 	for signal_name in ["presence_changed", "local_presence_set", "device_presence_changed", "title_presence_changed"]:
 		assert_has_signal_named(presence, signal_name)
 
-	var blank_record = instantiate_class("GDKPresenceRecord")
-	assert_not_null(blank_record, "GDKPresenceRecord.new() returns wrapper")
+	var blank_record = instantiate_class("XboxPresenceRecord")
+	assert_not_null(blank_record, "XboxPresenceRecord.new() returns wrapper")
 	if blank_record != null:
 		for method_name in ["get_xuid", "get_user_state", "get_user_state_name", "is_online", "get_title_records"]:
 			assert_has_method_named(blank_record, method_name)
 
-		assert_eq(blank_record.get_xuid(), "", "blank GDKPresenceRecord xuid defaults empty")
-		assert_eq(blank_record.get_user_state(), get_class_constant("GDKPresenceRecord", "USER_STATE_UNKNOWN"), "blank GDKPresenceRecord user_state defaults to USER_STATE_UNKNOWN")
-		assert_eq(blank_record.get_user_state_name(), "unknown", "blank GDKPresenceRecord user_state_name defaults to unknown")
-		assert_eq(blank_record.is_online(), false, "blank GDKPresenceRecord is_online defaults false")
-		assert_true(blank_record.get_title_records() is Array, "blank GDKPresenceRecord title_records returns Array")
+		assert_eq(blank_record.get_xuid(), "", "blank XboxPresenceRecord xuid defaults empty")
+		assert_eq(blank_record.get_user_state(), get_class_constant("XboxPresenceRecord", "USER_STATE_UNKNOWN"), "blank XboxPresenceRecord user_state defaults to USER_STATE_UNKNOWN")
+		assert_eq(blank_record.get_user_state_name(), "unknown", "blank XboxPresenceRecord user_state_name defaults to unknown")
+		assert_eq(blank_record.is_online(), false, "blank XboxPresenceRecord is_online defaults false")
+		assert_true(blank_record.get_title_records() is Array, "blank XboxPresenceRecord title_records returns Array")
 
 	assert_true(presence.get_cached_presence("") == null, "get_cached_presence() returns null for missing xuid")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for presence behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for presence behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -104,8 +104,8 @@ func test_presence_full_flow() -> void:
 				var records: Array = query_result.data
 				assert_eq(records.size(), 1, "presence query returns one record for one XUID")
 				if records.size() == 1:
-					assert_object_is(records[0], "GDKPresenceRecord", "presence query returns GDKPresenceRecord wrappers")
-					if is_class_instance(records[0], "GDKPresenceRecord"):
+					assert_object_is(records[0], "XboxPresenceRecord", "presence query returns XboxPresenceRecord wrappers")
+					if is_class_instance(records[0], "XboxPresenceRecord"):
 						assert_eq(records[0].get_xuid(), user.get_xuid(), "presence query record matches the requested XUID")
 
 			var cached_record = presence.get_cached_presence(user.get_xuid())

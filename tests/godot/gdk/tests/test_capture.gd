@@ -1,5 +1,5 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
-## GUT coverage for GDKCapture.
+## GUT coverage for XboxCapture.
 ##
 ## Deterministic surface and validation tests run without a signed-in user.
 ## Live diagnostic-capture tests require LIVE_TESTS=1 and a device with
@@ -39,8 +39,8 @@ func test_capture_metadata_class_surface() -> void:
 	if pending_unless_runtime_available():
 		return
 
-	var meta = instantiate_class("GDKCaptureMetaData")
-	assert_not_null(meta, "GDKCaptureMetaData can be instantiated")
+	var meta = instantiate_class("XboxCaptureMetaData")
+	assert_not_null(meta, "XboxCaptureMetaData can be instantiated")
 	if meta == null:
 		return
 
@@ -58,8 +58,8 @@ func test_capture_metadata_class_surface() -> void:
 	]:
 		assert_has_method_named(meta, method_name)
 
-	assert_false(meta.is_valid(), "default GDKCaptureMetaData.is_valid() is false before create_metadata()")
-	assert_eq(meta.get_remaining_storage_bytes(), -1, "default GDKCaptureMetaData.get_remaining_storage_bytes() returns -1")
+	assert_false(meta.is_valid(), "default XboxCaptureMetaData.is_valid() is false before create_metadata()")
+	assert_eq(meta.get_remaining_storage_bytes(), -1, "default XboxCaptureMetaData.get_remaining_storage_bytes() returns -1")
 
 
 func test_capture_metadata_priority_constants() -> void:
@@ -67,18 +67,18 @@ func test_capture_metadata_priority_constants() -> void:
 		return
 
 	assert_eq(
-		get_class_constant("GDKCaptureMetaData", "PRIORITY_GAMEPLAY"),
+		get_class_constant("XboxCaptureMetaData", "PRIORITY_GAMEPLAY"),
 		0,
-		"GDKCaptureMetaData.PRIORITY_GAMEPLAY == 0"
+		"XboxCaptureMetaData.PRIORITY_GAMEPLAY == 0"
 	)
 	assert_eq(
-		get_class_constant("GDKCaptureMetaData", "PRIORITY_IMPORTANT"),
+		get_class_constant("XboxCaptureMetaData", "PRIORITY_IMPORTANT"),
 		1,
-		"GDKCaptureMetaData.PRIORITY_IMPORTANT == 1"
+		"XboxCaptureMetaData.PRIORITY_IMPORTANT == 1"
 	)
 
 
-# ── GDKCapture validation (before init) ─────────────────────────────────
+# ── XboxCapture validation (before init) ─────────────────────────────────
 
 func test_capture_enable_rejects_before_init() -> void:
 	if pending_unless_runtime_available():
@@ -156,18 +156,18 @@ func test_capture_create_metadata_returns_null_before_init() -> void:
 	assert_true(meta == null, "create_metadata() returns null before GDK init")
 
 
-# ── GDKCaptureMetaData validation (invalid context) ────────────────────
+# ── XboxCaptureMetaData validation (invalid context) ────────────────────
 
 func test_capture_metadata_operations_reject_invalid_handle() -> void:
 	if pending_unless_runtime_available():
 		return
 
-	var meta = instantiate_class("GDKCaptureMetaData")
-	assert_not_null(meta, "GDKCaptureMetaData can be instantiated")
+	var meta = instantiate_class("XboxCaptureMetaData")
+	assert_not_null(meta, "XboxCaptureMetaData can be instantiated")
 	if meta == null:
 		return
 
-	assert_false(meta.is_valid(), "GDKCaptureMetaData.is_valid() is false before create_metadata()")
+	assert_false(meta.is_valid(), "XboxCaptureMetaData.is_valid() is false before create_metadata()")
 
 	var stop_result = meta.stop_all_states()
 	assert_result_error(stop_result, "invalid_metadata_handle", "stop_all_states() rejects invalid handle")
@@ -198,7 +198,7 @@ func test_capture_metadata_operations_reject_empty_name() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -217,7 +217,7 @@ func test_capture_metadata_operations_reject_empty_name() -> void:
 		pending("create_metadata() returned null after successful init — check runtime state")
 		return
 
-	assert_true(meta.is_valid(), "created GDKCaptureMetaData.is_valid() is true")
+	assert_true(meta.is_valid(), "created XboxCaptureMetaData.is_valid() is true")
 
 	var add_str_empty = meta.add_string_event("", "value")
 	assert_result_error(add_str_empty, "invalid_metadata_name", "add_string_event() rejects empty name")
@@ -238,7 +238,7 @@ func test_capture_metadata_operations_reject_empty_name() -> void:
 	assert_result_error(start_int_empty, "invalid_metadata_name", "start_int32_state() rejects empty name")
 
 	meta.close()
-	assert_false(meta.is_valid(), "GDKCaptureMetaData.is_valid() is false after explicit close()")
+	assert_false(meta.is_valid(), "XboxCaptureMetaData.is_valid() is false after explicit close()")
 
 
 # ── Metadata start/stop flow (live capture service) ─────────────────────
@@ -256,7 +256,7 @@ func test_capture_metadata_start_stop_flow() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -278,7 +278,7 @@ func test_capture_metadata_start_stop_flow() -> void:
 	assert_true(meta.is_valid(), "metadata context is valid after create_metadata()")
 
 	var start_result = meta.start_string_state("zone", "lobby")
-	assert_not_null(start_result, "start_string_state() returns GDKResult")
+	assert_not_null(start_result, "start_string_state() returns XboxResult")
 	if start_result == null:
 		meta.close()
 		return
@@ -289,7 +289,7 @@ func test_capture_metadata_start_stop_flow() -> void:
 	assert_true(start_result.ok, "start_string_state('zone','lobby') succeeds")
 
 	var stop_result = meta.stop_all_states()
-	assert_not_null(stop_result, "stop_all_states() returns GDKResult")
+	assert_not_null(stop_result, "stop_all_states() returns XboxResult")
 	if stop_result == null:
 		meta.close()
 		return
@@ -317,7 +317,7 @@ func test_capture_enable_disable_after_init() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -331,12 +331,12 @@ func test_capture_enable_disable_after_init() -> void:
 		return
 
 	var disable_result = capture.disable_capture()
-	assert_not_null(disable_result, "disable_capture() returns GDKResult")
+	assert_not_null(disable_result, "disable_capture() returns XboxResult")
 	if disable_result == null:
 		return
 	# disable_capture() may fail when Game Bar is absent; that is expected and
 	# not a test failure — the API contract is satisfied as long as a
-	# GDKResult is returned with a populated error code.
+	# XboxResult is returned with a populated error code.
 	if not disable_result.ok:
 		assert_true(disable_result.code.length() > 0, "disable_capture() failure exposes an error code")
 		assert_true(disable_result.message.length() > 0, "disable_capture() failure exposes an error message")
@@ -344,7 +344,7 @@ func test_capture_enable_disable_after_init() -> void:
 		return
 
 	var enable_result = capture.enable_capture()
-	assert_not_null(enable_result, "enable_capture() returns GDKResult")
+	assert_not_null(enable_result, "enable_capture() returns XboxResult")
 	if enable_result == null:
 		return
 	if not enable_result.ok:
@@ -368,7 +368,7 @@ func test_capture_record_clip_live() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -409,7 +409,7 @@ func test_capture_take_screenshot_live() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

@@ -32,7 +32,7 @@ func test_game_ui_surface_and_validation() -> void:
 	]:
 		assert_has_method_named(game_ui, method_name)
 
-	var blank_user = instantiate_class("GDKUser")
+	var blank_user = instantiate_class("XboxUser")
 
 	var not_initialized_achievements_signal = game_ui.show_achievements_async(blank_user)
 	await assert_signal_result_error(not_initialized_achievements_signal, "not_initialized", "show_achievements_async() requires initialized runtime")
@@ -62,7 +62,7 @@ func test_game_ui_surface_and_validation() -> void:
 	await assert_signal_result_error(not_initialized_privilege_signal, "not_initialized", "resolve_privilege_with_ui_async() requires initialized runtime")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for game_ui behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for game_ui behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -112,7 +112,7 @@ func test_game_ui_show_method_fails_after_shutdown() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for post-shutdown Game UI coverage returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for post-shutdown Game UI coverage returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

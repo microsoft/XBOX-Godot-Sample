@@ -15,7 +15,7 @@ it differently from `godot_gdk` / `godot_playfab`.
 ```
 addons/godot_gdk_editortools/
   plugin.cfg
-  run.gd                     # class_name GdkEditorToolsRunner; extends SceneTree
+  run.gd                     # class_name XboxEditorToolsRunner; extends SceneTree
   gdkpkg.cmd, gdkpkg.sh      # shell forwarders (option C)
   core/                      # headless-safe only; no EditorInterface, no Control, no @onready
     editortools_cli.gd         # pure argv -> {verb, options, help, error}; owns VERBS dict
@@ -51,7 +51,7 @@ are supported and must stay equivalent:
 godot --headless -s res://addons/godot_gdk_editortools/run.gd -- <verb> [...]
 
 # B — class_name main loop; needs a prior --import per host
-godot --headless --main-loop GdkEditorToolsRunner -- <verb> [...]
+godot --headless --main-loop XboxEditorToolsRunner -- <verb> [...]
 
 # C — addon-local shell forwarders (auto-discover Godot)
 addons\godot_gdk_editortools\gdkpkg.cmd <verb> [...]

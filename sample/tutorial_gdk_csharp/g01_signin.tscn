@@ -31,7 +31,7 @@ theme_override_font_sizes/font_size = 24
 
 [node name="Subtitle" type="Label" parent="Root"]
 layout_mode = 2
-text = "Reads the GdkAuth autoload (check → silent → UI). GDK-only: no PlayFab step."
+text = "Reads the XboxAuth autoload (check → silent → UI). GDK-only: no PlayFab step."
 autowrap_mode = 3
 
 [node name="Identity" type="Label" parent="Root"]

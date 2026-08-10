@@ -29,7 +29,7 @@ func test_initialize_shutdown_reinitialize_rearms_runtime_and_signals() -> void:
 		users.user_changed.connect(user_changed_handler)
 
 	var first_init = gdk.initialize()
-	assert_not_null(first_init, "first initialize() returns GDKResult")
+	assert_not_null(first_init, "first initialize() returns XboxResult")
 	if first_init == null:
 		_cleanup_handlers(gdk, init_handler, shutdown_handler, users, user_changed_handler)
 		return

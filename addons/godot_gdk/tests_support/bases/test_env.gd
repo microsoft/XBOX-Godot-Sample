@@ -1,4 +1,4 @@
-class_name GdkTestEnv
+class_name XboxTestEnv
 extends RefCounted
 ## Shared environment + project-setting gating helpers for the GUT-based
 ## coverage suites. Imported by every `*_test_base.gd` via:

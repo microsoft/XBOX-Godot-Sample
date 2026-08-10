@@ -33,7 +33,7 @@ func test_speech_surface_and_validation_paths() -> void:
 	assert_result_error(pre_init_result, "not_initialized", "synthesize_text() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for speech behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for speech behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -64,7 +64,7 @@ func test_speech_synthesis_produces_audio_when_available() -> void:
 
 	speech.set_default_voice()
 	var result = speech.synthesize_text("GDK speech synthesis test.")
-	assert_not_null(result, "synthesize_text() returns GDKResult")
+	assert_not_null(result, "synthesize_text() returns XboxResult")
 	if result == null:
 		return
 	if not result.ok:

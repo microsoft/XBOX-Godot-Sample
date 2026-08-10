@@ -617,21 +617,21 @@ bool PlayFabUsers::_try_get_local_id_from_xuser_object(Object *p_user, XUserLoca
 
     if (p_user == nullptr) {
         if (r_error != nullptr) {
-            *r_error = "PlayFab XUser sign-in requires a GDKUser object.";
+            *r_error = "PlayFab XUser sign-in requires an XboxUser object.";
         }
         return false;
     }
 
     if (Object::cast_to<PlayFabUser>(p_user) != nullptr) {
         if (r_error != nullptr) {
-            *r_error = "PlayFab XUser sign-in requires a GDKUser object, not a PlayFabUser.";
+            *r_error = "PlayFab XUser sign-in requires an XboxUser object, not a PlayFabUser.";
         }
         return false;
     }
 
     if (!p_user->has_method("is_signed_in") || !p_user->has_method("get_local_id")) {
         if (r_error != nullptr) {
-            *r_error = "PlayFab XUser sign-in requires a GDKUser object.";
+            *r_error = "PlayFab XUser sign-in requires an XboxUser object.";
         }
         return false;
     }
@@ -683,7 +683,7 @@ bool PlayFabUsers::_try_get_local_id_from_variant(const Variant &p_user_or_local
 
     if (type != Variant::OBJECT) {
         if (r_error != nullptr) {
-            *r_error = "PlayFab user methods expect either a local_id integer, a GDKUser-like object, or a PlayFabUser.";
+            *r_error = "PlayFab user methods expect either a local_id integer, an XboxUser-like object, or a PlayFabUser.";
         }
         return false;
     }

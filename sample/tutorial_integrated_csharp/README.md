@@ -42,7 +42,7 @@ Party tab uses PlayFab Party's managed transport.
 
 ## Autoloads
 
-- `GDKBootstrap` (`Autoload/GdkBootstrap.cs`) — `GodotGdk.Runtime.GdkRuntime`.
+- `XboxBootstrap` (`Autoload/XboxBootstrap.cs`) — `GodotXbox.Runtime.XboxRuntime`.
 - `PlayFabBootstrap` (`Autoload/PlayFabBootstrap.cs`) — `GodotPlayFab.Runtime.PlayFabRuntime`.
 - `Auth` (`Autoload/Auth.cs`) — Xbox sign-in followed by `PlayFab.Users.SignInWithXUserAsync`; exposes `XboxUser` and `PlayFabUser`.
 - `Lobby` (`Autoload/Lobby.cs`) — PlayFab Lobby plus Xbox Multiplayer Activity, social, presence, and multiplayer privilege gates.
@@ -50,7 +50,7 @@ Party tab uses PlayFab Party's managed transport.
 
 ## Public API used (C# facades)
 
-- `Gdk.Users`, `Gdk.Achievements`, `Gdk.Privacy`, `Gdk.Social`, `Gdk.MultiplayerActivity`, `Gdk.Presence`, `Gdk.GameChat`
+- `Xbox.Users`, `Xbox.Achievements`, `Xbox.Privacy`, `Xbox.Social`, `Xbox.MultiplayerActivity`, `Xbox.Presence`, `Xbox.GameChat`
 - `PlayFab.Users`, `PlayFab.GameSaves`, `PlayFab.Leaderboards`, `PlayFab.Statistics`, `PlayFab.Multiplayer`, `PlayFab.Party`
 
 ## Files generated locally (git-ignored)

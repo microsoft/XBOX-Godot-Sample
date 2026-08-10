@@ -486,7 +486,7 @@ static func _find_menu_bar(node: Node) -> MenuBar:
 
 
 # Builds a "exit N: <output>" string from a wdapp_manager result dict.
-# Note: GDKToolchain.execute_tool merges stderr into stdout (Godot's
+# Note: XboxToolchain.execute_tool merges stderr into stdout (Godot's
 # OS.execute with read_stderr=false), so the "output" field below already
 # contains both streams. We surface that fact in the format so reviewers
 # / users don't expect a separate stderr line.

@@ -2,7 +2,7 @@
 extends RefCounted
 ## Builds and executes makepkg.exe subcommands: pack, genmap, validate.
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 
 var _toolchain: RefCounted
 

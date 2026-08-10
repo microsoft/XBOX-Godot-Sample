@@ -5,7 +5,7 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## `assert_true(false, ...)` so failures still fail the suite.
 
 const GameConfigManagerScript = preload("res://addons/godot_gdk_editortools/core/game_config_manager.gd")
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 const MakePkgExecutorScript = preload("res://addons/godot_gdk_editortools/core/makepkg_executor.gd")
 const EditorToolsSettingsStoreScript = preload("res://addons/godot_gdk_editortools/core/editortools_settings_store.gd")
 const ExportPresetCatalogScript = preload("res://addons/godot_gdk_editortools/core/export_preset_catalog.gd")
@@ -14,7 +14,7 @@ const WdappManagerScript = preload("res://addons/godot_gdk_editortools/core/wdap
 
 
 func test_toolchain_detection() -> void:
-	var toolchain = GDKToolchainScript.new()
+	var toolchain = XboxToolchainScript.new()
 
 	if toolchain.is_gdk_available():
 		assert_true(toolchain.get_makepkg_path() != "", "makepkg path not empty")
@@ -35,7 +35,7 @@ func test_toolchain_detection() -> void:
 
 
 func test_config_parsing() -> void:
-	var toolchain = GDKToolchainScript.new()
+	var toolchain = XboxToolchainScript.new()
 	var config_mgr = GameConfigManagerScript.new(toolchain)
 
 	var test_xml := '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -100,7 +100,7 @@ func test_config_parsing() -> void:
 
 
 func test_config_template_creation() -> void:
-	var toolchain = GDKToolchainScript.new()
+	var toolchain = XboxToolchainScript.new()
 	var config_mgr = GameConfigManagerScript.new(toolchain)
 
 	var config_path = config_mgr.get_config_path()
@@ -122,7 +122,7 @@ func test_config_template_creation() -> void:
 
 
 func test_makepkg_argument_construction() -> void:
-	var toolchain = GDKToolchainScript.new()
+	var toolchain = XboxToolchainScript.new()
 	var executor = MakePkgExecutorScript.new(toolchain)
 	assert_not_null(executor, "MakePkgExecutor created")
 

@@ -57,7 +57,7 @@ with the upstream `LICENSE.txt` and a `VERSION.txt` recording the tag, source UR
 
 The CMake function `godot_addon_doctest_target` in `cmake\GodotExtensionCommon.cmake` produces the `gdk_unit_tests` executable behind the option `GDK_BUILD_TESTS` (default ON in the default preset). One translation unit defines `DOCTEST_CONFIG_IMPLEMENT`; the rest include the header without the implementation macro.
 
-C++ tests cover **pure logic only**. Where a helper is currently embedded in a Godot-aware class, the production code is refactored to extract the helper into a free function or pure helper class (for example `gdk_result_codes.cpp/.h`). The production site then calls the extracted helper, and the doctest target consumes the same code. Logic is never duplicated into the test target just to make it testable.
+C++ tests cover **pure logic only**. Where a helper is currently embedded in a Godot-aware class, the production code is refactored to extract the helper into a free function or pure helper class (for example `xbox_result_codes.cpp/.h`). The production site then calls the extracted helper, and the doctest target consumes the same code. Logic is never duplicated into the test target just to make it testable.
 
 ## C++ test scope rules
 
@@ -72,7 +72,7 @@ doctest covers only code that has no Godot, GDExtension-interface, or GDK depend
 
 Implications for any future C++ test work in this repo:
 
-- The "thin forwarders" `format_hresult_string`, `format_hresult_message`, and `code_or_format_hresult` (which return / accept `godot::String`) are **NOT runtime-testable** from `gdk_unit_tests.exe`. They are exercised end-to-end through GUT tests that drive the public `GDKResult` / `PlayFabResult` API from a real Godot process (see `wave4-gdk-coverage::test_result_helpers.gd`).
+- The "thin forwarders" `format_hresult_string`, `format_hresult_message`, and `code_or_format_hresult` (which return / accept `godot::String`) are **NOT runtime-testable** from `gdk_unit_tests.exe`. They are exercised end-to-end through GUT tests that drive the public `XboxResult` / `PlayFabResult` API from a real Godot process (see `wave4-gdk-coverage::test_result_helpers.gd`).
 - A test target that must touch a Variant-family type has only two options: (a) extract a pure char-buffer / `std::string_view` variant of the production helper and test that, or (b) cover the helper via GUT instead. Mocking the gdextension interface is explicitly out of scope.
 - Compile-time guarantees on Variant-touching helpers (e.g. `static_assert(noexcept(...))`, buffer-size constants) are still fair game and recommended.
 
@@ -245,7 +245,7 @@ The complete todo + dependency graph is enumerated below so this document is sel
 | `infra-vendor-gut` | 1 | Vendor GUT + CMake mirror to coverage hosts | `infra-spec-capture` | `addons\godot_gdk\tests_support\gut\` (with `LICENSE.md` and `VERSION.txt`); the `godot_addon_mirror_test_support()` function in `cmake\GodotExtensionCommon.cmake` mirroring the single source into coverage hosts only — explicitly **not** into demo-only projects. Generalises the headless-validator exclusion to `.gdignore` / sentinel marker. |
 | `infra-doctest-target` | 1 | Vendored doctest header + CMake | `infra-spec-capture` | `tests\cpp\third_party\doctest\doctest.h` (with `LICENSE.txt`, `VERSION.txt`); `godot_addon_doctest_target()` in `cmake\GodotExtensionCommon.cmake` producing `gdk_unit_tests.exe` behind `GDK_BUILD_TESTS=ON` (default ON in the default preset). One TU defines `DOCTEST_CONFIG_IMPLEMENT`. Includes a smoke `TEST_CASE` proving the wiring. |
 | `infra-shared-base` | 2 | Shared GUT base classes + `test_env.gd` | `infra-vendor-gut` | `addons\godot_gdk\tests_support\bases\{gdk,playfab,gameinput}_test_base.gd` absorbing the duplicated helpers from today's three `test_context.gd` files; `addons\godot_gdk\tests_support\test_env.gd` with live-test helpers consulting `LIVE_TESTS` and `gdk/tests/live_required`. CMake mirrors `tests_support/` into the three coverage hosts. |
-| `cpp-result-codes-extract` | 2 | Extract pure HRESULT-to-code helpers | `infra-doctest-target` | Refactor `gdk_result.cpp` and `playfab_result.cpp` to extract HRESULT-to-code mapping and message formatting into pure free functions (e.g. `gdk_result_codes.cpp/.h`). Production sites call the extracted helper. **No production behavior change.** |
+| `cpp-result-codes-extract` | 2 | Extract pure HRESULT-to-code helpers | `infra-doctest-target` | Refactor `xbox_result.cpp` and `playfab_result.cpp` to extract HRESULT-to-code mapping and message formatting into pure free functions (e.g. `xbox_result_codes.cpp/.h`). Production sites call the extracted helper. **No production behavior change.** |
 | `cpp-result-tests` | 2 | doctest: result-code mapping coverage | `cpp-result-codes-extract` | doctest cases for the extracted helpers: every documented HRESULT maps to its expected code string; unknown HRESULTs map to a documented fallback; message formatting is stable. |
 | `cpp-packaging-helpers` | 2 | doctest: packaging string helpers | `infra-doctest-target` | doctest cases pinning the `patch_executable_name` / `inject_vc14_dependency` / XML-escape contracts from the C++ side. Mirrors the existing GD packaging suite assertions so a refactor cannot desync the two. |
 | `gdk-migrate-suites` | 3 | Migrate GDK suites to GUT | `infra-vendor-gut`, `infra-shared-base` | Rewrite the GDK coverage suite as GUT `test_*.gd` files extending `gdk_test_base`. Map `log_skip` -> `pending()`. Records `tests\baselines\gdk.json`; post-migration assertion count must be `>=`. |
@@ -369,7 +369,7 @@ Each fuzz target exercises a *pure seam* — a helper extracted from production 
 **Existing seams (Wave 2, `infra/fuzz-testing`):**
 - `addons\godot_playfab\src\playfab_request_key.{h,cpp}` — pure `std::string` / `std::string_view` key-match and signature helper. Does not touch `godot::String` or PlayFab SDK types. Covered by `tests\cpp\request_key\test_playfab_request_key.cpp` (doctest) and `tests\cpp\fuzz\fuzz_playfab_key_lookup.cpp` (libFuzzer).
 - `addons\godot_playfab\src\playfab_party_codec.{h,cpp}` — wire codec for the PlayFab Party transport (`build_*`/`parse_*`/`wrap_*`/`unwrap_*`). Uses `godot::String` and `godot::PackedByteArray` but no PlayFab Party SDK types, so it builds into both the addon and the stub harness. The `parse_*`/`unwrap_*` functions decode untrusted peer bytes — the addon's primary attacker-controlled-input surface. Covered by `tests\cpp\fuzz\fuzz_playfab_party_codec.cpp`.
-- `addons\godot_gdk\src\gdk_request_parsing.{h,cpp}` — GDK request-input parsing seam (`try_parse_xuid`, `parse_uint32`, `copy_utf8_to_buffer`, `to_packed_byte_array` / `to_byte_vector`). Uses godot-cpp built-in types plus the SDK-free `GDKResult`, with no Xbox GDK service headers. Consumed by `gdk_title_storage.cpp`, `gdk_game_ui.cpp`, and `gdk_profile.cpp` via thin private forwarders (game-UI passes `reject_zero=true`; the other two pass `false`). Covered by `tests\cpp\fuzz\fuzz_gdk_request_parsing.cpp`.
+- `addons\godot_gdk\src\gdk_request_parsing.{h,cpp}` — GDK request-input parsing seam (`try_parse_xuid`, `parse_uint32`, `copy_utf8_to_buffer`, `to_packed_byte_array` / `to_byte_vector`). Uses godot-cpp built-in types plus the SDK-free `XboxResult`, with no Xbox GDK service headers. Consumed by `xbox_title_storage.cpp`, `xbox_game_ui.cpp`, and `xbox_profile.cpp` via thin private forwarders (game-UI passes `reject_zero=true`; the other two pass `false`). Covered by `tests\cpp\fuzz\fuzz_gdk_request_parsing.cpp`.
 
 New pure seams follow the same extraction pattern: move pure logic to a `*_internal.{h,cpp}` (or a similarly SDK-free) sibling, call it from the production site, reference the same file from the fuzz target.
 
@@ -381,7 +381,7 @@ Fuzz sources live under `tests\cpp\fuzz\`:
 | --- | --- | --- |
 | `fuzz_playfab_key_lookup.cpp` | 2 | Key-match seam — no Godot types, no stub harness. |
 | `fuzz_gdk_result_formatting.cpp` | 3 | HRESULT-formatting helpers — uses `godot::String`, links `godot_stub_harness`. |
-| `fuzz_gdk_result_factories.cpp` | 3 | `GDKResult` / `PlayFabResult` factory + accessor round-trips — `Ref<RefCounted>`, links `godot_stub_harness`. |
+| `fuzz_gdk_result_factories.cpp` | 3 | `XboxResult` / `PlayFabResult` factory + accessor round-trips — `Ref<RefCounted>`, links `godot_stub_harness`. |
 | `fuzz_playfab_request_dictionary.cpp` | 3 | `playfab_api::get_request_value` over arbitrary `Dictionary` content — links `godot_stub_harness`. |
 | `fuzz_playfab_party_codec.cpp` | 3 | PlayFab Party wire codec — decodes untrusted peer bytes (`PackedByteArray` + `String`); raw-decode + build/parse round-trip oracles. |
 | `fuzz_gdk_request_parsing.cpp` | 3 | GDK request-input parsing seam — `try_parse_xuid` (both reject-zero modes), `parse_uint32`, `copy_utf8_to_buffer`, `PackedByteArray`<->`std::vector` round-trip oracle. |

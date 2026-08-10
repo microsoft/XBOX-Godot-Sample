@@ -1,6 +1,6 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
+using GodotXbox;
 
 /// <summary>
 /// GDK Tutorial 5 reference scene — Text-to-Speech (GDK.speech).
@@ -21,7 +21,7 @@ public partial class G05Speech : Control
     private Button _ssmlBtn;
     private Button _backBtn;
     private AudioStreamPlayer _player;
-    private GdkAuth _auth;
+    private XboxAuth _auth;
 
     public override async void _Ready()
     {
@@ -37,8 +37,8 @@ public partial class G05Speech : Control
         _speakBtn.Pressed += OnSpeakPressed;
         _ssmlBtn.Pressed += OnSsmlPressed;
 
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
-        if (!Gdk.IsAvailable)
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
+        if (!Xbox.IsAvailable)
         {
             Append("[color=red]GDK extension is not loaded.[/color]");
             SetButtonsEnabled(false);
@@ -48,13 +48,13 @@ public partial class G05Speech : Control
         SetButtonsEnabled(false);
         Append("Initializing GDK runtime…");
 
-        // TTS only needs GDK.Initialize() (done by GdkAuth.SignInAsync()); a
+        // TTS only needs GDK.Initialize() (done by XboxAuth.SignInAsync()); a
         // signed-in user is not required, so a failed sign-in still leaves
         // speech usable.
         if (_auth != null) await _auth.SignInAsync();
         if (!IsInsideTree()) return;
 
-        if (Gdk.IsInitialized)
+        if (Xbox.IsInitialized)
         {
             Append("GDK runtime ready — text-to-speech is available (no user required).");
             SetButtonsEnabled(true);
@@ -67,7 +67,7 @@ public partial class G05Speech : Control
 
     private void OnVoicesPressed()
     {
-        Godot.Collections.Array voices = Gdk.Speech.GetInstalledVoices();
+        Godot.Collections.Array voices = Xbox.Speech.GetInstalledVoices();
         if (voices.Count == 0) { Append("[color=orange][Voices] No installed voices reported.[/color]"); return; }
         Append($"[Voices] {voices.Count} installed voice(s):");
         foreach (Variant entry in voices)
@@ -83,12 +83,12 @@ public partial class G05Speech : Control
         if (string.IsNullOrEmpty(text)) text = "Hello from the Xbox GDK text to speech engine.";
 
         // Make sure we are using the system default voice for this pass.
-        GdkResult pick = Gdk.Speech.SetDefaultVoice();
+        XboxResult pick = Xbox.Speech.SetDefaultVoice();
         if (!pick.Ok) Append($"[color=orange][Speak] set_default_voice failed: {pick.Message}[/color]");
 
         // SynthesizeToStream wraps synthesize_text and packs the WAV bytes into
         // a ready-to-play AudioStreamWav.
-        AudioStreamWav stream = Gdk.Speech.SynthesizeToStream(text);
+        AudioStreamWav stream = Xbox.Speech.SynthesizeToStream(text);
         if (stream == null) { Append("[color=orange][Speak] Synthesis returned no audio.[/color]"); return; }
         _player.Stream = stream;
         _player.Play();
@@ -101,7 +101,7 @@ public partial class G05Speech : Control
         const string ssml = "<speak version='1.0' xml:lang='en-US'>" +
             "GDK speech also supports <emphasis level='strong'>SSML</emphasis>, " +
             "<break time='300ms'/> for full prosody control.</speak>";
-        GdkResult result = Gdk.Speech.SynthesizeSsml(ssml);
+        XboxResult result = Xbox.Speech.SynthesizeSsml(ssml);
         if (!result.Ok) { Append($"[color=orange][SSML] synthesize_ssml failed: {result.Message} ({result.Code})[/color]"); return; }
         Godot.Collections.Dictionary data = result.Data.AsGodotDictionary();
         byte[] wav = data.ContainsKey("audio_wav") ? data["audio_wav"].AsByteArray() : System.Array.Empty<byte>();

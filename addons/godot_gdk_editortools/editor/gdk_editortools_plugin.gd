@@ -4,12 +4,12 @@ extends EditorPlugin
 ## editor menu bar for Microsoft GDK tooling (Game Config, MSIXVC packaging,
 ## Xbox sandbox, and Package Manager).
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_editortools/core/game_config_manager.gd")
 const ConfigImportPlugin = preload("res://addons/godot_gdk_editortools/editor/config_import_plugin.gd")
-const GDKTutorialWizard = preload("res://addons/godot_gdk_editortools/editor/gdk_tutorial_wizard.gd")
-const GDKSandboxDialog = preload("res://addons/godot_gdk_editortools/editor/gdk_sandbox_dialog.gd")
-const GDKPackageManagerDialog = preload("res://addons/godot_gdk_editortools/editor/gdk_package_manager_dialog.gd")
+const XboxTutorialWizard = preload("res://addons/godot_gdk_editortools/editor/gdk_tutorial_wizard.gd")
+const XboxSandboxDialog = preload("res://addons/godot_gdk_editortools/editor/gdk_sandbox_dialog.gd")
+const XboxPackageManagerDialog = preload("res://addons/godot_gdk_editortools/editor/gdk_package_manager_dialog.gd")
 
 # Documentation URLs
 const DOC_PC_PACKAGING := "https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/packaging/overviews/packaging-getting-started-for-pc"
@@ -58,7 +58,7 @@ enum MenuID {
 
 
 func _enter_tree() -> void:
-	_toolchain = GDKToolchainScript.new()
+	_toolchain = XboxToolchainScript.new()
 	_config_mgr = GameConfigManagerScript.new(_toolchain)
 
 	# Register .config file import so they appear in the FileSystem dock
@@ -68,7 +68,7 @@ func _enter_tree() -> void:
 	# ── GDK Sandbox Switcher dialog (persistent, owned by the plugin) ──
 	# Parented under the editor base control so it inherits theme and input
 	# gating like any other editor dialog.
-	_sandbox_dialog = GDKSandboxDialog.new()
+	_sandbox_dialog = XboxSandboxDialog.new()
 	var base: Control = EditorInterface.get_base_control()
 	if base != null:
 		base.add_child(_sandbox_dialog)
@@ -79,7 +79,7 @@ func _enter_tree() -> void:
 	# ── GDK Package Manager dialog (persistent, owned by the plugin) ──
 	# Lists every package registered with wdapp on this machine; lets the
 	# developer install a .msixvc from any path or uninstall any package.
-	_package_manager_dialog = GDKPackageManagerDialog.new()
+	_package_manager_dialog = XboxPackageManagerDialog.new()
 	if base != null:
 		base.add_child(_package_manager_dialog)
 		_package_manager_dialog.setup(_toolchain)
@@ -90,7 +90,7 @@ func _enter_tree() -> void:
 	_menu_bar = _find_menu_bar(EditorInterface.get_base_control())
 	if _menu_bar:
 		_gdk_popup = PopupMenu.new()
-		_gdk_popup.name = "GDKMenu"
+		_gdk_popup.name = "XboxMenu"
 		_gdk_popup.add_item("Getting Started", MenuID.GETTING_STARTED)
 		_gdk_popup.add_separator("", MenuID.SEP_0)
 		# Local tools
@@ -174,7 +174,7 @@ func _find_menu_bar(node: Node) -> MenuBar:
 func _on_menu_item_pressed(id: int) -> void:
 	match id:
 		MenuID.GETTING_STARTED:
-			var wizard: Window = GDKTutorialWizard.new()
+			var wizard: Window = XboxTutorialWizard.new()
 			EditorInterface.get_base_control().add_child(wizard)
 			wizard.popup_centered()
 

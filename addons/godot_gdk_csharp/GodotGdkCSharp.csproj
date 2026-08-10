@@ -3,7 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>disable</Nullable>
-    <RootNamespace>GodotGdk</RootNamespace>
+    <RootNamespace>GodotXbox</RootNamespace>
     <AssemblyName>GodotGdkCSharp</AssemblyName>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>

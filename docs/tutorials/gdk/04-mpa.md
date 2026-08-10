@@ -13,10 +13,10 @@ Advertise a self-contained Xbox Multiplayer Activity with a title-defined connec
 
 ## Relevant addon surfaces
 
-- [`GDKMultiplayerActivity`](../../../addons/godot_gdk/doc_classes/GDKMultiplayerActivity.xml) — `set_activity_async`, `send_invites_async`, `show_invite_ui_async`, `get_activities_async`, invite signals.
-- [`GDKSocial`](../../../addons/godot_gdk/doc_classes/GDKSocial.xml) — Social Manager graph and friend list.
-- [`GDKPrivacy`](../../../addons/godot_gdk/doc_classes/GDKPrivacy.xml) — `batch_check_permission_async` for `play_multiplayer`.
-- [`GDKPresence`](../../../addons/godot_gdk/doc_classes/GDKPresence.xml) — track/query friend presence.
+- [`XboxMultiplayerActivity`](../../../addons/godot_gdk/doc_classes/XboxMultiplayerActivity.xml) — `set_activity_async`, `send_invites_async`, `show_invite_ui_async`, `get_activities_async`, invite signals.
+- [`XboxSocial`](../../../addons/godot_gdk/doc_classes/XboxSocial.xml) — Social Manager graph and friend list.
+- [`XboxPrivacy`](../../../addons/godot_gdk/doc_classes/XboxPrivacy.xml) — `batch_check_permission_async` for `play_multiplayer`.
+- [`XboxPresence`](../../../addons/godot_gdk/doc_classes/XboxPresence.xml) — track/query friend presence.
 
 ## Steps
 
@@ -47,8 +47,8 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ##   - Track friend activity + presence (GDK.multiplayer_activity +
 ##     GDK.presence).
 ##
-## NOTE: scene scripts use `get_node("/root/GdkAuth")` instead of the bare
-## `GdkAuth.` reference so the headless parse gate stays clean.
+## NOTE: scene scripts use `get_node("/root/XboxAuth")` instead of the bare
+## `XboxAuth.` reference so the headless parse gate stays clean.
 ##
 ## Source: docs/tutorials/gdk/04-mpa.md
 
@@ -83,9 +83,9 @@ func _ready() -> void:
 	_track_btn.pressed.connect(_on_track_pressed)
 	_stop_btn.pressed.connect(_on_stop_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if _auth == null:
-		_append("[color=red]GdkAuth autoload missing.[/color]")
+		_append("[color=red]XboxAuth autoload missing.[/color]")
 		_set_buttons_enabled(false)
 		return
 	if not Engine.has_singleton("GDK"):

@@ -1,7 +1,7 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 
 public partial class PanelAchievements : VBoxContainer
 {
@@ -20,7 +20,7 @@ public partial class PanelAchievements : VBoxContainer
     public override void _ExitTree()
     {
         if (_auth != null) _auth.StateChanged -= OnAuthStateChanged;
-        if (_initialized && Gdk.IsAvailable) Gdk.Achievements.AchievementUnlocked -= OnAchievementUnlocked;
+        if (_initialized && Xbox.IsAvailable) Xbox.Achievements.AchievementUnlocked -= OnAchievementUnlocked;
     }
     private void OnAuthStateChanged(Auth.State state)
     {
@@ -29,22 +29,22 @@ public partial class PanelAchievements : VBoxContainer
     private async Task InitializeAfterSignInAsync()
     {
         if (_initialized) return; _initialized = true;
-        Gdk.Achievements.AchievementUnlocked += OnAchievementUnlocked;
+        Xbox.Achievements.AchievementUnlocked += OnAchievementUnlocked;
         _p25.Pressed += async () => await PushProgressAsync(25); _p50.Pressed += async () => await PushProgressAsync(50); _p75.Pressed += async () => await PushProgressAsync(75); _unlock.Pressed += async () => await PushProgressAsync(100);
-        GdkResult result = await Gdk.Achievements.QueryPlayerAchievementsAsync(_auth.XboxUser);
+        XboxResult result = await Xbox.Achievements.QueryPlayerAchievementsAsync(_auth.XboxUser);
         if (!IsInsideTree()) return;
         if (result.Ok) RefreshStatus(); else { _status.Text = $"Query failed: {result.Message}"; GD.PushWarning($"[Ach] query failed: {result.Message}"); }
     }
     private async Task PushProgressAsync(int percent)
     {
-        GdkResult result = await Gdk.Achievements.UpdateAchievementAsync(_auth.XboxUser, AchievementId, percent);
+        XboxResult result = await Xbox.Achievements.UpdateAchievementAsync(_auth.XboxUser, AchievementId, percent);
         if (!IsInsideTree()) return;
         if (result.Ok) { _status.Text = $"Pushed {percent}%"; GD.Print($"[Ach] Updated to {percent}%"); } else { _status.Text = $"Update failed: {result.Message}"; GD.PushWarning($"[Ach] {_status.Text}"); }
     }
-    private void OnAchievementUnlocked(GdkUser user, string id) { if (id == AchievementId) { _status.Text = $"Unlocked {id} for {user.Gamertag}"; RefreshStatus(); } }
+    private void OnAchievementUnlocked(XboxUser user, string id) { if (id == AchievementId) { _status.Text = $"Unlocked {id} for {user.Gamertag}"; RefreshStatus(); } }
     private void RefreshStatus()
     {
-        foreach (Variant entry in Gdk.Achievements.GetCachedAchievements(_auth.XboxUser))
+        foreach (Variant entry in Xbox.Achievements.GetCachedAchievements(_auth.XboxUser))
         {
             GodotObject ach = entry.AsGodotObject();
             if (ach.Get("id").AsString() == AchievementId) { int p = ach.Get("progress_percent").AsInt32(); _status.Text = $"{AchievementId}: {p}% — {(p >= 100 ? "Unlocked" : "In progress")}"; return; }

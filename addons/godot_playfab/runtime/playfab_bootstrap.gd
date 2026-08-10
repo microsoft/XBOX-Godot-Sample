@@ -12,7 +12,7 @@ extends Node
 ##
 ## PlayFab sign-in (`PlayFab.users.sign_in_with_xuser_async` /
 ## `sign_in_with_custom_id_async`) is intentionally NOT auto-driven from
-## here: PlayFab sessions need a per-player key (a `GDKUser` or a custom
+## here: PlayFab sessions need a per-player key (an `XboxUser` or a custom
 ## id) and that decision belongs to title code, not a project-wide flag.
 
 const PLAYFAB_EXTENSION_PATH := "res://addons/godot_playfab/godot_playfab.gdextension"

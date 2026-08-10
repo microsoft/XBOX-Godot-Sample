@@ -1,7 +1,7 @@
 // stub_object.cpp — Minimal Object / RefCounted lifecycle stubs.
 //
 // Enables Ref<T>::instantiate() to work for any T that extends RefCounted
-// (e.g. GDKResult, PlayFabResult) without a live Godot engine.
+// (e.g. XboxResult, PlayFabResult) without a live Godot engine.
 //
 // Design:
 //   classdb_construct_object2  →  allocates a StubObject on the heap;

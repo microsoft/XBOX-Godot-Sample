@@ -7,7 +7,7 @@
 // production and tests share the same code; never duplicate logic for tests.
 //
 // Per-addon copy. The GDK addon ships an analogous header
-// (gdk_result_codes_internal.h) with identical semantics. They are kept
+// (xbox_result_codes_internal.h) with identical semantics. They are kept
 // disjoint per addon to avoid cross-addon include paths and ODR risk.
 #ifndef PLAYFAB_RESULT_CODES_INTERNAL_H
 #define PLAYFAB_RESULT_CODES_INTERNAL_H

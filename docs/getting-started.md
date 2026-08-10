@@ -64,7 +64,7 @@ account.
 
 | Addon | Purpose |
 |-------|---------|
-| `addons/godot_gdk` | Microsoft GDK runtime + PC-supported XBOX services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs a `GDKBootstrap` autoload. |
+| `addons/godot_gdk` | Microsoft GDK runtime + PC-supported XBOX services (users, achievements, presence, social, leaderboards, multiplayer activity, store, system, …). Installs an `XboxBootstrap` autoload. |
 | `addons/godot_playfab` | PlayFab runtime, sign-in (XBOX-backed or custom id), Game Saves, leaderboards, Lobby + Matchmaking, Party, and REST service wrappers. Installs a `PlayFabBootstrap` autoload (auto-init is opt-in). |
 | `addons/godot_gameinput` | GameInput controller integration (devices, polling, vibration, action-bridge into Godot's `InputMap`). Installs a `GameInputBootstrap` autoload. |
 | `addons/godot_gdk_editortools` | GDScript-only editor plugin for PC MSIXVC packaging via `makepkg.exe`. **Editor-only**, no runtime. |
@@ -211,7 +211,7 @@ your_project/
         │   └── Microsoft.XBOX.Services.C.Thunks.dll
         ├── doc_classes/               # in-editor F1 documentation
         ├── editor/                    # editor plugin scripts
-        ├── runtime/                   # GDKBootstrap autoload
+        ├── runtime/                   # XboxBootstrap autoload
         ├── godot_gdk.gdextension      # extension manifest
         └── plugin.cfg                 # editor plugin manifest
 ```
@@ -247,7 +247,7 @@ files, then go to **Project → Project Settings → Plugins** and enable:
 
 | Plugin name in the Plugins tab | What enabling it does |
 |--------------------------------|------------------------|
-| `GodotGDK` | Installs the `GDKBootstrap` autoload at `res://addons/godot_gdk/runtime/gdk_bootstrap.gd`. |
+| `GodotGDK` | Installs the `XboxBootstrap` autoload at `res://addons/godot_gdk/runtime/gdk_bootstrap.gd`. |
 | `GodotPlayFab` | Installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd`. The autoload only calls `PlayFab.initialize()` automatically when `playfab/runtime/initialize_on_startup` is `true` — sign-in stays in your code. |
 | `Godot GameInput` | Installs the `GameInputBootstrap` autoload at `res://addons/godot_gameinput/runtime/gameinput_bootstrap.gd`. |
 | `GDK Editor Tools` | (Optional, editor-only) registers MSIXVC packaging tooling under the editor's tools menu. |
@@ -324,7 +324,7 @@ runtime/embed_dispatch=true          ; pump async completions in _process (defau
 When `initialize_on_startup` is `true`, the `PlayFabBootstrap` autoload
 calls `PlayFab.initialize()` during `_ready` — the same shape as the Microsoft GDK
 bootstrap. Sign-in is still in your code because PlayFab needs a
-per-player key (a `GDKUser` or a custom id).
+per-player key (an `XboxUser` or a custom id).
 
 ### `godot_gameinput`
 
@@ -351,7 +351,7 @@ that reuses the XBOX user (godot_playfab).
 ### 5a. XBOX sign-in (`godot_gdk`)
 
 If you set `gdk/runtime/initialize_on_startup` and
-`gdk/runtime/auto_add_primary_user` to `true`, the `GDKBootstrap`
+`gdk/runtime/auto_add_primary_user` to `true`, the `XboxBootstrap`
 autoload does this for you on `_ready` — your code just needs to react
 to the result.
 
@@ -367,17 +367,17 @@ func _ready() -> void:
     GDK.users.user_changed.connect(_on_user_changed)
 
     # The bootstrap may already have signed someone in by the time _ready runs.
-    var user: GDKUser = GDK.users.get_primary_user()
+    var user: XboxUser = GDK.users.get_primary_user()
     if user != null:
         _show_user(user)
 
-func _on_user_changed(user: GDKUser, change_kind: String) -> void:
+func _on_user_changed(user: XboxUser, change_kind: String) -> void:
     if change_kind == "added" and user == GDK.users.get_primary_user():
         _show_user(user)
     elif change_kind == "removed":
         print("[GDK] user removed: %d" % user.local_id)
 
-func _show_user(user: GDKUser) -> void:
+func _show_user(user: XboxUser) -> void:
     print("[GDK] signed in as %s (XUID %s)" % [user.gamertag, user.xuid])
 ```
 
@@ -386,17 +386,17 @@ off and call the lifecycle yourself:
 
 ```gdscript
 func _ready() -> void:
-    var init_result: GDKResult = GDK.initialize()
+    var init_result: XboxResult = GDK.initialize()
     if not init_result.ok:
         push_warning("GDK.initialize failed: %s" % init_result.message)
         return
 
-    var sign_in_result: GDKResult = await GDK.users.add_default_user_async()
+    var sign_in_result: XboxResult = await GDK.users.add_default_user_async()
     if not sign_in_result.ok:
         push_warning("Silent sign-in failed: %s" % sign_in_result.message)
         return
 
-    var user: GDKUser = sign_in_result.data
+    var user: XboxUser = sign_in_result.data
     print("[GDK] signed in as %s" % user.gamertag)
 
 func _exit_tree() -> void:
@@ -424,7 +424,7 @@ For the full method/signal table see
 If you set `playfab/runtime/initialize_on_startup` to `true`, the
 `PlayFabBootstrap` autoload calls `PlayFab.initialize()` for you. Sign-in
 still goes through your code because PlayFab needs a per-player key —
-either a `GDKUser` or a custom id.
+either an `XboxUser` or a custom id.
 
 ```gdscript
 extends Node
@@ -442,13 +442,13 @@ func _sign_in_to_playfab() -> void:
 
     # Make sure GDK is up and we have an XBOX user.
     if not GDK.is_initialized():
-        var init: GDKResult = GDK.initialize()
+        var init: XboxResult = GDK.initialize()
         if not init.ok:
             push_warning("GDK init failed: %s" % init.message); return
 
-    var xbox_user: GDKUser = GDK.users.get_primary_user()
+    var xbox_user: XboxUser = GDK.users.get_primary_user()
     if xbox_user == null or not xbox_user.signed_in:
-        var xbox_result: GDKResult = await GDK.users.add_default_user_async()
+        var xbox_result: XboxResult = await GDK.users.add_default_user_async()
         if not xbox_result.ok:
             push_warning("XBOX sign-in failed: %s" % xbox_result.message); return
         xbox_user = xbox_result.data

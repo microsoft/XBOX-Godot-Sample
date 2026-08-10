@@ -26,14 +26,14 @@ underlying Signal/Result model that the C# bridge wraps.
    Create a project-local subclass so Godot can resolve it by script path:
 
    ```csharp
-   // Autoload/GdkBootstrap.cs
-   public partial class GdkBootstrap : GodotGdk.Runtime.GdkRuntime { }
+   // Autoload/XboxBootstrap.cs
+   public partial class XboxBootstrap : GodotXbox.Runtime.XboxRuntime { }
    ```
 
    ```ini
    ; project.godot
    [autoload]
-   GdkRuntime="*res://Autoload/GdkBootstrap.cs"
+   XboxBootstrap="*res://Autoload/XboxBootstrap.cs"
    ```
 
    It reads the same `gdk/runtime/*` project settings as the GDScript bootstrap
@@ -42,52 +42,52 @@ underlying Signal/Result model that the C# bridge wraps.
 ## The async bridge
 
 Every native `*_async` method returns a one-shot `Signal`; the facade awaits it
-and hands you a `Task<GdkResult>`:
+and hands you a `Task<XboxResult>`:
 
 ```csharp
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 
-GdkResult result = await Gdk.Users.AddDefaultUserAsync();
+XboxResult result = await Xbox.Users.AddDefaultUserAsync();
 if (!result.Ok)
 {
     GD.PushWarning($"sign-in failed: {result.Message} ({result.Code})");
     return;
 }
 
-GdkUser user = result.DataAs<GdkUser>();
+XboxUser user = result.DataAs<XboxUser>();
 GD.Print($"signed in as {user.Gamertag}");
 ```
 
-`GdkResult` mirrors the native `GDKResult`: `Ok`, `Code`, `Message`, `Data`
+`XboxResult` mirrors the native `XboxResult`: `Ok`, `Code`, `Message`, `Data`
 (raw `Variant`), `DataObject` (`GodotObject`), and `DataAs<T>()` for typed
 payloads.
 
 ## Services
 
-`Gdk` is a static entry point exposing every native service namespace as a lazily
-cached, typed accessor — `Gdk.Users`, `Gdk.Achievements`, `Gdk.Leaderboards`,
-`Gdk.Stats`, `Gdk.Social`, `Gdk.Store`, `Gdk.Presence`, `Gdk.Package`,
-`Gdk.TitleStorage`, and the rest of the 21 member services. The Game Chat 2,
+`Xbox` is a static entry point exposing every native service namespace as a lazily
+cached, typed accessor — `Xbox.Users`, `Xbox.Achievements`, `Xbox.Leaderboards`,
+`Xbox.Stats`, `Xbox.Social`, `Xbox.Store`, `Xbox.Presence`, `Xbox.Package`,
+`Xbox.TitleStorage`, and the rest of the 21 member services. The Game Chat 2,
 text-to-speech, Game Saves, and title-telemetry services are reached through the
-native getters as `Gdk.GameChat`, `Gdk.Speech`, `Gdk.GameSave`, and `Gdk.Events`.
+native getters as `Xbox.GameChat`, `Xbox.Speech`, `Xbox.GameSave`, and `Xbox.Events`.
 
 ```csharp
 // Lifecycle
-if (!Gdk.IsAvailable) { return; }            // extension loaded?
-GdkResult init = Gdk.Initialize();
-bool ready = Gdk.IsInitialized;
+if (!Xbox.IsAvailable) { return; }            // extension loaded?
+XboxResult init = Xbox.Initialize();
+bool ready = Xbox.IsInitialized;
 
 // Achievements
-GdkResult update = await Gdk.Achievements.UpdateAchievementAsync(user, "1", 100);
+XboxResult update = await Xbox.Achievements.UpdateAchievementAsync(user, "1", 100);
 
 // Root signals → C# events
-Gdk.Initialized += () => GD.Print("GDK ready");
-Gdk.RuntimeError += r => GD.PushWarning(r.Message);
+Xbox.Initialized += () => GD.Print("GDK ready");
+Xbox.RuntimeError += r => GD.PushWarning(r.Message);
 ```
 
-Synchronous native methods stay synchronous (`Gdk.IsInitialized`,
-`Gdk.Presence.GetCachedPresence(xuid)`), and service-level `runtime_error`
+Synchronous native methods stay synchronous (`Xbox.IsInitialized`,
+`Xbox.Presence.GetCachedPresence(xuid)`), and service-level `runtime_error`
 signals are re-exposed as C# `event Action<...>` on the relevant service.
 
 ## Cross-addon sign-in

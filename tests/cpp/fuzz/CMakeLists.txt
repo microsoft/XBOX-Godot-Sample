@@ -29,7 +29,7 @@ godot_addon_fuzzer_target(
     TARGET_NAME gdk_fuzz_result_formatting
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_gdk_result_formatting.cpp"
-        "${CMAKE_SOURCE_DIR}/addons/godot_gdk/src/gdk_result_codes_internal.cpp"
+        "${CMAKE_SOURCE_DIR}/addons/godot_gdk/src/xbox_result_codes_internal.cpp"
         "${CMAKE_SOURCE_DIR}/addons/godot_playfab/src/playfab_result_codes_internal.cpp"
     LINK_LIBS
         godot_stub_harness
@@ -46,15 +46,15 @@ godot_addon_fuzzer_target(
 # The target is skipped automatically when the SDK is not found.
 
 # ── Wrapped API fuzz targets (factory + accessor round-trips) ────────────
-# fuzz_gdk_result_factories: exercises GDKResult and PlayFabResult factory
+# fuzz_gdk_result_factories: exercises XboxResult and PlayFabResult factory
 # methods (ok_result, error_result, hresult_error, cancelled) and accessors.
 # Requires the object lifecycle stubs (stub_object.cpp) in godot_stub_harness.
 godot_addon_fuzzer_target(
     TARGET_NAME gdk_fuzz_result_factories
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_gdk_result_factories.cpp"
-        "${_GDK_SRC}/gdk_result.cpp"
-        "${_GDK_SRC}/gdk_result_codes_internal.cpp"
+        "${_GDK_SRC}/xbox_result.cpp"
+        "${_GDK_SRC}/xbox_result_codes_internal.cpp"
         "${_PF_SRC}/playfab_result.cpp"
         "${_PF_SRC}/playfab_result_codes_internal.cpp"
     LINK_LIBS
@@ -101,14 +101,14 @@ godot_addon_fuzzer_target(
 # (try_parse_xuid, parse_uint32, copy_utf8_to_buffer, to_packed_byte_array /
 # to_byte_vector). These touch raw memory (strtoull, memcpy into fixed buffers,
 # byte-buffer round-trips) on script-supplied values. parse_uint32 /
-# copy_utf8_to_buffer return Ref<GDKResult>, so gdk_result.cpp is linked too.
+# copy_utf8_to_buffer return Ref<XboxResult>, so xbox_result.cpp is linked too.
 godot_addon_fuzzer_target(
     TARGET_NAME gdk_fuzz_request_parsing
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/fuzz_gdk_request_parsing.cpp"
-        "${_GDK_SRC}/gdk_request_parsing.cpp"
-        "${_GDK_SRC}/gdk_result.cpp"
-        "${_GDK_SRC}/gdk_result_codes_internal.cpp"
+        "${_GDK_SRC}/xbox_request_parsing.cpp"
+        "${_GDK_SRC}/xbox_result.cpp"
+        "${_GDK_SRC}/xbox_result_codes_internal.cpp"
     LINK_LIBS
         godot_stub_harness
         godot::cpp

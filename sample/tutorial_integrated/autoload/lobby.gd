@@ -288,7 +288,7 @@ func filter_invitable(xuids: PackedStringArray) -> PackedStringArray:
 
 # Tutorial 6 Step 5 (helper) — friends list via the Xbox Social Manager.
 #
-# Returns an Array of GDKSocialUser for the local user's friends list,
+# Returns an Array of XboxSocialUser for the local user's friends list,
 # or [] on failure. Lazily starts the social graph and creates the
 # friends group on first call; subsequent calls reuse the same group.
 # _exit_tree destroys the group so the Social Manager doesn't keep

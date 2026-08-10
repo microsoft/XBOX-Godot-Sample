@@ -1,5 +1,5 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
-## Wave 4 GUT coverage for `GDKMultiplayerActivity`.
+## Wave 4 GUT coverage for `XboxMultiplayerActivity`.
 ##
 ## Mirrors the per-service style of `test_achievements.gd` / `test_presence.gd`:
 ## * Surface checks (methods + signals) that always run.
@@ -42,8 +42,8 @@ func test_multiplayer_activity_full_flow() -> void:
 	for signal_name in ["activities_updated", "pending_invite_received", "invite_accepted"]:
 		assert_has_signal_named(multiplayer_activity, signal_name)
 
-	var blank_info = instantiate_class("GDKMultiplayerActivityInfo")
-	assert_not_null(blank_info, "GDKMultiplayerActivityInfo.new() returns wrapper")
+	var blank_info = instantiate_class("XboxMultiplayerActivityInfo")
+	assert_not_null(blank_info, "XboxMultiplayerActivityInfo.new() returns wrapper")
 	if blank_info != null:
 		for method_name in [
 			"get_xuid",
@@ -55,17 +55,17 @@ func test_multiplayer_activity_full_flow() -> void:
 			"get_platform",
 		]:
 			assert_has_method_named(blank_info, method_name)
-		assert_eq(blank_info.get_xuid(), "", "blank GDKMultiplayerActivityInfo xuid defaults empty")
-		assert_eq(blank_info.get_connection_string(), "", "blank GDKMultiplayerActivityInfo connection_string defaults empty")
-		assert_eq(blank_info.get_join_restriction(), "", "blank GDKMultiplayerActivityInfo join_restriction defaults empty")
-		assert_eq(blank_info.get_max_players(), 0, "blank GDKMultiplayerActivityInfo max_players defaults 0")
-		assert_eq(blank_info.get_current_players(), 0, "blank GDKMultiplayerActivityInfo current_players defaults 0")
-		assert_eq(blank_info.get_group_id(), "", "blank GDKMultiplayerActivityInfo group_id defaults empty")
-		assert_eq(blank_info.get_platform(), "", "blank GDKMultiplayerActivityInfo platform defaults empty")
+		assert_eq(blank_info.get_xuid(), "", "blank XboxMultiplayerActivityInfo xuid defaults empty")
+		assert_eq(blank_info.get_connection_string(), "", "blank XboxMultiplayerActivityInfo connection_string defaults empty")
+		assert_eq(blank_info.get_join_restriction(), "", "blank XboxMultiplayerActivityInfo join_restriction defaults empty")
+		assert_eq(blank_info.get_max_players(), 0, "blank XboxMultiplayerActivityInfo max_players defaults 0")
+		assert_eq(blank_info.get_current_players(), 0, "blank XboxMultiplayerActivityInfo current_players defaults 0")
+		assert_eq(blank_info.get_group_id(), "", "blank XboxMultiplayerActivityInfo group_id defaults empty")
+		assert_eq(blank_info.get_platform(), "", "blank XboxMultiplayerActivityInfo platform defaults empty")
 
 	assert_true(multiplayer_activity.get_cached_activity("0") == null, "get_cached_activity() returns null before any query")
 
-	var blank_user = instantiate_class("GDKUser")
+	var blank_user = instantiate_class("XboxUser")
 
 	var pre_init_set_signal = multiplayer_activity.set_activity_async(blank_user, "")
 	await assert_signal_result_error(pre_init_set_signal, "invalid_connection_string", "set_activity_async() rejects empty connection_string before init")
@@ -74,7 +74,7 @@ func test_multiplayer_activity_full_flow() -> void:
 	await assert_signal_result_error(pre_init_send_signal, "missing_xuids", "send_invites_async() rejects empty XUID list before init")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for multiplayer_activity behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for multiplayer_activity behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -109,7 +109,7 @@ func test_multiplayer_activity_full_flow() -> void:
 	await assert_signal_result_error(invalid_xuid_invite_signal, "invalid_xuids", "send_invites_async() rejects non-numeric XUID strings")
 
 	var invalid_invite_uri = multiplayer_activity.accept_pending_invite("")
-	assert_not_null(invalid_invite_uri, "accept_pending_invite('') returns GDKResult")
+	assert_not_null(invalid_invite_uri, "accept_pending_invite('') returns XboxResult")
 	if invalid_invite_uri != null:
 		assert_false(invalid_invite_uri.ok, "accept_pending_invite('') rejects empty URIs")
 		assert_eq(invalid_invite_uri.code, "invalid_invite_uri", "accept_pending_invite('') reports invalid_invite_uri")

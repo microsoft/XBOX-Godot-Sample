@@ -4,7 +4,7 @@
 
 This document defines the current design direction for the `godot_playfab` addon.
 
-`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by a `GDKUser` object or title-defined custom id, Game Saves flows, leaderboard flows, client-safe PlayFab Services SDK wrappers, and the MLP lobby/matchmaking surface built on top of the PlayFab C SDKs. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich SDK payloads, and direct-await completion signals for one-shot services.
+`godot_playfab` owns PlayFab runtime bootstrap, manual PlayFab sign-in keyed by an `XboxUser` object or title-defined custom id, Game Saves flows, leaderboard flows, client-safe PlayFab Services SDK wrappers, and the MLP lobby/matchmaking surface built on top of the PlayFab C SDKs. The public API is intentionally GDScript-first: a single `PlayFab` root singleton, `RefCounted` wrapper types, dictionaries for rich SDK payloads, and direct-await completion signals for one-shot services.
 
 Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-playfab-lobby-matchmaking.md` and `spec\gdext-playfab-party.md`. The MLP adds `PlayFab.multiplayer` for lobbies and matchmaking while keeping Party transport deferred to `PlayFab.party`.
 
@@ -22,7 +22,7 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 | Domain | Included | Notes |
 | --- | --- | --- |
 | Runtime init/shutdown | Yes | Process-lifetime Microsoft GDK runtime reference (`XGameRuntimeInitializeWithOptions` with `File` source only in Godot editor sessions; plain `XGameRuntimeInitialize` for every exported/templated build), re-armable PlayFab init/shutdown, shared queue |
-| Manual sign-in | Yes | `GDKUser` object, custom-ID, and token-based identity providers (Steam, OpenID Connect, Battle.net) |
+| Manual sign-in | Yes | `XboxUser` object, custom-ID, and token-based identity providers (Steam, OpenID Connect, Battle.net) |
 | Cached user sessions | Yes | `PlayFabUser` keyed by local Xbox user id, custom id, or PlayFab entity id |
 | Game Saves | Yes | add/sync, upload, folder/quota/cloud-state queries |
 | Leaderboards | Yes | submit, global, around-user, friends/social |
@@ -123,7 +123,7 @@ PlayFab's authentication SDK exposes many login methods, but the GDK flavor of t
 
 | Sign-in method | `PlayFab.users` entry point | Token source | Status |
 | --- | --- | --- | --- |
-| Local Xbox user | `sign_in_with_xuser_async(user)` | `GDKUser` object (GDK) | Wrapped |
+| Local Xbox user | `sign_in_with_xuser_async(user)` | `XboxUser` object (GDK) | Wrapped |
 | Custom id | `sign_in_with_custom_id_async(custom_id)` | Title-defined string | Wrapped |
 | Steam | `sign_in_with_steam_async(steam_ticket, …)` | Steamworks SDK session ticket | Wrapped (title mints the ticket) |
 | OpenID Connect | `sign_in_with_open_id_connect_async(connection_id, id_token)` | Identity-provider JWT (`id_token`) | Wrapped (title runs the OIDC flow) |
@@ -180,7 +180,7 @@ Method shape:
 - `request` uses snake_case versions of the PlayFab C SDK request field names
 - successful result payloads are converted to Godot `Dictionary` and `Array` values under `PlayFabResult.data`
 - void PlayFab operations complete with `PlayFabResult.data == null`
-- operations with GDK-only `XUserHandle` request fields require a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted
+- operations with GDK-only `XUserHandle` request fields require a signed-in `XboxUser` object in `request.user`; raw local ids are not accepted
 
 Service buckets:
 

@@ -27,7 +27,7 @@ GameInput operation completes:
 
 Methods **without** the `_async` suffix are synchronous — they
 return the value directly (`GDK.is_initialized() -> bool`,
-`GDK.presence.get_cached_presence(xuid) -> GDKPresenceRecord`).
+`GDK.presence.get_cached_presence(xuid) -> XboxPresenceRecord`).
 
 ## `await` is the only thing you need
 
@@ -36,7 +36,7 @@ You do not need `connect()` or callbacks for one-shot completions.
 
 ```gdscript
 func sign_in() -> void:
-    var result: GDKResult = await GDK.users.add_default_user_async()
+    var result: XboxResult = await GDK.users.add_default_user_async()
     if not result.ok:
         push_warning("[Auth] silent sign-in failed: %s" % result.message)
         return
@@ -58,7 +58,7 @@ func warm_caches() -> void:
     var board_signal: Signal = PlayFab.leaderboards.get_leaderboard_async(
             Auth.playfab_user, "high_score", 1, 25)
 
-    var ach_result: GDKResult = await ach_signal
+    var ach_result: XboxResult = await ach_signal
     var board_result: PlayFabResult = await board_signal
     # Both calls were in flight at the same time; this function waits
     # only as long as the slower of the two.
@@ -74,7 +74,7 @@ the success bit, a payload, and an error description:
 
 | Addon           | Result class    | Success check     | Payload field |
 |-----------------|-----------------|-------------------|---------------|
-| `godot_gdk`     | `GDKResult`     | `result.ok`       | `result.data` |
+| `godot_gdk`     | `XboxResult`     | `result.ok`       | `result.data` |
 | `godot_playfab` | `PlayFabResult` | `result.ok`       | `result.data` |
 | `godot_gameinput` (rare async methods) | `GameInputResult` | `result.ok` | `result.data` |
 
@@ -82,7 +82,7 @@ A typical handler looks like:
 
 ```gdscript
 func _push_progress(percent: int) -> void:
-    var result: GDKResult = await GDK.achievements.update_achievement_async(
+    var result: XboxResult = await GDK.achievements.update_achievement_async(
         Auth.xbox_user, "1", percent)
     if not result.ok:
         push_warning("[Ach] update failed: %s (%s)" % [result.message, result.code])
@@ -91,7 +91,7 @@ func _push_progress(percent: int) -> void:
 ```
 
 `result.data` is the typed return value for the operation —
-`GDKUser` for sign-in, a `Dictionary` for a PlayFab leaderboard
+`XboxUser` for sign-in, a `Dictionary` for a PlayFab leaderboard
 fetch (`{ rankings: Array, version: int, ... }`),
 `PlayFabLobby` for a lobby create / join, and so on. The doc_classes
 XML page for the service describes the exact `data` shape per
@@ -131,7 +131,7 @@ There are two distinct error surfaces. Tutorials lean on both:
        GDK.achievements.runtime_error.connect(_on_achievements_runtime_error)
        GDK.social.runtime_error.connect(_on_social_runtime_error)
 
-   func _on_achievements_runtime_error(result: GDKResult) -> void:
+   func _on_achievements_runtime_error(result: XboxResult) -> void:
        push_warning("[Ach] subsystem error: %s" % result.message)
    ```
 

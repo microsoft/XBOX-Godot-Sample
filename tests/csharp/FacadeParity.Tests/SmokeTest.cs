@@ -6,9 +6,9 @@ namespace FacadeParity.Tests;
 public class SmokeTest
 {
     [Fact]
-    public void GdkFacadeAssemblyLoads()
+    public void XboxFacadeAssemblyLoads()
     {
-        System.Type gdk = typeof(GodotGdk.Gdk);
+        System.Type gdk = typeof(GodotXbox.Xbox);
         Assert.NotNull(gdk);
     }
 

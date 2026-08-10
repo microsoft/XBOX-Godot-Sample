@@ -44,7 +44,7 @@ func test_embed_dispatch_disabled_keeps_completion_pending_without_manual_pump()
 
 	var gdk = get_gdk()
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "initialize() for disabled-embed coverage returns GDKResult")
+	assert_not_null(init_result, "initialize() for disabled-embed coverage returns XboxResult")
 	if init_result == null or not init_result.ok:
 		pending("Disabled embed_dispatch behavior requires a working runtime: %s" % (
 			"init returned null" if init_result == null else init_result.message))

@@ -23,7 +23,7 @@ const DEFAULT_SINGLETON_NAME := "GDK"
 ## Native class the singleton must be an instance of. The singleton *name* is
 ## configurable; the class it resolves to is not, so this is what proves a
 ## looked-up singleton is actually the GDK runtime.
-const SINGLETON_CLASS_NAME := "GDK"
+const SINGLETON_CLASS_NAME := "Xbox"
 
 var _startup_user_in_progress := false
 var _gdk_extension: Variant = null
@@ -78,7 +78,7 @@ func get_gdk() -> Object:
 	return find_singleton()
 
 
-## Returns the GDKResult from the most recent bootstrap-driven `GDK.initialize()`
+## Returns the XboxResult from the most recent bootstrap-driven `GDK.initialize()`
 ## call, or `null` if the autoload has not attempted initialization. Tests use
 ## this to distinguish "init never attempted" (returns `null`) from "init
 ## attempted and failed" (returns a result whose `.ok` is `false`).
@@ -86,7 +86,7 @@ func get_last_initialize_result() -> Variant:
 	return _last_initialize_result
 
 
-## Returns the GDKResult from the most recent bootstrap-driven
+## Returns the XboxResult from the most recent bootstrap-driven
 ## `GDK.users.add_default_user_async()` call, or `null` if the autoload has
 ## not attempted to add a default user yet (or the request never completed).
 ## Tests use this to observe sign-in outcomes without polling a global
@@ -119,7 +119,7 @@ func _ready() -> void:
 		var init_result: Variant = gdk.initialize()
 		_last_initialize_result = init_result
 		if init_result == null:
-			push_warning("[GDK] Bootstrap: GDK.initialize() did not return a GDKResult.")
+			push_warning("[GDK] Bootstrap: GDK.initialize() did not return an XboxResult.")
 		elif init_result.ok:
 			print("[GDK] Bootstrap: GDK.initialize() succeeded.")
 			_maybe_start_default_user(gdk)

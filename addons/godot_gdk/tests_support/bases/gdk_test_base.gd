@@ -22,7 +22,7 @@ const GDK_SINGLETON_NAME_SETTING := "gdk/runtime/singleton_name"
 const GDK_DEFAULT_SINGLETON_NAME := "GDK"
 # Native class the singleton must be an instance of. The singleton *name* is
 # configurable; the class it resolves to is not.
-const GDK_SINGLETON_CLASS_NAME := "GDK"
+const GDK_SINGLETON_CLASS_NAME := "Xbox"
 
 var _gdk_extension: Resource = null
 
@@ -230,28 +230,28 @@ func ensure_primary_user(timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dict
 	return outcome
 
 
-# ── GDKResult / signal-result assertions ─────────────────────────────────
+# ── XboxResult / signal-result assertions ─────────────────────────────────
 
 func fail(message: String = "Test failed") -> void:
 	assert_true(false, message)
 
 
 func assert_result_ok(result, name: String) -> void:
-	assert_not_null(result, "%s returns GDKResult" % name)
+	assert_not_null(result, "%s returns XboxResult" % name)
 	if result == null:
 		return
 	assert_true(result.ok, "%s result.ok == true" % name)
 
 
 func assert_result_failed(result, name: String) -> void:
-	assert_not_null(result, "%s returns GDKResult" % name)
+	assert_not_null(result, "%s returns XboxResult" % name)
 	if result == null:
 		return
 	assert_false(result.ok, "%s result.ok == false" % name)
 
 
 func assert_result_error(result, expected_code: String, name: String) -> void:
-	assert_not_null(result, "%s returns GDKResult" % name)
+	assert_not_null(result, "%s returns XboxResult" % name)
 	if result == null:
 		return
 	assert_false(result.ok, "%s result.ok == false" % name)

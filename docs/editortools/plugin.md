@@ -29,22 +29,22 @@ godot --path C:\Repos\MyGame --headless `
 
 Form A is the fallback runner only. It does not replace the one-time
 `godot --headless --import` step that form B needs to register
-`GdkEditorToolsRunner` in that host.
+`XboxEditorToolsRunner` in that host.
 
 ### B — `--main-loop` class name
 
 Shortest official form. Requires a prior `--headless --import` against the
-host project so the `class_name GdkEditorToolsRunner` registration is in
+host project so the `class_name XboxEditorToolsRunner` registration is in
 place:
 
 ```pwsh
 godot --headless --import        # one-time per host
-godot --headless --main-loop GdkEditorToolsRunner -- `
+godot --headless --main-loop XboxEditorToolsRunner -- `
     pack --source-dir Build\content --output-dir Build\out
 
 # The same form works with Godot's engine-level --path.
 godot --path C:\Repos\MyGame --headless --import
-godot --path C:\Repos\MyGame --headless --main-loop GdkEditorToolsRunner -- `
+godot --path C:\Repos\MyGame --headless --main-loop XboxEditorToolsRunner -- `
     sandbox
 ```
 
@@ -262,7 +262,7 @@ addons\godot_gdk_editortools\gdkpkg.cmd config_template --output Configs\Alt.con
 
 # Direct-form runner examples with engine-level --path.
 godot --path C:\Repos\MyGame --headless -s res://addons/godot_gdk_editortools/run.gd -- sandbox
-godot --path C:\Repos\MyGame --headless --main-loop GdkEditorToolsRunner -- config_template --output Configs\Alt.config
+godot --path C:\Repos\MyGame --headless --main-loop XboxEditorToolsRunner -- config_template --output Configs\Alt.config
 
 # Get the current sandbox.
 addons\godot_gdk_editortools\gdkpkg.cmd sandbox --action get
@@ -302,13 +302,13 @@ addons\godot_gdk_editortools\gdkpkg.cmd terminate --package-name MyPublisher.MyG
   quotes, or wildcards); extra `.exe` files are intentionally ignored.
 - **`PACKAGING_RESULT_JSON:` line missing.** You passed `--no-json`. Drop
   it to re-enable the marker.
-- **Form B (`--main-loop GdkEditorToolsRunner`) reports unknown class.** The
+- **Form B (`--main-loop XboxEditorToolsRunner`) reports unknown class.** The
   host project hasn't been imported yet. Run `godot --headless --import`
   once against that host. Form A (`-s ...`) still works without prior import,
   but it does not perform the import or register the class for later form-B use.
 - **Microsoft GDK runtime warnings on every invocation** (e.g. silent sign-in
   cancellation). Those come from the host project's autoloaded
-  `GDKBootstrap`. They are unrelated to the packaging verb result and
+  `XboxBootstrap`. They are unrelated to the packaging verb result and
   can be ignored when inspecting `PACKAGING_RESULT_JSON:`.
 
 ## See also

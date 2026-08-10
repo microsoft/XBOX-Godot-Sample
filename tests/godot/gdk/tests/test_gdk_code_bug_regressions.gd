@@ -22,8 +22,8 @@ func _assert_not_contains(source: String, needle: String, message: String) -> vo
 
 
 func test_presence_callback_context_uses_retained_weak_token() -> void:
-	var header := _read_repo_source("addons/godot_gdk/src/gdk_presence.h")
-	var source := _read_repo_source("addons/godot_gdk/src/gdk_presence.cpp")
+	var header := _read_repo_source("addons/godot_gdk/src/xbox_presence.h")
+	var source := _read_repo_source("addons/godot_gdk/src/xbox_presence.cpp")
 	if header.is_empty() or source.is_empty():
 		return
 
@@ -38,22 +38,22 @@ func test_presence_callback_context_uses_retained_weak_token() -> void:
 
 
 func test_activation_is_single_native_registration_owner() -> void:
-	var activation_source := _read_repo_source("addons/godot_gdk/src/gdk_activation.cpp")
-	var multiplayer_source := _read_repo_source("addons/godot_gdk/src/gdk_multiplayer_activity.cpp")
+	var activation_source := _read_repo_source("addons/godot_gdk/src/xbox_activation.cpp")
+	var multiplayer_source := _read_repo_source("addons/godot_gdk/src/xbox_multiplayer_activity.cpp")
 	if activation_source.is_empty() or multiplayer_source.is_empty():
 		return
 
-	_assert_contains(activation_source, "XGameActivationRegisterForEvent", "GDKActivation owns the native activation registration")
-	_assert_contains(activation_source, "add_activation_listener", "GDKActivation exposes internal listener registration")
-	_assert_contains(activation_source, "notify_activation_listeners_internal", "GDKActivation fans out native events to internal listeners")
-	_assert_contains(multiplayer_source, "activation->add_activation_listener", "GDKMultiplayerActivity subscribes to GDKActivation events")
-	_assert_contains(multiplayer_source, "activation->remove_activation_listener", "GDKMultiplayerActivity unsubscribes from GDKActivation events")
-	_assert_not_contains(multiplayer_source, "XGameActivationRegisterForEvent", "GDKMultiplayerActivity does not register a second native activation callback")
-	_assert_not_contains(multiplayer_source, "XGameActivationUnregisterForEvent", "GDKMultiplayerActivity does not unregister native activation callbacks")
+	_assert_contains(activation_source, "XGameActivationRegisterForEvent", "XboxActivation owns the native activation registration")
+	_assert_contains(activation_source, "add_activation_listener", "XboxActivation exposes internal listener registration")
+	_assert_contains(activation_source, "notify_activation_listeners_internal", "XboxActivation fans out native events to internal listeners")
+	_assert_contains(multiplayer_source, "activation->add_activation_listener", "XboxMultiplayerActivity subscribes to XboxActivation events")
+	_assert_contains(multiplayer_source, "activation->remove_activation_listener", "XboxMultiplayerActivity unsubscribes from XboxActivation events")
+	_assert_not_contains(multiplayer_source, "XGameActivationRegisterForEvent", "XboxMultiplayerActivity does not register a second native activation callback")
+	_assert_not_contains(multiplayer_source, "XGameActivationUnregisterForEvent", "XboxMultiplayerActivity does not unregister native activation callbacks")
 
 
 func test_package_mount_finalizer_cancels_before_native_result_work() -> void:
-	var source := _read_repo_source("addons/godot_gdk/src/gdk_package.cpp")
+	var source := _read_repo_source("addons/godot_gdk/src/xbox_package.cpp")
 	if source.is_empty():
 		return
 
@@ -64,11 +64,11 @@ func test_package_mount_finalizer_cancels_before_native_result_work() -> void:
 	assert_true(gate_index >= 0, "package mount finalizer checks shutdown/cancel state")
 	assert_true(result_index >= 0, "package mount finalizer still reads native mount result")
 	assert_true(gate_index >= 0 and result_index >= 0 and gate_index < result_index, "package mount cancel gate runs before native result extraction")
-	_assert_contains(source, "GDKResult::cancelled(\"Package mount cancelled.\")", "package mount cancellation completes with cancelled result")
+	_assert_contains(source, "XboxResult::cancelled(\"Package mount cancelled.\")", "package mount cancellation completes with cancelled result")
 
 
 func test_runtime_shutdown_completes_cancelled_pending_signals() -> void:
-	var source := _read_repo_source("addons/godot_gdk/src/gdk_runtime.cpp")
+	var source := _read_repo_source("addons/godot_gdk/src/xbox_runtime.cpp")
 	if source.is_empty():
 		return
 
@@ -77,7 +77,7 @@ func test_runtime_shutdown_completes_cancelled_pending_signals() -> void:
 	# shutdown runs from SceneTree teardown there may be no idle frame left to
 	# drain a deferred call, which would strand any awaiters whose signals were
 	# already returned to callers.
-	var complete_index := source.find("pending_signal->complete(GDKResult::cancelled", cancel_index)
+	var complete_index := source.find("pending_signal->complete(XboxResult::cancelled", cancel_index)
 	var terminate_index := source.find("XTaskQueueTerminate", cancel_index)
 	assert_true(cancel_index >= 0, "runtime shutdown cancels active pending signals")
 	assert_true(complete_index >= 0, "runtime shutdown synchronously completes cancelled pending signals (not deferred)")
@@ -96,7 +96,7 @@ func test_runtime_shutdown_completes_cancelled_pending_signals() -> void:
 
 
 func test_presence_retired_callback_tokens_are_bounded() -> void:
-	var source := _read_repo_source("addons/godot_gdk/src/gdk_presence.cpp")
+	var source := _read_repo_source("addons/godot_gdk/src/xbox_presence.cpp")
 	if source.is_empty():
 		return
 

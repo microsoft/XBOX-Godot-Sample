@@ -42,8 +42,8 @@ func test_users_full_flow() -> void:
 	assert_true(users.get_users() is Array, "get_users() returns Array")
 	assert_true(users.get_primary_user() == null, "get_primary_user() starts null before init")
 
-	var blank_user = instantiate_class("GDKUser")
-	assert_not_null(blank_user, "GDKUser.new() returns wrapper")
+	var blank_user = instantiate_class("XboxUser")
+	assert_not_null(blank_user, "XboxUser.new() returns wrapper")
 	if blank_user != null:
 		for method_name in [
 			"get_local_id",
@@ -59,16 +59,16 @@ func test_users_full_flow() -> void:
 		]:
 			assert_has_method_named(blank_user, method_name)
 
-		assert_eq(blank_user.get_local_id(), 0, "blank GDKUser local_id defaults to 0")
-		assert_eq(blank_user.get_xuid(), "", "blank GDKUser xuid defaults empty")
-		assert_eq(blank_user.get_gamertag(), "", "blank GDKUser gamertag defaults empty")
-		assert_eq(blank_user.get_age_group(), get_class_constant("GDKUser", "AGE_GROUP_UNKNOWN"), "blank GDKUser age_group defaults to AGE_GROUP_UNKNOWN")
-		assert_eq(blank_user.get_age_group_name(), "unknown", "blank GDKUser age_group_name defaults to unknown")
-		assert_eq(blank_user.get_sign_in_state(), get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_OUT"), "blank GDKUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
-		assert_eq(blank_user.get_sign_in_state_name(), "signed_out", "blank GDKUser sign_in_state_name defaults to signed_out")
-		assert_eq(blank_user.is_guest(), false, "blank GDKUser guest defaults false")
-		assert_eq(blank_user.is_signed_in(), false, "blank GDKUser signed_in defaults false")
-		assert_eq(blank_user.is_store_user(), false, "blank GDKUser store_user defaults false")
+		assert_eq(blank_user.get_local_id(), 0, "blank XboxUser local_id defaults to 0")
+		assert_eq(blank_user.get_xuid(), "", "blank XboxUser xuid defaults empty")
+		assert_eq(blank_user.get_gamertag(), "", "blank XboxUser gamertag defaults empty")
+		assert_eq(blank_user.get_age_group(), get_class_constant("XboxUser", "AGE_GROUP_UNKNOWN"), "blank XboxUser age_group defaults to AGE_GROUP_UNKNOWN")
+		assert_eq(blank_user.get_age_group_name(), "unknown", "blank XboxUser age_group_name defaults to unknown")
+		assert_eq(blank_user.get_sign_in_state(), get_class_constant("XboxUser", "SIGN_IN_STATE_SIGNED_OUT"), "blank XboxUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
+		assert_eq(blank_user.get_sign_in_state_name(), "signed_out", "blank XboxUser sign_in_state_name defaults to signed_out")
+		assert_eq(blank_user.is_guest(), false, "blank XboxUser guest defaults false")
+		assert_eq(blank_user.is_signed_in(), false, "blank XboxUser signed_in defaults false")
+		assert_eq(blank_user.is_store_user(), false, "blank XboxUser store_user defaults false")
 
 	var pre_init_add_with_ui_signal = users.add_user_with_ui_async()
 	await assert_signal_result_error(pre_init_add_with_ui_signal, "not_initialized", "add_user_with_ui_async() rejects before initialize")
@@ -77,7 +77,7 @@ func test_users_full_flow() -> void:
 	await assert_signal_result_error(pre_init_add_guest_signal, "not_initialized", "add_user_with_ui_async(true) rejects before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for users behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for users behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -122,8 +122,8 @@ func test_users_full_flow() -> void:
 		disconnect_signal_handlers(users, ["user_changed"])
 		return
 
-	assert_object_is(user, "GDKUser", "default-user flow returns a GDKUser")
-	if add_result != null and is_class_instance(add_result.data, "GDKUser"):
+	assert_object_is(user, "XboxUser", "default-user flow returns an XboxUser")
+	if add_result != null and is_class_instance(add_result.data, "XboxUser"):
 		assert_eq(add_result.data.get_local_id(), user.get_local_id(), "default-user result data matches the cached primary user")
 
 	var primary_user = users.get_primary_user()
@@ -142,7 +142,7 @@ func test_users_full_flow() -> void:
 	assert_true(user.get_local_id() != 0, "signed-in user local_id is populated")
 	assert_true(user.get_xuid().length() > 0, "signed-in user XUID is populated")
 	assert_true(user.get_gamertag().length() > 0, "signed-in user gamertag is populated")
-	assert_eq(user.get_sign_in_state(), get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_IN"), "signed-in user reports SIGNED_IN")
+	assert_eq(user.get_sign_in_state(), get_class_constant("XboxUser", "SIGN_IN_STATE_SIGNED_IN"), "signed-in user reports SIGNED_IN")
 	assert_eq(user.is_signed_in(), true, "signed-in user reports signed_in == true")
 
 	var privilege_signal = users.check_privilege_async(user, 254)

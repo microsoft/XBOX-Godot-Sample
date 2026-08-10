@@ -458,7 +458,7 @@ inline bool duplicate_xuser_handle_from_variant(const Variant &p_user, XUserHand
 
     *r_user_handle = nullptr;
     if (p_user.get_type() != Variant::OBJECT) {
-        if (r_error) *r_error = "Expected a GDKUser object for field user.";
+        if (r_error) *r_error = "Expected an XboxUser object for field user.";
         return false;
     }
 
@@ -469,37 +469,37 @@ inline bool duplicate_xuser_handle_from_variant(const Variant &p_user, XUserHand
     }
 
     if (Object::cast_to<PlayFabUser>(object) != nullptr) {
-        if (r_error) *r_error = "Field user requires a GDKUser object, not a PlayFabUser.";
+        if (r_error) *r_error = "Field user requires an XboxUser object, not a PlayFabUser.";
         return false;
     }
 
     if (!object->has_method("is_signed_in") || !object->has_method("get_local_id")) {
-        if (r_error) *r_error = "Field user requires a GDKUser object.";
+        if (r_error) *r_error = "Field user requires an XboxUser object.";
         return false;
     }
 
     Variant signed_in = object->call("is_signed_in");
     if (signed_in.get_type() != Variant::BOOL || !static_cast<bool>(signed_in)) {
-        if (r_error) *r_error = "Field user requires a signed-in GDKUser object.";
+        if (r_error) *r_error = "Field user requires a signed-in XboxUser object.";
         return false;
     }
 
     Variant local_id_value = object->call("get_local_id");
     if (local_id_value.get_type() != Variant::INT) {
-        if (r_error) *r_error = "The provided GDKUser does not expose an integer local_id.";
+        if (r_error) *r_error = "The provided XboxUser does not expose an integer local_id.";
         return false;
     }
 
     XUserLocalId local_id = {};
     local_id.value = static_cast<uint64_t>(static_cast<int64_t>(local_id_value));
     if (local_id.value == 0) {
-        if (r_error) *r_error = "The provided GDKUser does not have a valid local_id.";
+        if (r_error) *r_error = "The provided XboxUser does not have a valid local_id.";
         return false;
     }
 
     HRESULT hr = XUserFindUserByLocalId(local_id, r_user_handle);
     if (FAILED(hr)) {
-        if (r_error) *r_error = "Failed to find an active XUserHandle for the provided GDKUser.";
+        if (r_error) *r_error = "Failed to find an active XUserHandle for the provided XboxUser.";
         return false;
     }
 
@@ -734,7 +734,7 @@ struct OwnedPFAccountManagementClientLinkXboxAccountRequest {
             value.forceLink = &forceLink_storage;
         }
         if (!get_request_value(p_request, "user", "user", &field_value)) {
-            if (r_error) *r_error = "Expected a GDKUser object for field user.";
+            if (r_error) *r_error = "Expected an XboxUser object for field user.";
             return false;
         }
         if (!duplicate_xuser_handle_from_variant(field_value, &user_handle, r_error)) return false;
@@ -8651,7 +8651,7 @@ struct OwnedPFFriendsClientGetFriendsListRequest {
             value.profileConstraints = &profileConstraints_owner.value;
         }
         if (!get_request_value(p_request, "user", "user", &field_value)) {
-            if (r_error) *r_error = "Expected a GDKUser object for field user.";
+            if (r_error) *r_error = "Expected an XboxUser object for field user.";
             return false;
         }
         if (!duplicate_xuser_handle_from_variant(field_value, &user_handle, r_error)) return false;
@@ -12430,7 +12430,7 @@ struct OwnedPFInventoryRedeemMicrosoftStoreInventoryItemsRequest {
             value.entity = &entity_owner.value;
         }
         if (!get_request_value(p_request, "user", "user", &field_value)) {
-            if (r_error) *r_error = "Expected a GDKUser object for field user.";
+            if (r_error) *r_error = "Expected an XboxUser object for field user.";
             return false;
         }
         if (!duplicate_xuser_handle_from_variant(field_value, &user_handle, r_error)) return false;

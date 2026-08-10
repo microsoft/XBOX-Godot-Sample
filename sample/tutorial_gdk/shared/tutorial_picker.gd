@@ -5,9 +5,9 @@ extends Control
 ## Plain Control with one button per tutorial. Pressing a button changes
 ## the current scene to that tutorial's reference end-state scene. Disables
 ## auth-gated buttons while sign-in is in-flight so first-time opens don't
-## race the GdkAuth autoload's silent sign-in.
+## race the XboxAuth autoload's silent sign-in.
 ##
-## This is the GDK-only track: it signs into Xbox via GdkAuth and never
+## This is the GDK-only track: it signs into Xbox via XboxAuth and never
 ## touches PlayFab, so the config pre-flight only checks MicrosoftGame.config.
 
 const TUTORIALS := [
@@ -22,13 +22,13 @@ const TUTORIALS := [
 @onready var _problems: RichTextLabel = $Root/Problems
 @onready var _buttons: VBoxContainer = $Root/Buttons
 
-# `GdkAuth` is a user-defined GDScript autoload registered in project.godot.
-# Use `/root/GdkAuth` lookup so the parse gate (which doesn't resolve
+# `XboxAuth` is a user-defined GDScript autoload registered in project.godot.
+# Use `/root/XboxAuth` lookup so the parse gate (which doesn't resolve
 # autoloads) stays clean.
 var _auth: Node = null
 
 func _ready() -> void:
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	_populate_buttons()
 	_status.text = "Signing in…"
 	_set_signin_gated(true)
@@ -44,7 +44,7 @@ func _ready() -> void:
 		return
 
 	if _auth == null:
-		_status.text = "GdkAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
+		_status.text = "XboxAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
 		_set_signin_gated(true)
 		return
 

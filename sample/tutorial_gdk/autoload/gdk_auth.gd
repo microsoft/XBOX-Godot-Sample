@@ -4,21 +4,21 @@ const AddonApi = preload("res://shared/addon_api.gd")
 
 ## GDK Tutorial — Xbox sign-in (state-machine autoload).
 ##
-## The `GdkAuth` autoload is the GDK-only track's identity service. Unlike
+## The `XboxAuth` autoload is the GDK-only track's identity service. Unlike
 ## the integrated track's `Auth` autoload, it stops at Xbox: there is no
 ## PlayFab step. It runs a phased sign-in:
 ##   1. UNINITIALIZED  → SIGNING_IN_XBOX (GDK: check → silent → UI)
 ##   2. SIGNING_IN_XBOX → SIGNED_IN (or FAILED at any step)
 ##
-## Consumers gate work by awaiting [code]GdkAuth.sign_in()[/code], which is
+## Consumers gate work by awaiting [code]XboxAuth.sign_in()[/code], which is
 ## idempotent and joins an in-flight attempt instead of starting a new one.
 ## The single [code]state_changed[/code] signal carries the new state;
 ## accessors return the current truth.
 ##
-##     if not await GdkAuth.sign_in():
-##         _show_error(GdkAuth.get_last_error_stage(), GdkAuth.get_last_error_message())
+##     if not await XboxAuth.sign_in():
+##         _show_error(XboxAuth.get_last_error_stage(), XboxAuth.get_last_error_message())
 ##         return
-##     var user = GdkAuth.xbox_user
+##     var user = XboxAuth.xbox_user
 ##
 ## Source: docs/tutorials/gdk/01-signin.md
 
@@ -43,7 +43,7 @@ var xbox_user:
 	get:
 		return _xbox_user if _state == State.SIGNED_IN else null
 	set(_value):
-		push_error("[GdkAuth] xbox_user is read-only — drive state via sign_in()")
+		push_error("[XboxAuth] xbox_user is read-only — drive state via sign_in()")
 
 func get_state() -> State:
 	return _state
@@ -82,7 +82,7 @@ func sign_in() -> bool:
 
 func _ready() -> void:
 	# Kick off silent sign-in immediately so the first scene to load can
-	# simply `await GdkAuth.sign_in()` and join the in-flight attempt.
+	# simply `await XboxAuth.sign_in()` and join the in-flight attempt.
 	sign_in()
 
 func _do_sign_in() -> bool:
@@ -96,8 +96,8 @@ func _do_sign_in() -> bool:
 		_set_state(State.FAILED)
 		return false
 	_xbox_user = xbox
-	print("[GdkAuth] Xbox primary user: %s" % xbox.gamertag)
-	print("[GdkAuth] Sign-in complete.")
+	print("[XboxAuth] Xbox primary user: %s" % xbox.gamertag)
+	print("[XboxAuth] Sign-in complete.")
 
 	_set_state(State.SIGNED_IN)
 	return true
@@ -111,7 +111,7 @@ func _set_state(new_state: State) -> void:
 func _set_error(stage: String, message: String) -> void:
 	_last_error_stage = stage
 	_last_error_message = message
-	push_warning("[GdkAuth] sign-in failed at %s: %s" % [stage, message])
+	push_warning("[XboxAuth] sign-in failed at %s: %s" % [stage, message])
 
 func _ensure_xbox_user():
 	if not Engine.has_singleton("GDK"):
@@ -135,7 +135,7 @@ func _ensure_xbox_user():
 	if silent.ok and silent.data != null and silent.data.signed_in:
 		return silent.data
 
-	print("[GdkAuth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
+	print("[XboxAuth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
 	# 3. UI fallback. Shows the system sign-in UI for the default user.
 	#    Pass add_user_with_ui_async(true) for the guest-capable account

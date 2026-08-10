@@ -1,12 +1,12 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk.Types;
+using GodotXbox.Types;
 
 /// <summary>
 /// GDK Tutorial 1 reference scene — Xbox sign-in status panel.
 ///
-/// Reads the <c>GdkAuth</c> autoload and renders the current sign-in state via
-/// <c>GdkAuth.StateChanged</c>. Pressing <b>Sign in</b> re-runs the
+/// Reads the <c>XboxAuth</c> autoload and renders the current sign-in state via
+/// <c>XboxAuth.StateChanged</c>. Pressing <b>Sign in</b> re-runs the
 /// check → silent → UI fallback; <b>Back</b> returns to the picker. GDK-only:
 /// there is no PlayFab identity to show.
 /// </summary>
@@ -16,7 +16,7 @@ public partial class G01Signin : Control
     private Label _status;
     private Button _signInButton;
     private Button _backButton;
-    private GdkAuth _auth;
+    private XboxAuth _auth;
 
     public override void _Ready()
     {
@@ -26,10 +26,10 @@ public partial class G01Signin : Control
         _backButton = GetNode<Button>("Root/Buttons/Back");
         _backButton.Pressed += OnBackPressed;
         _signInButton.Pressed += async () => await OnSignInPressed();
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
         if (_auth == null)
         {
-            _status.Text = "GdkAuth autoload missing — register Autoload/GdkAuth.cs in project.godot.";
+            _status.Text = "XboxAuth autoload missing — register Autoload/XboxAuth.cs in project.godot.";
             _signInButton.Disabled = true;
             return;
         }
@@ -42,7 +42,7 @@ public partial class G01Signin : Control
         if (_auth != null) _auth.StateChanged -= OnAuthStateChanged;
     }
 
-    private void OnAuthStateChanged(GdkAuth.State state) => Refresh();
+    private void OnAuthStateChanged(XboxAuth.State state) => Refresh();
 
     private void Refresh()
     {
@@ -69,7 +69,7 @@ public partial class G01Signin : Control
         }
     }
 
-    private void RefreshIdentity(GdkUser xboxUser)
+    private void RefreshIdentity(XboxUser xboxUser)
     {
         _identity.Text = xboxUser == null
             ? "Xbox: (not signed in)"

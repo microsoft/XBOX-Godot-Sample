@@ -26,17 +26,17 @@ func test_profile_surface_and_validation() -> void:
 	]:
 		assert_has_method_named(profile, method_name)
 
-	var user_profile = GDKUserProfile.new()
-	assert_not_null(user_profile, "GDKUserProfile can be instantiated")
+	var user_profile = XboxUserProfile.new()
+	assert_not_null(user_profile, "XboxUserProfile can be instantiated")
 	if user_profile != null:
 		assert_eq(user_profile.xuid, "", "empty user profile starts with no XUID")
-		assert_true(user_profile.has_method("get_unique_modern_gamertag"), "GDKUserProfile exposes modern gamertag data")
+		assert_true(user_profile.has_method("get_unique_modern_gamertag"), "XboxUserProfile exposes modern gamertag data")
 
 	var pre_init_signal = profile.get_profile_async(null, "1")
 	await assert_signal_result_error(pre_init_signal, "runtime_unavailable", "get_profile_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for profile validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for profile validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

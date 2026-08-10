@@ -331,4 +331,4 @@ The `Get-AppxPackage` line should now print the Microsoft GDK-paired version (e.
 - [`gdk/async-system.md`](../gdk/async-system.md) — how the
   bootstrap silent sign-in op completes.
 - [`gdk/api-reference.md`](../gdk/api-reference.md) — full Microsoft GDK
-  surface (`GDKUsers`, `GDKUser`, `get_gamer_picture_async`, …).
+  surface (`XboxUsers`, `XboxUser`, `get_gamer_picture_async`, …).

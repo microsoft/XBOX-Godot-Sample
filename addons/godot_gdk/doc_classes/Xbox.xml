@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="Xbox" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Root singleton for Microsoft GDK integration.
+	</brief_description>
+	<description>
+		GDK is the engine singleton that provides access to Microsoft GDK runtime services including users, game UI, accessibility, achievements, package metadata/content access, stats, leaderboards, privacy, presence, social, store commerce, profile, string verification, Title Storage, error reporting, launcher, multiplayer activity, capture, system/runtime metadata, display (HDR/timeout deferral), and game activation events. Access via [code]GDK[/code] in GDScript after the extension loads. Call [method initialize] to start the runtime. By default the addon pumps completions automatically each process frame through [code]gdk/runtime/embed_dispatch[/code]; call [method dispatch] manually when that setting is disabled or when you need deterministic control.
+		The engine singleton name is configurable through the Project Setting [code]gdk/runtime/singleton_name[/code] (default [code]GDK[/code]), for titles that need to avoid a name collision or prefer a project-specific global. Set it before the extension loads — it is read once at extension initialization, so changes require a restart. Values that are empty or not a valid ASCII identifier, or that collide with an already-registered singleton, are rejected with a warning and the default [code]GDK[/code] is used instead. When renamed, resolve the singleton with [code]Engine.get_singleton(ProjectSettings.get_setting("gdk/runtime/singleton_name", "GDK"))[/code] rather than the [code]GDK[/code] global.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="initialize">
+			<return type="XboxResult" />
+			<param index="0" name="config" type="Variant" default="null" />
+			<description>
+				Initializes the GDK runtime. When [param config] is a [Dictionary], the Xbox services bootstrap accepts the first matching SCID override key in this order: [code]scid[/code], [code]service_configuration_id[/code], [code]xbox_live/scid[/code], then nested [code]xbox_live.scid[/code]. If no override is supplied, the addon derives the current-title SCID from [code]XGameGetXboxTitleId()[/code]. Calling this again while the runtime is already active returns [code]XboxResult.code == "already_initialized"[/code], so repeated startup paths should guard with [method is_initialized].
+			</description>
+		</method>
+		<method name="shutdown">
+			<return type="void" />
+			<description>
+				Shuts down the GDK runtime and releases all resources. Pending one-shot async signals are completed with [code]XboxResult.code == "cancelled"[/code] so awaiting scripts resume.
+			</description>
+		</method>
+		<method name="is_available" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] when this build was compiled with [code]_GAMING_DESKTOP[/code] support. Non-Gaming-Desktop builds return [code]false[/code].
+			</description>
+		</method>
+		<method name="is_initialized" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the GDK runtime has been successfully initialized.
+			</description>
+		</method>
+		<method name="dispatch">
+			<return type="int" />
+			<description>
+				Manually pumps the GDK async task queue and manager-driven state. Use this when [code]gdk/runtime/embed_dispatch[/code] is disabled or when you want deterministic control over completion timing. Returns the number of tasks dispatched.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="XboxUsers" />
+			<description>
+				Returns the [XboxUsers] service for managing Xbox user sign-in and identity.
+			</description>
+		</method>
+		<method name="get_game_ui" qualifiers="const">
+			<return type="XboxGameUI" />
+			<description>
+				Returns the [XboxGameUI] service for PC-supported system UI flows.
+			</description>
+		</method>
+		<method name="get_achievements" qualifiers="const">
+			<return type="XboxAchievements" />
+			<description>
+				Returns the [XboxAchievements] service for querying and updating Xbox achievements.
+			</description>
+		</method>
+		<method name="get_package" qualifiers="const">
+			<return type="XboxPackage" />
+			<description>
+				Returns the [XboxPackage] service for package enumeration, package mounts, and resource-pack loading helpers.
+			</description>
+		</method>
+		<method name="get_stats" qualifiers="const">
+			<return type="XboxStats" />
+			<description>
+				Returns the [XboxStats] service for querying, staging, flushing, tracking, and caching Xbox Services user statistics.
+			</description>
+		</method>
+		<method name="get_leaderboards" qualifiers="const">
+			<return type="XboxLeaderboards" />
+			<description>
+				Returns the [XboxLeaderboards] service for Xbox Services leaderboard queries and pagination.
+			</description>
+		</method>
+		<method name="get_privacy" qualifiers="const">
+			<return type="XboxPrivacy" />
+			<description>
+				Returns the [XboxPrivacy] service for Xbox Services privacy permission checks and avoid/mute list queries.
+			</description>
+		</method>
+		<method name="get_accessibility" qualifiers="const">
+			<return type="XboxAccessibility" />
+			<description>
+				Returns the [XboxAccessibility] service for concrete PC accessibility APIs.
+			</description>
+		</method>
+		<method name="get_presence" qualifiers="const">
+			<return type="XboxPresence" />
+			<description>
+				Returns the XboxPresence service for managing rich presence.
+			</description>
+		</method>
+		<method name="get_social" qualifiers="const">
+			<return type="XboxSocial" />
+			<description>
+				Returns the XboxSocial service for social features.
+			</description>
+		</method>
+		<method name="get_store" qualifiers="const">
+			<return type="XboxStore" />
+			<description>
+				Returns the XboxStore service for XStore commerce operations.
+			</description>
+		</method>
+		<method name="get_profile" qualifiers="const">
+			<return type="XboxProfile" />
+			<description>
+				Returns the [XboxProfile] service for Xbox Services profile lookups.
+			</description>
+		</method>
+		<method name="get_string_verify" qualifiers="const">
+			<return type="XboxStringVerify" />
+			<description>
+				Returns the [XboxStringVerify] service for Xbox Services text verification.
+			</description>
+		</method>
+		<method name="get_title_storage" qualifiers="const">
+			<return type="XboxTitleStorage" />
+			<description>
+				Returns the [XboxTitleStorage] service for Xbox Services Title Storage.
+			</description>
+		</method>
+		<method name="get_error_reporting" qualifiers="const">
+			<return type="XboxErrorReporting" />
+			<description>
+				Returns the [XboxErrorReporting] service for [code]XError[/code] callback and option configuration.
+			</description>
+		</method>
+		<method name="get_launcher" qualifiers="const">
+			<return type="XboxLauncher" />
+			<description>
+				Returns the [XboxLauncher] service for supported URI launch flows on PC GDK.
+			</description>
+		</method>
+		<method name="get_multiplayer_activity" qualifiers="const">
+			<return type="XboxMultiplayerActivity" />
+			<description>
+				Returns the XboxMultiplayerActivity service for multiplayer activity management.
+			</description>
+		</method>
+		<method name="get_capture" qualifiers="const">
+			<return type="XboxCapture" />
+			<description>
+				Returns the [XboxCapture] service for capture metadata and capture-state management.
+			</description>
+		</method>
+		<method name="get_system" qualifiers="const">
+			<return type="XboxSystem" />
+			<description>
+				Returns the XboxSystem service for title/runtime metadata and environment facts.
+			</description>
+		</method>
+		<method name="get_display" qualifiers="const">
+			<return type="XboxDisplay" />
+			<description>
+				Returns the [XboxDisplay] service for HDR mode probing/enable and idle display-timeout deferrals.
+			</description>
+		</method>
+		<method name="get_activation" qualifiers="const">
+			<return type="XboxActivation" />
+			<description>
+				Returns the [XboxActivation] service for game activation events (protocol/file/invite launches).
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="users" type="XboxUsers" setter="" getter="get_users">
+			The [XboxUsers] service instance for managing Xbox user sign-in and identity.
+		</member>
+		<member name="game_ui" type="XboxGameUI" setter="" getter="get_game_ui">
+			The [XboxGameUI] service instance for PC-supported system UI flows.
+		</member>
+		<member name="achievements" type="XboxAchievements" setter="" getter="get_achievements">
+			The [XboxAchievements] service instance for querying and updating Xbox achievements.
+		</member>
+		<member name="package" type="XboxPackage" setter="" getter="get_package">
+			The [XboxPackage] service instance for package enumeration, package mounts, and resource-pack loading helpers.
+		</member>
+		<member name="stats" type="XboxStats" setter="" getter="get_stats">
+			The [XboxStats] service instance for Xbox Services user statistics.
+		</member>
+		<member name="leaderboards" type="XboxLeaderboards" setter="" getter="get_leaderboards">
+			The [XboxLeaderboards] service instance for Xbox Services leaderboard queries.
+		</member>
+		<member name="privacy" type="XboxPrivacy" setter="" getter="get_privacy">
+			The [XboxPrivacy] service instance for Xbox Services privacy checks and lists.
+		</member>
+		<member name="accessibility" type="XboxAccessibility" setter="" getter="get_accessibility">
+			The [XboxAccessibility] service instance for accessibility APIs.
+		</member>
+		<member name="presence" type="XboxPresence" setter="" getter="get_presence">
+			The XboxPresence service instance for managing rich presence.
+		</member>
+		<member name="social" type="XboxSocial" setter="" getter="get_social">
+			The XboxSocial service instance for social features.
+		</member>
+		<member name="store" type="XboxStore" setter="" getter="get_store">
+			The XboxStore service instance for XStore commerce operations.
+		</member>
+		<member name="profile" type="XboxProfile" setter="" getter="get_profile">
+			The [XboxProfile] service instance for Xbox Services profile lookups.
+		</member>
+		<member name="string_verify" type="XboxStringVerify" setter="" getter="get_string_verify">
+			The [XboxStringVerify] service instance for Xbox Services text verification.
+		</member>
+		<member name="title_storage" type="XboxTitleStorage" setter="" getter="get_title_storage">
+			The [XboxTitleStorage] service instance for Xbox Services Title Storage.
+		</member>
+		<member name="error_reporting" type="XboxErrorReporting" setter="" getter="get_error_reporting">
+			The [XboxErrorReporting] service instance for [code]XError[/code] callback and option configuration.
+		</member>
+		<member name="launcher" type="XboxLauncher" setter="" getter="get_launcher">
+			The [XboxLauncher] service instance for supported URI launch flows on PC GDK.
+		</member>
+		<member name="multiplayer_activity" type="XboxMultiplayerActivity" setter="" getter="get_multiplayer_activity">
+			The XboxMultiplayerActivity service instance for multiplayer activity management.
+		</member>
+		<member name="capture" type="XboxCapture" setter="" getter="get_capture">
+			The [XboxCapture] service instance for capture metadata and capture-state management.
+		</member>
+		<member name="system" type="XboxSystem" setter="" getter="get_system">
+			The XboxSystem service instance for title/runtime metadata and environment facts.
+		</member>
+		<member name="display" type="XboxDisplay" setter="" getter="get_display">
+			The [XboxDisplay] service instance for HDR mode probing/enable and idle display-timeout deferrals.
+		</member>
+		<member name="activation" type="XboxActivation" setter="" getter="get_activation">
+			The [XboxActivation] service instance for game activation events (protocol/file/invite launches).
+		</member>
+	</members>
+	<signals>
+		<signal name="initialized">
+			<description>
+				Emitted when the GDK runtime has been successfully initialized.
+			</description>
+		</signal>
+		<signal name="shutdown_completed">
+			<description>
+				Emitted when the GDK runtime has completed shutdown.
+			</description>
+		</signal>
+		<signal name="runtime_error">
+			<param index="0" name="result" type="XboxResult" />
+			<description>
+				Emitted when an [code]XError[/code] runtime error is reported by the GDK error-reporting bridge. After the result-only refactor, this root signal is reserved for unsolicited X-error events; per-service async failures are surfaced on the service's own [code]runtime_error[/code] signal (for example [code]GDK.social.runtime_error[/code], [code]GDK.achievements.runtime_error[/code]).
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>

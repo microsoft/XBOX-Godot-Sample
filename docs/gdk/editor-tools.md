@@ -31,7 +31,7 @@ The current `godot_gdk` editor plugin is intentionally narrow.
 
 Today it:
 
-- installs or updates the addon-owned `GDKBootstrap` autoload on
+- installs or updates the addon-owned `XboxBootstrap` autoload on
   `_enable_plugin`
 - registers the `XBOX on PC` export platform on `_enter_tree`
 - does **not** dock `gdk_setup_panel.gd`

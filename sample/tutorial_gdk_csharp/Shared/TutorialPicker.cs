@@ -6,9 +6,9 @@ using Godot;
 /// Plain Control with one button per tutorial. Pressing a button changes the
 /// current scene to that tutorial's reference end-state scene. Disables
 /// auth-gated buttons while sign-in is in-flight so first-time opens don't
-/// race the <c>GdkAuth</c> autoload's silent sign-in.
+/// race the <c>XboxAuth</c> autoload's silent sign-in.
 ///
-/// This is the GDK-only track: it signs into Xbox via <c>GdkAuth</c> and never
+/// This is the GDK-only track: it signs into Xbox via <c>XboxAuth</c> and never
 /// touches PlayFab, so the config pre-flight only checks MicrosoftGame.config.
 /// </summary>
 public partial class TutorialPicker : Control
@@ -24,14 +24,14 @@ public partial class TutorialPicker : Control
     private Label _status;
     private RichTextLabel _problems;
     private VBoxContainer _buttons;
-    private GdkAuth _auth;
+    private XboxAuth _auth;
 
     public override void _Ready()
     {
         _status = GetNode<Label>("Root/Status");
         _problems = GetNode<RichTextLabel>("Root/Problems");
         _buttons = GetNode<VBoxContainer>("Root/Buttons");
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
         PopulateButtons();
         _status.Text = "Signing in…";
         SetSigninGated(true);
@@ -50,7 +50,7 @@ public partial class TutorialPicker : Control
 
         if (_auth == null)
         {
-            _status.Text = "GdkAuth autoload missing — register Autoload/GdkAuth.cs in project.godot.";
+            _status.Text = "XboxAuth autoload missing — register Autoload/XboxAuth.cs in project.godot.";
             SetSigninGated(true);
             return;
         }
@@ -141,7 +141,7 @@ public partial class TutorialPicker : Control
         _problems.Visible = true;
     }
 
-    private void OnAuthStateChanged(GdkAuth.State state)
+    private void OnAuthStateChanged(XboxAuth.State state)
     {
         if (_auth.IsSignedIn())
         {

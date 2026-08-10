@@ -31,7 +31,7 @@ func test_achievements_full_flow() -> void:
 	assert_true(achievements.get_cached_achievements(null) is Array, "get_cached_achievements() returns Array")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for achievements behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for achievements behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -72,7 +72,7 @@ func test_achievements_full_flow() -> void:
 				assert_true(cached_achievements is Array, "get_cached_achievements(user) returns Array after a query")
 				assert_eq(cached_achievements.size(), queried_achievements.size(), "achievement cache size matches the query result size")
 				if queried_achievements.size() > 0:
-					assert_object_is(queried_achievements[0], "GDKAchievement", "achievement query returns GDKAchievement wrappers")
+					assert_object_is(queried_achievements[0], "XboxAchievement", "achievement query returns XboxAchievement wrappers")
 
 			var invalid_id_signal = achievements.update_achievement_async(user, "", 25)
 			await assert_signal_result_error(invalid_id_signal, "invalid_achievement_id", "update_achievement_async() rejects blank achievement ids")
@@ -101,7 +101,7 @@ func test_get_achievements_by_state_validation() -> void:
 	assert_result_error(invalid_state, "invalid_progress_state", "get_achievements_by_state() rejects unknown progress states")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for achievements-by-state validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for achievements-by-state validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -121,7 +121,7 @@ func test_get_achievements_by_state_validation() -> void:
 	# A valid progress state with a freshly-registered user that has not been
 	# queried yet reports achievements_not_loaded.
 	var not_loaded = achievements.get_achievements_by_state(user, "Achieved")
-	assert_not_null(not_loaded, "get_achievements_by_state() returns GDKResult for a signed-in user")
+	assert_not_null(not_loaded, "get_achievements_by_state() returns XboxResult for a signed-in user")
 	if not_loaded == null:
 		return
 	if not_loaded.ok:

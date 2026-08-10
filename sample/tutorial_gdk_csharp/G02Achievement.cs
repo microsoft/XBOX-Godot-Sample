@@ -1,14 +1,14 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 
 /// <summary>
 /// GDK Tutorial 2 reference scene — unlock an Xbox achievement.
 ///
 /// Buttons drive each tutorial step: list declared achievements, then push
 /// 50% → 100% progress. Wires the <c>achievement_unlocked</c> and
-/// <c>runtime_error</c> signals. GDK-only: signs in via <c>GdkAuth</c>.
+/// <c>runtime_error</c> signals. GDK-only: signs in via <c>XboxAuth</c>.
 /// </summary>
 public partial class G02Achievement : Control
 {
@@ -17,7 +17,7 @@ public partial class G02Achievement : Control
     private Button _listBtn;
     private Button _pushBtn;
     private Button _backBtn;
-    private GdkAuth _auth;
+    private XboxAuth _auth;
 
     public override async void _Ready()
     {
@@ -28,15 +28,15 @@ public partial class G02Achievement : Control
         _backBtn.Pressed += OnBackPressed;
         _listBtn.Pressed += async () => await PrintCachedAchievementsAsync();
         _pushBtn.Pressed += async () => { await PushProgressAsync(50); await PushProgressAsync(100); };
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
-        if (_auth == null || !Gdk.IsAvailable)
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
+        if (_auth == null || !Xbox.IsAvailable)
         {
-            Append("[color=red]GdkAuth autoload or GDK extension missing.[/color]");
+            Append("[color=red]XboxAuth autoload or GDK extension missing.[/color]");
             SetButtonsEnabled(false);
             return;
         }
-        Gdk.Achievements.AchievementUnlocked += OnAchievementUnlocked;
-        Gdk.Achievements.RuntimeError += OnAchievementsRuntimeError;
+        Xbox.Achievements.AchievementUnlocked += OnAchievementUnlocked;
+        Xbox.Achievements.RuntimeError += OnAchievementsRuntimeError;
         SetButtonsEnabled(false);
         Append("Waiting for sign-in…");
         bool signedIn = await _auth.SignInAsync();
@@ -47,22 +47,22 @@ public partial class G02Achievement : Control
 
     public override void _ExitTree()
     {
-        if (!Gdk.IsAvailable) return;
-        Gdk.Achievements.AchievementUnlocked -= OnAchievementUnlocked;
-        Gdk.Achievements.RuntimeError -= OnAchievementsRuntimeError;
+        if (!Xbox.IsAvailable) return;
+        Xbox.Achievements.AchievementUnlocked -= OnAchievementUnlocked;
+        Xbox.Achievements.RuntimeError -= OnAchievementsRuntimeError;
     }
 
-    private void OnAchievementsRuntimeError(GdkResult r) =>
+    private void OnAchievementsRuntimeError(XboxResult r) =>
         Append($"[color=orange][Ach] Achievements subsystem error: {r.Message} (0x{r.HResult:X8})[/color]");
 
     private async Task PrintCachedAchievementsAsync()
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return;
-        GdkResult result = await Gdk.Achievements.QueryPlayerAchievementsAsync(user);
+        XboxResult result = await Xbox.Achievements.QueryPlayerAchievementsAsync(user);
         if (!IsInsideTree()) return;
         if (!result.Ok) { Append($"[color=orange][Ach] query failed: {result.Message}[/color]"); return; }
-        Godot.Collections.Array cache = Gdk.Achievements.GetCachedAchievements(user);
+        Godot.Collections.Array cache = Xbox.Achievements.GetCachedAchievements(user);
         Append($"[Ach] {cache.Count} achievement(s) declared for this title");
         foreach (Variant entry in cache)
         {
@@ -73,16 +73,16 @@ public partial class G02Achievement : Control
 
     private async Task PushProgressAsync(int percent)
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return;
-        GdkResult result = await Gdk.Achievements.UpdateAchievementAsync(user, FirstScoreId, percent);
+        XboxResult result = await Xbox.Achievements.UpdateAchievementAsync(user, FirstScoreId, percent);
         if (!IsInsideTree()) return;
         Append(result.Ok ? $"[Ach] Updated to {percent}% — result ok" : $"[color=orange][Ach] Update to {percent}% failed: {result.Message} ({result.Code})[/color]");
     }
 
-    private void OnAchievementUnlocked(GdkUser user, string achievementId)
+    private void OnAchievementUnlocked(XboxUser user, string achievementId)
     {
-        Godot.Collections.Array cache = Gdk.Achievements.GetCachedAchievements(user);
+        Godot.Collections.Array cache = Xbox.Achievements.GetCachedAchievements(user);
         foreach (Variant entry in cache)
         {
             GodotObject ach = entry.AsGodotObject();

@@ -178,7 +178,7 @@ out side by side.
 
   `Lobby.open_invite_picker` — the integrated Lobby autoload that combines the PlayFab Lobby and GDK Multiplayer Activity tutorials.
 
-- [`GDK.achievements`](../../../addons/godot_gdk/doc_classes/GDKAchievements.xml)
+- [`GDK.achievements`](../../../addons/godot_gdk/doc_classes/XboxAchievements.xml)
 
   — `query_player_achievements_async`, `update_achievement_async`,
 
@@ -208,7 +208,7 @@ out side by side.
 
   `get_folder`.
 
-- [`GDK.multiplayer_activity`](../../../addons/godot_gdk/doc_classes/GDKMultiplayerActivity.xml)
+- [`GDK.multiplayer_activity`](../../../addons/godot_gdk/doc_classes/XboxMultiplayerActivity.xml)
 
   — `set_activity_async`, `delete_activity_async`,
 
@@ -216,7 +216,7 @@ out side by side.
 
   `activities_updated`.
 
-- [`GDK.presence`](../../../addons/godot_gdk/doc_classes/GDKPresence.xml)
+- [`GDK.presence`](../../../addons/godot_gdk/doc_classes/XboxPresence.xml)
 
   — `set_presence_async`, `clear_presence_async`,
 
@@ -228,7 +228,7 @@ out side by side.
 
   from the PlayFab Lobby and GDK Multiplayer Activity tutorials — no panel code needed.
 
-- [`GDK.users`](../../../addons/godot_gdk/doc_classes/GDKUsers.xml)
+- [`GDK.users`](../../../addons/godot_gdk/doc_classes/XboxUsers.xml)
 
   — `check_privilege_async`, `resolve_privilege_with_ui_async`.
 
@@ -242,7 +242,7 @@ out side by side.
 
   benefit without taking on their own gating.
 
-- [`GDK.privacy`](../../../addons/godot_gdk/doc_classes/GDKPrivacy.xml)
+- [`GDK.privacy`](../../../addons/godot_gdk/doc_classes/XboxPrivacy.xml)
 
   — `check_permission_async`, `batch_check_permission_async`.
 
@@ -412,7 +412,7 @@ func _on_retry_pressed() -> void:
 
 
 
-func _on_runtime_error(result: GDKResult, source: String) -> void:
+func _on_runtime_error(result: XboxResult, source: String) -> void:
 
     _error.text = "[%s] %s" % [source, result.message]
 
@@ -514,7 +514,7 @@ func _ready() -> void:
 
 
 
-    var result: GDKResult = await GDK.achievements.query_player_achievements_async(Auth.xbox_user)
+    var result: XboxResult = await GDK.achievements.query_player_achievements_async(Auth.xbox_user)
 
     if result.ok:
 
@@ -530,7 +530,7 @@ func _ready() -> void:
 
 func _push_progress(percent: int) -> void:
 
-    var result: GDKResult = await GDK.achievements.update_achievement_async(
+    var result: XboxResult = await GDK.achievements.update_achievement_async(
 
         Auth.xbox_user, ACHIEVEMENT_ID, percent)
 
@@ -548,7 +548,7 @@ func _push_progress(percent: int) -> void:
 
 
 
-func _on_achievement_unlocked(user: GDKUser, achievement_id: String) -> void:
+func _on_achievement_unlocked(user: XboxUser, achievement_id: String) -> void:
 
     if achievement_id != ACHIEVEMENT_ID:
 

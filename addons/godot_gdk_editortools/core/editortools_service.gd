@@ -12,7 +12,7 @@ extends RefCounted
 ## the real `core/gdk_toolchain.gd`.
 
 const EditorToolsResult = preload("res://addons/godot_gdk_editortools/core/editortools_result.gd")
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 const MakePkgExecutorScript = preload("res://addons/godot_gdk_editortools/core/makepkg_executor.gd")
 const GameConfigManagerScript = preload("res://addons/godot_gdk_editortools/core/game_config_manager.gd")
 const EditorToolsContentPreparerScript = preload("res://addons/godot_gdk_editortools/core/editortools_content_preparer.gd")
@@ -29,7 +29,7 @@ var _wdapp: RefCounted
 
 func _init(toolchain: RefCounted = null) -> void:
 	if toolchain == null:
-		_toolchain = GDKToolchainScript.new()
+		_toolchain = XboxToolchainScript.new()
 	else:
 		_toolchain = toolchain
 	_makepkg = MakePkgExecutorScript.new(_toolchain)

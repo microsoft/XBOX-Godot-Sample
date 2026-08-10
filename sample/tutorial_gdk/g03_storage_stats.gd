@@ -13,14 +13,14 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ##     them back (GDK.stats.set_stat_integer / flush_stats_async /
 ##     query_user_stats_async).
 ##
-## NOTE: scene scripts use `get_node("/root/GdkAuth")` instead of the bare
-## `GdkAuth.` reference so the headless parse gate stays clean.
+## NOTE: scene scripts use `get_node("/root/XboxAuth")` instead of the bare
+## `XboxAuth.` reference so the headless parse gate stays clean.
 ##
 ## Source: docs/tutorials/gdk/03-storage-stats.md
 
 # Title Storage uses "TrustedPlatform" for binary blobs scoped to the
 # signed-in user. Other valid storage types include "GlobalStorage" and
-# "Universal"; see the GDKTitleStorage reference for the full set.
+# "Universal"; see the XboxTitleStorage reference for the full set.
 const STORAGE_TYPE := "TrustedPlatform"
 const BLOB_PATH := "tutorial/save.bin"
 
@@ -41,9 +41,9 @@ func _ready() -> void:
 	_storage_btn.pressed.connect(_on_storage_pressed)
 	_stats_btn.pressed.connect(_on_stats_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if _auth == null:
-		_append("[color=red]GdkAuth autoload missing.[/color]")
+		_append("[color=red]XboxAuth autoload missing.[/color]")
 		_set_buttons_enabled(false)
 		return
 

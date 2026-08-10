@@ -1,8 +1,8 @@
 using Godot;
 using System;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 using GodotPlayFab;
 using GodotPlayFab.Types;
 
@@ -27,7 +27,7 @@ public partial class Lobby : Node
     private bool _gdkSignalsConnected;
     private bool _pfSignalsConnected;
     private string[] _watchedXuids = Array.Empty<string>();
-    private GdkSocialGroup _friendsGroup;
+    private XboxSocialGroup _friendsGroup;
     private bool _socialGraphStarted;
     private int _pendingInviteId;
     private string _pendingInviteConnectionString = string.Empty;
@@ -48,16 +48,16 @@ public partial class Lobby : Node
 
     public override void _ExitTree()
     {
-        if (Gdk.IsAvailable)
+        if (Xbox.IsAvailable)
         {
             if (_friendsGroup != null)
             {
-                Gdk.Social.DestroySocialGroup(_friendsGroup);
+                Xbox.Social.DestroySocialGroup(_friendsGroup);
                 _friendsGroup = null;
             }
             if (_socialGraphStarted && _auth?.XboxUser != null)
             {
-                Gdk.Social.StopSocialGraph(_auth.XboxUser);
+                Xbox.Social.StopSocialGraph(_auth.XboxUser);
                 _socialGraphStarted = false;
             }
         }
@@ -87,7 +87,7 @@ public partial class Lobby : Node
             GD.PushWarning($"[Lobby] sign-in failed ({_auth.GetLastErrorStage()}) — staying UNINITIALIZED");
             return false;
         }
-        if (!Gdk.IsAvailable)
+        if (!Xbox.IsAvailable)
         {
             GD.PushError("[Lobby] GDK extension not loaded");
             return false;
@@ -96,12 +96,12 @@ public partial class Lobby : Node
 
         if (!_gdkSignalsConnected)
         {
-            Gdk.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
-            Gdk.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
-            Gdk.MultiplayerActivity.ActivitiesUpdated += OnActivitiesUpdated;
-            Gdk.Presence.DevicePresenceChanged += OnDevicePresenceChanged;
-            Gdk.Presence.TitlePresenceChanged += OnTitlePresenceChanged;
-            Gdk.Presence.PresenceChanged += OnPresenceChanged;
+            Xbox.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
+            Xbox.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
+            Xbox.MultiplayerActivity.ActivitiesUpdated += OnActivitiesUpdated;
+            Xbox.Presence.DevicePresenceChanged += OnDevicePresenceChanged;
+            Xbox.Presence.TitlePresenceChanged += OnTitlePresenceChanged;
+            Xbox.Presence.PresenceChanged += OnPresenceChanged;
             _gdkSignalsConnected = true;
             GD.Print("[Lobby] GDK MPA + presence handlers connected. PlayFab Multiplayer init is lazy.");
         }
@@ -138,13 +138,13 @@ public partial class Lobby : Node
 
     public async Task<bool> CanUseMultiplayerAsync()
     {
-        GdkUser user = _auth?.XboxUser;
+        XboxUser user = _auth?.XboxUser;
         if (user == null) return false;
-        GdkResult pf = await Gdk.Users.CheckPrivilegeAsync(user, XuserPrivilegeMultiplayer);
+        XboxResult pf = await Xbox.Users.CheckPrivilegeAsync(user, XuserPrivilegeMultiplayer);
         Godot.Collections.Dictionary data = pf.Data.AsGodotDictionary();
         if (pf.Ok && TutorialSupport.DictBool(data, "has_privilege")) return true;
         GD.Print($"[Lobby] multiplayer denied ({TutorialSupport.DictString(data, "deny_reason")}) — resolving with UI");
-        GdkResult resolved = await Gdk.Users.ResolvePrivilegeWithUiAsync(user, XuserPrivilegeMultiplayer);
+        XboxResult resolved = await Xbox.Users.ResolvePrivilegeWithUiAsync(user, XuserPrivilegeMultiplayer);
         if (!resolved.Ok)
         {
             GD.PushWarning($"[Lobby] resolve_privilege_with_ui failed: {resolved.Message}");
@@ -155,9 +155,9 @@ public partial class Lobby : Node
 
     public async Task<string[]> FilterInvitableAsync(string[] xuids)
     {
-        GdkUser user = _auth?.XboxUser;
+        XboxUser user = _auth?.XboxUser;
         if (user == null || xuids == null || xuids.Length == 0) return Array.Empty<string>();
-        GdkResult pf = await Gdk.Privacy.BatchCheckPermissionAsync(user, "play_multiplayer", xuids);
+        XboxResult pf = await Xbox.Privacy.BatchCheckPermissionAsync(user, "play_multiplayer", xuids);
         if (!pf.Ok)
         {
             GD.PushWarning($"[Lobby] permission batch failed: {pf.Message}");
@@ -175,11 +175,11 @@ public partial class Lobby : Node
 
     public async Task<Godot.Collections.Array> GetFriendsAsync()
     {
-        GdkUser user = _auth?.XboxUser;
-        if (user == null || !Gdk.IsAvailable) return new Godot.Collections.Array();
+        XboxUser user = _auth?.XboxUser;
+        if (user == null || !Xbox.IsAvailable) return new Godot.Collections.Array();
         if (!_socialGraphStarted)
         {
-            GdkResult sg = Gdk.Social.StartSocialGraph(user);
+            XboxResult sg = Xbox.Social.StartSocialGraph(user);
             if (!sg.Ok)
             {
                 GD.PushWarning($"[Lobby] start_social_graph failed: {sg.Message}");
@@ -189,15 +189,15 @@ public partial class Lobby : Node
         }
         if (_friendsGroup == null)
         {
-            GdkResult f = await Gdk.Social.GetFriendsAsync(user);
+            XboxResult f = await Xbox.Social.GetFriendsAsync(user);
             if (!f.Ok)
             {
                 GD.PushWarning($"[Lobby] get_friends failed: {f.Message}");
                 return new Godot.Collections.Array();
             }
-            _friendsGroup = f.DataAs<GdkSocialGroup>();
+            _friendsGroup = f.DataAs<XboxSocialGroup>();
         }
-        GdkResult users = Gdk.Social.GetGroupUsers(_friendsGroup);
+        XboxResult users = Xbox.Social.GetGroupUsers(_friendsGroup);
         if (!users.Ok)
         {
             GD.PushWarning($"[Lobby] get_group_users failed: {users.Message}");
@@ -335,7 +335,7 @@ public partial class Lobby : Node
             GD.PushWarning($"[MPA] Invite blocked by play_multiplayer permission for {xuid}");
             return false;
         }
-        GdkResult result = await Gdk.MultiplayerActivity.SendInvitesAsync(_auth.XboxUser, allowed, false, _lobby.ConnectionString);
+        XboxResult result = await Xbox.MultiplayerActivity.SendInvitesAsync(_auth.XboxUser, allowed, false, _lobby.ConnectionString);
         if (result.Ok)
         {
             GD.Print($"[MPA] Sent invite to {allowed[0]}");
@@ -352,18 +352,18 @@ public partial class Lobby : Node
             GD.PushWarning("[MPA] Cannot open picker — not in a lobby");
             return;
         }
-        GdkResult result = await Gdk.MultiplayerActivity.ShowInviteUiAsync(_auth.XboxUser);
+        XboxResult result = await Xbox.MultiplayerActivity.ShowInviteUiAsync(_auth.XboxUser);
         if (!result.Ok) GD.PushWarning($"[MPA] show_invite_ui failed: {result.Message}");
     }
 
     public async Task TrackFriendActivitiesAsync(string[] xuids)
     {
         _watchedXuids = xuids ?? Array.Empty<string>();
-        GdkUser user = _auth.XboxUser;
-        GdkResult activities = await Gdk.MultiplayerActivity.GetActivitiesAsync(user, _watchedXuids);
+        XboxUser user = _auth.XboxUser;
+        XboxResult activities = await Xbox.MultiplayerActivity.GetActivitiesAsync(user, _watchedXuids);
         if (!activities.Ok) GD.PushWarning($"[MPA] get_activities failed: {activities.Message}");
-        Gdk.Presence.TrackPresence(user, _watchedXuids, Array.Empty<long>());
-        GdkResult presence = await Gdk.Presence.GetPresenceAsync(_watchedXuids);
+        Xbox.Presence.TrackPresence(user, _watchedXuids, Array.Empty<long>());
+        XboxResult presence = await Xbox.Presence.GetPresenceAsync(_watchedXuids);
         if (!presence.Ok) GD.PushWarning($"[Pres] get_presence failed: {presence.Message}");
         foreach (string xuid in _watchedXuids)
         {
@@ -375,7 +375,7 @@ public partial class Lobby : Node
     public void StopTrackingFriends()
     {
         if (_watchedXuids.Length == 0) return;
-        Gdk.Presence.StopTrackingPresence(_auth.XboxUser, _watchedXuids, Array.Empty<long>());
+        Xbox.Presence.StopTrackingPresence(_auth.XboxUser, _watchedXuids, Array.Empty<long>());
         _watchedXuids = Array.Empty<string>();
     }
 
@@ -426,7 +426,7 @@ public partial class Lobby : Node
     private async Task PublishActivityAsync(bool allowCrossPlatformJoin = false)
     {
         if (_lobby == null || _auth.XboxUser == null) return;
-        GdkResult result = await Gdk.MultiplayerActivity.SetActivityAsync(_auth.XboxUser, _lobby.ConnectionString,
+        XboxResult result = await Xbox.MultiplayerActivity.SetActivityAsync(_auth.XboxUser, _lobby.ConnectionString,
             MpaJoinRestrictionFollowed, _lobby.MaxMemberCount, _lobby.MemberCount, string.Empty, allowCrossPlatformJoin);
         if (!result.Ok) GD.PushWarning($"[MPA] set_activity failed: {result.Message} ({result.Code})");
         else GD.Print($"[MPA] Activity advertised: max={_lobby.MaxMemberCount} current={_lobby.MemberCount} cross_platform={allowCrossPlatformJoin}");
@@ -435,21 +435,21 @@ public partial class Lobby : Node
     private async Task ClearActivityAsync()
     {
         if (_auth.XboxUser == null) return;
-        GdkResult result = await Gdk.MultiplayerActivity.DeleteActivityAsync(_auth.XboxUser);
+        XboxResult result = await Xbox.MultiplayerActivity.DeleteActivityAsync(_auth.XboxUser);
         if (result.Ok) GD.Print("[MPA] Activity cleared"); else GD.PushWarning($"[MPA] delete_activity failed: {result.Message}");
     }
 
     private async Task PublishLobbyPresenceAsync()
     {
         if (string.IsNullOrEmpty(PresenceInLobby) || _auth.XboxUser == null) return;
-        GdkResult result = await Gdk.Presence.SetPresenceAsync(_auth.XboxUser, PresenceInLobby);
+        XboxResult result = await Xbox.Presence.SetPresenceAsync(_auth.XboxUser, PresenceInLobby);
         if (!result.Ok) GD.PushWarning($"[Lobby] presence write failed: {result.Message}");
     }
 
     private async Task ClearLobbyPresenceAsync()
     {
         if (_auth.XboxUser == null) return;
-        GdkResult result = await Gdk.Presence.ClearPresenceAsync(_auth.XboxUser);
+        XboxResult result = await Xbox.Presence.ClearPresenceAsync(_auth.XboxUser);
         if (!result.Ok) GD.PushWarning($"[Lobby] presence clear failed: {result.Message}");
     }
 
@@ -546,19 +546,19 @@ public partial class Lobby : Node
 
     private void OnDevicePresenceChanged(string xuid)
     {
-        if (Array.IndexOf(_watchedXuids, xuid) >= 0) _ = Gdk.Presence.GetPresenceAsync(new[] { xuid });
+        if (Array.IndexOf(_watchedXuids, xuid) >= 0) _ = Xbox.Presence.GetPresenceAsync(new[] { xuid });
     }
 
     private void OnTitlePresenceChanged(string xuid, int titleId)
     {
-        if (Array.IndexOf(_watchedXuids, xuid) >= 0) _ = Gdk.Presence.GetPresenceAsync(new[] { xuid });
+        if (Array.IndexOf(_watchedXuids, xuid) >= 0) _ = Xbox.Presence.GetPresenceAsync(new[] { xuid });
     }
 
-    private void OnPresenceChanged(string xuid, GdkPresenceRecord record) => PrintPresence(xuid);
+    private void OnPresenceChanged(string xuid, XboxPresenceRecord record) => PrintPresence(xuid);
 
     private void PrintActivity(string xuid)
     {
-        GdkMultiplayerActivityInfo info = Gdk.MultiplayerActivity.GetCachedActivity(xuid);
+        XboxMultiplayerActivityInfo info = Xbox.MultiplayerActivity.GetCachedActivity(xuid);
         if (info == null)
         {
             GD.Print($"[MPA] Friend {xuid} is offline / not in a session");
@@ -570,7 +570,7 @@ public partial class Lobby : Node
 
     private void PrintPresence(string xuid)
     {
-        GdkPresenceRecord record = Gdk.Presence.GetCachedPresence(xuid);
+        XboxPresenceRecord record = Xbox.Presence.GetCachedPresence(xuid);
         if (record == null)
         {
             GD.Print($"[Pres] {xuid}: (unknown)");

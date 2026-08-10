@@ -2,8 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 
 /// <summary>
 /// GDK Tutorial 4 reference scene — Multiplayer Activity + presence.
@@ -26,9 +26,9 @@ public partial class G04Mpa : Control
     private ItemList _friendsList;
     private Button _activityBtn, _refreshBtn, _inviteBtn, _pickerBtn, _trackBtn, _stopBtn, _backBtn;
 
-    private GdkAuth _auth;
+    private XboxAuth _auth;
     private bool _socialGraphStarted;
-    private GdkSocialGroup _friendsGroup;
+    private XboxSocialGroup _friendsGroup;
     private bool _activitySet;
     private string[] _watchedXuids = Array.Empty<string>();
 
@@ -51,17 +51,17 @@ public partial class G04Mpa : Control
         _trackBtn.Pressed += async () => await OnTrackPressed();
         _stopBtn.Pressed += OnStopPressed;
 
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
-        if (_auth == null || !Gdk.IsAvailable)
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
+        if (_auth == null || !Xbox.IsAvailable)
         {
-            Append("[color=red]GdkAuth autoload or GDK extension missing.[/color]");
+            Append("[color=red]XboxAuth autoload or GDK extension missing.[/color]");
             SetButtonsEnabled(false);
             return;
         }
 
         // Forward incoming MPA invites so the developer can see the payload.
-        Gdk.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
-        Gdk.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
+        Xbox.MultiplayerActivity.PendingInviteReceived += OnPendingInviteReceived;
+        Xbox.MultiplayerActivity.InviteAccepted += OnInviteAccepted;
 
         SetButtonsEnabled(false);
         Append("Waiting for sign-in…");
@@ -81,18 +81,18 @@ public partial class G04Mpa : Control
     {
         // Release the social-graph group so the Social Manager stops issuing
         // background work after the scene is gone.
-        if (!Gdk.IsAvailable) return;
-        Gdk.MultiplayerActivity.PendingInviteReceived -= OnPendingInviteReceived;
-        Gdk.MultiplayerActivity.InviteAccepted -= OnInviteAccepted;
+        if (!Xbox.IsAvailable) return;
+        Xbox.MultiplayerActivity.PendingInviteReceived -= OnPendingInviteReceived;
+        Xbox.MultiplayerActivity.InviteAccepted -= OnInviteAccepted;
         if (_friendsGroup != null)
         {
-            Gdk.Social.DestroySocialGroup(_friendsGroup);
+            Xbox.Social.DestroySocialGroup(_friendsGroup);
             _friendsGroup = null;
         }
         if (_socialGraphStarted)
         {
-            GdkUser user = _auth?.XboxUser;
-            if (user != null) Gdk.Social.StopSocialGraph(user);
+            XboxUser user = _auth?.XboxUser;
+            if (user != null) Xbox.Social.StopSocialGraph(user);
             _socialGraphStarted = false;
         }
     }
@@ -101,9 +101,9 @@ public partial class G04Mpa : Control
 
     private async Task OnSetActivityPressed()
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return;
-        GdkResult result = await Gdk.MultiplayerActivity.SetActivityAsync(
+        XboxResult result = await Xbox.MultiplayerActivity.SetActivityAsync(
             user, ConnectionString, "followed", MaxPlayers, 1, string.Empty, false);
         if (!IsInsideTree()) return;
         if (result.Ok)
@@ -146,30 +146,30 @@ public partial class G04Mpa : Control
 
     private async Task<Godot.Collections.Array> GetFriendsAsync()
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return new Godot.Collections.Array();
         if (!_socialGraphStarted)
         {
-            GdkResult sg = Gdk.Social.StartSocialGraph(user);
+            XboxResult sg = Xbox.Social.StartSocialGraph(user);
             if (!sg.Ok) { GD.PushWarning($"[MPA] start_social_graph failed: {sg.Message}"); return new Godot.Collections.Array(); }
             _socialGraphStarted = true;
         }
         if (_friendsGroup == null)
         {
-            GdkResult f = await Gdk.Social.GetFriendsAsync(user);
+            XboxResult f = await Xbox.Social.GetFriendsAsync(user);
             if (!f.Ok) { GD.PushWarning($"[MPA] get_friends failed: {f.Message}"); return new Godot.Collections.Array(); }
-            GdkSocialGroup group = f.DataAs<GdkSocialGroup>();
+            XboxSocialGroup group = f.DataAs<XboxSocialGroup>();
             if (!IsInsideTree())
             {
                 // Scene was torn down during the await; _ExitTree already ran
                 // and could not see this group. Destroy it now so the native
                 // social-group handle does not leak.
-                if (group != null) Gdk.Social.DestroySocialGroup(group);
+                if (group != null) Xbox.Social.DestroySocialGroup(group);
                 return new Godot.Collections.Array();
             }
             _friendsGroup = group;
         }
-        GdkResult users = Gdk.Social.GetGroupUsers(_friendsGroup);
+        XboxResult users = Xbox.Social.GetGroupUsers(_friendsGroup);
         if (!users.Ok) { GD.PushWarning($"[MPA] get_group_users failed: {users.Message}"); return new Godot.Collections.Array(); }
         return users.Data.AsGodotArray();
     }
@@ -190,7 +190,7 @@ public partial class G04Mpa : Control
         if (allowed.Length == 0) { Append("[color=orange]Invite blocked by the play_multiplayer permission.[/color]"); return; }
         // Empty connection_string reuses the cached activity connection string
         // set by SetActivityAsync above.
-        GdkResult result = await Gdk.MultiplayerActivity.SendInvitesAsync(_auth.XboxUser, allowed, false, string.Empty);
+        XboxResult result = await Xbox.MultiplayerActivity.SendInvitesAsync(_auth.XboxUser, allowed, false, string.Empty);
         if (!IsInsideTree()) return;
         if (result.Ok) Append($"[MPA] Sent invite to {allowed.Length} friend(s).");
         else Append($"[color=orange][MPA] send_invites failed: {result.Message} ({result.Code})[/color]");
@@ -203,16 +203,16 @@ public partial class G04Mpa : Control
             Append("[color=orange]Set your activity first (Step 1) before opening the picker.[/color]");
             return;
         }
-        GdkResult result = await Gdk.MultiplayerActivity.ShowInviteUiAsync(_auth.XboxUser);
+        XboxResult result = await Xbox.MultiplayerActivity.ShowInviteUiAsync(_auth.XboxUser);
         if (!IsInsideTree()) return;
         if (!result.Ok) Append($"[color=orange][MPA] show_invite_ui failed: {result.Message}[/color]");
     }
 
     private async Task<string[]> FilterInvitableAsync(string[] xuids)
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null || xuids.Length == 0) return Array.Empty<string>();
-        GdkResult pf = await Gdk.Privacy.BatchCheckPermissionAsync(user, "play_multiplayer", xuids);
+        XboxResult pf = await Xbox.Privacy.BatchCheckPermissionAsync(user, "play_multiplayer", xuids);
         if (!pf.Ok) { GD.PushWarning($"[MPA] permission batch failed: {pf.Message}"); return Array.Empty<string>(); }
         var allowed = new List<string>();
         foreach (Variant entry in pf.Data.AsGodotArray())
@@ -230,20 +230,20 @@ public partial class G04Mpa : Control
         string[] xuids = SelectedXuids();
         if (xuids.Length == 0) { Append("[color=orange]Select one or more friends in the list above first.[/color]"); return; }
         _watchedXuids = xuids;
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
 
-        GdkResult activities = await Gdk.MultiplayerActivity.GetActivitiesAsync(user, xuids);
+        XboxResult activities = await Xbox.MultiplayerActivity.GetActivitiesAsync(user, xuids);
         if (!IsInsideTree()) return;
         if (!activities.Ok) Append($"[color=orange][MPA] get_activities failed: {activities.Message}[/color]");
 
-        Gdk.Presence.TrackPresence(user, xuids, Array.Empty<long>());
-        GdkResult presence = await Gdk.Presence.GetPresenceAsync(xuids);
+        Xbox.Presence.TrackPresence(user, xuids, Array.Empty<long>());
+        XboxResult presence = await Xbox.Presence.GetPresenceAsync(xuids);
         if (!IsInsideTree()) return;
         if (!presence.Ok) Append($"[color=orange][Pres] get_presence failed: {presence.Message}[/color]");
 
         foreach (string xuid in xuids)
         {
-            GdkMultiplayerActivityInfo info = Gdk.MultiplayerActivity.GetCachedActivity(xuid);
+            XboxMultiplayerActivityInfo info = Xbox.MultiplayerActivity.GetCachedActivity(xuid);
             if (info != null) Append($"[MPA] {xuid} activity: connection_string={info.ConnectionString}");
             else Append($"[MPA] {xuid} has no cached activity.");
         }
@@ -252,7 +252,7 @@ public partial class G04Mpa : Control
     private void OnStopPressed()
     {
         if (_watchedXuids.Length == 0) return;
-        Gdk.Presence.StopTrackingPresence(_auth.XboxUser, _watchedXuids, Array.Empty<long>());
+        Xbox.Presence.StopTrackingPresence(_auth.XboxUser, _watchedXuids, Array.Empty<long>());
         Append($"Stopped tracking {_watchedXuids.Length} friend(s).");
         _watchedXuids = Array.Empty<string>();
     }

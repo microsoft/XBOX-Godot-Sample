@@ -3,13 +3,13 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ##
 ## After the result-only error-handling refactor:
 ##   * Root `GDK.runtime_error(result)` is reserved for `XError` callback
-##     events sourced from `GDKErrorReporting`.
-##   * Per-service `runtime_error(result)` signals on `GDKSocial` and
-##     `GDKAchievements` carry unsolicited subsystem failures (e.g. failures
+##     events sourced from `XboxErrorReporting`.
+##   * Per-service `runtime_error(result)` signals on `XboxSocial` and
+##     `XboxAchievements` carry unsolicited subsystem failures (e.g. failures
 ##     inside the Social Manager or Achievements Manager work pumps, and
 ##     async social-group factory failures).
 ##   * Caller-driven failures are returned directly via the per-call
-##     `GDKResult` or async completion `Signal`, not via `runtime_error`.
+##     `XboxResult` or async completion `Signal`, not via `runtime_error`.
 
 func before_each() -> void:
 	reset_runtime()
@@ -89,18 +89,18 @@ func test_social_validation_routes_through_per_service_runtime_error() -> void:
 
 	# `create_social_group_from_xuids(user, [])` is the canonical caller-driven
 	# validation failure surface. After the result-only refactor it returns a
-	# GDKResult whose `.ok` is false AND emits the per-service runtime_error.
+	# XboxResult whose `.ok` is false AND emits the per-service runtime_error.
 	# It must NOT emit the root XError-only `GDK.runtime_error`.
 	var invalid_result = social.create_social_group_from_xuids(user, PackedStringArray())
-	assert_not_null(invalid_result, "create_social_group_from_xuids() returns GDKResult")
+	assert_not_null(invalid_result, "create_social_group_from_xuids() returns XboxResult")
 	if invalid_result != null:
-		assert_eq(invalid_result.ok, false, "empty XUID list returns failed GDKResult")
+		assert_eq(invalid_result.ok, false, "empty XUID list returns failed XboxResult")
 		assert_eq(invalid_result.code, "missing_social_group_xuids", "validation result code matches")
 
 	assert_true(social_runtime_errors.size() >= 1, "social validation failure routes through GDK.social.runtime_error")
 	if social_runtime_errors.size() >= 1:
 		var social_err = social_runtime_errors[-1]
-		assert_not_null(social_err, "GDK.social.runtime_error payload is non-null GDKResult")
+		assert_not_null(social_err, "GDK.social.runtime_error payload is non-null XboxResult")
 		if social_err != null:
 			assert_eq(social_err.code, "missing_social_group_xuids", "GDK.social.runtime_error code matches the validation failure")
 

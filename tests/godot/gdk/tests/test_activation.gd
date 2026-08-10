@@ -1,5 +1,5 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
-## Surface + validation coverage for `GDKActivation` (`GDK.activation`).
+## Surface + validation coverage for `XboxActivation` (`GDK.activation`).
 ## Wraps `XGameActivation.h` (modern replacement for the deprecated
 ## `XGameProtocol.h` registration).
 
@@ -53,14 +53,14 @@ func test_activation_surface_and_validation_paths() -> void:
 		"ACTIVATION_TYPE_ACCEPTED_GAME_INVITE",
 	]:
 		assert_true(
-				ClassDB.class_has_integer_constant("GDKActivation", constant_name),
-				"GDKActivation exposes %s" % constant_name)
+				ClassDB.class_has_integer_constant("XboxActivation", constant_name),
+				"XboxActivation exposes %s" % constant_name)
 
 	var pre_init_accept = activation.accept_pending_invite("ms-xbl-multiplayer:?inviteHandleId=123")
 	assert_result_error(pre_init_accept, "not_initialized", "accept_pending_invite() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for activation behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for activation behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

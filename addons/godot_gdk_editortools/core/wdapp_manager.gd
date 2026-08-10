@@ -36,7 +36,7 @@ signal list_completed(result: Dictionary)
 signal install_completed(result: Dictionary)
 signal uninstall_completed(result: Dictionary)
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 
 var _toolchain: RefCounted
 var _taskkill_runner: Callable

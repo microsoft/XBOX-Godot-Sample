@@ -29,9 +29,9 @@ func _ready() -> void:
 	_list_btn.pressed.connect(_on_list_pressed)
 	_push_btn.pressed.connect(_on_push_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if _auth == null:
-		_append("[color=red]GdkAuth autoload missing.[/color]")
+		_append("[color=red]XboxAuth autoload missing.[/color]")
 		_set_buttons_enabled(false)
 		return
 

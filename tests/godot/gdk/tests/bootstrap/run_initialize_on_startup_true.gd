@@ -2,7 +2,7 @@ extends SceneTree
 ## Wave 4 bootstrap mini-runner.
 ##
 ## Asserts: when `gdk/runtime/initialize_on_startup` is `true`, the
-## `GDKBootstrap` autoload calls `GDK.initialize()` during `_ready()`.
+## `XboxBootstrap` autoload calls `GDK.initialize()` during `_ready()`.
 ##
 ## Invoked by `tools/run_all_tests.ps1`'s bootstrap stage as a fresh Godot
 ## child process via `--headless --script res://tests/bootstrap/<file>.gd`.
@@ -34,9 +34,9 @@ func _finish() -> void:
 		printerr("BOOTSTRAP_FAIL: %s -- Engine.get_singleton('GDK') returned null" % SCENARIO)
 		quit(3)
 		return
-	var bootstrap = root.get_node_or_null("GDKBootstrap")
+	var bootstrap = root.get_node_or_null("XboxBootstrap")
 	if bootstrap == null:
-		printerr("BOOTSTRAP_FAIL: %s -- GDKBootstrap autoload not registered under root" % SCENARIO)
+		printerr("BOOTSTRAP_FAIL: %s -- XboxBootstrap autoload not registered under root" % SCENARIO)
 		quit(5)
 		return
 	if not gdk.is_initialized():

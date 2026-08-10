@@ -2,7 +2,7 @@ extends SceneTree
 ## Wave 4 bootstrap mini-runner.
 ##
 ## Asserts: when `gdk/runtime/auto_add_primary_user` is `false`, the
-## `GDKBootstrap` autoload does NOT call `GDK.users.add_default_user_async()`
+## `XboxBootstrap` autoload does NOT call `GDK.users.add_default_user_async()`
 ## during `_ready()` even with `initialize_on_startup=true`.
 
 const SETTING_INITIALIZE_ON_STARTUP := "gdk/runtime/initialize_on_startup"

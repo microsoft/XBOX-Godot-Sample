@@ -97,7 +97,7 @@ your Godot project's `addons/` directory.
    `plugin.cfg` files.
 3. Go to **Project — Project Settings — Plugins** and tick the box for
    each addon you copied:
-   - **GodotGDK** — installs the `GDKBootstrap` autoload.
+   - **GodotGDK** — installs the `XboxBootstrap` autoload.
    - **GodotPlayFab** — installs the `PlayFabBootstrap` autoload.
    - **Godot GameInput** *(optional)* — installs the
      `GameInputBootstrap` autoload.
@@ -241,38 +241,38 @@ The recommended pattern is:
 extends Node
 
 func _ready() -> void:
-    var xbox_user: GDKUser = await _ensure_xbox_user()
+    var xbox_user: XboxUser = await _ensure_xbox_user()
     if xbox_user == null:
         push_warning("XBOX sign-in failed — playing offline.")
         return
 
     await _ensure_playfab_user(xbox_user)
 
-func _ensure_xbox_user() -> GDKUser:
+func _ensure_xbox_user() -> XboxUser:
     if not Engine.has_singleton("GDK"):
         push_error("godot_gdk extension is not loaded")
         return null
 
     if not GDK.is_initialized():
-        var init: GDKResult = GDK.initialize()
+        var init: XboxResult = GDK.initialize()
         if not init.ok:
             push_warning("GDK.initialize failed: %s" % init.message)
             return null
 
     # 1. Already have a primary user? Use it.
-    var primary: GDKUser = GDK.users.get_primary_user()
+    var primary: XboxUser = GDK.users.get_primary_user()
     if primary != null and primary.signed_in:
         return primary
 
     # 2. Try silent sign-in.
-    var silent: GDKResult = await GDK.users.add_default_user_async()
+    var silent: XboxResult = await GDK.users.add_default_user_async()
     if silent.ok and silent.data != null and silent.data.signed_in:
         return silent.data
 
     print("[GDK] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
     # 3. Fall back to the system sign-in UI for the default user.
-    var ui: GDKResult = await GDK.users.add_user_with_ui_async()
+    var ui: XboxResult = await GDK.users.add_user_with_ui_async()
     if ui.ok and ui.data != null and ui.data.signed_in:
         return ui.data
 
@@ -291,7 +291,7 @@ PlayFab equivalent of "silent vs UI" — `sign_in_with_xuser_async`
 authenticates the Microsoft GDK user directly, no extra prompts.
 
 ```gdscript
-func _ensure_playfab_user(xbox_user: GDKUser) -> PlayFabUser:
+func _ensure_playfab_user(xbox_user: XboxUser) -> PlayFabUser:
     if not Engine.has_singleton("PlayFab"):
         push_error("godot_playfab extension is not loaded")
         return null
@@ -323,7 +323,7 @@ func _ensure_playfab_user(xbox_user: GDKUser) -> PlayFabUser:
 - `title_id_required` if `playfab/runtime/title_id` is empty — set it
   in Project Settings (step 2).
 
-> Pass the `GDKUser` object itself, not the raw user handle.
+> Pass the `XboxUser` object itself, not the raw user handle.
 > `godot_playfab` cannot accept XBOX-side `Ref<>` types directly across
 > the addon DLL boundary, so the API takes the `Object *` and reads
 > what it needs internally.

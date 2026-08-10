@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="XboxUsers" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		User management service accessed via GDK.users.
+	</brief_description>
+	<description>
+		Manages Xbox user sign-in, identity, and user lifecycle. Add users with [method add_default_user_async] or [method add_user_with_ui_async]. The first successful sign-in establishes the session primary user; later user adds do not replace it.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="add_default_user_async">
+			<return type="Signal" />
+			<description>
+				Adds the default non-guest user silently. Await the returned completion [Signal] directly; the emitted [XboxResult] data contains the signed-in [XboxUser].
+			</description>
+		</method>
+		<method name="add_user_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="allow_guests" type="bool" default="false" />
+			<description>
+				Adds a user interactively, surfacing the system sign-in UI. [b]Requires the advanced user model.[/b] Under the simplified (PC-default) user model the native call rejects every interactive add option with [code]E_INVALIDARG[/code]; PC titles should sign in with the silent [method add_default_user_async] instead. By default ([param allow_guests] is [code]false[/code]) it resolves the launching default user with the system sign-in UI. Pass [code]true[/code] to open the full account picker so the player can choose any account, including guests. This can add another local user, but it does not replace the session primary user once one has already been established. Await the returned completion [Signal] directly; the emitted [XboxResult] data contains the signed-in [XboxUser]. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation the completion [Signal] resolves with a failed [XboxResult] whose [code]code[/code] is [code]cancelled[/code].
+			</description>
+		</method>
+		<method name="get_primary_user" qualifiers="const">
+			<return type="XboxUser" />
+			<description>
+				Returns the session primary [XboxUser], or [code]null[/code] if no user is signed in. The first successful user add establishes this user for the session.
+			</description>
+		</method>
+		<method name="get_users" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of all currently signed-in [XboxUser] objects.
+			</description>
+		</method>
+		<method name="check_privilege_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="privilege" type="int" />
+			<description>
+				Checks whether the [param user] has the specified raw [param privilege] integer. The addon forwards that integer directly to the native [code]XUserCheckPrivilege()[/code] call and does not bind named privilege constants. Await the returned completion [Signal] directly; on success, [code]XboxResult.data[/code] contains [code]privilege[/code], [code]has_privilege[/code], [code]deny_reason[/code], [code]deny_reason_value[/code], and [code]needs_user_issue_resolution[/code].
+			</description>
+		</method>
+		<method name="resolve_privilege_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="privilege" type="int" />
+			<description>
+				Attempts to resolve the specified raw [param privilege] integer for the [param user] by showing system UI if needed. Await the returned completion [Signal] directly; on success, [code]XboxResult.data[/code] currently echoes [code]privilege[/code].
+			</description>
+		</method>
+		<method name="resolve_issue_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="url" type="String" default="&quot;&quot;" />
+			<description>
+				Opens the system UI to resolve an account issue for the [param user]. Optionally pass a [param url] for a specific issue page. Await the returned completion [Signal] directly; the emitted [XboxResult] data contains the resolution payload.
+			</description>
+		</method>
+		<method name="get_gamer_picture_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="size" type="String" default="&quot;medium&quot;" />
+			<description>
+				Retrieves the gamer picture for the [param user] at the specified [param size] (e.g., "small", "medium", "large"). Await the returned completion [Signal] directly; the emitted [XboxResult] data contains the decoded [Image].
+			</description>
+		</method>
+		<method name="get_token_and_signature_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="method" type="String" />
+			<param index="2" name="url" type="String" />
+			<param index="3" name="headers" type="Dictionary" default="{}" />
+			<param index="4" name="body" type="PackedByteArray" default="PackedByteArray()" />
+			<param index="5" name="force_refresh" type="bool" default="false" />
+			<description>
+				Retrieves an Xbox Live token and signature for the specified [param user], HTTP [param method], and [param url]. Optionally provide [param headers], [param body], and [param force_refresh]. Await the returned completion [Signal] directly; the emitted [XboxResult] data contains the token and signature dictionary.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="user_changed">
+			<param index="0" name="user" type="XboxUser" />
+			<param index="1" name="change_kind" type="String" />
+			<description>
+				Emitted for every user lifecycle or Xbox-facing state change. [param change_kind] is one of [code]added[/code], [code]removed[/code], [code]signed_in_again[/code], [code]gamertag[/code], [code]gamer_picture[/code], or [code]privileges[/code]. For [code]removed[/code], [param user] identifies the user that was removed and is no longer present in [method get_users].
+			</description>
+		</signal>
+	</signals>
+	<constants>
+	</constants>
+</class>
