@@ -1,5 +1,22 @@
 # XBOX Godot Sample
 
+> [!WARNING]
+> **Breaking change: `GDK*` classes are now `Xbox*`.** Every script-visible type was renamed from the `GDK` prefix to the `Xbox` prefix — `GDKUser` → `XboxUser`, `GDKResult` → `XboxResult`, `GDKAchievement` → `XboxAchievement`, and so on. The C# facade moved with them: namespace `GodotGdk` → `GodotXbox`, static class `Gdk` → `Xbox`. No deprecated `GDK*` aliases are provided, so type references must be updated.
+>
+> **The singleton is still called `GDK`.** Calls like `GDK.initialize()` and `GDK.users.add_default_user_async()` keep working unchanged — only the *type* names moved. The `addons/godot_gdk` folder, the `gdk/runtime/*` Project Settings, and the `godot_gdk.gdextension` entry point are all unchanged as well.
+>
+> ```gdscript
+> # before
+> var r: GDKResult = GDK.initialize()
+> var u: GDKUser = r.data
+>
+> # after
+> var r: XboxResult = GDK.initialize()
+> var u: XboxUser = r.data
+> ```
+>
+> One consequence worth calling out: the ClassDB class name (`Xbox`) and the singleton name (`GDK`) are now different strings. If your code class-checks the singleton, compare against `"Xbox"` — `is_class("GDK")` no longer matches.
+
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
 >
