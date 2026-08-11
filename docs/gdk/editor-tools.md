@@ -160,6 +160,66 @@ Projects that enable **Embed Build Outputs** are unaffected either way: in that
 mode the C# plugin writes the assemblies into the `.pck` via `add_file()`
 instead of registering shared objects.
 
+### Why "Export Project…" is greyed out
+
+Godot enables the export dialog's **Export Project…** / **Export All…** buttons
+purely from what the platform's validation callbacks return, and displays *no*
+explanation unless the platform supplies one via `set_config_error()`. A bare
+`return false` therefore left the user staring at a dead button.
+
+`_has_valid_export_configuration()` now collects **every** blocker in one pass
+and reports them together:
+
+| Blocker | What the dialog says |
+| --- | --- |
+| Microsoft GDK not installed / no `makepkg.exe` + `wdapp.exe` | install command (`winget install Microsoft.Gaming.GDK`) and "restart the editor" |
+| `MicrosoftGame.config` missing from the configured game-config directory | the exact path probed, the **GDK ▸ Create Game Config…** menu entry, the `.template` fallback, and the `gdk/packaging/game_config_dir` Project Setting |
+| No Windows export template for the running Godot version (packaged export only) | the failing config (`debug`/`release`), the Godot version, and **Editor ▸ Manage Export Templates…** |
+| No Windows **.NET/Mono** export template, on a project containing C# | the same, plus that the .NET template package is required and that loose dev-register cannot substitute for it |
+
+The template check also calls `set_config_missing_templates(true)` so Godot
+shows its built-in **Manage Export Templates** shortcut. It is skipped when
+**Dev ▸ Register Loose** is on, because a loose dev-register build does not
+need a template — *except* on a C# project, which always needs a real .NET
+template (see below). `_has_valid_project_configuration()` reports the
+missing-GDK reason through the same message helper.
+
+Each blocker is reported independently, so a project missing both the GDK and
+`MicrosoftGame.config` sees both lines instead of only the first.
+
+### .NET export templates for C# projects (".NET assemblies not found")
+
+`_find_windows_template()` probes
+`%APPDATA%\Godot\export_templates\<version>\windows_<config>_x86_64.exe`. Godot
+appends its module config to that directory name, so a **.NET editor build**
+installs its templates under `4.7.1.stable.mono`, not `4.7.1.stable`. Probing
+only the plain name found nothing on a .NET editor, and the export silently fell
+back to `OS.get_executable_path()` — the Godot **editor** binary.
+
+That fallback is fatal for a C# game. The editor binary is built with
+`TOOLS_ENABLED`, so it resolves .NET assemblies from `<exe_dir>/GodotSharp/Api/`
+instead of the exported `data_<assembly>_windows_x86_64/` directory, and the
+game dies on startup with:
+
+> Unable to find the .NET assemblies directory. Make sure the
+> `…/GodotSharp/Api/Debug` directory exists and contains the .NET assemblies.
+
+Two changes close this:
+
+- `_template_version_dirs()` takes a `p_dotnet` flag. When the running editor is
+  a .NET build (`_is_dotnet_editor()`, i.e. `ClassDB.class_exists("CSharpScript")`)
+  every candidate directory gets a `.mono` suffix, and the plain names are
+  **dropped** rather than offered as a fallback — a non-.NET template has no
+  assembly loader and could never host a C# game.
+- `_is_dotnet_project()` (a .NET editor *and* a non-empty
+  `dotnet/project/assembly_name`) makes a real template mandatory. Unlike a
+  GDScript project, a C# project does **not** get the loose dev-register
+  editor-binary fallback; both `_has_valid_export_configuration()` and
+  `_export_project()` hard-fail with a message naming the .NET template package.
+
+A GDScript project on a standard (non-.NET) editor build is unaffected: the
+candidate list and the loose fallback behave exactly as before.
+
 ### GDK detection lifecycle
 
 The platform locates the Microsoft GDK (install root + `makepkg.exe` /

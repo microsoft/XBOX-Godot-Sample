@@ -93,21 +93,86 @@ func _get_export_option_visibility(p_preset: EditorExportPreset, p_option: Strin
 func _get_export_option_warning(p_preset: EditorExportPreset, p_option: StringName) -> String:
 	return ""
 
+# ── Validation messages ─────────────────────────────────────────
+#
+# Validation must never fail silently: Godot greys out "Export Project…" /
+# "Export All…" purely on the boolean the callbacks below return, and shows
+# nothing at all unless the platform reports *why* through set_config_error().
+# Every `return false` therefore records an actionable reason first, so the
+# dialog never presents a dead "Export Project" button with no explanation.
+
+static func _gdk_missing_message() -> String:
+	return ("Microsoft GDK was not found on this machine. " +
+		"Install it with `winget install Microsoft.Gaming.GDK`, then restart the Godot editor.")
+
+static func _missing_game_config_message(config_path: String) -> String:
+	return ("MicrosoftGame.config was not found at %s. " % config_path +
+		"Run GDK \u25b8 Create Game Config\u2026 from the editor menu, or copy " +
+		"MicrosoftGame.config.template next to it and fill in your Partner Center values. " +
+		"Set the gdk/packaging/game_config_dir Project Setting to look elsewhere.")
+
+static func _missing_template_message(p_debug: bool, p_dotnet: bool = false) -> String:
+	var config_label: String = "debug" if p_debug else "release"
+	var godot_ver: String = str(Engine.get_version_info().get("string", ""))
+	var flavor: String = ".NET/Mono " if p_dotnet else ""
+	return ("No Windows %s %sexport template was found for Godot %s. " % [config_label, flavor, godot_ver] +
+		"Install it via Editor \u25b8 Manage Export Templates\u2026 (matching your exact Godot " +
+		"version%s), " % (" \u2014 the .NET template package, not the standard one" if p_dotnet else "") +
+		"or enable Dev \u25b8 Register Loose to skip packaging for local iteration.")
+
+# A C# project cannot be staged from the editor binary at all: the game starts
+# up looking for `<exe_dir>/GodotSharp/Api/Debug` and dies with ".NET assemblies
+# not found". So unlike a GDScript project, loose dev-register does NOT get to
+# fall back — a real .NET template is mandatory.
+static func _dotnet_requires_template_message(p_debug: bool) -> String:
+	return (_missing_template_message(p_debug, true) + "\n" +
+		"This project contains C# code (dotnet/project/assembly_name is set), so the Godot " +
+		"editor binary cannot be used as a stand-in even for a loose dev-register build \u2014 " +
+		"the game would fail at launch with \".NET assemblies not found\".")
+
 func _has_valid_export_configuration(p_preset: EditorExportPreset, p_debug: bool) -> bool:
 	_ensure_detected()
+	set_config_missing_templates(false)
+	var errors: PackedStringArray = PackedStringArray()
+
 	if not _gdk_found:
-		return false
+		errors.append(_gdk_missing_message())
+
 	# MicrosoftGame.config is the source of truth for identity / shell visuals
 	# and is authored via the godot_gdk_editortools addon's "Create Game Config".
 	# If it's missing the export pipeline cannot proceed. Its directory is
 	# configurable via the gdk/packaging/game_config_dir Project Setting.
 	if not FileAccess.file_exists(_game_config_src()):
-		return false
-	return true
+		errors.append(_missing_game_config_message(_game_config_src()))
+
+	# A packaged (non-loose) export refuses to substitute the editor binary for
+	# a real export template (issue #134), so a missing template is a hard
+	# blocker. Report it as a missing-templates condition so the dialog offers
+	# the "Manage Export Templates" shortcut. Loose dev-register on a pure
+	# GDScript project still works without templates, so it stays exempt — but a
+	# C# project never can, because the editor binary resolves .NET assemblies
+	# from `GodotSharp/Api/` instead of the exported `data_*` directory.
+	var use_loose: bool = false
+	if p_preset != null and p_preset.has("dev/register_loose"):
+		use_loose = bool(p_preset.get("dev/register_loose"))
+	if _find_windows_template(p_debug) == "":
+		if _is_dotnet_project():
+			set_config_missing_templates(true)
+			errors.append(_dotnet_requires_template_message(p_debug))
+		elif not use_loose:
+			set_config_missing_templates(true)
+			errors.append(_missing_template_message(p_debug))
+
+	set_config_error("\n".join(errors))
+	return errors.is_empty()
 
 func _has_valid_project_configuration(p_preset: EditorExportPreset) -> bool:
 	_ensure_detected()
-	return _gdk_found
+	if not _gdk_found:
+		set_config_error(_gdk_missing_message())
+		return false
+	set_config_error("")
+	return true
 
 func _can_export(p_preset: EditorExportPreset, p_debug: bool) -> bool:
 	return _has_valid_export_configuration(p_preset, p_debug)
@@ -183,6 +248,15 @@ func _export_project(p_preset: EditorExportPreset, p_debug: bool, p_path: String
 	var template_path: String = _find_windows_template(p_debug)
 	if template_path == "":
 		var godot_ver: String = str(Engine.get_version_info().get("string", ""))
+		if _is_dotnet_project():
+			push_error(
+				"GDK Export: No Windows %s .NET/Mono export template found for Godot %s.\n" % [config_label, godot_ver] +
+				"  This project contains C# code, so the Godot editor binary cannot stand in\n" +
+				"  even for a loose dev-register build — the game aborts at launch with\n" +
+				"  \".NET assemblies not found\" (it looks for GodotSharp/Api/Debug next to\n" +
+				"  the .exe). Install the .NET export template package via\n" +
+				"  Editor \u25b8 Manage Export Templates\u2026 (match your exact Godot version) and re-export.")
+			return ERR_FILE_NOT_FOUND
 		if not use_loose:
 			push_error(
 				"GDK Export: No Windows %s export template found for Godot %s.\n" % [config_label, godot_ver] +
@@ -683,7 +757,7 @@ func _detect_gdk() -> void:
 # Godot editor binary as a stand-in template — producing a package that fails
 # at launch with "GDExtension dynamic library not found" (issue #134).
 # Most-specific name first so the real template wins.
-static func _template_version_dirs(p_version: Dictionary) -> PackedStringArray:
+static func _template_version_dirs(p_version: Dictionary, p_dotnet: bool = false) -> PackedStringArray:
 	var major: int = int(p_version.get("major", 0))
 	var minor: int = int(p_version.get("minor", 0))
 	var patch: int = int(p_version.get("patch", 0))
@@ -694,13 +768,36 @@ static func _template_version_dirs(p_version: Dictionary) -> PackedStringArray:
 		dirs.append("%d.%d.%s" % [major, minor, status])
 	dirs.append("%d.%d.%d" % [major, minor, patch])
 	dirs.append("%d.%d" % [major, minor])
+	if p_dotnet:
+		# A .NET editor build resolves templates from "<version>.mono" only
+		# (Godot appends the module config to VERSION_FULL_CONFIG). A non-.NET
+		# template cannot host a C# game — it has no assembly loader — so the
+		# plain names are dropped rather than offered as a silent fallback.
+		var mono_dirs: PackedStringArray = PackedStringArray()
+		for dir_name: String in dirs:
+			mono_dirs.append(dir_name + ".mono")
+		return mono_dirs
 	return dirs
+
+# True when the running editor is a Godot .NET (Mono) build. Only these builds
+# expose CSharpScript, and only they can export a project containing C# code.
+static func _is_dotnet_editor() -> bool:
+	return ClassDB.class_exists("CSharpScript")
+
+# True when this project actually ships C# code, i.e. Godot resolved a .NET
+# assembly for it. Such a project must be staged from a .NET export template:
+# the editor binary sends the game looking for `GodotSharp/Api/Debug` next to
+# the .exe and aborts with ".NET assemblies not found".
+static func _is_dotnet_project() -> bool:
+	if not _is_dotnet_editor():
+		return false
+	return str(ProjectSettings.get_setting("dotnet/project/assembly_name", "")) != ""
 
 func _find_windows_template(p_debug: bool) -> String:
 	var app_data: String = OS.get_environment("APPDATA")
 	var templates_dir: String = app_data.path_join("Godot").path_join("export_templates")
 	var file_name: String = "windows_%s_x86_64.exe" % ("debug" if p_debug else "release")
-	for ver_dir: String in _template_version_dirs(Engine.get_version_info()):
+	for ver_dir: String in _template_version_dirs(Engine.get_version_info(), _is_dotnet_editor()):
 		var template: String = templates_dir.path_join(ver_dir).path_join(file_name)
 		if FileAccess.file_exists(template):
 			return template
