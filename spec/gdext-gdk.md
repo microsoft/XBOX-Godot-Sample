@@ -601,8 +601,20 @@ transcribed_chat_received(speaker_xuid: String, message: String)
 ```gdscript
 add_default_user_async() -> Signal
 add_user_with_ui_async(allow_guests := false) -> Signal
+add_user_by_id_with_ui_async(xuid: String) -> Signal
 get_primary_user() -> GDKUser
 get_users() -> Array[GDKUser]
+get_max_users() -> GDKResult                       # data: int
+is_sign_out_available() -> bool
+sign_out_async(user: GDKUser) -> Signal
+acquire_sign_out_deferral() -> GDKResult           # data: GDKUserSignOutDeferral
+find_user_by_xuid(xuid: String) -> GDKResult       # data: GDKUser
+find_user_by_local_id(local_id: int) -> GDKResult  # data: GDKUser
+find_user_for_device(device_id: String) -> GDKResult  # data: GDKUser
+find_controller_for_user_with_ui_async(user: GDKUser) -> Signal
+get_device_associations() -> Array                 # [{device_id, user_local_id}]
+get_devices_for_user(user: GDKUser) -> PackedStringArray
+get_default_audio_endpoint(user: GDKUser, kind := GDKUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER) -> GDKResult
 check_privilege_async(user: GDKUser, privilege: int) -> Signal
 resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
 resolve_issue_with_ui_async(user: GDKUser, url := "") -> Signal
@@ -614,6 +626,8 @@ get_token_and_signature_async(user: GDKUser, method: String, url: String, header
 
 ```gdscript
 user_changed(user: GDKUser, change_kind: String)
+device_association_changed(device_id: String, old_user_local_id: int, new_user_local_id: int)
+default_audio_endpoint_changed(user_local_id: int, kind: int, endpoint_id: String)
 ```
 
 ##### `GDKUser`
@@ -621,7 +635,10 @@ user_changed(user: GDKUser, change_kind: String)
 ```gdscript
 get_local_id() -> int
 get_xuid() -> String
-get_gamertag() -> String
+get_gamertag() -> String                  # classic component
+get_modern_gamertag() -> String
+get_modern_gamertag_suffix() -> String
+get_unique_modern_gamertag() -> String
 get_age_group() -> GDKUser.AgeGroup
 get_age_group_name() -> String
 get_sign_in_state() -> GDKUser.SignInState
@@ -629,6 +646,16 @@ get_sign_in_state_name() -> String
 is_guest() -> bool
 is_signed_in() -> bool
 is_store_user() -> bool
+is_valid() -> bool
+is_same_user(other: GDKUser) -> bool
+duplicate_user() -> GDKUser
+```
+
+##### `GDKUserSignOutDeferral`
+
+```gdscript
+is_valid() -> bool
+release() -> void
 ```
 
 ##### Native API mapping
@@ -637,15 +664,54 @@ is_store_user() -> bool
 | --- | --- | --- |
 | `add_default_user_async()` | `XUserAddAsync`, `XUserAddResult` | Uses the silent default-user path without guest support; on success, populate `GDKUser`, create `XblContextHandle`, and ensure change notifications are registered. |
 | `add_user_with_ui_async(allow_guests := false)` | `XUserAddAsync`, `XUserAddResult` | Interactive add path. **Requires the advanced user model** — under the simplified (PC-default) user model `XUserAddAsync` rejects every interactive option (`None`, `AddDefaultUserAllowingUI`, `AllowGuests`) with `E_INVALIDARG`; only the silent `add_default_user_async()` works there. By default (`allow_guests = false`) uses `AddDefaultUserAllowingUI` to resolve the launching default user with the system sign-in UI. Pass `allow_guests = true` to open the full account picker (`AllowGuests`, without the default/silent options) so the player can choose any account, including guests. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation (`E_ABORT`) the wrapper normalizes it to a cancelled `GDKResult`. Post-processing matches the default-user path except that later adds do not replace the session primary user once one already exists. |
+| `add_user_by_id_with_ui_async(xuid)` | `XUserAddByIdWithUiAsync`, `XUserAddByIdWithUiResult` | Re-establishes one specific account by decimal XUID, showing UI only if that account needs attention. This is the XR-112 "resume the prior user's session" path: after resume the title asks for the same user it had rather than opening a blind account picker. Post-processing is identical to the other add paths. |
+| `get_max_users()` | `XUserGetMaxUsers` | Synchronous capability probe returning the platform's simultaneous local-user cap in `GDKResult.data`. |
+| `is_sign_out_available()` | `XUserIsSignOutPresent` | Synchronous `bool`. It is the documented gate for `sign_out_async()`; the wrapper also enforces it and fails with `sign_out_not_available` when the platform has no title-driven sign-out. |
+| `sign_out_async(user)` | `XUserSignOutAsync`, `XUserSignOutResult` | On success the wrapper reconciles the users cache itself instead of waiting for the `XUserChangeEvent::SignedOut` callback, so `get_users()`/`get_primary_user()` are already correct when the completion `Signal` resolves. Whichever path (completion or change event) runs first removes the user and emits `user_changed(user, "removed")` exactly once. |
+| `acquire_sign_out_deferral()` | `XUserGetSignOutDeferral`, `XUserCloseSignOutDeferralHandle` | Returns a `GDKUserSignOutDeferral` in `GDKResult.data`, mirroring `GDKDisplayTimeoutDeferral`. The handle is closed on `release()` or when the wrapper is freed; closing does not require an initialized runtime, so `release()` is safe after `GDK.shutdown()`. |
+| `find_user_by_xuid(xuid)` | `XUserFindUserById` | Synchronous, non-prompting lookup of a signed-in user. Used on resume to validate that an expected user is still signed in. When the found user is already cached, the wrapper returns the cached `GDKUser` (matching object identity with `get_users()`) and releases the freshly opened handle. |
+| `find_user_by_local_id(local_id)` | `XUserFindUserByLocalId` | Same contract as `find_user_by_xuid()`; the natural way to resolve a local id delivered by `device_association_changed`. |
+| `find_user_for_device(device_id)` | `XUserFindForDevice` | Resolves the user currently paired with a device id. `device_id` is the 64-character lowercase hex encoding of `APP_LOCAL_DEVICE_ID`. |
+| `find_controller_for_user_with_ui_async(user)` | `XUserFindControllerForUserWithUiAsync`, `XUserFindControllerForUserWithUiResult` | **XR-112 requirement.** Opens the system controller-selection dialog when a user has no assigned controller at activation or after resume. Successful results carry `device_id` and `has_device` (false when the platform returns `XUserNullDeviceId`). |
+| `get_device_associations()`, `get_devices_for_user()`, `device_association_changed` | `XUserRegisterForDeviceAssociationChanged`, `XUserUnregisterForDeviceAssociationChanged` | One runtime-wide registration against the shared queue, installed during `GDK.initialize()`. The platform replays every existing pairing when the registration is added, so the service's association cache is the authoritative user↔controller view XR-112 requires. Registration failure is **non-fatal**: it is reported through `GDK.runtime_error` and leaves the cache empty rather than failing initialization. A local id of `0` means "no user" and removes the device from the cache. |
+| `get_default_audio_endpoint()`, `default_audio_endpoint_changed` | `XUserGetDefaultAudioEndpointUtf16`, `XUserRegisterForDefaultAudioEndpointUtf16Changed`, `XUserUnregisterForDefaultAudioEndpointUtf16Changed` | Per-user default communication render/capture endpoint id. The change registration is installed and torn down alongside the device-association registration and is non-fatal in the same way. |
 | `check_privilege_async()` | `XUserCheckPrivilege` | There is no documented async privilege-check API in `XUser`; this wrapper should convert the synchronous result into a deferred completion `Signal`. Successful results carry a `Dictionary` in `GDKResult.data` with `privilege`, `has_privilege`, `deny_reason`, and `deny_reason_value`. If the check returns `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED`, the request should fail and direct callers to `resolve_issue_with_ui_async()`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Use the native UI remediation path when `check_privilege_async()` reports that a privilege is denied and the title wants to let the player resolve it immediately. Successful results can carry a small `Dictionary` payload that echoes the resolved privilege id. |
 | `resolve_issue_with_ui_async()` | `XUserResolveIssueWithUiAsync`, `XUserResolveIssueWithUiResult` | This is the remediation path for `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED` from `XUser` getters such as age-group lookups and from privilege checks. Treat an empty `url` as the Xbox services/default flow and pass a URL only when the underlying issue is request-specific. |
 | `get_gamer_picture_async()` | `XUserGetGamerPictureAsync`, `XUserGetGamerPictureResultSize`, `XUserGetGamerPictureResult` | Accept `small`, `medium`, `large`, and `extra_large` size strings. Decode the returned PNG bytes into a Godot `Image` and place that `Image` in `GDKResult.data`. |
 | `get_token_and_signature_async()` | `XUserGetTokenAndSignatureAsync`, `XUserGetTokenAndSignatureResultSize`, `XUserGetTokenAndSignatureResult` | First-pass token support should expose explicit request parameters: HTTP method, full URL, headers `Dictionary`, optional `PackedByteArray` body, and `force_refresh`. Successful results carry a `Dictionary` with `token` and `signature`. |
 | `user_changed` | `XUserRegisterForChangeEvent`, `XUserUnregisterForChangeEvent` | Register one runtime-wide change callback against the shared queue and reconcile affected `GDKUser` wrappers by local id. `user_changed` is the only public users-service event and should emit the affected wrapper plus a snake_case `change_kind` string: `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`. For `removed`, emit the removed wrapper after it has been removed from the users cache so handlers can read identity fields without seeing it in `get_users()`. |
-| `GDKUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `GDKUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. |
+| `GDKUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `GDKUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. `XUserGetGamertag` is read once per component: `get_gamertag()` is the required `Classic` component and fails the populate, while the `Modern`, `ModernSuffix`, and `UniqueModern` components are optional metadata that degrade to empty strings on accounts or platforms that do not expose them. |
+| `GDKUser.is_same_user()`, `GDKUser.duplicate_user()` | `XUserCompare`, `XUserDuplicateHandle` | `is_same_user()` compares two handles so a cached wrapper and a fresh `find_user_*()` lookup for the same account compare equal. `duplicate_user()` hands back an independently owned handle for titles that need a user to outlive the service cache. |
 
 Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtime should own a single change-event registration token. Cleanup order should be: unregister runtime change notifications, remove the user from service-owned caches/managers, close the Xbox services context, then call `XUserCloseHandle`. The first successful user add establishes the session primary user; later adds should not promote a different cached user to primary.
+
+##### Intentionally unwrapped `XUser` APIs
+
+| Native API(s) | Why it stays unwrapped |
+| --- | --- |
+| `XUserGetTokenAndSignatureUtf16Async` / `...Utf16ResultSize` / `...Utf16Result`, `XUserResolveIssueWithUiUtf16Async` / `...Utf16Result` | UTF-16 duplicates of surfaces already wrapped in their UTF-8 form. Godot `String` conversion happens inside the wrapper, so a second binding would add a redundant public surface with identical semantics. |
+| `XUserGetMsaTokenSilentlyAsync` / `...Result` / `...ResultSize` | Deprecated by the GDK (`__declspec(deprecated)`); no longer supported. |
+| `XUserPlatformRemoteConnectSetEventHandlers`, `XUserPlatformRemoteConnectCancelPrompt`, `XUserPlatformSpopPromptSetEventHandlers`, `XUserPlatformSpopPromptComplete` | Platform-implementer hooks for hosting the sign-in prompt UI, not title-facing APIs. Out of scope for a Godot title-side addon. |
+| `XUserDuplicateHandle`, `XUserCloseHandle`, `XUserCompare`, `XUserCloseSignOutDeferralHandle` | Handle lifetime primitives. These are used internally by `GDKUser` / `GDKUserSignOutDeferral` and surface as `duplicate_user()`, `is_same_user()`, `release()`, and normal Godot `RefCounted` lifetime — raw handles are never exposed to GDScript. |
+
+##### XR-112 coverage
+
+[XR-112](https://learn.microsoft.com/gaming/gdk/docs/store/policies/xr/xr112) ("Establishing a User and Controller During Initial Activation and Resume") is the certification requirement this service must make satisfiable. Mapping of the requirement's obligations to the public surface:
+
+| XR-112 obligation | Public surface |
+| --- | --- |
+| Simplified user model: acquire the launching user silently | `add_default_user_async()` |
+| Advanced user model: prompt for a user when no default is present, and provide an entry point to the account picker | `add_user_with_ui_async(allow_guests := true)` |
+| Ensure a controller is assigned to the user; engage the system dialog when none is | `get_devices_for_user()` → `find_controller_for_user_with_ui_async()` |
+| Respect the controller/user binding set by the platform or account picker | `get_device_associations()`, `find_user_for_device()` |
+| React to controller re-pairing on resume | `device_association_changed` |
+| Validate that the expected user is still signed in after resume | `find_user_by_xuid()`, `find_user_by_local_id()`, `GDKUser.is_signed_in()` |
+| Re-establish the prior user rather than opening a blind picker | `add_user_by_id_with_ui_async(xuid)` |
+| Display the gamertag before any profile-related action | `GDKUser.get_gamertag()` / `get_unique_modern_gamertag()`, `get_gamer_picture_async()` |
+| Flush per-user state when the platform reports a pending sign-out | `user_changed` (`removed`), `acquire_sign_out_deferral()` |
+
+The addon deliberately does not implement the requirement *for* the title: it does not auto-open the controller dialog or auto-re-add users, because the correct reaction is game-design dependent (XR-112 allows removing the player, showing a picker, or resuming). The addon's contract is that every decision the requirement asks a title to make is observable and actionable from GDScript.
 
 #### `GDK.accessibility` service
 

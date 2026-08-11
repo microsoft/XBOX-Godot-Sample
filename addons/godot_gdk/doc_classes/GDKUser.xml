@@ -23,7 +23,25 @@
 		<method name="get_gamertag" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns the user's gamertag.
+				Returns the user's classic gamertag (the [code]XUserGamertagComponent.Classic[/code] component).
+			</description>
+		</method>
+		<method name="get_modern_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's modern gamertag without its numeric suffix. Empty on accounts or platforms that do not expose a modern gamertag.
+			</description>
+		</method>
+		<method name="get_modern_gamertag_suffix" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the numeric suffix of the user's modern gamertag, or an empty [String] when the gamertag has no suffix.
+			</description>
+		</method>
+		<method name="get_unique_modern_gamertag" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the user's modern gamertag combined with its suffix. This is the display string to use when a gamertag must be globally unique.
 			</description>
 		</method>
 		<method name="get_age_group" qualifiers="const">
@@ -68,6 +86,25 @@
 				Returns [code]true[/code] if the user is the store user.
 			</description>
 		</method>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if this wrapper still owns a native user handle. A default-constructed [GDKUser], or one whose handle has been released, returns [code]false[/code].
+			</description>
+		</method>
+		<method name="is_same_user" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="other" type="GDKUser" />
+			<description>
+				Returns [code]true[/code] if [param other] refers to the same platform user as this wrapper, even when the two wrappers are distinct objects (for example a cached user and a fresh [method GDKUsers.find_user_by_xuid] lookup).
+			</description>
+		</method>
+		<method name="duplicate_user" qualifiers="const">
+			<return type="GDKUser" />
+			<description>
+				Returns a new [GDKUser] backed by a duplicated native handle, or [code]null[/code] if this wrapper holds no handle. Use this when the title needs to keep a user alive independently of the [GDKUsers] cache; the duplicate closes its own handle when it is freed.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="local_id" type="int" setter="" getter="get_local_id">
@@ -77,7 +114,16 @@
 			The Xbox User ID (XUID) as a string.
 		</member>
 		<member name="gamertag" type="String" setter="" getter="get_gamertag">
-			The user's gamertag.
+			The user's classic gamertag.
+		</member>
+		<member name="modern_gamertag" type="String" setter="" getter="get_modern_gamertag">
+			The user's modern gamertag without its numeric suffix.
+		</member>
+		<member name="modern_gamertag_suffix" type="String" setter="" getter="get_modern_gamertag_suffix">
+			The numeric suffix of the user's modern gamertag, or an empty [String] when there is none.
+		</member>
+		<member name="unique_modern_gamertag" type="String" setter="" getter="get_unique_modern_gamertag">
+			The user's modern gamertag combined with its suffix.
 		</member>
 		<member name="age_group" type="int" setter="" getter="get_age_group" enum="GDKUser.AgeGroup">
 			The user's age group. See [enum AgeGroup].

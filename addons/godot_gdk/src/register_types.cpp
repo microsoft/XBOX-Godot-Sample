@@ -184,6 +184,7 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<GDKResult>();
     ClassDB::register_internal_class<GDKPendingSignal>();
     ClassDB::register_class<GDKUser>();
+    ClassDB::register_class<GDKUserSignOutDeferral>();
     ClassDB::register_class<GDKUsers>();
     ClassDB::register_class<GDKGameUI>();
     ClassDB::register_class<GDKClosedCaptionProperties>();

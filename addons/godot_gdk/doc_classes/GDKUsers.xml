@@ -33,6 +33,87 @@
 				Returns an [Array] of all currently signed-in [GDKUser] objects.
 			</description>
 		</method>
+		<method name="add_user_by_id_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="xuid" type="String" />
+			<description>
+				Re-establishes a specific user by decimal [param xuid], showing system UI if the account needs attention. This is the XR-112 "resume the prior user's session" path: after a suspend/resume the title can ask for the same user it was using before instead of opening a blind account picker. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser].
+			</description>
+		</method>
+		<method name="get_max_users" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Returns a [GDKResult] whose data is the maximum number of users that can be signed into the title simultaneously on this platform.
+			</description>
+		</method>
+		<method name="is_sign_out_available" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if this platform supports title-initiated sign-out. Check this before calling [method sign_out_async]; when it is [code]false[/code], [method sign_out_async] fails with the code [code]sign_out_not_available[/code].
+			</description>
+		</method>
+		<method name="sign_out_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Signs [param user] out of the title. Await the returned completion [Signal] directly; on success the emitted [GDKResult] data is the signed-out [GDKUser], which has already been removed from [method get_users] and, if it was the primary user, cleared from [method get_primary_user]. The [signal user_changed] signal is emitted once with [code]removed[/code].
+			</description>
+		</method>
+		<method name="acquire_sign_out_deferral" qualifiers="const">
+			<return type="GDKResult" />
+			<description>
+				Acquires a sign-out deferral and returns it in [code]GDKResult.data[/code] as a [GDKUserSignOutDeferral]. Hold the deferral while flushing per-user state (such as a save) in response to a pending sign-out, then call [method GDKUserSignOutDeferral.release] or drop the reference.
+			</description>
+		</method>
+		<method name="find_user_by_xuid">
+			<return type="GDKResult" />
+			<param index="0" name="xuid" type="String" />
+			<description>
+				Looks up a currently signed-in user by decimal [param xuid] without prompting. On success [code]GDKResult.data[/code] is the matching [GDKUser]; when that user is already tracked by this service, the cached wrapper is returned. Use this on resume to validate that an expected user is still signed in.
+			</description>
+		</method>
+		<method name="find_user_by_local_id">
+			<return type="GDKResult" />
+			<param index="0" name="local_id" type="int" />
+			<description>
+				Looks up a currently signed-in user by the local id reported by [method GDKUser.get_local_id] or by [signal device_association_changed]. On success [code]GDKResult.data[/code] is the matching [GDKUser].
+			</description>
+		</method>
+		<method name="find_user_for_device">
+			<return type="GDKResult" />
+			<param index="0" name="device_id" type="String" />
+			<description>
+				Looks up the user currently associated with [param device_id], the 64-character hex device string reported by [method get_device_associations], [method get_devices_for_user], [signal device_association_changed], and [method find_controller_for_user_with_ui_async]. On success [code]GDKResult.data[/code] is the matching [GDKUser].
+			</description>
+		</method>
+		<method name="find_controller_for_user_with_ui_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Opens the system dialog that asks the player to pick a controller for [param user]. This is the API XR-112 requires when a user has no assigned controller at activation or after resume. Await the returned completion [Signal] directly; on success [code]GDKResult.data[/code] contains [code]device_id[/code] (the selected controller's hex device id) and [code]has_device[/code].
+			</description>
+		</method>
+		<method name="get_device_associations" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns the current user/device pairings as an [Array] of [Dictionary] entries with [code]device_id[/code] and [code]user_local_id[/code] keys. The platform replays every existing association when the service starts, so this reflects the pairings the account picker and platform have established. Empty when the platform does not report device associations.
+			</description>
+		</method>
+		<method name="get_devices_for_user" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="user" type="GDKUser" />
+			<description>
+				Returns the hex device ids currently associated with [param user]. An empty result after resume means the title must re-establish a controller with [method find_controller_for_user_with_ui_async].
+			</description>
+		</method>
+		<method name="get_default_audio_endpoint" qualifiers="const">
+			<return type="GDKResult" />
+			<param index="0" name="user" type="GDKUser" />
+			<param index="1" name="kind" type="int" enum="GDKUsers.AudioEndpointKind" default="0" />
+			<description>
+				Reads the default communication audio endpoint for [param user]. On success [code]GDKResult.data[/code] contains [code]kind[/code] and [code]endpoint_id[/code].
+			</description>
+		</method>
 		<method name="check_privilege_async">
 			<return type="Signal" />
 			<param index="0" name="user" type="GDKUser" />
@@ -88,7 +169,29 @@
 				Emitted for every user lifecycle or Xbox-facing state change. [param change_kind] is one of [code]added[/code], [code]removed[/code], [code]signed_in_again[/code], [code]gamertag[/code], [code]gamer_picture[/code], or [code]privileges[/code]. For [code]removed[/code], [param user] identifies the user that was removed and is no longer present in [method get_users].
 			</description>
 		</signal>
+		<signal name="device_association_changed">
+			<param index="0" name="device_id" type="String" />
+			<param index="1" name="old_user_local_id" type="int" />
+			<param index="2" name="new_user_local_id" type="int" />
+			<description>
+				Emitted when the platform changes which user a device (typically a controller) is paired with, and once per existing pairing when the service starts. A local id of [code]0[/code] means "no user". Resolve a local id to a [GDKUser] with [method find_user_by_local_id]. XR-112 requires titles to react to these changes on activation and resume.
+			</description>
+		</signal>
+		<signal name="default_audio_endpoint_changed">
+			<param index="0" name="user_local_id" type="int" />
+			<param index="1" name="kind" type="int" />
+			<param index="2" name="endpoint_id" type="String" />
+			<description>
+				Emitted when a user's default communication audio endpoint changes. [param kind] is an [enum AudioEndpointKind] value and [param endpoint_id] is empty when the endpoint was removed.
+			</description>
+		</signal>
 	</signals>
 	<constants>
+		<constant name="AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER" value="0" enum="AudioEndpointKind">
+			The user's default communication playback (render) endpoint.
+		</constant>
+		<constant name="AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE" value="1" enum="AudioEndpointKind">
+			The user's default communication capture (microphone) endpoint.
+		</constant>
 	</constants>
 </class>

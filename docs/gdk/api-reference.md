@@ -140,19 +140,81 @@ if sandbox_result.ok:
 |--------|---------|-------------|
 | `add_default_user_async()` | `Signal` | Silent XBOX sign-in for a non-guest user |
 | `add_user_with_ui_async(allow_guests := false)` | `Signal` | Interactive XBOX sign-in. **Requires the advanced user model**; under the simplified (PC-default) user model the native call returns a failed `GDKResult` (`E_INVALIDARG`), so PC titles should use the silent `add_default_user_async()`. By default resolves the launching default user with the system sign-in UI; pass `allow_guests = true` to open the guest-capable account picker. It does not replace the session primary user. When the platform reports cancellation, the result resolves with a failed `GDKResult` whose `code` is `cancelled`. |
+| `add_user_by_id_with_ui_async(xuid)` | `Signal` | Re-establish one specific account by decimal XUID, showing UI only if that account needs attention. Use this on resume instead of a blind account picker. |
 | `get_primary_user()` | `GDKUser` | Current primary user (or `null`) |
 | `get_users()` | `Array` | All local users |
+| `get_max_users()` | `GDKResult` | Maximum simultaneous local users on this platform; `data` is an `int` |
+| `is_sign_out_available()` | `bool` | Whether this platform supports title-initiated sign-out. Check before `sign_out_async()`. |
+| `sign_out_async(user)` | `Signal` | Sign `user` out. On success the user is already removed from `get_users()` and `user_changed` has fired once with `removed`. Fails with `sign_out_not_available` when `is_sign_out_available()` is `false`. |
+| `acquire_sign_out_deferral()` | `GDKResult` | Acquire a `GDKUserSignOutDeferral` (in `data`) to delay a pending sign-out while flushing per-user state |
+| `find_user_by_xuid(xuid)` | `GDKResult` | Non-prompting lookup of a signed-in user by decimal XUID; `data` is a `GDKUser` |
+| `find_user_by_local_id(local_id)` | `GDKResult` | Non-prompting lookup by local user ID; `data` is a `GDKUser` |
+| `find_user_for_device(device_id)` | `GDKResult` | The user currently paired with `device_id`; `data` is a `GDKUser` |
+| `find_controller_for_user_with_ui_async(user)` | `Signal` | Open the system controller-selection dialog for `user`. Success `data` contains `device_id` and `has_device`. **Required by XR-112** when a user has no assigned controller. |
+| `get_device_associations()` | `Array` | Current user/device pairings as `{device_id, user_local_id}` dictionaries |
+| `get_devices_for_user(user)` | `PackedStringArray` | Device IDs currently paired with `user` |
+| `get_default_audio_endpoint(user, kind := GDKUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER)` | `GDKResult` | The user's default communication audio endpoint; success `data` contains `kind` and `endpoint_id` |
 | `check_privilege_async(user, privilege)` | `Signal` | Check user privilege |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Resolve privilege with UI |
 | `resolve_issue_with_ui_async(user, url)` | `Signal` | Resolve account issue with UI |
 | `get_gamer_picture_async(user, size)` | `Signal` | Fetch user's profile picture |
 | `get_token_and_signature_async(user, method, url, headers, body, force_refresh)` | `Signal` | Get XBOX Live auth token |
 
+Device IDs are the 64-character lowercase hex encoding of the platform's
+`APP_LOCAL_DEVICE_ID`. The same string is used by `get_device_associations()`,
+`get_devices_for_user()`, `find_user_for_device()`,
+`find_controller_for_user_with_ui_async()`, and the
+`device_association_changed` signal.
+
 ### Signals
 
 | Signal | Description |
 |--------|-------------|
 | `user_changed(user: GDKUser, change_kind: String)` | The single user lifecycle/state event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()` |
+| `device_association_changed(device_id: String, old_user_local_id: int, new_user_local_id: int)` | The platform re-paired a device (typically a controller) with a different user. Also fires once per existing pairing at startup. A local ID of `0` means "no user"; resolve non-zero IDs with `find_user_by_local_id()`. |
+| `default_audio_endpoint_changed(user_local_id: int, kind: int, endpoint_id: String)` | A user's default communication audio endpoint changed. `endpoint_id` is empty when the endpoint was removed. |
+
+### XR-112: users and controllers on activation and resume
+
+[XR-112](https://learn.microsoft.com/gaming/gdk/docs/store/policies/xr/xr112)
+requires titles to establish an active user *and* a controller for that user on
+first activation, and to re-validate both when resuming from suspend or
+constrained mode. The service exposes everything that requires, but deliberately
+does not act on the title's behalf — XR-112 permits several valid reactions
+(resume the player, remove the player, show the picker) and the right one is
+game-design dependent.
+
+```gdscript
+func _establish_user_and_controller() -> void:
+    var result: GDKResult = await GDK.users.add_default_user_async()
+    if not result.ok:
+        # No default user: the advanced user model can fall back to the picker.
+        result = await GDK.users.add_user_with_ui_async(true)
+        if not result.ok:
+            _warn_progress_will_not_be_saved()
+            return
+
+    var user: GDKUser = result.data
+    _show_gamertag(user.gamertag)  # XR-112: show who is playing before profile actions
+
+    # XR-112: the user must have a controller before gameplay input is accepted.
+    if GDK.users.get_devices_for_user(user).is_empty():
+        await GDK.users.find_controller_for_user_with_ui_async(user)
+
+
+func _on_resumed(previous_xuid: String) -> void:
+    var found: GDKResult = GDK.users.find_user_by_xuid(previous_xuid)
+    if not found.ok:
+        # The expected player signed out while suspended: re-establish or drop them.
+        found = await GDK.users.add_user_by_id_with_ui_async(previous_xuid)
+        if not found.ok:
+            _remove_player()
+            return
+
+    var user: GDKUser = found.data
+    if GDK.users.get_devices_for_user(user).is_empty():
+        await GDK.users.find_controller_for_user_with_ui_async(user)
+```
 
 ### Privilege payloads
 
@@ -222,7 +284,10 @@ Script-visible wrapper around a local XBOX user.
 |----------|------|-------------|
 | `local_id` | `int` | Local user ID |
 | `xuid` | `String` | XBOX User ID |
-| `gamertag` | `String` | Display name |
+| `gamertag` | `String` | Display name (the Classic gamertag component) |
+| `modern_gamertag` | `String` | Modern gamertag component, without the numeric suffix. Empty when the platform or account does not expose it. |
+| `modern_gamertag_suffix` | `String` | Numeric suffix of the modern gamertag (for example `#1234`). Empty when unused. |
+| `unique_modern_gamertag` | `String` | Modern gamertag combined with its suffix — the preferred display string. Empty when unavailable. |
 | `age_group` | `GDKUser.AgeGroup` | Age group enum |
 | `sign_in_state` | `GDKUser.SignInState` | Sign-in state enum |
 | `guest` | `bool` | Whether the user is a guest |
@@ -235,6 +300,30 @@ Script-visible wrapper around a local XBOX user.
 |--------|---------|-------------|
 | `get_age_group_name()` | `String` | Age group as human-readable string |
 | `get_sign_in_state_name()` | `String` | Sign-in state as human-readable string |
+| `is_valid()` | `bool` | Whether this wrapper still holds a live native user handle |
+| `is_same_user(other)` | `bool` | Whether `other` refers to the same underlying account, even if it is a different wrapper instance |
+| `duplicate_user()` | `GDKUser` | An independently owned copy of this user, or `null` on failure. Use when a user must outlive the service cache. |
+
+## `GDKUserSignOutDeferral`
+
+`RefCounted` handle returned in `GDKResult.data` by
+`GDK.users.acquire_sign_out_deferral()`. While it is held, the platform delays a
+pending sign-out so the title can flush per-user state. Release it as soon as
+that work completes — the handle is also released automatically when the object
+is freed.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `is_valid()` | `bool` | Whether the deferral is still held |
+| `release()` | `void` | Release the deferral. Safe to call more than once, and safe after `GDK.shutdown()`. |
+
+```gdscript
+var deferral_result: GDKResult = GDK.users.acquire_sign_out_deferral()
+if deferral_result.ok:
+    var deferral: GDKUserSignOutDeferral = deferral_result.data
+    await _flush_save_data()
+    deferral.release()
+```
 
 ## Accessibility service: `GDK.accessibility`
 
