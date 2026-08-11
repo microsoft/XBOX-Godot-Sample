@@ -713,6 +713,17 @@ Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtim
 
 The addon deliberately does not implement the requirement *for* the title: it does not auto-open the controller dialog or auto-re-add users, because the correct reaction is game-design dependent (XR-112 allows removing the player, showing a picker, or resuming). The addon's contract is that every decision the requirement asks a title to make is observable and actionable from GDScript.
 
+###### Known issue: shutdown during an in-flight user async
+
+Calling `GDK.shutdown()` while an `XUser` async operation is still in flight terminates the process with exit code `0x80004004` (`E_ABORT`) — no crash dump and no Windows event-log entry. `GDKRuntime::shutdown()` cancels pending signals, force-completes them, calls `XTaskQueueTerminate(queue, false, ...)`, then drains the completion port and closes the handle; the XAsync completion thunk runs during that post-terminate drain and deletes its own context.
+
+This is pre-existing (reproduced against the commit before the XUser wrapper work landed) and is **not** caused by the wrappers, but it is directly relevant to XR-112: the resume path is exactly where a title is most likely to shut the runtime down with sign-in work outstanding. Two consequences today:
+
+- A title must let any pending `add_*_async()` / `find_controller_for_user_with_ui_async()` settle before calling `GDK.shutdown()`.
+- The GDK coverage host therefore leaves `runtime/auto_add_primary_user` at `false`, so the bootstrap's startup sign-in cannot race GUT's per-test `reset_runtime()`. See `tests/godot/gdk/project.godot`.
+
+The fix belongs in `GDKRuntime::shutdown()` (drain or explicitly cancel-and-await in-flight XAsync contexts before terminating the queue) and is tracked as follow-up work.
+
 #### `GDK.accessibility` service
 
 ##### Methods
