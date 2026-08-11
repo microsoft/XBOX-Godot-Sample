@@ -11,6 +11,7 @@
 
 #include "gdk.h"
 #include "gdk_pending_signal.h"
+#include "gdk_request_parsing.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_signal_xasync_context.h"
@@ -847,6 +848,14 @@ bool GDKUser::is_same_user(const Ref<GDKUser> &p_other) const {
         return false;
     }
 
+    // XUserCompare has no defined behavior for a null handle, and either side
+    // can legitimately lack one (a default-constructed wrapper, or one whose
+    // handle was released). Two handle-less wrappers are not "the same user"
+    // either — there is no platform user to be the same as.
+    if (m_user_handle == nullptr || p_other->get_handle() == nullptr) {
+        return false;
+    }
+
     // XUserCompare orders/compares two handles; equality (0) means both
     // handles refer to the same platform user, even when the wrappers are
     // distinct objects (for example a cached user vs. a fresh lookup).
@@ -1198,8 +1207,11 @@ Signal GDKUsers::add_user_by_id_with_ui_async(const String &p_xuid) {
         return _make_users_error_signal(runtime, E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
     }
 
-    const String xuid = p_xuid.strip_edges();
-    if (xuid.is_empty() || !xuid.is_valid_int()) {
+    // Parse through the shared request-parsing seam every other GDK service
+    // wrapper uses: it rejects negatives, trailing garbage, and range errors,
+    // none of which String::is_valid_int() / to_int() catch.
+    uint64_t xuid = 0;
+    if (!gdk_request_parsing::try_parse_xuid(p_xuid, &xuid, /*p_reject_zero=*/true)) {
         return _make_users_error_signal(runtime, E_INVALIDARG, "invalid_xuid", "A decimal XUID string is required.");
     }
 
@@ -1208,7 +1220,7 @@ Signal GDKUsers::add_user_by_id_with_ui_async(const String &p_xuid) {
     auto *context = new AddUserAsyncContext(this, runtime, pending_signal, "Failed to add the requested user with UI.", true);
     context->bind_cancel_handler();
 
-    HRESULT hr = XUserAddByIdWithUiAsync(static_cast<uint64_t>(xuid.to_int()), context->get_async_block());
+    HRESULT hr = XUserAddByIdWithUiAsync(xuid, context->get_async_block());
     if (FAILED(hr)) {
         pending_signal->clear_cancel_handler();
         delete context;
@@ -1296,13 +1308,15 @@ Ref<GDKResult> GDKUsers::find_user_by_xuid(const String &p_xuid) {
         return GDKResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
     }
 
-    const String xuid = p_xuid.strip_edges();
-    if (xuid.is_empty() || !xuid.is_valid_int()) {
+    // Same shared parsing seam as add_user_by_id_with_ui_async(); see the note
+    // there on why is_valid_int() / to_int() is not sufficient for an XUID.
+    uint64_t xuid = 0;
+    if (!gdk_request_parsing::try_parse_xuid(p_xuid, &xuid, /*p_reject_zero=*/true)) {
         return GDKResult::error_result(E_INVALIDARG, "invalid_xuid", "A decimal XUID string is required.");
     }
 
     XUserHandle user_handle = nullptr;
-    HRESULT hr = XUserFindUserById(static_cast<uint64_t>(xuid.to_int()), &user_handle);
+    HRESULT hr = XUserFindUserById(xuid, &user_handle);
     if (FAILED(hr)) {
         return GDKResult::hresult_error(hr, "Failed to find a signed-in user with the requested XUID.", "user_not_found");
     }

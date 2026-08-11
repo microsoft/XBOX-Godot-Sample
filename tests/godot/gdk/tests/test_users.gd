@@ -109,6 +109,11 @@ func test_users_full_flow() -> void:
 		assert_eq(blank_user.is_store_user(), false, "blank GDKUser store_user defaults false")
 		assert_eq(blank_user.is_valid(), false, "blank GDKUser is_valid() defaults false")
 		assert_eq(blank_user.is_same_user(null), false, "blank GDKUser is_same_user(null) is false")
+		# A handle-less wrapper must never reach XUserCompare(), which has no
+		# defined behavior for a null handle — on either side of the comparison.
+		var other_blank_user = instantiate_class("GDKUser")
+		if other_blank_user != null:
+			assert_eq(blank_user.is_same_user(other_blank_user), false, "two handle-less GDKUsers are not the same user")
 		assert_true(blank_user.duplicate_user() == null, "blank GDKUser duplicate_user() returns null")
 
 	var blank_deferral = instantiate_class("GDKUserSignOutDeferral")
@@ -164,12 +169,20 @@ func test_users_full_flow() -> void:
 			assert_eq(association["device_id"].length(), 64, "device association device_id is 64-char hex")
 
 	assert_result_error(users.find_user_by_xuid(""), "invalid_xuid", "find_user_by_xuid() rejects blank XUIDs after initialize")
+	# An XUID is unsigned. These must be rejected before reaching the native
+	# call rather than wrapping into an unintended 64-bit id.
+	for bad_xuid in ["-1", "-2814639011419087", "0", "12abc", "abc", "1 2", "99999999999999999999999"]:
+		assert_result_error(users.find_user_by_xuid(bad_xuid), "invalid_xuid", "find_user_by_xuid() rejects %s" % [bad_xuid])
 	assert_result_error(users.find_user_by_local_id(0), "invalid_local_id", "find_user_by_local_id() rejects a zero local id after initialize")
 	assert_result_error(users.find_user_for_device("not-a-device-id"), "invalid_device_id", "find_user_for_device() rejects malformed device ids after initialize")
 	assert_result_error(users.get_default_audio_endpoint(null), "invalid_user", "get_default_audio_endpoint() rejects null users after initialize")
 
 	var blank_xuid_add_signal = users.add_user_by_id_with_ui_async("")
 	await assert_signal_result_error(blank_xuid_add_signal, "invalid_xuid", "add_user_by_id_with_ui_async() rejects blank XUIDs after initialize")
+
+	for bad_xuid in ["-1", "0", "12abc"]:
+		var bad_xuid_add_signal = users.add_user_by_id_with_ui_async(bad_xuid)
+		await assert_signal_result_error(bad_xuid_add_signal, "invalid_xuid", "add_user_by_id_with_ui_async() rejects %s" % [bad_xuid])
 
 	var null_sign_out_signal = users.sign_out_async(null)
 	await assert_signal_result_error(null_sign_out_signal, "invalid_user", "sign_out_async() rejects null users after initialize")

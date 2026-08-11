@@ -96,7 +96,7 @@
 			<return type="bool" />
 			<param index="0" name="other" type="GDKUser" />
 			<description>
-				Returns [code]true[/code] if [param other] refers to the same platform user as this wrapper, even when the two wrappers are distinct objects (for example a cached user and a fresh [method GDKUsers.find_user_by_xuid] lookup).
+				Returns [code]true[/code] if [param other] refers to the same platform user as this wrapper, even when the two wrappers are distinct objects (for example a cached user and a fresh [method GDKUsers.find_user_by_xuid] lookup). Returns [code]false[/code] when [param other] is [code]null[/code] or when either wrapper has no live handle (see [method is_valid]).
 			</description>
 		</method>
 		<method name="duplicate_user" qualifiers="const">

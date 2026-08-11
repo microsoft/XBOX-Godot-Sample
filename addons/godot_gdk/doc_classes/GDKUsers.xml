@@ -37,7 +37,7 @@
 			<return type="Signal" />
 			<param index="0" name="xuid" type="String" />
 			<description>
-				Re-establishes a specific user by decimal [param xuid], showing system UI if the account needs attention. This is the XR-112 "resume the prior user's session" path: after a suspend/resume the title can ask for the same user it was using before instead of opening a blind account picker. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser].
+				Re-establishes a specific user by decimal [param xuid], showing system UI if the account needs attention. This is the XR-112 "resume the prior user's session" path: after a suspend/resume the title can ask for the same user it was using before instead of opening a blind account picker. Await the returned completion [Signal] directly; the emitted [GDKResult] data contains the signed-in [GDKUser]. [param xuid] must be a positive decimal string; blank, negative, zero, and non-numeric values fail with [code]invalid_xuid[/code] without reaching the platform.
 			</description>
 		</method>
 		<method name="get_max_users" qualifiers="const">
@@ -69,7 +69,7 @@
 			<return type="GDKResult" />
 			<param index="0" name="xuid" type="String" />
 			<description>
-				Looks up a currently signed-in user by decimal [param xuid] without prompting. On success [code]GDKResult.data[/code] is the matching [GDKUser]; when that user is already tracked by this service, the cached wrapper is returned. Use this on resume to validate that an expected user is still signed in.
+				Looks up a currently signed-in user by decimal [param xuid] without prompting. On success [code]GDKResult.data[/code] is the matching [GDKUser]; when that user is already tracked by this service, the cached wrapper is returned. Use this on resume to validate that an expected user is still signed in. [param xuid] must be a positive decimal string; blank, negative, zero, and non-numeric values fail with [code]invalid_xuid[/code] without reaching the platform.
 			</description>
 		</method>
 		<method name="find_user_by_local_id">
