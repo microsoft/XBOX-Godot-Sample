@@ -25,7 +25,13 @@ enabled=PackedStringArray("res://addons/godot_gdk/plugin.cfg", "res://addons/god
 
 runtime/initialize_on_startup=true
 runtime/embed_dispatch=true
-runtime/auto_add_primary_user=true
+# The GUT suites drive sign-in explicitly via `ensure_primary_user()`. Leaving the
+# bootstrap auto-add on races GUT's per-test `reset_runtime()`: on a host with real
+# package identity the startup `XUserAddAsync` is still in flight when the runtime
+# shuts down, and cancelling it mid-flight tears down the process. The auto-add
+# contract itself stays covered by `tests/bootstrap/run_auto_add_primary_user_*.gd`,
+# which set this setting themselves before the autoload reads it.
+runtime/auto_add_primary_user=false
 
 [rendering]
 

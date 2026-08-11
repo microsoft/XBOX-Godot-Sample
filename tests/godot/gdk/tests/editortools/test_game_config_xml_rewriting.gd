@@ -21,6 +21,9 @@ const _LOGO_FILES := [
 	"custom150.png",
 ]
 
+var _preserved_config: String = ""
+var _had_preserved_config: bool = false
+
 
 class FakeToolchain:
 	extends RefCounted
@@ -54,11 +57,13 @@ class FakeToolchain:
 
 
 func before_each() -> void:
+	_preserve_pre_existing_config()
 	_cleanup_project_artifacts()
 
 
 func after_each() -> void:
 	_cleanup_project_artifacts()
+	_restore_pre_existing_config()
 
 
 func test_pack_encrypt_key_without_key_returns_config_error() -> void:
@@ -213,3 +218,31 @@ func _cleanup_project_artifacts() -> void:
 	if DirAccess.dir_exists_absolute(storelogos_dir):
 		if DirAccess.get_files_at(storelogos_dir).is_empty() and DirAccess.get_directories_at(storelogos_dir).is_empty():
 			DirAccess.remove_absolute(storelogos_dir)
+
+
+## These tests treat `res://MicrosoftGame.config` as scratch space, but on a host
+## with a real staged package identity that same file is what gives the GDK
+## runtime its identity for live sign-in. Stash it around each test so the
+## cleanup below cannot destroy it.
+func _preserve_pre_existing_config() -> void:
+	_preserved_config = ""
+	_had_preserved_config = false
+	var config_path: String = _project_path(_CONFIG_FILE)
+	if not FileAccess.file_exists(config_path):
+		return
+	var file := FileAccess.open(config_path, FileAccess.READ)
+	if file == null:
+		return
+	_preserved_config = file.get_as_text()
+	file.close()
+	_had_preserved_config = true
+
+
+func _restore_pre_existing_config() -> void:
+	if not _had_preserved_config:
+		return
+	var file := FileAccess.open(_project_path(_CONFIG_FILE), FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(_preserved_config)
+	file.close()
