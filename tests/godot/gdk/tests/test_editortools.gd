@@ -104,7 +104,17 @@ func test_config_template_creation() -> void:
 	var config_mgr = GameConfigManagerScript.new(toolchain)
 
 	var config_path = config_mgr.get_config_path()
-	if FileAccess.file_exists(config_path):
+	# A real staged MicrosoftGame.config is what gives the GDK runtime its package
+	# identity on this host, so back it up rather than clobbering it.
+	var had_original_config := FileAccess.file_exists(config_path)
+	var original_config_contents := ""
+	if had_original_config:
+		var original_file = FileAccess.open(config_path, FileAccess.READ)
+		if original_file == null:
+			assert_true(false, "backup original config — cannot open existing MicrosoftGame.config")
+			return
+		original_config_contents = original_file.get_as_text()
+		original_file.close()
 		DirAccess.remove_absolute(config_path)
 
 	var err = config_mgr.create_template("TestTitle", "CN=TestPub", "Test Title")
@@ -119,6 +129,14 @@ func test_config_template_creation() -> void:
 	assert_eq(err, ERR_ALREADY_EXISTS, "create_template rejects duplicate")
 
 	DirAccess.remove_absolute(config_path)
+
+	if had_original_config:
+		var restore_file = FileAccess.open(config_path, FileAccess.WRITE)
+		if restore_file == null:
+			assert_true(false, "restore original config — cannot restore MicrosoftGame.config")
+			return
+		restore_file.store_string(original_config_contents)
+		restore_file.close()
 
 
 func test_makepkg_argument_construction() -> void:

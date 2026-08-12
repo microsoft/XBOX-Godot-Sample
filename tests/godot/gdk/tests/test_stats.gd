@@ -87,6 +87,11 @@ func test_stats_surface_and_validation() -> void:
 	var invalid_xuid_signal = stats.query_users_stats_async(user, PackedStringArray(["not-a-number"]), PackedStringArray(["score"]))
 	await assert_signal_result_error(invalid_xuid_signal, "invalid_xuid", "query_users_stats_async() rejects non-numeric XUID strings")
 
+	# An XUID is unsigned: a negative value must be rejected outright rather
+	# than wrapping into a huge id (strtoull negates rather than failing).
+	var negative_xuid_signal = stats.query_users_stats_async(user, PackedStringArray(["-1"]), PackedStringArray(["score"]))
+	await assert_signal_result_error(negative_xuid_signal, "invalid_xuid", "query_users_stats_async() rejects negative XUID strings")
+
 	var empty_track_result = stats.track_stats(user, PackedStringArray())
 	assert_result_error(empty_track_result, "invalid_stat_names", "track_stats() rejects empty statistic name lists")
 

@@ -22,7 +22,22 @@ underlying Signal/Result model that the C# bridge wraps.
    </ItemGroup>
    ```
 
-3. (Optional) Register the C# bootstrap autoload instead of the GDScript one.
+3. Add a solution file next to `project.godot`. Godot's .NET export plugin
+   **requires** `<assembly_name>.sln` in the project root — without it every
+   export fails with *"This project contains C# files but no solution file was
+   found"*. Include the facade project so solution builds pick up the same
+   `Debug` / `ExportDebug` / `ExportRelease` configuration:
+
+   ```powershell
+   dotnet new sln --name MyGame
+   dotnet sln MyGame.sln add MyGame.csproj addons/godot_gdk_csharp/GodotGdkCSharp.csproj
+   ```
+
+   Then add the `ExportDebug` and `ExportRelease` solution configurations (the
+   tutorial samples' `.sln` files show the expected shape). `MyGame` must match
+   `dotnet/project/assembly_name` in `project.godot`.
+
+4. (Optional) Register the C# bootstrap autoload instead of the GDScript one.
    Create a project-local subclass so Godot can resolve it by script path:
 
    ```csharp

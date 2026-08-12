@@ -56,6 +56,11 @@ func test_presence_full_flow() -> void:
 	var invalid_xuid_signal = presence.get_presence_async(PackedStringArray(["not-a-number"]))
 	await assert_signal_result_error(invalid_xuid_signal, "invalid_presence_xuid", "get_presence_async() rejects non-numeric XUID strings")
 
+	# An XUID is unsigned: a negative value must be rejected outright rather
+	# than wrapping into a huge id (strtoull negates rather than failing).
+	var negative_xuid_signal = presence.get_presence_async(PackedStringArray(["-1"]))
+	await assert_signal_result_error(negative_xuid_signal, "invalid_presence_xuid", "get_presence_async() rejects negative XUID strings")
+
 	var sign_in = await ensure_primary_user()
 	var sign_in_signal = sign_in["signal"]
 	var sign_in_result = sign_in["result"]

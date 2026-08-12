@@ -184,6 +184,7 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<XboxResult>();
     ClassDB::register_internal_class<XboxPendingSignal>();
     ClassDB::register_class<XboxUser>();
+    ClassDB::register_class<XboxUserSignOutDeferral>();
     ClassDB::register_class<XboxUsers>();
     ClassDB::register_class<XboxGameUI>();
     ClassDB::register_class<XboxClosedCaptionProperties>();

@@ -15,6 +15,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
@@ -26,6 +27,35 @@ class Xbox;
 class XboxPendingSignal;
 class XboxResult;
 class XboxRuntime;
+
+// XboxUserSignOutDeferral
+// ----------------------
+// RefCounted owner of an XUserSignOutDeferralHandle, returned by
+// XboxUsers::acquire_sign_out_deferral(). Holding the deferral asks the platform
+// to delay completing a pending sign-out (XUserChangeEvent::SigningOut) so the
+// title can flush per-user state such as a save. The handle is closed by
+// XUserCloseSignOutDeferralHandle on release() or destruction.
+//
+// This mirrors XboxDisplayTimeoutDeferral: the handle outlives nothing in the
+// runtime, so release() is always safe -- including after GDK.shutdown().
+class XboxUserSignOutDeferral : public RefCounted {
+    GDCLASS(XboxUserSignOutDeferral, RefCounted);
+
+    XUserSignOutDeferralHandle m_handle = nullptr;
+
+protected:
+    static void _bind_methods();
+
+public:
+    XboxUserSignOutDeferral() = default;
+    ~XboxUserSignOutDeferral();
+
+    bool is_valid() const;
+    void release();
+
+    // Internal: takes ownership of the handle. Called only by XboxUsers.
+    void set_handle_internal(XUserSignOutDeferralHandle p_handle);
+};
 
 class XboxUser : public RefCounted {
     GDCLASS(XboxUser, RefCounted);
@@ -49,6 +79,9 @@ private:
     XUserLocalId m_local_id = {};
     String m_xuid;
     String m_gamertag;
+    String m_modern_gamertag;
+    String m_modern_gamertag_suffix;
+    String m_unique_modern_gamertag;
     AgeGroup m_age_group = AGE_GROUP_UNKNOWN;
     SignInState m_sign_in_state = SIGN_IN_STATE_SIGNED_OUT;
     bool m_is_guest = false;
@@ -67,6 +100,9 @@ public:
     int64_t get_local_id() const;
     String get_xuid() const;
     String get_gamertag() const;
+    String get_modern_gamertag() const;
+    String get_modern_gamertag_suffix() const;
+    String get_unique_modern_gamertag() const;
     AgeGroup get_age_group() const;
     String get_age_group_name() const;
     SignInState get_sign_in_state() const;
@@ -74,10 +110,14 @@ public:
     bool is_guest() const;
     bool is_signed_in() const;
     bool is_store_user() const;
+    bool is_valid() const;
+    bool is_same_user(const Ref<XboxUser> &p_other) const;
+    Ref<XboxUser> duplicate_user() const;
 
     HRESULT adopt_handle(XUserHandle p_user_handle);
     HRESULT refresh();
     bool matches_local_id(XUserLocalId p_user_local_id) const;
+    XUserLocalId get_native_local_id() const;
     XUserHandle get_handle() const;
     void clear();
 };
@@ -85,20 +125,50 @@ public:
 class XboxUsers : public RefCounted {
     GDCLASS(XboxUsers, RefCounted);
 
+public:
+    // Maps to XUserDefaultAudioEndpointKind.
+    enum AudioEndpointKind {
+        AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER = static_cast<uint32_t>(XUserDefaultAudioEndpointKind::CommunicationRender),
+        AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE = static_cast<uint32_t>(XUserDefaultAudioEndpointKind::CommunicationCapture),
+    };
+
+private:
+    // One entry per device the platform has reported through
+    // XUserRegisterForDeviceAssociationChanged. The registration replays every
+    // current association when it is installed, so this cache is the
+    // authoritative user<->controller pairing view required by XR-112.
+    struct DeviceAssociation {
+        APP_LOCAL_DEVICE_ID device_id = {};
+        XUserLocalId user_local_id = {};
+    };
+
     Xbox *m_owner = nullptr;
     std::vector<Ref<XboxUser>> m_users;
+    std::vector<DeviceAssociation> m_device_associations;
     Ref<XboxUser> m_primary_user;
     bool m_runtime_ready = false;
     bool m_change_event_registered = false;
+    bool m_device_association_registered = false;
+    bool m_audio_endpoint_registered = false;
     XTaskQueueRegistrationToken m_change_token = {};
+    XTaskQueueRegistrationToken m_device_association_token = {};
+    XTaskQueueRegistrationToken m_audio_endpoint_token = {};
 
     static void CALLBACK _user_change_callback(void *p_context, XUserLocalId p_user_local_id, XUserChangeEvent p_event);
+    static void CALLBACK _device_association_changed_callback(void *p_context, const XUserDeviceAssociationChange *p_change);
+    static void CALLBACK _default_audio_endpoint_changed_callback(
+            void *p_context,
+            XUserLocalId p_user_local_id,
+            XUserDefaultAudioEndpointKind p_kind,
+            const wchar_t *p_endpoint_id_utf16);
 
     XboxRuntime *_get_runtime() const;
     Signal _start_add_user_async(XUserAddOptions p_options, const String &p_action);
     bool _add_or_update_user(const Ref<XboxUser> &p_user);
     Ref<XboxUser> _find_user_by_local_id(XUserLocalId p_user_local_id) const;
     void _remove_user_by_local_id(XUserLocalId p_user_local_id);
+    Ref<XboxResult> _wrap_found_handle(XUserHandle p_user_handle);
+    void _update_device_association(const APP_LOCAL_DEVICE_ID &p_device_id, XUserLocalId p_user_local_id);
 
 protected:
     static void _bind_methods();
@@ -111,8 +181,20 @@ public:
 
     Signal add_default_user_async();
     Signal add_user_with_ui_async(bool p_allow_guests = false);
+    Signal add_user_by_id_with_ui_async(const String &p_xuid);
     Ref<XboxUser> get_primary_user() const;
     Array get_users() const;
+    Ref<XboxResult> get_max_users() const;
+    bool is_sign_out_available() const;
+    Signal sign_out_async(const Ref<XboxUser> &p_user);
+    Ref<XboxResult> acquire_sign_out_deferral() const;
+    Ref<XboxResult> find_user_by_xuid(const String &p_xuid);
+    Ref<XboxResult> find_user_by_local_id(int64_t p_local_id);
+    Ref<XboxResult> find_user_for_device(const String &p_device_id);
+    Signal find_controller_for_user_with_ui_async(const Ref<XboxUser> &p_user);
+    Array get_device_associations() const;
+    PackedStringArray get_devices_for_user(const Ref<XboxUser> &p_user) const;
+    Ref<XboxResult> get_default_audio_endpoint(const Ref<XboxUser> &p_user, int64_t p_kind = AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER) const;
     Signal check_privilege_async(const Ref<XboxUser> &p_user, int64_t p_privilege);
     Signal resolve_privilege_with_ui_async(const Ref<XboxUser> &p_user, int64_t p_privilege);
     Signal resolve_issue_with_ui_async(const Ref<XboxUser> &p_user, const String &p_url = String());
@@ -126,12 +208,16 @@ public:
             bool p_force_refresh = false);
 
     void on_user_change(XUserLocalId p_user_local_id, XUserChangeEvent p_event);
+    void on_device_association_changed(const XUserDeviceAssociationChange &p_change);
+    void on_default_audio_endpoint_changed(XUserLocalId p_user_local_id, XUserDefaultAudioEndpointKind p_kind, const String &p_endpoint_id);
     void complete_add_user(XUserHandle p_user_handle, const Ref<XboxPendingSignal> &p_pending_signal);
+    void reconcile_signed_out_user(const Ref<XboxUser> &p_user);
 };
 
 } // namespace godot
 
 VARIANT_ENUM_CAST(godot::XboxUser::AgeGroup);
 VARIANT_ENUM_CAST(godot::XboxUser::SignInState);
+VARIANT_ENUM_CAST(godot::XboxUsers::AudioEndpointKind);
 
 #endif // XBOX_USER_H

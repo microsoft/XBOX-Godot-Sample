@@ -223,6 +223,76 @@ func test_find_windows_template_uses_version_dir_helper() -> void:
 		"_find_windows_template resolves candidates via _template_version_dirs")
 
 
+# ── .NET template resolution (".NET assemblies not found") ────────────────
+#
+# Godot resolves export templates from `<version>.mono` when the editor is a
+# .NET build. Looking only at the plain `<version>` dir found nothing, so a C#
+# project silently fell back to the Godot editor binary — which starts up
+# looking for `<exe_dir>/GodotSharp/Api/Debug` and aborts with ".NET assemblies
+# not found" instead of loading the exported `data_*` assemblies.
+
+func test_template_version_dirs_uses_mono_suffix_for_dotnet() -> void:
+	var dirs := ExportPlatform._template_version_dirs(
+		{"major": 4, "minor": 7, "patch": 1, "status": "stable"}, true)
+	assert_eq(dirs[0], "4.7.1.stable.mono",
+		"a .NET editor resolves the patch-qualified .mono template dir first")
+	for dir_name: String in dirs:
+		assert_true(dir_name.ends_with(".mono"),
+			"a non-.NET template cannot host a C# game, so plain dirs are not offered")
+
+
+func test_template_version_dirs_default_is_non_mono() -> void:
+	var dirs := ExportPlatform._template_version_dirs(
+		{"major": 4, "minor": 7, "patch": 1, "status": "stable"})
+	assert_eq(dirs[0], "4.7.1.stable",
+		"a standard editor build keeps resolving the plain template dir")
+
+
+func test_find_windows_template_asks_whether_editor_is_dotnet() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	assert_string_contains(_func_body(src, "_find_windows_template"),
+		"_is_dotnet_editor()",
+		"_find_windows_template selects .mono candidates on a .NET editor build")
+
+
+func test_dotnet_project_detection_requires_assembly_name() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_is_dotnet_project")
+	assert_string_contains(body, "_is_dotnet_editor()",
+		"a C# project is only possible on a .NET editor build")
+	assert_string_contains(body, "dotnet/project/assembly_name",
+		"C# projects are detected via the assembly name Godot resolves for them")
+	assert_string_contains(_func_body(src, "_is_dotnet_editor"), "CSharpScript",
+		"only .NET editor builds expose CSharpScript")
+
+
+func test_dotnet_missing_template_message_is_actionable() -> void:
+	var msg: String = ExportPlatform._dotnet_requires_template_message(false)
+	assert_string_contains(msg, ".NET",
+		"the message names the .NET template package the user must install")
+	assert_string_contains(msg, "Manage Export Templates",
+		"the message points at the editor's template manager")
+	assert_string_contains(msg, "assemblies not found",
+		"the message ties the failure to the runtime symptom the user sees")
+	assert_string_contains(ExportPlatform._missing_template_message(false, true), ".NET",
+		"the shared template message can name the .NET flavor")
+
+
+func test_export_refuses_editor_binary_for_dotnet_even_when_loose() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_project")
+	assert_string_contains(body, "_is_dotnet_project()",
+		"a C# project is checked before the loose editor-binary fallback")
+	var dotnet_idx: int = body.find("_is_dotnet_project()")
+	var loose_idx: int = body.find("OS.get_executable_path()")
+	assert_true(dotnet_idx != -1 and loose_idx != -1 and dotnet_idx < loose_idx,
+		"the C# hard error precedes the loose editor-binary fallback")
+
+	var validation := _func_body(src, "_has_valid_export_configuration")
+	assert_string_contains(validation, "_dotnet_requires_template_message",
+		"export validation blocks a template-less C# export up front")
+
+
 # ── Zero-GDExtension-DLL guard (issue #134) ───────────────────────────────
 #
 # A build that stages no GDExtension main DLL loads with "GDExtension dynamic
@@ -269,3 +339,140 @@ func test_export_refuses_editor_binary_when_packaging() -> void:
 		"a non-loose (packaged) export refuses to continue without a real template")
 	assert_string_contains(body, "OS.get_executable_path()",
 		"the editor-binary fallback remains reachable for loose dev-register")
+
+
+# ── Export-plugin shared objects / C# assemblies (issue #144) ─────────────
+#
+# `export_pack()` calls `save_pack()` with a null shared-object sink and opens a
+# second ExportNotifier inside the one EditorExportPlatformExtension already
+# opened around `_export_project()`. That ran every export plugin's
+# `_export_begin`/`_export_end` twice AND discarded everything the plugins
+# registered via `add_shared_object()`. Godot ships a C#/.NET project's
+# published assemblies exclusively as shared objects targeted at
+# `data_<assembly>_windows_x86_64/`, so an `XBOX on PC` export produced a
+# package with zero managed DLLs. `save_pack()` returns those entries so the
+# platform can stage them itself.
+
+func test_export_pck_uses_save_pack_to_capture_shared_objects() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_pck")
+	assert_string_contains(body, "save_pack(",
+		"_export_pck() uses save_pack() so so_files come back to the platform")
+	assert_false(body.contains("export_pack("),
+		"export_pack() drops add_shared_object() entries and double-fires " +
+		"every export plugin's _export_begin/_export_end — issue #144")
+
+
+func test_export_project_stages_shared_objects_before_addon_dlls() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_project")
+	assert_string_contains(body, "_stage_shared_objects(",
+		"the export stages the shared objects save_pack() reported")
+	assert_string_contains(body, "so_files",
+		"the export reads save_pack()'s so_files list")
+	var so_at := body.find("_stage_shared_objects(")
+	var dll_at := body.find("_copy_addon_dlls(")
+	assert_true(so_at != -1 and dll_at != -1 and so_at < dll_at,
+		"shared objects are staged before _copy_addon_dlls() so its " +
+		"already-present guard keeps addon DLLs authoritative")
+
+
+func test_shared_object_without_target_lands_next_to_the_exe() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "")
+	assert_eq(dest, "C:/out/_gdk_staging/Game.dll",
+		"an empty target folder means the package root")
+
+
+func test_shared_object_target_folder_is_preserved() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "data_Game_windows_x86_64")
+	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/Game.dll",
+		"the C# data_<assembly>_windows_x86_64 target folder is honoured")
+
+
+func test_shared_object_nested_target_folder_is_preserved() -> void:
+	var dest: String = ExportPlatform._shared_object_destination(
+		"C:/out/_gdk_staging", "C:/tmp/publish/sub/dep.dll",
+		"data_Game_windows_x86_64/sub")
+	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/sub/dep.dll",
+		"nested publish subdirectories keep their relative layout")
+
+
+func test_shared_object_target_cannot_escape_the_staging_dir() -> void:
+	for target: String in ["..", "../../elsewhere", "/abs/path", "C:/abs", "res://x"]:
+		var dest: String = ExportPlatform._shared_object_destination(
+			"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", target)
+		assert_eq(dest, "",
+			"target %s must be rejected instead of writing outside the package" % target)
+
+
+func test_addon_bin_libraries_are_left_to_copy_addon_dlls() -> void:
+	var project := "C:/proj/"
+	assert_true(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll", project),
+		"addons/<name>/bin/ DLLs are staged by _copy_addon_dlls with config filtering")
+
+
+func test_non_addon_bin_shared_objects_are_staged() -> void:
+	var project := "C:/proj/"
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/tmp/godot-publish-dotnet/1234-ExportRelease-win-x64/Game.dll", project),
+		"C# publish output is outside the project and must be staged")
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/other/lib/native.dll", project),
+		"a GDExtension outside addons/<name>/bin/ still needs staging")
+	assert_false(ExportPlatform._is_addon_bin_library(
+		"C:/proj/addons/godot_gdk/bin/sub/nested.dll", project),
+		"only files directly in addons/<name>/bin/ are owned by _copy_addon_dlls")
+
+
+# ── Silent disabled Export button ─────────────────────────────────────────
+#
+# Godot greys out "Export Project…" / "Export All…" purely on the boolean the
+# validation callbacks return, and shows no explanation unless the platform
+# reports one through set_config_error(). Returning a bare `false` therefore
+# leaves the user with a dead button and no diagnosis.
+
+func test_validation_messages_are_actionable() -> void:
+	assert_string_contains(ExportPlatform._gdk_missing_message(), "winget install Microsoft.Gaming.GDK",
+		"the GDK-missing message names the install command")
+
+	var config_msg: String = ExportPlatform._missing_game_config_message("C:/proj/MicrosoftGame.config")
+	assert_string_contains(config_msg, "C:/proj/MicrosoftGame.config",
+		"the game-config message names the exact path that was probed")
+	assert_string_contains(config_msg, "Create Game Config",
+		"the game-config message points at the editor menu that authors it")
+	assert_string_contains(config_msg, "gdk/packaging/game_config_dir",
+		"the game-config message names the Project Setting that relocates it")
+
+	assert_string_contains(ExportPlatform._missing_template_message(false), "release",
+		"the template message names the failing configuration")
+	assert_string_contains(ExportPlatform._missing_template_message(true), "debug",
+		"the debug variant names the debug configuration")
+	assert_string_contains(ExportPlatform._missing_template_message(false), "Manage Export Templates",
+		"the template message points at the editor's template manager")
+
+
+func test_has_valid_export_configuration_reports_every_blocker() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_has_valid_export_configuration")
+	assert_ne(body, "", "_has_valid_export_configuration() is defined")
+	assert_string_contains(body, "set_config_error(",
+		"validation surfaces its reason via set_config_error()")
+	for message_fn: String in ["_gdk_missing_message", "_missing_game_config_message", "_missing_template_message"]:
+		assert_string_contains(body, message_fn,
+			"%s() feeds the export-dialog error text" % message_fn)
+	assert_string_contains(body, "set_config_missing_templates(true)",
+		"a missing export template is flagged so the dialog offers the template manager")
+	assert_string_contains(body, "dev/register_loose",
+		"loose dev-register stays exempt from the export-template requirement")
+
+
+func test_has_valid_project_configuration_reports_missing_gdk() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_has_valid_project_configuration")
+	assert_string_contains(body, "set_config_error(",
+		"project validation surfaces its reason via set_config_error()")
+	assert_string_contains(body, "_gdk_missing_message",
+		"the missing-GDK reason is shared with export validation")

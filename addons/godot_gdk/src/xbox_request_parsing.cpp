@@ -23,6 +23,15 @@ bool try_parse_xuid(const String &p_xuid, uint64_t *r_xuid, bool p_reject_zero) 
         return false;
     }
 
+    // strtoull accepts a leading '-' and *negates* the parsed value, so "-1"
+    // silently becomes 18446744073709551615 with errno untouched and the whole
+    // string consumed — indistinguishable from a legitimate XUID to the checks
+    // below. An XUID is unsigned, so reject the sign outright rather than
+    // letting a negative script value wrap into an unintended native id.
+    if (trimmed[0] == '-') {
+        return false;
+    }
+
     // Defensive: a null buffer can never parse to a valid XUID. The original
     // per-call-site helpers passed get_data() straight to strtoull; guarding
     // here avoids UB without changing observable behavior for any non-empty

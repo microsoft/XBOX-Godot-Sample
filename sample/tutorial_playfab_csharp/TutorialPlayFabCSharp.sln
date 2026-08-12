@@ -1,0 +1,38 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TutorialPlayFabCSharp", "TutorialPlayFabCSharp.csproj", "{1C777E4A-09E8-4076-830D-663BC24DCA82}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotPlayFabCSharp", "..\..\addons\godot_playfab_csharp\GodotPlayFabCSharp.csproj", "{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotGdkCSharp", "..\..\addons\godot_gdk_csharp\GodotGdkCSharp.csproj", "{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{1C777E4A-09E8-4076-830D-663BC24DCA82}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{4CBB1E58-7DAB-4AD2-A10B-19E04CA6083F}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{C1E7C605-F776-4DCC-8835-0CAC1E7E1729}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

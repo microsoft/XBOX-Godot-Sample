@@ -108,6 +108,13 @@ func test_multiplayer_activity_full_flow() -> void:
 	var invalid_xuid_invite_signal = multiplayer_activity.send_invites_async(blank_user, PackedStringArray(["not-a-number"]))
 	await assert_signal_result_error(invalid_xuid_invite_signal, "invalid_xuids", "send_invites_async() rejects non-numeric XUID strings")
 
+	# An XUID is unsigned, and 0 is never a real user to invite. Both must be
+	# rejected outright (strtoull negates "-1" rather than failing), as must an
+	# out-of-range value, which previously saturated to ULLONG_MAX unnoticed.
+	for bad_xuid in ["-1", "0", "99999999999999999999999"]:
+		var bad_xuid_invite_signal = multiplayer_activity.send_invites_async(blank_user, PackedStringArray([bad_xuid]))
+		await assert_signal_result_error(bad_xuid_invite_signal, "invalid_xuids", "send_invites_async() rejects %s" % [bad_xuid])
+
 	var invalid_invite_uri = multiplayer_activity.accept_pending_invite("")
 	assert_not_null(invalid_invite_uri, "accept_pending_invite('') returns XboxResult")
 	if invalid_invite_uri != null:

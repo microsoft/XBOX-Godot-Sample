@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="XboxUserSignOutDeferral" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Owner of a single GDK user sign-out deferral handle.
+	</brief_description>
+	<description>
+		Returned by [method XboxUsers.acquire_sign_out_deferral]. Holding a [XboxUserSignOutDeferral] asks the platform to delay completing a pending sign-out so the title can flush per-user state such as a save. Release it as soon as that work is done — the platform only waits for a short, bounded window. The handle is closed via [code]XUserCloseSignOutDeferralHandle[/code], which is independent of the GDK runtime lifecycle, so [method release] is always safe even after [method GDK.shutdown].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="is_valid" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] while this wrapper still owns an open deferral handle.
+			</description>
+		</method>
+		<method name="release">
+			<return type="void" />
+			<description>
+				Closes the deferral handle and lets the pending sign-out complete. Idempotent; calling [method release] more than once is safe.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

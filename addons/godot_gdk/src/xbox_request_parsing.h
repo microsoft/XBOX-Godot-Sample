@@ -35,9 +35,10 @@ namespace godot {
 namespace xbox_request_parsing {
 
 // Parse a decimal XUID string. Returns false on empty/whitespace input, a
-// non-numeric or partially-numeric value, or strtoull range error. When
-// p_reject_zero is true a parsed value of 0 is also rejected (the game-UI call
-// path treats 0 as invalid; the title-storage and profile paths accept it).
+// negative (leading '-') value, a non-numeric or partially-numeric value, or
+// strtoull range error. When p_reject_zero is true a parsed value of 0 is also
+// rejected (the game-UI call path treats 0 as invalid; the title-storage and
+// profile paths accept it).
 bool try_parse_xuid(const String &p_xuid, uint64_t *r_xuid, bool p_reject_zero);
 
 // Validate that p_value fits in a non-negative 32-bit unsigned integer and

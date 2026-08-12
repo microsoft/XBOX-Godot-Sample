@@ -1,0 +1,30 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TutorialGdkCSharp", "TutorialGdkCSharp.csproj", "{C2BB6F0C-2018-4143-9B24-FADD36EF111A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotGdkCSharp", "..\..\addons\godot_gdk_csharp\GodotGdkCSharp.csproj", "{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{C2BB6F0C-2018-4143-9B24-FADD36EF111A}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{1D36CDC9-D4BF-4CFE-8D59-462FE1D6126F}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

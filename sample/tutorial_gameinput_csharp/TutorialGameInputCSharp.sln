@@ -1,0 +1,30 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TutorialGameInputCSharp", "TutorialGameInputCSharp.csproj", "{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotGameInputCSharp", "..\..\addons\godot_gameinput_csharp\GodotGameInputCSharp.csproj", "{5A3014B0-1417-4EB0-8370-79ACE9D04F04}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{7913DE1C-AADF-4ABA-8FC9-FC78A9FA7AC5}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{5A3014B0-1417-4EB0-8370-79ACE9D04F04}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

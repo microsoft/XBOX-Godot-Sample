@@ -20,7 +20,15 @@ native DLL is unchanged.
    </ItemGroup>
    ```
 
-3. (Optional) C# bootstrap autoload:
+3. Add a solution file next to `project.godot`. Godot's .NET export plugin
+   **requires** `<assembly_name>.sln` in the project root — without it every
+   export fails with *"This project contains C# files but no solution file was
+   found"*. Include both facade projects so solution builds use the same
+   `Debug` / `ExportDebug` / `ExportRelease` configuration. See
+   [`../gdk/csharp.md`](../gdk/csharp.md#setup) and the `.sln` files in
+   `sample/tutorial_playfab_csharp/` for the expected shape.
+
+4. (Optional) C# bootstrap autoload:
 
    ```csharp
    // Autoload/PlayFabBootstrap.cs

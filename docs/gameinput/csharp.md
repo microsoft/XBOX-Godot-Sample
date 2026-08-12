@@ -18,7 +18,15 @@ bridge.
    </ItemGroup>
    ```
 
-3. (Optional) C# bootstrap autoload — initializes on startup, polls each frame,
+3. Add a solution file next to `project.godot`. Godot's .NET export plugin
+   **requires** `<assembly_name>.sln` in the project root — without it every
+   export fails with *"This project contains C# files but no solution file was
+   found"*. Include the facade project(s) so solution builds use the same
+   `Debug` / `ExportDebug` / `ExportRelease` configuration. See
+   [`../gdk/csharp.md`](../gdk/csharp.md#setup) and the `.sln` files in
+   `sample/tutorial_gameinput_csharp/` for the expected shape.
+
+4. (Optional) C# bootstrap autoload — initializes on startup, polls each frame,
    and (when `game_input/mapper/default_action_map` points at a
    `GameInputActionMap`) spawns a default `GameInputMapper` child, driven by the
    same `game_input/*` project settings the GDScript bootstrap reads:

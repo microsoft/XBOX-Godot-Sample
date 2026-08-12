@@ -11,6 +11,7 @@
 
 #include "xbox.h"
 #include "xbox_pending_signal.h"
+#include "xbox_request_parsing.h"
 #include "xbox_result.h"
 #include "xbox_runtime.h"
 #include "xbox_signal_xasync_context.h"
@@ -96,6 +97,73 @@ String _age_group_to_name(XboxUser::AgeGroup p_age_group) {
     }
 }
 
+// APP_LOCAL_DEVICE_ID is a 32-byte opaque platform identifier. GDScript gets it
+// as a lowercase hex string so it can be compared, stored, and printed without
+// binding a byte-blob type; _try_parse_device_id() is the inverse.
+String _device_id_to_string(const APP_LOCAL_DEVICE_ID &p_device_id) {
+    static const char *hex_digits = "0123456789abcdef";
+
+    char buffer[(APP_LOCAL_DEVICE_ID_SIZE * 2) + 1] = {};
+    for (size_t i = 0; i < APP_LOCAL_DEVICE_ID_SIZE; ++i) {
+        buffer[i * 2] = hex_digits[(p_device_id.value[i] >> 4) & 0x0F];
+        buffer[(i * 2) + 1] = hex_digits[p_device_id.value[i] & 0x0F];
+    }
+
+    return String::utf8(buffer);
+}
+
+bool _try_parse_device_id(const String &p_device_id, APP_LOCAL_DEVICE_ID *r_device_id) {
+    if (r_device_id == nullptr) {
+        return false;
+    }
+
+    const String normalized = p_device_id.strip_edges().to_lower();
+    if (normalized.length() != static_cast<int64_t>(APP_LOCAL_DEVICE_ID_SIZE * 2)) {
+        return false;
+    }
+
+    APP_LOCAL_DEVICE_ID parsed = {};
+    for (size_t i = 0; i < APP_LOCAL_DEVICE_ID_SIZE; ++i) {
+        uint8_t nibbles[2] = {};
+        for (size_t n = 0; n < 2; ++n) {
+            const char32_t digit = normalized[static_cast<int64_t>((i * 2) + n)];
+            if (digit >= '0' && digit <= '9') {
+                nibbles[n] = static_cast<uint8_t>(digit - '0');
+            } else if (digit >= 'a' && digit <= 'f') {
+                nibbles[n] = static_cast<uint8_t>(10 + (digit - 'a'));
+            } else {
+                return false;
+            }
+        }
+        parsed.value[i] = static_cast<BYTE>((nibbles[0] << 4) | nibbles[1]);
+    }
+
+    *r_device_id = parsed;
+    return true;
+}
+
+bool _device_ids_equal(const APP_LOCAL_DEVICE_ID &p_left, const APP_LOCAL_DEVICE_ID &p_right) {
+    return std::memcmp(p_left.value, p_right.value, APP_LOCAL_DEVICE_ID_SIZE) == 0;
+}
+
+bool _is_null_device_id(const APP_LOCAL_DEVICE_ID &p_device_id) {
+    return _device_ids_equal(p_device_id, XUserNullDeviceId);
+}
+
+String _read_gamertag_component(XUserHandle p_user_handle, XUserGamertagComponent p_component, size_t p_max_bytes, HRESULT *r_hresult) {
+    std::vector<char> buffer(p_max_bytes, '\0');
+    size_t used = 0;
+    const HRESULT hr = XUserGetGamertag(p_user_handle, p_component, buffer.size(), buffer.data(), &used);
+    if (r_hresult != nullptr) {
+        *r_hresult = hr;
+    }
+    if (FAILED(hr)) {
+        return String();
+    }
+
+    return String::utf8(buffer.data());
+}
+
 String _privilege_deny_reason_to_string(XUserPrivilegeDenyReason p_reason) {
     switch (p_reason) {
         case XUserPrivilegeDenyReason::None:
@@ -164,6 +232,7 @@ bool _try_parse_gamer_picture_size(const String &p_size, XUserGamerPictureSize *
 class AddUserAsyncContext final : public XboxSignalXAsyncContext {
     XboxUsers *m_users = nullptr;
     String m_action;
+    bool m_by_id = false;
 
 protected:
     void finalize(XAsyncBlock *p_async_block) override {
@@ -176,7 +245,9 @@ protected:
         }
 
         XUserHandle user_handle = nullptr;
-        HRESULT result_hr = XUserAddResult(p_async_block, &user_handle);
+        HRESULT result_hr = m_by_id
+                ? XUserAddByIdWithUiResult(p_async_block, &user_handle)
+                : XUserAddResult(p_async_block, &user_handle);
         if (result_hr == E_ABORT) {
             result = XboxResult::cancelled("User add operation cancelled.");
             get_pending_signal()->complete(result);
@@ -193,10 +264,100 @@ protected:
     }
 
 public:
-    AddUserAsyncContext(XboxUsers *p_users, XboxRuntime *p_runtime, const Ref<XboxPendingSignal> &p_pending_signal, const String &p_action) :
+    AddUserAsyncContext(XboxUsers *p_users, XboxRuntime *p_runtime, const Ref<XboxPendingSignal> &p_pending_signal, const String &p_action, bool p_by_id = false) :
             XboxSignalXAsyncContext(p_runtime, p_pending_signal),
             m_users(p_users),
-            m_action(p_action) {}
+            m_action(p_action),
+            m_by_id(p_by_id) {}
+};
+
+class SignOutAsyncContext final : public XboxSignalXAsyncContext {
+    XboxUsers *m_users = nullptr;
+    Ref<XboxUser> m_user;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        Ref<XboxResult> result;
+
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            result = XboxResult::cancelled("User sign-out cancelled.");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        HRESULT result_hr = XUserSignOutResult(p_async_block);
+        if (result_hr == E_ABORT) {
+            result = XboxResult::cancelled("User sign-out cancelled.");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        if (FAILED(result_hr)) {
+            result = XboxResult::hresult_error(result_hr, "Failed to sign the user out.", "user_sign_out_result_failed");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        // The platform also raises XUserChangeEvent::SignedOut, but that
+        // callback is not guaranteed to have been dispatched yet. Reconcile
+        // here so get_users()/get_primary_user() are already correct when the
+        // completion signal resolves; whichever path runs first emits
+        // user_changed("removed") exactly once.
+        if (m_users != nullptr) {
+            m_users->reconcile_signed_out_user(m_user);
+        }
+
+        get_pending_signal()->complete(XboxResult::ok_result(m_user));
+    }
+
+public:
+    SignOutAsyncContext(XboxUsers *p_users, const Ref<XboxUser> &p_user, XboxRuntime *p_runtime, const Ref<XboxPendingSignal> &p_pending_signal) :
+            XboxSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_users(p_users),
+            m_user(p_user) {}
+};
+
+class FindControllerForUserAsyncContext final : public XboxSignalXAsyncContext {
+    Ref<XboxUser> m_user;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        Ref<XboxResult> result;
+
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            result = XboxResult::cancelled("Controller selection cancelled.");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        APP_LOCAL_DEVICE_ID device_id = {};
+        HRESULT result_hr = XUserFindControllerForUserWithUiResult(p_async_block, &device_id);
+        if (result_hr == E_ABORT) {
+            result = XboxResult::cancelled("Controller selection cancelled.");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        if (FAILED(result_hr)) {
+            result = XboxResult::hresult_error(
+                    result_hr,
+                    "Failed to establish a controller for the user with system UI.",
+                    "find_controller_result_failed");
+            get_pending_signal()->complete(result);
+            return;
+        }
+
+        Dictionary data;
+        data["device_id"] = _device_id_to_string(device_id);
+        data["has_device"] = !_is_null_device_id(device_id);
+
+        get_pending_signal()->complete(XboxResult::ok_result(data));
+    }
+
+public:
+    FindControllerForUserAsyncContext(const Ref<XboxUser> &p_user, XboxRuntime *p_runtime, const Ref<XboxPendingSignal> &p_pending_signal) :
+            XboxSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_user(p_user) {}
 };
 
 class ResolvePrivilegeAsyncContext final : public XboxSignalXAsyncContext {
@@ -552,10 +713,41 @@ public:
 
 } // namespace
 
+void XboxUserSignOutDeferral::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("is_valid"), &XboxUserSignOutDeferral::is_valid);
+    ClassDB::bind_method(D_METHOD("release"), &XboxUserSignOutDeferral::release);
+}
+
+XboxUserSignOutDeferral::~XboxUserSignOutDeferral() {
+    release();
+}
+
+bool XboxUserSignOutDeferral::is_valid() const {
+    return m_handle != nullptr;
+}
+
+void XboxUserSignOutDeferral::release() {
+    if (m_handle != nullptr) {
+        XUserCloseSignOutDeferralHandle(m_handle);
+        m_handle = nullptr;
+    }
+}
+
+void XboxUserSignOutDeferral::set_handle_internal(XUserSignOutDeferralHandle p_handle) {
+    if (m_handle == p_handle) {
+        return;
+    }
+    release();
+    m_handle = p_handle;
+}
+
 void XboxUser::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_local_id"), &XboxUser::get_local_id);
     ClassDB::bind_method(D_METHOD("get_xuid"), &XboxUser::get_xuid);
     ClassDB::bind_method(D_METHOD("get_gamertag"), &XboxUser::get_gamertag);
+    ClassDB::bind_method(D_METHOD("get_modern_gamertag"), &XboxUser::get_modern_gamertag);
+    ClassDB::bind_method(D_METHOD("get_modern_gamertag_suffix"), &XboxUser::get_modern_gamertag_suffix);
+    ClassDB::bind_method(D_METHOD("get_unique_modern_gamertag"), &XboxUser::get_unique_modern_gamertag);
     ClassDB::bind_method(D_METHOD("get_age_group"), &XboxUser::get_age_group);
     ClassDB::bind_method(D_METHOD("get_age_group_name"), &XboxUser::get_age_group_name);
     ClassDB::bind_method(D_METHOD("get_sign_in_state"), &XboxUser::get_sign_in_state);
@@ -563,6 +755,9 @@ void XboxUser::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_guest"), &XboxUser::is_guest);
     ClassDB::bind_method(D_METHOD("is_signed_in"), &XboxUser::is_signed_in);
     ClassDB::bind_method(D_METHOD("is_store_user"), &XboxUser::is_store_user);
+    ClassDB::bind_method(D_METHOD("is_valid"), &XboxUser::is_valid);
+    ClassDB::bind_method(D_METHOD("is_same_user", "other"), &XboxUser::is_same_user);
+    ClassDB::bind_method(D_METHOD("duplicate_user"), &XboxUser::duplicate_user);
 
     BIND_ENUM_CONSTANT(AGE_GROUP_UNKNOWN);
     BIND_ENUM_CONSTANT(AGE_GROUP_CHILD);
@@ -576,6 +771,9 @@ void XboxUser::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::INT, "local_id"), "", "get_local_id");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "xuid"), "", "get_xuid");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "gamertag"), "", "get_gamertag");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "modern_gamertag"), "", "get_modern_gamertag");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "modern_gamertag_suffix"), "", "get_modern_gamertag_suffix");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "unique_modern_gamertag"), "", "get_unique_modern_gamertag");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "age_group", PROPERTY_HINT_ENUM, "Unknown,Child,Teen,Adult"), "", "get_age_group");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "sign_in_state", PROPERTY_HINT_ENUM, "Signed Out,Signing Out,Signed In"), "", "get_sign_in_state");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "guest"), "", "is_guest");
@@ -599,6 +797,18 @@ String XboxUser::get_xuid() const {
 
 String XboxUser::get_gamertag() const {
     return m_gamertag;
+}
+
+String XboxUser::get_modern_gamertag() const {
+    return m_modern_gamertag;
+}
+
+String XboxUser::get_modern_gamertag_suffix() const {
+    return m_modern_gamertag_suffix;
+}
+
+String XboxUser::get_unique_modern_gamertag() const {
+    return m_unique_modern_gamertag;
 }
 
 XboxUser::AgeGroup XboxUser::get_age_group() const {
@@ -629,6 +839,48 @@ bool XboxUser::is_store_user() const {
     return m_is_store_user;
 }
 
+bool XboxUser::is_valid() const {
+    return m_user_handle != nullptr;
+}
+
+bool XboxUser::is_same_user(const Ref<XboxUser> &p_other) const {
+    if (!p_other.is_valid()) {
+        return false;
+    }
+
+    // XUserCompare has no defined behavior for a null handle, and either side
+    // can legitimately lack one (a default-constructed wrapper, or one whose
+    // handle was released). Two handle-less wrappers are not "the same user"
+    // either — there is no platform user to be the same as.
+    if (m_user_handle == nullptr || p_other->get_handle() == nullptr) {
+        return false;
+    }
+
+    // XUserCompare orders/compares two handles; equality (0) means both
+    // handles refer to the same platform user, even when the wrappers are
+    // distinct objects (for example a cached user vs. a fresh lookup).
+    return XUserCompare(m_user_handle, p_other->get_handle()) == 0;
+}
+
+Ref<XboxUser> XboxUser::duplicate_user() const {
+    if (m_user_handle == nullptr) {
+        return Ref<XboxUser>();
+    }
+
+    XUserHandle duplicated_handle = nullptr;
+    if (FAILED(XUserDuplicateHandle(m_user_handle, &duplicated_handle))) {
+        return Ref<XboxUser>();
+    }
+
+    Ref<XboxUser> copy;
+    copy.instantiate();
+    if (FAILED(copy->adopt_handle(duplicated_handle))) {
+        return Ref<XboxUser>();
+    }
+
+    return copy;
+}
+
 HRESULT XboxUser::_populate_from_handle(XUserHandle p_user_handle) {
     XUserLocalId local_id = {};
     HRESULT hr = XUserGetLocalId(p_user_handle, &local_id);
@@ -654,6 +906,27 @@ HRESULT XboxUser::_populate_from_handle(XUserHandle p_user_handle) {
         return hr;
     }
 
+    // The modern gamertag components are optional metadata: platforms and
+    // accounts that predate modern gamertags return an empty suffix (or fail
+    // the lookup outright). Never fail the whole populate over them -- the
+    // classic gamertag above is the required identity string.
+    HRESULT modern_hr = S_OK;
+    const String modern_gamertag = _read_gamertag_component(
+            p_user_handle,
+            XUserGamertagComponent::Modern,
+            XUserGamertagComponentModernMaxBytes,
+            &modern_hr);
+    const String modern_gamertag_suffix = _read_gamertag_component(
+            p_user_handle,
+            XUserGamertagComponent::ModernSuffix,
+            XUserGamertagComponentModernSuffixMaxBytes,
+            &modern_hr);
+    const String unique_modern_gamertag = _read_gamertag_component(
+            p_user_handle,
+            XUserGamertagComponent::UniqueModern,
+            XUserGamertagComponentUniqueModernMaxBytes,
+            &modern_hr);
+
     bool is_guest = false;
     hr = XUserGetIsGuest(p_user_handle, &is_guest);
     if (FAILED(hr)) {
@@ -675,6 +948,9 @@ HRESULT XboxUser::_populate_from_handle(XUserHandle p_user_handle) {
     m_local_id = local_id;
     m_xuid = String::num_uint64(xuid);
     m_gamertag = String::utf8(gamertag);
+    m_modern_gamertag = modern_gamertag;
+    m_modern_gamertag_suffix = modern_gamertag_suffix;
+    m_unique_modern_gamertag = unique_modern_gamertag;
     m_age_group = hr == E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED ? AGE_GROUP_UNKNOWN : _age_group_to_enum(age_group);
     m_sign_in_state = _user_state_to_sign_in_state(user_state);
     m_is_guest = is_guest;
@@ -712,6 +988,10 @@ bool XboxUser::matches_local_id(XUserLocalId p_user_local_id) const {
     return m_local_id.value == p_user_local_id.value;
 }
 
+XUserLocalId XboxUser::get_native_local_id() const {
+    return m_local_id;
+}
+
 XUserHandle XboxUser::get_handle() const {
     return m_user_handle;
 }
@@ -725,6 +1005,9 @@ void XboxUser::clear() {
     m_local_id = {};
     m_xuid = "";
     m_gamertag = "";
+    m_modern_gamertag = "";
+    m_modern_gamertag_suffix = "";
+    m_unique_modern_gamertag = "";
     m_age_group = AGE_GROUP_UNKNOWN;
     m_sign_in_state = SIGN_IN_STATE_SIGNED_OUT;
     m_is_guest = false;
@@ -735,8 +1018,23 @@ void XboxUser::clear() {
 void XboxUsers::_bind_methods() {
     ClassDB::bind_method(D_METHOD("add_default_user_async"), &XboxUsers::add_default_user_async);
     ClassDB::bind_method(D_METHOD("add_user_with_ui_async", "allow_guests"), &XboxUsers::add_user_with_ui_async, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("add_user_by_id_with_ui_async", "xuid"), &XboxUsers::add_user_by_id_with_ui_async);
     ClassDB::bind_method(D_METHOD("get_primary_user"), &XboxUsers::get_primary_user);
     ClassDB::bind_method(D_METHOD("get_users"), &XboxUsers::get_users);
+    ClassDB::bind_method(D_METHOD("get_max_users"), &XboxUsers::get_max_users);
+    ClassDB::bind_method(D_METHOD("is_sign_out_available"), &XboxUsers::is_sign_out_available);
+    ClassDB::bind_method(D_METHOD("sign_out_async", "user"), &XboxUsers::sign_out_async);
+    ClassDB::bind_method(D_METHOD("acquire_sign_out_deferral"), &XboxUsers::acquire_sign_out_deferral);
+    ClassDB::bind_method(D_METHOD("find_user_by_xuid", "xuid"), &XboxUsers::find_user_by_xuid);
+    ClassDB::bind_method(D_METHOD("find_user_by_local_id", "local_id"), &XboxUsers::find_user_by_local_id);
+    ClassDB::bind_method(D_METHOD("find_user_for_device", "device_id"), &XboxUsers::find_user_for_device);
+    ClassDB::bind_method(D_METHOD("find_controller_for_user_with_ui_async", "user"), &XboxUsers::find_controller_for_user_with_ui_async);
+    ClassDB::bind_method(D_METHOD("get_device_associations"), &XboxUsers::get_device_associations);
+    ClassDB::bind_method(D_METHOD("get_devices_for_user", "user"), &XboxUsers::get_devices_for_user);
+    ClassDB::bind_method(
+            D_METHOD("get_default_audio_endpoint", "user", "kind"),
+            &XboxUsers::get_default_audio_endpoint,
+            DEFVAL(static_cast<int64_t>(AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER)));
     ClassDB::bind_method(D_METHOD("check_privilege_async", "user", "privilege"), &XboxUsers::check_privilege_async);
     ClassDB::bind_method(D_METHOD("resolve_privilege_with_ui_async", "user", "privilege"), &XboxUsers::resolve_privilege_with_ui_async);
     ClassDB::bind_method(D_METHOD("resolve_issue_with_ui_async", "user", "url"), &XboxUsers::resolve_issue_with_ui_async, DEFVAL(String()));
@@ -748,10 +1046,23 @@ void XboxUsers::_bind_methods() {
             DEFVAL(PackedByteArray()),
             DEFVAL(false));
 
+    BIND_ENUM_CONSTANT(AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER);
+    BIND_ENUM_CONSTANT(AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE);
+
     ADD_SIGNAL(MethodInfo(
             "user_changed",
             PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "XboxUser"),
             PropertyInfo(Variant::STRING, "change_kind")));
+    ADD_SIGNAL(MethodInfo(
+            "device_association_changed",
+            PropertyInfo(Variant::STRING, "device_id"),
+            PropertyInfo(Variant::INT, "old_user_local_id"),
+            PropertyInfo(Variant::INT, "new_user_local_id")));
+    ADD_SIGNAL(MethodInfo(
+            "default_audio_endpoint_changed",
+            PropertyInfo(Variant::INT, "user_local_id"),
+            PropertyInfo(Variant::INT, "kind"),
+            PropertyInfo(Variant::STRING, "endpoint_id")));
 }
 
 void XboxUsers::set_owner(Xbox *p_owner) {
@@ -764,22 +1075,57 @@ Ref<XboxResult> XboxUsers::on_runtime_initialized() {
         return XboxResult::error_result(E_FAIL, "runtime_not_initialized", "Cannot initialize the users service before the GDK runtime.");
     }
 
-    if (m_change_event_registered) {
-        m_runtime_ready = true;
-        return XboxResult::ok_result();
+    if (!m_change_event_registered) {
+        HRESULT hr = XUserRegisterForChangeEvent(
+                runtime->get_task_queue(),
+                this,
+                _user_change_callback,
+                &m_change_token);
+        if (FAILED(hr)) {
+            return XboxResult::hresult_error(hr, "Failed to register the runtime-wide XUser change callback.", "user_change_event_register_failed");
+        }
+
+        m_change_event_registered = true;
     }
 
-    HRESULT hr = XUserRegisterForChangeEvent(
-            runtime->get_task_queue(),
-            this,
-            _user_change_callback,
-            &m_change_token);
-    if (FAILED(hr)) {
-        return XboxResult::hresult_error(hr, "Failed to register the runtime-wide XUser change callback.", "user_change_event_register_failed");
+    // Device-association and default-audio-endpoint notifications are
+    // best-effort: they are the XR-112 controller-pairing feed, but a platform
+    // that does not surface them must not block GDK.initialize(). Report the
+    // failure through GDK.runtime_error and keep going with an empty
+    // association cache.
+    if (!m_device_association_registered) {
+        HRESULT hr = XUserRegisterForDeviceAssociationChanged(
+                runtime->get_task_queue(),
+                this,
+                _device_association_changed_callback,
+                &m_device_association_token);
+        if (SUCCEEDED(hr)) {
+            m_device_association_registered = true;
+        } else if (m_owner != nullptr) {
+            m_owner->emit_runtime_error(XboxResult::hresult_error(
+                    hr,
+                    "Failed to register for user/device association changes; controller pairing changes will not be reported.",
+                    "device_association_register_failed"));
+        }
+    }
+
+    if (!m_audio_endpoint_registered) {
+        HRESULT hr = XUserRegisterForDefaultAudioEndpointUtf16Changed(
+                runtime->get_task_queue(),
+                this,
+                _default_audio_endpoint_changed_callback,
+                &m_audio_endpoint_token);
+        if (SUCCEEDED(hr)) {
+            m_audio_endpoint_registered = true;
+        } else if (m_owner != nullptr) {
+            m_owner->emit_runtime_error(XboxResult::hresult_error(
+                    hr,
+                    "Failed to register for default audio endpoint changes; audio endpoint changes will not be reported.",
+                    "audio_endpoint_register_failed"));
+        }
     }
 
     m_runtime_ready = true;
-    m_change_event_registered = true;
     return XboxResult::ok_result();
 }
 
@@ -799,8 +1145,19 @@ void XboxUsers::shutdown() {
         m_change_event_registered = false;
     }
 
+    if (m_device_association_registered) {
+        XUserUnregisterForDeviceAssociationChanged(m_device_association_token, true);
+        m_device_association_registered = false;
+    }
+
+    if (m_audio_endpoint_registered) {
+        XUserUnregisterForDefaultAudioEndpointUtf16Changed(m_audio_endpoint_token, true);
+        m_audio_endpoint_registered = false;
+    }
+
     m_primary_user.unref();
     m_users.clear();
+    m_device_associations.clear();
 }
 
 Signal XboxUsers::add_default_user_async() {
@@ -842,6 +1199,263 @@ Array XboxUsers::get_users() const {
         users.push_back(user);
     }
     return users;
+}
+
+Signal XboxUsers::add_user_by_id_with_ui_async(const String &p_xuid) {
+    XboxRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return _make_users_error_signal(runtime, E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    // Parse through the shared request-parsing seam every other GDK service
+    // wrapper uses: it rejects negatives, trailing garbage, and range errors,
+    // none of which String::is_valid_int() / to_int() catch.
+    uint64_t xuid = 0;
+    if (!xbox_request_parsing::try_parse_xuid(p_xuid, &xuid, /*p_reject_zero=*/true)) {
+        return _make_users_error_signal(runtime, E_INVALIDARG, "invalid_xuid", "A decimal XUID string is required.");
+    }
+
+    Ref<XboxPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new AddUserAsyncContext(this, runtime, pending_signal, "Failed to add the requested user with UI.", true);
+    context->bind_cancel_handler();
+
+    HRESULT hr = XUserAddByIdWithUiAsync(xuid, context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<XboxResult> result = XboxResult::hresult_error(hr, "Failed to start the add-user-by-id UI flow.", "user_add_by_id_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Ref<XboxResult> XboxUsers::get_max_users() const {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    uint32_t max_users = 0;
+    HRESULT hr = XUserGetMaxUsers(&max_users);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to read the maximum simultaneous user count.", "get_max_users_failed");
+    }
+
+    return XboxResult::ok_result(static_cast<int64_t>(max_users));
+}
+
+bool XboxUsers::is_sign_out_available() const {
+    return m_runtime_ready && XUserIsSignOutPresent();
+}
+
+Signal XboxUsers::sign_out_async(const Ref<XboxUser> &p_user) {
+    XboxRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return _make_users_error_signal(runtime, E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
+        return _make_users_error_signal(runtime, E_INVALIDARG, "invalid_user", "A signed-in XboxUser is required.");
+    }
+    if (!XUserIsSignOutPresent()) {
+        // XUserSignOutAsync is only valid on platforms that surface a
+        // title-driven sign-out affordance; is_sign_out_available() is the
+        // documented gate for it.
+        return _make_users_error_signal(
+                runtime,
+                E_NOTIMPL,
+                "sign_out_not_available",
+                "This platform does not support title-initiated sign-out. Check is_sign_out_available() first.");
+    }
+
+    Ref<XboxPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new SignOutAsyncContext(this, p_user, runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    HRESULT hr = XUserSignOutAsync(p_user->get_handle(), context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<XboxResult> result = XboxResult::hresult_error(hr, "Failed to start the user sign-out.", "user_sign_out_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Ref<XboxResult> XboxUsers::acquire_sign_out_deferral() const {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    XUserSignOutDeferralHandle handle = nullptr;
+    HRESULT hr = XUserGetSignOutDeferral(&handle);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to acquire a user sign-out deferral.", "acquire_sign_out_deferral_failed");
+    }
+
+    Ref<XboxUserSignOutDeferral> deferral;
+    deferral.instantiate();
+    deferral->set_handle_internal(handle);
+    return XboxResult::ok_result(deferral);
+}
+
+Ref<XboxResult> XboxUsers::find_user_by_xuid(const String &p_xuid) {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    // Same shared parsing seam as add_user_by_id_with_ui_async(); see the note
+    // there on why is_valid_int() / to_int() is not sufficient for an XUID.
+    uint64_t xuid = 0;
+    if (!xbox_request_parsing::try_parse_xuid(p_xuid, &xuid, /*p_reject_zero=*/true)) {
+        return XboxResult::error_result(E_INVALIDARG, "invalid_xuid", "A decimal XUID string is required.");
+    }
+
+    XUserHandle user_handle = nullptr;
+    HRESULT hr = XUserFindUserById(xuid, &user_handle);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to find a signed-in user with the requested XUID.", "user_not_found");
+    }
+
+    return _wrap_found_handle(user_handle);
+}
+
+Ref<XboxResult> XboxUsers::find_user_by_local_id(int64_t p_local_id) {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (p_local_id == 0) {
+        return XboxResult::error_result(E_INVALIDARG, "invalid_local_id", "A non-zero user local id is required.");
+    }
+
+    XUserLocalId local_id = {};
+    local_id.value = static_cast<uint64_t>(p_local_id);
+
+    XUserHandle user_handle = nullptr;
+    HRESULT hr = XUserFindUserByLocalId(local_id, &user_handle);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to find a signed-in user with the requested local id.", "user_not_found");
+    }
+
+    return _wrap_found_handle(user_handle);
+}
+
+Ref<XboxResult> XboxUsers::find_user_for_device(const String &p_device_id) {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+
+    APP_LOCAL_DEVICE_ID device_id = {};
+    if (!_try_parse_device_id(p_device_id, &device_id)) {
+        return XboxResult::error_result(
+                E_INVALIDARG,
+                "invalid_device_id",
+                "A device id must be the 64-character hex string reported by get_device_associations().");
+    }
+
+    XUserHandle user_handle = nullptr;
+    HRESULT hr = XUserFindForDevice(&device_id, &user_handle);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to find a user associated with the requested device.", "user_not_found");
+    }
+
+    return _wrap_found_handle(user_handle);
+}
+
+Signal XboxUsers::find_controller_for_user_with_ui_async(const Ref<XboxUser> &p_user) {
+    XboxRuntime *runtime = _get_runtime();
+    if (runtime == nullptr || !runtime->is_initialized()) {
+        return _make_users_error_signal(runtime, E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
+        return _make_users_error_signal(runtime, E_INVALIDARG, "invalid_user", "A signed-in XboxUser is required.");
+    }
+
+    Ref<XboxPendingSignal> pending_signal = runtime->make_pending_signal();
+
+    auto *context = new FindControllerForUserAsyncContext(p_user, runtime, pending_signal);
+    context->bind_cancel_handler();
+
+    HRESULT hr = XUserFindControllerForUserWithUiAsync(p_user->get_handle(), context->get_async_block());
+    if (FAILED(hr)) {
+        pending_signal->clear_cancel_handler();
+        delete context;
+
+        Ref<XboxResult> result = XboxResult::hresult_error(
+                hr,
+                "Failed to start the controller selection UI for the user.",
+                "find_controller_start_failed");
+        pending_signal->complete_deferred(result);
+    }
+
+    return pending_signal->get_completed_signal();
+}
+
+Array XboxUsers::get_device_associations() const {
+    Array associations;
+    for (const DeviceAssociation &association : m_device_associations) {
+        Dictionary entry;
+        entry["device_id"] = _device_id_to_string(association.device_id);
+        entry["user_local_id"] = static_cast<int64_t>(association.user_local_id.value);
+        associations.push_back(entry);
+    }
+    return associations;
+}
+
+PackedStringArray XboxUsers::get_devices_for_user(const Ref<XboxUser> &p_user) const {
+    PackedStringArray devices;
+    if (!p_user.is_valid()) {
+        return devices;
+    }
+
+    const XUserLocalId local_id = p_user->get_native_local_id();
+    if (local_id.value == 0) {
+        return devices;
+    }
+
+    for (const DeviceAssociation &association : m_device_associations) {
+        if (association.user_local_id.value == local_id.value) {
+            devices.push_back(_device_id_to_string(association.device_id));
+        }
+    }
+
+    return devices;
+}
+
+Ref<XboxResult> XboxUsers::get_default_audio_endpoint(const Ref<XboxUser> &p_user, int64_t p_kind) const {
+    if (!m_runtime_ready) {
+        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+    }
+    if (!p_user.is_valid() || p_user->get_handle() == nullptr) {
+        return XboxResult::error_result(E_INVALIDARG, "invalid_user", "A signed-in XboxUser is required.");
+    }
+    if (p_kind != AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER && p_kind != AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE) {
+        return XboxResult::error_result(
+                E_INVALIDARG,
+                "invalid_audio_endpoint_kind",
+                "Audio endpoint kind must be AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER or AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE.");
+    }
+
+    wchar_t endpoint_id[XUserAudioEndpointMaxUtf16Count] = {};
+    size_t endpoint_id_used = 0;
+    HRESULT hr = XUserGetDefaultAudioEndpointUtf16(
+            p_user->get_native_local_id(),
+            static_cast<XUserDefaultAudioEndpointKind>(static_cast<uint32_t>(p_kind)),
+            XUserAudioEndpointMaxUtf16Count,
+            endpoint_id,
+            &endpoint_id_used);
+    if (FAILED(hr)) {
+        return XboxResult::hresult_error(hr, "Failed to read the default audio endpoint for the user.", "get_default_audio_endpoint_failed");
+    }
+
+    Dictionary data;
+    data["kind"] = p_kind;
+    data["endpoint_id"] = String(endpoint_id);
+    return XboxResult::ok_result(data);
 }
 
 Signal XboxUsers::check_privilege_async(const Ref<XboxUser> &p_user, int64_t p_privilege) {
@@ -1096,16 +1710,50 @@ void XboxUsers::on_user_change(XUserLocalId p_user_local_id, XUserChangeEvent p_
     }
 }
 
+void XboxUsers::on_device_association_changed(const XUserDeviceAssociationChange &p_change) {
+    XboxRuntime *runtime = _get_runtime();
+    if (!m_runtime_ready || runtime == nullptr || runtime->is_shutting_down()) {
+        return;
+    }
+
+    _update_device_association(p_change.deviceId, p_change.newUser);
+
+    emit_signal(
+            "device_association_changed",
+            _device_id_to_string(p_change.deviceId),
+            static_cast<int64_t>(p_change.oldUser.value),
+            static_cast<int64_t>(p_change.newUser.value));
+}
+
+void XboxUsers::on_default_audio_endpoint_changed(XUserLocalId p_user_local_id, XUserDefaultAudioEndpointKind p_kind, const String &p_endpoint_id) {
+    XboxRuntime *runtime = _get_runtime();
+    if (!m_runtime_ready || runtime == nullptr || runtime->is_shutting_down()) {
+        return;
+    }
+
+    emit_signal(
+            "default_audio_endpoint_changed",
+            static_cast<int64_t>(p_user_local_id.value),
+            static_cast<int64_t>(static_cast<uint32_t>(p_kind)),
+            p_endpoint_id);
+}
+
+void XboxUsers::reconcile_signed_out_user(const Ref<XboxUser> &p_user) {
+    if (!p_user.is_valid()) {
+        return;
+    }
+
+    on_user_change(p_user->get_native_local_id(), XUserChangeEvent::SignedOut);
+}
+
 void XboxUsers::complete_add_user(XUserHandle p_user_handle, const Ref<XboxPendingSignal> &p_pending_signal) {
     Ref<XboxUser> user;
     user.instantiate();
 
     HRESULT hr = user->adopt_handle(p_user_handle);
     if (FAILED(hr)) {
-        if (p_user_handle != nullptr) {
-            XUserCloseHandle(p_user_handle);
-        }
-
+        // adopt_handle() closes the handle itself when population fails, and only
+        // rejects without taking ownership when the handle is already null.
         Ref<XboxResult> result = XboxResult::hresult_error(hr, "Failed to translate the native XUser into a Godot wrapper.", "user_wrapper_create_failed");
         p_pending_signal->complete(result);
         return;
@@ -1125,6 +1773,27 @@ void XboxUsers::complete_add_user(XUserHandle p_user_handle, const Ref<XboxPendi
 void CALLBACK XboxUsers::_user_change_callback(void *p_context, XUserLocalId p_user_local_id, XUserChangeEvent p_event) {
     auto *users = static_cast<XboxUsers *>(p_context);
     users->on_user_change(p_user_local_id, p_event);
+}
+
+void CALLBACK XboxUsers::_device_association_changed_callback(void *p_context, const XUserDeviceAssociationChange *p_change) {
+    if (p_change == nullptr) {
+        return;
+    }
+
+    auto *users = static_cast<XboxUsers *>(p_context);
+    users->on_device_association_changed(*p_change);
+}
+
+void CALLBACK XboxUsers::_default_audio_endpoint_changed_callback(
+        void *p_context,
+        XUserLocalId p_user_local_id,
+        XUserDefaultAudioEndpointKind p_kind,
+        const wchar_t *p_endpoint_id_utf16) {
+    auto *users = static_cast<XboxUsers *>(p_context);
+    users->on_default_audio_endpoint_changed(
+            p_user_local_id,
+            p_kind,
+            p_endpoint_id_utf16 != nullptr ? String(p_endpoint_id_utf16) : String());
 }
 
 XboxRuntime *XboxUsers::_get_runtime() const {
@@ -1185,6 +1854,56 @@ void XboxUsers::_remove_user_by_local_id(XUserLocalId p_user_local_id) {
                         return user.is_null() || user->matches_local_id(p_user_local_id);
                     }),
             m_users.end());
+}
+
+Ref<XboxResult> XboxUsers::_wrap_found_handle(XUserHandle p_user_handle) {
+    if (p_user_handle == nullptr) {
+        return XboxResult::error_result(E_FAIL, "user_not_found", "The platform returned no user handle for the request.");
+    }
+
+    Ref<XboxUser> found;
+    found.instantiate();
+
+    HRESULT hr = found->adopt_handle(p_user_handle);
+    if (FAILED(hr)) {
+        // adopt_handle() closes the handle itself when population fails.
+        return XboxResult::hresult_error(hr, "Failed to translate the native XUser into a Godot wrapper.", "user_wrapper_create_failed");
+    }
+
+    // Prefer the cached wrapper so callers get the same object identity that
+    // get_users() / get_primary_user() hand out. The freshly opened handle is
+    // released with the temporary wrapper above.
+    Ref<XboxUser> cached = _find_user_by_local_id(found->get_native_local_id());
+    if (cached.is_valid()) {
+        return XboxResult::ok_result(cached);
+    }
+
+    return XboxResult::ok_result(found);
+}
+
+void XboxUsers::_update_device_association(const APP_LOCAL_DEVICE_ID &p_device_id, XUserLocalId p_user_local_id) {
+    for (size_t i = 0; i < m_device_associations.size(); ++i) {
+        if (!_device_ids_equal(m_device_associations[i].device_id, p_device_id)) {
+            continue;
+        }
+
+        if (p_user_local_id.value == 0) {
+            m_device_associations.erase(m_device_associations.begin() + static_cast<ptrdiff_t>(i));
+        } else {
+            m_device_associations[i].user_local_id = p_user_local_id;
+        }
+        return;
+    }
+
+    // A change to "no user" for a device we never tracked is a no-op.
+    if (p_user_local_id.value == 0) {
+        return;
+    }
+
+    DeviceAssociation association;
+    association.device_id = p_device_id;
+    association.user_local_id = p_user_local_id;
+    m_device_associations.push_back(association);
 }
 
 } // namespace godot
