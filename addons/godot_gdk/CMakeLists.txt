@@ -99,5 +99,6 @@ godot_addon_sync_files_to_sample(
         runtime/gdk_bootstrap.gd
         editor/gdk_editor_plugin.gd
         editor/gdk_export_platform.gd
+        editor/gdk_export_features_plugin.gd
         editor/gdk_setup_panel.gd
 )
