@@ -23,6 +23,7 @@ const _LOGO_FILES := [
 
 var _preserved_config: String = ""
 var _had_preserved_config: bool = false
+var _config_backup_failed: bool = false
 
 
 class FakeToolchain:
@@ -173,6 +174,13 @@ func _project_path(relative_path: String) -> String:
 
 
 func _write_text(path: String, text: String) -> void:
+	# Completes the "never damage a config we cannot restore" invariant: with no
+	# good backup we must not clobber the pre-existing file either, not just
+	# refrain from deleting it. On a live host that file is the GDK runtime's
+	# package identity.
+	if _config_backup_failed and path == _project_path(_CONFIG_FILE):
+		assert_true(false, "refusing to overwrite %s — it exists but could not be backed up" % _CONFIG_FILE)
+		return
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	assert_not_null(file, "fixture file opened for writing: %s" % path)
 	if file == null:
@@ -208,7 +216,12 @@ func _png_size(path: String) -> Vector2i:
 
 
 func _cleanup_project_artifacts() -> void:
-	if FileAccess.file_exists(_project_path(_CONFIG_FILE)):
+	# Only ever delete the config when we are holding a good backup of it (or
+	# there was nothing pre-existing to lose). If it exists but could not be
+	# read, deleting it would strip a live host of its package identity for the
+	# rest of the run and leave the developer's checkout without the staged
+	# file — the exact damage this preserve/restore pair exists to prevent.
+	if not _config_backup_failed and FileAccess.file_exists(_project_path(_CONFIG_FILE)):
 		DirAccess.remove_absolute(_project_path(_CONFIG_FILE))
 	for name: String in _LOGO_FILES:
 		var p: String = _project_path(name)
@@ -227,11 +240,19 @@ func _cleanup_project_artifacts() -> void:
 func _preserve_pre_existing_config() -> void:
 	_preserved_config = ""
 	_had_preserved_config = false
+	_config_backup_failed = false
 	var config_path: String = _project_path(_CONFIG_FILE)
 	if not FileAccess.file_exists(config_path):
 		return
 	var file := FileAccess.open(config_path, FileAccess.READ)
 	if file == null:
+		# The file is present but unreadable (locked, permissions, transient IO).
+		# Latch that so cleanup leaves it alone rather than destroying a config
+		# we cannot put back, and fail loudly instead of silently degrading the
+		# host — every later live test would otherwise fail with
+		# E_GAMEUSER_NO_PACKAGE_IDENTITY for a non-obvious reason.
+		_config_backup_failed = true
+		assert_true(false, "%s exists but could not be opened for backup (error %d); leaving it in place" % [_CONFIG_FILE, FileAccess.get_open_error()])
 		return
 	_preserved_config = file.get_as_text()
 	file.close()
@@ -243,6 +264,10 @@ func _restore_pre_existing_config() -> void:
 		return
 	var file := FileAccess.open(_project_path(_CONFIG_FILE), FileAccess.WRITE)
 	if file == null:
+		# We backed the config up and cleanup removed it, so failing to write it
+		# back means the host has lost its package identity. Surface it rather
+		# than letting the rest of the run fail obscurely.
+		assert_true(false, "%s was backed up but could not be restored (error %d)" % [_CONFIG_FILE, FileAccess.get_open_error()])
 		return
 	file.store_string(_preserved_config)
 	file.close()
