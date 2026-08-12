@@ -11,6 +11,7 @@
 #include "gdk.h"
 #include "gdk_activation.h"
 #include "gdk_pending_signal.h"
+#include "gdk_request_parsing.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_signal_xasync_context.h"
@@ -1281,25 +1282,13 @@ Dictionary GDKMultiplayerActivity::parse_invite_uri_internal(const String &p_uri
 bool GDKMultiplayerActivity::try_parse_xuid_internal(const String &p_xuid, uint64_t *r_xuid) {
     ERR_FAIL_COND_V(r_xuid == nullptr, false);
 
-    const String normalized = p_xuid.strip_edges();
-    if (normalized.is_empty()) {
-        return false;
-    }
-
-    const CharString utf8 = normalized.utf8();
-    const char *value = utf8.get_data();
-    if (value == nullptr || *value == '\0') {
-        return false;
-    }
-
-    char *end = nullptr;
-    unsigned long long parsed = std::strtoull(value, &end, 10);
-    if (end == value || (end != nullptr && *end != '\0')) {
-        return false;
-    }
-
-    *r_xuid = static_cast<uint64_t>(parsed);
-    return true;
+    // p_reject_zero=true preserves this call site's stricter stance: the local
+    // implementation this replaced rejected a buffer whose content is empty
+    // (a U+0000-prefixed string), which strtoull would otherwise decode as 0.
+    // Rejecting 0 outright covers that case and the literal "0" — neither is a
+    // real user to invite. The shared seam additionally honors errno, so
+    // out-of-range values no longer silently saturate to ULLONG_MAX.
+    return gdk_request_parsing::try_parse_xuid(p_xuid, r_xuid, /*p_reject_zero=*/true);
 }
 
 } // namespace godot

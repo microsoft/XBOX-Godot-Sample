@@ -151,7 +151,7 @@ func test_gdk_root_api() -> void:
 	assert_eq(bool(ProjectSettings.get_setting(EMBED_DISPATCH_SETTING, false)), true, "gdk/runtime/embed_dispatch defaults to true")
 	assert_true(ProjectSettings.has_setting(AUTO_ADD_PRIMARY_USER_SETTING), "gdk/runtime/auto_add_primary_user project setting registered")
 	assert_eq(bool(get_setting_default(AUTO_ADD_PRIMARY_USER_SETTING)), false, "gdk/runtime/auto_add_primary_user default remains false")
-	assert_eq(bool(ProjectSettings.get_setting(AUTO_ADD_PRIMARY_USER_SETTING, false)), true, "GDK test host sets gdk/runtime/auto_add_primary_user true")
+	assert_eq(bool(ProjectSettings.get_setting(AUTO_ADD_PRIMARY_USER_SETTING, false)), false, "GDK test host leaves gdk/runtime/auto_add_primary_user false so the bootstrap sign-in does not race per-test reset_runtime()")
 	assert_false(ProjectSettings.has_setting(TESTS_LIVE_REQUIRED_SETTING), "gdk/tests/live_required stays internal to tests")
 
 	var initialized_events: Array = []
