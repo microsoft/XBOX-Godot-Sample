@@ -1,7 +1,6 @@
 #include "gdk_social.h"
 
 #include <algorithm>
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,6 +8,7 @@
 
 #include "gdk.h"
 #include "gdk_pending_signal.h"
+#include "gdk_request_parsing.h"
 #include "gdk_result.h"
 #include "gdk_runtime.h"
 #include "gdk_signal_xasync_context.h"
@@ -32,25 +32,7 @@ String _normalize_token(const String &p_value) {
 }
 
 bool _try_parse_xuid(const String &p_xuid, uint64_t *r_xuid) {
-    if (r_xuid == nullptr) {
-        return false;
-    }
-
-    const String normalized = p_xuid.strip_edges();
-    if (normalized.is_empty()) {
-        return false;
-    }
-
-    const CharString utf8 = normalized.utf8();
-    char *end_ptr = nullptr;
-    errno = 0;
-    const unsigned long long parsed = std::strtoull(utf8.get_data(), &end_ptr, 10);
-    if (errno != 0 || end_ptr == nullptr || *end_ptr != '\0') {
-        return false;
-    }
-
-    *r_xuid = static_cast<uint64_t>(parsed);
-    return true;
+    return gdk_request_parsing::try_parse_xuid(p_xuid, r_xuid, /*p_reject_zero=*/false);
 }
 
 bool _try_parse_reputation_feedback_type(const String &p_feedback_type, XblReputationFeedbackType *r_feedback_type) {

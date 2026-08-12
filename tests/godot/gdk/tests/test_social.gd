@@ -139,6 +139,11 @@ func test_social_full_flow() -> void:
 	var invalid_feedback_xuid_signal = social.submit_reputation_feedback_async(user, "not-a-number", "fair_play_cheater")
 	await assert_signal_result_error(invalid_feedback_xuid_signal, "invalid_xuid", "submit_reputation_feedback_async() rejects non-numeric XUID strings")
 
+	# An XUID is unsigned: a negative value must be rejected outright rather
+	# than wrapping into a huge id (strtoull negates rather than failing).
+	var negative_feedback_xuid_signal = social.submit_reputation_feedback_async(user, "-1", "fair_play_cheater")
+	await assert_signal_result_error(negative_feedback_xuid_signal, "invalid_xuid", "submit_reputation_feedback_async() rejects negative XUID strings")
+
 	var invalid_feedback_type_signal = social.submit_reputation_feedback_async(user, "1", "not_a_feedback_type")
 	await assert_signal_result_error(invalid_feedback_type_signal, "invalid_feedback_type", "submit_reputation_feedback_async() rejects unknown feedback types")
 

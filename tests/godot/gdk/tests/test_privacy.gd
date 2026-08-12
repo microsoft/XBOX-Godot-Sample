@@ -64,6 +64,11 @@ func test_privacy_surface_and_validation() -> void:
 	var invalid_xuid_signal = privacy.check_permission_async(user, "communicate_using_text", "not-a-number")
 	await assert_signal_result_error(invalid_xuid_signal, "invalid_xuid", "check_permission_async() rejects non-numeric target XUIDs")
 
+	# An XUID is unsigned: a negative value must be rejected outright rather
+	# than wrapping into a huge id (strtoull negates rather than failing).
+	var negative_xuid_signal = privacy.check_permission_async(user, "communicate_using_text", "-1")
+	await assert_signal_result_error(negative_xuid_signal, "invalid_xuid", "check_permission_async() rejects negative target XUIDs")
+
 	var invalid_anonymous_signal = privacy.check_permission_for_anonymous_user_async(user, "communicate_using_text", "not_an_anonymous_type")
 	await assert_signal_result_error(invalid_anonymous_signal, "invalid_anonymous_user_type", "check_permission_for_anonymous_user_async() rejects unknown anonymous user types")
 
