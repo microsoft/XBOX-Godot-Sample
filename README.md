@@ -8,7 +8,7 @@
 [![GameInput](https://img.shields.io/badge/GameInput-%E2%9C%93-107C10?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNi45IDYuNmgxMC4yYzIuNyAwIDQuOTggMS45OCA1LjM4IDQuNjVsLjc4IDUuMmMuMjkgMS45My0xLjIgMy42Ni0zLjE1IDMuNjYtMS4xIDAtMi4xMi0uNTctMi43LTEuNWwtMS42My0yLjYyYS45LjkgMCAwIDAtLjc2LS40Mkg4Ljk4YS45LjkgMCAwIDAtLjc2LjQyTDYuNiAxOC42MWMtLjU4LjkzLTEuNiAxLjUtMi43IDEuNS0xLjk1IDAtMy40NC0xLjczLTMuMTUtMy42NmwuNzgtNS4yQTUuNDQgNS40NCAwIDAgMSA2LjkgNi42Wm0tLjc1IDMuM3YxLjVoLTEuNXYxLjdoMS41djEuNWgxLjd2LTEuNWgxLjV2LTEuN2gtMS41VjkuOWgtMS43Wm0xMC41NS4zNWExLjIgMS4yIDAgMSAwIDAgMi40IDEuMiAxLjIgMCAwIDAgMC0yLjRabS0yLjYgMi42YTEuMiAxLjIgMCAxIDAgMCAyLjQgMS4yIDEuMiAwIDAgMCAwLTIuNFoiLz48L3N2Zz4NCg%3D%3D)](docs/gameinput/plugin.md)
 [![.NET](https://img.shields.io/badge/.NET-%E2%9C%93-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
 [![Docs](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-107C10)](CONTRIBUTING.md)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4)](CONTRIBUTING.md)
 
 **Learn to build your Godot 4 game for XBOX for PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
 
