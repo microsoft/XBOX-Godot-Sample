@@ -1,4 +1,4 @@
-# Godot Microsoft GDK Editor Tools — User Reference
+# Godot Microsoft GDK Editor Tools - User Reference
 
 `addons\godot_gdk_editortools\` exposes Microsoft GDK PC packaging from
 Godot — Microsoft Game Config, makepkg (genmap / pack / validate), wdapp

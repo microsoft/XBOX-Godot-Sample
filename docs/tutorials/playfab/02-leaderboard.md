@@ -1,4 +1,4 @@
-# PlayFab Tutorial 2 — Post and query a PlayFab leaderboard
+# PlayFab Tutorial 2 - Post and query a PlayFab leaderboard
 
 ## What you'll build
 

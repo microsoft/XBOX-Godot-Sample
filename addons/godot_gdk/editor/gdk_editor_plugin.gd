@@ -6,16 +6,25 @@ extends EditorPlugin
 const AUTOLOAD_NAME := "XboxBootstrap"
 const AUTOLOAD_PATH := "res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 const XboxExportPlatform = preload("res://addons/godot_gdk/editor/gdk_export_platform.gd")
+const XboxExportFeaturesPlugin = preload("res://addons/godot_gdk/editor/gdk_export_features_plugin.gd")
 
 var _export_platform: EditorExportPlatformExtension
+var _export_features_plugin: EditorExportPlugin
 
 
 func _enter_tree() -> void:
 	_export_platform = XboxExportPlatform.new()
 	add_export_platform(_export_platform)
+	# Restores the `gdk` feature tag, which the delegated Windows export would
+	# otherwise drop. See gdk_export_features_plugin.gd.
+	_export_features_plugin = XboxExportFeaturesPlugin.new()
+	add_export_plugin(_export_features_plugin)
 
 
 func _exit_tree() -> void:
+	if _export_features_plugin != null:
+		remove_export_plugin(_export_features_plugin)
+		_export_features_plugin = null
 	if _export_platform != null:
 		remove_export_platform(_export_platform)
 		_export_platform = null

@@ -1,4 +1,4 @@
-# XBOX Godot Sample addons — getting started
+# XBOX Godot Sample addons - drop-in quickstart
 
 A quickstart for dropping the addons into your Godot project. This
 walks through enabling the addons, setting the PlayFab title id,

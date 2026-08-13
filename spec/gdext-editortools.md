@@ -1,4 +1,4 @@
-# `godot_gdk_editortools` — Headless Editor Tools Surface
+# `godot_gdk_editortools` - Headless Editor Tools Surface
 
 Status: **Headless workflow implemented**. The editor plugin exposes a
 top-level `GDK` menu and modal dialogs; it does not register an editor dock.

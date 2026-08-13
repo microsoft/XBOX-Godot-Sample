@@ -21,12 +21,12 @@ func test_game_save_surface_and_validation_paths() -> void:
 
 	for method_name in [
 		"get_folder_async",
-		"get_remaining_quota",
+		"get_remaining_quota_async",
 	]:
 		assert_has_method_named(game_save, method_name)
 
-	var pre_init_quota = game_save.get_remaining_quota(null)
-	assert_result_error(pre_init_quota, "not_initialized", "get_remaining_quota() rejects calls before GDK.initialize()")
+	var pre_init_quota = game_save.get_remaining_quota_async(null)
+	await assert_signal_result_error(pre_init_quota, "not_initialized", "get_remaining_quota_async() rejects calls before GDK.initialize()")
 
 	var pre_init_folder = game_save.get_folder_async(null)
 	await assert_signal_result_error(pre_init_folder, "not_initialized", "get_folder_async() rejects calls before GDK.initialize()")
@@ -39,8 +39,8 @@ func test_game_save_surface_and_validation_paths() -> void:
 		pending("Game save runtime behavior: %s" % init_result.message)
 		return
 
-	var invalid_quota = game_save.get_remaining_quota(null)
-	assert_result_error(invalid_quota, "invalid_user", "get_remaining_quota() rejects null users after initialize")
+	var invalid_quota = game_save.get_remaining_quota_async(null)
+	await assert_signal_result_error(invalid_quota, "invalid_user", "get_remaining_quota_async() rejects null users after initialize")
 
 	var invalid_folder = game_save.get_folder_async(null)
 	await assert_signal_result_error(invalid_folder, "invalid_user", "get_folder_async() rejects null users after initialize")
@@ -66,15 +66,22 @@ func test_game_save_folder_and_quota_when_user_available() -> void:
 		pending("Game save folder/quota coverage: no signed-in Xbox user is available on this machine.")
 		return
 
-	var quota_result = game_save.get_remaining_quota(user)
-	assert_not_null(quota_result, "get_remaining_quota() returns XboxResult for a signed-in user")
+	var quota_result = await await_completion(game_save.get_remaining_quota_async(user))
+	assert_not_null(quota_result, "get_remaining_quota_async() completes with an XboxResult for a signed-in user")
 	if quota_result == null:
 		return
 	if quota_result.ok:
-		assert_dict_has_key(quota_result.data, "bytes", "get_remaining_quota() success data exposes bytes")
+		assert_dict_has_key(quota_result.data, "bytes", "get_remaining_quota_async() success data exposes bytes")
 	else:
-		assert_true(quota_result.code.length() > 0, "get_remaining_quota() failure exposes an error code")
-		assert_true(quota_result.message.length() > 0, "get_remaining_quota() failure exposes an error message")
+		assert_true(quota_result.code.length() > 0, "get_remaining_quota_async() failure exposes an error code")
+		assert_true(quota_result.message.length() > 0, "get_remaining_quota_async() failure exposes an error message")
+		# Regression guard for issue #145: XGameSaveFilesGetRemainingQuota is a
+		# synchronous GDK entry point that fails with E_GS_ASYNC_FUNCTION_REQUIRED
+		# (0x8083000E) whenever it runs on a time-sensitive thread. The wrapper
+		# must dispatch it to the task queue's work port, so that HRESULT can
+		# never reach a caller.
+		assert_ne(quota_result.hresult & 0xFFFFFFFF, 0x8083000E,
+			"get_remaining_quota_async() never surfaces E_GS_ASYNC_FUNCTION_REQUIRED (0x8083000E)")
 
 	var folder_result = await await_completion(game_save.get_folder_async(user))
 	assert_not_null(folder_result, "get_folder_async() completes with an XboxResult for a signed-in user")

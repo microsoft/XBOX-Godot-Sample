@@ -1,4 +1,4 @@
-# PlayFab Tutorial 3 — Lobby
+# PlayFab Tutorial 3 - Lobby
 
 ## What you'll build
 

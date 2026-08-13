@@ -40,7 +40,7 @@ public:
     void shutdown();
 
     Signal get_folder_async(const Ref<XboxUser> &p_user);
-    Ref<XboxResult> get_remaining_quota(const Ref<XboxUser> &p_user);
+    Signal get_remaining_quota_async(const Ref<XboxUser> &p_user);
 };
 
 } // namespace godot

@@ -4,7 +4,9 @@
 
 #include <godot_cpp/variant/dictionary.hpp>
 
+#include <XAsyncProvider.h>
 #include <XGameSaveFiles.h>
+#include <XUser.h>
 
 #include "xbox.h"
 #include "xbox_pending_signal.h"
@@ -61,11 +63,117 @@ public:
     }
 };
 
+// XGameSaveFilesGetRemainingQuota is synchronous, and the GDK fails it with
+// E_GS_ASYNC_FUNCTION_REQUIRED (0x8083000E) when it is called from a
+// time-sensitive thread - which Godot's main thread is. XGameSaveFiles has no
+// async quota entry point, so the synchronous call is wrapped in a custom
+// XAsync provider that runs it on the shared task queue's work port (a thread
+// pool thread) and reports back through the queue's completion port on the
+// main thread.
+const char *const REMAINING_QUOTA_IDENTITY = "XboxGameSave::get_remaining_quota_async";
+
+class GetRemainingQuotaAsyncContext final : public XboxSignalXAsyncContext {
+    XUserHandle m_user = nullptr;
+    CharString m_configuration_id_utf8;
+    int64_t m_remaining_quota = 0;
+
+protected:
+    void finalize(XAsyncBlock *p_async_block) override {
+        if (get_runtime()->is_shutting_down() || get_pending_signal()->was_cancel_requested()) {
+            get_pending_signal()->complete(XboxResult::cancelled("Game save quota request cancelled."));
+            return;
+        }
+
+        int64_t remaining_quota = 0;
+        HRESULT result_hr = XAsyncGetResult(
+                p_async_block,
+                REMAINING_QUOTA_IDENTITY,
+                sizeof(remaining_quota),
+                &remaining_quota,
+                nullptr);
+        if (result_hr == E_ABORT) {
+            get_pending_signal()->complete(XboxResult::cancelled("Game save quota request cancelled."));
+            return;
+        }
+        if (FAILED(result_hr)) {
+            get_pending_signal()->complete(XboxResult::hresult_error(
+                    result_hr,
+                    "Failed to query the remaining game save quota.",
+                    "game_save_quota_failed"));
+            return;
+        }
+
+        Dictionary data;
+        data["bytes"] = remaining_quota;
+        get_pending_signal()->complete(XboxResult::ok_result(data));
+    }
+
+public:
+    GetRemainingQuotaAsyncContext(
+            XboxRuntime *p_runtime,
+            const Ref<XboxPendingSignal> &p_pending_signal,
+            XUserHandle p_user,
+            const String &p_configuration_id) :
+            XboxSignalXAsyncContext(p_runtime, p_pending_signal),
+            m_user(p_user),
+            m_configuration_id_utf8(p_configuration_id.utf8()) {}
+
+    // Deleted on the main thread by the shared completion thunk, or directly by
+    // the caller when XAsyncBegin fails.
+    ~GetRemainingQuotaAsyncContext() override {
+        if (m_user != nullptr) {
+            XUserCloseHandle(m_user);
+            m_user = nullptr;
+        }
+    }
+
+    HRESULT run_quota_query() {
+        return XGameSaveFilesGetRemainingQuota(
+                m_user,
+                m_configuration_id_utf8.get_data(),
+                &m_remaining_quota);
+    }
+
+    int64_t get_remaining_quota() const {
+        return m_remaining_quota;
+    }
+};
+
+// The provider context is the XboxSignalXAsyncContext itself, which the shared
+// completion thunk deletes. XAsyncOp::Cleanup therefore intentionally does not
+// free it: doing so would double-free whenever XAsyncBegin fails and the caller
+// deletes the context directly.
+HRESULT CALLBACK _remaining_quota_provider(XAsyncOp p_op, const XAsyncProviderData *p_data) {
+    auto *context = static_cast<GetRemainingQuotaAsyncContext *>(p_data->context);
+
+    switch (p_op) {
+        case XAsyncOp::Begin:
+            return XAsyncSchedule(p_data->async, 0);
+
+        case XAsyncOp::DoWork: {
+            const HRESULT hr = context->run_quota_query();
+            XAsyncComplete(p_data->async, hr, FAILED(hr) ? 0 : sizeof(int64_t));
+            return S_OK;
+        }
+
+        case XAsyncOp::GetResult:
+            if (p_data->buffer != nullptr && p_data->bufferSize >= sizeof(int64_t)) {
+                *static_cast<int64_t *>(p_data->buffer) = context->get_remaining_quota();
+            }
+            return S_OK;
+
+        case XAsyncOp::Cancel:
+        case XAsyncOp::Cleanup:
+        default:
+            return S_OK;
+    }
+}
+
 } // namespace
 
 void XboxGameSave::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_folder_async", "user"), &XboxGameSave::get_folder_async);
-    ClassDB::bind_method(D_METHOD("get_remaining_quota", "user"), &XboxGameSave::get_remaining_quota);
+    ClassDB::bind_method(D_METHOD("get_remaining_quota_async", "user"), &XboxGameSave::get_remaining_quota_async);
 }
 
 void XboxGameSave::set_owner(Xbox *p_owner) {
@@ -164,37 +272,57 @@ Signal XboxGameSave::get_folder_async(const Ref<XboxUser> &p_user) {
     return pending_signal->get_completed_signal();
 }
 
-Ref<XboxResult> XboxGameSave::get_remaining_quota(const Ref<XboxUser> &p_user) {
+Signal XboxGameSave::get_remaining_quota_async(const Ref<XboxUser> &p_user) {
     XboxRuntime *runtime = _get_runtime();
     if (runtime == nullptr || !runtime->is_initialized() || !m_runtime_ready) {
-        return XboxResult::error_result(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
+        return _make_error_signal(E_FAIL, "not_initialized", "GDK is not initialized. Call GDK.initialize() first.");
     }
     if (!p_user.is_valid() || p_user->get_handle() == nullptr || !p_user->is_signed_in()) {
-        return XboxResult::error_result(E_INVALIDARG, "invalid_user", "A signed-in XboxUser is required to query the game save quota.");
+        return _make_error_signal(E_INVALIDARG, "invalid_user", "A signed-in XboxUser is required to query the game save quota.");
     }
 
     String configuration_id;
     Ref<XboxResult> config_result = _resolve_configuration_id(&configuration_id);
     if (!config_result->is_ok()) {
-        return config_result;
+        return _make_error_signal(static_cast<HRESULT>(config_result->get_hresult()), config_result->get_code(), config_result->get_message());
     }
 
-    const CharString configuration_id_utf8 = configuration_id.utf8();
-    int64_t remaining_quota = 0;
-    HRESULT hr = XGameSaveFilesGetRemainingQuota(
-            p_user->get_handle(),
-            configuration_id_utf8.get_data(),
-            &remaining_quota);
+    // The quota call runs on a work-port thread, so it needs a handle it owns
+    // for the lifetime of the request rather than the XboxUser's handle, which
+    // the main thread may release while the request is in flight.
+    XUserHandle user_handle = nullptr;
+    HRESULT duplicate_hr = XUserDuplicateHandle(p_user->get_handle(), &user_handle);
+    if (FAILED(duplicate_hr)) {
+        return _make_error_signal(duplicate_hr, "invalid_user", "Failed to duplicate the user handle for the game save quota request.");
+    }
+
+    Ref<XboxPendingSignal> pending_signal = runtime->make_pending_signal();
+    auto *context = new GetRemainingQuotaAsyncContext(runtime, pending_signal, user_handle, configuration_id);
+
+    // No cancel handler is bound here, unlike get_folder_async(). The work is a
+    // single blocking XGameSaveFilesGetRemainingQuota call on a work-port
+    // thread, which the GDK offers no way to interrupt, so XAsyncOp::Cancel is
+    // a no-op and forwarding to XAsyncCancel() could only race DoWork's
+    // XAsyncComplete(). Callers cannot observe the difference: they receive a
+    // bare Signal and XboxPendingSignal is an internal class, so there is no
+    // caller-facing cancel path. XboxRuntime::shutdown() still cancels and then
+    // synchronously completes every registered pending signal, so no await can
+    // hang.
+    HRESULT hr = XAsyncBegin(
+            context->get_async_block(),
+            context,
+            REMAINING_QUOTA_IDENTITY,
+            "XboxGameSave::get_remaining_quota_async",
+            _remaining_quota_provider);
     if (FAILED(hr)) {
-        return XboxResult::hresult_error(
+        delete context;
+        pending_signal->complete_deferred(XboxResult::hresult_error(
                 hr,
-                "Failed to query the remaining game save quota.",
-                "game_save_quota_failed");
+                "Failed to start the game save quota request.",
+                "game_save_quota_start_failed"));
     }
 
-    Dictionary data;
-    data["bytes"] = remaining_quota;
-    return XboxResult::ok_result(data);
+    return pending_signal->get_completed_signal();
 }
 
 } // namespace godot

@@ -1,4 +1,4 @@
-# Godot PlayFab plugin
+# PlayFab addon (`godot_playfab`)
 
 This is the landing page for the `godot_playfab` docs set.
 

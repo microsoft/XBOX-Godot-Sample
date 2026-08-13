@@ -1,4 +1,4 @@
-# Tutorial GDK — Xbox services sample
+# Tutorial GDK - Xbox services sample
 
 This Godot 4.x project is the reference implementation for the [GDK tutorial track](../../docs/tutorials/README.md#gdk-track). It uses `godot_gdk` runtime surfaces and does not require PlayFab.
 

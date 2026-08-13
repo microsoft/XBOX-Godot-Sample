@@ -16,6 +16,8 @@ extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 
 const ExportPlatform := preload("res://addons/godot_gdk/editor/gdk_export_platform.gd")
 const SCRIPT_PATH := "res://addons/godot_gdk/editor/gdk_export_platform.gd"
+const FEATURES_PLUGIN_PATH := "res://addons/godot_gdk/editor/gdk_export_features_plugin.gd"
+const EDITOR_PLUGIN_PATH := "res://addons/godot_gdk/editor/gdk_editor_plugin.gd"
 
 # Real strings captured from GDK 260400 makepkg.exe on failure.
 const GENMAP_STDERR := "'C:\\out\\layout.xml' map file was not created, error = 0x80070003"
@@ -180,79 +182,114 @@ func test_ensure_detected_is_guarded_one_shot() -> void:
 		"_initialize() routes through _ensure_detected()")
 
 
-# ── Export template version-dir resolution (issue #134) ───────────────────
+# ── Export template resolution (issues #134, #144 follow-up) ─────────────
 #
-# `_find_windows_template` used to build the export_templates subdir name as
-# "<major>.<minor>.<status>" (e.g. "4.6.stable"), which never matched the real
-# "4.6.2.stable" directory on a patch release — so patch releases silently fell
-# back to the Godot editor binary as a stand-in template and shipped a package
-# that failed at launch with "GDExtension dynamic library not found". The
-# candidate names now include the patch component, most-specific first.
-
-func test_template_version_dirs_prefers_patch_qualified() -> void:
-	var dirs := ExportPlatform._template_version_dirs(
-		{"major": 4, "minor": 6, "patch": 2, "status": "stable"})
-	assert_eq(dirs[0], "4.6.2.stable",
-		"patch-qualified dir name is tried first (issue #134)")
-	assert_true(dirs.has("4.6.2.stable"),
-		"the real patch-release template dir is a candidate")
-
-
-func test_template_version_dirs_handles_x_y_zero() -> void:
-	# Godot omits the patch component for x.y.0 releases ("4.5.stable"), so that
-	# form must stay a candidate alongside the patch-qualified name.
-	var dirs := ExportPlatform._template_version_dirs(
-		{"major": 4, "minor": 5, "patch": 0, "status": "stable"})
-	assert_true(dirs.has("4.5.stable"),
-		"patch-less dir name (x.y.0) is still a candidate")
-
-
-func test_template_version_dirs_statusless_fallbacks() -> void:
-	# Dev/custom builds may carry no status; bare "major.minor.patch" and
-	# "major.minor" must still be offered.
-	var dirs := ExportPlatform._template_version_dirs(
-		{"major": 4, "minor": 6, "patch": 2, "status": ""})
-	assert_true(dirs.has("4.6.2"), "statusless patch dir is a candidate")
-	assert_true(dirs.has("4.6"), "statusless minor dir is a candidate")
-
-
-func test_find_windows_template_uses_version_dir_helper() -> void:
-	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
-	assert_string_contains(_func_body(src, "_find_windows_template"),
-		"_template_version_dirs",
-		"_find_windows_template resolves candidates via _template_version_dirs")
-
-
-# ── .NET template resolution (".NET assemblies not found") ────────────────
+# Template lookup used to be hand-rolled: it built `%APPDATA%\Godot\
+# export_templates\<version>\` itself and guessed the version directory name
+# from Engine.get_version_info(), including the `.mono` suffix for .NET editor
+# builds. Getting that name wrong is what made patch releases silently fall
+# back to the Godot editor binary and ship a package that died at launch with
+# "GDExtension dynamic library not found" (issue #134).
 #
-# Godot resolves export templates from `<version>.mono` when the editor is a
-# .NET build. Looking only at the plain `<version>` dir found nothing, so a C#
-# project silently fell back to the Godot editor binary — which starts up
-# looking for `<exe_dir>/GodotSharp/Api/Debug` and aborts with ".NET assemblies
-# not found" instead of loading the exported `data_*` assemblies.
+# Godot exposes the exact lookup its own Windows exporter uses, so the platform
+# now delegates to it. find_export_template() resolves
+# `<templates dir>/<VERSION_FULL_CONFIG>/<file>`, which already encodes the
+# patch component, the `.mono` suffix, self-contained mode and a relocated
+# editor data directory — none of which the hand-rolled probe handled.
 
-func test_template_version_dirs_uses_mono_suffix_for_dotnet() -> void:
-	var dirs := ExportPlatform._template_version_dirs(
-		{"major": 4, "minor": 7, "patch": 1, "status": "stable"}, true)
-	assert_eq(dirs[0], "4.7.1.stable.mono",
-		"a .NET editor resolves the patch-qualified .mono template dir first")
-	for dir_name: String in dirs:
-		assert_true(dir_name.ends_with(".mono"),
-			"a non-.NET template cannot host a C# game, so plain dirs are not offered")
+func test_template_file_name_matches_godot_naming() -> void:
+	assert_eq(ExportPlatform._template_file_name(true), "windows_debug_x86_64.exe",
+		"debug template file name matches Godot's Windows exporter")
+	assert_eq(ExportPlatform._template_file_name(false), "windows_release_x86_64.exe",
+		"release template file name matches Godot's Windows exporter")
 
 
-func test_template_version_dirs_default_is_non_mono() -> void:
-	var dirs := ExportPlatform._template_version_dirs(
-		{"major": 4, "minor": 7, "patch": 1, "status": "stable"})
-	assert_eq(dirs[0], "4.7.1.stable",
-		"a standard editor build keeps resolving the plain template dir")
-
-
-func test_find_windows_template_asks_whether_editor_is_dotnet() -> void:
+func test_find_windows_template_delegates_to_engine_lookup() -> void:
 	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
-	assert_string_contains(_func_body(src, "_find_windows_template"),
-		"_is_dotnet_editor()",
-		"_find_windows_template selects .mono candidates on a .NET editor build")
+	var body := _func_body(src, "_find_windows_template")
+	assert_ne(body, "", "_find_windows_template() is defined")
+	assert_string_contains(body, "find_export_template(",
+		"template lookup delegates to EditorExportPlatform.find_export_template()")
+	# The hand-rolled probe must be gone, not merely bypassed: it is the piece
+	# that got the version directory wrong in issue #134.
+	assert_false(body.contains("APPDATA"),
+		"the hand-rolled %APPDATA% probe no longer exists")
+	assert_false(body.contains("export_templates"),
+		"the templates directory is resolved by the engine, not rebuilt here")
+	assert_false(src.contains("_template_version_dirs"),
+		"the version-dir guessing helper is removed along with its only caller")
+
+
+func test_find_windows_template_unwraps_engine_result_dictionary() -> void:
+	# find_export_template() is bound as returning {result, path, error_string}
+	# on both Godot 4.5 and 4.6 — treating it as a String silently yields a
+	# Dictionary-to-String conversion instead of a path.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_find_windows_template")
+	assert_string_contains(body, "\"path\"",
+		"the resolved path is read out of the result dictionary")
+	assert_string_contains(body, "\"result\"",
+		"the result code is checked before trusting the path")
+
+
+# ── Custom export templates ──────────────────────────────────────────────
+#
+# `custom_template/debug` and `custom_template/release` are the standard Godot
+# way to package against a custom engine build. EditorExportPlatformPC honours
+# them ahead of the installed templates; this platform ignored them entirely,
+# so a title built on a patched engine could not be packaged at all.
+
+func test_custom_template_options_are_offered() -> void:
+	var names: PackedStringArray = ExportPlatform.declared_option_names()
+	assert_true("custom_template/debug" in names,
+		"a custom debug template option is offered")
+	assert_true("custom_template/release" in names,
+		"a custom release template option is offered")
+
+
+func test_custom_template_path_selects_option_by_build_config() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_custom_template_path")
+	assert_string_contains(body, "custom_template/debug",
+		"a debug export reads the debug custom template")
+	assert_string_contains(body, "custom_template/release",
+		"a release export reads the release custom template")
+
+
+func test_custom_template_wins_over_installed_template() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_find_windows_template")
+	var custom_idx: int = body.find("_custom_template_path")
+	var engine_idx: int = body.find("find_export_template(")
+	assert_gt(custom_idx, -1, "_find_windows_template consults the custom template option")
+	assert_gt(engine_idx, custom_idx,
+		"a configured custom template is preferred over the installed template")
+
+
+func test_missing_custom_template_is_reported_as_itself() -> void:
+	# A broken custom template path is the user's own explicit configuration, so
+	# it must not be reported as (or silently treated as) a missing *installed*
+	# template.
+	var msg: String = ExportPlatform._missing_custom_template_message(
+		false, "C:\\builds\\my_template.exe")
+	assert_string_contains(msg, "C:\\builds\\my_template.exe",
+		"the failing path is named")
+	assert_string_contains(msg, "custom_template/release",
+		"the offending option is named")
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_has_valid_export_configuration")
+	var custom_idx: int = body.find("_missing_custom_template_message")
+	var installed_idx: int = body.find("_missing_template_message")
+	assert_gt(custom_idx, -1, "validation reports a broken custom template")
+	assert_gt(installed_idx, custom_idx,
+		"a broken custom template is reported instead of the installed-template message")
+
+
+func test_validation_reports_broken_custom_template() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_has_valid_export_configuration")
+	assert_string_contains(body, "_missing_custom_template_message",
+		"export validation surfaces a broken custom template before export starts")
 
 
 func test_dotnet_project_detection_requires_assembly_name() -> void:
@@ -278,19 +315,13 @@ func test_dotnet_missing_template_message_is_actionable() -> void:
 		"the shared template message can name the .NET flavor")
 
 
-func test_export_refuses_editor_binary_for_dotnet_even_when_loose() -> void:
+func test_dotnet_project_needs_a_real_template_up_front() -> void:
 	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
-	var body := _func_body(src, "_export_project")
-	assert_string_contains(body, "_is_dotnet_project()",
-		"a C# project is checked before the loose editor-binary fallback")
-	var dotnet_idx: int = body.find("_is_dotnet_project()")
-	var loose_idx: int = body.find("OS.get_executable_path()")
-	assert_true(dotnet_idx != -1 and loose_idx != -1 and dotnet_idx < loose_idx,
-		"the C# hard error precedes the loose editor-binary fallback")
-
 	var validation := _func_body(src, "_has_valid_export_configuration")
 	assert_string_contains(validation, "_dotnet_requires_template_message",
 		"export validation blocks a template-less C# export up front")
+	assert_string_contains(validation, "set_config_missing_templates(true)",
+		"the dialog is told to offer the Manage Export Templates shortcut")
 
 
 # ── Zero-GDExtension-DLL guard (issue #134) ───────────────────────────────
@@ -325,106 +356,211 @@ func test_copy_addon_dlls_fails_when_zero_main_dlls() -> void:
 		"_copy_addon_dlls aborts the export when no main DLL was staged")
 
 
-# ── Editor-binary-as-template guard (issue #134) ──────────────────────────
+# ── Delegation to the built-in Windows exporter ───────────────────────────
 #
-# The Godot editor binary is not a valid game template: it enables
-# has_feature("editor") and resolves GDExtension DLLs from the dev machine's
-# source tree, so a package built from it fails "not found" elsewhere. Packaged
-# exports must refuse it; only same-machine loose dev-register may fall back.
+# The .exe and .pck used to be produced here: copy a template, stamp its icon
+# with rcedit, stage the D3D12 redistributables, save_pack(), place the shared
+# objects. None of that is GDK-specific (a GDK title on PC is an ordinary Win32
+# application) and every step was a chance to drift from a plain
+# `Windows Desktop` export — issues #134 and #144 were both instances of that
+# drift, and Godot 4.5 removing rcedit outright broke the icon path completely.
+#
+# So the platform hands its own preset to EditorExportPlatformWindows and
+# layers GDK packaging on the result. These tests pin that the in-house
+# pipeline is really gone rather than merely bypassed.
 
-func test_export_refuses_editor_binary_when_packaging() -> void:
+func test_export_delegates_the_exe_and_pck_to_godot() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_run_windows_export")
+	assert_string_contains(body, "WINDOWS_PLATFORM_CLASS",
+		"the built-in Windows platform is what produces the binaries")
+	assert_string_contains(body, "export_project(p_preset, p_debug, exe_path, p_flags)",
+		"this platform's own preset is handed straight to the built-in exporter")
+	assert_eq(ExportPlatform.WINDOWS_PLATFORM_CLASS, "EditorExportPlatformWindows",
+		"the delegate is Godot's Windows exporter")
+
+
+func test_export_project_delegates_before_layering_gdk_packaging() -> void:
 	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
 	var body := _func_body(src, "_export_project")
-	assert_string_contains(body, "if not use_loose:",
-		"a non-loose (packaged) export refuses to continue without a real template")
-	assert_string_contains(body, "OS.get_executable_path()",
-		"the editor-binary fallback remains reachable for loose dev-register")
+	var delegate_at: int = body.find("_run_windows_export(")
+	var dll_at: int = body.find("_copy_addon_dlls(")
+	var config_at: int = body.find("_stage_microsoft_game_config(")
+	var pack_at: int = body.find("_makepkg_pack(")
+	assert_gt(delegate_at, -1, "the export delegates to the built-in Windows exporter")
+	assert_gt(dll_at, delegate_at, "addon DLLs are staged onto the delegated output")
+	assert_gt(config_at, dll_at, "MicrosoftGame.config is staged after the DLLs")
+	assert_gt(pack_at, config_at, "packaging runs last")
 
 
-# ── Export-plugin shared objects / C# assemblies (issue #144) ─────────────
-#
-# `export_pack()` calls `save_pack()` with a null shared-object sink and opens a
-# second ExportNotifier inside the one EditorExportPlatformExtension already
-# opened around `_export_project()`. That ran every export plugin's
-# `_export_begin`/`_export_end` twice AND discarded everything the plugins
-# registered via `add_shared_object()`. Godot ships a C#/.NET project's
-# published assemblies exclusively as shared objects targeted at
-# `data_<assembly>_windows_x86_64/`, so an `XBOX on PC` export produced a
-# package with zero managed DLLs. `save_pack()` returns those entries so the
-# platform can stage them itself.
-
-func test_export_pck_uses_save_pack_to_capture_shared_objects() -> void:
-	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
-	var body := _func_body(src, "_export_pck")
-	assert_string_contains(body, "save_pack(",
-		"_export_pck() uses save_pack() so so_files come back to the platform")
-	assert_false(body.contains("export_pack("),
-		"export_pack() drops add_shared_object() entries and double-fires " +
-		"every export plugin's _export_begin/_export_end — issue #144")
-
-
-func test_export_project_stages_shared_objects_before_addon_dlls() -> void:
+func test_delegated_export_failure_aborts_the_package() -> void:
 	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
 	var body := _func_body(src, "_export_project")
-	assert_string_contains(body, "_stage_shared_objects(",
-		"the export stages the shared objects save_pack() reported")
-	assert_string_contains(body, "so_files",
-		"the export reads save_pack()'s so_files list")
-	var so_at := body.find("_stage_shared_objects(")
-	var dll_at := body.find("_copy_addon_dlls(")
-	assert_true(so_at != -1 and dll_at != -1 and so_at < dll_at,
-		"shared objects are staged before _copy_addon_dlls() so its " +
-		"already-present guard keeps addon DLLs authoritative")
+	assert_string_contains(body, "if delegate_err != OK:",
+		"a failed Windows export must not be packaged")
+	var run_body := _func_body(src, "_run_windows_export")
+	assert_string_contains(run_body, "FileAccess.file_exists(exe_path)",
+		"a success return is still verified against a real executable on disk")
 
 
-func test_shared_object_without_target_lands_next_to_the_exe() -> void:
-	var dest: String = ExportPlatform._shared_object_destination(
-		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "")
-	assert_eq(dest, "C:/out/_gdk_staging/Game.dll",
-		"an empty target folder means the package root")
+func test_delegated_exporter_messages_reach_the_dialog() -> void:
+	# The delegate is a bare instance, so its message log dies with it unless
+	# it is copied across — losing exactly the diagnostics that explain a
+	# failure the user is looking at.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_forward_messages")
+	assert_string_contains(body, "get_message_count()",
+		"every message the delegate logged is walked")
+	assert_string_contains(body, "add_message(",
+		"the delegate's messages are re-emitted on this platform")
+	assert_string_contains(_func_body(src, "_run_windows_export"), "_forward_messages(windows)",
+		"messages are forwarded whether the delegated export succeeded or not")
 
 
-func test_shared_object_target_folder_is_preserved() -> void:
-	var dest: String = ExportPlatform._shared_object_destination(
-		"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", "data_Game_windows_x86_64")
-	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/Game.dll",
-		"the C# data_<assembly>_windows_x86_64 target folder is honoured")
+func test_in_house_export_pipeline_is_gone() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	# rcedit was removed from Godot in 4.5 (replaced by a native PE resource
+	# writer that is not exposed to GDScript), so an rcedit-based icon path
+	# cannot work on any version this addon supports.
+	for helper: String in ["_resolve_rcedit_path", "_rcedit_args", "_modify_staged_executable"]:
+		assert_false(src.contains(helper),
+			"%s is removed, not merely unused — Godot 4.5 dropped rcedit" % helper)
+	assert_false(src.contains("_write_ico"),
+		"the hand-rolled .ico writer is gone; Godot stamps the icon natively")
+	assert_false(src.contains("save_pack("),
+		"the .pck is written by the built-in exporter")
+	assert_false(src.contains("_stage_shared_objects"),
+		"export-plugin shared objects (C# assemblies included) are placed by Godot")
+	assert_false(src.contains("AGILITY_SDK_LIBS"),
+		"the D3D12 Agility SDK / PIX redistributables are staged by Godot")
+	assert_false(src.contains("OS.get_executable_path()"),
+		"the editor binary is never substituted for an export template (issue #134)")
 
 
-func test_shared_object_nested_target_folder_is_preserved() -> void:
-	var dest: String = ExportPlatform._shared_object_destination(
-		"C:/out/_gdk_staging", "C:/tmp/publish/sub/dep.dll",
-		"data_Game_windows_x86_64/sub")
-	assert_eq(dest, "C:/out/_gdk_staging/data_Game_windows_x86_64/sub/dep.dll",
-		"nested publish subdirectories keep their relative layout")
+func test_gdk_feature_tag_survives_the_delegated_export() -> void:
+	# Export feature tags come from the platform performing the export, so the
+	# delegated run reports `windows`/`pc` and would silently drop `gdk`. An
+	# EditorExportPlugin's features are consulted whichever platform is running.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	assert_string_contains(_func_body(src, "_run_windows_export"), "exporting_for_gdk = true",
+		"the delegated export is flagged so the feature can be restored")
+	assert_string_contains(_func_body(src, "_run_windows_export"), "exporting_for_gdk = false",
+		"the flag is cleared again so a plain Windows export is unaffected")
+
+	var plugin_src := FileAccess.get_file_as_string(FEATURES_PLUGIN_PATH)
+	assert_ne(plugin_src, "", "the feature-restoring export plugin exists")
+	assert_string_contains(plugin_src, "_get_export_features",
+		"the plugin contributes export features")
+	assert_string_contains(plugin_src, "exporting_for_gdk",
+		"the plugin only contributes during a GDK export")
+	assert_string_contains(plugin_src, "\"gdk\"", "the restored tag is `gdk`")
+
+	var plugin_body := _func_body(plugin_src, "_get_export_features")
+	assert_string_contains(plugin_body, "return PackedStringArray()",
+		"a plain Windows Desktop export in the same session gets no gdk tag")
 
 
-func test_shared_object_target_cannot_escape_the_staging_dir() -> void:
-	for target: String in ["..", "../../elsewhere", "/abs/path", "C:/abs", "res://x"]:
-		var dest: String = ExportPlatform._shared_object_destination(
-			"C:/out/_gdk_staging", "C:/tmp/publish/Game.dll", target)
-		assert_eq(dest, "",
-			"target %s must be rejected instead of writing outside the package" % target)
+func test_features_plugin_is_registered_with_the_platform() -> void:
+	var plugin_src := FileAccess.get_file_as_string(EDITOR_PLUGIN_PATH)
+	assert_string_contains(plugin_src, "add_export_plugin(",
+		"the feature-restoring plugin is registered")
+	assert_string_contains(plugin_src, "remove_export_plugin(",
+		"and removed again on _exit_tree, so disabling the addon leaves no trace")
 
 
-func test_addon_bin_libraries_are_left_to_copy_addon_dlls() -> void:
-	var project := "C:/proj/"
-	assert_true(ExportPlatform._is_addon_bin_library(
-		"C:/proj/addons/godot_gdk/bin/godot_gdk.windows.debug.x86_64.dll", project),
-		"addons/<name>/bin/ DLLs are staged by _copy_addon_dlls with config filtering")
+# ── Export option coverage ────────────────────────────────────────────────
+#
+# Handing our preset to the built-in exporter only works because we declare
+# every option it reads. A missing name reads back as null *inside Godot*, and
+# the failure is neither obvious nor local: omitting `custom_template/debug`
+# aborts the export with "Mismatching custom export template executable
+# architecture: found 'invalid'".
+#
+# The expected set below is EditorExportPlatformWindows::get_export_options()
+# plus its EditorExportPlatformPC base, which are identical on Godot 4.5 and
+# 4.6. Regenerate by grepping `PropertyInfo(Variant::` out of
+# platform/windows/export/export_plugin.cpp and
+# editor/export/editor_export_platform_pc.cpp.
+
+const GODOT_WINDOWS_EXPORT_OPTIONS: Array[String] = [
+	# EditorExportPlatformPC
+	"custom_template/debug",
+	"custom_template/release",
+	"debug/export_console_wrapper",
+	"binary_format/embed_pck",
+	"texture_format/s3tc_bptc",
+	"texture_format/etc2_astc",
+	"shader_baker/enabled",
+	# EditorExportPlatformWindows
+	"binary_format/architecture",
+	"codesign/enable",
+	"codesign/identity_type",
+	"codesign/identity",
+	"codesign/password",
+	"codesign/timestamp",
+	"codesign/timestamp_server_url",
+	"codesign/digest_algorithm",
+	"codesign/description",
+	"codesign/custom_options",
+	"application/modify_resources",
+	"application/icon",
+	"application/console_wrapper_icon",
+	"application/icon_interpolation",
+	"application/file_version",
+	"application/product_version",
+	"application/company_name",
+	"application/product_name",
+	"application/file_description",
+	"application/copyright",
+	"application/trademarks",
+	"application/export_angle",
+	"application/export_d3d12",
+	"application/d3d12_agility_sdk_multiarch",
+	"ssh_remote_deploy/enabled",
+	"ssh_remote_deploy/host",
+	"ssh_remote_deploy/port",
+	"ssh_remote_deploy/extra_args_ssh",
+	"ssh_remote_deploy/extra_args_scp",
+	"ssh_remote_deploy/run_script",
+	"ssh_remote_deploy/cleanup_script",
+]
 
 
-func test_non_addon_bin_shared_objects_are_staged() -> void:
-	var project := "C:/proj/"
-	assert_false(ExportPlatform._is_addon_bin_library(
-		"C:/tmp/godot-publish-dotnet/1234-ExportRelease-win-x64/Game.dll", project),
-		"C# publish output is outside the project and must be staged")
-	assert_false(ExportPlatform._is_addon_bin_library(
-		"C:/proj/addons/other/lib/native.dll", project),
-		"a GDExtension outside addons/<name>/bin/ still needs staging")
-	assert_false(ExportPlatform._is_addon_bin_library(
-		"C:/proj/addons/godot_gdk/bin/sub/nested.dll", project),
-		"only files directly in addons/<name>/bin/ are owned by _copy_addon_dlls")
+func test_every_builtin_windows_option_is_declared() -> void:
+	var declared: PackedStringArray = ExportPlatform.declared_option_names()
+	var missing: Array[String] = []
+	for name: String in GODOT_WINDOWS_EXPORT_OPTIONS:
+		if not (name in declared):
+			missing.append(name)
+	assert_eq(missing, [] as Array[String],
+		"every option the built-in Windows exporter reads must be declared, or " +
+		"it reads back as null inside Godot and fails the export in a way that " +
+		"points nowhere near this platform")
+
+
+func test_gdk_specific_options_are_declared() -> void:
+	var declared: PackedStringArray = ExportPlatform.declared_option_names()
+	for name: String in ["packaging/ekb_file", "dev/register_loose", "dev/sandbox_id"]:
+		assert_true(name in declared, "%s is offered by this platform" % name)
+
+
+func test_option_names_are_unique() -> void:
+	var seen: Dictionary = {}
+	for name: String in ExportPlatform.declared_option_names():
+		assert_false(seen.has(name), "option %s is declared exactly once" % name)
+		seen[name] = true
+
+
+func test_declared_options_have_a_complete_shape() -> void:
+	# EditorExportPlatformExtension wants a flat dict; the nested
+	# {"option": {...}} shape used by EditorExportPlugin crashes the editor with
+	# `Condition "!d.has("name")" is true`.
+	for entry: Dictionary in ExportPlatform.export_option_list():
+		assert_true(entry.has("name"), "each option carries a top-level name")
+		assert_true(entry.has("type"), "each option carries a type")
+		assert_true(entry.has("default_value"), "each option carries a default")
+		assert_false(entry.has("option"),
+			"the nested EditorExportPlugin shape is rejected by the extension API")
 
 
 # ── Silent disabled Export button ─────────────────────────────────────────
@@ -465,8 +601,11 @@ func test_has_valid_export_configuration_reports_every_blocker() -> void:
 			"%s() feeds the export-dialog error text" % message_fn)
 	assert_string_contains(body, "set_config_missing_templates(true)",
 		"a missing export template is flagged so the dialog offers the template manager")
-	assert_string_contains(body, "dev/register_loose",
-		"loose dev-register stays exempt from the export-template requirement")
+	# The .exe is produced by Godot's own exporter now, so there is no
+	# editor-binary stand-in left and loose dev-register is no longer exempt
+	# from the export-template requirement.
+	assert_false(body.contains("dev/register_loose"),
+		"a missing export template blocks loose dev-register too")
 
 
 func test_has_valid_project_configuration_reports_missing_gdk() -> void:
@@ -476,3 +615,217 @@ func test_has_valid_project_configuration_reports_missing_gdk() -> void:
 		"project validation surfaces its reason via set_config_error()")
 	assert_string_contains(body, "_gdk_missing_message",
 		"the missing-GDK reason is shared with export validation")
+
+
+# ── Texture-format feature tags (issue #144 follow-up) ────────────────────
+#
+# Godot matches a preset's feature tags against the `path.<feature>` keys in
+# every imported resource's .import file and ERASES any remap whose feature is
+# missing. A VRAM-compressed texture's only variant is `path.s3tc`, so a
+# platform that never reports "s3tc" silently dropped every such texture from
+# the .pck: the package came out a fraction of its real size and the game died
+# at load with "Can't load dependency: res://...". The tags must be derived
+# from the preset exactly the way EditorExportPlatformPC derives them.
+
+func test_texture_format_features_default_desktop_set() -> void:
+	var features := ExportPlatform._texture_format_features(true, false)
+	assert_true(features.has("s3tc"),
+		"the default desktop preset reports s3tc, or every VRAM-compressed texture is dropped")
+	assert_true(features.has("bptc"), "s3tc_bptc reports bptc alongside s3tc")
+	assert_false(features.has("etc2"), "etc2 is not reported unless etc2_astc is enabled")
+	assert_false(features.has("astc"), "astc is not reported unless etc2_astc is enabled")
+
+
+func test_texture_format_features_mobile_set() -> void:
+	var features := ExportPlatform._texture_format_features(false, true)
+	assert_true(features.has("etc2"), "etc2_astc reports etc2")
+	assert_true(features.has("astc"), "etc2_astc reports astc")
+	assert_false(features.has("s3tc"), "s3tc is not reported when s3tc_bptc is off")
+
+
+func test_texture_format_features_can_report_both() -> void:
+	var features := ExportPlatform._texture_format_features(true, true)
+	for tag: String in ["s3tc", "bptc", "etc2", "astc"]:
+		assert_true(features.has(tag), "%s is reported when both toggles are on" % tag)
+
+
+func test_texture_format_features_none_when_both_disabled() -> void:
+	assert_eq(ExportPlatform._texture_format_features(false, false).size(), 0,
+		"disabling both toggles reports no texture-format tags")
+
+
+func test_preset_features_derive_texture_tags_from_the_preset() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_get_preset_features")
+	assert_string_contains(body, "_texture_format_features(",
+		"_get_preset_features() reports the texture-format tags")
+	assert_string_contains(body, "texture_format/s3tc_bptc",
+		"the s3tc/bptc tags follow the preset toggle")
+	assert_string_contains(body, "texture_format/etc2_astc",
+		"the etc2/astc tags follow the preset toggle")
+
+
+func test_texture_format_options_exist_with_pc_defaults() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "export_option_list")
+	assert_string_contains(body, '_opt("texture_format/s3tc_bptc", TYPE_BOOL, true',
+		"s3tc_bptc defaults to true, matching EditorExportPlatformPC")
+	assert_string_contains(body, '_opt("texture_format/etc2_astc", TYPE_BOOL, false',
+		"etc2_astc defaults to false, matching EditorExportPlatformPC")
+
+
+func test_preset_bool_falls_back_for_presets_predating_the_option() -> void:
+	# An export_presets.cfg written before an option existed has no value for
+	# it; the default must still apply rather than reading as `false`.
+	assert_true(ExportPlatform._preset_bool(null, "texture_format/s3tc_bptc", true),
+		"a missing preset value falls back to the option default")
+	assert_false(ExportPlatform._preset_bool(null, "texture_format/etc2_astc", false),
+		"the fallback is the option's own default, not a hardcoded true")
+
+
+
+# ── Platform feature tags mirror a plain Win32 target ────────────────────
+#
+# A GDK title on PC is an ordinary Win32 application running the stock Godot
+# Windows export template. The platform used to also report "xbox" and "d3d12",
+# which Godot defines for no platform, so the same project packaged through
+# gdkpkg (which drives the built-in Windows Desktop preset) resolved
+# OS.has_feature() checks, `setting.<tag>` ProjectSettings overrides and
+# `.import` remaps differently than it did here. That is the same class of
+# silent divergence as issue #144.
+
+func test_platform_features_match_godot_pc_plus_gdk() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_get_platform_features")
+	assert_ne(body, "", "_get_platform_features() is defined")
+	# EditorExportPlatformPC reports "pc" plus the lowercased OS name.
+	for tag: String in ["\"pc\"", "\"windows\""]:
+		assert_string_contains(body, tag,
+			"%s is reported, matching EditorExportPlatformPC" % tag)
+	assert_string_contains(body, "\"gdk\"",
+		"the one platform-specific tag, gdk, is still reported")
+
+
+func test_invented_platform_feature_tags_are_gone() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_get_platform_features")
+	assert_false(body.contains("\"xbox\""),
+		"the invented xbox tag is gone — GDK on PC is a plain Win32 target")
+	assert_false(body.contains("\"d3d12\""),
+		"the invented d3d12 tag is gone — Godot defines no such platform tag")
+
+
+func test_architecture_tag_is_reported_with_the_preset() -> void:
+	# Godot puts the architecture in get_preset_features(), not the platform
+	# feature list; dropping it from one without the other would erase it from
+	# the exported feature set entirely.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	assert_string_contains(_func_body(src, "_get_preset_features"), "x86_64",
+		"the architecture tag is carried by the preset features, as in Godot")
+
+
+# ── Export option visibility ─────────────────────────────────────────────
+#
+# Visibility is cosmetic — every option stays declared and readable by the
+# built-in exporter — but it has to mirror Godot's grouping or the inspector
+# shows a wall of fields that a `Windows Desktop` preset keeps collapsed.
+
+func test_d3d12_options_are_offered_with_godot_defaults() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "export_option_list")
+	assert_string_contains(body, "application/export_d3d12",
+		"the export_d3d12 mode option is offered")
+	assert_string_contains(body, "Auto,Yes,No",
+		"the mode option uses Godot's Auto/Yes/No enum")
+	assert_string_contains(body, "application/d3d12_agility_sdk_multiarch",
+		"the multiarch option is offered")
+
+
+func test_renderer_options_stay_visible_without_resource_modification() -> void:
+	# These share the `application/` prefix with the executable-resource fields
+	# but describe DLL staging, so turning off resource modification must not
+	# hide them — Godot exempts the same three.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_get_export_option_visibility")
+	assert_string_contains(body, "NON_RESOURCE_APPLICATION_OPTIONS",
+		"the renderer options are exempt from the modify_resources collapse")
+	for name: String in ["application/export_angle", "application/export_d3d12",
+			"application/d3d12_agility_sdk_multiarch"]:
+		assert_string_contains(body, name, "%s is exempt, as in Godot" % name)
+
+
+func test_codesign_and_ssh_options_collapse_behind_their_toggle() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_get_export_option_visibility")
+	assert_string_contains(body, "codesign/enable",
+		"the codesign fields collapse behind codesign/enable, as in Godot")
+	assert_string_contains(body, "ssh_remote_deploy/enabled",
+		"the SSH fields collapse behind ssh_remote_deploy/enabled, as in Godot")
+
+
+
+# ── Export dialog diagnostics ────────────────────────────────────────────
+#
+# push_error()/push_warning() only reach the Output panel, which the export
+# dialog does not surface — an export could fail with the dialog showing
+# nothing at all. EditorExportPlatform.add_message() feeds the dialog's own
+# message log, exactly as the built-in exporters do.
+
+func test_export_diagnostics_reach_the_export_dialog() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var err_body := _func_body(src, "_report_error")
+	var warn_body := _func_body(src, "_report_warning")
+	assert_string_contains(err_body, "EXPORT_MESSAGE_ERROR",
+		"errors are added to the dialog log at error severity")
+	assert_string_contains(warn_body, "EXPORT_MESSAGE_WARNING",
+		"warnings are added to the dialog log at warning severity")
+	# Console output is kept so headless/CI runs still show the reason.
+	assert_string_contains(err_body, "push_error(",
+		"errors still reach the Output panel for headless runs")
+	assert_string_contains(warn_body, "push_warning(",
+		"warnings still reach the Output panel for headless runs")
+
+
+func test_export_starts_from_a_clean_message_log() -> void:
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	var body := _func_body(src, "_export_project")
+	assert_string_contains(body, "clear_messages()",
+		"a new export clears messages left over from the previous run")
+
+
+func test_export_pipeline_reports_through_the_dialog_helpers() -> void:
+	# Every failure the export pipeline can hit must be visible in the dialog,
+	# so the pipeline functions route through the helpers rather than calling
+	# push_error()/push_warning() directly.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	for fn: String in ["_export_project", "_stage_microsoft_game_config",
+			"_copy_addon_dlls", "_run_windows_export", "_wdapp_register"]:
+		var body := _func_body(src, fn)
+		assert_ne(body, "", "%s() is defined" % fn)
+		assert_false(body.contains("push_error("),
+			"%s() reports errors through _report_error()" % fn)
+
+
+func test_dialog_messages_do_not_repeat_the_category() -> void:
+	# add_message() renders the category beside the message, so a message that
+	# already opens with it reads "GDK Export: GDK Export: ...". Observed in a
+	# real export before the prefix was stripped.
+	assert_eq(ExportPlatform._strip_category("GDK Export: wdapp register failed"),
+		"wdapp register failed",
+		"the redundant category prefix is removed for the dialog")
+	assert_eq(ExportPlatform._strip_category("makepkg pack failed"),
+		"makepkg pack failed",
+		"a message without the prefix is passed through untouched")
+
+
+func test_console_output_keeps_the_category_prefix() -> void:
+	# The prefix is what makes these lines findable in the Output panel, so only
+	# the dialog copy is stripped.
+	var src := FileAccess.get_file_as_string(SCRIPT_PATH)
+	for fn: String in ["_report_error", "_report_warning"]:
+		var body := _func_body(src, fn)
+		var push_idx: int = body.find("push_")
+		var strip_idx: int = body.find("_strip_category(")
+		assert_gt(push_idx, -1, "%s() writes to the console" % fn)
+		assert_gt(strip_idx, push_idx,
+			"%s() strips the prefix only for the dialog, not the console" % fn)

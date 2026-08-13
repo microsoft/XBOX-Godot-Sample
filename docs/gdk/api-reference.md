@@ -1481,19 +1481,39 @@ if not result.ok:
 
 `GDK.game_save` is a `RefCounted` service object returned by
 `GDK.get_game_save()`. It wraps the GDK-native file-style save API
-(`XGameSaveFiles.h`). This is distinct from PlayFab Game Saves
-(`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+(`XGameSaveFiles.h`), which is backed by **Connected Storage**. This is
+distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services
+Title Storage (`GDK.title_storage`).
 
-The title must declare connected storage / a `SaveFolder` in its
-`MicrosoftGame.config`; without it the native calls fail and the propagated
-`HRESULT` error is returned.
+These calls authenticate through Xbox services, so the title must be
+configured for them:
+
+- `MicrosoftGame.config` carries the `TitleId` and `MSAAppId` issued by
+  Partner Center.
+- The SCID handed to the native API matches the title's SCID in Partner
+  Center (**Xbox services → Xbox settings**). The addon supplies it from the
+  initialized Xbox services scaffold.
+- **Connected Storage** is enabled for the title in Partner Center. The
+  option currently lives on the **Gameplay settings → Title Storage** page,
+  but it is the only setting on that page that affects Game Saves —
+  Connected Storage is a separate system from Xbox Services Title Storage
+  (`GDK.title_storage`), so enabling the title/global/universal storage
+  types does nothing for `GDK.game_save`.
+- The build runs with registered package identity (`wdapp register` or a
+  packaged build); the per-user store lives under
+  `%LOCALAPPDATA%\Packages\<package>\SystemAppData\xgs\`.
+
+A mismatch in any of these surfaces as `E_GS_NO_ACCESS` (`0x80830002`) from
+the native call, which the wrapper propagates verbatim. The
+`SaveGameStorage` element of `MicrosoftGame.config` is **not** required here;
+it configures the separate no-code cloud-saves feature.
 
 ### Methods
 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `get_folder_async(user)` | `Signal` | Resolve the user's save folder (may surface a system UI) via `XGameSaveFilesGetFolderWithUiAsync`. Success data is `data.path` (absolute folder path). Titles then read/write ordinary files under that folder. |
-| `get_remaining_quota(user)` | `XboxResult` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. |
+| `get_remaining_quota_async(user)` | `Signal` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. The native entry point is synchronous and rejects calls from a time-sensitive thread with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`), so the wrapper runs it on the shared task queue's work port and completes on the main thread. |
 
 ### Validation notes
 
@@ -1501,6 +1521,18 @@ The title must declare connected storage / a `SaveFolder` in its
 - `invalid_user` when `user` is null or has no underlying handle.
 - `xbox_services_uninitialized` when the shared XBOX services scaffold (SCID)
   is unavailable.
+
+### Cancellation
+
+Neither method exposes a caller-facing cancel API — both return a bare `Signal`,
+and the underlying pending-signal object is engine-internal. Cancellation is
+driven by the runtime: `GDK.shutdown()` cancels every in-flight request and
+resolves its awaiter with a cancelled `GDKResult`, so an `await` can never hang.
+
+Internally the two differ. `get_folder_async()` forwards cancellation to
+`XAsyncCancel`. `get_remaining_quota_async()` does not: it wraps a single
+blocking native call that the GDK offers no way to interrupt, so forwarding
+would be inert. The awaiter is still resolved as cancelled either way.
 
 ### Usage
 
@@ -1514,7 +1546,7 @@ if folder_result.ok:
     f.store_var({"level": 3, "score": 1450})
     f.close()
 
-var quota_result: XboxResult = GDK.game_save.get_remaining_quota(user)
+var quota_result: XboxResult = await GDK.game_save.get_remaining_quota_async(user)
 if quota_result.ok:
     print("Remaining save quota: %d bytes" % quota_result.data.bytes)
 ```

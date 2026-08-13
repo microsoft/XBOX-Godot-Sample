@@ -1,4 +1,4 @@
-# Tutorial Integrated (C#) — Xbox + PlayFab sample
+# Tutorial Integrated (C#) - Xbox + PlayFab sample
 
 This Godot 4.x **C#/.NET** project mirrors the GDScript
 [`sample/tutorial_integrated`](../tutorial_integrated/README.md) reference,

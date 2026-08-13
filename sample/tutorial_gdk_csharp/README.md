@@ -1,4 +1,4 @@
-# Tutorial GDK (C#) — Xbox services sample
+# Tutorial GDK (C#) - Xbox services sample
 
 This Godot 4.x **C#/.NET** project mirrors the GDScript
 [`sample/tutorial_gdk`](../tutorial_gdk/README.md) reference, scene-for-scene,

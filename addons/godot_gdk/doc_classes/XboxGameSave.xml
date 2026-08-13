@@ -4,7 +4,7 @@
 		GDK-native file-style game save service accessed via GDK.game_save.
 	</brief_description>
 	<description>
-		Wraps [code]XGameSaveFiles[/code] to resolve a user's cloud-synced save folder and query the remaining storage quota. This is the simpler file-based variation of the connected-storage API and is distinct from PlayFab Game Saves ([code]godot_playfab[/code]) and from [XboxTitleStorage]. The title's [code]MicrosoftGame.config[/code] must declare a connected-storage/save-folder configuration for these calls to succeed; the service configuration ID (SCID) is supplied automatically from the initialized Xbox services scaffold.
+		Wraps [code]XGameSaveFiles[/code] to resolve a user's cloud-synced save folder and query the remaining storage quota. This is the simpler file-based variation of the Connected Storage API and is distinct from PlayFab Game Saves ([code]godot_playfab[/code]) and from Xbox Services Title Storage ([XboxTitleStorage]). These calls authenticate through Xbox services: the title needs its Partner Center [code]TitleId[/code] and [code]MSAAppId[/code] in [code]MicrosoftGame.config[/code], a SCID matching Partner Center, Connected Storage enabled for the title, and registered package identity. Enabling Title Storage types in Partner Center does not affect Game Saves. A mismatch surfaces as [code]E_GS_NO_ACCESS[/code] ([code]0x80830002[/code]). The service configuration ID (SCID) is supplied automatically from the initialized Xbox services scaffold.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -15,11 +15,11 @@
 				Resolves the local, cloud-synced save folder for [param user] via [code]XGameSaveFilesGetFolderWithUiAsync[/code]. Returns a [Signal] that completes with a [XboxResult] whose [code]data.path[/code] holds the absolute folder path. The platform may show a brief sync UI. Requires a signed-in [XboxUser] and an initialized runtime.
 			</description>
 		</method>
-		<method name="get_remaining_quota">
-			<return type="XboxResult" />
+		<method name="get_remaining_quota_async">
+			<return type="Signal" />
 			<param index="0" name="user" type="XboxUser" />
 			<description>
-				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. On success [code]XboxResult.data.bytes[/code] holds the remaining byte count. Synchronous; requires a signed-in [XboxUser] and an initialized runtime.
+				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. Returns a [Signal] that completes with a [XboxResult] whose [code]data.bytes[/code] holds the remaining byte count. The underlying GDK entry point is synchronous and rejects calls made from a time-sensitive thread with [code]E_GS_ASYNC_FUNCTION_REQUIRED[/code] ([code]0x8083000E[/code]), so the wrapper runs it on the shared task queue's work port and reports back on the main thread. Because that native call cannot be interrupted, the wrapper binds no cancel handler, unlike [method get_folder_async]. This is not caller-visible: neither method exposes a cancel API. Runtime shutdown still resolves the awaiter with a cancelled [XboxResult], so an [code]await[/code] cannot hang. Requires a signed-in [XboxUser] and an initialized runtime.
 			</description>
 		</method>
 	</methods>

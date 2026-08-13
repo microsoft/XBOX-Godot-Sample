@@ -17,6 +17,6 @@ public sealed class XboxGameSave : XboxServiceBase
     public Task<XboxResult> GetFolderAsync(XboxUser user) =>
         CallResultAsync("get_folder_async", user?.Raw);
 
-    public XboxResult GetRemainingQuota(XboxUser user) =>
-        XboxResult.From(Call("get_remaining_quota", user?.Raw).AsGodotObject());
+    public Task<XboxResult> GetRemainingQuotaAsync(XboxUser user) =>
+        CallResultAsync("get_remaining_quota_async", user?.Raw);
 }

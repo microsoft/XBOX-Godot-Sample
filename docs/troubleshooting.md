@@ -1,4 +1,4 @@
-# Troubleshooting
+# Troubleshooting the XBOX Godot Sample addons
 
 Common build and runtime issues for the XBOX Godot Sample addons.
 
