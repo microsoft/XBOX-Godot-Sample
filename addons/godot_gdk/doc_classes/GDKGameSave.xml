@@ -4,7 +4,7 @@
 		GDK-native file-style game save service accessed via GDK.game_save.
 	</brief_description>
 	<description>
-		Wraps [code]XGameSaveFiles[/code] to resolve a user's cloud-synced save folder and query the remaining storage quota. This is the simpler file-based variation of the connected-storage API and is distinct from PlayFab Game Saves ([code]godot_playfab[/code]) and from [GDKTitleStorage]. These calls authenticate through Xbox services: the title needs its Partner Center [code]TitleId[/code] and [code]MSAAppId[/code] in [code]MicrosoftGame.config[/code], a SCID matching Partner Center, Connected Storage enabled under Gameplay settings, and registered package identity. A mismatch surfaces as [code]E_GS_NO_ACCESS[/code] ([code]0x80830002[/code]). The service configuration ID (SCID) is supplied automatically from the initialized Xbox services scaffold.
+		Wraps [code]XGameSaveFiles[/code] to resolve a user's cloud-synced save folder and query the remaining storage quota. This is the simpler file-based variation of the Connected Storage API and is distinct from PlayFab Game Saves ([code]godot_playfab[/code]) and from Xbox Services Title Storage ([GDKTitleStorage]). These calls authenticate through Xbox services: the title needs its Partner Center [code]TitleId[/code] and [code]MSAAppId[/code] in [code]MicrosoftGame.config[/code], a SCID matching Partner Center, Connected Storage enabled for the title, and registered package identity. Enabling Title Storage types in Partner Center does not affect Game Saves. A mismatch surfaces as [code]E_GS_NO_ACCESS[/code] ([code]0x80830002[/code]). The service configuration ID (SCID) is supplied automatically from the initialized Xbox services scaffold.
 	</description>
 	<tutorials></tutorials>
 	<methods>

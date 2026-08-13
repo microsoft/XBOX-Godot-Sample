@@ -1481,8 +1481,9 @@ if not result.ok:
 
 `GDK.game_save` is a `RefCounted` service object returned by
 `GDK.get_game_save()`. It wraps the GDK-native file-style save API
-(`XGameSaveFiles.h`). This is distinct from PlayFab Game Saves
-(`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+(`XGameSaveFiles.h`), which is backed by **Connected Storage**. This is
+distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services
+Title Storage (`GDK.title_storage`).
 
 These calls authenticate through Xbox services, so the title must be
 configured for them:
@@ -1492,8 +1493,12 @@ configured for them:
 - The SCID handed to the native API matches the title's SCID in Partner
   Center (**Xbox services → Xbox settings**). The addon supplies it from the
   initialized Xbox services scaffold.
-- **Connected Storage** is enabled in Partner Center under
-  **Gameplay settings → Title Storage**.
+- **Connected Storage** is enabled for the title in Partner Center. The
+  option currently lives on the **Gameplay settings → Title Storage** page,
+  but it is the only setting on that page that affects Game Saves —
+  Connected Storage is a separate system from Xbox Services Title Storage
+  (`GDK.title_storage`), so enabling the title/global/universal storage
+  types does nothing for `GDK.game_save`.
 - The build runs with registered package identity (`wdapp register` or a
   packaged build); the per-user store lives under
   `%LOCALAPPDATA%\Packages\<package>\SystemAppData\xgs\`.
