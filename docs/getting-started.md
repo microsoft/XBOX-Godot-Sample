@@ -183,8 +183,8 @@ The package build:
 - Syncs the addon directories into every sample project under `sample/`
 
 If you only need one addon during development, use the targeted presets
-(`gdk-only`, `playfab-only`, `gameinput-only`). See the
-[repo README](../README.md#build-presets) for the full preset table.
+(`gdk-only`, `playfab-only`, `gameinput-only`). See
+[Selective builds](#selective-builds) below for the exact commands.
 
 For deeper notes on the build pipeline (CMake auto-detection of the Microsoft GDK
 install, selective builds, VS Code IntelliSense, ignored-artifact
