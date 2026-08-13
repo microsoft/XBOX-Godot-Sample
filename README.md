@@ -9,7 +9,7 @@
 [![.NET](https://img.shields.io/badge/.NET-supported-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
 [![Docs](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
 
-**Ship your Godot 4 game on XBOX for PC.** GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot — usable from both GDScript and C#/.NET.
+**Learn to build your Godot 4 game for XBOX for PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
 
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
