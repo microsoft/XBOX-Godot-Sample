@@ -84,6 +84,7 @@ Design specs live in [`spec/`](spec/) — design intent that is not always refle
 - [**PlayFab Unified SDK**](https://learn.microsoft.com/en-us/gaming/playfab/sdks/unified-sdk/overview) - PlayFab Unifieid SDK product details
 - [**GameInput**](https://aka.ms/GameInput) - GameInput product details
 - [**Docs**](https://aka.ms/XBOXGodotDocs) - documentation on XBOX development with Godot on Microsoft GDK Learn website
+- [**Godot C# Essentials**](https://github.com/microsoft/godot-csharp-essentials) - learning content provided by Microsoft on using Godot with C#
 - [**Issues**](https://aka.ms/XBOXGodotIssues) - list of issues & feedback related to XBOX Godot sample
 
 ## Support and contributing
