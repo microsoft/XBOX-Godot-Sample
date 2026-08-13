@@ -1,14 +1,14 @@
 # XBOX Godot Sample
 
-[![Latest release](https://img.shields.io/github/v/release/microsoft/XBOX-Godot-Sample?label=release&color=107C10)](https://github.com/microsoft/XBOX-Godot-Sample/releases)
-[![License: MIT](https://img.shields.io/github/license/microsoft/XBOX-Godot-Sample?color=107C10)](LICENSE)
-[![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
-[![Microsoft GDK supported](https://img.shields.io/badge/Microsoft%20GDK-%E2%9C%93-107C10)](https://github.com/microsoft/GDK/releases)
-[![PlayFab supported](https://img.shields.io/badge/PlayFab-%E2%9C%93-107C10?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYuNiAxOS42YTQuNiA0LjYgMCAwIDEtLjQzLTkuMTggNi42NSA2LjY1IDAgMCAxIDEyLjYtLjk4IDQuNTcgNC41NyAwIDAgMS0uODcgOS4xNkg2LjZaIi8%2BPC9zdmc%2BDQo%3D)](docs/playfab/plugin.md)
-[![GameInput supported](https://img.shields.io/badge/GameInput-%E2%9C%93-0078D4?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNi45IDYuNmgxMC4yYzIuNyAwIDQuOTggMS45OCA1LjM4IDQuNjVsLjc4IDUuMmMuMjkgMS45My0xLjIgMy42Ni0zLjE1IDMuNjYtMS4xIDAtMi4xMi0uNTctMi43LTEuNWwtMS42My0yLjYyYS45LjkgMCAwIDAtLjc2LS40Mkg4Ljk4YS45LjkgMCAwIDAtLjc2LjQyTDYuNiAxOC42MWMtLjU4LjkzLTEuNiAxLjUtMi43IDEuNS0xLjk1IDAtMy40NC0xLjczLTMuMTUtMy42NmwuNzgtNS4yQTUuNDQgNS40NCAwIDAgMSA2LjkgNi42Wm0tLjc1IDMuM3YxLjVoLTEuNXYxLjdoMS41djEuNWgxLjd2LTEuNWgxLjV2LTEuN2gtMS41VjkuOWgtMS43Wm0xMC41NS4zNWExLjIgMS4yIDAgMSAwIDAgMi40IDEuMiAxLjIgMCAwIDAgMC0yLjRabS0yLjYgMi42YTEuMiAxLjIgMCAxIDAgMCAyLjQgMS4yIDEuMiAwIDAgMCAwLTIuNFoiLz48L3N2Zz4NCg%3D%3D)](docs/gameinput/plugin.md)
-[![.NET supported](https://img.shields.io/badge/.NET-%E2%9C%93-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
-[![Documentation on Microsoft Learn](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-d6336c)](CONTRIBUTING.md)
+[![Latest release][badge-release]][link-release]
+[![License: MIT][badge-license]][link-license]
+[![Godot 4.5+][badge-godot]][link-godot]
+[![Microsoft GDK supported][badge-gdk]][link-gdk]
+[![PlayFab supported][badge-playfab]][link-playfab]
+[![GameInput supported][badge-gameinput]][link-gameinput]
+[![.NET supported][badge-dotnet]][link-dotnet]
+[![Documentation on Microsoft Learn][badge-docs]][link-docs]
+[![PRs welcome][badge-prs]][link-prs]
 
 **Learn to build your Godot 4 game for XBOX for PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
 
@@ -100,3 +100,23 @@ Design specs live in [`spec/`](spec/) - design intent that is not always reflect
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) - CLA and Code of Conduct
 - [`SECURITY.md`](SECURITY.md) - security vulnerability reporting (MSRC; please do **not** file security issues via GitHub)
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) - Microsoft Open Source Code of Conduct
+
+<!-- Badge image and link definitions -->
+[badge-release]: https://img.shields.io/github/v/release/microsoft/XBOX-Godot-Sample?label=release&color=107C10
+[link-release]: https://github.com/microsoft/XBOX-Godot-Sample/releases
+[badge-license]: https://img.shields.io/github/license/microsoft/XBOX-Godot-Sample?color=107C10
+[link-license]: LICENSE
+[badge-godot]: https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white
+[link-godot]: https://godotengine.org/
+[badge-gdk]: https://img.shields.io/badge/Microsoft%20GDK-%E2%9C%93-107C10
+[link-gdk]: https://github.com/microsoft/GDK/releases
+[badge-playfab]: https://img.shields.io/badge/PlayFab-%E2%9C%93-107C10?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYuNiAxOS42YTQuNiA0LjYgMCAwIDEtLjQzLTkuMTggNi42NSA2LjY1IDAgMCAxIDEyLjYtLjk4IDQuNTcgNC41NyAwIDAgMS0uODcgOS4xNkg2LjZaIi8%2BPC9zdmc%2BDQo%3D
+[link-playfab]: docs/playfab/plugin.md
+[badge-gameinput]: https://img.shields.io/badge/GameInput-%E2%9C%93-0078D4?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nI2ZmZicgZmlsbC1ydWxlPSdldmVub2RkJz48cGF0aCBkPSdNNyA3aDEwYTUgNSAwIDAgMSA1IDQuNmwuOCA1LjJBMy4yIDMuMiAwIDAgMSAxNyAxOC42TDE1LjQgMTZIOC42TDcgMTguNmEzLjIgMy4yIDAgMCAxLTUuOC0xLjhMMiAxMS42QTUgNSAwIDAgMSA3IDdabS0xIDN2MS41SDQuNXYxLjdINlYxNWgxLjd2LTEuOGgxLjV2LTEuN0g3LjdWMTBabTEwLjMuNGExLjIgMS4yIDAgMSAwIDAgMi40IDEuMiAxLjIgMCAwIDAgMC0yLjRabS0yLjYgMi42YTEuMiAxLjIgMCAxIDAgMCAyLjQgMS4yIDEuMiAwIDAgMCAwLTIuNFonLz48L3N2Zz4%3D
+[link-gameinput]: docs/gameinput/plugin.md
+[badge-dotnet]: https://img.shields.io/badge/.NET-%E2%9C%93-512BD4?logo=dotnet&logoColor=white
+[link-dotnet]: docs/getting-started.md
+[badge-docs]: https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4
+[link-docs]: https://aka.ms/XBOXGodotDocs
+[badge-prs]: https://img.shields.io/badge/PRs-welcome-d6336c
+[link-prs]: CONTRIBUTING.md
