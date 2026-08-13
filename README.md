@@ -8,6 +8,8 @@
 [![GameInput supported][badge-gameinput]][link-gameinput]
 [![.NET supported][badge-dotnet]][link-dotnet]
 [![Documentation on Microsoft Learn][badge-docs]][link-docs]
+[![Visit our Blog][badge-blog]][link-blog]
+[![Join our Discord][badge-discord]][link-discord]
 [![PRs welcome][badge-prs]][link-prs]
 
 **Learn to build your Godot 4 game for XBOX on PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
@@ -118,5 +120,9 @@ Design specs live in [`spec/`](spec/) - design intent that is not always reflect
 [link-dotnet]: docs/getting-started.md
 [badge-docs]: https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4
 [link-docs]: https://aka.ms/XBOXGodotDocs
+[badge-blog]: https://img.shields.io/badge/Visit%20our-Blog-FFA500?logo=rss&logoColor=white
+[link-blog]: https://developer.microsoft.com/en-us/games/articles/
+[badge-discord]: https://img.shields.io/badge/Join%20us%20on-Discord-7289DA?logo=discord&logoColor=white
+[link-discord]: https://aka.ms/msftgamedevdiscord
 [badge-prs]: https://img.shields.io/badge/PRs-welcome-d6336c
 [link-prs]: CONTRIBUTING.md
