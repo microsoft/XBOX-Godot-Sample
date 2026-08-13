@@ -1,4 +1,4 @@
-# Integrated Tutorial 2 — Integration tech demo
+# Integrated Tutorial 2 - Integration tech demo
 
 
 

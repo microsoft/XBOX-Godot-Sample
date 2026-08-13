@@ -1,4 +1,4 @@
-# PlayFab Tutorial 1 — Custom-id sign-in
+# PlayFab Tutorial 1 - Custom-id sign-in
 
 ## What you'll build
 

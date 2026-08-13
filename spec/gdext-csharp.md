@@ -1,4 +1,4 @@
-# Godot .NET (C#) parallel for the XBOX Godot Sample addons — GDExtension Spec
+# Godot .NET (C#) parallel for the XBOX Godot Sample addons - GDExtension Spec
 
 ## Overview
 

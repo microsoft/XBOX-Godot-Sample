@@ -1,4 +1,4 @@
-# GDK Tutorial 3 — Title Storage and stats
+# GDK Tutorial 3 - Title Storage and stats
 
 ## What you'll build
 

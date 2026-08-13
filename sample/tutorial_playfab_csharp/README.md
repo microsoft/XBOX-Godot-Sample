@@ -1,4 +1,4 @@
-# Tutorial PlayFab (C#) — PlayFab services sample
+# Tutorial PlayFab (C#) - PlayFab services sample
 
 This Godot 4.x **C#/.NET** project mirrors the GDScript
 [`sample/tutorial_playfab`](../tutorial_playfab/README.md) reference,

@@ -1,4 +1,4 @@
-# GDK Tutorial 2 — Unlock an achievement
+# GDK Tutorial 2 - Unlock an achievement
 
 ## What you'll build
 

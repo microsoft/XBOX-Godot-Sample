@@ -1,4 +1,4 @@
-# GameInput tutorial — action bridge
+# GameInput tutorial - action bridge
 
 > **Standalone track.** This tutorial is independent of the main
 > cumulative chain (Sign-in → Achievements → Leaderboards → Game

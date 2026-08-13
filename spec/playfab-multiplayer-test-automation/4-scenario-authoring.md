@@ -1,4 +1,4 @@
-# PlayFab Multiplayer Test Automation — Scenario Authoring
+# PlayFab Multiplayer Test Automation - Scenario Authoring
 
 ## Overview
 

@@ -1,4 +1,4 @@
-# Copilot Instructions — XBOX Godot Sample Repo
+# Copilot Instructions - XBOX Godot Sample Repo
 
 ## Repository Overview
 

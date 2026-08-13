@@ -1,4 +1,4 @@
-# PlayFab Multiplayer Test Automation — Architecture
+# PlayFab Multiplayer Test Automation - Architecture
 
 ## Overview
 

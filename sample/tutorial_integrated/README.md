@@ -1,4 +1,4 @@
-# Tutorial Integrated — Xbox + PlayFab sample
+# Tutorial Integrated - Xbox + PlayFab sample
 
 This Godot 4.x project is the reference implementation for the [integrated tutorial track](../../docs/tutorials/README.md#integrated-track). It signs into Xbox through GDK, links that identity into PlayFab, and demonstrates the combined services in a capstone scene.
 

@@ -1,4 +1,4 @@
-# PlayFab — title prerequisites
+# PlayFab - title prerequisites
 
 This page is the addon-agnostic reference for the PlayFab title-side
 configuration required before any PlayFab tutorial or sample in this

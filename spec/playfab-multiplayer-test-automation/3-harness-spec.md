@@ -1,4 +1,4 @@
-# PlayFab Multiplayer Test Automation — Harness Spec
+# PlayFab Multiplayer Test Automation - Harness Spec
 
 ## Overview
 

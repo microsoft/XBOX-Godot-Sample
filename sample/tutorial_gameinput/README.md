@@ -1,4 +1,4 @@
-# Tutorial GameInput — standalone sample
+# Tutorial GameInput - standalone sample
 
 This Godot 4.x project is the **end-state** of the
 [GameInput action-bridge tutorial](../../docs/tutorials/gameinput-action-bridge.md),

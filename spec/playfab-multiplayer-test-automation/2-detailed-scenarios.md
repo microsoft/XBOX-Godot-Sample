@@ -1,4 +1,4 @@
-# PlayFab Multiplayer Test Automation — Detailed Scenarios
+# PlayFab Multiplayer Test Automation - Detailed Scenarios
 
 ## Overview
 

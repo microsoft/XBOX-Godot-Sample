@@ -1,4 +1,4 @@
-# Integrated Tutorial 1 — Sign in a user with Xbox and PlayFab
+# Integrated Tutorial 1 - Sign in a user with Xbox and PlayFab
 
 ## What you'll build
 
