@@ -512,8 +512,8 @@ get_play_session_id() -> String
 ##### Methods
 
 ```gdscript
-get_folder_async(user: GDKUser) -> Signal      # GDKResult.data.path := absolute save-folder path
-get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remaining quota in bytes
+get_folder_async(user: GDKUser) -> Signal            # GDKResult.data.path := absolute save-folder path
+get_remaining_quota_async(user: GDKUser) -> Signal   # GDKResult.data.bytes := remaining quota in bytes
 ```
 
 ##### Behavior contract
@@ -521,7 +521,7 @@ get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remain
 - `GDK.game_save` wraps the GDK-native file-style save API (`XGameSaveFiles.h`). It is distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
 - The title must declare connected storage / a `SaveFolder` in its `MicrosoftGame.config`; without it the native calls fail and the wrapper returns the propagated `HRESULT` error.
 - `get_folder_async()` wraps `XGameSaveFilesGetFolderWithUiAsync`: it resolves (and may surface a system UI for) the user's save folder, returning the absolute path in `GDKResult.data.path`. Titles then read/write ordinary files under that folder.
-- `get_remaining_quota()` is synchronous and wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`.
+- `get_remaining_quota_async()` wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`. The native entry point is synchronous and `XGameSaveFiles` exposes no async variant, but the GDK fails the call with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`) when it is issued from a time-sensitive thread such as Godot's main thread. The wrapper therefore drives it through a custom `XAsyncProvider` that executes the call on the shared task queue's work port and completes the pending signal from the queue's completion port on the main thread.
 - The service configuration id (SCID) is pulled from the cached `GDKXboxServices` state. Validation failures return `not_initialized`, `invalid_user`, or `xbox_services_uninitialized`.
 
 ##### Native API mapping
@@ -529,7 +529,7 @@ get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remain
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
 | `get_folder_async()` | `XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetFolderWithUiResult` | Returns the absolute save-folder path; may show a system UI. |
-| `get_remaining_quota()` | `XGameSaveFilesGetRemainingQuota` | Synchronous; returns remaining quota bytes. |
+| `get_remaining_quota_async()` | `XGameSaveFilesGetRemainingQuota`, `XAsyncBegin` / `XAsyncSchedule` / `XAsyncComplete` | Native call is synchronous; the wrapper runs it on the task queue's work port so the GDK does not reject it with `E_GS_ASYNC_FUNCTION_REQUIRED`. Returns remaining quota bytes. |
 
 > The richer `XGameSave.h` connected-storage container API (27 functions) is intentionally **not** wrapped: it is a more complex API than `XGameSaveFiles` and overlaps PlayFab Game Saves.
 

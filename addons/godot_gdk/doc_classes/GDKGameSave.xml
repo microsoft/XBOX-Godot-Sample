@@ -15,11 +15,11 @@
 				Resolves the local, cloud-synced save folder for [param user] via [code]XGameSaveFilesGetFolderWithUiAsync[/code]. Returns a [Signal] that completes with a [GDKResult] whose [code]data.path[/code] holds the absolute folder path. The platform may show a brief sync UI. Requires a signed-in [GDKUser] and an initialized runtime.
 			</description>
 		</method>
-		<method name="get_remaining_quota">
-			<return type="GDKResult" />
+		<method name="get_remaining_quota_async">
+			<return type="Signal" />
 			<param index="0" name="user" type="GDKUser" />
 			<description>
-				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. On success [code]GDKResult.data.bytes[/code] holds the remaining byte count. Synchronous; requires a signed-in [GDKUser] and an initialized runtime.
+				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. Returns a [Signal] that completes with a [GDKResult] whose [code]data.bytes[/code] holds the remaining byte count. The underlying GDK entry point is synchronous and rejects calls made from a time-sensitive thread with [code]E_GS_ASYNC_FUNCTION_REQUIRED[/code] ([code]0x8083000E[/code]), so the wrapper runs it on the shared task queue's work port and reports back on the main thread. Requires a signed-in [GDKUser] and an initialized runtime.
 			</description>
 		</method>
 	</methods>

@@ -40,7 +40,7 @@ public:
     void shutdown();
 
     Signal get_folder_async(const Ref<GDKUser> &p_user);
-    Ref<GDKResult> get_remaining_quota(const Ref<GDKUser> &p_user);
+    Signal get_remaining_quota_async(const Ref<GDKUser> &p_user);
 };
 
 } // namespace godot

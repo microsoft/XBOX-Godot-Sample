@@ -17,6 +17,6 @@ public sealed class GdkGameSave : GdkServiceBase
     public Task<GdkResult> GetFolderAsync(GdkUser user) =>
         CallResultAsync("get_folder_async", user?.Raw);
 
-    public GdkResult GetRemainingQuota(GdkUser user) =>
-        GdkResult.From(Call("get_remaining_quota", user?.Raw).AsGodotObject());
+    public Task<GdkResult> GetRemainingQuotaAsync(GdkUser user) =>
+        CallResultAsync("get_remaining_quota_async", user?.Raw);
 }

@@ -1493,7 +1493,7 @@ The title must declare connected storage / a `SaveFolder` in its
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `get_folder_async(user)` | `Signal` | Resolve the user's save folder (may surface a system UI) via `XGameSaveFilesGetFolderWithUiAsync`. Success data is `data.path` (absolute folder path). Titles then read/write ordinary files under that folder. |
-| `get_remaining_quota(user)` | `GDKResult` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. |
+| `get_remaining_quota_async(user)` | `Signal` | Read the remaining save quota in bytes via `XGameSaveFilesGetRemainingQuota`. Success data is `data.bytes`. The native entry point is synchronous and rejects calls from a time-sensitive thread with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`), so the wrapper runs it on the shared task queue's work port and completes on the main thread. |
 
 ### Validation notes
 
@@ -1514,7 +1514,7 @@ if folder_result.ok:
     f.store_var({"level": 3, "score": 1450})
     f.close()
 
-var quota_result: GDKResult = GDK.game_save.get_remaining_quota(user)
+var quota_result: GDKResult = await GDK.game_save.get_remaining_quota_async(user)
 if quota_result.ok:
     print("Remaining save quota: %d bytes" % quota_result.data.bytes)
 ```
