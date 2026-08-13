@@ -1522,6 +1522,18 @@ it configures the separate no-code cloud-saves feature.
 - `xbox_services_uninitialized` when the shared XBOX services scaffold (SCID)
   is unavailable.
 
+### Cancellation
+
+Neither method exposes a caller-facing cancel API — both return a bare `Signal`,
+and the underlying pending-signal object is engine-internal. Cancellation is
+driven by the runtime: `GDK.shutdown()` cancels every in-flight request and
+resolves its awaiter with a cancelled `GDKResult`, so an `await` can never hang.
+
+Internally the two differ. `get_folder_async()` forwards cancellation to
+`XAsyncCancel`. `get_remaining_quota_async()` does not: it wraps a single
+blocking native call that the GDK offers no way to interrupt, so forwarding
+would be inert. The awaiter is still resolved as cancelled either way.
+
 ### Usage
 
 ```gdscript

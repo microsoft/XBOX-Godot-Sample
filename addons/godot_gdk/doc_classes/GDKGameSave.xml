@@ -19,7 +19,7 @@
 			<return type="Signal" />
 			<param index="0" name="user" type="GDKUser" />
 			<description>
-				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. Returns a [Signal] that completes with a [GDKResult] whose [code]data.bytes[/code] holds the remaining byte count. The underlying GDK entry point is synchronous and rejects calls made from a time-sensitive thread with [code]E_GS_ASYNC_FUNCTION_REQUIRED[/code] ([code]0x8083000E[/code]), so the wrapper runs it on the shared task queue's work port and reports back on the main thread. Requires a signed-in [GDKUser] and an initialized runtime.
+				Returns the remaining game-save storage quota for [param user] via [code]XGameSaveFilesGetRemainingQuota[/code]. Returns a [Signal] that completes with a [GDKResult] whose [code]data.bytes[/code] holds the remaining byte count. The underlying GDK entry point is synchronous and rejects calls made from a time-sensitive thread with [code]E_GS_ASYNC_FUNCTION_REQUIRED[/code] ([code]0x8083000E[/code]), so the wrapper runs it on the shared task queue's work port and reports back on the main thread. Because that native call cannot be interrupted, the wrapper binds no cancel handler, unlike [method get_folder_async]. This is not caller-visible: neither method exposes a cancel API. Runtime shutdown still resolves the awaiter with a cancelled [GDKResult], so an [code]await[/code] cannot hang. Requires a signed-in [GDKUser] and an initialized runtime.
 			</description>
 		</method>
 	</methods>

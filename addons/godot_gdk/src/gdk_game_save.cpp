@@ -299,6 +299,15 @@ Signal GDKGameSave::get_remaining_quota_async(const Ref<GDKUser> &p_user) {
     Ref<GDKPendingSignal> pending_signal = runtime->make_pending_signal();
     auto *context = new GetRemainingQuotaAsyncContext(runtime, pending_signal, user_handle, configuration_id);
 
+    // No cancel handler is bound here, unlike get_folder_async(). The work is a
+    // single blocking XGameSaveFilesGetRemainingQuota call on a work-port
+    // thread, which the GDK offers no way to interrupt, so XAsyncOp::Cancel is
+    // a no-op and forwarding to XAsyncCancel() could only race DoWork's
+    // XAsyncComplete(). Callers cannot observe the difference: they receive a
+    // bare Signal and GDKPendingSignal is an internal class, so there is no
+    // caller-facing cancel path. GDKRuntime::shutdown() still cancels and then
+    // synchronously completes every registered pending signal, so no await can
+    // hang.
     HRESULT hr = XAsyncBegin(
             context->get_async_block(),
             context,
