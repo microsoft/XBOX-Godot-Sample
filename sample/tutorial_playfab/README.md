@@ -1,4 +1,4 @@
-# Tutorial PlayFab — PlayFab services sample
+# Tutorial PlayFab - PlayFab services sample
 
 This Godot 4.x project is the reference implementation for the [PlayFab tutorial track](../../docs/tutorials/README.md#playfab-track). It uses `godot_playfab` only: no Xbox sign-in and no `MicrosoftGame.config` are required for the PlayFab-only scenes.
 

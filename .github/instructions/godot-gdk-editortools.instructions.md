@@ -3,7 +3,7 @@ applyTo: "addons/godot_gdk_editortools/**,tests/godot/gdk/tests/editortools/**,s
 description: "Godot GDK Editor Tools addon architecture, headless runner, settings precedence, and editor menu"
 ---
 
-# Godot GDK Editor Tools addon — instructions
+# Godot GDK Editor Tools addon - instructions
 
 `addons/godot_gdk_editortools/` is the GDK PC packaging tooling (Microsoft
 Game Config, makepkg, wdapp, XblPCSandbox, GameConfigEditor, Store

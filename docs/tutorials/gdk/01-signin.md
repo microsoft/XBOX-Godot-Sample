@@ -1,4 +1,4 @@
-# GDK Tutorial 1 — Xbox-only sign-in
+# GDK Tutorial 1 - Xbox-only sign-in
 
 ## What you'll build
 

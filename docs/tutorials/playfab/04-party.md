@@ -1,4 +1,4 @@
-# PlayFab Tutorial 4 — Party
+# PlayFab Tutorial 4 - Party
 
 ## What you'll build
 

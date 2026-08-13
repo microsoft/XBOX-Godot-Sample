@@ -1,4 +1,4 @@
-# Godot Microsoft GDK Editor Tools — Editor `GDK` Menu
+# Godot Microsoft GDK Editor Tools - Editor `GDK` Menu
 
 The `godot_gdk_editortools` addon adds a top-level **Microsoft GDK** menu to the
 Godot editor. The menu is editor tooling only: it does not add a runtime

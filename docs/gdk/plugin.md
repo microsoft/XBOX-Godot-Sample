@@ -1,4 +1,4 @@
-# Godot Microsoft GDK plugin
+# Microsoft GDK addon (`godot_gdk`)
 
 This is the landing page for the `godot_gdk` docs set.
 

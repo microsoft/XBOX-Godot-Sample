@@ -1,4 +1,4 @@
-# Integrated Integrated Tutorial 2 — Integration tech demo
+# Integrated Tutorial 2 - Integration tech demo
 
 
 
@@ -1668,7 +1668,7 @@ error fires.
 
 | Leaderboard panel renders `(no entries)` even after a successful record | Statistic-to-leaderboard propagation is eventually consistent, or the leaderboard's source statistic does not match `STATISTIC_NAME`. | Wait 1–10 seconds and click **Refresh**. If still empty, confirm in Game Manager that `LEADERBOARD_NAME` matches a leaderboard sourced from the statistic named `STATISTIC_NAME`, and that the entity type seeded by your sign-in (`title_player_account`) matches the statistic's expected entity. See the [PlayFab Leaderboard tutorial](../playfab/02-leaderboard.md) common-failures table for the same diagnoses. |
 
-| Game Saves panel `_save_folder` stays empty | `add_user_with_ui_async` failed. | Most common cause: the PlayFab session is custom-id rather than XBOX-backed. Confirm the Game Saves prerequisites in [PlayFab prerequisites — Game Saves](../../playfab/prerequisites.md#game-saves-t4-t8). |
+| Game Saves panel `_save_folder` stays empty | `add_user_with_ui_async` failed. | Most common cause: the PlayFab session is custom-id rather than XBOX-backed. Confirm the Game Saves prerequisites in [PlayFab prerequisites — Game Saves](../../playfab/prerequisites.md#game-saves-integrated-tech-demo). |
 
 | MPA panel shows "Advertising …" but the second client never sees a join card | Sandbox mismatch between PC and friend's PC. | See [Troubleshooting → Sandbox mismatch](../../troubleshooting.md). |
 

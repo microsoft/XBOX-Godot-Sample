@@ -1,4 +1,4 @@
-# GDK Tutorial 4 — Multiplayer Activity
+# GDK Tutorial 4 - Multiplayer Activity
 
 ## What you'll build
 

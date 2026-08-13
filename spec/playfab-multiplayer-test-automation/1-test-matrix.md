@@ -1,4 +1,4 @@
-# PlayFab Multiplayer Test Automation — Test Matrix
+# PlayFab Multiplayer Test Automation - Test Matrix
 
 ## Overview
 
