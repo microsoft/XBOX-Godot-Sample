@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/github/license/microsoft/XBOX-Godot-Sample?color=107C10)](LICENSE)
 [![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
 [![Microsoft GDK](https://img.shields.io/badge/Microsoft%20GDK-supported-107C10)](https://github.com/microsoft/GDK/releases)
+[![PlayFab](https://img.shields.io/badge/PlayFab-sign--in%20%C2%B7%20leaderboards%20%C2%B7%20lobby%20%C2%B7%20Party-5C2D91?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYuNiAxOS42YTQuNiA0LjYgMCAwIDEtLjQzLTkuMTggNi42NSA2LjY1IDAgMCAxIDEyLjYtLjk4IDQuNTcgNC41NyAwIDAgMS0uODcgOS4xNkg2LjZaIi8%2BPC9zdmc%2BDQo%3D)](docs/playfab/plugin.md)
+[![GameInput](https://img.shields.io/badge/GameInput-controllers%20%C2%B7%20haptics-107C10?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNNi45IDYuNmgxMC4yYzIuNyAwIDQuOTggMS45OCA1LjM4IDQuNjVsLjc4IDUuMmMuMjkgMS45My0xLjIgMy42Ni0zLjE1IDMuNjYtMS4xIDAtMi4xMi0uNTctMi43LTEuNWwtMS42My0yLjYyYS45LjkgMCAwIDAtLjc2LS40Mkg4Ljk4YS45LjkgMCAwIDAtLjc2LjQyTDYuNiAxOC42MWMtLjU4LjkzLTEuNiAxLjUtMi43IDEuNS0xLjk1IDAtMy40NC0xLjczLTMuMTUtMy42NmwuNzgtNS4yQTUuNDQgNS40NCAwIDAgMSA2LjkgNi42Wm0tLjc1IDMuM3YxLjVoLTEuNXYxLjdoMS41djEuNWgxLjd2LTEuNWgxLjV2LTEuN2gtMS41VjkuOWgtMS43Wm0xMC41NS4zNWExLjIgMS4yIDAgMSAwIDAgMi40IDEuMiAxLjIgMCAwIDAgMC0yLjRabS0yLjYgMi42YTEuMiAxLjIgMCAxIDAgMCAyLjQgMS4yIDEuMiAwIDAgMCAwLTIuNFoiLz48L3N2Zz4NCg%3D%3D)](docs/gameinput/plugin.md)
 [![.NET](https://img.shields.io/badge/.NET-supported-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
 [![Docs](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
 
@@ -25,6 +27,8 @@
 | Set up an XBOX sandbox and test accounts | [**Sandbox and test accounts**](docs/platform/xbox-sandbox-and-test-accounts.md) |
 | Fix a build or runtime error | [**Troubleshooting**](docs/troubleshooting.md) |
 | Browse the full documentation tree | [**Documentation index**](docs/README.md) |
+
+## Overview
 
 A working source-only reference for building a Godot extension that wraps the Microsoft **GDK**, **XBOX Services**, and **PlayFab**, and lets you build your title for XBOX on PC — without leaving the engine you already love.
 
@@ -81,11 +85,11 @@ Design specs live in [`spec/`](spec/) — design intent that is not always refle
 ## Additional Documentation
 
 - [**Microsoft GDK**](https://github.com/microsoft/GDK) - Microsoft GDK product details
-- [**PlayFab Unified SDK**](https://learn.microsoft.com/en-us/gaming/playfab/sdks/unified-sdk/overview) - PlayFab Unifieid SDK product details
+- [**PlayFab Unified SDK**](https://learn.microsoft.com/en-us/gaming/playfab/sdks/unified-sdk/overview) - PlayFab Unified SDK product details
 - [**GameInput**](https://aka.ms/GameInput) - GameInput product details
 - [**Docs**](https://aka.ms/XBOXGodotDocs) - documentation on XBOX development with Godot on Microsoft GDK Learn website
-- [**Godot C# Essentials**](https://github.com/microsoft/godot-csharp-essentials) - learning content provided by Microsoft on using Godot with C#
 - [**Issues**](https://aka.ms/XBOXGodotIssues) - list of issues & feedback related to XBOX Godot sample
+- [**Godot C# Essentials**](https://github.com/microsoft/godot-csharp-essentials) - learning content provided by Microsoft on using Godot with C#
 
 ## Support and contributing
 
