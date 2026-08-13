@@ -1484,9 +1484,24 @@ if not result.ok:
 (`XGameSaveFiles.h`). This is distinct from PlayFab Game Saves
 (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
 
-The title must declare connected storage / a `SaveFolder` in its
-`MicrosoftGame.config`; without it the native calls fail and the propagated
-`HRESULT` error is returned.
+These calls authenticate through Xbox services, so the title must be
+configured for them:
+
+- `MicrosoftGame.config` carries the `TitleId` and `MSAAppId` issued by
+  Partner Center.
+- The SCID handed to the native API matches the title's SCID in Partner
+  Center (**Xbox services → Xbox settings**). The addon supplies it from the
+  initialized Xbox services scaffold.
+- **Connected Storage** is enabled in Partner Center under
+  **Gameplay settings → Title Storage**.
+- The build runs with registered package identity (`wdapp register` or a
+  packaged build); the per-user store lives under
+  `%LOCALAPPDATA%\Packages\<package>\SystemAppData\xgs\`.
+
+A mismatch in any of these surfaces as `E_GS_NO_ACCESS` (`0x80830002`) from
+the native call, which the wrapper propagates verbatim. The
+`SaveGameStorage` element of `MicrosoftGame.config` is **not** required here;
+it configures the separate no-code cloud-saves feature.
 
 ### Methods
 
