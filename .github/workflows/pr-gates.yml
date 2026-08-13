@@ -40,9 +40,14 @@ name: PR Gates
 # ignored path AND anything else still runs every job. So a docs + code change is
 # gated exactly as it is today -- only pure docs/README churn is skipped.
 #
-# '**/*.md' covers Markdown at any depth, including root README.md/CONTRIBUTING.md,
-# docs/, spec/, and sample/*/README.md. 'docs/**' is redundant today (docs/ is
-# 100% Markdown) but keeps future doc assets such as screenshots out of the gates.
+# '**.md' covers Markdown at any depth, including root README.md/CONTRIBUTING.md,
+# docs/, spec/, and sample/*/README.md. GitHub's path filters are NOT minimatch:
+# '**' matches zero or more of ANY character, '/' included, so '**.md' is the
+# pattern that reaches every depth (the docs use '**.js' for "all .js files in the
+# repository"). Do not "correct" this to '**/*.md' -- that form requires a literal
+# '/' before the filename and would stop ignoring root-level README.md and
+# CONTRIBUTING.md. 'docs/**' is redundant today (docs/ is 100% Markdown) but keeps
+# future doc assets such as screenshots out of the gates.
 #
 # This is safe because no job here reads a Markdown file. The one script that does
 # consume docs -- tools/package_addons.ps1, which stages docs/addon-getting-started.md
