@@ -40,7 +40,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Game activation events | Implemented | `GDK.activation` wraps `XGameActivation.h` on April 2026+ editions; on October 2025 editions (where `XGameActivation.h` is absent) it transparently falls back to `XGameProtocol.h` + `XGameInvite.h`. The backend is selected at compile time via `grdk.h`'s `_GRDK_EDITION`; the public surface is identical either way. |
 | Text-to-speech | Implemented | `GDK.speech` wraps `XSpeechSynthesizer.h`: enumerate installed voices, select default/custom voice, and synthesize text/SSML to WAV/PCM bytes locally (no network) |
 | Events | Implemented | `GDK.events` wraps the per-title `XGameEvent.h` writer (`XGameEventWrite`) for GDK-native in-game telemetry. Complementary to PlayFab analytics. The `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`) remain internal-gated and unwrapped |
-| Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves. Requires the title's `MicrosoftGame.config` connected-storage/SaveFolder config. The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
+| Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves backed by Connected Storage. Requires the title's Partner Center Xbox services configuration (`TitleId`/`MSAAppId`, matching SCID, Connected Storage enabled) and registered package identity. Unrelated to Xbox Services Title Storage (`GDK.title_storage`). The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
 | Runtime feature probe | Implemented | `GDK.system.is_feature_available(name)` wraps `XGameRuntimeIsFeatureAvailable` (`XGameRuntimeFeature.h`) so titles can gate optional GDK features (e.g. Events, GameChat) at runtime |
 | Voice and text chat | Implemented | `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) `chat_manager` for GDK-native voice + text chat: user management, communication relationships, mute/volume controls, text, and text-to-speech. The wrapper exposes Game Chat's opaque data-frame surface (`outgoing_data_frame` signal + `process_incoming_data_frame`) and builds **no** network transport — titles ferry frames over their own transport (sample/tests use single-process loopback). This is the GDK-native alternative to PlayFab Party (`godot_playfab`) |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
@@ -512,16 +512,16 @@ get_play_session_id() -> String
 ##### Methods
 
 ```gdscript
-get_folder_async(user: GDKUser) -> Signal      # GDKResult.data.path := absolute save-folder path
-get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remaining quota in bytes
+get_folder_async(user: GDKUser) -> Signal            # GDKResult.data.path := absolute save-folder path
+get_remaining_quota_async(user: GDKUser) -> Signal   # GDKResult.data.bytes := remaining quota in bytes
 ```
 
 ##### Behavior contract
 
-- `GDK.game_save` wraps the GDK-native file-style save API (`XGameSaveFiles.h`). It is distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
-- The title must declare connected storage / a `SaveFolder` in its `MicrosoftGame.config`; without it the native calls fail and the wrapper returns the propagated `HRESULT` error.
+- `GDK.game_save` wraps the GDK-native file-style save API (`XGameSaveFiles.h`), which is backed by **Connected Storage**. It is distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
+- The title must be configured for Connected Storage-backed saves: `TitleId` + `MSAAppId` in `MicrosoftGame.config`, a SCID matching Partner Center (**Xbox services → Xbox settings**), **Connected Storage** enabled for the title in Partner Center, and registered package identity (the per-user store lives under `%LOCALAPPDATA%\Packages\<package>\SystemAppData\xgs\`). The Connected Storage option currently sits on Partner Center's **Gameplay settings → Title Storage** page, but Connected Storage is a different system from Xbox Services Title Storage — enabling the title/global/universal storage types does nothing for Game Saves. A mismatch surfaces as `E_GS_NO_ACCESS` (`0x80830002`), which the wrapper propagates verbatim. The `SaveGameStorage` element is **not** required for these APIs — it configures the separate no-code cloud-saves feature.
 - `get_folder_async()` wraps `XGameSaveFilesGetFolderWithUiAsync`: it resolves (and may surface a system UI for) the user's save folder, returning the absolute path in `GDKResult.data.path`. Titles then read/write ordinary files under that folder.
-- `get_remaining_quota()` is synchronous and wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`.
+- `get_remaining_quota_async()` wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`. The native entry point is synchronous and `XGameSaveFiles` exposes no async variant, but the GDK fails the call with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`) when it is issued from a time-sensitive thread such as Godot's main thread. The wrapper therefore drives it through a custom `XAsyncProvider` that executes the call on the shared task queue's work port and completes the pending signal from the queue's completion port on the main thread. Unlike `get_folder_async()`, the request binds no cancel handler: the blocking native call cannot be interrupted, so forwarding to `XAsyncCancel` would be inert. This is not caller-visible — neither method exposes a cancel API, since both return a bare `Signal` and `GDKPendingSignal` is an internal class. Runtime shutdown still resolves the awaiter with a cancelled `GDKResult`, so no `await` can hang.
 - The service configuration id (SCID) is pulled from the cached `GDKXboxServices` state. Validation failures return `not_initialized`, `invalid_user`, or `xbox_services_uninitialized`.
 
 ##### Native API mapping
@@ -529,7 +529,7 @@ get_remaining_quota(user: GDKUser) -> GDKResult # GDKResult.data.bytes := remain
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
 | `get_folder_async()` | `XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetFolderWithUiResult` | Returns the absolute save-folder path; may show a system UI. |
-| `get_remaining_quota()` | `XGameSaveFilesGetRemainingQuota` | Synchronous; returns remaining quota bytes. |
+| `get_remaining_quota_async()` | `XGameSaveFilesGetRemainingQuota`, `XAsyncBegin` / `XAsyncSchedule` / `XAsyncComplete` | Native call is synchronous; the wrapper runs it on the task queue's work port so the GDK does not reject it with `E_GS_ASYNC_FUNCTION_REQUIRED`. Returns remaining quota bytes. |
 
 > The richer `XGameSave.h` connected-storage container API (27 functions) is intentionally **not** wrapped: it is a more complex API than `XGameSaveFiles` and overlaps PlayFab Game Saves.
 
