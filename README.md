@@ -1,11 +1,30 @@
 # XBOX Godot Sample
 
+[![Release](https://img.shields.io/github/v/release/microsoft/XBOX-Godot-Sample?label=release&color=107C10)](https://github.com/microsoft/XBOX-Godot-Sample/releases)
+[![License: MIT](https://img.shields.io/github/license/microsoft/XBOX-Godot-Sample?color=107C10)](LICENSE)
+[![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
+[![Microsoft GDK](https://img.shields.io/badge/Microsoft%20GDK-Apr%202026-107C10)](https://github.com/microsoft/GDK)
+[![.NET](https://img.shields.io/badge/.NET-supported-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
+[![Docs](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
+
+**Ship your Godot 4 game on XBOX for PC.** GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot — usable from both GDScript and C#/.NET.
+
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
 >
 > **This is a sample specific to XBOX on PC.** There is no specific support for XBOX Series X\|S or XBOX One. Please talk with your Microsoft representative if you'd like to learn more about support on those platforms.
 <img width="1920" height="1080" alt="XBOXGodot_HERO1" src="https://github.com/user-attachments/assets/59dfb9dc-8eb6-4bc0-b15e-c55b90057020" />
 
+## Quick start
+
+| I want to… | Start here |
+|---|---|
+| Drop the addons into an existing Godot project | [**Addons quickstart**](docs/addon-getting-started.md) |
+| Clone and build the sample from source | [**Getting started**](docs/getting-started.md) |
+| Follow a guided, task-oriented walkthrough | [**Tutorials**](docs/tutorials/README.md) |
+| Set up an XBOX sandbox and test accounts | [**Sandbox and test accounts**](docs/platform/xbox-sandbox-and-test-accounts.md) |
+| Fix a build or runtime error | [**Troubleshooting**](docs/troubleshooting.md) |
+| Browse the full documentation tree | [**Documentation index**](docs/README.md) |
 
 A working source-only reference for building a Godot extension that wraps the Microsoft **GDK**, **XBOX Services**, and **PlayFab**, and lets you build your title for XBOX on PC — without leaving the engine you already love.
 
