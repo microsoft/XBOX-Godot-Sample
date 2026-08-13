@@ -9,7 +9,7 @@
 [![.NET supported][badge-dotnet]][link-dotnet]
 [![Documentation on Microsoft Learn][badge-docs]][link-docs]
 [![Visit our Blog][badge-blog]][link-blog]
-[![Join our Discord][badge-discord]][link-discord]
+[![Join us on Discord][badge-discord]][link-discord]
 [![PRs welcome][badge-prs]][link-prs]
 
 **Learn to build your Godot 4 game for XBOX on PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
