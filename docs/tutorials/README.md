@@ -1,4 +1,4 @@
-# Tutorials
+# XBOX Godot Sample tutorials
 
 Task-oriented walkthroughs for the XBOX Godot Sample addons. The tutorials are split by altitude so you can choose the smallest sample that matches your game:
 

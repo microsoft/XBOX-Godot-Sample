@@ -1,4 +1,4 @@
-# Godot Microsoft GDK sample and tests
+# Sample projects and the repo-wide test pipeline
 
 This document explains how the repo-wide test pipeline validates
 the addons.

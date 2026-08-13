@@ -1,4 +1,4 @@
-# PlayFab async system
+# PlayFab async system — Godot signal lifecycle contract
 
 The PlayFab addon exposes native XAsync, Party, and Multiplayer operations as one-shot Godot signals. This page defines the lifecycle contract that docs and samples should rely on.
 

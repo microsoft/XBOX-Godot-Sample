@@ -1,4 +1,4 @@
-# Getting Started
+# Getting started with the XBOX Godot Sample addons
 
 This guide walks you through using the XBOX Godot Sample addons in your own Godot
 project — what to copy, how to enable it, how to configure project settings,
