@@ -3,7 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/microsoft/XBOX-Godot-Sample?label=release&color=107C10)](https://github.com/microsoft/XBOX-Godot-Sample/releases)
 [![License: MIT](https://img.shields.io/github/license/microsoft/XBOX-Godot-Sample?color=107C10)](LICENSE)
 [![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
-[![Microsoft GDK](https://img.shields.io/badge/Microsoft%20GDK-Apr%202026-107C10)](https://github.com/microsoft/GDK)
+[![Microsoft GDK](https://img.shields.io/badge/Microsoft%20GDK-supported-107C10)](https://github.com/microsoft/GDK/releases)
 [![.NET](https://img.shields.io/badge/.NET-supported-512BD4?logo=dotnet&logoColor=white)](docs/getting-started.md)
 [![Docs](https://img.shields.io/badge/docs-Microsoft%20Learn-0078D4)](https://aka.ms/XBOXGodotDocs)
 
