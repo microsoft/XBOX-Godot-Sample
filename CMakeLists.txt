@@ -151,6 +151,12 @@ endif()
 
 add_subdirectory(godot-cpp)
 
+# godot-cpp's GODOTCPP_TARGET is a configure-time cache string, so a single
+# binary directory can only ever build one configuration correctly. Each addon
+# calls godot_cpp_config_guard() on its own target (add_custom_command(TARGET)
+# must run in the directory that created the target).
+include(GodotCppConfigGuard)
+
 if(BUILD_GODOT_GDK)
     add_subdirectory(addons/godot_gdk)
 endif()

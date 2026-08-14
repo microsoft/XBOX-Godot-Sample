@@ -335,13 +335,17 @@ func test_missing_main_dll_message_is_actionable() -> void:
 	assert_string_contains(msg, "release", "message names the failing config")
 	assert_string_contains(msg, "GDExtension dynamic library not found",
 		"message ties the failure to the runtime symptom")
-	assert_string_contains(msg, "cmake --build build --preset release",
+	assert_string_contains(msg, "cmake --preset default-release",
+		"message names the release configure preset")
+	assert_string_contains(msg, "cmake --build --preset release",
 		"message gives the exact build command to fix a release export")
 
 
 func test_missing_main_dll_message_debug_variant() -> void:
 	var msg: String = ExportPlatform._missing_main_dll_message("debug")
-	assert_string_contains(msg, "cmake --build build --preset debug",
+	assert_string_contains(msg, "cmake --preset default",
+		"debug variant names the debug configure preset")
+	assert_string_contains(msg, "cmake --build --preset debug",
 		"debug variant names the debug build preset")
 
 

@@ -570,15 +570,20 @@ produces an addons zip):
 For local development builds:
 
 ```powershell
-# Configure all addons
+# Configure the debug build tree
 cmake --preset default
+cmake --build --preset debug
 
-# Build debug
-cmake --build build --preset debug
-
-# Build release
-cmake --build build --preset release
+# Release needs its own configure and its own build tree
+cmake --preset default-release
+cmake --build --preset release
 ```
+
+> **Debug and Release are separate build trees.** godot-cpp's `GODOTCPP_TARGET`
+> is a configure-time cache variable, so `build/` only ever produces correct
+> Debug binaries and `build/release/` only ever produces correct Release
+> binaries. `cmake --build build --config Release` fails on purpose. See
+> [Release build linked the debug godot-cpp](troubleshooting.md#release-build-linked-the-debug-godot-cpp).
 
 The build:
 
