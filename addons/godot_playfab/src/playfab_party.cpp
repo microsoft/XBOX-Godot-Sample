@@ -151,6 +151,27 @@ bool dictionary_entity_key_equals(const Dictionary &a, const Dictionary &b) {
             String(a.get("type", String())) == String(b.get("type", String()));
 }
 
+// Copies a Party-owned PartyTextToSpeechProfile into an engine-owned snapshot.
+// The SDK invalidates its profile pointers on the next
+// PopulateAvailableTextToSpeechProfiles, so nothing may hold them across calls.
+Ref<PlayFabPartyTextToSpeechProfile> text_to_speech_profile_snapshot(Party::PartyTextToSpeechProfile *p_profile) {
+    Ref<PlayFabPartyTextToSpeechProfile> wrapper;
+    if (p_profile == nullptr) {
+        return wrapper;
+    }
+    PartyString identifier = nullptr;
+    PartyString name = nullptr;
+    PartyString language_code = nullptr;
+    Party::PartyGender gender = Party::PartyGender::Neutral;
+    p_profile->GetIdentifier(&identifier);
+    p_profile->GetName(&name);
+    p_profile->GetLanguageCode(&language_code);
+    p_profile->GetGender(&gender);
+    wrapper.instantiate();
+    wrapper->set_values(party_string(identifier), party_string(name), party_string(language_code), static_cast<int64_t>(gender));
+    return wrapper;
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -171,12 +192,12 @@ void PlayFabPartyConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_transcription_enabled", "enabled"), &PlayFabPartyConfig::set_transcription_enabled);
     ClassDB::bind_method(D_METHOD("is_translation_enabled"), &PlayFabPartyConfig::is_translation_enabled);
     ClassDB::bind_method(D_METHOD("set_translation_enabled", "enabled"), &PlayFabPartyConfig::set_translation_enabled);
+    ClassDB::bind_method(D_METHOD("get_language"), &PlayFabPartyConfig::get_language);
+    ClassDB::bind_method(D_METHOD("set_language", "language"), &PlayFabPartyConfig::set_language);
     ClassDB::bind_method(D_METHOD("get_audio_input"), &PlayFabPartyConfig::get_audio_input);
     ClassDB::bind_method(D_METHOD("set_audio_input", "audio_input"), &PlayFabPartyConfig::set_audio_input);
     ClassDB::bind_method(D_METHOD("get_audio_output"), &PlayFabPartyConfig::get_audio_output);
     ClassDB::bind_method(D_METHOD("set_audio_output", "audio_output"), &PlayFabPartyConfig::set_audio_output);
-    ClassDB::bind_method(D_METHOD("get_metadata"), &PlayFabPartyConfig::get_metadata);
-    ClassDB::bind_method(D_METHOD("set_metadata", "metadata"), &PlayFabPartyConfig::set_metadata);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "max_players"), "set_max_players", "get_max_players");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "direct_peer_connectivity"), "set_direct_peer_connectivity", "get_direct_peer_connectivity");
@@ -185,9 +206,9 @@ void PlayFabPartyConfig::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_text_chat"), "set_text_chat_enabled", "is_text_chat_enabled");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_transcription"), "set_transcription_enabled", "is_transcription_enabled");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enable_translation"), "set_translation_enabled", "is_translation_enabled");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "language"), "set_language", "get_language");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "audio_input"), "set_audio_input", "get_audio_input");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "audio_output"), "set_audio_output", "get_audio_output");
-    ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "metadata"), "set_metadata", "get_metadata");
 }
 
 int64_t PlayFabPartyConfig::get_max_players() const { return m_max_players; }
@@ -204,35 +225,52 @@ bool PlayFabPartyConfig::is_transcription_enabled() const { return m_enable_tran
 void PlayFabPartyConfig::set_transcription_enabled(bool p_enabled) { m_enable_transcription = p_enabled; }
 bool PlayFabPartyConfig::is_translation_enabled() const { return m_enable_translation; }
 void PlayFabPartyConfig::set_translation_enabled(bool p_enabled) { m_enable_translation = p_enabled; }
+String PlayFabPartyConfig::get_language() const { return m_language; }
+void PlayFabPartyConfig::set_language(const String &p_language) { m_language = p_language; }
 String PlayFabPartyConfig::get_audio_input() const { return m_audio_input; }
 void PlayFabPartyConfig::set_audio_input(const String &p_audio_input) { m_audio_input = p_audio_input; }
 String PlayFabPartyConfig::get_audio_output() const { return m_audio_output; }
 void PlayFabPartyConfig::set_audio_output(const String &p_audio_output) { m_audio_output = p_audio_output; }
-Dictionary PlayFabPartyConfig::get_metadata() const { return m_metadata; }
-void PlayFabPartyConfig::set_metadata(const Dictionary &p_metadata) { m_metadata = p_metadata; }
 
 // ---------------------------------------------------------------------------
 // PlayFabPartyTextMessageConfig
 
 void PlayFabPartyTextMessageConfig::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("get_language_code"), &PlayFabPartyTextMessageConfig::get_language_code);
-    ClassDB::bind_method(D_METHOD("set_language_code", "language_code"), &PlayFabPartyTextMessageConfig::set_language_code);
-    ClassDB::bind_method(D_METHOD("get_translate_to_languages"), &PlayFabPartyTextMessageConfig::get_translate_to_languages);
-    ClassDB::bind_method(D_METHOD("set_translate_to_languages", "languages"), &PlayFabPartyTextMessageConfig::set_translate_to_languages);
     ClassDB::bind_method(D_METHOD("get_metadata"), &PlayFabPartyTextMessageConfig::get_metadata);
     ClassDB::bind_method(D_METHOD("set_metadata", "metadata"), &PlayFabPartyTextMessageConfig::set_metadata);
 
-    ADD_PROPERTY(PropertyInfo(Variant::STRING, "language_code"), "set_language_code", "get_language_code");
-    ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "translate_to_languages"), "set_translate_to_languages", "get_translate_to_languages");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "metadata"), "set_metadata", "get_metadata");
 }
 
-String PlayFabPartyTextMessageConfig::get_language_code() const { return m_language_code; }
-void PlayFabPartyTextMessageConfig::set_language_code(const String &p_language_code) { m_language_code = p_language_code; }
-PackedStringArray PlayFabPartyTextMessageConfig::get_translate_to_languages() const { return m_translate_to_languages; }
-void PlayFabPartyTextMessageConfig::set_translate_to_languages(const PackedStringArray &p_languages) { m_translate_to_languages = p_languages; }
 Dictionary PlayFabPartyTextMessageConfig::get_metadata() const { return m_metadata; }
 void PlayFabPartyTextMessageConfig::set_metadata(const Dictionary &p_metadata) { m_metadata = p_metadata; }
+
+// ---------------------------------------------------------------------------
+// PlayFabPartyTextToSpeechProfile
+
+void PlayFabPartyTextToSpeechProfile::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("get_identifier"), &PlayFabPartyTextToSpeechProfile::get_identifier);
+    ClassDB::bind_method(D_METHOD("get_name"), &PlayFabPartyTextToSpeechProfile::get_name);
+    ClassDB::bind_method(D_METHOD("get_language_code"), &PlayFabPartyTextToSpeechProfile::get_language_code);
+    ClassDB::bind_method(D_METHOD("get_gender"), &PlayFabPartyTextToSpeechProfile::get_gender);
+
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "identifier", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_identifier");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_name");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "language_code", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_language_code");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "gender", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_gender");
+}
+
+void PlayFabPartyTextToSpeechProfile::set_values(const String &p_identifier, const String &p_name, const String &p_language_code, int64_t p_gender) {
+    m_identifier = p_identifier;
+    m_name = p_name;
+    m_language_code = p_language_code;
+    m_gender = p_gender;
+}
+
+String PlayFabPartyTextToSpeechProfile::get_identifier() const { return m_identifier; }
+String PlayFabPartyTextToSpeechProfile::get_name() const { return m_name; }
+String PlayFabPartyTextToSpeechProfile::get_language_code() const { return m_language_code; }
+int64_t PlayFabPartyTextToSpeechProfile::get_gender() const { return m_gender; }
 
 // ---------------------------------------------------------------------------
 // PlayFabPartyMember
@@ -269,20 +307,24 @@ void PlayFabPartyChatMessage::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_sender_entity_key"), &PlayFabPartyChatMessage::get_sender_entity_key);
     ClassDB::bind_method(D_METHOD("get_targets"), &PlayFabPartyChatMessage::get_targets);
     ClassDB::bind_method(D_METHOD("get_text"), &PlayFabPartyChatMessage::get_text);
+    ClassDB::bind_method(D_METHOD("get_original_text"), &PlayFabPartyChatMessage::get_original_text);
     ClassDB::bind_method(D_METHOD("get_language_code"), &PlayFabPartyChatMessage::get_language_code);
     ClassDB::bind_method(D_METHOD("get_translated_text"), &PlayFabPartyChatMessage::get_translated_text);
     ClassDB::bind_method(D_METHOD("is_transcription"), &PlayFabPartyChatMessage::is_transcription);
     ClassDB::bind_method(D_METHOD("get_timestamp"), &PlayFabPartyChatMessage::get_timestamp);
+    ClassDB::bind_method(D_METHOD("get_options"), &PlayFabPartyChatMessage::get_options);
     ClassDB::bind_method(D_METHOD("get_metadata"), &PlayFabPartyChatMessage::get_metadata);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "sender", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatControl", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_sender");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "sender_entity_key", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_sender_entity_key");
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "targets", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_targets");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "text", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_text");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "original_text", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_original_text");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "language_code", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_language_code");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "translated_text", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_translated_text");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "is_transcription", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "is_transcription");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "timestamp", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_timestamp");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "options", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_options");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "metadata", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_metadata");
 }
 
@@ -295,7 +337,9 @@ void PlayFabPartyChatMessage::set_values(
         const String &p_translated_text,
         bool p_transcription,
         int64_t p_timestamp,
-        const Dictionary &p_metadata) {
+        const Dictionary &p_metadata,
+        const String &p_original_text,
+        int64_t p_options) {
     m_sender = p_sender;
     m_sender_entity_key = p_sender_entity_key;
     m_targets = p_targets;
@@ -305,16 +349,20 @@ void PlayFabPartyChatMessage::set_values(
     m_transcription = p_transcription;
     m_timestamp = p_timestamp;
     m_metadata = p_metadata;
+    m_original_text = p_original_text.is_empty() ? p_text : p_original_text;
+    m_options = p_options;
 }
 
 Ref<PlayFabPartyChatControl> PlayFabPartyChatMessage::get_sender() const { return m_sender; }
 Dictionary PlayFabPartyChatMessage::get_sender_entity_key() const { return m_sender_entity_key; }
 Array PlayFabPartyChatMessage::get_targets() const { return m_targets; }
 String PlayFabPartyChatMessage::get_text() const { return m_text; }
+String PlayFabPartyChatMessage::get_original_text() const { return m_original_text; }
 String PlayFabPartyChatMessage::get_language_code() const { return m_language_code; }
 String PlayFabPartyChatMessage::get_translated_text() const { return m_translated_text; }
 bool PlayFabPartyChatMessage::is_transcription() const { return m_transcription; }
 int64_t PlayFabPartyChatMessage::get_timestamp() const { return m_timestamp; }
+int64_t PlayFabPartyChatMessage::get_options() const { return m_options; }
 Dictionary PlayFabPartyChatMessage::get_metadata() const { return m_metadata; }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +411,37 @@ void PlayFabPartyChatControl::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_audio_muted_async", "target", "muted"), &PlayFabPartyChatControl::set_audio_muted_async);
     ClassDB::bind_method(D_METHOD("set_text_muted_async", "target", "muted"), &PlayFabPartyChatControl::set_text_muted_async);
     ClassDB::bind_method(D_METHOD("destroy_async"), &PlayFabPartyChatControl::destroy_async);
+
+    ClassDB::bind_method(D_METHOD("get_local_chat_indicator"), &PlayFabPartyChatControl::get_local_chat_indicator);
+    ClassDB::bind_method(D_METHOD("get_chat_indicator"), &PlayFabPartyChatControl::get_chat_indicator);
+    ClassDB::bind_method(D_METHOD("get_audio_input_state"), &PlayFabPartyChatControl::get_audio_input_state);
+    ClassDB::bind_method(D_METHOD("get_audio_output_state"), &PlayFabPartyChatControl::get_audio_output_state);
+    ClassDB::bind_method(D_METHOD("get_audio_input_selection_type"), &PlayFabPartyChatControl::get_audio_input_selection_type);
+    ClassDB::bind_method(D_METHOD("get_audio_output_selection_type"), &PlayFabPartyChatControl::get_audio_output_selection_type);
+    ClassDB::bind_method(D_METHOD("get_audio_input_device_id"), &PlayFabPartyChatControl::get_audio_input_device_id);
+    ClassDB::bind_method(D_METHOD("get_audio_output_device_id"), &PlayFabPartyChatControl::get_audio_output_device_id);
+    ClassDB::bind_method(D_METHOD("is_audio_input_muted"), &PlayFabPartyChatControl::is_audio_input_muted);
+    ClassDB::bind_method(D_METHOD("set_audio_input_muted_async", "muted"), &PlayFabPartyChatControl::set_audio_input_muted_async);
+    ClassDB::bind_method(D_METHOD("get_audio_render_volume", "target"), &PlayFabPartyChatControl::get_audio_render_volume);
+    ClassDB::bind_method(D_METHOD("set_audio_render_volume_async", "target", "volume"), &PlayFabPartyChatControl::set_audio_render_volume_async);
+    ClassDB::bind_method(D_METHOD("get_audio_encoder_bitrate"), &PlayFabPartyChatControl::get_audio_encoder_bitrate);
+    ClassDB::bind_method(D_METHOD("set_audio_encoder_bitrate_async", "bitrate"), &PlayFabPartyChatControl::set_audio_encoder_bitrate_async);
+    ClassDB::bind_method(D_METHOD("get_voice_audio_options"), &PlayFabPartyChatControl::get_voice_audio_options);
+    ClassDB::bind_method(D_METHOD("set_voice_audio_options_async", "options"), &PlayFabPartyChatControl::set_voice_audio_options_async);
+    ClassDB::bind_method(D_METHOD("get_language"), &PlayFabPartyChatControl::get_language);
+    ClassDB::bind_method(D_METHOD("set_language_async", "language_code"), &PlayFabPartyChatControl::set_language_async);
+    ClassDB::bind_method(D_METHOD("get_transcription_options"), &PlayFabPartyChatControl::get_transcription_options);
+    ClassDB::bind_method(D_METHOD("set_transcription_options_async", "options"), &PlayFabPartyChatControl::set_transcription_options_async);
+    ClassDB::bind_method(D_METHOD("get_text_chat_options"), &PlayFabPartyChatControl::get_text_chat_options);
+    ClassDB::bind_method(D_METHOD("set_text_chat_options_async", "options"), &PlayFabPartyChatControl::set_text_chat_options_async);
+    ClassDB::bind_method(D_METHOD("get_permissions", "target"), &PlayFabPartyChatControl::get_permissions);
+    ClassDB::bind_method(D_METHOD("is_audio_muted", "target"), &PlayFabPartyChatControl::is_audio_muted);
+    ClassDB::bind_method(D_METHOD("is_text_muted", "target"), &PlayFabPartyChatControl::is_text_muted);
+    ClassDB::bind_method(D_METHOD("populate_text_to_speech_profiles_async"), &PlayFabPartyChatControl::populate_text_to_speech_profiles_async);
+    ClassDB::bind_method(D_METHOD("get_text_to_speech_profiles"), &PlayFabPartyChatControl::get_text_to_speech_profiles);
+    ClassDB::bind_method(D_METHOD("get_text_to_speech_profile", "type"), &PlayFabPartyChatControl::get_text_to_speech_profile);
+    ClassDB::bind_method(D_METHOD("set_text_to_speech_profile_async", "type", "profile_id"), &PlayFabPartyChatControl::set_text_to_speech_profile_async);
+    ClassDB::bind_method(D_METHOD("synthesize_text_to_speech_async", "type", "text"), &PlayFabPartyChatControl::synthesize_text_to_speech_async);
 
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_id");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabUser", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_user");
@@ -465,6 +544,361 @@ Signal PlayFabPartyChatControl::destroy_async() {
     return m_owner->_destroy_chat_control(Ref<PlayFabPartyChatControl>(this));
 }
 
+// --- Chat indicators -------------------------------------------------------
+
+int64_t PlayFabPartyChatControl::get_local_chat_indicator() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT;
+    }
+    Party::PartyLocalChatControlChatIndicator indicator = Party::PartyLocalChatControlChatIndicator::Silent;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetLocalChatIndicator(&indicator);
+    if (PARTY_FAILED(err)) {
+        return PlayFabParty::LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT;
+    }
+    return static_cast<int64_t>(indicator);
+}
+
+int64_t PlayFabPartyChatControl::get_chat_indicator() const {
+    if (m_owner == nullptr || m_native_handle == nullptr || m_local) {
+        return PlayFabParty::CHAT_INDICATOR_SILENT;
+    }
+    Party::PartyLocalChatControl *local = m_owner->_resolve_local_native_chat_control(Ref<PlayFabUser>());
+    if (local == nullptr) {
+        return PlayFabParty::CHAT_INDICATOR_SILENT;
+    }
+    Party::PartyChatControlChatIndicator indicator = Party::PartyChatControlChatIndicator::Silent;
+    PartyError err = local->GetChatIndicator(m_native_handle, &indicator);
+    if (PARTY_FAILED(err)) {
+        return PlayFabParty::CHAT_INDICATOR_SILENT;
+    }
+    return static_cast<int64_t>(indicator);
+}
+
+// --- Audio device state / selection ----------------------------------------
+
+int64_t PlayFabPartyChatControl::get_audio_input_state() const { return m_audio_input_state; }
+int64_t PlayFabPartyChatControl::get_audio_output_state() const { return m_audio_output_state; }
+
+int64_t PlayFabPartyChatControl::get_audio_input_selection_type() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::AUDIO_DEVICE_SELECTION_NONE;
+    }
+    Party::PartyAudioDeviceSelectionType type = Party::PartyAudioDeviceSelectionType::None;
+    PartyString context = nullptr;
+    PartyString device_id = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioInput(&type, &context, &device_id);
+    return PARTY_FAILED(err) ? int64_t(PlayFabParty::AUDIO_DEVICE_SELECTION_NONE) : static_cast<int64_t>(type);
+}
+
+int64_t PlayFabPartyChatControl::get_audio_output_selection_type() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::AUDIO_DEVICE_SELECTION_NONE;
+    }
+    Party::PartyAudioDeviceSelectionType type = Party::PartyAudioDeviceSelectionType::None;
+    PartyString context = nullptr;
+    PartyString device_id = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioOutput(&type, &context, &device_id);
+    return PARTY_FAILED(err) ? int64_t(PlayFabParty::AUDIO_DEVICE_SELECTION_NONE) : static_cast<int64_t>(type);
+}
+
+String PlayFabPartyChatControl::get_audio_input_device_id() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return String();
+    }
+    Party::PartyAudioDeviceSelectionType type = Party::PartyAudioDeviceSelectionType::None;
+    PartyString context = nullptr;
+    PartyString device_id = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioInput(&type, &context, &device_id);
+    return PARTY_FAILED(err) ? String() : party_string(device_id);
+}
+
+String PlayFabPartyChatControl::get_audio_output_device_id() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return String();
+    }
+    Party::PartyAudioDeviceSelectionType type = Party::PartyAudioDeviceSelectionType::None;
+    PartyString context = nullptr;
+    PartyString device_id = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioOutput(&type, &context, &device_id);
+    return PARTY_FAILED(err) ? String() : party_string(device_id);
+}
+
+// --- Local capture mute ----------------------------------------------------
+
+bool PlayFabPartyChatControl::is_audio_input_muted() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return false;
+    }
+    PartyBool muted = 0;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioInputMuted(&muted);
+    return PARTY_FAILED(err) ? false : muted != 0;
+}
+
+Signal PlayFabPartyChatControl::set_audio_input_muted_async(bool p_muted) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFabPartyChatControl.set_audio_input_muted_async requires a local chat control.");
+    }
+    return m_owner->_set_audio_input_muted(static_cast<Party::PartyLocalChatControl *>(m_native_handle), p_muted);
+}
+
+// --- Per-target render volume ----------------------------------------------
+
+float PlayFabPartyChatControl::get_audio_render_volume(const Ref<PlayFabPartyChatControl> &p_target) const {
+    if (!m_local || m_native_handle == nullptr || !p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return 0.0f;
+    }
+    float volume = 0.0f;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioRenderVolume(p_target->get_native_handle(), &volume);
+    return PARTY_FAILED(err) ? 0.0f : volume;
+}
+
+Signal PlayFabPartyChatControl::set_audio_render_volume_async(const Ref<PlayFabPartyChatControl> &p_target, double p_volume) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFabPartyChatControl.set_audio_render_volume_async requires a local chat control.");
+    }
+    if (!p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFabPartyChatControl.set_audio_render_volume_async requires a target chat control.");
+    }
+    return m_owner->_set_audio_render_volume(static_cast<Party::PartyLocalChatControl *>(m_native_handle), p_target->get_native_handle(), p_volume);
+}
+
+// --- Encoder / voice processing --------------------------------------------
+
+int64_t PlayFabPartyChatControl::get_audio_encoder_bitrate() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return 0;
+    }
+    uint32_t bitrate = 0;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetAudioEncoderBitrate(&bitrate);
+    return PARTY_FAILED(err) ? 0 : static_cast<int64_t>(bitrate);
+}
+
+Signal PlayFabPartyChatControl::set_audio_encoder_bitrate_async(int64_t p_bitrate) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_audio_encoder_bitrate_async requires a local chat control.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    const uint32_t bitrate = static_cast<uint32_t>(p_bitrate < 0 ? 0 : p_bitrate);
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SET_AUDIO_ENCODER_BITRATE,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SetAudioEncoderBitrate",
+            [local, bitrate](void *p_async) { return local->SetAudioEncoderBitrate(bitrate, p_async); });
+}
+
+int64_t PlayFabPartyChatControl::get_voice_audio_options() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::VOICE_AUDIO_OPTION_NONE;
+    }
+    Party::PartyVoiceAudioOptions options = Party::PartyVoiceAudioOptions::None;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetVoiceAudioOptions(&options);
+    return PARTY_FAILED(err) ? int64_t(PlayFabParty::VOICE_AUDIO_OPTION_NONE) : static_cast<int64_t>(options);
+}
+
+Signal PlayFabPartyChatControl::set_voice_audio_options_async(int64_t p_options) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_voice_audio_options_async requires a local chat control.");
+    }
+    // SetVoiceAudioOptions is synchronous in the Party SDK; wrap the result so
+    // callers get the same awaitable shape as the other setters.
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)
+                             ->SetVoiceAudioOptions(static_cast<Party::PartyVoiceAudioOptions>(p_options));
+    if (PARTY_FAILED(err)) {
+        return detached_error_signal(E_FAIL, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                vformat("PartyLocalChatControl::SetVoiceAudioOptions failed (0x%x).", static_cast<int64_t>(err)));
+    }
+    return detached_ok_signal();
+}
+
+// --- Language / transcription / text-chat options ---------------------------
+
+String PlayFabPartyChatControl::get_language() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return String();
+    }
+    PartyString language = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetLanguage(&language);
+    return PARTY_FAILED(err) ? String() : party_string(language);
+}
+
+Signal PlayFabPartyChatControl::set_language_async(const String &p_language_code) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_language_async requires a local chat control.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    // The SDK copies the string during the call, but the CharString must stay
+    // alive for the duration of the lambda invocation below, so capture by value.
+    const CharString language_utf8 = p_language_code.utf8();
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SET_LANGUAGE,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SetLanguage",
+            [local, language_utf8](void *p_async) {
+                return local->SetLanguage(language_utf8.length() > 0 ? language_utf8.get_data() : nullptr, p_async);
+            });
+}
+
+int64_t PlayFabPartyChatControl::get_transcription_options() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::TRANSCRIPTION_OPTION_NONE;
+    }
+    Party::PartyVoiceChatTranscriptionOptions options = Party::PartyVoiceChatTranscriptionOptions::None;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetTranscriptionOptions(&options);
+    return PARTY_FAILED(err) ? int64_t(PlayFabParty::TRANSCRIPTION_OPTION_NONE) : static_cast<int64_t>(options);
+}
+
+Signal PlayFabPartyChatControl::set_transcription_options_async(int64_t p_options) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_transcription_options_async requires a local chat control.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    const auto options = static_cast<Party::PartyVoiceChatTranscriptionOptions>(p_options);
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SET_TRANSCRIPTION_OPTIONS,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SetTranscriptionOptions",
+            [local, options](void *p_async) { return local->SetTranscriptionOptions(options, p_async); });
+}
+
+int64_t PlayFabPartyChatControl::get_text_chat_options() const {
+    if (!m_local || m_native_handle == nullptr) {
+        return PlayFabParty::TEXT_CHAT_OPTION_NONE;
+    }
+    Party::PartyTextChatOptions options = Party::PartyTextChatOptions::None;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetTextChatOptions(&options);
+    return PARTY_FAILED(err) ? int64_t(PlayFabParty::TEXT_CHAT_OPTION_NONE) : static_cast<int64_t>(options);
+}
+
+Signal PlayFabPartyChatControl::set_text_chat_options_async(int64_t p_options) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_text_chat_options_async requires a local chat control.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    const auto options = static_cast<Party::PartyTextChatOptions>(p_options);
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SET_TEXT_CHAT_OPTIONS,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SetTextChatOptions",
+            [local, options](void *p_async) { return local->SetTextChatOptions(options, p_async); });
+}
+
+// --- Readback ---------------------------------------------------------------
+
+int64_t PlayFabPartyChatControl::get_permissions(const Ref<PlayFabPartyChatControl> &p_target) const {
+    if (m_owner == nullptr || !m_local || m_native_handle == nullptr || !p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return PlayFabParty::CHAT_PERMISSION_NONE;
+    }
+    Party::PartyChatPermissionOptions native = Party::PartyChatPermissionOptions::None;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetPermissions(p_target->get_native_handle(), &native);
+    if (PARTY_FAILED(err)) {
+        return PlayFabParty::CHAT_PERMISSION_NONE;
+    }
+    return m_owner->_translate_chat_permissions_from_native(static_cast<int32_t>(native));
+}
+
+bool PlayFabPartyChatControl::is_audio_muted(const Ref<PlayFabPartyChatControl> &p_target) const {
+    if (!m_local || m_native_handle == nullptr || !p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return false;
+    }
+    PartyBool muted = 0;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetIncomingAudioMuted(p_target->get_native_handle(), &muted);
+    return PARTY_FAILED(err) ? false : muted != 0;
+}
+
+bool PlayFabPartyChatControl::is_text_muted(const Ref<PlayFabPartyChatControl> &p_target) const {
+    if (!m_local || m_native_handle == nullptr || !p_target.is_valid() || p_target->get_native_handle() == nullptr) {
+        return false;
+    }
+    PartyBool muted = 0;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)->GetIncomingTextMuted(p_target->get_native_handle(), &muted);
+    return PARTY_FAILED(err) ? false : muted != 0;
+}
+
+// --- Text to speech ---------------------------------------------------------
+
+Signal PlayFabPartyChatControl::populate_text_to_speech_profiles_async() {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.populate_text_to_speech_profiles_async requires a local chat control.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_POPULATE_TEXT_TO_SPEECH_PROFILES,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::PopulateAvailableTextToSpeechProfiles",
+            [local](void *p_async) { return local->PopulateAvailableTextToSpeechProfiles(p_async); });
+}
+
+Array PlayFabPartyChatControl::get_text_to_speech_profiles() const {
+    return m_text_to_speech_profiles.duplicate();
+}
+
+Ref<PlayFabPartyTextToSpeechProfile> PlayFabPartyChatControl::get_text_to_speech_profile(int64_t p_type) const {
+    if (!m_local || m_native_handle == nullptr) {
+        return Ref<PlayFabPartyTextToSpeechProfile>();
+    }
+    Party::PartyTextToSpeechProfile *profile = nullptr;
+    PartyError err = static_cast<Party::PartyLocalChatControl *>(m_native_handle)
+                             ->GetTextToSpeechProfile(static_cast<Party::PartySynthesizeTextToSpeechType>(p_type), &profile);
+    if (PARTY_FAILED(err) || profile == nullptr) {
+        return Ref<PlayFabPartyTextToSpeechProfile>();
+    }
+    return text_to_speech_profile_snapshot(profile);
+}
+
+Signal PlayFabPartyChatControl::set_text_to_speech_profile_async(int64_t p_type, const String &p_profile_id) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.set_text_to_speech_profile_async requires a local chat control.");
+    }
+    if (p_profile_id.is_empty()) {
+        return detached_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS,
+                "PlayFabPartyChatControl.set_text_to_speech_profile_async requires a profile identifier.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    const auto type = static_cast<Party::PartySynthesizeTextToSpeechType>(p_type);
+    const CharString profile_utf8 = p_profile_id.utf8();
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SET_TEXT_TO_SPEECH_PROFILE,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SetTextToSpeechProfile",
+            [local, type, profile_utf8](void *p_async) { return local->SetTextToSpeechProfile(type, profile_utf8.get_data(), p_async); });
+}
+
+Signal PlayFabPartyChatControl::synthesize_text_to_speech_async(int64_t p_type, const String &p_text) {
+    if (m_owner == nullptr || m_native_handle == nullptr || !m_local) {
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                "PlayFabPartyChatControl.synthesize_text_to_speech_async requires a local chat control.");
+    }
+    if (p_text.is_empty()) {
+        return detached_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS,
+                "PlayFabPartyChatControl.synthesize_text_to_speech_async requires non-empty text.");
+    }
+    Party::PartyLocalChatControl *local = static_cast<Party::PartyLocalChatControl *>(m_native_handle);
+    const auto type = static_cast<Party::PartySynthesizeTextToSpeechType>(p_type);
+    const CharString text_utf8 = p_text.utf8();
+    return m_owner->_dispatch_chat_control_operation(
+            local,
+            PlayFabParty::PENDING_SYNTHESIZE_TEXT_TO_SPEECH,
+            PARTY_CHAT_CONTROL_CREATE_FAILED,
+            "PartyLocalChatControl::SynthesizeTextToSpeech",
+            [local, type, text_utf8](void *p_async) { return local->SynthesizeTextToSpeech(type, text_utf8.get_data(), p_async); });
+}
+
 // ---------------------------------------------------------------------------
 // PlayFabPartyChat
 
@@ -484,6 +918,34 @@ void PlayFabPartyChat::_bind_methods() {
             &PlayFabPartyChat::create_local_chat_control_async,
             DEFVAL(Ref<PlayFabPartyConfig>()));
     ClassDB::bind_method(D_METHOD("destroy_local_chat_control_async", "user"), &PlayFabPartyChat::destroy_local_chat_control_async);
+
+    ClassDB::bind_method(D_METHOD("get_local_chat_indicator", "user"), &PlayFabPartyChat::get_local_chat_indicator, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_chat_indicator", "entity_key", "user"), &PlayFabPartyChat::get_chat_indicator, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_chat_indicators", "user"), &PlayFabPartyChat::get_chat_indicators, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("is_audio_input_muted", "user"), &PlayFabPartyChat::is_audio_input_muted, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_audio_input_muted_async", "muted", "user"), &PlayFabPartyChat::set_audio_input_muted_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_audio_render_volume", "entity_key", "user"), &PlayFabPartyChat::get_audio_render_volume, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_audio_render_volume_async", "entity_key", "volume", "user"), &PlayFabPartyChat::set_audio_render_volume_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_chat_permissions", "entity_key", "user"), &PlayFabPartyChat::get_chat_permissions, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("is_audio_muted", "entity_key", "user"), &PlayFabPartyChat::is_audio_muted, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("is_text_muted", "entity_key", "user"), &PlayFabPartyChat::is_text_muted, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_language", "user"), &PlayFabPartyChat::get_language, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_language_async", "language_code", "user"), &PlayFabPartyChat::set_language_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_transcription_options", "user"), &PlayFabPartyChat::get_transcription_options, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_transcription_options_async", "options", "user"), &PlayFabPartyChat::set_transcription_options_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_text_chat_options", "user"), &PlayFabPartyChat::get_text_chat_options, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_text_chat_options_async", "options", "user"), &PlayFabPartyChat::set_text_chat_options_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_audio_encoder_bitrate", "user"), &PlayFabPartyChat::get_audio_encoder_bitrate, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_audio_encoder_bitrate_async", "bitrate", "user"), &PlayFabPartyChat::set_audio_encoder_bitrate_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_voice_audio_options", "user"), &PlayFabPartyChat::get_voice_audio_options, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_voice_audio_options_async", "options", "user"), &PlayFabPartyChat::set_voice_audio_options_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_audio_input_state", "user"), &PlayFabPartyChat::get_audio_input_state, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_audio_output_state", "user"), &PlayFabPartyChat::get_audio_output_state, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("populate_text_to_speech_profiles_async", "user"), &PlayFabPartyChat::populate_text_to_speech_profiles_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_text_to_speech_profiles", "user"), &PlayFabPartyChat::get_text_to_speech_profiles, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("get_text_to_speech_profile", "type", "user"), &PlayFabPartyChat::get_text_to_speech_profile, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("set_text_to_speech_profile_async", "type", "profile_id", "user"), &PlayFabPartyChat::set_text_to_speech_profile_async, DEFVAL(Ref<PlayFabUser>()));
+    ClassDB::bind_method(D_METHOD("synthesize_text_to_speech_async", "type", "text", "user"), &PlayFabPartyChat::synthesize_text_to_speech_async, DEFVAL(Ref<PlayFabUser>()));
 
     ADD_SIGNAL(MethodInfo("state_changed", PropertyInfo(Variant::OBJECT, "change", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatStateChange")));
     ADD_SIGNAL(MethodInfo("chat_control_added", PropertyInfo(Variant::DICTIONARY, "entity_key"), PropertyInfo(Variant::OBJECT, "chat_control", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChatControl")));
@@ -679,6 +1141,200 @@ Signal PlayFabPartyChat::destroy_local_chat_control_async(const Ref<PlayFabUser>
     return m_owner->_destroy_local_chat_control(p_user);
 }
 
+Ref<PlayFabPartyChatControl> PlayFabPartyChat::_resolve_local_control(const Ref<PlayFabUser> &p_user) const {
+    if (p_user.is_valid()) {
+        return get_local_chat_control(p_user);
+    }
+    for (int i = 0; i < m_chat_controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = m_chat_controls[i];
+        if (control.is_valid() && control->is_local() && control->get_native_handle() != nullptr) {
+            return control;
+        }
+    }
+    return Ref<PlayFabPartyChatControl>();
+}
+
+// Shared guard for the per-user convenience wrappers below: every one of them
+// needs a local chat control, and the caller should see the same
+// party_resource_not_ready failure when none exists yet.
+#define PF_PARTY_CHAT_REQUIRE_LOCAL(m_method_name)                                                      \
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);                                \
+    if (local.is_null()) {                                                                              \
+        return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,                       \
+                "PlayFabPartyChat." m_method_name "() requires a local chat control; call "             \
+                "create_local_chat_control_async() first.");                                            \
+    }
+
+int64_t PlayFabPartyChat::get_local_chat_indicator(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_local_chat_indicator() : int64_t(PlayFabParty::LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT);
+}
+
+int64_t PlayFabPartyChat::get_chat_indicator(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    Ref<PlayFabPartyChatControl> target = get_chat_control(p_entity_key);
+    if (local.is_null() || target.is_null() || target->get_native_handle() == nullptr) {
+        return PlayFabParty::CHAT_INDICATOR_SILENT;
+    }
+    if (target->is_local()) {
+        // A local control never has an incoming-audio indicator; report what its
+        // own capture pipeline is doing so a roster row for the local player
+        // still lights up while talking.
+        const int64_t local_indicator = target->get_local_chat_indicator();
+        return local_indicator == PlayFabParty::LOCAL_CHAT_INDICATOR_TALKING
+                ? int64_t(PlayFabParty::CHAT_INDICATOR_TALKING)
+                : int64_t(PlayFabParty::CHAT_INDICATOR_SILENT);
+    }
+    return target->get_chat_indicator();
+}
+
+Array PlayFabPartyChat::get_chat_indicators(const Ref<PlayFabUser> &p_user) const {
+    Array indicators;
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    if (local.is_null()) {
+        return indicators;
+    }
+    for (int i = 0; i < m_chat_controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = m_chat_controls[i];
+        if (control.is_null() || control->is_local() || control->get_native_handle() == nullptr) {
+            continue;
+        }
+        Dictionary entry;
+        entry["entity_key"] = entity_key_for_chat_control(control->get_native_handle());
+        entry["indicator"] = control->get_chat_indicator();
+        indicators.push_back(entry);
+    }
+    return indicators;
+}
+
+bool PlayFabPartyChat::is_audio_input_muted(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() && local->is_audio_input_muted();
+}
+
+Signal PlayFabPartyChat::set_audio_input_muted_async(bool p_muted, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_audio_input_muted_async")
+    return local->set_audio_input_muted_async(p_muted);
+}
+
+float PlayFabPartyChat::get_audio_render_volume(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    Ref<PlayFabPartyChatControl> target = get_chat_control(p_entity_key);
+    return local.is_valid() ? local->get_audio_render_volume(target) : 0.0f;
+}
+
+Signal PlayFabPartyChat::set_audio_render_volume_async(const Dictionary &p_entity_key, double p_volume, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_audio_render_volume_async")
+    Ref<PlayFabPartyChatControl> target = get_chat_control(p_entity_key);
+    if (target.is_null() || target->get_native_handle() == nullptr) {
+        return detached_error_signal(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED,
+                String("PlayFabPartyChat.set_audio_render_volume_async() unknown entity key ") + String(p_entity_key.get("id", "")) + ".");
+    }
+    return local->set_audio_render_volume_async(target, p_volume);
+}
+
+int64_t PlayFabPartyChat::get_chat_permissions(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_permissions(get_chat_control(p_entity_key)) : int64_t(PlayFabParty::CHAT_PERMISSION_NONE);
+}
+
+bool PlayFabPartyChat::is_audio_muted(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() && local->is_audio_muted(get_chat_control(p_entity_key));
+}
+
+bool PlayFabPartyChat::is_text_muted(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() && local->is_text_muted(get_chat_control(p_entity_key));
+}
+
+String PlayFabPartyChat::get_language(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_language() : String();
+}
+
+Signal PlayFabPartyChat::set_language_async(const String &p_language_code, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_language_async")
+    return local->set_language_async(p_language_code);
+}
+
+int64_t PlayFabPartyChat::get_transcription_options(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_transcription_options() : int64_t(PlayFabParty::TRANSCRIPTION_OPTION_NONE);
+}
+
+Signal PlayFabPartyChat::set_transcription_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_transcription_options_async")
+    return local->set_transcription_options_async(p_options);
+}
+
+int64_t PlayFabPartyChat::get_text_chat_options(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_text_chat_options() : int64_t(PlayFabParty::TEXT_CHAT_OPTION_NONE);
+}
+
+Signal PlayFabPartyChat::set_text_chat_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_text_chat_options_async")
+    return local->set_text_chat_options_async(p_options);
+}
+
+int64_t PlayFabPartyChat::get_audio_encoder_bitrate(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_audio_encoder_bitrate() : 0;
+}
+
+Signal PlayFabPartyChat::set_audio_encoder_bitrate_async(int64_t p_bitrate, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_audio_encoder_bitrate_async")
+    return local->set_audio_encoder_bitrate_async(p_bitrate);
+}
+
+int64_t PlayFabPartyChat::get_voice_audio_options(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_voice_audio_options() : int64_t(PlayFabParty::VOICE_AUDIO_OPTION_NONE);
+}
+
+Signal PlayFabPartyChat::set_voice_audio_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_voice_audio_options_async")
+    return local->set_voice_audio_options_async(p_options);
+}
+
+int64_t PlayFabPartyChat::get_audio_input_state(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_audio_input_state() : int64_t(PlayFabParty::AUDIO_INPUT_STATE_NO_INPUT);
+}
+
+int64_t PlayFabPartyChat::get_audio_output_state(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_audio_output_state() : int64_t(PlayFabParty::AUDIO_OUTPUT_STATE_NO_OUTPUT);
+}
+
+Signal PlayFabPartyChat::populate_text_to_speech_profiles_async(const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("populate_text_to_speech_profiles_async")
+    return local->populate_text_to_speech_profiles_async();
+}
+
+Array PlayFabPartyChat::get_text_to_speech_profiles(const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_text_to_speech_profiles() : Array();
+}
+
+Ref<PlayFabPartyTextToSpeechProfile> PlayFabPartyChat::get_text_to_speech_profile(int64_t p_type, const Ref<PlayFabUser> &p_user) const {
+    Ref<PlayFabPartyChatControl> local = _resolve_local_control(p_user);
+    return local.is_valid() ? local->get_text_to_speech_profile(p_type) : Ref<PlayFabPartyTextToSpeechProfile>();
+}
+
+Signal PlayFabPartyChat::set_text_to_speech_profile_async(int64_t p_type, const String &p_profile_id, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("set_text_to_speech_profile_async")
+    return local->set_text_to_speech_profile_async(p_type, p_profile_id);
+}
+
+Signal PlayFabPartyChat::synthesize_text_to_speech_async(int64_t p_type, const String &p_text, const Ref<PlayFabUser> &p_user) {
+    PF_PARTY_CHAT_REQUIRE_LOCAL("synthesize_text_to_speech_async")
+    return local->synthesize_text_to_speech_async(p_type, p_text);
+}
+
+#undef PF_PARTY_CHAT_REQUIRE_LOCAL
+
 // ---------------------------------------------------------------------------
 // PlayFabPartyNetworkStateChange
 
@@ -736,6 +1392,8 @@ void PlayFabPartyNetwork::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_local_peer"), &PlayFabPartyNetwork::get_local_peer);
     ClassDB::bind_method(D_METHOD("get_local_chat_control"), &PlayFabPartyNetwork::get_local_chat_control);
     ClassDB::bind_method(D_METHOD("is_host_network"), &PlayFabPartyNetwork::is_host_network);
+    ClassDB::bind_method(D_METHOD("get_statistics", "statistics"), &PlayFabPartyNetwork::get_statistics, DEFVAL(PackedInt32Array()));
+    ClassDB::bind_method(D_METHOD("get_device_connection_type", "peer_id"), &PlayFabPartyNetwork::get_device_connection_type);
     ClassDB::bind_method(D_METHOD("leave_async"), &PlayFabPartyNetwork::leave_async);
 
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "network_id", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_network_id");
@@ -804,8 +1462,96 @@ Ref<PlayFabPartyPeer> PlayFabPartyNetwork::get_local_peer() const { return m_loc
 Ref<PlayFabPartyChatControl> PlayFabPartyNetwork::get_local_chat_control() const { return m_local_chat_control; }
 bool PlayFabPartyNetwork::is_host_network() const { return m_host; }
 
-Signal PlayFabPartyNetwork::leave_async() {
-    if (m_owner == nullptr) {
+Dictionary PlayFabPartyNetwork::get_statistics(const PackedInt32Array &p_statistics) const {
+    // Keys mirror PartyNetworkStatistic so callers can index the result with the
+    // PlayFabParty.NETWORK_STATISTIC_* enum name in lower snake case.
+    static const struct {
+        Party::PartyNetworkStatistic statistic;
+        const char *key;
+    } k_statistics[] = {
+        { Party::PartyNetworkStatistic::AverageRelayServerRoundTripLatencyInMilliseconds, "average_relay_server_round_trip_latency_ms" },
+        { Party::PartyNetworkStatistic::SentProtocolPackets, "sent_protocol_packets" },
+        { Party::PartyNetworkStatistic::SentProtocolBytes, "sent_protocol_bytes" },
+        { Party::PartyNetworkStatistic::RetriedProtocolPackets, "retried_protocol_packets" },
+        { Party::PartyNetworkStatistic::RetriedProtocolBytes, "retried_protocol_bytes" },
+        { Party::PartyNetworkStatistic::DroppedProtocolPackets, "dropped_protocol_packets" },
+        { Party::PartyNetworkStatistic::ReceivedProtocolPackets, "received_protocol_packets" },
+        { Party::PartyNetworkStatistic::ReceivedProtocolBytes, "received_protocol_bytes" },
+        { Party::PartyNetworkStatistic::CurrentlyQueuedSendMessages, "currently_queued_send_messages" },
+        { Party::PartyNetworkStatistic::CurrentlyQueuedSendMessageBytes, "currently_queued_send_message_bytes" },
+        { Party::PartyNetworkStatistic::CurrentlyActiveSendMessages, "currently_active_send_messages" },
+        { Party::PartyNetworkStatistic::CurrentlyActiveSendMessageBytes, "currently_active_send_message_bytes" },
+        { Party::PartyNetworkStatistic::TimedOutSendMessages, "timed_out_send_messages" },
+        { Party::PartyNetworkStatistic::TimedOutSendMessageBytes, "timed_out_send_message_bytes" },
+        { Party::PartyNetworkStatistic::CanceledSendMessages, "canceled_send_messages" },
+        { Party::PartyNetworkStatistic::CanceledSendMessageBytes, "canceled_send_message_bytes" },
+    };
+    constexpr int k_statistic_count = static_cast<int>(sizeof(k_statistics) / sizeof(k_statistics[0]));
+
+    Dictionary statistics;
+    if (m_native_network == nullptr) {
+        return statistics;
+    }
+
+    std::vector<Party::PartyNetworkStatistic> requested;
+    std::vector<const char *> keys;
+    if (p_statistics.is_empty()) {
+        requested.reserve(k_statistic_count);
+        keys.reserve(k_statistic_count);
+        for (int i = 0; i < k_statistic_count; ++i) {
+            requested.push_back(k_statistics[i].statistic);
+            keys.push_back(k_statistics[i].key);
+        }
+    } else {
+        for (int i = 0; i < p_statistics.size(); ++i) {
+            const int32_t value = p_statistics[i];
+            if (value < 0 || value >= k_statistic_count) {
+                ERR_PRINT(vformat("PlayFabPartyNetwork.get_statistics() ignoring unknown statistic %d.", value));
+                continue;
+            }
+            requested.push_back(k_statistics[value].statistic);
+            keys.push_back(k_statistics[value].key);
+        }
+    }
+    if (requested.empty()) {
+        return statistics;
+    }
+
+    std::vector<uint64_t> values(requested.size(), 0);
+    const PartyError error = m_native_network->GetNetworkStatistics(
+            static_cast<uint32_t>(requested.size()), requested.data(), values.data());
+    if (PARTY_FAILED(error)) {
+        ERR_PRINT(vformat("PlayFabPartyNetwork.get_statistics() failed with Party error 0x%x.", static_cast<int64_t>(error)));
+        return statistics;
+    }
+    for (size_t i = 0; i < requested.size(); ++i) {
+        statistics[String(keys[i])] = static_cast<int64_t>(values[i]);
+    }
+    return statistics;
+}
+
+int64_t PlayFabPartyNetwork::get_device_connection_type(int64_t p_peer_id) const {
+    if (m_native_network == nullptr || m_local_peer.is_null()) {
+        return PlayFabParty::DEVICE_CONNECTION_TYPE_RELAY_SERVER;
+    }
+    Party::PartyEndpoint *endpoint = m_local_peer->get_peer_endpoint(static_cast<int32_t>(p_peer_id));
+    if (endpoint == nullptr) {
+        return PlayFabParty::DEVICE_CONNECTION_TYPE_RELAY_SERVER;
+    }
+    Party::PartyDevice *device = nullptr;
+    PartyError error = endpoint->GetDevice(&device);
+    if (PARTY_FAILED(error) || device == nullptr) {
+        return PlayFabParty::DEVICE_CONNECTION_TYPE_RELAY_SERVER;
+    }
+    Party::PartyDeviceConnectionType connection_type = Party::PartyDeviceConnectionType::RelayServer;
+    error = m_native_network->GetDeviceConnectionType(device, &connection_type);
+    if (PARTY_FAILED(error)) {
+        return PlayFabParty::DEVICE_CONNECTION_TYPE_RELAY_SERVER;
+    }
+    return static_cast<int64_t>(connection_type);
+}
+
+Signal PlayFabPartyNetwork::leave_async() {    if (m_owner == nullptr) {
         return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
                 "PlayFabPartyNetwork.leave_async() requires an owning PlayFabParty service.");
     }
@@ -2125,6 +2871,27 @@ void PlayFabParty::_process_state_change(const Party::PartyStateChange *p_change
         case Party::PartyStateChangeType::SetChatAudioOutputCompleted:
             _process_set_chat_audio_output_completed(p_change);
             break;
+        case Party::PartyStateChangeType::SetLanguageCompleted:
+            _process_set_language_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SetTranscriptionOptionsCompleted:
+            _process_set_transcription_options_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SetTextChatOptionsCompleted:
+            _process_set_text_chat_options_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SetChatAudioEncoderBitrateCompleted:
+            _process_set_chat_audio_encoder_bitrate_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::PopulateAvailableTextToSpeechProfilesCompleted:
+            _process_populate_text_to_speech_profiles_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SetTextToSpeechProfileCompleted:
+            _process_set_text_to_speech_profile_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::SynthesizeTextToSpeechCompleted:
+            _process_synthesize_text_to_speech_completed(p_change);
+            break;
         case Party::PartyStateChangeType::LocalChatAudioInputChanged:
             _process_local_chat_audio_input_changed(p_change);
             break;
@@ -2677,8 +3444,69 @@ void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStat
     // the device just sits unused; binding it costs nothing and removes a silent
     // failure mode where voice was implicitly disabled.
     _configure_chat_audio_devices(wrapper, change->localChatControl, operation->config);
+    // Apply the config's language / transcription / translation intent. Without
+    // this the enable_transcription and enable_translation flags are inert:
+    // Party never generates transcriptions or translations unless
+    // SetTranscriptionOptions()/SetTextChatOptions() are called explicitly.
+    _configure_chat_language_options(change->localChatControl, operation->config);
 
     _complete_pending(operation, PlayFabResult::ok_result(wrapper));
+}
+
+void PlayFabParty::_configure_chat_language_options(Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
+    if (p_chat_control == nullptr) {
+        return;
+    }
+
+    // Language. Empty => leave the Party default (the platform's language),
+    // which is what GetLanguage() reports back.
+    const String language = p_config.is_valid() ? p_config->get_language() : String();
+    if (!language.is_empty()) {
+        const CharString language_utf8 = language.utf8();
+        const PartyError err = p_chat_control->SetLanguage(language_utf8.get_data(), nullptr);
+        if (PARTY_FAILED(err)) {
+            Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetLanguage");
+            WARN_PRINT(vformat("PlayFab.party: SetLanguage(\"%s\") failed; the chat control keeps its default language. %s",
+                    language, result.is_valid() ? result->get_message() : String()));
+        }
+    }
+
+    const bool transcription = p_config.is_valid() && p_config->is_transcription_enabled();
+    const bool translation = p_config.is_valid() && p_config->is_translation_enabled();
+
+    // Voice transcription. Transcribe every chat control whose language matches
+    // and doesn't match the local one, so the title receives captions for all
+    // participants, plus the local user's own speech.
+    Party::PartyVoiceChatTranscriptionOptions transcription_options = Party::PartyVoiceChatTranscriptionOptions::None;
+    if (transcription) {
+        transcription_options = Party::PartyVoiceChatTranscriptionOptions::TranscribeSelf |
+                Party::PartyVoiceChatTranscriptionOptions::TranscribeOtherChatControlsWithMatchingLanguages |
+                Party::PartyVoiceChatTranscriptionOptions::TranscribeOtherChatControlsWithNonMatchingLanguages;
+        if (translation) {
+            transcription_options = transcription_options |
+                    Party::PartyVoiceChatTranscriptionOptions::TranslateToLocalLanguage;
+        }
+    }
+    if (transcription_options != Party::PartyVoiceChatTranscriptionOptions::None) {
+        const PartyError err = p_chat_control->SetTranscriptionOptions(transcription_options, nullptr);
+        if (PARTY_FAILED(err)) {
+            Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetTranscriptionOptions");
+            WARN_PRINT(vformat("PlayFab.party: SetTranscriptionOptions failed; voice transcription stays disabled. %s",
+                    result.is_valid() ? result->get_message() : String()));
+        }
+    }
+
+    // Text chat translation is receiver-side: it asks Party to translate
+    // incoming chat text into this control's language.
+    if (translation) {
+        const PartyError err = p_chat_control->SetTextChatOptions(
+                Party::PartyTextChatOptions::TranslateToLocalLanguage, nullptr);
+        if (PARTY_FAILED(err)) {
+            Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetTextChatOptions");
+            WARN_PRINT(vformat("PlayFab.party: SetTextChatOptions failed; incoming text chat will not be translated. %s",
+                    result.is_valid() ? result->get_message() : String()));
+        }
+    }
 }
 
 void PlayFabParty::_process_connect_chat_control_completed(const Party::PartyStateChange *p_change) {
@@ -2779,8 +3607,77 @@ void PlayFabParty::_process_set_chat_audio_output_completed(const Party::PartySt
             result.is_valid() ? result->get_message() : String("SetAudioOutput completion failed.")));
 }
 
+void PlayFabParty::_process_set_language_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetLanguageCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetLanguage");
+}
+
+void PlayFabParty::_process_set_transcription_options_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetTranscriptionOptionsCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetTranscriptionOptions");
+}
+
+void PlayFabParty::_process_set_text_chat_options_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetTextChatOptionsCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetTextChatOptions");
+}
+
+void PlayFabParty::_process_set_chat_audio_encoder_bitrate_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetChatAudioEncoderBitrateCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioEncoderBitrate");
+}
+
+void PlayFabParty::_process_populate_text_to_speech_profiles_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartyPopulateAvailableTextToSpeechProfilesCompletedStateChange *>(p_change);
+    // Snapshot the profiles now: the SDK owns the PartyTextToSpeechProfile
+    // pointers and invalidates them on the next populate call, so nothing may
+    // hold them past this handler.
+    if (change->result == Party::PartyStateChangeResult::Succeeded && change->localChatControl != nullptr) {
+        Ref<PlayFabPartyChatControl> wrapper = _find_chat_control_wrapper(change->localChatControl);
+        if (wrapper.is_valid()) {
+            uint32_t count = 0;
+            Party::PartyTextToSpeechProfileArray profiles = nullptr;
+            Array snapshots;
+            if (!PARTY_FAILED(change->localChatControl->GetAvailableTextToSpeechProfiles(&count, &profiles))) {
+                for (uint32_t i = 0; i < count; ++i) {
+                    Ref<PlayFabPartyTextToSpeechProfile> profile = text_to_speech_profile_snapshot(profiles[i]);
+                    if (profile.is_valid()) {
+                        snapshots.push_back(profile);
+                    }
+                }
+            }
+            wrapper->m_text_to_speech_profiles = snapshots;
+        }
+    }
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::PopulateAvailableTextToSpeechProfiles");
+}
+
+void PlayFabParty::_process_set_text_to_speech_profile_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySetTextToSpeechProfileCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetTextToSpeechProfile");
+}
+
+void PlayFabParty::_process_synthesize_text_to_speech_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartySynthesizeTextToSpeechCompletedStateChange *>(p_change);
+    _complete_chat_control_operation(change->asyncIdentifier, static_cast<int64_t>(change->result), change->errorDetail,
+            PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SynthesizeTextToSpeech");
+}
+
 void PlayFabParty::_process_local_chat_audio_input_changed(const Party::PartyStateChange *p_change) {
     const auto *change = static_cast<const Party::PartyLocalChatAudioInputChangedStateChange *>(p_change);
+    // Cache the device state so titles can poll it via
+    // PlayFabPartyChat.get_audio_input_state() and show a "no microphone" /
+    // "microphone access denied" affordance instead of silently having no voice.
+    Ref<PlayFabPartyChatControl> wrapper = _find_chat_control_wrapper(change->localChatControl);
+    if (wrapper.is_valid()) {
+        wrapper->m_audio_input_state = static_cast<int64_t>(change->state);
+    }
     // SetAudioInput only signals API dispatch success. The audio subsystem
     // initializing the requested device is reported by this state change.
     // Anything other than Initialized means voice capture is degraded — log
@@ -2807,6 +3704,10 @@ void PlayFabParty::_process_local_chat_audio_input_changed(const Party::PartySta
 
 void PlayFabParty::_process_local_chat_audio_output_changed(const Party::PartyStateChange *p_change) {
     const auto *change = static_cast<const Party::PartyLocalChatAudioOutputChangedStateChange *>(p_change);
+    Ref<PlayFabPartyChatControl> wrapper = _find_chat_control_wrapper(change->localChatControl);
+    if (wrapper.is_valid()) {
+        wrapper->m_audio_output_state = static_cast<int64_t>(change->state);
+    }
     if (change->state == Party::PartyAudioOutputState::Initialized) {
         return;
     }
@@ -2925,12 +3826,29 @@ void PlayFabParty::_process_chat_text_received(const Party::PartyStateChange *p_
     }
     String text = String::utf8(change->chatText != nullptr ? change->chatText : "");
     String language = String::utf8(change->languageCode != nullptr ? change->languageCode : "");
+    String original = String::utf8(change->originalChatText != nullptr ? change->originalChatText : "");
     String translated = text;
     if (change->translationCount > 0 && change->translations != nullptr && change->translations[0].translation != nullptr) {
         translated = String::utf8(change->translations[0].translation);
     }
+    // Metadata sent alongside the message arrives as one opaque data blob.
+    // Decode with allow_objects disabled: these bytes come from a remote peer
+    // and must never be able to instantiate script objects.
+    Dictionary metadata;
+    if (change->dataSize > 0 && change->data != nullptr) {
+        PackedByteArray bytes;
+        bytes.resize(static_cast<int64_t>(change->dataSize));
+        memcpy(bytes.ptrw(), change->data, change->dataSize);
+        const Variant decoded = UtilityFunctions::bytes_to_var(bytes);
+        if (decoded.get_type() == Variant::DICTIONARY) {
+            metadata = decoded;
+        } else if (decoded.get_type() != Variant::NIL) {
+            WARN_PRINT("PlayFab.party: ignoring chat message metadata that did not decode to a Dictionary.");
+        }
+    }
     Dictionary sender_entity_key = entity_key_for_chat_control(change->senderChatControl);
-    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, translated, false, 0, Dictionary());
+    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, translated, false, 0, metadata,
+            original, static_cast<int64_t>(change->options));
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("message_received", message);
     }
@@ -2957,8 +3875,15 @@ void PlayFabParty::_process_voice_chat_transcription_received(const Party::Party
     Array targets;
     String text = String::utf8(change->transcription != nullptr ? change->transcription : "");
     String language = String::utf8(change->languageCode != nullptr ? change->languageCode : "");
+    // Transcriptions carry translations only when the local control opted into
+    // TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE; otherwise translated_text
+    // mirrors text.
+    String translated = text;
+    if (change->translationCount > 0 && change->translations != nullptr && change->translations[0].translation != nullptr) {
+        translated = String::utf8(change->translations[0].translation);
+    }
     Dictionary sender_entity_key = entity_key_for_chat_control(change->senderChatControl);
-    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, text, true, 0, Dictionary());
+    message->set_values(sender_wrapper, sender_entity_key, targets, text, language, translated, true, 0, Dictionary());
     if (sender_wrapper.is_valid()) {
         sender_wrapper->emit_signal("transcription_received", message);
     }
@@ -2986,12 +3911,27 @@ Signal PlayFabParty::_send_text_via_chat_control(Party::PartyLocalChatControl *p
         return _make_ok_signal();
     }
     const CharString text_utf8 = p_message.utf8();
+    // Metadata rides along as a single Party data buffer. Party delivers data
+    // buffers verbatim to receivers; PlayFabPartyChatMessage.metadata on the
+    // receiving side is decoded from it.
+    PackedByteArray metadata_bytes;
+    const Dictionary metadata = p_config.is_valid() ? p_config->get_metadata() : Dictionary();
+    if (!metadata.is_empty()) {
+        metadata_bytes = UtilityFunctions::var_to_bytes(metadata);
+    }
+    Party::PartyDataBuffer buffer = {};
+    uint32_t buffer_count = 0;
+    if (!metadata_bytes.is_empty()) {
+        buffer.buffer = metadata_bytes.ptr();
+        buffer.bufferByteCount = static_cast<uint32_t>(metadata_bytes.size());
+        buffer_count = 1;
+    }
     PartyError err = p_local_chat_control->SendText(
             static_cast<uint32_t>(p_targets.size()),
             const_cast<Party::PartyChatControlArray>(p_targets.data()),
             text_utf8.get_data(),
-            0,
-            nullptr);
+            buffer_count,
+            buffer_count > 0 ? &buffer : nullptr);
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_PERMISSION_FAILED, "PartyLocalChatControl::SendText");
         return _make_error_signal(E_FAIL, PARTY_CHAT_PERMISSION_FAILED, result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SendText failed."));
@@ -3067,6 +4007,130 @@ Signal PlayFabParty::_set_incoming_text_muted(Party::PartyLocalChatControl *p_lo
         *r_succeeded = true;
     }
     return _make_ok_signal();
+}
+
+Signal PlayFabParty::_set_audio_input_muted(Party::PartyLocalChatControl *p_local_chat_control, bool p_muted) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat mute operations cannot start while PlayFab Party is shutting down.");
+    }
+    if (p_local_chat_control == nullptr) {
+        return _make_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFab.party._set_audio_input_muted() requires a local chat control.");
+    }
+    PartyError err = p_local_chat_control->SetAudioInputMuted(p_muted ? PartyBool(1) : PartyBool(0));
+    if (PARTY_FAILED(err)) {
+        Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_PERMISSION_FAILED, "PartyLocalChatControl::SetAudioInputMuted");
+        return _make_error_signal(E_FAIL, PARTY_CHAT_PERMISSION_FAILED, result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetAudioInputMuted failed."));
+    }
+    return _make_ok_signal();
+}
+
+Signal PlayFabParty::_set_audio_render_volume(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, double p_volume) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party chat volume operations cannot start while PlayFab Party is shutting down.");
+    }
+    if (p_local_chat_control == nullptr || p_target == nullptr) {
+        return _make_error_signal(E_NOT_VALID_STATE, PARTY_CHAT_PERMISSION_FAILED,
+                "PlayFab.party._set_audio_render_volume() requires both a local chat control and a target.");
+    }
+    const float volume = static_cast<float>(CLAMP(p_volume, 0.0, 1.0));
+    PartyError err = p_local_chat_control->SetAudioRenderVolume(p_target, volume);
+    if (PARTY_FAILED(err)) {
+        Ref<PlayFabResult> result = _party_error_result(err, PARTY_CHAT_PERMISSION_FAILED, "PartyLocalChatControl::SetAudioRenderVolume");
+        return _make_error_signal(E_FAIL, PARTY_CHAT_PERMISSION_FAILED, result.is_valid() ? result->get_message() : String("PartyLocalChatControl::SetAudioRenderVolume failed."));
+    }
+    return _make_ok_signal();
+}
+
+// Shared plumbing for the async PartyLocalChatControl setters (language,
+// transcription options, text chat options, encoder bitrate, TTS). They all
+// follow the same shape: create a pending op, hand its pointer to the SDK as the
+// async identifier, and let the matching *CompletedStateChange resolve it.
+Signal PlayFabParty::_dispatch_chat_control_operation(
+        Party::PartyLocalChatControl *p_chat_control,
+        int32_t p_kind,
+        const String &p_error_code,
+        const String &p_action,
+        const std::function<uint32_t(void *)> &p_invoke) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                vformat("%s cannot start while PlayFab Party is shutting down.", p_action));
+    }
+    if (p_chat_control == nullptr) {
+        return _make_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
+                vformat("%s requires a local chat control.", p_action));
+    }
+    PendingOperation *operation = _create_pending(p_kind);
+    operation->native_chat_control = p_chat_control;
+    const PartyError err = static_cast<PartyError>(p_invoke(operation));
+    if (PARTY_FAILED(err)) {
+        Ref<PlayFabResult> result = _party_error_result(err, p_error_code, p_action);
+        _complete_pending(operation, result);
+        return _make_error_signal(E_FAIL, p_error_code,
+                result.is_valid() ? result->get_message() : vformat("%s failed.", p_action));
+    }
+    return operation->pending_signal->get_completed_signal();
+}
+
+void PlayFabParty::_complete_chat_control_operation(
+        void *p_async_identifier,
+        int64_t p_state_change_result,
+        uint32_t p_error_detail,
+        const String &p_error_code,
+        const String &p_action) {
+    PendingOperation *operation = static_cast<PendingOperation *>(p_async_identifier);
+    if (operation == nullptr) {
+        return;
+    }
+    const auto result = static_cast<Party::PartyStateChangeResult>(p_state_change_result);
+    if (result != Party::PartyStateChangeResult::Succeeded) {
+        _complete_pending(operation, _party_state_change_error_result(result, p_error_detail, p_error_code, p_action));
+        return;
+    }
+    _complete_pending(operation, PlayFabResult::ok_result());
+}
+
+Ref<PlayFabPartyChatControl> PlayFabParty::_find_chat_control_wrapper(Party::PartyChatControl *p_native) const {
+    if (p_native == nullptr || m_chat.is_null()) {
+        return Ref<PlayFabPartyChatControl>();
+    }
+    const Array controls = m_chat->get_chat_controls();
+    for (int i = 0; i < controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = controls[i];
+        if (control.is_valid() && control->get_native_handle() == p_native) {
+            return control;
+        }
+    }
+    return Ref<PlayFabPartyChatControl>();
+}
+
+Party::PartyLocalChatControl *PlayFabParty::_resolve_local_native_chat_control(const Ref<PlayFabUser> &p_user) const {
+    // Since local chat controls can outlive (and predate) any network, prefer the
+    // service-level registry and only fall back to the per-network handles.
+    if (p_user.is_valid()) {
+        auto it = m_local_chat_controls.find(p_user->get_entity_handle());
+        if (it != m_local_chat_controls.end() && it->second.is_valid() && it->second->get_native_handle() != nullptr) {
+            return static_cast<Party::PartyLocalChatControl *>(it->second->get_native_handle());
+        }
+    } else {
+        for (const auto &entry : m_local_chat_controls) {
+            if (entry.second.is_valid() && entry.second->get_native_handle() != nullptr) {
+                return static_cast<Party::PartyLocalChatControl *>(entry.second->get_native_handle());
+            }
+        }
+    }
+    for (size_t i = 0; i < m_networks.size(); ++i) {
+        const Ref<PlayFabPartyNetwork> &network = m_networks[i];
+        if (network.is_null() || network->get_native_local_chat_control() == nullptr) {
+            continue;
+        }
+        if (p_user.is_null() || network->get_local_user() == p_user) {
+            return network->get_native_local_chat_control();
+        }
+    }
+    return nullptr;
 }
 
 Signal PlayFabParty::_destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control) {
@@ -3636,6 +4700,86 @@ void PlayFabParty::_bind_methods() {
     BIND_ENUM_CONSTANT(CHAT_CHANGE_DESTROYED);
     BIND_ENUM_CONSTANT(CHAT_CHANGE_PERMISSIONS_CHANGED);
     BIND_ENUM_CONSTANT(CHAT_CHANGE_MUTED_CHANGED);
+
+    BIND_ENUM_CONSTANT(LOCAL_CHAT_INDICATOR_SILENT);
+    BIND_ENUM_CONSTANT(LOCAL_CHAT_INDICATOR_TALKING);
+    BIND_ENUM_CONSTANT(LOCAL_CHAT_INDICATOR_AUDIO_INPUT_MUTED);
+    BIND_ENUM_CONSTANT(LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT);
+
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_SILENT);
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_TALKING);
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_INCOMING_VOICE_DISABLED);
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED);
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_NO_REMOTE_INPUT);
+    BIND_ENUM_CONSTANT(CHAT_INDICATOR_REMOTE_AUDIO_INPUT_MUTED);
+
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_NO_INPUT);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_INITIALIZED);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_NOT_FOUND);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_USER_CONSENT_DENIED);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_UNSUPPORTED_FORMAT);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_ALREADY_IN_USE);
+    BIND_ENUM_CONSTANT(AUDIO_INPUT_STATE_UNKNOWN_ERROR);
+
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_NO_OUTPUT);
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_INITIALIZED);
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_NOT_FOUND);
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_UNSUPPORTED_FORMAT);
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_ALREADY_IN_USE);
+    BIND_ENUM_CONSTANT(AUDIO_OUTPUT_STATE_UNKNOWN_ERROR);
+
+    BIND_ENUM_CONSTANT(AUDIO_DEVICE_SELECTION_NONE);
+    BIND_ENUM_CONSTANT(AUDIO_DEVICE_SELECTION_SYSTEM_DEFAULT);
+    BIND_ENUM_CONSTANT(AUDIO_DEVICE_SELECTION_PLATFORM_USER_DEFAULT);
+    BIND_ENUM_CONSTANT(AUDIO_DEVICE_SELECTION_MANUAL);
+
+    BIND_ENUM_CONSTANT(VOICE_AUDIO_OPTION_NONE);
+    BIND_ENUM_CONSTANT(VOICE_AUDIO_OPTION_NOISE_SUPPRESSION);
+
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_NONE);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_TRANSCRIBE_SELF);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_TRANSCRIBE_MATCHING_LANGUAGES);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_TRANSCRIBE_NON_MATCHING_LANGUAGES);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_DISABLE_HYPOTHESIS_PHRASES);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_DISABLE_PROFANITY_MASKING);
+    BIND_ENUM_CONSTANT(TRANSCRIPTION_OPTION_TRANSCRIBE_SELF_REGARDLESS_OF_NETWORK_STATE);
+
+    BIND_ENUM_CONSTANT(TEXT_CHAT_OPTION_NONE);
+    BIND_ENUM_CONSTANT(TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE);
+    BIND_ENUM_CONSTANT(TEXT_CHAT_OPTION_FILTER_OFFENSIVE_TEXT);
+
+    BIND_ENUM_CONSTANT(CHAT_MESSAGE_OPTION_NONE);
+    BIND_ENUM_CONSTANT(CHAT_MESSAGE_OPTION_FILTERED_OFFENSIVE_TERMS);
+    BIND_ENUM_CONSTANT(CHAT_MESSAGE_OPTION_FILTERED_ENTIRE_MESSAGE);
+    BIND_ENUM_CONSTANT(CHAT_MESSAGE_OPTION_FILTERED_DUE_TO_ERROR);
+
+    BIND_ENUM_CONSTANT(TEXT_TO_SPEECH_TYPE_NARRATION);
+    BIND_ENUM_CONSTANT(TEXT_TO_SPEECH_TYPE_VOICE_CHAT);
+
+    BIND_ENUM_CONSTANT(GENDER_NEUTRAL);
+    BIND_ENUM_CONSTANT(GENDER_FEMALE);
+    BIND_ENUM_CONSTANT(GENDER_MALE);
+
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_SENT_PROTOCOL_PACKETS);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_SENT_PROTOCOL_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_RETRIED_PROTOCOL_PACKETS);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_RETRIED_PROTOCOL_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_DROPPED_PROTOCOL_PACKETS);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_RECEIVED_PROTOCOL_PACKETS);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_RECEIVED_PROTOCOL_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGE_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGE_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGE_BYTES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CANCELED_SEND_MESSAGES);
+    BIND_ENUM_CONSTANT(NETWORK_STATISTIC_CANCELED_SEND_MESSAGE_BYTES);
+
+    BIND_ENUM_CONSTANT(DEVICE_CONNECTION_TYPE_RELAY_SERVER);
+    BIND_ENUM_CONSTANT(DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION);
 }
 
 } // namespace godot

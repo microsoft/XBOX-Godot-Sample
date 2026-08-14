@@ -57,5 +57,72 @@
 		<constant name="CHAT_PERMISSION_SEND_AUDIO" value="1" enum="ChatPermission">Local user may send voice audio to the target peer.</constant>
 		<constant name="CHAT_PERMISSION_RECEIVE_AUDIO" value="2" enum="ChatPermission">Local user may receive voice audio from the target peer.</constant>
 		<constant name="CHAT_PERMISSION_RECEIVE_TEXT" value="4" enum="ChatPermission">Local user may receive text chat from the target peer. (Sending text is per-call: target recipients are listed in the [code]targets[/code] argument of [code]send_text_async()[/code]; there is no separate send-text permission flag.)</constant>
+		<constant name="LOCAL_CHAT_INDICATOR_SILENT" value="0" enum="LocalChatIndicator">The local microphone is working but the player is not speaking.</constant>
+		<constant name="LOCAL_CHAT_INDICATOR_TALKING" value="1" enum="LocalChatIndicator">The local player is currently speaking and audio is being transmitted.</constant>
+		<constant name="LOCAL_CHAT_INDICATOR_AUDIO_INPUT_MUTED" value="2" enum="LocalChatIndicator">The local microphone is muted (see [method PlayFabPartyChat.set_audio_input_muted_async]).</constant>
+		<constant name="LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT" value="3" enum="LocalChatIndicator">No usable microphone is bound. Inspect [method PlayFabPartyChat.get_audio_input_state] for the reason.</constant>
+		<constant name="CHAT_INDICATOR_SILENT" value="0" enum="ChatIndicator">The remote player's microphone is working but they are not speaking.</constant>
+		<constant name="CHAT_INDICATOR_TALKING" value="1" enum="ChatIndicator">The remote player is speaking and their audio is being rendered locally.</constant>
+		<constant name="CHAT_INDICATOR_INCOMING_VOICE_DISABLED" value="2" enum="ChatIndicator">The local chat control has no [constant CHAT_PERMISSION_RECEIVE_AUDIO] permission toward this player.</constant>
+		<constant name="CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED" value="3" enum="ChatIndicator">The local player muted this player (see [method PlayFabPartyChat.set_audio_muted_async]).</constant>
+		<constant name="CHAT_INDICATOR_NO_REMOTE_INPUT" value="4" enum="ChatIndicator">The remote player has no usable microphone.</constant>
+		<constant name="CHAT_INDICATOR_REMOTE_AUDIO_INPUT_MUTED" value="5" enum="ChatIndicator">The remote player muted their own microphone.</constant>
+		<constant name="AUDIO_INPUT_STATE_NO_INPUT" value="0" enum="AudioInputState">No microphone has been bound.</constant>
+		<constant name="AUDIO_INPUT_STATE_INITIALIZED" value="1" enum="AudioInputState">The microphone initialized successfully and voice capture can flow.</constant>
+		<constant name="AUDIO_INPUT_STATE_NOT_FOUND" value="2" enum="AudioInputState">The requested microphone was not found.</constant>
+		<constant name="AUDIO_INPUT_STATE_USER_CONSENT_DENIED" value="3" enum="AudioInputState">The platform denied microphone access. Prompt the player to grant permission.</constant>
+		<constant name="AUDIO_INPUT_STATE_UNSUPPORTED_FORMAT" value="4" enum="AudioInputState">The microphone's audio format is not supported.</constant>
+		<constant name="AUDIO_INPUT_STATE_ALREADY_IN_USE" value="5" enum="AudioInputState">The microphone is exclusively held by another application.</constant>
+		<constant name="AUDIO_INPUT_STATE_UNKNOWN_ERROR" value="6" enum="AudioInputState">The microphone failed to initialize for an unspecified reason.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_NO_OUTPUT" value="0" enum="AudioOutputState">No playback device has been bound.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_INITIALIZED" value="1" enum="AudioOutputState">The playback device initialized successfully and voice can be heard.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_NOT_FOUND" value="2" enum="AudioOutputState">The requested playback device was not found.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_UNSUPPORTED_FORMAT" value="3" enum="AudioOutputState">The playback device's audio format is not supported.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_ALREADY_IN_USE" value="4" enum="AudioOutputState">The playback device is exclusively held by another application.</constant>
+		<constant name="AUDIO_OUTPUT_STATE_UNKNOWN_ERROR" value="5" enum="AudioOutputState">The playback device failed to initialize for an unspecified reason.</constant>
+		<constant name="AUDIO_DEVICE_SELECTION_NONE" value="0" enum="AudioDeviceSelectionType">No device is selected.</constant>
+		<constant name="AUDIO_DEVICE_SELECTION_SYSTEM_DEFAULT" value="1" enum="AudioDeviceSelectionType">The platform's system default communication device is used.</constant>
+		<constant name="AUDIO_DEVICE_SELECTION_PLATFORM_USER_DEFAULT" value="2" enum="AudioDeviceSelectionType">The device associated with the platform user is used.</constant>
+		<constant name="AUDIO_DEVICE_SELECTION_MANUAL" value="3" enum="AudioDeviceSelectionType">A specific device id was selected (see [member PlayFabPartyConfig.audio_input]).</constant>
+		<constant name="VOICE_AUDIO_OPTION_NONE" value="0" enum="VoiceAudioOptions">No voice audio processing options.</constant>
+		<constant name="VOICE_AUDIO_OPTION_NOISE_SUPPRESSION" value="1" enum="VoiceAudioOptions">Apply noise suppression to captured voice audio.</constant>
+		<constant name="TRANSCRIPTION_OPTION_NONE" value="0" enum="TranscriptionOptions">Transcription is disabled. [signal PlayFabPartyChat.transcription_received] never fires.</constant>
+		<constant name="TRANSCRIPTION_OPTION_TRANSCRIBE_SELF" value="1" enum="TranscriptionOptions">Transcribe the local player's own speech.</constant>
+		<constant name="TRANSCRIPTION_OPTION_TRANSCRIBE_MATCHING_LANGUAGES" value="2" enum="TranscriptionOptions">Transcribe remote chat controls whose language matches the local one.</constant>
+		<constant name="TRANSCRIPTION_OPTION_TRANSCRIBE_NON_MATCHING_LANGUAGES" value="4" enum="TranscriptionOptions">Transcribe remote chat controls whose language differs from the local one.</constant>
+		<constant name="TRANSCRIPTION_OPTION_DISABLE_HYPOTHESIS_PHRASES" value="8" enum="TranscriptionOptions">Deliver only finalized phrases, suppressing interim hypotheses.</constant>
+		<constant name="TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE" value="16" enum="TranscriptionOptions">Translate transcriptions into the local language, surfaced as [member PlayFabPartyChatMessage.translated_text].</constant>
+		<constant name="TRANSCRIPTION_OPTION_DISABLE_PROFANITY_MASKING" value="32" enum="TranscriptionOptions">Deliver transcriptions without profanity masking.</constant>
+		<constant name="TRANSCRIPTION_OPTION_TRANSCRIBE_SELF_REGARDLESS_OF_NETWORK_STATE" value="64" enum="TranscriptionOptions">Transcribe the local player even when not connected to a network.</constant>
+		<constant name="TEXT_CHAT_OPTION_NONE" value="0" enum="TextChatOptions">No receiver-side text chat processing.</constant>
+		<constant name="TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE" value="1" enum="TextChatOptions">Translate incoming text chat into the local language, surfaced as [member PlayFabPartyChatMessage.translated_text]. Translation is receiver-side in PlayFab Party; there is no per-message translation option.</constant>
+		<constant name="TEXT_CHAT_OPTION_FILTER_OFFENSIVE_TEXT" value="2" enum="TextChatOptions">Ask the service to filter offensive terms from incoming text chat. Filtered messages report it through [member PlayFabPartyChatMessage.options].</constant>
+		<constant name="CHAT_MESSAGE_OPTION_NONE" value="0" enum="ChatMessageOptions">No service filtering was applied to the message.</constant>
+		<constant name="CHAT_MESSAGE_OPTION_FILTERED_OFFENSIVE_TERMS" value="1" enum="ChatMessageOptions">Offensive terms were masked; [member PlayFabPartyChatMessage.original_text] carries the unfiltered text.</constant>
+		<constant name="CHAT_MESSAGE_OPTION_FILTERED_ENTIRE_MESSAGE" value="2" enum="ChatMessageOptions">The entire message was suppressed by the filter.</constant>
+		<constant name="CHAT_MESSAGE_OPTION_FILTERED_DUE_TO_ERROR" value="4" enum="ChatMessageOptions">The message was filtered because the filtering service failed.</constant>
+		<constant name="TEXT_TO_SPEECH_TYPE_NARRATION" value="0" enum="SynthesizeTextToSpeechType">Synthesized audio is rendered locally only, for screen-reader style narration.</constant>
+		<constant name="TEXT_TO_SPEECH_TYPE_VOICE_CHAT" value="1" enum="SynthesizeTextToSpeechType">Synthesized audio is transmitted to the chat mesh as if the local player had spoken it. This is the accessibility path for players who cannot use a microphone.</constant>
+		<constant name="GENDER_NEUTRAL" value="0" enum="Gender">Gender-neutral synthetic voice.</constant>
+		<constant name="GENDER_FEMALE" value="1" enum="Gender">Female synthetic voice.</constant>
+		<constant name="GENDER_MALE" value="2" enum="Gender">Male synthetic voice.</constant>
+		<constant name="NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS" value="0" enum="NetworkStatistic">Moving-average round trip latency to the relay server, in milliseconds. Reported under the key [code]average_relay_server_round_trip_latency_ms[/code].</constant>
+		<constant name="NETWORK_STATISTIC_SENT_PROTOCOL_PACKETS" value="1" enum="NetworkStatistic">Total protocol packets sent.</constant>
+		<constant name="NETWORK_STATISTIC_SENT_PROTOCOL_BYTES" value="2" enum="NetworkStatistic">Total protocol bytes sent.</constant>
+		<constant name="NETWORK_STATISTIC_RETRIED_PROTOCOL_PACKETS" value="3" enum="NetworkStatistic">Protocol packets retransmitted.</constant>
+		<constant name="NETWORK_STATISTIC_RETRIED_PROTOCOL_BYTES" value="4" enum="NetworkStatistic">Protocol bytes retransmitted.</constant>
+		<constant name="NETWORK_STATISTIC_DROPPED_PROTOCOL_PACKETS" value="5" enum="NetworkStatistic">Protocol packets assumed dropped.</constant>
+		<constant name="NETWORK_STATISTIC_RECEIVED_PROTOCOL_PACKETS" value="6" enum="NetworkStatistic">Total protocol packets received.</constant>
+		<constant name="NETWORK_STATISTIC_RECEIVED_PROTOCOL_BYTES" value="7" enum="NetworkStatistic">Total protocol bytes received.</constant>
+		<constant name="NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGES" value="8" enum="NetworkStatistic">Messages queued for send but not yet started. A persistently rising value indicates the title is sending faster than the link allows.</constant>
+		<constant name="NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGE_BYTES" value="9" enum="NetworkStatistic">Bytes queued for send but not yet started.</constant>
+		<constant name="NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGES" value="10" enum="NetworkStatistic">Messages currently in flight.</constant>
+		<constant name="NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGE_BYTES" value="11" enum="NetworkStatistic">Bytes currently in flight.</constant>
+		<constant name="NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGES" value="12" enum="NetworkStatistic">Messages discarded after exceeding their send timeout.</constant>
+		<constant name="NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGE_BYTES" value="13" enum="NetworkStatistic">Bytes discarded after exceeding their send timeout.</constant>
+		<constant name="NETWORK_STATISTIC_CANCELED_SEND_MESSAGES" value="14" enum="NetworkStatistic">Messages canceled before transmission.</constant>
+		<constant name="NETWORK_STATISTIC_CANCELED_SEND_MESSAGE_BYTES" value="15" enum="NetworkStatistic">Bytes canceled before transmission.</constant>
+		<constant name="DEVICE_CONNECTION_TYPE_RELAY_SERVER" value="0" enum="DeviceConnectionType">Traffic to the peer is relayed through the PlayFab Party relay server.</constant>
+		<constant name="DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION" value="1" enum="DeviceConnectionType">Traffic to the peer flows over a direct peer-to-peer connection.</constant>
 	</constants>
 </class>

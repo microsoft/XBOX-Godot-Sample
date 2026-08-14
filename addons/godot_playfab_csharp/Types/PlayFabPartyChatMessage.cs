@@ -31,6 +31,10 @@ public sealed class PlayFabPartyChatMessage : PlayFabObject
 
     public Godot.Collections.Dictionary Metadata => GetDict("metadata");
 
+    public string OriginalText => GetString("original_text");
+
+    public int Options => GetInt32("options");
+
     public PlayFabPartyChatControl GetSender() =>
         PlayFabPartyChatControl.From(Call("get_sender").AsGodotObject());
 
@@ -55,4 +59,10 @@ public sealed class PlayFabPartyChatMessage : PlayFabObject
 
     public Godot.Collections.Dictionary GetMetadata() =>
         Call("get_metadata").AsGodotDictionary();
+
+    public string GetOriginalText() =>
+        Call("get_original_text").AsString();
+
+    public int GetOptions() =>
+        Call("get_options").AsInt32();
 }

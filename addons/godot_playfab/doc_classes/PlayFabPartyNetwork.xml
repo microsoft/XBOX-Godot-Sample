@@ -16,6 +16,14 @@
 		<method name="get_local_peer" qualifiers="const"><return type="PlayFabPartyPeer" /><description>Returns the local [PlayFabPartyPeer] for the network.</description></method>
 		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><description>Returns the local [PlayFabPartyChatControl], if chat is enabled.</description></method>
 		<method name="is_host_network" qualifiers="const"><return type="bool" /><description>Returns whether the local participant created the Party network.</description></method>
+		<method name="get_statistics" qualifiers="const"><return type="Dictionary" /><param index="0" name="statistics" type="PackedInt32Array" default="PackedInt32Array()" /><description>Returns live transport statistics for this network, keyed by lower snake case statistic name (for example [code]average_relay_server_round_trip_latency_ms[/code] or [code]currently_queued_send_messages[/code]). Pass [enum PlayFabParty.NetworkStatistic] values in [param statistics] to fetch a subset; an empty array (the default) returns all of them. Returns an empty [Dictionary] when the network has no live handle.
+		[codeblock]
+		var stats := network.get_statistics([PlayFabParty.NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS])
+		$PingLabel.text = "%d ms" % stats.average_relay_server_round_trip_latency_ms
+		[/codeblock]</description></method>
+		<method name="get_device_connection_type" qualifiers="const"><return type="int" /><param index="0" name="peer_id" type="int" /><description>Returns whether traffic to [param peer_id] flows over a direct peer-to-peer connection or is relayed through the PlayFab Party relay server. See [enum PlayFabParty.DeviceConnectionType]. Falls back to [constant PlayFabParty.DEVICE_CONNECTION_TYPE_RELAY_SERVER] for an unknown peer.
+
+		Direct connections are only ever attempted when [member PlayFabPartyConfig.direct_peer_connectivity] permits them; this reports what was actually negotiated.</description></method>
 		<method name="leave_async"><return type="Signal" /><description>Convenience helper that calls [method PlayFabParty.leave_network_async] for this network.</description></method>
 	</methods>
 	<members>

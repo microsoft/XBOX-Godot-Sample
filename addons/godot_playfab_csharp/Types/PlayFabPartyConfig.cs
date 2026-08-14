@@ -31,5 +31,5 @@ public sealed class PlayFabPartyConfig : PlayFabObject
 
     public string AudioOutput => GetString("audio_output");
 
-    public Godot.Collections.Dictionary Metadata => GetDict("metadata");
+    public string Language => GetString("language");
 }
