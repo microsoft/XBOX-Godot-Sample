@@ -28,7 +28,8 @@ endfunction()
 get_property(_godot_cpp_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(NOT _godot_cpp_multi_config AND CMAKE_BUILD_TYPE)
     godot_cpp_expected_configs(_expected)
-    if(NOT CMAKE_BUILD_TYPE IN_LIST _expected)
+    list(FIND _expected "${CMAKE_BUILD_TYPE}" _expected_index)
+    if(_expected_index EQUAL -1)
         string(REPLACE ";" ", " _expected_display "${_expected}")
         message(FATAL_ERROR
             "godot-cpp configuration mismatch.\n"

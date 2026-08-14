@@ -36,12 +36,17 @@ endif()
 if(GODOTCPP_TARGET STREQUAL "template_release")
     set(_allowed_configs Release RelWithDebInfo MinSizeRel)
     set(_fix_hint "cmake --preset default\n      cmake --build --preset debug")
+    set(_consequence "link godot-cpp's template_release library and omit the debug-only DEBUG_ENABLED / HOT_RELOAD_ENABLED definitions that a debug build expects")
 else()
     set(_allowed_configs Debug)
     set(_fix_hint "cmake --preset default-release\n      cmake --build --preset release")
+    set(_consequence "link godot-cpp's template_debug library and compile the debug-only DEBUG_ENABLED / HOT_RELOAD_ENABLED definitions into the output")
 endif()
 
-if(BUILD_CONFIG IN_LIST _allowed_configs)
+# list(FIND) rather than if(... IN_LIST ...): IN_LIST needs policy CMP0057 set
+# to NEW, which is not guaranteed in `cmake -P` script mode on CMake 3.x.
+list(FIND _allowed_configs "${BUILD_CONFIG}" _config_index)
+if(NOT _config_index EQUAL -1)
     return()
 endif()
 
@@ -50,8 +55,7 @@ message(FATAL_ERROR
     "godot-cpp configuration mismatch while building '${TARGET_NAME}'.\n"
     "This binary directory was configured with GODOTCPP_TARGET=${GODOTCPP_TARGET}, "
     "which only supports building: ${_allowed_display}. You asked to build: ${BUILD_CONFIG}.\n"
-    "Building '${BUILD_CONFIG}' here would link godot-cpp's ${GODOTCPP_TARGET} library and "
-    "compile DEBUG_ENABLED / HOT_RELOAD_ENABLED into the output. The resulting DLL loads "
+    "Building '${BUILD_CONFIG}' here would ${_consequence}. The resulting DLL loads "
     "successfully and then corrupts the heap (STATUS_HEAP_CORRUPTION, 0xC0000374) inside a "
     "Godot build of the other configuration, so this is failing now rather than shipping a "
     "broken binary.\n"
