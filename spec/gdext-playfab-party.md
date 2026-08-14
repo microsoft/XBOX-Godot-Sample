@@ -478,13 +478,13 @@ var text: String
 var language_code: String
 var translated_text: String
 var original_text: String
-var options: int # PlayFabParty.TEXT_CHAT_OPTION_* applied by the sender
+var options: int # PlayFabParty.CHAT_MESSAGE_OPTION_* filtering flags applied by the service
 var is_transcription: bool
 var timestamp: int
 var metadata: Dictionary
 ```
 
-`original_text` is the untranslated source string when the local chat control translated an incoming message; it equals `text` otherwise.
+`original_text` is the unfiltered source string sent by the remote peer. Party sets it equal to `text` when offensive-term filtering is disabled or was not needed, so compare against `options` (not against emptiness) to detect filtering. It is empty for transcriptions, which carry no original-text field.
 
 ## Member and state-change wrappers
 

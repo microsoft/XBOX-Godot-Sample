@@ -1551,7 +1551,8 @@ int64_t PlayFabPartyNetwork::get_device_connection_type(int64_t p_peer_id) const
     return static_cast<int64_t>(connection_type);
 }
 
-Signal PlayFabPartyNetwork::leave_async() {    if (m_owner == nullptr) {
+Signal PlayFabPartyNetwork::leave_async() {
+    if (m_owner == nullptr) {
         return detached_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY,
                 "PlayFabPartyNetwork.leave_async() requires an owning PlayFabParty service.");
     }
@@ -3832,8 +3833,10 @@ void PlayFabParty::_process_chat_text_received(const Party::PartyStateChange *p_
         translated = String::utf8(change->translations[0].translation);
     }
     // Metadata sent alongside the message arrives as one opaque data blob.
-    // Decode with allow_objects disabled: these bytes come from a remote peer
-    // and must never be able to instantiate script objects.
+    // These bytes come from a remote peer, so decode with bytes_to_var(), which
+    // never instantiates objects. Do NOT switch to bytes_to_var_with_objects():
+    // that is the object-allowing variant and would make a remote peer able to
+    // instantiate script objects on this client.
     Dictionary metadata;
     if (change->dataSize > 0 && change->data != nullptr) {
         PackedByteArray bytes;
