@@ -63,6 +63,7 @@ const REGISTERED_CLASSES := [
 	"PlayFabParty",
 	"PlayFabPartyConfig",
 	"PlayFabPartyTextMessageConfig",
+	"PlayFabPartyTextToSpeechProfile",
 	"PlayFabPartyMember",
 	"PlayFabPartyChatMessage",
 	"PlayFabPartyChatStateChange",

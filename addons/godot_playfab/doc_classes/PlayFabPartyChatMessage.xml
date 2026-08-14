@@ -17,6 +17,8 @@
 		<method name="is_transcription" qualifiers="const"><return type="bool" /><description>Returns whether this message originated from speech-to-text transcription.</description></method>
 		<method name="get_timestamp" qualifiers="const"><return type="int" /><description>Returns the millisecond timestamp captured when the message was produced.</description></method>
 		<method name="get_metadata" qualifiers="const"><return type="Dictionary" /><description>Returns the optional metadata dictionary attached to the message.</description></method>
+		<method name="get_original_text" qualifiers="const"><return type="String" /><description>Returns the unfiltered source text sent by the remote peer. Party sets this equal to [method get_text] when offensive-term filtering is disabled or was not needed, so inspect [method get_options] rather than testing for an empty string to detect filtering. Empty for transcriptions.</description></method>
+		<method name="get_options" qualifiers="const"><return type="int" /><description>Returns a bitmask describing service-applied filtering. See [enum PlayFabParty.ChatMessageOptions].</description></method>
 	</methods>
 	<members>
 		<member name="sender" type="PlayFabPartyChatControl" setter="" getter="get_sender">The sending chat control.</member>
@@ -27,7 +29,9 @@
 		<member name="translated_text" type="String" setter="" getter="get_translated_text">Translated message text.</member>
 		<member name="is_transcription" type="bool" setter="" getter="is_transcription">Whether the message originated from speech-to-text transcription.</member>
 		<member name="timestamp" type="int" setter="" getter="get_timestamp">Millisecond timestamp.</member>
-		<member name="metadata" type="Dictionary" setter="" getter="get_metadata">Optional metadata dictionary.</member>
+		<member name="metadata" type="Dictionary" setter="" getter="get_metadata">Optional metadata dictionary decoded from the sender's [member PlayFabPartyTextMessageConfig.metadata].</member>
+		<member name="original_text" type="String" setter="" getter="get_original_text">The unfiltered source text sent by the remote peer. Equals [member text] when offensive-term filtering is disabled or was not needed; check [member options] rather than emptiness to detect filtering. Empty for transcriptions.</member>
+		<member name="options" type="int" setter="" getter="get_options">Bitmask describing service-applied filtering. See [enum PlayFabParty.ChatMessageOptions].</member>
 	</members>
 	<signals></signals>
 	<constants></constants>

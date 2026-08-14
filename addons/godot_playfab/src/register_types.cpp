@@ -234,6 +234,7 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<PlayFabMultiplayer>();
     ClassDB::register_class<PlayFabPartyConfig>();
     ClassDB::register_class<PlayFabPartyTextMessageConfig>();
+    ClassDB::register_class<PlayFabPartyTextToSpeechProfile>();
     ClassDB::register_class<PlayFabPartyMember>();
     ClassDB::register_class<PlayFabPartyChatMessage>();
     ClassDB::register_class<PlayFabPartyChatStateChange>();

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabPartyTextToSpeechProfile" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A synthetic voice available to PlayFab Party text-to-speech.
+	</brief_description>
+	<description>
+		An engine-owned snapshot of a PlayFab Party text-to-speech profile. Populate the list with [method PlayFabPartyChat.populate_text_to_speech_profiles_async], read it with [method PlayFabPartyChat.get_text_to_speech_profiles], and select one by passing [member identifier] to [method PlayFabPartyChat.set_text_to_speech_profile_async].
+
+		The Party SDK invalidates its own profile pointers on each populate call, so this class holds copies and stays valid for as long as the title keeps a reference.
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="get_identifier" qualifiers="const"><return type="String" /><description>Returns the profile identifier to pass to [method PlayFabPartyChat.set_text_to_speech_profile_async].</description></method>
+		<method name="get_name" qualifiers="const"><return type="String" /><description>Returns the human-readable profile name.</description></method>
+		<method name="get_language_code" qualifiers="const"><return type="String" /><description>Returns the BCP-47 language code the profile speaks.</description></method>
+		<method name="get_gender" qualifiers="const"><return type="int" /><description>Returns the voice gender. See [enum PlayFabParty.Gender].</description></method>
+	</methods>
+	<members>
+		<member name="identifier" type="String" setter="" getter="get_identifier">Profile identifier.</member>
+		<member name="name" type="String" setter="" getter="get_name">Human-readable profile name.</member>
+		<member name="language_code" type="String" setter="" getter="get_language_code">BCP-47 language code.</member>
+		<member name="gender" type="int" setter="" getter="get_gender">Voice gender. See [enum PlayFabParty.Gender].</member>
+	</members>
+	<signals></signals>
+	<constants></constants>
+</class>

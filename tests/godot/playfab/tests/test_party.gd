@@ -9,6 +9,7 @@ const PARTY_REGISTERED_CLASSES := [
 	"PlayFabParty",
 	"PlayFabPartyConfig",
 	"PlayFabPartyTextMessageConfig",
+	"PlayFabPartyTextToSpeechProfile",
 	"PlayFabPartyMember",
 	"PlayFabPartyChatMessage",
 	"PlayFabPartyChatStateChange",
@@ -60,6 +61,33 @@ const PARTY_CHAT_METHODS := [
 	"set_text_muted_async",
 	"create_local_chat_control_async",
 	"destroy_local_chat_control_async",
+	"get_local_chat_indicator",
+	"get_chat_indicator",
+	"get_chat_indicators",
+	"is_audio_input_muted",
+	"set_audio_input_muted_async",
+	"get_audio_render_volume",
+	"set_audio_render_volume_async",
+	"get_chat_permissions",
+	"is_audio_muted",
+	"is_text_muted",
+	"get_language",
+	"set_language_async",
+	"get_transcription_options",
+	"set_transcription_options_async",
+	"get_text_chat_options",
+	"set_text_chat_options_async",
+	"get_audio_encoder_bitrate",
+	"set_audio_encoder_bitrate_async",
+	"get_voice_audio_options",
+	"set_voice_audio_options_async",
+	"get_audio_input_state",
+	"get_audio_output_state",
+	"populate_text_to_speech_profiles_async",
+	"get_text_to_speech_profiles",
+	"get_text_to_speech_profile",
+	"set_text_to_speech_profile_async",
+	"synthesize_text_to_speech_async",
 ]
 
 const PARTY_CHAT_SIGNALS := [
@@ -137,6 +165,45 @@ func test_party_stable_constants() -> void:
 	assert_eq(get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_AUDIO"), 2, "CHAT_PERMISSION_RECEIVE_AUDIO == 2")
 	assert_eq(get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_TEXT"), 4, "CHAT_PERMISSION_RECEIVE_TEXT == 4")
 
+	# Chat indicators are polled, not signalled. Values mirror the native
+	# PartyLocalChatControlChatIndicator / PartyChatControlChatIndicator enums.
+	assert_eq(get_class_constant("PlayFabParty", "LOCAL_CHAT_INDICATOR_SILENT"), 0, "LOCAL_CHAT_INDICATOR_SILENT == 0")
+	assert_eq(get_class_constant("PlayFabParty", "LOCAL_CHAT_INDICATOR_TALKING"), 1, "LOCAL_CHAT_INDICATOR_TALKING == 1")
+	assert_eq(get_class_constant("PlayFabParty", "LOCAL_CHAT_INDICATOR_AUDIO_INPUT_MUTED"), 2, "LOCAL_CHAT_INDICATOR_AUDIO_INPUT_MUTED == 2")
+	assert_eq(get_class_constant("PlayFabParty", "LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT"), 3, "LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT == 3")
+
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_SILENT"), 0, "CHAT_INDICATOR_SILENT == 0")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_TALKING"), 1, "CHAT_INDICATOR_TALKING == 1")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_INCOMING_VOICE_DISABLED"), 2, "CHAT_INDICATOR_INCOMING_VOICE_DISABLED == 2")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED"), 3, "CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED == 3")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_NO_REMOTE_INPUT"), 4, "CHAT_INDICATOR_NO_REMOTE_INPUT == 4")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_INDICATOR_REMOTE_AUDIO_INPUT_MUTED"), 5, "CHAT_INDICATOR_REMOTE_AUDIO_INPUT_MUTED == 5")
+
+	assert_eq(get_class_constant("PlayFabParty", "AUDIO_INPUT_STATE_NO_INPUT"), 0, "AUDIO_INPUT_STATE_NO_INPUT == 0")
+	assert_eq(get_class_constant("PlayFabParty", "AUDIO_INPUT_STATE_INITIALIZED"), 1, "AUDIO_INPUT_STATE_INITIALIZED == 1")
+	assert_eq(get_class_constant("PlayFabParty", "AUDIO_INPUT_STATE_USER_CONSENT_DENIED"), 3, "AUDIO_INPUT_STATE_USER_CONSENT_DENIED == 3")
+	assert_eq(get_class_constant("PlayFabParty", "AUDIO_OUTPUT_STATE_NO_OUTPUT"), 0, "AUDIO_OUTPUT_STATE_NO_OUTPUT == 0")
+	assert_eq(get_class_constant("PlayFabParty", "AUDIO_OUTPUT_STATE_INITIALIZED"), 1, "AUDIO_OUTPUT_STATE_INITIALIZED == 1")
+
+	assert_eq(get_class_constant("PlayFabParty", "TRANSCRIPTION_OPTION_NONE"), 0, "TRANSCRIPTION_OPTION_NONE == 0")
+	assert_eq(get_class_constant("PlayFabParty", "TRANSCRIPTION_OPTION_TRANSCRIBE_SELF"), 1, "TRANSCRIPTION_OPTION_TRANSCRIBE_SELF == 1")
+	assert_eq(get_class_constant("PlayFabParty", "TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE"), 16, "TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE == 16")
+	assert_eq(get_class_constant("PlayFabParty", "TEXT_CHAT_OPTION_NONE"), 0, "TEXT_CHAT_OPTION_NONE == 0")
+	assert_eq(get_class_constant("PlayFabParty", "TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE"), 1, "TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE == 1")
+	assert_eq(get_class_constant("PlayFabParty", "TEXT_CHAT_OPTION_FILTER_OFFENSIVE_TEXT"), 2, "TEXT_CHAT_OPTION_FILTER_OFFENSIVE_TEXT == 2")
+
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_MESSAGE_OPTION_NONE"), 0, "CHAT_MESSAGE_OPTION_NONE == 0")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_MESSAGE_OPTION_FILTERED_ENTIRE_MESSAGE"), 2, "CHAT_MESSAGE_OPTION_FILTERED_ENTIRE_MESSAGE == 2")
+
+	assert_eq(get_class_constant("PlayFabParty", "TEXT_TO_SPEECH_TYPE_NARRATION"), 0, "TEXT_TO_SPEECH_TYPE_NARRATION == 0")
+	assert_eq(get_class_constant("PlayFabParty", "TEXT_TO_SPEECH_TYPE_VOICE_CHAT"), 1, "TEXT_TO_SPEECH_TYPE_VOICE_CHAT == 1")
+	assert_eq(get_class_constant("PlayFabParty", "GENDER_NEUTRAL"), 0, "GENDER_NEUTRAL == 0")
+
+	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS"), 0, "NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS == 0")
+	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATISTIC_CANCELED_SEND_MESSAGE_BYTES"), 15, "NETWORK_STATISTIC_CANCELED_SEND_MESSAGE_BYTES == 15")
+	assert_eq(get_class_constant("PlayFabParty", "DEVICE_CONNECTION_TYPE_RELAY_SERVER"), 0, "DEVICE_CONNECTION_TYPE_RELAY_SERVER == 0")
+	assert_eq(get_class_constant("PlayFabParty", "DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION"), 1, "DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION == 1")
+
 
 func test_party_config_defaults() -> void:
 	var config = instantiate_class("PlayFabPartyConfig")
@@ -161,22 +228,18 @@ func test_party_config_defaults() -> void:
 	config.enable_text_chat = false
 	config.audio_input = "capture-device-1"
 	config.audio_output = "render-device-1"
-	config.metadata = {"map": "arena"}
+	config.language = "en-US"
 	assert_eq(config.max_players, 4, "PlayFabPartyConfig.max_players setter")
 	assert_eq(config.direct_peer_connectivity, get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE"), "PlayFabPartyConfig.direct_peer_connectivity setter")
 	assert_eq(config.invitation_id, "invite-1", "PlayFabPartyConfig.invitation_id setter")
 	assert_eq(config.audio_input, "capture-device-1", "PlayFabPartyConfig.audio_input setter")
 	assert_eq(config.audio_output, "render-device-1", "PlayFabPartyConfig.audio_output setter")
-	assert_eq(config.metadata.get("map"), "arena", "PlayFabPartyConfig.metadata setter")
+	assert_eq(config.language, "en-US", "PlayFabPartyConfig.language setter")
 
 	var text_config = instantiate_class("PlayFabPartyTextMessageConfig")
 	assert_object_is(text_config, "PlayFabPartyTextMessageConfig", "PlayFabPartyTextMessageConfig can be instantiated")
 	if text_config != null:
-		text_config.language_code = "en-US"
-		text_config.translate_to_languages = PackedStringArray(["es-MX", "fr-FR"])
 		text_config.metadata = {"id": 12}
-		assert_eq(text_config.language_code, "en-US", "PlayFabPartyTextMessageConfig.language_code setter")
-		assert_eq(text_config.translate_to_languages.size(), 2, "PlayFabPartyTextMessageConfig.translate_to_languages setter")
 		assert_eq(int(text_config.metadata.get("id", 0)), 12, "PlayFabPartyTextMessageConfig.metadata setter")
 
 
@@ -339,6 +402,65 @@ func test_party_chat_methods_detached() -> void:
 	await _assert_signal_error(chat.set_text_muted_async({ "id": "guest", "type": "title_player_account" }, true), "party_peer_not_connected", "Detached PlayFabPartyChat.set_text_muted_async() reports party_peer_not_connected")
 
 
+func test_party_chat_polling_surface_detached() -> void:
+	# Chat indicators and voice-chat state are polled, never signalled. A
+	# detached chat surface must answer with safe defaults instead of erroring,
+	# so a title can poll every frame without null-checking.
+	var chat = instantiate_class("PlayFabPartyChat")
+	if chat == null:
+		return
+
+	var guest := { "id": "guest", "type": "title_player_account" }
+	assert_eq(chat.get_local_chat_indicator(), get_class_constant("PlayFabParty", "LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT"), "Detached PlayFabPartyChat.get_local_chat_indicator() reports no audio input")
+	assert_eq(chat.get_chat_indicator(guest), get_class_constant("PlayFabParty", "CHAT_INDICATOR_SILENT"), "Detached PlayFabPartyChat.get_chat_indicator() reports silent")
+	assert_eq(chat.get_chat_indicators().size(), 0, "Detached PlayFabPartyChat.get_chat_indicators() is empty")
+	assert_false(chat.is_audio_input_muted(), "Detached PlayFabPartyChat.is_audio_input_muted() is false")
+	assert_eq(chat.get_audio_render_volume(guest), 0.0, "Detached PlayFabPartyChat.get_audio_render_volume() is 0")
+	assert_eq(chat.get_language(), "", "Detached PlayFabPartyChat.get_language() is empty")
+	assert_eq(chat.get_transcription_options(), get_class_constant("PlayFabParty", "TRANSCRIPTION_OPTION_NONE"), "Detached PlayFabPartyChat.get_transcription_options() is none")
+	assert_eq(chat.get_text_chat_options(), get_class_constant("PlayFabParty", "TEXT_CHAT_OPTION_NONE"), "Detached PlayFabPartyChat.get_text_chat_options() is none")
+	assert_eq(chat.get_audio_encoder_bitrate(), 0, "Detached PlayFabPartyChat.get_audio_encoder_bitrate() is 0")
+	assert_eq(chat.get_audio_input_state(), get_class_constant("PlayFabParty", "AUDIO_INPUT_STATE_NO_INPUT"), "Detached PlayFabPartyChat.get_audio_input_state() is no input")
+	assert_eq(chat.get_audio_output_state(), get_class_constant("PlayFabParty", "AUDIO_OUTPUT_STATE_NO_OUTPUT"), "Detached PlayFabPartyChat.get_audio_output_state() is no output")
+	assert_eq(chat.get_text_to_speech_profiles().size(), 0, "Detached PlayFabPartyChat.get_text_to_speech_profiles() is empty")
+	assert_null(chat.get_text_to_speech_profile(get_class_constant("PlayFabParty", "TEXT_TO_SPEECH_TYPE_NARRATION")), "Detached PlayFabPartyChat.get_text_to_speech_profile() is null")
+
+	# The async setters require a local chat control and must fail deferred.
+	await _assert_signal_error(chat.set_audio_input_muted_async(true), "party_resource_not_ready", "Detached PlayFabPartyChat.set_audio_input_muted_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_language_async("en-US"), "party_resource_not_ready", "Detached PlayFabPartyChat.set_language_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_transcription_options_async(get_class_constant("PlayFabParty", "TRANSCRIPTION_OPTION_TRANSCRIBE_SELF")), "party_resource_not_ready", "Detached PlayFabPartyChat.set_transcription_options_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_text_chat_options_async(get_class_constant("PlayFabParty", "TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE")), "party_resource_not_ready", "Detached PlayFabPartyChat.set_text_chat_options_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_audio_encoder_bitrate_async(24000), "party_resource_not_ready", "Detached PlayFabPartyChat.set_audio_encoder_bitrate_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_voice_audio_options_async(get_class_constant("PlayFabParty", "VOICE_AUDIO_OPTION_NOISE_SUPPRESSION")), "party_resource_not_ready", "Detached PlayFabPartyChat.set_voice_audio_options_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.populate_text_to_speech_profiles_async(), "party_resource_not_ready", "Detached PlayFabPartyChat.populate_text_to_speech_profiles_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.set_text_to_speech_profile_async(get_class_constant("PlayFabParty", "TEXT_TO_SPEECH_TYPE_VOICE_CHAT"), "profile"), "party_resource_not_ready", "Detached PlayFabPartyChat.set_text_to_speech_profile_async() reports party_resource_not_ready")
+	await _assert_signal_error(chat.synthesize_text_to_speech_async(get_class_constant("PlayFabParty", "TEXT_TO_SPEECH_TYPE_NARRATION"), "hello"), "party_resource_not_ready", "Detached PlayFabPartyChat.synthesize_text_to_speech_async() reports party_resource_not_ready")
+
+
+func test_party_text_to_speech_profile_contract() -> void:
+	var profile = instantiate_class("PlayFabPartyTextToSpeechProfile")
+	assert_object_is(profile, "PlayFabPartyTextToSpeechProfile", "PlayFabPartyTextToSpeechProfile can be instantiated")
+	if profile == null:
+		return
+	for method_name in ["get_identifier", "get_name", "get_language_code", "get_gender"]:
+		assert_has_method_named(profile, method_name)
+	assert_eq(profile.identifier, "", "PlayFabPartyTextToSpeechProfile.identifier default")
+	assert_eq(profile.language_code, "", "PlayFabPartyTextToSpeechProfile.language_code default")
+	assert_eq(profile.gender, get_class_constant("PlayFabParty", "GENDER_NEUTRAL"), "PlayFabPartyTextToSpeechProfile.gender default")
+
+
+func test_party_network_statistics_detached() -> void:
+	var network = instantiate_class("PlayFabPartyNetwork")
+	if network == null:
+		return
+	for method_name in ["get_statistics", "get_device_connection_type"]:
+		assert_has_method_named(network, method_name)
+	# No native network handle => empty statistics and the conservative
+	# relay-server answer rather than a crash.
+	assert_eq(network.get_statistics().size(), 0, "Detached PlayFabPartyNetwork.get_statistics() is empty")
+	assert_eq(network.get_device_connection_type(1), get_class_constant("PlayFabParty", "DEVICE_CONNECTION_TYPE_RELAY_SERVER"), "Detached PlayFabPartyNetwork.get_device_connection_type() reports relay server")
+
+
 func test_party_chat_control_helpers() -> void:
 	var control = instantiate_class("PlayFabPartyChatControl")
 	if control == null:
@@ -356,6 +478,29 @@ func test_party_chat_control_helpers() -> void:
 		"set_audio_muted_async",
 		"set_text_muted_async",
 		"destroy_async",
+		"get_local_chat_indicator",
+		"get_chat_indicator",
+		"get_audio_input_state",
+		"get_audio_output_state",
+		"is_audio_input_muted",
+		"set_audio_input_muted_async",
+		"get_audio_render_volume",
+		"set_audio_render_volume_async",
+		"get_language",
+		"set_language_async",
+		"get_transcription_options",
+		"set_transcription_options_async",
+		"get_text_chat_options",
+		"set_text_chat_options_async",
+		"get_audio_encoder_bitrate",
+		"set_audio_encoder_bitrate_async",
+		"get_voice_audio_options",
+		"set_voice_audio_options_async",
+		"populate_text_to_speech_profiles_async",
+		"get_text_to_speech_profiles",
+		"get_text_to_speech_profile",
+		"set_text_to_speech_profile_async",
+		"synthesize_text_to_speech_async",
 	]:
 		assert_has_method_named(control, method_name)
 	for signal_name in ["state_changed", "message_received", "transcription_received"]:
