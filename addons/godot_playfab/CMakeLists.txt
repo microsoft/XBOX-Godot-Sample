@@ -39,6 +39,8 @@ target_link_libraries(godot_playfab PRIVATE
     Xbox::PlayFabGameSave
 )
 
+godot_cpp_config_guard(godot_playfab)
+
 option(GODOT_PLAYFAB_TEST_HOOKS_ENABLED
     "Expose internal test-only methods on PlayFab classes (used by the GUT test host)."
     ON)

@@ -3,10 +3,16 @@
     Build and zip the XBOX Godot Sample addons for drop-in use in a Godot project.
 
 .DESCRIPTION
-    Configures the package-specific CMake preset, builds the requested native
-    addon configurations, stages only the files a game project should receive,
-    then writes a zip whose root contains an `addons\` directory and a
-    `GETTING_STARTED.md` quickstart for the recipient.
+    Configures the package-specific CMake preset for each requested
+    configuration, builds the native addons, stages only the files a game
+    project should receive, then writes a zip whose root contains an `addons\`
+    directory and a `GETTING_STARTED.md` quickstart for the recipient.
+
+    Debug and Release are configured into separate binary directories
+    (`build\addon-package` and `build\addon-package-release`) because
+    godot-cpp's `GODOTCPP_TARGET` is a configure-time cache variable. A shared
+    binary directory would link the debug godot-cpp into the Release DLLs,
+    which load fine and then corrupt the heap at runtime.
 
     The default `Both` configuration includes Debug and Release GDExtension
     DLLs because the addon's .gdextension manifests declare both library paths.
@@ -25,12 +31,14 @@
     default to keep the drop-in zip small.
 
 .PARAMETER Clean
-    Remove `build\addon-package` before configuring and building. The staging
-    directory is always cleared before packaging.
+    Remove each selected configuration's package build directory
+    (`build\addon-package` and/or `build\addon-package-release`) before
+    configuring and building. The staging directory is always cleared before
+    packaging.
 
 .PARAMETER Reconfigure
-    Force `cmake --preset addon-package` even when the package build directory
-    already has a CMake cache.
+    Force a fresh `cmake --preset` for each selected configuration even when
+    that configuration's build directory already has a CMake cache.
 
 .OUTPUTS
     Exits 0 on success; otherwise throws with the failing command or missing
@@ -62,14 +70,23 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$script:ConfigurePreset = 'addon-package'
-$script:BinaryDirRel = 'build\addon-package'
-$script:BinaryDir = Join-Path $script:RepoRoot $script:BinaryDirRel
 $script:DistDir = Join-Path $script:RepoRoot 'build\dist'
 $script:StageDir = Join-Path $script:DistDir 'godot-gdk-addons'
-$script:BuildPresets = @{
-    Debug = 'debug-addon-package'
-    Release = 'release-addon-package'
+
+# godot-cpp's GODOTCPP_TARGET is a configure-time cache variable, so each
+# configuration needs its own configure preset and binary directory. Sharing one
+# binary directory silently links the debug godot-cpp into Release DLLs.
+$script:BuildPlans = @{
+    Debug = @{
+        ConfigurePreset = 'addon-package'
+        BuildPreset     = 'debug-addon-package'
+        BinaryDirRel    = 'build\addon-package'
+    }
+    Release = @{
+        ConfigurePreset = 'addon-package-release'
+        BuildPreset     = 'release-addon-package'
+        BinaryDirRel    = 'build\addon-package-release'
+    }
 }
 
 $script:NativeAddons = @(
@@ -116,6 +133,30 @@ function Invoke-Cmake {
         }
     } finally {
         Pop-Location
+    }
+}
+
+# A reused binary directory must still match the configuration being built.
+# godot-cpp's GODOTCPP_TARGET is baked into the cache at configure time.
+function Assert-GodotCppTarget {
+    param(
+        [string]$CacheFile,
+        [string]$Configuration,
+        [string]$BinaryDirRel
+    )
+
+    $expected = if ($Configuration -eq 'Release') { 'template_release' } else { 'template_debug' }
+    $line = Select-String -LiteralPath $CacheFile -Pattern '^GODOTCPP_TARGET:STRING=(.*)$' | Select-Object -First 1
+    if (-not $line) {
+        throw "Could not read GODOTCPP_TARGET from $CacheFile. Re-run with -Reconfigure."
+    }
+
+    $actual = $line.Matches[0].Groups[1].Value.Trim()
+    if ($actual -ne $expected) {
+        throw ("Binary directory '$BinaryDirRel' was configured with GODOTCPP_TARGET=$actual " +
+               "but the $Configuration package requires $expected. Building here would link the " +
+               "wrong godot-cpp and produce a DLL that corrupts the heap at runtime. " +
+               "Re-run with -Reconfigure (or -Clean).")
     }
 }
 
@@ -307,26 +348,31 @@ if ($outputFullPath.StartsWith($stagePrefix, [System.StringComparison]::OrdinalI
     throw "OutputPath must not be inside the staging directory: $stageFullPath"
 }
 
-Write-Host "package_addons.ps1: Configuration=$Configuration Preset=$($script:ConfigurePreset) Output=$outputFullPath"
-
-if ($Clean.IsPresent -and (Test-Path -LiteralPath $script:BinaryDir)) {
-    Write-Host "  Cleaning $($script:BinaryDirRel)"
-    Remove-Item -LiteralPath $script:BinaryDir -Recurse -Force
-}
-
-$cacheFile = Join-Path $script:BinaryDir 'CMakeCache.txt'
-$needConfigure = $Clean.IsPresent -or $Reconfigure.IsPresent -or -not (Test-Path -LiteralPath $cacheFile -PathType Leaf)
-if ($needConfigure) {
-    Write-Host "  Configuring (cmake --preset $($script:ConfigurePreset))"
-    Invoke-Cmake @('--preset', $script:ConfigurePreset)
-} else {
-    Write-Host "  Reusing existing $($script:BinaryDirRel) (use -Reconfigure to force)"
-}
+Write-Host "package_addons.ps1: Configuration=$Configuration Output=$outputFullPath"
 
 foreach ($config in $script:SelectedConfigurations) {
-    $buildPreset = $script:BuildPresets[$config]
-    Write-Host "  Building (cmake --build --preset $buildPreset)"
-    Invoke-Cmake @('--build', '--preset', $buildPreset)
+    $plan = $script:BuildPlans[$config]
+    $binaryDir = Join-Path $script:RepoRoot $plan.BinaryDirRel
+
+    Write-Host "  [$config] ConfigurePreset=$($plan.ConfigurePreset) BinaryDir=$($plan.BinaryDirRel)"
+
+    if ($Clean.IsPresent -and (Test-Path -LiteralPath $binaryDir)) {
+        Write-Host "    Cleaning $($plan.BinaryDirRel)"
+        Remove-Item -LiteralPath $binaryDir -Recurse -Force
+    }
+
+    $cacheFile = Join-Path $binaryDir 'CMakeCache.txt'
+    $needConfigure = $Clean.IsPresent -or $Reconfigure.IsPresent -or -not (Test-Path -LiteralPath $cacheFile -PathType Leaf)
+    if ($needConfigure) {
+        Write-Host "    Configuring (cmake --preset $($plan.ConfigurePreset))"
+        Invoke-Cmake @('--preset', $plan.ConfigurePreset)
+    } else {
+        Assert-GodotCppTarget -CacheFile $cacheFile -Configuration $config -BinaryDirRel $plan.BinaryDirRel
+        Write-Host "    Reusing existing $($plan.BinaryDirRel) (use -Reconfigure to force)"
+    }
+
+    Write-Host "    Building (cmake --build --preset $($plan.BuildPreset))"
+    Invoke-Cmake @('--build', '--preset', $plan.BuildPreset)
 }
 
 if (Test-Path -LiteralPath $script:StageDir) {

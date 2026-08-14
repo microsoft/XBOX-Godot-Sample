@@ -14,13 +14,14 @@
                 "CMAKE_MAP_IMPORTED_CONFIG_DEBUG": "Release;",
                 "CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO": "Release;",
                 "CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL": "Release;",
+                "GODOTCPP_TARGET": "template_debug",
                 "BUILD_GODOT_GDK": "ON",
                 "BUILD_GODOT_GAMEINPUT": "ON"
             }
         },
         {
             "name": "default",
-            "displayName": "Visual Studio 2022 x64",
+            "displayName": "Visual Studio 2022 x64 (Debug / godot-cpp template_debug)",
             "inherits": "_base",
             "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
@@ -28,8 +29,17 @@
             }
         },
         {
+            "name": "default-release",
+            "displayName": "Visual Studio 2022 x64 (Release / godot-cpp template_release)",
+            "inherits": "default",
+            "binaryDir": "${sourceDir}/build/release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
+            }
+        },
+        {
             "name": "gdk-only",
-            "displayName": "GDK addon only",
+            "displayName": "GDK addon only (Debug)",
             "inherits": "default",
             "binaryDir": "${sourceDir}/build/gdk-only",
             "cacheVariables": {
@@ -41,8 +51,17 @@
             }
         },
         {
+            "name": "gdk-only-release",
+            "displayName": "GDK addon only (Release)",
+            "inherits": "gdk-only",
+            "binaryDir": "${sourceDir}/build/gdk-only-release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
+            }
+        },
+        {
             "name": "gameinput-only",
-            "displayName": "GameInput addon only",
+            "displayName": "GameInput addon only (Debug)",
             "inherits": "default",
             "binaryDir": "${sourceDir}/build/gameinput-only",
             "cacheVariables": {
@@ -54,8 +73,17 @@
             }
         },
         {
+            "name": "gameinput-only-release",
+            "displayName": "GameInput addon only (Release)",
+            "inherits": "gameinput-only",
+            "binaryDir": "${sourceDir}/build/gameinput-only-release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
+            }
+        },
+        {
             "name": "playfab-only",
-            "displayName": "PlayFab addon only",
+            "displayName": "PlayFab addon only (Debug)",
             "inherits": "default",
             "binaryDir": "${sourceDir}/build/playfab-only",
             "cacheVariables": {
@@ -67,8 +95,17 @@
             }
         },
         {
+            "name": "playfab-only-release",
+            "displayName": "PlayFab addon only (Release)",
+            "inherits": "playfab-only",
+            "binaryDir": "${sourceDir}/build/playfab-only-release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
+            }
+        },
+        {
             "name": "addon-package",
-            "displayName": "Drop-in addon package",
+            "displayName": "Drop-in addon package (Debug)",
             "inherits": "default",
             "binaryDir": "${sourceDir}/build/addon-package",
             "cacheVariables": {
@@ -80,13 +117,31 @@
             }
         },
         {
+            "name": "addon-package-release",
+            "displayName": "Drop-in addon package (Release)",
+            "inherits": "addon-package",
+            "binaryDir": "${sourceDir}/build/addon-package-release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
+            }
+        },
+        {
             "name": "installed-gdk",
-            "displayName": "Installed GDK on disk (no vcpkg required; GameInput via NuGet)",
+            "displayName": "Installed GDK on disk, Debug (no vcpkg required; GameInput via NuGet)",
             "inherits": "_base",
             "binaryDir": "${sourceDir}/build/installed-gdk",
             "cacheVariables": {
                 "GDK_DEPENDENCY_SOURCE": "installed",
                 "GAMEINPUT_SOURCE": "nuget"
+            }
+        },
+        {
+            "name": "installed-gdk-release",
+            "displayName": "Installed GDK on disk, Release (no vcpkg required; GameInput via NuGet)",
+            "inherits": "installed-gdk",
+            "binaryDir": "${sourceDir}/build/installed-gdk-release",
+            "cacheVariables": {
+                "GODOTCPP_TARGET": "template_release"
             }
         },
         {
@@ -137,7 +192,7 @@
         {
             "name": "release",
             "displayName": "Release",
-            "configurePreset": "default",
+            "configurePreset": "default-release",
             "configuration": "Release"
         },
         {
@@ -152,7 +207,7 @@
         {
             "name": "release-gdk",
             "displayName": "Release (godot_gdk only)",
-            "configurePreset": "gdk-only",
+            "configurePreset": "gdk-only-release",
             "configuration": "Release",
             "targets": [
                 "godot_gdk"
@@ -170,7 +225,7 @@
         {
             "name": "release-gameinput",
             "displayName": "Release (godot_gameinput only)",
-            "configurePreset": "gameinput-only",
+            "configurePreset": "gameinput-only-release",
             "configuration": "Release",
             "targets": [
                 "godot_gameinput"
@@ -188,7 +243,7 @@
         {
             "name": "release-playfab",
             "displayName": "Release (godot_playfab only)",
-            "configurePreset": "playfab-only",
+            "configurePreset": "playfab-only-release",
             "configuration": "Release",
             "targets": [
                 "godot_playfab"
@@ -208,7 +263,7 @@
         {
             "name": "release-addon-package",
             "displayName": "Release (drop-in addon package)",
-            "configurePreset": "addon-package",
+            "configurePreset": "addon-package-release",
             "configuration": "Release",
             "targets": [
                 "godot_gdk",
@@ -225,7 +280,7 @@
         {
             "name": "release-installed-gdk",
             "displayName": "Release (installed GDK)",
-            "configurePreset": "installed-gdk",
+            "configurePreset": "installed-gdk-release",
             "configuration": "Release"
         },
         {

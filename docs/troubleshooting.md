@@ -2,6 +2,67 @@
 
 Common build and runtime issues for the XBOX Godot Sample addons.
 
+## Release build linked the debug godot-cpp
+
+**Symptom:**
+
+A release Godot export loads the addons successfully, runs, and then dies on
+shutdown with `STATUS_HEAP_CORRUPTION` (`0xC0000374`). The debug export of the
+same project is fine. Or the build simply fails with a
+`godot-cpp configuration mismatch` error from CMake.
+
+**Cause:** godot-cpp's `GODOTCPP_TARGET` is a **configure-time cache string**
+(default `template_debug`). It is not tied to `$<CONFIG>`. It drives godot-cpp's
+`DEBUG_FEATURES`, which declares `DEBUG_ENABLED` and `HOT_RELOAD_ENABLED` as
+**PUBLIC** compile definitions — so they propagate into every addon DLL that
+links godot-cpp.
+
+Every preset here uses the multi-config `Visual Studio 17 2022` generator, where
+a single configure serves both configurations. So a `--config Release` build in
+a `template_debug` binary directory produces a *release-named* DLL that links
+the *debug* godot-cpp and carries debug-only ABI. It loads without complaint and
+corrupts the heap later.
+
+**Fix:** Use one binary directory per godot-cpp target. Each configure preset
+has a `-release` sibling with its own `binaryDir`:
+
+| Debug configure preset | Release configure preset | Release binary dir |
+| --- | --- | --- |
+| `default` | `default-release` | `build/release` |
+| `gdk-only` | `gdk-only-release` | `build/gdk-only-release` |
+| `playfab-only` | `playfab-only-release` | `build/playfab-only-release` |
+| `gameinput-only` | `gameinput-only-release` | `build/gameinput-only-release` |
+| `addon-package` | `addon-package-release` | `build/addon-package-release` |
+| `installed-gdk` | `installed-gdk-release` | `build/installed-gdk-release` |
+
+```powershell
+# Debug
+cmake --preset default
+cmake --build --preset debug
+
+# Release
+cmake --preset default-release
+cmake --build --preset release
+```
+
+Do **not** run `cmake --build build --config Release`. A build-time guard
+(`cmake/AssertGodotCppConfig.cmake`) now fails that invocation with an
+explanatory error instead of producing a broken binary.
+
+**Verifying a release DLL:**
+
+```powershell
+Select-String build\release\CMakeCache.txt -Pattern '^GODOTCPP_TARGET:'
+# GODOTCPP_TARGET:STRING=template_release
+
+Get-Item addons\godot_gdk\bin\godot_gdk.windows.release.x86_64.dll |
+    Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}
+# ~2.5 MB is correct. ~4.7 MB means it linked the debug godot-cpp.
+```
+
+`tools\package_addons.ps1` configures and builds each configuration in its own
+binary directory, so it is the safest way to produce distributable binaries.
+
 ## DLL load failure: Error 126
 
 **Symptom:**
@@ -34,9 +95,11 @@ godot_gdk.windows.debug.x86_64.dll
   running the sample. The Godot editor always loads the `debug` variant of the
   extension.
 - **Use a Release build** if Visual Studio cannot be installed. Release builds
-  use redistributable CRT DLLs (`MSVCP140.dll`) that are widely available:
+  use redistributable CRT DLLs (`MSVCP140.dll`) that are widely available.
+  Release has its own configure preset and build tree:
   ```powershell
-  cmake --build build --config Release
+  cmake --preset default-release
+  cmake --build --preset release
   ```
 
 ## GDExtension dynamic library not found (packaged / exported build)
@@ -68,7 +131,8 @@ line, an entry matched but the file is missing.
   export dialog, leaving **Export With Debug** unchecked selects *release*.
   Build the release native addon first, then re-export:
   ```powershell
-  cmake --build build --preset release
+  cmake --preset default-release
+  cmake --build --preset release
   ```
   The GDK exporter now aborts with this exact guidance instead of silently
   shipping a package that contains no GDExtension DLL.
@@ -299,8 +363,9 @@ the `editor` feature tag and use plain `XGameRuntimeInitialize()` in every
 exported build.
 
 **Fix:** Rebuild the addons so the packaged build carries the editor-gated
-runtime (`cmake --build build --preset release`), then re-export and re-package.
-A packaged build should never take the `WithOptions` path.
+runtime (`cmake --preset default-release` then `cmake --build --preset
+release`), then re-export and re-package. A packaged build should never take
+the `WithOptions` path.
 
 ## Packaged build doesn't launch like a retail install (`wdapp install /bootstrapper`)
 
