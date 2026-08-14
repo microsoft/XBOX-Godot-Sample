@@ -135,7 +135,7 @@ var enable_transcription: bool = false
 var enable_translation: bool = false
 var audio_input: String = ""  # platform default when empty
 var audio_output: String = "" # platform default when empty
-var metadata: Dictionary = {}
+var language: String = ""     # BCP-47; Party default when empty
 ```
 
 `enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags. They decide whether and how the addon creates/connects Party chat controls; they are not native Party network settings. The local chat control's capture and render audio devices are always bound when the chat control is created (regardless of `enable_voice_chat`): `audio_input`/`audio_output` select a specific device id, and an empty string selects the platform's system default communication device. Whether voice actually flows still depends on chat permissions (`SendAudio`/`ReceiveAudio` granted via `set_chat_permissions_async`) and the audio subsystem successfully initializing the chosen devices; the addon logs warnings for non-`Initialized` audio device states to surface silent device-init failures.
@@ -154,10 +154,12 @@ Setting platform-type flags without a login-provider flag (or vice versa) — or
 class_name PlayFabPartyTextMessageConfig
 extends RefCounted
 
-var language_code: String = ""
-var translate_to_languages: PackedStringArray = PackedStringArray()
 var metadata: Dictionary = {}
 ```
+
+`metadata` is serialized into a single Party data buffer and delivered verbatim to receivers as `PlayFabPartyChatMessage.metadata`. It is decoded with object instantiation disabled, so only plain Variant data survives the round trip.
+
+> **No per-message language or translation.** PlayFab Party has no per-message language or translation setting, so `PlayFabPartyTextMessageConfig` carries none. The sender's language is a property of the local chat control (`set_language_async` / `PlayFabPartyConfig.language`), and translation is applied **receiver-side** via `set_text_chat_options_async(TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE)`.
 
 ## Party network and descriptor model
 
@@ -183,6 +185,10 @@ func get_local_peer() -> PlayFabPartyPeer
 func get_local_chat_control() -> PlayFabPartyChatControl
 func is_host_network() -> bool
 func leave_async() -> Signal
+
+# Live diagnostics. Both are synchronous reads of native Party state.
+func get_statistics(statistics: PackedInt32Array = PackedInt32Array()) -> Dictionary
+func get_device_connection_type(peer_id: int) -> int
 ```
 
 `PlayFabPartyNetwork` is the typed setup result and lifecycle owner. `PlayFab.party` keeps a strong reference to active networks until `leave_network_async()`, `PlayFabPartyNetwork.leave_async()`, `PlayFabPartyPeer.close_with_reason()`, or shutdown settles. Dropping a GDScript reference or replacing `multiplayer.multiplayer_peer` must not silently destroy the Party network.
@@ -304,6 +310,68 @@ Peer-facing rules:
 6. Native relationship outcomes update the peer permission/mute cache and emit `chat_permissions_changed` / `audio_muted_changed` / `text_muted_changed` (all carry the target peer's entity-key `Dictionary`).
 7. Platform privacy and privilege policy is not automatic in the first pass because PartyXbl is out of scope. Title code can resolve policy through existing GDK/Xbox services and apply the result through peer permission helpers.
 
+### Chat indicators and voice-chat state (polled)
+
+PlayFab Party raises **no state change** when a chat indicator flips, so the addon exposes indicators as polling getters rather than signals. Titles poll them from `_process()` or a UI refresh timer:
+
+```gdscript
+func _process(_delta: float) -> void:
+    var speaking := PlayFab.party.chat.get_local_chat_indicator() == PlayFabParty.LOCAL_CHAT_INDICATOR_TALKING
+    $MicIcon.visible = speaking
+    for entry in PlayFab.party.chat.get_chat_indicators():
+        _update_roster_row(entry.entity_key, entry.indicator)
+```
+
+`get_chat_indicators()` returns one `{ "entity_key": { "id", "type" }, "indicator": int }` dictionary per remote chat control. `get_chat_indicator(entity_key)` answers for a single target; passing the local player's own entity key reports `CHAT_INDICATOR_TALKING`/`CHAT_INDICATOR_SILENT` so one roster loop can drive every row.
+
+Audio device state is also polled: `get_audio_input_state()` / `get_audio_output_state()` return the last state Party reported for the bound devices, which is how a title distinguishes "no microphone" (`AUDIO_INPUT_STATE_NOT_FOUND`) from "microphone access denied" (`AUDIO_INPUT_STATE_USER_CONSENT_DENIED`) instead of silently having no voice.
+
+### Voice chat controls
+
+The local chat control exposes the rest of the Party voice surface, mirrored on `PlayFabPartyChat` with an optional trailing `user` argument (defaulting to the first local chat control):
+
+```gdscript
+# Local microphone mute — this is the local player's own mute, distinct from
+# set_audio_muted_async() which mutes *other* players.
+PlayFab.party.chat.set_audio_input_muted_async(not Input.is_action_pressed("talk"))
+PlayFab.party.chat.is_audio_input_muted()
+
+# Per-player playback volume (0.0 - 1.0).
+PlayFab.party.chat.set_audio_render_volume_async(entity_key, 0.5)
+PlayFab.party.chat.get_audio_render_volume(entity_key)
+
+# Encoder bitrate and voice processing.
+PlayFab.party.chat.set_audio_encoder_bitrate_async(24000)
+PlayFab.party.chat.set_voice_audio_options_async(PlayFabParty.VOICE_AUDIO_OPTION_NOISE_SUPPRESSION)
+
+# Language, transcription, and receiver-side translation.
+PlayFab.party.chat.set_language_async("en-US")
+PlayFab.party.chat.set_transcription_options_async(
+    PlayFabParty.TRANSCRIPTION_OPTION_TRANSCRIBE_SELF
+    | PlayFabParty.TRANSCRIPTION_OPTION_TRANSCRIBE_MATCHING_LANGUAGES)
+PlayFab.party.chat.set_text_chat_options_async(PlayFabParty.TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE)
+
+# Text-to-speech (the accessibility path for players who cannot use a mic).
+await PlayFab.party.chat.populate_text_to_speech_profiles_async()
+var profile = PlayFab.party.chat.get_text_to_speech_profiles()[0]
+await PlayFab.party.chat.set_text_to_speech_profile_async(PlayFabParty.TEXT_TO_SPEECH_TYPE_VOICE_CHAT, profile.identifier)
+PlayFab.party.chat.synthesize_text_to_speech_async(PlayFabParty.TEXT_TO_SPEECH_TYPE_VOICE_CHAT, "hello everyone")
+```
+
+`PlayFabPartyConfig.enable_transcription` and `enable_translation` are applied at chat-control creation: the addon calls `SetTranscriptionOptions` (self + matching + non-matching languages) and `SetTextChatOptions(TranslateToLocalLanguage)` respectively. Without those native calls Party never produces transcriptions or translations, so the flags would be inert.
+
+### Network diagnostics
+
+```gdscript
+var stats := network.get_statistics()  # all 16, or pass a PackedInt32Array subset
+$PingLabel.text = "%d ms" % stats.average_relay_server_round_trip_latency_ms
+
+if network.get_device_connection_type(peer_id) == PlayFabParty.DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION:
+    print("direct p2p")
+```
+
+`get_statistics()` keys are the lower snake case statistic names (`average_relay_server_round_trip_latency_ms`, `currently_queued_send_messages`, …), matching the `PlayFabParty.NETWORK_STATISTIC_*` constants. `get_device_connection_type(peer_id)` reports what was actually negotiated; direct connections are only attempted when `direct_peer_connectivity` permits them.
+
 Recommended permission constants:
 
 ```gdscript
@@ -325,6 +393,49 @@ signal state_changed(change: PlayFabPartyChatStateChange)
 
 func get_local_chat_control(user: PlayFabUser) -> PlayFabPartyChatControl
 func get_chat_controls() -> Array[PlayFabPartyChatControl]
+
+# Polled state (no signals; Party raises no state change for these).
+func get_local_chat_indicator(user: PlayFabUser = null) -> int
+func get_chat_indicator(entity_key: Dictionary, user: PlayFabUser = null) -> int
+func get_chat_indicators(user: PlayFabUser = null) -> Array[Dictionary]
+func get_audio_input_state(user: PlayFabUser = null) -> int
+func get_audio_output_state(user: PlayFabUser = null) -> int
+func is_audio_input_muted(user: PlayFabUser = null) -> bool
+func get_audio_render_volume(entity_key: Dictionary, user: PlayFabUser = null) -> float
+func get_chat_permissions(entity_key: Dictionary, user: PlayFabUser = null) -> int
+func is_audio_muted(entity_key: Dictionary, user: PlayFabUser = null) -> bool
+func is_text_muted(entity_key: Dictionary, user: PlayFabUser = null) -> bool
+func get_language(user: PlayFabUser = null) -> String
+func get_transcription_options(user: PlayFabUser = null) -> int
+func get_text_chat_options(user: PlayFabUser = null) -> int
+func get_audio_encoder_bitrate(user: PlayFabUser = null) -> int
+func get_voice_audio_options(user: PlayFabUser = null) -> int
+func get_text_to_speech_profiles(user: PlayFabUser = null) -> Array[PlayFabPartyTextToSpeechProfile]
+func get_text_to_speech_profile(type: int, user: PlayFabUser = null) -> PlayFabPartyTextToSpeechProfile
+
+# Voice chat controls.
+func set_audio_input_muted_async(muted: bool, user: PlayFabUser = null) -> Signal
+func set_audio_render_volume_async(entity_key: Dictionary, volume: float, user: PlayFabUser = null) -> Signal
+func set_language_async(language_code: String, user: PlayFabUser = null) -> Signal
+func set_transcription_options_async(options: int, user: PlayFabUser = null) -> Signal
+func set_text_chat_options_async(options: int, user: PlayFabUser = null) -> Signal
+func set_audio_encoder_bitrate_async(bitrate: int, user: PlayFabUser = null) -> Signal
+func set_voice_audio_options_async(options: int, user: PlayFabUser = null) -> Signal
+func populate_text_to_speech_profiles_async(user: PlayFabUser = null) -> Signal
+func set_text_to_speech_profile_async(type: int, profile_id: String, user: PlayFabUser = null) -> Signal
+func synthesize_text_to_speech_async(type: int, text: String, user: PlayFabUser = null) -> Signal
+```
+
+Every getter returns a safe default instead of erroring when no local chat control exists yet, so titles can poll them unconditionally every frame. Only the async setters report `party_resource_not_ready`.
+
+```gdscript
+class_name PlayFabPartyTextToSpeechProfile
+extends RefCounted
+
+var identifier: String
+var name: String
+var language_code: String
+var gender: int # PlayFabParty.GENDER_*
 ```
 
 ```gdscript
@@ -348,6 +459,12 @@ func set_permissions_async(target: PlayFabPartyChatControl, permissions: int) ->
 func set_audio_muted_async(target: PlayFabPartyChatControl, muted: bool) -> Signal
 func set_text_muted_async(target: PlayFabPartyChatControl, muted: bool) -> Signal
 func destroy_async() -> Signal
+
+# The same polled state and voice controls listed under PlayFabPartyChat are
+# available directly on the chat control, without the trailing user argument.
+# Remote controls additionally expose get_chat_indicator(); local controls
+# expose get_local_chat_indicator() and the audio-device accessors
+# (get_audio_input_selection_type(), get_audio_input_device_id(), ...).
 ```
 
 ```gdscript
@@ -360,10 +477,14 @@ var targets: Array[PlayFabPartyChatControl]
 var text: String
 var language_code: String
 var translated_text: String
+var original_text: String
+var options: int # PlayFabParty.CHAT_MESSAGE_OPTION_* filtering flags applied by the service
 var is_transcription: bool
 var timestamp: int
 var metadata: Dictionary
 ```
+
+`original_text` is the unfiltered source string sent by the remote peer. Party sets it equal to `text` when offensive-term filtering is disabled or was not needed, so compare against `options` (not against emptiness) to detect filtering. It is empty for transcriptions, which carry no original-text field.
 
 ## Member and state-change wrappers
 
@@ -618,6 +739,17 @@ self-contained slice with its own validation.
   GUT (API surface) + live MP orchestrator (`party.chat.mute_peer` mutes text and
   asserts text delivery is blocked; `party.chat.text.three_clients` validates host
   fan-out to both guests).
+- **Phase E — chat indicators, voice controls, and network diagnostics.** Close
+  the gap between the wrapper and the native Party surface (an audit found only
+  ~30 of ~95 native methods wrapped). Land polled chat indicators, the local
+  voice-chat controls (input mute/push-to-talk, render volume, encoder bitrate,
+  voice audio options, language, transcription options, text chat options,
+  text-to-speech), and the two requested network diagnostics
+  (`get_statistics`, `get_device_connection_type`). Fix the bound-but-inert
+  config surfaces in the same change. **Breaking:** `PlayFabPartyConfig.metadata`
+  and `PlayFabPartyTextMessageConfig.language_code` /
+  `.translate_to_languages` are removed. Tier: non-live GUT (API surface,
+  detached-error behavior, constant values).
 
 ## Progress
 
@@ -689,9 +821,59 @@ self-contained slice with its own validation.
     **live** on sandbox title `10D176`: `party.chat.text.round_trip`,
     `party.chat.mute.peer` (text mute blocks delivery), and
     `party.chat.text.three_clients` all green.
+- **Phase E: ✅ implemented.** Chat indicators, voice-chat controls, and network
+  diagnostics.
+  - **Indicators are polled, never signalled** — Party raises no state change
+    when an indicator flips. `get_local_chat_indicator()`,
+    `get_chat_indicator(entity_key)`, and the roster helper
+    `get_chat_indicators()` land on `PlayFabPartyChat` (optional trailing `user`)
+    and on `PlayFabPartyChatControl`. All getters return safe defaults rather
+    than erroring when there is no local chat control, so they are safe to call
+    every frame.
+  - **Local voice controls:** `set_audio_input_muted_async` (push-to-talk — the
+    local mic mute was previously unwrappable; only *incoming* mute existed),
+    `get/set_audio_render_volume`, `get/set_audio_encoder_bitrate`,
+    `get/set_voice_audio_options`, plus polled `get_audio_input_state()` /
+    `get_audio_output_state()` so titles can distinguish "no microphone" from
+    "consent denied" instead of silently having no voice.
+  - **Language / transcription / translation now actually work.**
+    `PlayFabPartyConfig.enable_transcription` and `enable_translation` were
+    bound but inert: the addon never called `SetTranscriptionOptions` or
+    `SetTextChatOptions`, so `transcription_received` was unreachable and
+    `translated_text` always equalled `text`. `_configure_chat_language_options()`
+    now applies them (plus the new `PlayFabPartyConfig.language`) at chat-control
+    creation, and `get/set_language`, `get/set_transcription_options`, and
+    `get/set_text_chat_options` are exposed directly.
+  - **Text-to-speech** (`populate_text_to_speech_profiles_async`,
+    `get_text_to_speech_profiles`, `get/set_text_to_speech_profile`,
+    `synthesize_text_to_speech_async`) with a new
+    `PlayFabPartyTextToSpeechProfile` value type. Profiles are **snapshotted** —
+    the SDK invalidates `PartyTextToSpeechProfile*` on the next populate call.
+  - **Network diagnostics:** `PlayFabPartyNetwork.get_statistics(subset)`
+    (lower-snake-case keys matching the 16 `NETWORK_STATISTIC_*` constants;
+    empty subset returns all) and `get_device_connection_type(peer_id)`.
+  - **Bug fixes.** `send_text_async` passed `dataBufferCount = 0, nullptr`, so
+    `PlayFabPartyTextMessageConfig.metadata` was silently dropped; it is now
+    serialized into a single `PartyDataBuffer` and decoded on receipt with
+    object instantiation disabled. `PlayFabPartyChatMessage` gains
+    `original_text` and `options`, and transcriptions now carry translations.
+    Audio-device state is cached from the `LocalChatAudioInput/OutputChanged`
+    state changes instead of only being `ERR_PRINT`ed.
+  - **Breaking:** `PlayFabPartyConfig.metadata` is removed (it was never read;
+    `PlayFabPartyConfig.language` replaces the slot). `PlayFabPartyTextMessageConfig.language_code`
+    and `.translate_to_languages` are removed — Party has **no** per-message
+    language or translation, so those fields could never have worked. Sender
+    language is `set_language_async`; translation is receiver-side
+    `set_text_chat_options_async(TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE)`.
+  - Deliberately **not** wrapped in this phase (per scope): endpoint/network
+    shared properties (the native setters are no-ops for the addon's usage),
+    chat-control audio-device *selection* setters, PartyXbl, and the remaining
+    unhandled state-change types.
+  - Validated: debug build of `godot_playfab` clean, parse gate, and the
+    non-live GUT tier. **Live tests were not run** (no `-Live`, no
+    `-AllowLiveWrites`).
 
 ### Pre-existing follow-up (not Phase A)
-
 The MP orchestrator (`tests\godot\mp_orchestrator`) exhausts the Party SDK's
 per-device local-user limit across its ~61 back-to-back scenarios
 (`party_invalid_user: can't create local user; local user limit reached`), and

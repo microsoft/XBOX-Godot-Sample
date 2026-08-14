@@ -247,7 +247,7 @@ plus the Multiplayer/Party value/config/state types.
 | `PlayFabLobby`, `PlayFabLobbyConfig`, `PlayFabLobbyJoinConfig`, `PlayFabLobbySearchConfig`, `PlayFabLobbyMember`, `PlayFabLobbyInvite`, `PlayFabLobbySummary`, `PlayFabLobbySearchResult`, `PlayFabLobbyStateChange` | matching wrappers | lobby value/config/state |
 | `PlayFabMatchTicket`, `PlayFabMatchmakingMember`, `PlayFabMatchmakingTicketConfig`, `PlayFabMatchTicketStateChange` | matching wrappers | matchmaking value/config/state |
 | `PlayFab.party` / `PlayFabParty` | `PlayFab.Party` | service (real-time net + chat) |
-| `PlayFabPartyConfig`, `PlayFabPartyTextMessageConfig`, `PlayFabPartyMember`, `PlayFabPartyNetwork`, `PlayFabPartyNetworkStateChange`, `PlayFabPartyPeer`, `PlayFabPartyChat`, `PlayFabPartyChatControl`, `PlayFabPartyChatMessage`, `PlayFabPartyChatStateChange` | matching wrappers | party value/config/state/peer/chat |
+| `PlayFabPartyConfig`, `PlayFabPartyTextMessageConfig`, `PlayFabPartyTextToSpeechProfile`, `PlayFabPartyMember`, `PlayFabPartyNetwork`, `PlayFabPartyNetworkStateChange`, `PlayFabPartyPeer`, `PlayFabPartyChat`, `PlayFabPartyChatControl`, `PlayFabPartyChatMessage`, `PlayFabPartyChatStateChange` | matching wrappers | party value/config/state/peer/chat |
 
 PlayFab-specific nuances the C# layer must honor:
 

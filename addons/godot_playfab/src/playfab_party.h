@@ -7,6 +7,7 @@
 #include <windows.h>
 
 #include <deque>
+#include <functional>
 #include <map>
 #include <vector>
 
@@ -49,6 +50,7 @@ class PlayFabPartyMember;
 class PlayFabPartyNetwork;
 class PlayFabPartyNetworkStateChange;
 class PlayFabPartyPeer;
+class PlayFabPartyTextToSpeechProfile;
 class PlayFabPendingSignal;
 class PlayFabResult;
 class PlayFabRuntime;
@@ -64,9 +66,9 @@ class PlayFabPartyConfig : public RefCounted {
     bool m_enable_text_chat = true;
     bool m_enable_transcription = false;
     bool m_enable_translation = false;
+    String m_language;
     String m_audio_input;
     String m_audio_output;
-    Dictionary m_metadata;
 
 protected:
     static void _bind_methods();
@@ -86,31 +88,54 @@ public:
     void set_transcription_enabled(bool p_enabled);
     bool is_translation_enabled() const;
     void set_translation_enabled(bool p_enabled);
+    String get_language() const;
+    void set_language(const String &p_language);
     String get_audio_input() const;
     void set_audio_input(const String &p_audio_input);
     String get_audio_output() const;
     void set_audio_output(const String &p_audio_output);
-    Dictionary get_metadata() const;
-    void set_metadata(const Dictionary &p_metadata);
 };
 
+// Per-message options for PlayFabPartyChat.send_text_async(). PlayFab Party has
+// no per-message language or translation target: the sender's language comes
+// from PartyLocalChatControl::SetLanguage() (PlayFabPartyChat.set_language_async)
+// and translation is a *receiver* setting (set_text_chat_options_async with
+// TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE). What Party does carry per
+// message is an opaque application data blob, which is what `metadata` maps to.
 class PlayFabPartyTextMessageConfig : public RefCounted {
     GDCLASS(PlayFabPartyTextMessageConfig, RefCounted);
 
-    String m_language_code;
-    PackedStringArray m_translate_to_languages;
     Dictionary m_metadata;
 
 protected:
     static void _bind_methods();
 
 public:
-    String get_language_code() const;
-    void set_language_code(const String &p_language_code);
-    PackedStringArray get_translate_to_languages() const;
-    void set_translate_to_languages(const PackedStringArray &p_languages);
     Dictionary get_metadata() const;
     void set_metadata(const Dictionary &p_metadata);
+};
+
+// A voice font available to PartyLocalChatControl::SynthesizeTextToSpeech().
+// Instances are snapshots captured when
+// PlayFabPartyChat.populate_text_to_speech_profiles_async() completes.
+class PlayFabPartyTextToSpeechProfile : public RefCounted {
+    GDCLASS(PlayFabPartyTextToSpeechProfile, RefCounted);
+
+    String m_identifier;
+    String m_name;
+    String m_language_code;
+    int64_t m_gender = 0;
+
+protected:
+    static void _bind_methods();
+
+public:
+    void set_values(const String &p_identifier, const String &p_name, const String &p_language_code, int64_t p_gender);
+
+    String get_identifier() const;
+    String get_name() const;
+    String get_language_code() const;
+    int64_t get_gender() const;
 };
 
 class PlayFabPartyMember : public RefCounted {
@@ -140,10 +165,12 @@ class PlayFabPartyChatMessage : public RefCounted {
     Dictionary m_sender_entity_key;
     Array m_targets;
     String m_text;
+    String m_original_text;
     String m_language_code;
     String m_translated_text;
     bool m_transcription = false;
     int64_t m_timestamp = 0;
+    int64_t m_options = 0;
     Dictionary m_metadata;
 
 protected:
@@ -159,16 +186,20 @@ public:
             const String &p_translated_text,
             bool p_transcription,
             int64_t p_timestamp,
-            const Dictionary &p_metadata);
+            const Dictionary &p_metadata,
+            const String &p_original_text = String(),
+            int64_t p_options = 0);
 
     Ref<PlayFabPartyChatControl> get_sender() const;
     Dictionary get_sender_entity_key() const;
     Array get_targets() const;
     String get_text() const;
+    String get_original_text() const;
     String get_language_code() const;
     String get_translated_text() const;
     bool is_transcription() const;
     int64_t get_timestamp() const;
+    int64_t get_options() const;
     Dictionary get_metadata() const;
 };
 
@@ -218,6 +249,18 @@ class PlayFabPartyChatControl : public RefCounted {
     // chat-control lifetime is decoupled from any single network (Phase C).
     CharString m_audio_input_device_id;
     CharString m_audio_output_device_id;
+    // Last reported audio device states, refreshed from
+    // PartyLocalChatAudioInputChanged / PartyLocalChatAudioOutputChanged. Party
+    // reports device initialization failures (device removed, consent denied,
+    // already in use) only through those state changes, so they are cached here
+    // for polling instead of being lost to a log line. 0 ==
+    // PlayFabParty.AUDIO_INPUT_STATE_NO_INPUT / AUDIO_OUTPUT_STATE_NO_OUTPUT
+    // (PlayFabParty's enums are declared below this class).
+    int64_t m_audio_input_state = 0;
+    int64_t m_audio_output_state = 0;
+    // Snapshot of PartyLocalChatControl::GetAvailableTextToSpeechProfiles()
+    // taken when PopulateAvailableTextToSpeechProfilesCompleted arrives.
+    Array m_text_to_speech_profiles;
 
 protected:
     static void _bind_methods();
@@ -245,6 +288,63 @@ public:
     Signal set_audio_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted);
     Signal set_text_muted_async(const Ref<PlayFabPartyChatControl> &p_target, bool p_muted);
     Signal destroy_async();
+
+    // --- Chat indicators (poll these; Party raises no state change for them).
+    // Party recomputes both indicators continuously from the live audio
+    // pipeline, so a UI "who is talking" element should sample them each frame
+    // (or on a timer) rather than wait for an event.
+    //
+    // get_local_chat_indicator() answers "what is *this* local control doing"
+    // and is only meaningful on a local control.
+    // get_chat_indicator() answers "what does the local control hear from this
+    // control" and is only meaningful on a remote control.
+    int64_t get_local_chat_indicator() const;
+    int64_t get_chat_indicator() const;
+
+    // --- Local audio device state / selection readback.
+    int64_t get_audio_input_state() const;
+    int64_t get_audio_output_state() const;
+    int64_t get_audio_input_selection_type() const;
+    int64_t get_audio_output_selection_type() const;
+    String get_audio_input_device_id() const;
+    String get_audio_output_device_id() const;
+
+    // --- Local capture mute (push-to-talk). Distinct from the incoming-audio
+    // mute applied to a remote target by set_audio_muted_async().
+    bool is_audio_input_muted() const;
+    Signal set_audio_input_muted_async(bool p_muted);
+
+    // --- Per-target render volume, 0.0 (silent) to 1.0 (full).
+    float get_audio_render_volume(const Ref<PlayFabPartyChatControl> &p_target) const;
+    Signal set_audio_render_volume_async(const Ref<PlayFabPartyChatControl> &p_target, double p_volume);
+
+    int64_t get_audio_encoder_bitrate() const;
+    Signal set_audio_encoder_bitrate_async(int64_t p_bitrate);
+
+    int64_t get_voice_audio_options() const;
+    Signal set_voice_audio_options_async(int64_t p_options);
+
+    // --- Language, transcription, and text-chat options. These drive whether
+    // PartyVoiceChatTranscriptionReceived / translated chat text are produced
+    // at all; without them transcription and translation never run.
+    String get_language() const;
+    Signal set_language_async(const String &p_language_code);
+    int64_t get_transcription_options() const;
+    Signal set_transcription_options_async(int64_t p_options);
+    int64_t get_text_chat_options() const;
+    Signal set_text_chat_options_async(int64_t p_options);
+
+    // --- Readback for state previously pushed with set_*_async().
+    int64_t get_permissions(const Ref<PlayFabPartyChatControl> &p_target) const;
+    bool is_audio_muted(const Ref<PlayFabPartyChatControl> &p_target) const;
+    bool is_text_muted(const Ref<PlayFabPartyChatControl> &p_target) const;
+
+    // --- Text to speech.
+    Signal populate_text_to_speech_profiles_async();
+    Array get_text_to_speech_profiles() const;
+    Ref<PlayFabPartyTextToSpeechProfile> get_text_to_speech_profile(int64_t p_type) const;
+    Signal set_text_to_speech_profile_async(int64_t p_type, const String &p_profile_id);
+    Signal synthesize_text_to_speech_async(int64_t p_type, const String &p_text);
 };
 
 // Public chat surface, reached as PlayFab.party.get_chat(). Chat is meshed by
@@ -265,6 +365,12 @@ class PlayFabPartyChat : public RefCounted {
     // permission/mute changes. The sample owns a single network, so this
     // returns the first tracked network's local chat control.
     Party::PartyLocalChatControl *_local_native_chat_control() const;
+
+    // Resolves the local chat-control wrapper every per-user convenience method
+    // below delegates to: the named user's control, or the first tracked local
+    // control when p_user is null. Since Phase C a local chat control exists
+    // independently of any network, so this does not require a joined network.
+    Ref<PlayFabPartyChatControl> _resolve_local_control(const Ref<PlayFabUser> &p_user) const;
 
 protected:
     static void _bind_methods();
@@ -300,6 +406,66 @@ public:
     // Explicitly destroy the calling local user's chat control. Idempotent: a
     // no-op success when the user has no chat control.
     Signal destroy_local_chat_control_async(const Ref<PlayFabUser> &p_user);
+
+    // --- Chat indicators. Poll these; PlayFab Party raises no state change
+    // when an indicator flips, so a "who is talking" UI should sample them on a
+    // frame or timer tick. All three are cheap synchronous SDK reads.
+    //
+    // get_local_chat_indicator() -> PlayFabParty.LocalChatIndicator for the
+    // local user's own capture pipeline (silent / talking / input muted / no
+    // input device).
+    int64_t get_local_chat_indicator(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    // get_chat_indicator() -> PlayFabParty.ChatIndicator describing what the
+    // local control currently hears from the given remote entity.
+    int64_t get_chat_indicator(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    // One entry per remote chat control:
+    // { "entity_key": { "id", "type" }, "indicator": PlayFabParty.ChatIndicator }.
+    Array get_chat_indicators(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+
+    // --- Local capture mute (push-to-talk), distinct from the per-target
+    // incoming mute applied by set_audio_muted_async().
+    bool is_audio_input_muted(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_audio_input_muted_async(bool p_muted, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+
+    // --- Per-remote render volume, 0.0 (silent) to 1.0 (full).
+    float get_audio_render_volume(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_audio_render_volume_async(const Dictionary &p_entity_key, double p_volume, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+
+    // --- Readback for state pushed with set_chat_permissions_async() /
+    // set_audio_muted_async() / set_text_muted_async().
+    int64_t get_chat_permissions(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    bool is_audio_muted(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    bool is_text_muted(const Dictionary &p_entity_key, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+
+    // --- Language / transcription / translation. Transcription and translation
+    // do not run at all unless these options are set (PlayFabPartyConfig's
+    // enable_transcription / enable_translation apply them at chat-control
+    // creation; these let a game change them later).
+    String get_language(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_language_async(const String &p_language_code, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+    int64_t get_transcription_options(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_transcription_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+    int64_t get_text_chat_options(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_text_chat_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+
+    // --- Voice encoder / processing options.
+    int64_t get_audio_encoder_bitrate(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_audio_encoder_bitrate_async(int64_t p_bitrate, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+    int64_t get_voice_audio_options(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_voice_audio_options_async(int64_t p_options, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+
+    // --- Audio device state. Poll after create_local_chat_control_async() to
+    // detect a missing microphone, denied consent, or a device already in use.
+    int64_t get_audio_input_state(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    int64_t get_audio_output_state(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+
+    // --- Text to speech. populate_text_to_speech_profiles_async() must complete
+    // before get_text_to_speech_profiles() returns anything.
+    Signal populate_text_to_speech_profiles_async(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+    Array get_text_to_speech_profiles(const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Ref<PlayFabPartyTextToSpeechProfile> get_text_to_speech_profile(int64_t p_type, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>()) const;
+    Signal set_text_to_speech_profile_async(int64_t p_type, const String &p_profile_id, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
+    Signal synthesize_text_to_speech_async(int64_t p_type, const String &p_text, const Ref<PlayFabUser> &p_user = Ref<PlayFabUser>());
 };
 
 class PlayFabPartyNetworkStateChange : public RefCounted {
@@ -395,6 +561,17 @@ public:
     Ref<PlayFabPartyPeer> get_local_peer() const;
     Ref<PlayFabPartyChatControl> get_local_chat_control() const;
     bool is_host_network() const;
+
+    // Transport telemetry for this network. p_statistics is a list of
+    // PlayFabParty.NetworkStatistic values; an empty array requests every
+    // statistic. Returns { statistic_id: value } and an empty Dictionary when
+    // the network is not attached.
+    Dictionary get_statistics(const PackedInt32Array &p_statistics = PackedInt32Array()) const;
+    // PlayFabParty.DeviceConnectionType for the device backing p_peer_id:
+    // whether traffic to that peer is relayed through the Party cloud relay or
+    // travels over a direct peer-to-peer connection. Returns
+    // DEVICE_CONNECTION_TYPE_RELAY_SERVER when the peer is unknown.
+    int64_t get_device_connection_type(int64_t p_peer_id) const;
 
     Signal leave_async();
 };
@@ -550,6 +727,129 @@ public:
         CHAT_CHANGE_MUTED_CHANGED = 4,
     };
 
+    // What the local user's own capture pipeline is doing right now. Poll via
+    // PlayFabPartyChat.get_local_chat_indicator(); Party raises no state change
+    // when this flips. Values match PartyLocalChatControlChatIndicator.
+    enum LocalChatIndicator : int64_t {
+        LOCAL_CHAT_INDICATOR_SILENT = 0,
+        LOCAL_CHAT_INDICATOR_TALKING = 1,
+        LOCAL_CHAT_INDICATOR_AUDIO_INPUT_MUTED = 2,
+        LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT = 3,
+    };
+
+    // What the local chat control currently hears from a remote chat control.
+    // Poll via PlayFabPartyChat.get_chat_indicator(). Values match
+    // PartyChatControlChatIndicator.
+    enum ChatIndicator : int64_t {
+        CHAT_INDICATOR_SILENT = 0,
+        CHAT_INDICATOR_TALKING = 1,
+        CHAT_INDICATOR_INCOMING_VOICE_DISABLED = 2,
+        CHAT_INDICATOR_INCOMING_COMMUNICATIONS_MUTED = 3,
+        CHAT_INDICATOR_NO_REMOTE_INPUT = 4,
+        CHAT_INDICATOR_REMOTE_AUDIO_INPUT_MUTED = 5,
+    };
+
+    enum AudioInputState : int64_t {
+        AUDIO_INPUT_STATE_NO_INPUT = 0,
+        AUDIO_INPUT_STATE_INITIALIZED = 1,
+        AUDIO_INPUT_STATE_NOT_FOUND = 2,
+        AUDIO_INPUT_STATE_USER_CONSENT_DENIED = 3,
+        AUDIO_INPUT_STATE_UNSUPPORTED_FORMAT = 4,
+        AUDIO_INPUT_STATE_ALREADY_IN_USE = 5,
+        AUDIO_INPUT_STATE_UNKNOWN_ERROR = 6,
+    };
+
+    enum AudioOutputState : int64_t {
+        AUDIO_OUTPUT_STATE_NO_OUTPUT = 0,
+        AUDIO_OUTPUT_STATE_INITIALIZED = 1,
+        AUDIO_OUTPUT_STATE_NOT_FOUND = 2,
+        AUDIO_OUTPUT_STATE_UNSUPPORTED_FORMAT = 3,
+        AUDIO_OUTPUT_STATE_ALREADY_IN_USE = 4,
+        AUDIO_OUTPUT_STATE_UNKNOWN_ERROR = 5,
+    };
+
+    enum AudioDeviceSelectionType : int64_t {
+        AUDIO_DEVICE_SELECTION_NONE = 0,
+        AUDIO_DEVICE_SELECTION_SYSTEM_DEFAULT = 1,
+        AUDIO_DEVICE_SELECTION_PLATFORM_USER_DEFAULT = 2,
+        AUDIO_DEVICE_SELECTION_MANUAL = 3,
+    };
+
+    enum VoiceAudioOptions : int64_t {
+        VOICE_AUDIO_OPTION_NONE = 0,
+        VOICE_AUDIO_OPTION_NOISE_SUPPRESSION = 1,
+    };
+
+    // Bit flags controlling which chat controls get transcribed. Transcription
+    // is off by default: without at least one of these set, PlayFab Party never
+    // produces a transcription_received signal.
+    enum TranscriptionOptions : int64_t {
+        TRANSCRIPTION_OPTION_NONE = 0,
+        TRANSCRIPTION_OPTION_TRANSCRIBE_SELF = 1,
+        TRANSCRIPTION_OPTION_TRANSCRIBE_MATCHING_LANGUAGES = 2,
+        TRANSCRIPTION_OPTION_TRANSCRIBE_NON_MATCHING_LANGUAGES = 4,
+        TRANSCRIPTION_OPTION_DISABLE_HYPOTHESIS_PHRASES = 8,
+        TRANSCRIPTION_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE = 16,
+        TRANSCRIPTION_OPTION_DISABLE_PROFANITY_MASKING = 32,
+        TRANSCRIPTION_OPTION_TRANSCRIBE_SELF_REGARDLESS_OF_NETWORK_STATE = 64,
+    };
+
+    // Bit flags applied to *incoming* text chat on the receiving control.
+    // Translation is a receiver-side setting in PlayFab Party: without
+    // TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE,
+    // PlayFabPartyChatMessage.translated_text always equals `text`.
+    enum TextChatOptions : int64_t {
+        TEXT_CHAT_OPTION_NONE = 0,
+        TEXT_CHAT_OPTION_TRANSLATE_TO_LOCAL_LANGUAGE = 1,
+        TEXT_CHAT_OPTION_FILTER_OFFENSIVE_TEXT = 2,
+    };
+
+    // Flags on a received PlayFabPartyChatMessage describing filtering Party
+    // applied to it.
+    enum ChatMessageOptions : int64_t {
+        CHAT_MESSAGE_OPTION_NONE = 0,
+        CHAT_MESSAGE_OPTION_FILTERED_OFFENSIVE_TERMS = 1,
+        CHAT_MESSAGE_OPTION_FILTERED_ENTIRE_MESSAGE = 2,
+        CHAT_MESSAGE_OPTION_FILTERED_DUE_TO_ERROR = 4,
+    };
+
+    enum SynthesizeTextToSpeechType : int64_t {
+        TEXT_TO_SPEECH_TYPE_NARRATION = 0,
+        TEXT_TO_SPEECH_TYPE_VOICE_CHAT = 1,
+    };
+
+    enum Gender : int64_t {
+        GENDER_NEUTRAL = 0,
+        GENDER_FEMALE = 1,
+        GENDER_MALE = 2,
+    };
+
+    // Keys accepted by PlayFabPartyNetwork.get_statistics(); values match
+    // PartyNetworkStatistic.
+    enum NetworkStatistic : int64_t {
+        NETWORK_STATISTIC_AVERAGE_RELAY_SERVER_ROUND_TRIP_LATENCY_MS = 0,
+        NETWORK_STATISTIC_SENT_PROTOCOL_PACKETS = 1,
+        NETWORK_STATISTIC_SENT_PROTOCOL_BYTES = 2,
+        NETWORK_STATISTIC_RETRIED_PROTOCOL_PACKETS = 3,
+        NETWORK_STATISTIC_RETRIED_PROTOCOL_BYTES = 4,
+        NETWORK_STATISTIC_DROPPED_PROTOCOL_PACKETS = 5,
+        NETWORK_STATISTIC_RECEIVED_PROTOCOL_PACKETS = 6,
+        NETWORK_STATISTIC_RECEIVED_PROTOCOL_BYTES = 7,
+        NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGES = 8,
+        NETWORK_STATISTIC_CURRENTLY_QUEUED_SEND_MESSAGE_BYTES = 9,
+        NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGES = 10,
+        NETWORK_STATISTIC_CURRENTLY_ACTIVE_SEND_MESSAGE_BYTES = 11,
+        NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGES = 12,
+        NETWORK_STATISTIC_TIMED_OUT_SEND_MESSAGE_BYTES = 13,
+        NETWORK_STATISTIC_CANCELED_SEND_MESSAGES = 14,
+        NETWORK_STATISTIC_CANCELED_SEND_MESSAGE_BYTES = 15,
+    };
+
+    enum DeviceConnectionType : int64_t {
+        DEVICE_CONNECTION_TYPE_RELAY_SERVER = 0,
+        DEVICE_CONNECTION_TYPE_DIRECT_PEER_CONNECTION = 1,
+    };
+
     enum PendingOperationKind : int32_t {
         PENDING_NONE = 0,
         PENDING_CREATE_NETWORK = 1,
@@ -561,6 +861,13 @@ public:
         PENDING_LEAVE_NETWORK = 7,
         PENDING_DESTROY_CHAT_CONTROL = 8,
         PENDING_JOIN_HANDSHAKE = 9,
+        PENDING_SET_LANGUAGE = 10,
+        PENDING_SET_TRANSCRIPTION_OPTIONS = 11,
+        PENDING_SET_TEXT_CHAT_OPTIONS = 12,
+        PENDING_SET_AUDIO_ENCODER_BITRATE = 13,
+        PENDING_POPULATE_TEXT_TO_SPEECH_PROFILES = 14,
+        PENDING_SET_TEXT_TO_SPEECH_PROFILE = 15,
+        PENDING_SYNTHESIZE_TEXT_TO_SPEECH = 16,
     };
 
     struct PendingOperation {
@@ -654,6 +961,13 @@ private:
     void _process_chat_control_destroyed(const Party::PartyStateChange *p_change);
     void _process_chat_text_received(const Party::PartyStateChange *p_change);
     void _process_voice_chat_transcription_received(const Party::PartyStateChange *p_change);
+    void _process_set_language_completed(const Party::PartyStateChange *p_change);
+    void _process_set_transcription_options_completed(const Party::PartyStateChange *p_change);
+    void _process_set_text_chat_options_completed(const Party::PartyStateChange *p_change);
+    void _process_set_chat_audio_encoder_bitrate_completed(const Party::PartyStateChange *p_change);
+    void _process_populate_text_to_speech_profiles_completed(const Party::PartyStateChange *p_change);
+    void _process_set_text_to_speech_profile_completed(const Party::PartyStateChange *p_change);
+    void _process_synthesize_text_to_speech_completed(const Party::PartyStateChange *p_change);
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Signal _test_enqueue_shutdown_pending();
@@ -673,11 +987,47 @@ private:
     Signal _set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded = nullptr);
     Signal _set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
     Signal _set_incoming_text_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
+    Signal _set_audio_input_muted(Party::PartyLocalChatControl *p_local_chat_control, bool p_muted);
+    Signal _set_audio_render_volume(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, double p_volume);
     Signal _destroy_chat_control(const Ref<PlayFabPartyChatControl> &p_chat_control);
     // Phase C: explicit, network-independent local chat-control lifecycle backing
     // PlayFabPartyChat.create_local_chat_control_async/destroy_local_chat_control_async.
     Signal _create_local_chat_control(const Ref<PlayFabUser> &p_user, const Ref<PlayFabPartyConfig> &p_config);
     Signal _destroy_local_chat_control(const Ref<PlayFabUser> &p_user);
+
+    // Applies the language / transcription / text-chat options implied by
+    // p_config to a freshly created local chat control. Without this the
+    // config's enable_transcription and enable_translation flags are inert:
+    // PlayFab Party never generates transcriptions or translations unless
+    // SetTranscriptionOptions()/SetTextChatOptions() are called.
+    void _configure_chat_language_options(Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
+    // Shared plumbing for the async single-shot local chat-control operations
+    // (SetLanguage, SetTranscriptionOptions, SetTextChatOptions,
+    // SetAudioEncoderBitrate, PopulateAvailableTextToSpeechProfiles,
+    // SetTextToSpeechProfile, SynthesizeTextToSpeech). p_invoke receives the
+    // PendingOperation to pass as the SDK's asyncIdentifier and returns the
+    // SDK's PartyError (a uint32_t; the SDK headers are not included here).
+    Signal _dispatch_chat_control_operation(
+            Party::PartyLocalChatControl *p_chat_control,
+            int32_t p_kind,
+            const String &p_error_code,
+            const String &p_action,
+            const std::function<uint32_t(void *)> &p_invoke);
+    // Completes the pending operation carried by a *Completed state change's
+    // asyncIdentifier, mapping a non-Succeeded result onto p_error_code.
+    // p_state_change_result is a Party::PartyStateChangeResult; it is passed as
+    // an integer because the SDK headers are not included here.
+    void _complete_chat_control_operation(
+            void *p_async_identifier,
+            int64_t p_state_change_result,
+            uint32_t p_error_detail,
+            const String &p_error_code,
+            const String &p_action);
+    Ref<PlayFabPartyChatControl> _find_chat_control_wrapper(Party::PartyChatControl *p_native) const;
+    // Resolves the PartyLocalChatControl backing p_user, or the first tracked
+    // local control when p_user is null. Unlike PlayFabPartyChat's network-based
+    // lookup this also finds controls created before any network join.
+    Party::PartyLocalChatControl *_resolve_local_native_chat_control(const Ref<PlayFabUser> &p_user) const;
 
     HRESULT _start_create_endpoint_step(PendingOperation *p_operation);
     HRESULT _start_create_chat_control_step(PendingOperation *p_operation);
@@ -734,5 +1084,18 @@ VARIANT_ENUM_CAST(godot::PlayFabParty::NetworkState);
 VARIANT_ENUM_CAST(godot::PlayFabParty::ChatPermission);
 VARIANT_ENUM_CAST(godot::PlayFabParty::NetworkStateChangeKind);
 VARIANT_ENUM_CAST(godot::PlayFabParty::ChatStateChangeKind);
+VARIANT_ENUM_CAST(godot::PlayFabParty::LocalChatIndicator);
+VARIANT_ENUM_CAST(godot::PlayFabParty::ChatIndicator);
+VARIANT_ENUM_CAST(godot::PlayFabParty::AudioInputState);
+VARIANT_ENUM_CAST(godot::PlayFabParty::AudioOutputState);
+VARIANT_ENUM_CAST(godot::PlayFabParty::AudioDeviceSelectionType);
+VARIANT_ENUM_CAST(godot::PlayFabParty::VoiceAudioOptions);
+VARIANT_ENUM_CAST(godot::PlayFabParty::TranscriptionOptions);
+VARIANT_ENUM_CAST(godot::PlayFabParty::TextChatOptions);
+VARIANT_ENUM_CAST(godot::PlayFabParty::ChatMessageOptions);
+VARIANT_ENUM_CAST(godot::PlayFabParty::SynthesizeTextToSpeechType);
+VARIANT_ENUM_CAST(godot::PlayFabParty::Gender);
+VARIANT_ENUM_CAST(godot::PlayFabParty::NetworkStatistic);
+VARIANT_ENUM_CAST(godot::PlayFabParty::DeviceConnectionType);
 
 #endif // GODOT_PLAYFAB_PARTY_H

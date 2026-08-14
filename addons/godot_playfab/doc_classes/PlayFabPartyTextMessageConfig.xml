@@ -4,14 +4,14 @@
 		Per-message options for [method PlayFabPartyChat.send_text_async] and [method PlayFabPartyChatControl.send_text_async].
 	</brief_description>
 	<description>
-		Optional language and translation hints applied when the addon forwards a text message through the local Party chat control.
+		Title-supplied metadata attached when the addon forwards a text message through the local Party chat control.
+
+		PlayFab Party has no per-message language or translation setting. The sender's language comes from [method PlayFabPartyChat.set_language_async] on the local chat control, and translation is a receiver-side setting applied with [method PlayFabPartyChat.set_text_chat_options_async].
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
-		<member name="language_code" type="String" setter="set_language_code" getter="get_language_code" default="&quot;&quot;">BCP-47 language code for the source message.</member>
-		<member name="translate_to_languages" type="PackedStringArray" setter="set_translate_to_languages" getter="get_translate_to_languages">List of BCP-47 language codes the message should be translated into.</member>
-		<member name="metadata" type="Dictionary" setter="set_metadata" getter="get_metadata">Title-supplied metadata attached to the message.</member>
+		<member name="metadata" type="Dictionary" setter="set_metadata" getter="get_metadata">Title-supplied metadata attached to the message. Serialized into a single Party data buffer and delivered verbatim to receivers as [member PlayFabPartyChatMessage.metadata]. Decoded on the receiving side with object instantiation disabled, so only plain Variant data survives the round trip.</member>
 	</members>
 	<signals></signals>
 	<constants></constants>

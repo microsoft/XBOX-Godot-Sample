@@ -11,9 +11,5 @@ public sealed class PlayFabPartyTextMessageConfig : PlayFabObject
 
     public static PlayFabPartyTextMessageConfig From(GodotObject o) => o == null ? null : new PlayFabPartyTextMessageConfig(o);
 
-    public string LanguageCode => GetString("language_code");
-
-    public string[] TranslateToLanguages => Get("translate_to_languages").AsStringArray();
-
     public Godot.Collections.Dictionary Metadata => GetDict("metadata");
 }

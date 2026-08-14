@@ -61,4 +61,15 @@ public sealed class PlayFabPartyNetwork : PlayFabObject
 
     public Task<PlayFabResult> LeaveAsync() =>
         CallResultAsync("leave_async");
+
+    /// <summary>
+    /// Live transport statistics keyed by lower snake case statistic name. Pass
+    /// PlayFabParty.NetworkStatistic values to fetch a subset; null or empty
+    /// returns all of them.
+    /// </summary>
+    public Godot.Collections.Dictionary GetStatistics(int[] statistics = null) =>
+        Call("get_statistics", statistics ?? Array.Empty<int>()).AsGodotDictionary();
+
+    public int GetDeviceConnectionType(int peerId) =>
+        Call("get_device_connection_type", peerId).AsInt32();
 }
