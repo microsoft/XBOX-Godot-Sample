@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>GodotXbox</RootNamespace>
     <AssemblyName>GodotGdkCSharp</AssemblyName>
+    <Version>0.3.0</Version>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 </Project>

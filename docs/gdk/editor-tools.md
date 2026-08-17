@@ -263,7 +263,7 @@ packaged build.
 
 `gdk_export_features_plugin.gd` restores it. An `EditorExportPlugin`'s
 `_get_export_features()` is consulted whichever platform is running, so the
-plugin returns `["gdk"]` while `GDKExportPlatform.exporting_for_gdk` is set —
+plugin returns `["gdk"]` while `XboxExportPlatform.exporting_for_gdk` is set —
 which is only for the duration of a delegated GDK export, leaving a plain
 `Windows Desktop` export in the same editor session untouched. The plugin is
 registered and unregistered alongside the platform in `gdk_editor_plugin.gd`.

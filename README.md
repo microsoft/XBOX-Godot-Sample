@@ -30,6 +30,12 @@
 > ```
 >
 > One consequence worth calling out: the ClassDB class name (`Xbox`) and the singleton name (`GDK`) are now different strings. If your code class-checks the singleton, compare against `"Xbox"` — `is_class("GDK")` no longer matches.
+>
+> See [**Migrating to v0.3.0**](docs/gdk/migration-v0.3.md) for the full old → new table, or run the codemod:
+>
+> ```powershell
+> .\tools\migrate_gdk_to_xbox.ps1 -Path <your-project> -WhatIf
+> ```
 
 
 > [!IMPORTANT]
