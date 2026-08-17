@@ -4,6 +4,28 @@ v0.3.0 renames every script-visible type in the `godot_gdk` addon from the `GDK`
 prefix to the `Xbox` prefix. **No deprecated `GDK*` aliases are provided**, so any
 project that names these types has to be updated.
 
+## Why this rename happened
+
+This rename exists to let the addon **enable console support inside compatible
+Godot forks**. Console-capable forks supply the console platform layer and
+register their own types, and the `GDK*` prefix collided with names those forks
+already use. Godot registers extension classes in a single flat `ClassDB`
+namespace, so two providers exposing the same name cannot coexist in one project.
+
+Moving this addon's script-visible types to the `Xbox*` prefix keeps them
+distinct, so the addon can be dropped into such a fork and light up console
+scenarios there rather than being blocked by a name conflict.
+
+Godot itself is unchanged by this: the engine's own console support comes from
+those forks, not from this repository. Within this repo, the rename is a naming
+change only — no runtime behavior changed.
+
+**A single binary covers both PC and console.** You do not compile the addon a
+second time for console, and there is no console-specific preset or conditional
+define. `godot_gdk.gdextension` declares only the `windows.*.x86_64` libraries,
+and a console-capable fork loads those same binaries — so the only thing you
+need to update for v0.3.0 is your type names.
+
 A codemod is shipped alongside this guide:
 
 ```powershell

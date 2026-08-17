@@ -17,6 +17,10 @@
 > [!WARNING]
 > **Breaking change: `GDK*` classes are now `Xbox*`.** Every script-visible type was renamed from the `GDK` prefix to the `Xbox` prefix — `GDKUser` → `XboxUser`, `GDKResult` → `XboxResult`, `GDKAchievement` → `XboxAchievement`, and so on. The C# facade moved with them: namespace `GodotGdk` → `GodotXbox`, static class `Gdk` → `Xbox`. No deprecated `GDK*` aliases are provided, so type references must be updated.
 >
+> **Why:** to let this addon enable console support inside compatible Godot forks. Those forks provide the console platform layer and expose their own types, and the `GDK*` prefix collided with names they already use. Moving to the `Xbox*` prefix keeps this addon's types distinct so it can be dropped into such a fork and light up console scenarios there. Godot itself is unchanged — the engine's own console support is not something this repo provides.
+>
+> **One binary covers both.** The same addon build runs on PC and on console — there is no separate console compilation, preset, or `#define`. `godot_gdk.gdextension` declares only the `windows.*.x86_64` libraries, and those are what a console-capable fork loads too.
+>
 > **The singleton is still called `GDK`.** Calls like `GDK.initialize()` and `GDK.users.add_default_user_async()` keep working unchanged — only the *type* names moved. The `addons/godot_gdk` folder, the `gdk/runtime/*` Project Settings, and the `godot_gdk.gdextension` entry point are all unchanged as well.
 >
 > ```gdscript
