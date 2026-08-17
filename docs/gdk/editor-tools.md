@@ -125,8 +125,9 @@ launch with *"GDExtension dynamic library not found"* are now hard errors:
   `godot_gdk.windows.release.x86_64.dll`; a **debug** export stages the debug
   DLL. `cmake --build build --preset debug` (the default) only produces the
   debug DLL, so a release export after a debug-only build would stage zero
-  GDExtension DLLs. The exporter now aborts with the exact build command
-  (`cmake --build build --preset release`) instead of shipping a DLL-less
+  GDExtension DLLs. The exporter now aborts with the exact build commands
+  (`cmake --preset default-release` then `cmake --build --preset release`)
+  instead of shipping a DLL-less
   package. In the export dialog, **Export With Debug** unchecked selects release.
 
 

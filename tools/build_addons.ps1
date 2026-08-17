@@ -69,14 +69,17 @@ Set-StrictMode -Version Latest
 
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
-# Configure preset -> (build-preset prefix, binary dir relative to repo root).
-# Mirrors CMakePresets.json. Update both files together if presets change.
+# Configure preset -> (build-preset prefix, per-configuration configure presets and
+# binary dirs relative to repo root). godot-cpp's GODOTCPP_TARGET is a
+# configure-time cache variable, so Debug and Release each need their own
+# configure preset and binary directory. Mirrors CMakePresets.json - update both
+# files together if presets change.
 $script:PresetMap = @{
-    'default'        = @{ BuildPrefix = '';            BinaryDir = 'build' }
-    'gdk-only'       = @{ BuildPrefix = '-gdk';        BinaryDir = 'build/gdk-only' }
-    'playfab-only'   = @{ BuildPrefix = '-playfab';    BinaryDir = 'build/playfab-only' }
-    'gameinput-only' = @{ BuildPrefix = '-gameinput';  BinaryDir = 'build/gameinput-only' }
-    'addon-package'  = @{ BuildPrefix = '-addon-package'; BinaryDir = 'build/addon-package' }
+    'default'        = @{ BuildPrefix = '';               Debug = @{ ConfigurePreset = 'default';                BinaryDir = 'build' };                Release = @{ ConfigurePreset = 'default-release';        BinaryDir = 'build/release' } }
+    'gdk-only'       = @{ BuildPrefix = '-gdk';           Debug = @{ ConfigurePreset = 'gdk-only';               BinaryDir = 'build/gdk-only' };       Release = @{ ConfigurePreset = 'gdk-only-release';       BinaryDir = 'build/gdk-only-release' } }
+    'playfab-only'   = @{ BuildPrefix = '-playfab';       Debug = @{ ConfigurePreset = 'playfab-only';           BinaryDir = 'build/playfab-only' };   Release = @{ ConfigurePreset = 'playfab-only-release';   BinaryDir = 'build/playfab-only-release' } }
+    'gameinput-only' = @{ BuildPrefix = '-gameinput';     Debug = @{ ConfigurePreset = 'gameinput-only';         BinaryDir = 'build/gameinput-only' }; Release = @{ ConfigurePreset = 'gameinput-only-release'; BinaryDir = 'build/gameinput-only-release' } }
+    'addon-package'  = @{ BuildPrefix = '-addon-package'; Debug = @{ ConfigurePreset = 'addon-package';          BinaryDir = 'build/addon-package' };  Release = @{ ConfigurePreset = 'addon-package-release';  BinaryDir = 'build/addon-package-release' } }
 }
 
 function Invoke-Cmake {
@@ -95,10 +98,12 @@ function Invoke-Cmake {
 }
 
 $entry = $script:PresetMap[$Preset]
-$binaryDirAbs = Join-Path $script:RepoRoot $entry.BinaryDir
+$configEntry = $entry[$Configuration]
+$configurePreset = $configEntry.ConfigurePreset
+$binaryDirAbs = Join-Path $script:RepoRoot $configEntry.BinaryDir
 $buildPreset  = $Configuration.ToLowerInvariant() + $entry.BuildPrefix
 
-Write-Host "build_addons.ps1: Preset=$Preset Configuration=$Configuration BuildPreset=$buildPreset BinaryDir=$($entry.BinaryDir)"
+Write-Host "build_addons.ps1: Preset=$Preset Configuration=$Configuration ConfigurePreset=$configurePreset BuildPreset=$buildPreset BinaryDir=$($configEntry.BinaryDir)"
 
 if ($Clean -and (Test-Path $binaryDirAbs)) {
     Write-Host "  Cleaning $binaryDirAbs"
@@ -109,10 +114,10 @@ $cacheFile = Join-Path $binaryDirAbs 'CMakeCache.txt'
 $needConfigure = $Clean.IsPresent -or $Reconfigure.IsPresent -or -not (Test-Path $cacheFile)
 
 if ($needConfigure) {
-    Write-Host "  Configuring (cmake --preset $Preset)"
-    Invoke-Cmake @('--preset', $Preset)
+    Write-Host "  Configuring (cmake --preset $configurePreset)"
+    Invoke-Cmake @('--preset', $configurePreset)
 } else {
-    Write-Host "  Reusing existing $($entry.BinaryDir) (use -Reconfigure to force)"
+    Write-Host "  Reusing existing $($configEntry.BinaryDir) (use -Reconfigure to force)"
 }
 
 Write-Host "  Building (cmake --build --preset $buildPreset)"

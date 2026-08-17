@@ -53,6 +53,8 @@ target_link_libraries(godot_gdk PRIVATE
     Xbox::GameChat2
 )
 
+godot_cpp_config_guard(godot_gdk)
+
 target_compile_definitions(godot_gdk PRIVATE _GAMING_DESKTOP)
 
 godot_addon_configure_target(

@@ -27,6 +27,8 @@ target_link_libraries(godot_gameinput PRIVATE
     Microsoft::GameInput
 )
 
+godot_cpp_config_guard(godot_gameinput)
+
 target_compile_definitions(godot_gameinput PRIVATE _GAMING_DESKTOP)
 
 godot_addon_configure_target(

@@ -1200,13 +1200,17 @@ func _copy_addon_dlls(staging_dir: String, p_debug: bool) -> int:
 
 # Actionable diagnostic for the zero-GDExtension-DLL failure mode (issue #134).
 static func _missing_main_dll_message(p_config: String) -> String:
-	var build_preset: String = "debug" if p_config == "debug" else "release"
+	var is_debug: bool = p_config == "debug"
+	var configure_preset: String = "default" if is_debug else "default-release"
+	var build_preset: String = "debug" if is_debug else "release"
 	return (
 		"GDK Export: no GDExtension main DLL for the '%s' configuration was found in any addons/*/bin.\n" % p_config +
 		"  A '%s' export must stage godot_*.windows.%s.x86_64.dll next to its .gdextension, or the\n" % [p_config, p_config] +
 		"  packaged game fails at launch with \"GDExtension dynamic library not found\".\n" +
-		"  Build the native addons in this configuration first:\n" +
-		"      cmake --build build --preset %s\n" % build_preset +
+		"  Build the native addons in this configuration first (each configuration has its own\n" +
+		"  configure preset and build tree):\n" +
+		"      cmake --preset %s\n" % configure_preset +
+		"      cmake --build --preset %s\n" % build_preset +
 		"  then re-export. (In the Godot export dialog, \"Export With Debug\" unchecked selects release.)")
 
 static func _copy_dir_recursive(src_dir: String, dest_dir: String) -> int:

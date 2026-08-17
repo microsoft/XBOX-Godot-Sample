@@ -16,19 +16,26 @@ Each addon owns its own `CMakeLists.txt`. The root `CMakeLists.txt` is a thin su
 ## Build Commands
 
 ```powershell
-# Configure the default repo build
+# Configure and build debug
 cmake --preset default
+cmake --build --preset debug
 
-# Build debug
-cmake --build build --preset debug
-
-# Build release
-cmake --build build --preset release
+# Configure and build release (separate build tree - see below)
+cmake --preset default-release
+cmake --build --preset release
 
 # Optional: build only the GameInput addon
 cmake --preset gameinput-only
 cmake --build --preset debug-gameinput
 ```
+
+Debug and Release use **separate configure presets and binary directories**
+because godot-cpp's `GODOTCPP_TARGET` is a configure-time cache variable. Every
+configure preset has a `-release` sibling (`default-release`,
+`gdk-only-release`, `playfab-only-release`, `gameinput-only-release`,
+`addon-package-release`, `installed-gdk-release`). `cmake --build build --config
+Release` is guarded and fails on purpose; see
+`docs\troubleshooting.md` ("Release build linked the debug godot-cpp").
 
 Output binaries land in each addon's `bin\` folder. Addon-local build logic may also sync files into `sample\addons\...\`.
 
