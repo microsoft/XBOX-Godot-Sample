@@ -86,7 +86,7 @@ See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages
   How the addon is laid out, built, packaged, and loaded by Godot.
 
 - [`gdk/native-runtime.md`](native-runtime.md)  
-  The native runtime architecture: `GDK`, `GDKRuntime`, async wrappers, users service, and extension points.
+  The native runtime architecture: `GDK`, `XboxRuntime`, async wrappers, users service, and extension points.
 
 - [`gdk/editor-tools.md`](editor-tools.md)  
   The editor plugin, setup panel, and export platform.

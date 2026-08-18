@@ -28,7 +28,7 @@ func test_launcher_surface_and_validation_paths() -> void:
 	assert_result_error(pre_init_result, "not_initialized", "launch_uri() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for launcher behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for launcher behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -41,5 +41,5 @@ func test_launcher_surface_and_validation_paths() -> void:
 	assert_result_error(launcher.launch_uri("javascript:alert('x')"), "unsupported_launcher_destination", "launch_uri() rejects disallowed javascript scheme")
 	assert_result_error(launcher.launch_uri("ms-help:"), "unsupported_launcher_destination", "launch_uri() rejects unsupported ms-* destination")
 
-	var blank_user = instantiate_class("GDKUser")
+	var blank_user = instantiate_class("XboxUser")
 	assert_result_error(launcher.launch_uri("ms-settings:", blank_user), "invalid_user", "launch_uri() rejects unsigned user handles")

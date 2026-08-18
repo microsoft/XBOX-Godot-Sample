@@ -1,7 +1,7 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## Shared GUT base for the `godot_playfab` coverage suite.
 ##
-## Extends `GdkTestBase` to reuse reflection, async, and environment helpers.
+## Extends `XboxTestBase` to reuse reflection, async, and environment helpers.
 ## Dedicated PlayFab coverage uses custom-ID sign-in by default. CMake mirrors
 ## the GDK addon into this host when `GODOT_PLAYFAB_TEST_HOST_WITH_GDK=ON` so
 ## optional Xbox-backed compatibility flows can also run; those helpers skip
@@ -154,7 +154,7 @@ func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_m
 
 # PlayFab tests pump both playfab.dispatch() and, when present, gdk.dispatch()
 # each loop iteration so optional Xbox-backed compatibility flows still settle.
-# Overrides `await_completion_state` from `GdkTestBase` so PlayFab consumers
+# Overrides `await_completion_state` from `XboxTestBase` so PlayFab consumers
 # get the dual-pump behavior automatically without having to remember to
 # call a separate helper.
 func await_completion_state(state: Dictionary, timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Variant:
@@ -198,7 +198,7 @@ func assert_playfab_result_failed(result: Variant, name: String) -> void:
 
 
 # Note: deliberately distinct from inherited `assert_result_error`. The
-# message label says "PlayFabResult" instead of "GDKResult" so failure
+# message label says "PlayFabResult" instead of "XboxResult" so failure
 # output points at the right type. Behavior is identical otherwise.
 func assert_playfab_result_error(result: Variant, expected_code: String, name: String) -> void:
 	assert_not_null(result, "%s returns PlayFabResult" % name)

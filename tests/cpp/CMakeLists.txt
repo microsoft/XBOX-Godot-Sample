@@ -14,7 +14,7 @@
 
 if(GDK_BUILD_TESTS)
     # Wave 2: pull the per-addon HRESULT formatting helpers
-    # (gdk_internal:: and playfab_internal::) directly into the doctest TU.
+    # (xbox_internal:: and playfab_internal::) directly into the doctest TU.
     # These helpers are pure and self-contained — the headers self-include
     # <windows.h> for HRESULT and only depend on godot::cpp for godot::String —
     # so we can compile them straight in here without a dedicated static lib.
@@ -30,7 +30,7 @@ if(GDK_BUILD_TESTS)
             "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_gdk_result_codes.cpp"
             "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_playfab_result_codes.cpp"
             "${CMAKE_CURRENT_SOURCE_DIR}/request_key/test_playfab_request_key.cpp"
-            "${_GDK_RC_SRC}/gdk_result_codes_internal.cpp"
+            "${_GDK_RC_SRC}/xbox_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_request_key.cpp"
         LINK_LIBS   godot::cpp

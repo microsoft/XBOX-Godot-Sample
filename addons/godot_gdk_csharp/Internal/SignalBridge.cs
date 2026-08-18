@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using Godot;
 
-namespace GodotGdk.Internal;
+namespace GodotXbox.Internal;
 
 /// <summary>
 /// Bridges the addon's one-shot completion <see cref="Signal"/> values into
@@ -11,22 +11,22 @@ namespace GodotGdk.Internal;
 /// </summary>
 internal static class SignalBridge
 {
-    public static async Task<GdkResult> AwaitResult(Signal completion)
+    public static async Task<XboxResult> AwaitResult(Signal completion)
     {
         GodotObject owner = completion.Owner;
         if (owner == null)
         {
-            return GdkResult.Failed("signal_owner_missing", "Async signal had no owner to await.");
+            return XboxResult.Failed("signal_owner_missing", "Async signal had no owner to await.");
         }
 
         Variant[] payload = await owner.ToSignal(owner, completion.Name);
         GodotObject result = payload.Length > 0 ? payload[0].AsGodotObject() : null;
         if (result == null)
         {
-            return GdkResult.Failed(
+            return XboxResult.Failed(
                 "signal_payload_missing",
                 $"Async signal '{completion.Name}' completed without a result payload.");
         }
-        return GdkResult.From(result);
+        return XboxResult.From(result);
     }
 }

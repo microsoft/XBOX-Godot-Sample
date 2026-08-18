@@ -1,7 +1,7 @@
 extends SceneTree
 ## Wave 4 bootstrap mini-runner.
 ##
-## Asserts: the `GDKBootstrap` autoload's `_should_skip_bootstrap()` skips
+## Asserts: the `XboxBootstrap` autoload's `_should_skip_bootstrap()` skips
 ## the runtime init when the `--gd-script-check` user-arg is passed (the
 ## "check-only" code path used by the headless validator and by tests that
 ## want to load the project without booting the GDK runtime).

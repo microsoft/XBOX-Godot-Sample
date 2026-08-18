@@ -31,28 +31,28 @@ func test_leaderboards_surface_and_validation() -> void:
 	assert_has_signal_named(leaderboards, "leaderboard_updated")
 	assert_eq(leaderboards.get_cached_leaderboard("missing"), null, "get_cached_leaderboard() returns null before any query")
 
-	var blank_leaderboard = instantiate_class("GDKLeaderboard")
-	assert_not_null(blank_leaderboard, "GDKLeaderboard.new() returns wrapper")
+	var blank_leaderboard = instantiate_class("XboxLeaderboard")
+	assert_not_null(blank_leaderboard, "XboxLeaderboard.new() returns wrapper")
 	if blank_leaderboard != null:
 		for method_name in ["get_stat_name", "get_query_type", "get_total_row_count", "has_next", "get_columns", "get_rows"]:
 			assert_has_method_named(blank_leaderboard, method_name)
-		assert_eq(blank_leaderboard.get_stat_name(), "", "blank GDKLeaderboard stat name defaults empty")
-		assert_eq(blank_leaderboard.get_query_type(), "", "blank GDKLeaderboard query type defaults empty")
-		assert_eq(blank_leaderboard.get_total_row_count(), 0, "blank GDKLeaderboard total row count defaults zero")
-		assert_eq(blank_leaderboard.has_next(), false, "blank GDKLeaderboard has_next defaults false")
-		assert_true(blank_leaderboard.get_columns() is Array, "blank GDKLeaderboard columns returns Array")
-		assert_true(blank_leaderboard.get_rows() is Array, "blank GDKLeaderboard rows returns Array")
+		assert_eq(blank_leaderboard.get_stat_name(), "", "blank XboxLeaderboard stat name defaults empty")
+		assert_eq(blank_leaderboard.get_query_type(), "", "blank XboxLeaderboard query type defaults empty")
+		assert_eq(blank_leaderboard.get_total_row_count(), 0, "blank XboxLeaderboard total row count defaults zero")
+		assert_eq(blank_leaderboard.has_next(), false, "blank XboxLeaderboard has_next defaults false")
+		assert_true(blank_leaderboard.get_columns() is Array, "blank XboxLeaderboard columns returns Array")
+		assert_true(blank_leaderboard.get_rows() is Array, "blank XboxLeaderboard rows returns Array")
 
-	var blank_column = instantiate_class("GDKLeaderboardColumn")
-	assert_not_null(blank_column, "GDKLeaderboardColumn.new() returns wrapper")
+	var blank_column = instantiate_class("XboxLeaderboardColumn")
+	assert_not_null(blank_column, "XboxLeaderboardColumn.new() returns wrapper")
 	if blank_column != null:
 		assert_has_method_named(blank_column, "get_stat_name")
 		assert_has_method_named(blank_column, "get_stat_type")
-		assert_eq(blank_column.get_stat_name(), "", "blank GDKLeaderboardColumn stat name defaults empty")
-		assert_eq(blank_column.get_stat_type(), "", "blank GDKLeaderboardColumn stat type defaults empty")
+		assert_eq(blank_column.get_stat_name(), "", "blank XboxLeaderboardColumn stat name defaults empty")
+		assert_eq(blank_column.get_stat_type(), "", "blank XboxLeaderboardColumn stat type defaults empty")
 
-	var blank_row = instantiate_class("GDKLeaderboardRow")
-	assert_not_null(blank_row, "GDKLeaderboardRow.new() returns wrapper")
+	var blank_row = instantiate_class("XboxLeaderboardRow")
+	assert_not_null(blank_row, "XboxLeaderboardRow.new() returns wrapper")
 	if blank_row != null:
 		for method_name in [
 			"get_gamertag",
@@ -66,9 +66,9 @@ func test_leaderboards_surface_and_validation() -> void:
 			"get_column_values",
 		]:
 			assert_has_method_named(blank_row, method_name)
-		assert_eq(blank_row.get_xuid(), "", "blank GDKLeaderboardRow xuid defaults empty")
-		assert_eq(blank_row.get_rank(), 0, "blank GDKLeaderboardRow rank defaults zero")
-		assert_true(blank_row.get_column_values() is PackedStringArray, "blank GDKLeaderboardRow column values returns PackedStringArray")
+		assert_eq(blank_row.get_xuid(), "", "blank XboxLeaderboardRow xuid defaults empty")
+		assert_eq(blank_row.get_rank(), 0, "blank XboxLeaderboardRow rank defaults zero")
+		assert_true(blank_row.get_column_values() is PackedStringArray, "blank XboxLeaderboardRow column values returns PackedStringArray")
 
 	var pre_init_signal = leaderboards.get_leaderboard_async(null, "score")
 	await assert_signal_result_error(pre_init_signal, "runtime_unavailable", "get_leaderboard_async() reports unavailable runtime before initialize")
@@ -77,7 +77,7 @@ func test_leaderboards_surface_and_validation() -> void:
 	await assert_signal_result_error(pre_init_around_user_signal, "runtime_unavailable", "get_leaderboard_around_user_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for leaderboard validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for leaderboard validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -126,7 +126,7 @@ func test_leaderboard_around_user_live_read() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for around-user leaderboard live read returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for around-user leaderboard live read returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -170,7 +170,7 @@ func test_leaderboard_around_user_live_read() -> void:
 		pending("get_leaderboard_around_user_async(): %s" % around_result.message)
 		return
 
-	assert_object_is(around_result.data, "GDKLeaderboard", "around-user leaderboard query returns a GDKLeaderboard")
-	if is_class_instance(around_result.data, "GDKLeaderboard"):
+	assert_object_is(around_result.data, "XboxLeaderboard", "around-user leaderboard query returns an XboxLeaderboard")
+	if is_class_instance(around_result.data, "XboxLeaderboard"):
 		assert_eq(around_result.data.get_stat_name(), "score", "around-user leaderboard keeps the requested stat name")
 		assert_eq(around_result.data.get_query_type(), "around_user", "around-user leaderboard records the around_user query type")

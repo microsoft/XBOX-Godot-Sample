@@ -2,12 +2,12 @@ extends Control
 
 ## GDK Tutorial 1 reference scene — Xbox sign-in status panel.
 ##
-## Reads the `GdkAuth` autoload and renders the current sign-in state via
-## GdkAuth.state_changed. Pressing **Sign in** re-runs the
+## Reads the `XboxAuth` autoload and renders the current sign-in state via
+## XboxAuth.state_changed. Pressing **Sign in** re-runs the
 ## check → silent → UI fallback; **Back** returns to the picker.
 ##
-## NOTE: scene scripts use `get_node("/root/GdkAuth")` instead of the bare
-## `GdkAuth.` reference shown in the tutorial markdown so that the headless
+## NOTE: scene scripts use `get_node("/root/XboxAuth")` instead of the bare
+## `XboxAuth.` reference shown in the tutorial markdown so that the headless
 ## parse gate (`tools\check_gd_scripts_headless.ps1`) — which does not
 ## resolve GDScript autoloads — stays clean.
 ##
@@ -24,9 +24,9 @@ func _ready() -> void:
 	_back_button.pressed.connect(_on_back_pressed)
 	_sign_in_button.pressed.connect(_on_sign_in_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if _auth == null:
-		_status.text = "GdkAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
+		_status.text = "XboxAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
 		_sign_in_button.disabled = true
 		return
 

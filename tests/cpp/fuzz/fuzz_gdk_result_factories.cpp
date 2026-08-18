@@ -1,6 +1,6 @@
 // fuzz_gdk_result_factories.cpp — Phase 3 libFuzzer target.
 //
-// Fuzzes the GDKResult and PlayFabResult factory methods (ok_result,
+// Fuzzes the XboxResult and PlayFabResult factory methods (ok_result,
 // error_result, hresult_error, cancelled) and their field accessors.
 // These classes use Ref<RefCounted> internally, which requires the Phase 3
 // stub harness's object lifecycle stubs (stub_object.cpp) to work without
@@ -17,7 +17,7 @@
 
 #include "godot_stub_init.h"
 
-#include "gdk_result.h"
+#include "xbox_result.h"
 #include "playfab_result.h"
 
 #include <cstdint>
@@ -85,9 +85,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     const godot::String action(action_buf);
     const godot::String code(code_buf);
 
-    // ── GDKResult factory + accessor round-trips ──────────────────────────
+    // ── XboxResult factory + accessor round-trips ──────────────────────────
     {
-        godot::Ref<godot::GDKResult> ok = godot::GDKResult::ok_result(v);
+        godot::Ref<godot::XboxResult> ok = godot::XboxResult::ok_result(v);
         if (ok.is_valid()) {
             (void)ok->is_ok();
             (void)ok->get_hresult();
@@ -97,8 +97,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
     }
     {
-        godot::Ref<godot::GDKResult> err =
-            godot::GDKResult::error_result(hr, code, action, v);
+        godot::Ref<godot::XboxResult> err =
+            godot::XboxResult::error_result(hr, code, action, v);
         if (err.is_valid()) {
             (void)err->is_ok();
             (void)err->get_hresult();
@@ -107,16 +107,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
     }
     {
-        godot::Ref<godot::GDKResult> herr =
-            godot::GDKResult::hresult_error(hr, action, code, v);
+        godot::Ref<godot::XboxResult> herr =
+            godot::XboxResult::hresult_error(hr, action, code, v);
         if (herr.is_valid()) {
             (void)herr->get_code();
             (void)herr->get_message();
         }
     }
     {
-        godot::Ref<godot::GDKResult> canc =
-            godot::GDKResult::cancelled(action);
+        godot::Ref<godot::XboxResult> canc =
+            godot::XboxResult::cancelled(action);
         if (canc.is_valid()) {
             (void)canc->is_ok();
             (void)canc->get_code();

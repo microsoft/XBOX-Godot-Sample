@@ -7,7 +7,7 @@ extends GutTest
 ## introspective — they pin the path-normalisation, the version-extraction
 ## branch behavior, and the soft-fail invariants when the tools are missing.
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 
 const SCRIPT_PATH := "res://addons/godot_gdk_editortools/core/gdk_toolchain.gd"
 
@@ -15,7 +15,7 @@ const SCRIPT_PATH := "res://addons/godot_gdk_editortools/core/gdk_toolchain.gd"
 # ── Public API shape ──────────────────────────────────────────────────────
 
 func test_default_construction_does_not_crash() -> void:
-	var tc = GDKToolchainScript.new()
+	var tc = XboxToolchainScript.new()
 	assert_not_null(tc, "toolchain instantiates")
 	# All getters must return something (never null) regardless of GDK presence.
 	assert_eq(typeof(tc.get_makepkg_path()), TYPE_STRING, "makepkg path is String")
@@ -31,7 +31,7 @@ func test_consistency_when_unavailable() -> void:
 	# When the runtime SDK is not present the optional paths must stay
 	# empty. When it IS present, the required paths (makepkg + game config
 	# editor) must both be populated.
-	var tc = GDKToolchainScript.new()
+	var tc = XboxToolchainScript.new()
 	if not tc.is_gdk_available():
 		assert_eq(tc.get_makepkg_path(), "", "no makepkg path when unavailable")
 		assert_eq(tc.get_game_config_editor_path(), "", "no GameConfigEditor path when unavailable")
@@ -47,7 +47,7 @@ func test_consistency_when_unavailable() -> void:
 # ── execute_tool — missing executable soft-fail ───────────────────────────
 
 func test_execute_tool_missing_exe_returns_error_dict() -> void:
-	var tc = GDKToolchainScript.new()
+	var tc = XboxToolchainScript.new()
 	var result: Dictionary = tc.execute_tool("C:/this/path/does/not/exist/nope.exe", PackedStringArray(["--version"]))
 	assert_eq(result["exit_code"], -1, "missing exe yields exit_code -1")
 	assert_eq(result["stdout"], "", "stdout empty when exe missing")
@@ -55,7 +55,7 @@ func test_execute_tool_missing_exe_returns_error_dict() -> void:
 
 
 func test_execute_tool_result_dict_shape() -> void:
-	var tc = GDKToolchainScript.new()
+	var tc = XboxToolchainScript.new()
 	var result: Dictionary = tc.execute_tool("C:/missing.exe", PackedStringArray())
 	assert_true(result.has("exit_code"), "result has exit_code key")
 	assert_true(result.has("stdout"), "result has stdout key")
@@ -80,7 +80,7 @@ func test_execute_tool_captures_stderr_separately() -> void:
 		pending("No shell executable available for stderr capture test")
 		return
 
-	var tc = GDKToolchainScript.new()
+	var tc = XboxToolchainScript.new()
 	var result: Dictionary = tc.execute_tool(shell_path, args)
 	assert_eq(int(result.get("exit_code", -1)), 0, "shell command exits cleanly")
 	assert_string_contains(str(result.get("stdout", "")), "tool_stdout", "stdout captured")

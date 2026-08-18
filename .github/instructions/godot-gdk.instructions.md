@@ -8,32 +8,36 @@ applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/tutorial_gdk/**, sampl
 ## Public Architecture
 
 - `GDK` is the only engine singleton registered by the addon.
+- **Class names use the `Xbox*` prefix; the singleton name does not.** The native root class is `Xbox` (`ClassDB` name `Xbox`), but it is registered as an engine singleton under the name `GDK` by default. `GDK.initialize()` in GDScript keeps working unchanged — that is deliberate, so forks already written against the `GDK` global keep compiling.
+  - Name a new script-visible type `Xbox<Thing>` (`XboxUser`, `XboxAchievement`, `XboxResult`), never `GDK<Thing>`.
+  - Anything that class-checks the singleton (`is_class(...)` / `IsClass(...)`) must compare against `"Xbox"`, not against the singleton *name*. The two are no longer the same string, and conflating them silently breaks the rename-fallback path.
+  - The `gdk/runtime/*` Project Settings, the `addons/godot_gdk` folder, `godot_gdk.gdextension`, and the default singleton name `"GDK"` are all unchanged.
 - Service surfaces such as `GDK.users` and `GDK.achievements` are `RefCounted` objects returned from the root singleton, not separate engine singletons.
-- Script-visible wrapper types such as `GDKUser`, `GDKAchievement`, and `GDKResult` are part of the public Godot-facing contract.
+- Script-visible wrapper types such as `XboxUser`, `XboxAchievement`, and `XboxResult` are part of the public Godot-facing contract.
 - When adding new feature areas, prefer adding a service namespace under `GDK` instead of introducing new global singleton names.
 
 ## Async Model
 
-- `GDKRuntime` owns one shared `XTaskQueue` with:
+- `XboxRuntime` owns one shared `XTaskQueue` with:
   - `ThreadPool` work dispatch
   - `Manual` completion dispatch
 - `gdk/runtime/embed_dispatch` defaults to `true`. On Godot 4.5+ builds, the addon auto-pumps `GDK.dispatch()` from Godot's main thread each process frame via the engine frame callback path.
 - On Godot 4.3/4.4 builds, auto-pumping is not available through `embed_dispatch`; games, samples, and tests must keep calling `GDK.dispatch()` manually each frame. Manual pumping is also the required path whenever `embed_dispatch` is disabled or deterministic control is needed. This pump still covers both `XAsync` completions and manager-driven state.
 - One-shot public APIs return completion `Signal` values that callers await directly.
-- Use `GDKPendingSignal` as the internal one-shot request helper for both `XAsyncBlock`-backed work and manager/event-driven waits.
+- Use `XboxPendingSignal` as the internal one-shot request helper for both `XAsyncBlock`-backed work and manager/event-driven waits.
 - Immediate failures should still return an already-completed completion signal of the appropriate type.
 - Update service caches and emit service signals before resolving the one-shot completion signal.
 
 ## XAsync Wrapping Rules
 
-- `GDKSignalXAsyncContext` owns shared mechanics only: queue binding, lifetime, and best-effort cancellation plumbing.
+- `XboxSignalXAsyncContext` owns shared mechanics only: queue binding, lifetime, and best-effort cancellation plumbing.
 - Do **not** treat `XAsyncGetStatus()` as a generic result-decoding layer.
 - Concrete finalizers must call the operation-specific `*Result()` / `*ResultSize()` APIs required by the native GDK function.
-- Keep result extraction in the concrete wrapper instead of pushing API-specific decoding into `GDKSignalXAsyncContext`.
+- Keep result extraction in the concrete wrapper instead of pushing API-specific decoding into `XboxSignalXAsyncContext`.
 
 ## Xbox Services Scaffolding
 
-- Shared Xbox services bootstrap belongs in `GDKXboxServices`.
+- Shared Xbox services bootstrap belongs in `XboxServices`.
 - Default SCID is derived from `XGameGetXboxTitleId()` as a null GUID with the title id in the last 8 hex digits.
 - Treat explicit SCID values as overrides for advanced scenarios; the normal path should use the derived current-title SCID.
 - Reuse the shared Xbox services/context layer for achievements, stats, leaderboards, presence, and social instead of rebuilding per-service bootstrap code.
@@ -41,9 +45,10 @@ applyTo: "addons/godot_gdk/**, tests/godot/gdk/**, sample/tutorial_gdk/**, sampl
 ## C++ and Registration Conventions
 
 - Every header that includes Windows or GDK APIs must define `WIN32_LEAN_AND_MEAN` and include `<windows.h>` before Godot or GDK headers.
+- Source files under `addons\godot_gdk\src\` are named `xbox_<thing>.{cpp,h}` after the class they define, with include guards `XBOX_<THING>_H`. The one deliberate exception is `gdk_edition.h`, which gates on the Microsoft GDK SDK edition rather than defining a Godot-facing class.
 - Register new native classes in `addons\godot_gdk\src\register_types.cpp`.
 - Add new implementation files to `addons\godot_gdk\CMakeLists.txt`.
-- When exposing object-returning properties from C++, set the `PropertyInfo` class name (for example `GDKUsers` or `GDKAchievements`) so Godot does not instantiate anonymous object defaults.
+- When exposing object-returning properties from C++, set the `PropertyInfo` class name (for example `XboxUsers` or `XboxAchievements`) so Godot does not instantiate anonymous object defaults.
 
 ## Build / Binding Gotchas
 
@@ -51,8 +56,8 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
 
 - **`std::rbegin` / `std::rend` require `<iterator>` explicitly.** Do not rely on transitive includes — past PR review feedback has rejected this. Add `#include <iterator>` to any new `.cpp` that reverse-iterates a container.
 - **Platform availability gate is `defined(_GAMING_DESKTOP)`, not `HC_PLATFORM`.** `_GAMING_DESKTOP` is set via `target_compile_definitions` in the addon CMake. The GDK headers do not provide `HC_PLATFORM`; do not introduce it.
-- **`GDK.initialize` rollback paths must call `m_package->shutdown()` before runtime shutdown.** Failures that occur after the package subsystem has been initialized leak package state otherwise. Mirror the existing rollback pattern in `addons\godot_gdk\src\gdk.cpp` when adding new subsystems.
-- **`GDKSystem` metadata reads use `XGameGetXboxTitleId` and `XSystemGetXboxLiveSandboxId`.** SCID is returned from `GDKXboxServices` cached state, not freshly looked up. Reuse the cached path when adding new Xbox-services-derived properties.
+- **`GDK.initialize` rollback paths must call `m_package->shutdown()` before runtime shutdown.** Failures that occur after the package subsystem has been initialized leak package state otherwise. Mirror the existing rollback pattern in `addons\godot_gdk\src\xbox.cpp` when adding new subsystems.
+- **`XboxSystem` metadata reads use `XGameGetXboxTitleId` and `XSystemGetXboxLiveSandboxId`.** SCID is returned from `XboxServices` cached state, not freshly looked up. Reuse the cached path when adding new Xbox-services-derived properties.
 - **`gdk/runtime/initialize_on_startup` is consumed by `gdk_bootstrap.gd`.** The bootstrap autoload reads this Project Setting to decide whether to call `GDK.initialize()` at startup. Do **not** remove the C++ registration of this setting in `register_types.cpp` — it is intentionally observable from script, and `test_core.gd` asserts on its registration.
 
 ## Public API Documentation Contract

@@ -33,7 +33,7 @@ if "%~1"=="" goto scan_done
 if /i "%~1"=="--godot" goto scan_godot
 if /i "%~1"=="--path" goto scan_path
 set /a ARG_COUNT+=1
-set "GDKPKG_ARG_%ARG_COUNT%=%~1"
+set "XBOXPKG_ARG_%ARG_COUNT%=%~1"
 shift
 goto scan
 
@@ -78,11 +78,11 @@ echo [gdkpkg] set GODOT_CONSOLE / GODOT_BIN / GODOT, or pass --godot ^<path^>. 1
 exit /b 3
 
 :have_godot
-set "GDKPKG_GODOT_EXE=%GODOT_EXE%"
-set "GDKPKG_PROJECT_PATH=%PROJECT_PATH%"
-set "GDKPKG_ARG_COUNT=%ARG_COUNT%"
+set "XBOXPKG_GODOT_EXE=%GODOT_EXE%"
+set "XBOXPKG_PROJECT_PATH=%PROJECT_PATH%"
+set "XBOXPKG_ARG_COUNT=%ARG_COUNT%"
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $forwardArgs = @(); for ($i = 1; $i -le [int]$env:GDKPKG_ARG_COUNT; $i++) { $forwardArgs += [Environment]::GetEnvironmentVariable('GDKPKG_ARG_' + $i) }; & $env:GDKPKG_GODOT_EXE --headless --path $env:GDKPKG_PROJECT_PATH -s 'res://addons/godot_gdk_editortools/run.gd' -- @forwardArgs; if ($null -ne $global:LASTEXITCODE) { exit $global:LASTEXITCODE }; exit 0"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $forwardArgs = @(); for ($i = 1; $i -le [int]$env:XBOXPKG_ARG_COUNT; $i++) { $forwardArgs += [Environment]::GetEnvironmentVariable('XBOXPKG_ARG_' + $i) }; & $env:XBOXPKG_GODOT_EXE --headless --path $env:XBOXPKG_PROJECT_PATH -s 'res://addons/godot_gdk_editortools/run.gd' -- @forwardArgs; if ($null -ne $global:LASTEXITCODE) { exit $global:LASTEXITCODE }; exit 0"
 exit /b %ERRORLEVEL%
 
 :try_candidate

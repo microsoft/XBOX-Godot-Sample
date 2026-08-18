@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using Godot;
 using GodotPlayFab.Internal;
 using GodotPlayFab.Types;
-using GodotGdk.Types;
+using GodotXbox.Types;
 
 namespace GodotPlayFab.Services;
 
@@ -12,7 +12,7 @@ public sealed class PlayFabUsers : PlayFabServiceBase
     {
     }
 
-    public Task<PlayFabResult> SignInWithXUserAsync(GodotGdk.Types.GdkUser user, bool create_account = true) =>
+    public Task<PlayFabResult> SignInWithXUserAsync(GodotXbox.Types.XboxUser user, bool create_account = true) =>
         CallResultAsync("sign_in_with_xuser_async", user?.Raw, create_account);
 
     public Task<PlayFabResult> SignInWithCustomIdAsync(string custom_id, bool create_account = true) =>

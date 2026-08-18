@@ -1,7 +1,7 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 
 /// <summary>
 /// GDK Tutorial 3 reference scene — Title Storage + user statistics.
@@ -17,7 +17,7 @@ public partial class G03StorageStats : Control
 {
     // Title Storage uses "TrustedPlatform" for binary blobs scoped to the
     // signed-in user. Other valid storage types include "GlobalStorage" and
-    // "Universal"; see the GDKTitleStorage reference for the full set.
+    // "Universal"; see the XboxTitleStorage reference for the full set.
     private const string StorageType = "TrustedPlatform";
     private const string BlobPath = "tutorial/save.bin";
 
@@ -30,7 +30,7 @@ public partial class G03StorageStats : Control
     private Button _storageBtn;
     private Button _statsBtn;
     private Button _backBtn;
-    private GdkAuth _auth;
+    private XboxAuth _auth;
 
     public override async void _Ready()
     {
@@ -42,16 +42,16 @@ public partial class G03StorageStats : Control
         _storageBtn.Pressed += async () => await OnStoragePressed();
         _statsBtn.Pressed += async () => await OnStatsPressed();
 
-        _auth = GetNodeOrNull<GdkAuth>("/root/GdkAuth");
-        if (_auth == null || !Gdk.IsAvailable)
+        _auth = GetNodeOrNull<XboxAuth>("/root/XboxAuth");
+        if (_auth == null || !Xbox.IsAvailable)
         {
-            Append("[color=red]GdkAuth autoload or GDK extension missing.[/color]");
+            Append("[color=red]XboxAuth autoload or GDK extension missing.[/color]");
             SetButtonsEnabled(false);
             return;
         }
 
         // Surface real-time stat changes for the tracked statistics.
-        Gdk.Stats.StatChanged += OnStatChanged;
+        Xbox.Stats.StatChanged += OnStatChanged;
 
         SetButtonsEnabled(false);
         Append("Waiting for sign-in…");
@@ -63,14 +63,14 @@ public partial class G03StorageStats : Control
 
     public override void _ExitTree()
     {
-        if (Gdk.IsAvailable) Gdk.Stats.StatChanged -= OnStatChanged;
+        if (Xbox.IsAvailable) Xbox.Stats.StatChanged -= OnStatChanged;
     }
 
     // --- Title Storage (Step 1) ---
 
     private async Task OnStoragePressed()
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return;
 
         // Untrusted platforms (PC) can't write Title Storage — uploads are
@@ -80,13 +80,13 @@ public partial class G03StorageStats : Control
         // 1. List blob metadata so the developer can see what's stored.
         // Pass maxItems=25 to mirror the GDScript sample's binding default
         // (the C# facade has no default; the native list forwards it as-is).
-        GdkResult list = await Gdk.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 25);
+        XboxResult list = await Xbox.TitleStorage.ListBlobMetadataAsync(user, StorageType, string.Empty, 0, 25);
         if (!IsInsideTree()) return;
         if (list.Ok) Append($"[Storage] Listed blob metadata for {StorageType}.");
         else Append($"[color=orange][Storage] list failed: {list.Message} ({list.Code})[/color]");
 
         // 2. Download an existing blob.
-        GdkResult down = await Gdk.TitleStorage.DownloadBlobAsync(user, StorageType, BlobPath);
+        XboxResult down = await Xbox.TitleStorage.DownloadBlobAsync(user, StorageType, BlobPath);
         if (!IsInsideTree()) return;
         if (!down.Ok) { Append($"[color=orange][Storage] download failed: {down.Message}[/color]"); return; }
         Godot.Collections.Dictionary data = down.Data.AsGodotDictionary();
@@ -98,32 +98,32 @@ public partial class G03StorageStats : Control
 
     private async Task OnStatsPressed()
     {
-        GdkUser user = _auth.XboxUser;
+        XboxUser user = _auth.XboxUser;
         if (user == null) return;
 
         string[] stats = { StatHighScore, StatLevelsCleared };
 
         // Stage real-time tracking so StatChanged fires once values land.
-        Gdk.Stats.TrackStats(user, stats);
+        Xbox.Stats.TrackStats(user, stats);
 
         // 1. Stage a couple of title-managed statistics.
-        Gdk.Stats.SetStatInteger(user, StatHighScore, 12500);
-        Gdk.Stats.SetStatInteger(user, StatLevelsCleared, 7);
+        Xbox.Stats.SetStatInteger(user, StatHighScore, 12500);
+        Xbox.Stats.SetStatInteger(user, StatLevelsCleared, 7);
 
         // 2. Flush the staged values to the Xbox service.
-        GdkResult flush = await Gdk.Stats.FlushStatsAsync(user);
+        XboxResult flush = await Xbox.Stats.FlushStatsAsync(user);
         if (!IsInsideTree()) return;
         if (!flush.Ok) { Append($"[color=orange][Stats] flush failed: {flush.Message} ({flush.Code})[/color]"); return; }
         Append("[Stats] Flushed HighScore=12500, LevelsCleared=7.");
 
         // 3. Query them back.
-        GdkResult query = await Gdk.Stats.QueryUserStatsAsync(user, stats);
+        XboxResult query = await Xbox.Stats.QueryUserStatsAsync(user, stats);
         if (!IsInsideTree()) return;
         if (!query.Ok) { Append($"[color=orange][Stats] query failed: {query.Message}[/color]"); return; }
         Append($"[color=green][Stats] Queried back: {query.Data.AsGodotDictionary()}[/color]");
     }
 
-    private void OnStatChanged(GdkUser user, string statName, Variant value) =>
+    private void OnStatChanged(XboxUser user, string statName, Variant value) =>
         Append($"[Stats] tracked change: {statName} = {value}");
 
     private void SetButtonsEnabled(bool enabled) { _storageBtn.Disabled = !enabled; _statsBtn.Disabled = !enabled; }

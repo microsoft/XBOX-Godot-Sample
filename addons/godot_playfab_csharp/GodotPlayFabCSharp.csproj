@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>GodotPlayFab</RootNamespace>
     <AssemblyName>GodotPlayFabCSharp</AssemblyName>
+    <Version>0.3.0</Version>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>

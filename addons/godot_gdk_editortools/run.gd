@@ -1,11 +1,11 @@
 @tool
-class_name GdkEditorToolsRunner
+class_name XboxEditorToolsRunner
 extends SceneTree
 ## Headless entry point for `addons/godot_gdk_editortools`.
 ##
 ## Three equivalent invocations:
 ##   godot --headless -s res://addons/godot_gdk_editortools/run.gd -- <verb> [flags]
-##   godot --headless --main-loop GdkEditorToolsRunner -- <verb> [flags]
+##   godot --headless --main-loop XboxEditorToolsRunner -- <verb> [flags]
 ##   addons\godot_gdk_editortools\gdkpkg.cmd <verb> [flags]   (Windows)
 ##   addons/godot_gdk_editortools/gdkpkg.sh  <verb> [flags]   (POSIX)
 ##

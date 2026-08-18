@@ -52,7 +52,7 @@ it); `godot_gameinput` is an **input-integration** addon (optimized for Godot's
    same singletons, and the same per-frame `dispatch()` ticks. No parallel native
    integration.
 5. **Engine-native objects.** C# wrappers hold and surface real Godot objects
-   (`GDKUser`, `PlayFabLobby`, `GameInputDevice`, `Signal`, `Resource`-derived action
+   (`XboxUser`, `PlayFabLobby`, `GameInputDevice`, `Signal`, `Resource`-derived action
    maps) so C# scenes, UI, autoloads, and the Godot multiplayer stack compose for free.
 6. **Respect each addon's shape.** Service/runtime addons get a singleton-rooted typed
    facade; the input addon gets a thin facade aligned to `Input`/`InputMap`; the
@@ -98,7 +98,7 @@ facade type **wraps**, never copies: it holds the underlying `GodotObject` and e
 
 Each facade also owns singleton *resolution*. Because the engine singleton name is a
 Project Setting (`gdk/runtime/singleton_name`, `playfab/runtime/singleton_name`,
-`game_input/runtime/singleton_name`), `Gdk`, `PlayFab`, and `GameInput` each expose a
+`game_input/runtime/singleton_name`), `Xbox`, `PlayFab`, and `GameInput` each expose a
 static `SingletonName` that reads the setting, class-check the resolved object so a
 configured name colliding with an unrelated engine singleton is not mistaken for the
 runtime, and fall back to the default name when the configured one was rejected
@@ -146,7 +146,7 @@ Every facade signal subscription therefore uses the conventional Godot C# idiom:
 
 ```csharp
 _o.Connect("user_changed", Callable.From((Variant a0, Variant a1) =>
-    UserChanged?.Invoke(GdkUser.From(a0.AsGodotObject()), a1.AsString())));
+    UserChanged?.Invoke(XboxUser.From(a0.AsGodotObject()), a1.AsString())));
 ```
 
 `Variant`-typed parameters keep the per-argument `.AsX()` conversions explicit. Signal
@@ -156,64 +156,64 @@ failure rather than a silent runtime mismatch.
 
 ## `godot_gdk` — C# layer map
 
-Singleton facade `Gdk` (lazy `Engine.GetSingleton(Gdk.SingletonName)`), result type `GdkResult`
+Singleton facade `Xbox` (lazy `Engine.GetSingleton(Xbox.SingletonName)`), result type `XboxResult`
 (`Ok`, `Message`, `Code`, `Data`, `DataAs<T>()`), and one wrapper per service member
 and value type.
 
 | Native | C# facade | Kind |
 | --- | --- | --- |
-| `GDK` | `Gdk` | singleton entry |
-| `GDKResult` | `GdkResult` | result |
-| `GDK.users` / `GDKUsers` | `Gdk.Users` / `GdkUsers` | service |
-| `GDK.achievements` / `GDKAchievements` | `Gdk.Achievements` / `GdkAchievements` | service |
-| `GDK.leaderboards` / `GDKLeaderboards` | `Gdk.Leaderboards` / `GdkLeaderboards` | service |
-| `GDK.stats` / `GDKStats` | `Gdk.Stats` / `GdkStats` | service |
-| `GDK.presence` / `GDKPresence` | `Gdk.Presence` / `GdkPresence` | service |
-| `GDK.social` / `GDKSocial` | `Gdk.Social` / `GdkSocial` | service |
-| `GDK.privacy` / `GDKPrivacy` | `Gdk.Privacy` / `GdkPrivacy` | service |
-| `GDK.profile` / `GDKProfile` | `Gdk.Profile` / `GdkProfile` | service |
-| `GDK.title_storage` / `GDKTitleStorage` | `Gdk.TitleStorage` / `GdkTitleStorage` | service |
-| `GDK.string_verify` / `GDKStringVerify` | `Gdk.StringVerify` / `GdkStringVerify` | service |
-| `GDK.package` / `GDKPackage` | `Gdk.Package` / `GdkPackage` | service |
-| `GDK.store` / `GDKStore` | `Gdk.Store` / `GdkStore` | service |
-| `GDK.multiplayer_activity` / `GDKMultiplayerActivity` | `Gdk.MultiplayerActivity` | service |
-| `GDK.game_ui` / `GDKGameUI` | `Gdk.GameUi` / `GdkGameUi` | service |
-| `GDK.accessibility` / `GDKAccessibility` | `Gdk.Accessibility` | service |
-| `GDK.capture` / `GDKCapture` | `Gdk.Capture` / `GdkCapture` | service |
-| `GDK.system` / `GDKSystem` | `Gdk.System` / `GdkSystem` | service |
-| `GDK.display` / `GDKDisplay` | `Gdk.Display` / `GdkDisplay` | service |
-| `GDK.activation` / `GDKActivation` | `Gdk.Activation` | service |
-| `GDK.launcher` / `GDKLauncher` | `Gdk.Launcher` / `GdkLauncher` | service |
-| `GDK.error_reporting` / `GDKErrorReporting` | `Gdk.ErrorReporting` | service |
-| `GDK.get_game_chat()` / `GDKGameChat` | `Gdk.GameChat` / `GdkGameChat` | service (Game Chat 2, via getter) |
-| `GDK.get_speech()` / `GDKSpeechSynthesizer` | `Gdk.Speech` / `GdkSpeechSynthesizer` | service (text-to-speech, via getter) |
-| `GDK.get_game_save()` / `GDKGameSave` | `Gdk.GameSave` / `GdkGameSave` | service (XGameSaveFiles, via getter) |
-| `GDK.get_events()` / `GDKEvents` | `Gdk.Events` / `GdkEvents` | service (XSAPI events, via getter) |
-| `GDKUser`, `GDKUserProfile` | `GdkUser`, `GdkUserProfile` | value |
-| `GDKAchievement` | `GdkAchievement` | value |
-| `GDKLeaderboard`, `GDKLeaderboardRow`, `GDKLeaderboardColumn` | matching wrappers | value |
-| `GDKPresenceRecord` | `GdkPresenceRecord` | value |
-| `GDKSocialUser`, `GDKSocialGroup`, `GDKSocialFilter` | matching wrappers | value |
-| `GDKStoreLicenseStatus` | `GdkStoreLicenseStatus` | value |
-| `GDKPackageMount`, `GDKPackageResourcePack` | matching wrappers | value |
-| `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult` | matching wrappers | value |
-| `GDKMultiplayerActivityInfo` | `GdkMultiplayerActivityInfo` | value |
-| `GDKCaptureMetaData` | `GdkCaptureMetaData` | value |
-| `GDKClosedCaptionProperties` | `GdkClosedCaptionProperties` | value |
-| `GDKDisplayTimeoutDeferral` | `GdkDisplayTimeoutDeferral` | value (holds native deferral; dispose semantics) |
+| `GDK` | `Xbox` | singleton entry |
+| `XboxResult` | `XboxResult` | result |
+| `GDK.users` / `XboxUsers` | `Xbox.Users` / `XboxUsers` | service |
+| `GDK.achievements` / `XboxAchievements` | `Xbox.Achievements` / `XboxAchievements` | service |
+| `GDK.leaderboards` / `XboxLeaderboards` | `Xbox.Leaderboards` / `XboxLeaderboards` | service |
+| `GDK.stats` / `XboxStats` | `Xbox.Stats` / `XboxStats` | service |
+| `GDK.presence` / `XboxPresence` | `Xbox.Presence` / `XboxPresence` | service |
+| `GDK.social` / `XboxSocial` | `Xbox.Social` / `XboxSocial` | service |
+| `GDK.privacy` / `XboxPrivacy` | `Xbox.Privacy` / `XboxPrivacy` | service |
+| `GDK.profile` / `XboxProfile` | `Xbox.Profile` / `XboxProfile` | service |
+| `GDK.title_storage` / `XboxTitleStorage` | `Xbox.TitleStorage` / `XboxTitleStorage` | service |
+| `GDK.string_verify` / `XboxStringVerify` | `Xbox.StringVerify` / `XboxStringVerify` | service |
+| `GDK.package` / `XboxPackage` | `Xbox.Package` / `XboxPackage` | service |
+| `GDK.store` / `XboxStore` | `Xbox.Store` / `XboxStore` | service |
+| `GDK.multiplayer_activity` / `XboxMultiplayerActivity` | `Xbox.MultiplayerActivity` | service |
+| `GDK.game_ui` / `XboxGameUI` | `Xbox.GameUi` / `XboxGameUi` | service |
+| `GDK.accessibility` / `XboxAccessibility` | `Xbox.Accessibility` | service |
+| `GDK.capture` / `XboxCapture` | `Xbox.Capture` / `XboxCapture` | service |
+| `GDK.system` / `XboxSystem` | `Xbox.System` / `XboxSystem` | service |
+| `GDK.display` / `XboxDisplay` | `Xbox.Display` / `XboxDisplay` | service |
+| `GDK.activation` / `XboxActivation` | `Xbox.Activation` | service |
+| `GDK.launcher` / `XboxLauncher` | `Xbox.Launcher` / `XboxLauncher` | service |
+| `GDK.error_reporting` / `XboxErrorReporting` | `Xbox.ErrorReporting` | service |
+| `GDK.get_game_chat()` / `XboxGameChat` | `Xbox.GameChat` / `XboxGameChat` | service (Game Chat 2, via getter) |
+| `GDK.get_speech()` / `XboxSpeechSynthesizer` | `Xbox.Speech` / `XboxSpeechSynthesizer` | service (text-to-speech, via getter) |
+| `GDK.get_game_save()` / `XboxGameSave` | `Xbox.GameSave` / `XboxGameSave` | service (XGameSaveFiles, via getter) |
+| `GDK.get_events()` / `XboxEvents` | `Xbox.Events` / `XboxEvents` | service (XSAPI events, via getter) |
+| `XboxUser`, `XboxUserProfile` | `XboxUser`, `XboxUserProfile` | value |
+| `XboxAchievement` | `XboxAchievement` | value |
+| `XboxLeaderboard`, `XboxLeaderboardRow`, `XboxLeaderboardColumn` | matching wrappers | value |
+| `XboxPresenceRecord` | `XboxPresenceRecord` | value |
+| `XboxSocialUser`, `XboxSocialGroup`, `XboxSocialFilter` | matching wrappers | value |
+| `XboxStoreLicenseStatus` | `XboxStoreLicenseStatus` | value |
+| `XboxPackageMount`, `XboxPackageResourcePack` | matching wrappers | value |
+| `XboxTitleStorageBlobMetadata`, `XboxTitleStorageBlobMetadataResult` | matching wrappers | value |
+| `XboxMultiplayerActivityInfo` | `XboxMultiplayerActivityInfo` | value |
+| `XboxCaptureMetaData` | `XboxCaptureMetaData` | value |
+| `XboxClosedCaptionProperties` | `XboxClosedCaptionProperties` | value |
+| `XboxDisplayTimeoutDeferral` | `XboxDisplayTimeoutDeferral` | value (holds native deferral; dispose semantics) |
 
 Service-level `runtime_error` signals (on `achievements`, `social`, `presence`,
-`multiplayer_activity`, …) are exposed as C# `event Action<GdkResult>`.
+`multiplayer_activity`, …) are exposed as C# `event Action<XboxResult>`.
 
 ### Target usage
 
 ```csharp
-GdkResult result = await Gdk.Users.AddDefaultUserAsync();
+XboxResult result = await Xbox.Users.AddDefaultUserAsync();
 if (!result.Ok) { GD.PushWarning($"sign-in failed: {result.Message} ({result.Code})"); return; }
-GdkUser user = result.DataAs<GdkUser>();
+XboxUser user = result.DataAs<XboxUser>();
 GD.Print($"signed in as {user.Gamertag}");
 
-Gdk.Achievements.RuntimeError += r => GD.PushWarning($"[Ach] {r.Message}");
+Xbox.Achievements.RuntimeError += r => GD.PushWarning($"[Ach] {r.Message}");
 ```
 
 ## `godot_playfab` — C# layer map
@@ -252,8 +252,8 @@ plus the Multiplayer/Party value/config/state types.
 PlayFab-specific nuances the C# layer must honor:
 
 - **Cross-addon sign-in.** `PlayFab.users.sign_in_with_xuser_async` accepts a **GDK
-  user object** (duck-typed `Object`, not a `Ref<GDKUser>`, because the two addons are
-  separate DLLs). The C# `PlayFab.Users.SignInWithXUserAsync(GdkUser user)` must pass
+  user object** (duck-typed `Object`, not a `Ref<XboxUser>`, because the two addons are
+  separate DLLs). The C# `PlayFab.Users.SignInWithXUserAsync(XboxUser user)` must pass
   the **underlying `GodotObject`** through unchanged — never marshal a raw local Xbox
   user id. This mirrors the repo anti-pattern guidance.
 - **Background error/state surfaces.** `PlayFab.multiplayer.multiplayer_error` and
@@ -322,7 +322,7 @@ not both).
 
 | GDScript bootstrap | C# autoload | Reads settings |
 | --- | --- | --- |
-| `addons/godot_gdk/runtime/gdk_bootstrap.gd` | `GdkRuntime : Node` | `gdk/runtime/initialize_on_startup`, `gdk/runtime/auto_add_primary_user` |
+| `addons/godot_gdk/runtime/gdk_bootstrap.gd` | `XboxRuntime : Node` | `gdk/runtime/initialize_on_startup`, `gdk/runtime/auto_add_primary_user` |
 | `godot_playfab` bootstrap | `PlayFabRuntime : Node` | `playfab/runtime/initialize_on_startup`, `playfab/runtime/title_id`, `playfab/runtime/endpoint` |
 | `godot_gameinput` bootstrap | `GameInputRuntime : Node` | `game_input/runtime/initialize_on_startup`, `game_input/runtime/auto_poll`, `game_input/mapper/default_action_map` |
 
@@ -372,7 +372,7 @@ are; the C# side mirrors that split scene-for-scene so each track can be opened 
 its own:
 
 - **`tutorial_gdk_csharp`** — C# mirror of `sample/tutorial_gdk` (GDK only, no PlayFab).
-  A GDK-only `GdkAuth` autoload (check → silent → UI fallback) and scenes G1–G5: sign-in,
+  A GDK-only `XboxAuth` autoload (check → silent → UI fallback) and scenes G1–G5: sign-in,
   achievement, title storage + stats, MPA, and text-to-speech.
 - **`tutorial_playfab_csharp`** — C# mirror of `sample/tutorial_playfab` (PlayFab only).
   A PlayFab-only `PlayFabAuth` autoload (custom-id sign-in, no Xbox dependency) and scenes
@@ -418,7 +418,7 @@ same contract as `tests/godot/README.md`.
 
 ## Error/result conventions
 
-- `godot_gdk` async → `GdkResult`; `godot_playfab` async → `PlayFabResult`; the rare
+- `godot_gdk` async → `XboxResult`; `godot_playfab` async → `PlayFabResult`; the rare
   `godot_gameinput` failures → `GameInputResult`. All expose `Ok`, `Message`, `Code`
   (stable string id), `Data`, and a typed `DataAs<T>()`.
 - Background/notification signals (`runtime_error`, `multiplayer_error`, `party_error`,
@@ -477,12 +477,12 @@ tier and doc update in the same change, per the repo's "Before Reporting Complet
 checklist. `godot_gdk` leads; `godot_playfab` and `godot_gameinput` follow the proven
 pattern.
 
-- **Phase 0 — Spike / feasibility.** Minimal `godot_gdk` facade (`Gdk`, `GdkUsers`,
-  `GdkResult`, async bridge) + one C# scene that awaits `AddDefaultUserAsync()` and
+- **Phase 0 — Spike / feasibility.** Minimal `godot_gdk` facade (`Xbox`, `XboxUsers`,
+  `XboxResult`, async bridge) + one C# scene that awaits `AddDefaultUserAsync()` and
   prints the gamertag in a `_mono` editor. **Plus** a throwaway `.NET` MSIXVC export to
   de-risk Risk #1. Decision gate: confirm Risks #1–#3 before committing to full
   coverage. Tier: manual/smoke.
-- **Phase 1 — GDK facade core.** Hardened async bridge, `GdkResult`, `GdkRuntime`
+- **Phase 1 — GDK facade core.** Hardened async bridge, `XboxResult`, `XboxRuntime`
   autoload, and the `users`/`achievements`/`leaderboards` services + value types.
   Parity-test scaffold. Tier: in-engine unit (GoDotTest).
 - **Phase 2 — GDK full coverage.** Remaining 18 GDK services + value types +
@@ -519,17 +519,17 @@ fast green bar; in-engine smoke runs confirm the facades drive the native single
 end-to-end (GDK init → `user_changed` → Xbox primary user → cross-addon PlayFab
 sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
 
-- **Phase 1–2 — GDK facade: ✅ shipped.** `GodotGdk.Gdk` static entry point wiring
-  all 25 services, 19 value types, `GdkResult`, the Signal→`Task` bridge,
-  `runtime_error`/root signal event wrappers, and the `GdkRuntime` autoload.
+- **Phase 1–2 — GDK facade: ✅ shipped.** `GodotXbox.Xbox` static entry point wiring
+  all 25 services, 19 value types, `XboxResult`, the Signal→`Task` bridge,
+  `runtime_error`/root signal event wrappers, and the `XboxRuntime` autoload.
   Compiles clean (`addons/godot_gdk_csharp`). The Game Chat 2, text-to-speech,
-  Game Saves, and XSAPI-events services (`Gdk.GameChat`, `Gdk.Speech`,
-  `Gdk.GameSave`, `Gdk.Events`, reached via native getters) were added in the
+  Game Saves, and XSAPI-events services (`Xbox.GameChat`, `Xbox.Speech`,
+  `Xbox.GameSave`, `Xbox.Events`, reached via native getters) were added in the
   #94 parity catch-up.
 - **Phase 4–5 — PlayFab facade: ✅ shipped.** `GodotPlayFab.PlayFab` with all 18
   services, 26 value types (incl. Lobby/Matchmaking/Party), `PlayFabResult`,
   background error/state event wrappers, cross-addon
-  `SignInWithXUserAsync(GdkUser)` (duck-typed `GodotObject` pass-through via a
+  `SignInWithXUserAsync(XboxUser)` (duck-typed `GodotObject` pass-through via a
   ProjectReference to the GDK facade), and `PlayFabRuntime` autoload. The #95
   parity catch-up added the token-based sign-in wrappers
   (`SignInWithSteamAsync`, `SignInWithOpenIdConnectAsync`,
@@ -552,7 +552,7 @@ sign-in → Lobby/Party wiring; GameInput init → hot-plug device enumeration).
   `tools/run_csharp_tests.ps1`. The suite caught real drift in the GDK Social
   wrappers and, after the #94 native expansion, the four missing GDK services
   (Game Chat 2, speech synthesis, Game Saves, XSAPI events), the new
-  `GdkStats`/`GdkStore`/`GdkGameUi`/`GdkSocial`/`GdkAchievements`/`GdkSystem`
+  `XboxStats`/`XboxStore`/`XboxGameUi`/`XboxSocial`/`XboxAchievements`/`XboxSystem`
   members, and the independent Party voice/text-mute surface
   (`PlayFabPartyChat`/`PlayFabPartyChatControl`/`PlayFabParty`) — all now closed.
   Dedicated in-engine GoDotTest hosts remain a follow-up, but the facades are now

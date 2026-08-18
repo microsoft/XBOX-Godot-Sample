@@ -29,14 +29,14 @@ func test_title_storage_surface_and_validation() -> void:
 	]:
 		assert_has_method_named(title_storage, method_name)
 
-	var metadata = GDKTitleStorageBlobMetadata.new()
-	assert_not_null(metadata, "GDKTitleStorageBlobMetadata can be instantiated")
+	var metadata = XboxTitleStorageBlobMetadata.new()
+	assert_not_null(metadata, "XboxTitleStorageBlobMetadata can be instantiated")
 	if metadata != null:
 		assert_eq(metadata.blob_path, "", "empty metadata starts with no blob path")
 		assert_eq(metadata.length, 0, "empty metadata starts with zero length")
 
-	var metadata_result = GDKTitleStorageBlobMetadataResult.new()
-	assert_not_null(metadata_result, "GDKTitleStorageBlobMetadataResult can be instantiated")
+	var metadata_result = XboxTitleStorageBlobMetadataResult.new()
+	assert_not_null(metadata_result, "XboxTitleStorageBlobMetadataResult can be instantiated")
 	if metadata_result != null:
 		assert_eq(metadata_result.items.size(), 0, "empty metadata result starts with no items")
 		assert_false(metadata_result.has_next, "empty metadata result has no next page")
@@ -45,7 +45,7 @@ func test_title_storage_surface_and_validation() -> void:
 	await assert_signal_result_error(pre_init_signal, "runtime_unavailable", "get_quota_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for Title Storage returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for Title Storage returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

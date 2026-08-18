@@ -32,7 +32,7 @@ This Godot 4.x project is the reference implementation for the [GDK tutorial tra
 
 ## Autoloads
 
-- `GdkAuth` (`autoload/gdk_auth.gd`) — Xbox-only sign-in; exposes `xbox_user`, `sign_in()`, state helpers, and `state_changed`.
+- `XboxAuth` (`autoload/gdk_auth.gd`) — Xbox-only sign-in; exposes `xbox_user`, `sign_in()`, state helpers, and `state_changed`.
 
 ## Configuration
 

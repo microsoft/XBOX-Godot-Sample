@@ -15,7 +15,7 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
-GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
+XboxBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 
 [editor_plugins]
 

@@ -73,7 +73,7 @@ func test_resolver_rejects_singleton_of_a_different_class() -> void:
 	assert_ne(resolved, Engine.get_singleton("Input"),
 			"resolver does not return the colliding 'Input' singleton")
 	if resolved != null:
-		assert_true(resolved.is_class(DEFAULT_SINGLETON_NAME),
+		assert_true(resolved.is_class(GDK_SINGLETON_CLASS_NAME),
 				"resolver falls back to the real GDK singleton")
 
 

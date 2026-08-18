@@ -1,7 +1,7 @@
 extends GutTest
 ## Shared GUT base for the `godot_gameinput` coverage suite.
 ##
-## DOES NOT extend `GdkTestBase`. The GameInput addon is standalone — no
+## DOES NOT extend `XboxTestBase`. The GameInput addon is standalone — no
 ## build-time or runtime dependency on `godot_gdk` (per
 ## `.github/instructions/godot-gameinput.instructions.md`). Pulling in the
 ## GDK base would force every gameinput test host to also resolve the GDK

@@ -2,7 +2,7 @@
 
 This is the landing page for the `godot_playfab` docs set.
 
-`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single abstract `PlayFab` root singleton, manual user sign-in keyed by a `GDKUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, client-safe PlayFab Services SDK wrappers, and an MLP PlayFab Multiplayer lobby/matchmaking surface. Access the engine singleton as `PlayFab` (or `Engine.get_singleton("PlayFab")`); do not call `PlayFab.new()`.
+`godot_playfab` is the PlayFab-focused GDExtension addon in this repository. It implements a single abstract `PlayFab` root singleton, manual user sign-in keyed by an `XboxUser` object or title-defined custom id, PlayFab Game Saves wrappers, PlayFab leaderboard submission/query flows, client-safe PlayFab Services SDK wrappers, and an MLP PlayFab Multiplayer lobby/matchmaking surface. Access the engine singleton as `PlayFab` (or `Engine.get_singleton("PlayFab")`); do not call `PlayFab.new()`.
 
 ## Current implementation status
 
@@ -57,12 +57,12 @@ The addon registers these Project Settings. Only the first two are read by `Play
 |---|---|---|---|
 | `playfab/runtime/title_id` | `""` | `PlayFabRuntime::initialize()` | Required PlayFab title id. |
 | `playfab/runtime/endpoint` | `""` | `PlayFabRuntime::initialize()` | Optional; leave blank to derive `https://<titleid>.playfabapi.com`. |
-| `playfab/runtime/initialize_on_startup` | `false` | `PlayFabBootstrap` autoload | When `true`, the autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`GDKUser` or custom id) and stays in title code. |
+| `playfab/runtime/initialize_on_startup` | `false` | `PlayFabBootstrap` autoload | When `true`, the autoload calls `PlayFab.initialize()` during `_ready` (parallels `gdk/runtime/initialize_on_startup`). PlayFab sign-in is **not** auto-driven — it requires a per-player key (`XboxUser` or custom id) and stays in title code. |
 | `playfab/runtime/embed_dispatch` | `true` | extension frame callback | Auto-pumps `PlayFab.dispatch()` each process frame while initialized; disable only when you pump manually. |
 | `playfab/runtime/singleton_name` | `"PlayFab"` | extension registration | Name the extension registers its Engine singleton under. See [Renaming the singleton](#renaming-the-singleton). |
 | `playfab/party/local_udp_socket_bind_port` | `-1` | `PlayFab.party` | Valid range `-1..65535`. Leave `-1` for the SDK default; use `0` in same-host dev/CI to request an ephemeral UDP port and avoid Party bind collisions; use `1..65535` to pin a port. |
 
-The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `GDKBootstrap` pattern. Disabling the plugin removes the autoload again.
+The `GodotPlayFab` editor plugin installs the `PlayFabBootstrap` autoload at `res://addons/godot_playfab/runtime/playfab_bootstrap.gd` when enabled, mirroring the `XboxBootstrap` pattern. Disabling the plugin removes the autoload again.
 
 ### Renaming the singleton
 
@@ -118,7 +118,7 @@ The bundled `PlayFabBootstrap` autoload, the C# `PlayFab` facade, and the shared
 
 All PlayFab one-shot async methods return completion signals that you await directly. Each completion fires at most once with a `PlayFabResult`; embedded dispatch or explicit `PlayFab.dispatch()` delivers queued completions on the main thread. See [PlayFab async system](async-system.md) for the full lifecycle contract. `PlayFab.users` is intentionally cache/result-driven and does not expose user lifecycle signals.
 
-Service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `GDKUser` object in `request.user`; raw local ids are not accepted. The service contract test in `tests\godot\playfab\tests\test_api_services.gd` is the source of truth for the expected Godot-facing method matrix.
+Service methods use the common shape `service.method_async(playfab_user, request := {})`. The `request` dictionary uses snake_case versions of the PlayFab C SDK request fields, and successful response payloads are converted to Godot dictionaries and arrays. Operations that need an `XUserHandle` accept a signed-in `XboxUser` object in `request.user`; raw local ids are not accepted. The service contract test in `tests\godot\playfab\tests\test_api_services.gd` is the source of truth for the expected Godot-facing method matrix.
 
 ## Async shutdown lifecycle
 
@@ -163,7 +163,7 @@ if not stats_result.ok:
     push_warning(stats_result.message)
 ```
 
-Game Saves still requires an XBOX-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `GDKUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
+Game Saves still requires an XBOX-backed PlayFab session because the PlayFab Game Saves C API needs a local user handle. Acquire a real `XboxUser` object and pass it to `PlayFab.users.sign_in_with_xuser_async(...)`; custom-ID users return `xbox_user_required` from Game Saves methods.
 
 ## Sign-in methods
 

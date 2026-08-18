@@ -32,7 +32,7 @@ func test_game_save_surface_and_validation_paths() -> void:
 	await assert_signal_result_error(pre_init_folder, "not_initialized", "get_folder_async() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for game save behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for game save behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -67,7 +67,7 @@ func test_game_save_folder_and_quota_when_user_available() -> void:
 		return
 
 	var quota_result = await await_completion(game_save.get_remaining_quota_async(user))
-	assert_not_null(quota_result, "get_remaining_quota_async() completes with a GDKResult for a signed-in user")
+	assert_not_null(quota_result, "get_remaining_quota_async() completes with an XboxResult for a signed-in user")
 	if quota_result == null:
 		return
 	if quota_result.ok:
@@ -84,7 +84,7 @@ func test_game_save_folder_and_quota_when_user_available() -> void:
 			"get_remaining_quota_async() never surfaces E_GS_ASYNC_FUNCTION_REQUIRED (0x8083000E)")
 
 	var folder_result = await await_completion(game_save.get_folder_async(user))
-	assert_not_null(folder_result, "get_folder_async() completes with a GDKResult for a signed-in user")
+	assert_not_null(folder_result, "get_folder_async() completes with an XboxResult for a signed-in user")
 	if folder_result == null:
 		return
 	if folder_result.ok:

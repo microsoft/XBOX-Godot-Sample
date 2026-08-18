@@ -1,5 +1,5 @@
 // Doctest coverage for playfab_internal:: HRESULT formatting helpers — the
-// byte-identical sibling of gdk_internal:: (see test_gdk_result_codes.cpp).
+// byte-identical sibling of xbox_internal:: (see test_gdk_result_codes.cpp).
 // Every assertion here is intentionally identical to the GDK file modulo the
 // namespace; if the two ever desync, both files will surface it.
 //

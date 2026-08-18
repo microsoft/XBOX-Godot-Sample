@@ -1,14 +1,14 @@
 using Godot;
-using GodotGdk;
-using GodotGdk.Services;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Services;
+using GodotXbox.Types;
 
 /// <summary>
 /// Integrated tech demo — GDK Game Chat panel.
 ///
 /// Demonstrates GDK-native voice + text chat with single-process loopback: the
 /// title-owned transport is represented by feeding outgoing frames straight
-/// back into <see cref="GdkGameChat.ProcessIncomingDataFrame"/>.
+/// back into <see cref="XboxGameChat.ProcessIncomingDataFrame"/>.
 /// </summary>
 public partial class PanelGameChat : VBoxContainer
 {
@@ -21,7 +21,7 @@ public partial class PanelGameChat : VBoxContainer
     private Button _send;
     private CheckButton _muteMic;
     private Auth _auth;
-    private GdkGameChat _chat;
+    private XboxGameChat _chat;
     private string _localXuid = string.Empty;
     private bool _initialized;
 
@@ -39,7 +39,7 @@ public partial class PanelGameChat : VBoxContainer
             _status.Text = "[ERR] Auth autoload missing";
             return;
         }
-        if (!Gdk.IsAvailable)
+        if (!Xbox.IsAvailable)
         {
             _status.Text = "[ERR] godot_gdk extension not loaded";
             return;
@@ -79,8 +79,8 @@ public partial class PanelGameChat : VBoxContainer
         _send.Pressed += OnSendPressed;
         _muteMic.Toggled += OnMuteMicToggled;
 
-        _chat = Gdk.GameChat;
-        GdkResult init = _chat.Initialize(16, GdkGameChat.RELATIONSHIPSENDANDRECEIVEALL);
+        _chat = Xbox.GameChat;
+        XboxResult init = _chat.Initialize(16, XboxGameChat.RELATIONSHIPSENDANDRECEIVEALL);
         if (!init.Ok)
         {
             _status.Text = $"game_chat.initialize() failed: {init.Message} ({init.Code})";
@@ -91,7 +91,7 @@ public partial class PanelGameChat : VBoxContainer
         _chat.TextChatReceived += OnTextChatReceived;
         _chat.TranscribedChatReceived += OnTranscribedChatReceived;
 
-        GdkResult addLocal = _chat.AddLocalUser(_auth.XboxUser);
+        XboxResult addLocal = _chat.AddLocalUser(_auth.XboxUser);
         if (!addLocal.Ok)
         {
             _status.Text = $"add_local_user() failed: {addLocal.Message} ({addLocal.Code})";
@@ -99,7 +99,7 @@ public partial class PanelGameChat : VBoxContainer
         }
         _localXuid = TutorialSupport.DictString(addLocal.Data.AsGodotDictionary(), "xuid");
 
-        GdkResult addRemote = _chat.AddRemoteUser(LoopbackXuid, LoopbackEndpoint);
+        XboxResult addRemote = _chat.AddRemoteUser(LoopbackXuid, LoopbackEndpoint);
         if (!addRemote.Ok)
         {
             _status.Text = $"add_remote_user() failed: {addRemote.Message}";
@@ -116,7 +116,7 @@ public partial class PanelGameChat : VBoxContainer
         string text = _chatInput.Text.StripEdges();
         if (string.IsNullOrEmpty(text) || _chat == null || string.IsNullOrEmpty(_localXuid)) return;
 
-        GdkResult result = _chat.SendText(_localXuid, text);
+        XboxResult result = _chat.SendText(_localXuid, text);
         if (result.Ok)
         {
             _chatLog.AppendText($"[me] {text}\n");
@@ -131,7 +131,7 @@ public partial class PanelGameChat : VBoxContainer
     private void OnMuteMicToggled(bool buttonPressed)
     {
         if (_chat == null || string.IsNullOrEmpty(_localXuid)) return;
-        GdkResult result = _chat.SetMicrophoneMuted(_localXuid, buttonPressed);
+        XboxResult result = _chat.SetMicrophoneMuted(_localXuid, buttonPressed);
         if (result.Ok)
         {
             _chatLog.AppendText($"[i]microphone {(buttonPressed ? "muted" : "unmuted")} (text chat still works)[/i]\n");
@@ -147,7 +147,7 @@ public partial class PanelGameChat : VBoxContainer
         if (_chat == null) return;
         foreach (long endpoint in targetEndpointIds)
         {
-            GdkResult result = _chat.ProcessIncomingDataFrame((int)endpoint, bytes);
+            XboxResult result = _chat.ProcessIncomingDataFrame((int)endpoint, bytes);
             if (!result.Ok) _chatLog.AppendText($"[i]process_incoming_data_frame failed: {result.Message}[/i]\n");
         }
         _chatLog.AppendText($"[frame] looped {bytes.Length} byte(s) back to {targetEndpointIds.Length} endpoint(s)\n");

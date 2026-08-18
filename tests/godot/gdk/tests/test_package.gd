@@ -37,38 +37,38 @@ func test_package_surface_and_validation_paths() -> void:
 		assert_has_method_named(package_service, method_name)
 
 	assert_eq(
-		get_class_constant("GDKPackage", "PACKAGE_KIND_CONTENT"),
+		get_class_constant("XboxPackage", "PACKAGE_KIND_CONTENT"),
 		1,
-		"GDKPackage.PACKAGE_KIND_CONTENT constant is registered")
+		"XboxPackage.PACKAGE_KIND_CONTENT constant is registered")
 	assert_eq(
-		get_class_constant("GDKPackage", "ENUMERATION_SCOPE_THIS_AND_RELATED"),
+		get_class_constant("XboxPackage", "ENUMERATION_SCOPE_THIS_AND_RELATED"),
 		1,
-		"GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED constant is registered")
+		"XboxPackage.ENUMERATION_SCOPE_THIS_AND_RELATED constant is registered")
 
 	var loaded_packs: Array = package_service.get_loaded_resource_packs()
 	assert_eq(loaded_packs.size(), 0, "get_loaded_resource_packs() starts empty")
 
-	var mount = instantiate_class("GDKPackageMount")
-	assert_object_is(mount, "GDKPackageMount", "GDKPackageMount can be instantiated for reflection")
+	var mount = instantiate_class("XboxPackageMount")
+	assert_object_is(mount, "XboxPackageMount", "XboxPackageMount can be instantiated for reflection")
 	if mount != null:
 		for method_name in ["get_package_identifier", "get_mount_path", "get_package_details", "is_valid", "resolve_path", "close"]:
 			assert_has_method_named(mount, method_name)
-		assert_false(mount.is_valid(), "new GDKPackageMount starts invalid")
-		assert_result_ok(mount.close(), "GDKPackageMount.close() on an invalid mount")
+		assert_false(mount.is_valid(), "new XboxPackageMount starts invalid")
+		assert_result_ok(mount.close(), "XboxPackageMount.close() on an invalid mount")
 		assert_result_error(
 			mount.resolve_path("content/file.txt"),
 			"package_mount_invalid",
-			"GDKPackageMount.resolve_path() rejects invalid mounts")
+			"XboxPackageMount.resolve_path() rejects invalid mounts")
 
-	var resource_pack = instantiate_class("GDKPackageResourcePack")
-	assert_object_is(resource_pack, "GDKPackageResourcePack", "GDKPackageResourcePack can be instantiated for reflection")
+	var resource_pack = instantiate_class("XboxPackageResourcePack")
+	assert_object_is(resource_pack, "XboxPackageResourcePack", "XboxPackageResourcePack can be instantiated for reflection")
 	if resource_pack != null:
 		for method_name in ["get_package_identifier", "get_mount_path", "get_pack_relative_path", "get_pack_path", "get_package_details", "get_replace_files", "get_offset"]:
 			assert_has_method_named(resource_pack, method_name)
-		assert_eq(resource_pack.get_package_identifier(), "", "new GDKPackageResourcePack has no package identifier")
-		assert_eq(resource_pack.get_pack_relative_path(), "", "new GDKPackageResourcePack has no resource-pack path")
-		assert_false(resource_pack.get_replace_files(), "new GDKPackageResourcePack defaults replace_files false")
-		assert_eq(resource_pack.get_offset(), 0, "new GDKPackageResourcePack defaults offset 0")
+		assert_eq(resource_pack.get_package_identifier(), "", "new XboxPackageResourcePack has no package identifier")
+		assert_eq(resource_pack.get_pack_relative_path(), "", "new XboxPackageResourcePack has no resource-pack path")
+		assert_false(resource_pack.get_replace_files(), "new XboxPackageResourcePack defaults replace_files false")
+		assert_eq(resource_pack.get_offset(), 0, "new XboxPackageResourcePack defaults offset 0")
 
 	for invalid_path in [
 		" ",
@@ -105,7 +105,7 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult for package tests")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult for package tests")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -113,11 +113,11 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		return
 
 	assert_result_error(
-		package_service.enumerate_packages(99, get_class_constant("GDKPackage", "ENUMERATION_SCOPE_THIS_AND_RELATED")),
+		package_service.enumerate_packages(99, get_class_constant("XboxPackage", "ENUMERATION_SCOPE_THIS_AND_RELATED")),
 		"invalid_package_kind",
 		"enumerate_packages() validates package kind")
 	assert_result_error(
-		package_service.enumerate_packages(get_class_constant("GDKPackage", "PACKAGE_KIND_CONTENT"), 99),
+		package_service.enumerate_packages(get_class_constant("XboxPackage", "PACKAGE_KIND_CONTENT"), 99),
 		"invalid_package_scope",
 		"enumerate_packages() validates enumeration scope")
 
@@ -144,7 +144,7 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 	if pending_unless_package_enumeration_available(package_service):
 		return
 	var packages_result = package_service.enumerate_packages()
-	assert_not_null(packages_result, "enumerate_packages() returns GDKResult on packaged host")
+	assert_not_null(packages_result, "enumerate_packages() returns XboxResult on packaged host")
 	if packages_result == null:
 		return
 	assert_true(packages_result.ok, "enumerate_packages() succeeds on packaged host: %s" % str(packages_result.message))
@@ -171,7 +171,7 @@ func test_package_runtime_metadata_and_missing_packages() -> void:
 		"load_resource_pack_async() reports missing package IDs")
 
 	var identifier_result = package_service.get_current_process_package_identifier()
-	assert_not_null(identifier_result, "get_current_process_package_identifier() returns GDKResult")
+	assert_not_null(identifier_result, "get_current_process_package_identifier() returns XboxResult")
 	if identifier_result != null:
 		if identifier_result.ok:
 			assert_true(identifier_result.data is String and String(identifier_result.data).length() > 0, "current process package identifier is non-empty when available")
@@ -199,7 +199,7 @@ func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult for live DLC test")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult for live DLC test")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -215,7 +215,7 @@ func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 
 	assert_true(load_result.data is Dictionary, "load_resource_pack_async() returns Dictionary payload")
 	var load_data: Dictionary = load_result.data if load_result.data is Dictionary else {}
-	assert_object_is(load_data.get("resource_pack"), "GDKPackageResourcePack", "load_resource_pack_async() returns resource-pack metadata")
+	assert_object_is(load_data.get("resource_pack"), "XboxPackageResourcePack", "load_resource_pack_async() returns resource-pack metadata")
 	assert_false(bool(load_data.get("already_loaded", true)), "first live resource-pack load reports already_loaded false")
 
 	var expected_resource := OS.get_environment(LIVE_DLC_EXPECTED_RESOURCE_ENV).strip_edges()
@@ -231,7 +231,7 @@ func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 	if repeat_result != null and repeat_result.ok:
 		var repeat_data: Dictionary = repeat_result.data if repeat_result.data is Dictionary else {}
 		assert_true(bool(repeat_data.get("already_loaded", false)), "repeated live resource-pack load uses service cache")
-		assert_object_is(repeat_data.get("resource_pack"), "GDKPackageResourcePack", "repeated live load returns retained metadata")
+		assert_object_is(repeat_data.get("resource_pack"), "XboxPackageResourcePack", "repeated live load returns retained metadata")
 
 	assert_true(package_service.get_loaded_resource_packs().size() >= 1, "GDK.package retains loaded resource-pack mounts")
 
@@ -246,18 +246,18 @@ func test_optional_live_dlc_resource_pack_and_loose_file() -> void:
 	if mount_result == null or not mount_result.ok:
 		return
 
-	assert_object_is(mount_result.data, "GDKPackageMount", "mount_package_async() returns raw mount metadata")
+	assert_object_is(mount_result.data, "XboxPackageMount", "mount_package_async() returns raw mount metadata")
 	var mount = mount_result.data
 	if mount == null:
 		return
 
 	var resolved_result = mount.resolve_path(loose_path)
-	assert_result_ok(resolved_result, "GDKPackageMount.resolve_path() live loose file")
+	assert_result_ok(resolved_result, "XboxPackageMount.resolve_path() live loose file")
 	if resolved_result != null and resolved_result.ok:
 		var absolute_path := String(resolved_result.data)
 		assert_true(FileAccess.file_exists(absolute_path), "live loose DLC file exists under the package mount")
 		var loose_text := FileAccess.get_file_as_string(absolute_path)
 		assert_true(loose_text.length() > 0, "live loose DLC file can be read through FileAccess")
 
-	assert_result_ok(mount.close(), "GDKPackageMount.close() live DLC")
-	assert_false(mount.is_valid(), "closed live GDKPackageMount becomes invalid")
+	assert_result_ok(mount.close(), "XboxPackageMount.close() live DLC")
+	assert_false(mount.is_valid(), "closed live XboxPackageMount becomes invalid")

@@ -20,20 +20,20 @@ contains:
 
 `addons\godot_gdk\src\` currently contains:
 
-- `gdk.cpp` / `gdk.h` — root singleton
-- `gdk_runtime.cpp` / `gdk_runtime.h` — shared Microsoft GDK runtime and queue owner
-- `gdk_result.cpp` / `gdk_result.h` — normalized result wrapper
-- `gdk_pending_signal.cpp` / `gdk_pending_signal.h` — retained one-shot completion signal helper
-- `gdk_signal_xasync_context.cpp` / `gdk_signal_xasync_context.h` — reusable `XAsyncBlock` bridge base for signal-returning requests
-- `gdk_xbox_services.cpp` / `gdk_xbox_services.h` — shared XBOX services bootstrap and context cache
-- `gdk_user.cpp` / `gdk_user.h` — users service and user wrapper
-- `gdk_achievement.cpp` / `gdk_achievement.h` — achievements service and achievement wrapper
-- `gdk_package.cpp` / `gdk_package.h` — package metadata and install-state service wrappers
-- `gdk_presence.cpp` / `gdk_presence.h` — presence service and wrapper types
-- `gdk_social.cpp` / `gdk_social.h` — social graph service and wrapper types
-- `gdk_activation.cpp` / `gdk_activation.h` — single native activation registration owner and activation event fan-out
-- `gdk_multiplayer_activity.cpp` / `gdk_multiplayer_activity.h` — multiplayer activity service and wrapper types
-- `gdk_system.cpp` / `gdk_system.h` — system/runtime metadata service
+- `xbox.cpp` / `xbox.h` — root singleton
+- `xbox_runtime.cpp` / `xbox_runtime.h` — shared Microsoft GDK runtime and queue owner
+- `xbox_result.cpp` / `xbox_result.h` — normalized result wrapper
+- `xbox_pending_signal.cpp` / `xbox_pending_signal.h` — retained one-shot completion signal helper
+- `xbox_signal_xasync_context.cpp` / `xbox_signal_xasync_context.h` — reusable `XAsyncBlock` bridge base for signal-returning requests
+- `xbox_services.cpp` / `xbox_services.h` — shared XBOX services bootstrap and context cache
+- `xbox_user.cpp` / `xbox_user.h` — users service and user wrapper
+- `xbox_achievement.cpp` / `xbox_achievement.h` — achievements service and achievement wrapper
+- `xbox_package.cpp` / `xbox_package.h` — package metadata and install-state service wrappers
+- `xbox_presence.cpp` / `xbox_presence.h` — presence service and wrapper types
+- `xbox_social.cpp` / `xbox_social.h` — social graph service and wrapper types
+- `xbox_activation.cpp` / `xbox_activation.h` — single native activation registration owner and activation event fan-out
+- `xbox_multiplayer_activity.cpp` / `xbox_multiplayer_activity.h` — multiplayer activity service and wrapper types
+- `xbox_system.cpp` / `xbox_system.h` — system/runtime metadata service
 - `register_types.cpp` / `register_types.h` — Godot class registration and singleton publication
 
 ### Addon metadata
@@ -75,7 +75,7 @@ var gdk: Object = Engine.get_singleton(singleton_name)
 var result = gdk.initialize()
 ```
 
-The bundled `GDKBootstrap` autoload, the C# `Gdk` facade, and the shared GUT
+The bundled `XboxBootstrap` autoload, the C# `Xbox` facade, and the shared GUT
 test base all resolve the singleton this way, so they keep working across a
 rename with no further changes. They also verify the resolved object is really
 a `GDK` instance, so a configured name that happens to match an unrelated
@@ -178,7 +178,7 @@ So the addon has two Godot-facing entry points:
 - a **runtime** path through GDExtension
 - an **editor** path through the normal editor plugin system
 
-The editor plugin also keeps the `GDKBootstrap` autoload pointed at
+The editor plugin also keeps the `XboxBootstrap` autoload pointed at
 `runtime\gdk_bootstrap.gd`, which lets projects opt into automatic startup
 through Project Settings instead of maintaining sample-local bootstrap copies.
 

@@ -53,21 +53,21 @@ PlayFabUser pf = signIn.DataAs<PlayFabUser>();
 Godot.Collections.Dictionary key = pf.EntityKey;   // { "type": ..., "id": ... }
 ```
 
-`PlayFabResult` has the same shape as `GdkResult` (`Ok`, `Code`, `Message`,
+`PlayFabResult` has the same shape as `XboxResult` (`Ok`, `Code`, `Message`,
 `Data`, `DataObject`, `DataAs<T>()`).
 
 ## Cross-addon sign-in (GDK user → PlayFab)
 
-`PlayFab.Users.SignInWithXUserAsync` takes a **`GodotGdk.Types.GdkUser`** and
+`PlayFab.Users.SignInWithXUserAsync` takes a **`GodotXbox.Types.XboxUser`** and
 passes its underlying `GodotObject` through unchanged. The boundary is
 deliberately duck-typed (`Object` on the native side) because `godot_gdk` and
 `godot_playfab` are **separate GDExtension DLLs** and `Ref<>` types cannot cross
 that boundary. Never marshal a raw local Xbox user id across — always pass the
-`GdkUser`:
+`XboxUser`:
 
 ```csharp
-GdkUser xbox = Gdk.Users.GetPrimaryUser()
-    ?? (await Gdk.Users.AddUserWithUiAsync()).DataAs<GdkUser>();
+XboxUser xbox = Xbox.Users.GetPrimaryUser()
+    ?? (await Xbox.Users.AddUserWithUiAsync()).DataAs<XboxUser>();
 
 PlayFabResult result = await PlayFab.Users.SignInWithXUserAsync(xbox);
 ```

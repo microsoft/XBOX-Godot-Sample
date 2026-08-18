@@ -1,12 +1,12 @@
 extends "res://addons/godot_gdk_tests/gdk_test_base.gd"
 ## Wave 4 GUT coverage for the `godot::String`-returning helpers in
-## `addons/godot_gdk/src/gdk_result_codes_internal.{h,cpp}` and the
-## public `GDKResult` static constructors that forward to them.
+## `addons/godot_gdk/src/xbox_result_codes_internal.{h,cpp}` and the
+## public `XboxResult` static constructors that forward to them.
 ##
 ## See `spec/testing-strategy.md` ("godot::String constraint"): these
 ## forwarders are NOT runtime-testable from `gdk_unit_tests.exe` because the
 ## standalone exe cannot construct `godot::String`s. We pin the contract here
-## end-to-end through the public `GDKResult` API from a real Godot process.
+## end-to-end through the public `XboxResult` API from a real Godot process.
 
 const HRESULT_HEX_BUFFER_SIZE := 11
 const HRESULT_HEX_LITERAL_LENGTH := 10
@@ -17,14 +17,14 @@ const S_OK_HEX := "0x00000000"
 
 
 func test_format_hresult_string_shape() -> void:
-	var format_hresult: Callable = Callable(GDKResult, "format_hresult")
+	var format_hresult: Callable = Callable(XboxResult, "format_hresult")
 	if not format_hresult.is_valid():
 		# `format_hresult` is a `static` C++ helper that isn't bound via
 		# ClassDB::bind_static_method, so it is not callable through GDScript.
 		# The orchestrator's doctest target covers `format_hresult_hex`
 		# directly; this end-to-end pin is only meaningful if/when the
 		# static is exposed to script.
-		pending("GDKResult.format_hresult is not exposed to GDScript as a callable static.")
+		pending("XboxResult.format_hresult is not exposed to GDScript as a callable static.")
 		return
 
 	var s_ok_text: String = format_hresult.call(0)
@@ -47,37 +47,37 @@ func test_format_hresult_string_shape() -> void:
 
 func test_gdk_result_ok_shape() -> void:
 	var ok_result: Variant = null
-	var ok_factory: Callable = Callable(GDKResult, "ok_result")
+	var ok_factory: Callable = Callable(XboxResult, "ok_result")
 	if ok_factory.is_valid():
 		ok_result = ok_factory.call()
 
 	if ok_result == null:
 		# `ok_result()` is a static C++ helper that may not be exposed to
 		# script as a static. Fall back to a successful runtime call to get a
-		# real ok GDKResult.
+		# real ok XboxResult.
 		var gdk: Object = get_gdk()
 		if gdk == null:
-			pending("GDKResult.ok shape requires either a script-visible static or a runtime call.")
+			pending("XboxResult.ok shape requires either a script-visible static or a runtime call.")
 			return
 		# Drive a successful initialize() so we can capture its returned ok
-		# GDKResult directly (the result-only refactor removed the
+		# XboxResult directly (the result-only refactor removed the
 		# get_last_error() poll, so we use the return value as the canonical
 		# ok shape).
 		var init_result: Variant = gdk.initialize()
 		if init_result == null or not init_result.ok:
-			pending("GDKResult.ok shape requires a successful runtime init: %s" % (
+			pending("XboxResult.ok shape requires a successful runtime init: %s" % (
 				init_result.message if init_result != null else "GDK.initialize() returned null"))
 			return
 		ok_result = init_result
 
-	assert_not_null(ok_result, "constructed GDKResult is non-null")
+	assert_not_null(ok_result, "constructed XboxResult is non-null")
 	if ok_result == null:
 		return
-	assert_object_is(ok_result, "GDKResult", "constructed value is GDKResult")
-	assert_true(ok_result.ok, "ok GDKResult.ok == true")
-	assert_eq(ok_result.code, "ok", "ok GDKResult.code == 'ok'")
-	assert_eq(ok_result.message, "", "ok GDKResult.message is empty")
-	assert_eq(ok_result.hresult, 0, "ok GDKResult.hresult == S_OK (0)")
+	assert_object_is(ok_result, "XboxResult", "constructed value is XboxResult")
+	assert_true(ok_result.ok, "ok XboxResult.ok == true")
+	assert_eq(ok_result.code, "ok", "ok XboxResult.code == 'ok'")
+	assert_eq(ok_result.message, "", "ok XboxResult.message is empty")
+	assert_eq(ok_result.hresult, 0, "ok XboxResult.hresult == S_OK (0)")
 
 
 func test_gdk_result_error_message_format() -> void:
@@ -95,7 +95,7 @@ func test_gdk_result_error_message_format() -> void:
 		return
 
 	var repeat_init = gdk.initialize()
-	assert_not_null(repeat_init, "second initialize() returns GDKResult for format coverage")
+	assert_not_null(repeat_init, "second initialize() returns XboxResult for format coverage")
 	if repeat_init == null:
 		gdk.shutdown()
 		return
@@ -146,7 +146,7 @@ func test_format_hresult_message_empty_action() -> void:
 	if typeof(error_signal) != TYPE_SIGNAL:
 		return
 	var result = await await_completion(error_signal, 4000)
-	assert_not_null(result, "validation failure returns a GDKResult")
+	assert_not_null(result, "validation failure returns an XboxResult")
 	if result == null:
 		return
 	assert_false(result.ok, "validation failure has ok == false")
@@ -157,11 +157,11 @@ func test_format_hresult_message_empty_action() -> void:
 
 func test_gdk_result_class_surface() -> void:
 	for method_name in ["is_ok", "get_hresult", "get_code", "get_message", "get_data"]:
-		assert_true(ClassDB.class_has_method("GDKResult", method_name), "GDKResult.%s() bound" % method_name)
+		assert_true(ClassDB.class_has_method("XboxResult", method_name), "XboxResult.%s() bound" % method_name)
 	var prop_names := {}
-	for prop_info in ClassDB.class_get_property_list("GDKResult"):
+	for prop_info in ClassDB.class_get_property_list("XboxResult"):
 		prop_names[prop_info.get("name", "")] = true
 	for prop in ["ok", "hresult", "code", "message", "data"]:
 		assert_true(
 			prop_names.has(prop),
-			"GDKResult.%s property bound" % prop)
+			"XboxResult.%s property bound" % prop)

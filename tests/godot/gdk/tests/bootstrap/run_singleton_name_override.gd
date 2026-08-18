@@ -22,7 +22,7 @@ const OVERRIDE_PATH := "res://override.cfg"
 const OVERRIDE_SECTION := "gdk"
 const OVERRIDE_KEY := "runtime/singleton_name"
 const DEFAULT_SINGLETON_NAME := "GDK"
-const RENAMED_SINGLETON_NAME := "GDKSingletonRenameProbe"
+const RENAMED_SINGLETON_NAME := "XboxSingletonRenameProbe"
 const PROBE_SCRIPT := "res://tests/support/probe_singleton_name.gd"
 
 

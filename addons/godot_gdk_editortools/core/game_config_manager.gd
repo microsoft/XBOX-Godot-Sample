@@ -3,7 +3,7 @@ extends RefCounted
 ## Manages MicrosoftGame.config — detection, parsing, template generation,
 ## and launching the GameConfigEditor GUI.
 
-const GDKToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
+const XboxToolchainScript = preload("res://addons/godot_gdk_editortools/core/gdk_toolchain.gd")
 const CONFIG_FILENAME := "MicrosoftGame.config"
 
 var _toolchain: RefCounted

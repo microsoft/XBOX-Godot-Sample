@@ -8,38 +8,38 @@
 #include <godot_cpp/core/version.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#include "gdk_achievement.h"
-#include "gdk_accessibility.h"
-#include "gdk_activation.h"
-#include "gdk.h"
-#include "gdk_capture.h"
-#include "gdk_display.h"
-#include "gdk_error_reporting.h"
-#include "gdk_events.h"
-#include "gdk_game_chat.h"
-#include "gdk_game_save.h"
-#include "gdk_game_ui.h"
-#include "gdk_launcher.h"
-#include "gdk_leaderboards.h"
-#include "gdk_multiplayer_activity.h"
-#include "gdk_package.h"
-#include "gdk_pending_signal.h"
-#include "gdk_presence.h"
-#include "gdk_profile.h"
-#include "gdk_privacy.h"
-#include "gdk_result.h"
-#include "gdk_social.h"
-#include "gdk_speech_synthesizer.h"
-#include "gdk_stats.h"
-#include "gdk_store.h"
-#include "gdk_string_verify.h"
-#include "gdk_system.h"
-#include "gdk_title_storage.h"
-#include "gdk_user.h"
+#include "xbox_achievement.h"
+#include "xbox_accessibility.h"
+#include "xbox_activation.h"
+#include "xbox.h"
+#include "xbox_capture.h"
+#include "xbox_display.h"
+#include "xbox_error_reporting.h"
+#include "xbox_events.h"
+#include "xbox_game_chat.h"
+#include "xbox_game_save.h"
+#include "xbox_game_ui.h"
+#include "xbox_launcher.h"
+#include "xbox_leaderboards.h"
+#include "xbox_multiplayer_activity.h"
+#include "xbox_package.h"
+#include "xbox_pending_signal.h"
+#include "xbox_presence.h"
+#include "xbox_profile.h"
+#include "xbox_privacy.h"
+#include "xbox_result.h"
+#include "xbox_social.h"
+#include "xbox_speech_synthesizer.h"
+#include "xbox_stats.h"
+#include "xbox_store.h"
+#include "xbox_string_verify.h"
+#include "xbox_system.h"
+#include "xbox_title_storage.h"
+#include "xbox_user.h"
 
 using namespace godot;
 
-static GDK *gdk_singleton = nullptr;
+static Xbox *gdk_singleton = nullptr;
 static int gdk_extension_ref_count = 0;
 
 namespace {
@@ -180,59 +180,59 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
         return;
     }
 
-    ClassDB::register_abstract_class<GDK>();
-    ClassDB::register_class<GDKResult>();
-    ClassDB::register_internal_class<GDKPendingSignal>();
-    ClassDB::register_class<GDKUser>();
-    ClassDB::register_class<GDKUserSignOutDeferral>();
-    ClassDB::register_class<GDKUsers>();
-    ClassDB::register_class<GDKGameUI>();
-    ClassDB::register_class<GDKClosedCaptionProperties>();
-    ClassDB::register_class<GDKAccessibility>();
-    ClassDB::register_class<GDKAchievement>();
-    ClassDB::register_class<GDKAchievements>();
-    ClassDB::register_class<GDKPackageMount>();
-    ClassDB::register_class<GDKPackageResourcePack>();
-    ClassDB::register_class<GDKPackage>();
-    ClassDB::register_class<GDKStats>();
-    ClassDB::register_class<GDKLeaderboardColumn>();
-    ClassDB::register_class<GDKLeaderboardRow>();
-    ClassDB::register_class<GDKLeaderboard>();
-    ClassDB::register_class<GDKLeaderboards>();
-    ClassDB::register_class<GDKPrivacy>();
-    ClassDB::register_class<GDKPresenceRecord>();
-    ClassDB::register_class<GDKPresence>();
-    ClassDB::register_class<GDKSocialFilter>();
-    ClassDB::register_class<GDKSocialGroup>();
-    ClassDB::register_class<GDKSocialUser>();
-    ClassDB::register_class<GDKSocial>();
-    ClassDB::register_class<GDKStoreLicenseStatus>();
-    ClassDB::register_class<GDKStore>();
-    ClassDB::register_class<GDKUserProfile>();
-    ClassDB::register_class<GDKProfile>();
-    ClassDB::register_class<GDKStringVerify>();
-    ClassDB::register_class<GDKTitleStorageBlobMetadata>();
-    ClassDB::register_class<GDKTitleStorageBlobMetadataResult>();
-    ClassDB::register_class<GDKTitleStorage>();
-    ClassDB::register_class<GDKErrorReporting>();
-    ClassDB::register_class<GDKLauncher>();
-    ClassDB::register_class<GDKMultiplayerActivityInfo>();
-    ClassDB::register_class<GDKMultiplayerActivity>();
-    ClassDB::register_class<GDKCaptureMetaData>();
-    ClassDB::register_class<GDKCapture>();
-    ClassDB::register_class<GDKSystem>();
-    ClassDB::register_class<GDKDisplayTimeoutDeferral>();
-    ClassDB::register_class<GDKDisplay>();
-    ClassDB::register_class<GDKActivation>();
-    ClassDB::register_class<GDKSpeechSynthesizer>();
-    ClassDB::register_class<GDKEvents>();
-    ClassDB::register_class<GDKGameSave>();
-    ClassDB::register_class<GDKGameChat>();
+    ClassDB::register_abstract_class<Xbox>();
+    ClassDB::register_class<XboxResult>();
+    ClassDB::register_internal_class<XboxPendingSignal>();
+    ClassDB::register_class<XboxUser>();
+    ClassDB::register_class<XboxUserSignOutDeferral>();
+    ClassDB::register_class<XboxUsers>();
+    ClassDB::register_class<XboxGameUI>();
+    ClassDB::register_class<XboxClosedCaptionProperties>();
+    ClassDB::register_class<XboxAccessibility>();
+    ClassDB::register_class<XboxAchievement>();
+    ClassDB::register_class<XboxAchievements>();
+    ClassDB::register_class<XboxPackageMount>();
+    ClassDB::register_class<XboxPackageResourcePack>();
+    ClassDB::register_class<XboxPackage>();
+    ClassDB::register_class<XboxStats>();
+    ClassDB::register_class<XboxLeaderboardColumn>();
+    ClassDB::register_class<XboxLeaderboardRow>();
+    ClassDB::register_class<XboxLeaderboard>();
+    ClassDB::register_class<XboxLeaderboards>();
+    ClassDB::register_class<XboxPrivacy>();
+    ClassDB::register_class<XboxPresenceRecord>();
+    ClassDB::register_class<XboxPresence>();
+    ClassDB::register_class<XboxSocialFilter>();
+    ClassDB::register_class<XboxSocialGroup>();
+    ClassDB::register_class<XboxSocialUser>();
+    ClassDB::register_class<XboxSocial>();
+    ClassDB::register_class<XboxStoreLicenseStatus>();
+    ClassDB::register_class<XboxStore>();
+    ClassDB::register_class<XboxUserProfile>();
+    ClassDB::register_class<XboxProfile>();
+    ClassDB::register_class<XboxStringVerify>();
+    ClassDB::register_class<XboxTitleStorageBlobMetadata>();
+    ClassDB::register_class<XboxTitleStorageBlobMetadataResult>();
+    ClassDB::register_class<XboxTitleStorage>();
+    ClassDB::register_class<XboxErrorReporting>();
+    ClassDB::register_class<XboxLauncher>();
+    ClassDB::register_class<XboxMultiplayerActivityInfo>();
+    ClassDB::register_class<XboxMultiplayerActivity>();
+    ClassDB::register_class<XboxCaptureMetaData>();
+    ClassDB::register_class<XboxCapture>();
+    ClassDB::register_class<XboxSystem>();
+    ClassDB::register_class<XboxDisplayTimeoutDeferral>();
+    ClassDB::register_class<XboxDisplay>();
+    ClassDB::register_class<XboxActivation>();
+    ClassDB::register_class<XboxSpeechSynthesizer>();
+    ClassDB::register_class<XboxEvents>();
+    ClassDB::register_class<XboxGameSave>();
+    ClassDB::register_class<XboxGameChat>();
 
-    gdk_singleton = memnew(GDK);
+    gdk_singleton = memnew(Xbox);
     register_gdk_project_settings();
     registered_singleton_name() = resolve_gdk_singleton_name();
-    Engine::get_singleton()->register_singleton(registered_singleton_name(), GDK::get_singleton());
+    Engine::get_singleton()->register_singleton(registered_singleton_name(), Xbox::get_singleton());
 }
 
 void uninitialize_gdk_extension(ModuleInitializationLevel p_level) {

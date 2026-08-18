@@ -14,6 +14,34 @@
 
 **Learn to build your Godot 4 game for XBOX on PC.** Reference GDExtension addons binding the Microsoft **GDK**, **XBOX Services**, **PlayFab**, and **GameInput** into Godot - usable from both GDScript and C#/.NET.
 
+> [!WARNING]
+> **Breaking change: `GDK*` classes are now `Xbox*`.** Every script-visible type was renamed from the `GDK` prefix to the `Xbox` prefix — `GDKUser` → `XboxUser`, `GDKResult` → `XboxResult`, `GDKAchievement` → `XboxAchievement`, and so on. The C# facade moved with them: namespace `GodotGdk` → `GodotXbox`, static class `Gdk` → `Xbox`. No deprecated `GDK*` aliases are provided, so type references must be updated.
+>
+> **Why:** to let this addon enable console support inside compatible Godot forks. Those forks provide the console platform layer and expose their own types, and the `GDK*` prefix collided with names they already use. Moving to the `Xbox*` prefix keeps this addon's types distinct so it can be dropped into such a fork and light up console scenarios there. Godot itself is unchanged — the engine's own console support is not something this repo provides.
+>
+> **One binary covers both.** The same addon build runs on PC and on console — there is no separate console compilation, preset, or `#define`. `godot_gdk.gdextension` declares only the `windows.*.x86_64` libraries, and those are what a console-capable fork loads too.
+>
+> **The singleton is still called `GDK`.** Calls like `GDK.initialize()` and `GDK.users.add_default_user_async()` keep working unchanged — only the *type* names moved. The `addons/godot_gdk` folder, the `gdk/runtime/*` Project Settings, and the `godot_gdk.gdextension` entry point are all unchanged as well.
+>
+> ```gdscript
+> # before
+> var r: GDKResult = GDK.initialize()
+> var u: GDKUser = r.data
+>
+> # after
+> var r: XboxResult = GDK.initialize()
+> var u: XboxUser = r.data
+> ```
+>
+> One consequence worth calling out: the ClassDB class name (`Xbox`) and the singleton name (`GDK`) are now different strings. If your code class-checks the singleton, compare against `"Xbox"` — `is_class("GDK")` no longer matches.
+>
+> See [**Migrating to v0.3.0**](docs/gdk/migration-v0.3.md) for the full old → new table, or run the codemod:
+>
+> ```powershell
+> .\tools\migrate_gdk_to_xbox.ps1 -Path <your-project> -WhatIf
+> ```
+
+
 > [!IMPORTANT]
 > **This is a source-only sample, not a product.** The repository is MIT-licensed at the wrapper layer; the Microsoft GDK and PlayFab dependencies still require their own installs and license acceptance, consistent with other XBOX samples. There is no specified update cadence for support or maintenance. We'll watch the repo, monitor issues, and iterate where it makes sense, but this isn't a commercial release. We are excited to hear your feedback, and see any community PRs, as we evolve this together.
 >

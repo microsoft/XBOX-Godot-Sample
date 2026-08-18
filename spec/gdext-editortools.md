@@ -24,7 +24,7 @@ under `tools\`; the addon ships its own shell forwarders for convenience.
 ```
 addons\godot_gdk_editortools\
   plugin.cfg
-  run.gd                                 # class_name GdkEditorToolsRunner; extends SceneTree
+  run.gd                                 # class_name XboxEditorToolsRunner; extends SceneTree
   gdkpkg.cmd, gdkpkg.sh                  # shell forwarders (option C)
   core\                                  # headless-safe; no EditorInterface, no Control
     editortools_cli.gd                     # argv -> {verb, options, help, error}
@@ -61,7 +61,7 @@ Layer summary:
   `run_store_wizard`, plus `dispatch(verb, resolved)` and
   `method_for_verb(verb)`. Each `run_*` orchestrates the helpers and
   returns a `EditorToolsResult`.
-- `run.gd` is `class_name GdkEditorToolsRunner` extending `SceneTree`. It
+- `run.gd` is `class_name XboxEditorToolsRunner` extending `SceneTree`. It
   reads `OS.get_cmdline_user_args()`, calls
   `EditorToolsCli.parse() -> EditorToolsConfig.resolve() -> service.dispatch()`,
   prints a one-line summary plus a `PACKAGING_RESULT_JSON:` line (unless
@@ -117,7 +117,7 @@ godot --headless -s res://addons/godot_gdk_editortools/run.gd -- \
 
 # B — class_name main loop (shortest official form; needs a prior --import
 #     so the class registry is populated)
-godot --headless --main-loop GdkEditorToolsRunner -- \
+godot --headless --main-loop XboxEditorToolsRunner -- \
     <verb> [--key=value] [--key value] [--flag] [-- positional ...]
 
 # C — addon-local shell forwarders (Godot auto-discovered)
@@ -234,7 +234,7 @@ plan a separate editor-panel rewrite.
 3. Add `core\editortools_cli.gd` (argv parser + declarative `VERBS` table).
 4. Add `core\editortools_config.gd` (settings resolver with precedence chain).
 5. Add `core\editortools_service.gd` (verb facade; one method per verb).
-6. Add `addons\godot_gdk_editortools\run.gd` (`class_name GdkEditorToolsRunner`).
+6. Add `addons\godot_gdk_editortools\run.gd` (`class_name XboxEditorToolsRunner`).
 7. Add `gdkpkg.cmd` / `gdkpkg.sh` shell forwarders.
 8. Add GUT coverage under `tests\godot\gdk\tests\editortools\` for the CLI
    parser, config resolver, and result builder plus the helper suites that

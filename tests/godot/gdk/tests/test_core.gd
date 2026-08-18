@@ -26,87 +26,87 @@ func test_singleton_availability() -> void:
 
 func test_class_registration() -> void:
 	for registered_class in [
-		"GDK",
-		"GDKUsers",
-		"GDKUser",
-		"GDKAccessibility",
-		"GDKClosedCaptionProperties",
-		"GDKAchievements",
-		"GDKAchievement",
-		"GDKPackage",
-		"GDKPackageMount",
-		"GDKPackageResourcePack",
-		"GDKStats",
-		"GDKLeaderboards",
-		"GDKLeaderboard",
-		"GDKLeaderboardColumn",
-		"GDKLeaderboardRow",
-		"GDKPrivacy",
-		"GDKPresence",
-		"GDKPresenceRecord",
-		"GDKSocial",
-		"GDKSocialFilter",
-		"GDKSocialGroup",
-		"GDKSocialUser",
-		"GDKStore",
-		"GDKStoreLicenseStatus",
-		"GDKProfile",
-		"GDKUserProfile",
-		"GDKStringVerify",
-		"GDKTitleStorage",
-		"GDKTitleStorageBlobMetadata",
-		"GDKTitleStorageBlobMetadataResult",
-		"GDKErrorReporting",
-		"GDKSystem",
-		"GDKLauncher",
-		"GDKCapture",
-		"GDKCaptureMetaData",
-		"GDKDisplay",
-		"GDKDisplayTimeoutDeferral",
-		"GDKActivation",
-		"GDKResult",
+		"Xbox",
+		"XboxUsers",
+		"XboxUser",
+		"XboxAccessibility",
+		"XboxClosedCaptionProperties",
+		"XboxAchievements",
+		"XboxAchievement",
+		"XboxPackage",
+		"XboxPackageMount",
+		"XboxPackageResourcePack",
+		"XboxStats",
+		"XboxLeaderboards",
+		"XboxLeaderboard",
+		"XboxLeaderboardColumn",
+		"XboxLeaderboardRow",
+		"XboxPrivacy",
+		"XboxPresence",
+		"XboxPresenceRecord",
+		"XboxSocial",
+		"XboxSocialFilter",
+		"XboxSocialGroup",
+		"XboxSocialUser",
+		"XboxStore",
+		"XboxStoreLicenseStatus",
+		"XboxProfile",
+		"XboxUserProfile",
+		"XboxStringVerify",
+		"XboxTitleStorage",
+		"XboxTitleStorageBlobMetadata",
+		"XboxTitleStorageBlobMetadataResult",
+		"XboxErrorReporting",
+		"XboxSystem",
+		"XboxLauncher",
+		"XboxCapture",
+		"XboxCaptureMetaData",
+		"XboxDisplay",
+		"XboxDisplayTimeoutDeferral",
+		"XboxActivation",
+		"XboxResult",
 	]:
 		assert_true(ClassDB.class_exists(registered_class), "%s registered in ClassDB" % registered_class)
 
-	assert_true(ClassDB.is_parent_class("GDK", "Object"), "GDK extends Object")
-	assert_true(ClassDB.is_parent_class("GDKUsers", "RefCounted"), "GDKUsers extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKUser", "RefCounted"), "GDKUser extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKAccessibility", "RefCounted"), "GDKAccessibility extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKClosedCaptionProperties", "RefCounted"), "GDKClosedCaptionProperties extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKAchievements", "RefCounted"), "GDKAchievements extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKAchievement", "RefCounted"), "GDKAchievement extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPackage", "RefCounted"), "GDKPackage extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPackageMount", "RefCounted"), "GDKPackageMount extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPackageResourcePack", "RefCounted"), "GDKPackageResourcePack extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKStats", "RefCounted"), "GDKStats extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKLeaderboards", "RefCounted"), "GDKLeaderboards extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKLeaderboard", "RefCounted"), "GDKLeaderboard extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKLeaderboardColumn", "RefCounted"), "GDKLeaderboardColumn extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKLeaderboardRow", "RefCounted"), "GDKLeaderboardRow extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPrivacy", "RefCounted"), "GDKPrivacy extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPresence", "RefCounted"), "GDKPresence extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKPresenceRecord", "RefCounted"), "GDKPresenceRecord extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKSocial", "RefCounted"), "GDKSocial extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKSocialFilter", "RefCounted"), "GDKSocialFilter extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKSocialGroup", "RefCounted"), "GDKSocialGroup extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKSocialUser", "RefCounted"), "GDKSocialUser extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKStore", "RefCounted"), "GDKStore extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKStoreLicenseStatus", "RefCounted"), "GDKStoreLicenseStatus extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKProfile", "RefCounted"), "GDKProfile extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKUserProfile", "RefCounted"), "GDKUserProfile extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKStringVerify", "RefCounted"), "GDKStringVerify extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKTitleStorage", "RefCounted"), "GDKTitleStorage extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKTitleStorageBlobMetadata", "RefCounted"), "GDKTitleStorageBlobMetadata extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKTitleStorageBlobMetadataResult", "RefCounted"), "GDKTitleStorageBlobMetadataResult extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKErrorReporting", "RefCounted"), "GDKErrorReporting extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKSystem", "RefCounted"), "GDKSystem extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKLauncher", "RefCounted"), "GDKLauncher extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKCapture", "RefCounted"), "GDKCapture extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKCaptureMetaData", "RefCounted"), "GDKCaptureMetaData extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKDisplay", "RefCounted"), "GDKDisplay extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKDisplayTimeoutDeferral", "RefCounted"), "GDKDisplayTimeoutDeferral extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKActivation", "RefCounted"), "GDKActivation extends RefCounted")
-	assert_true(ClassDB.is_parent_class("GDKResult", "RefCounted"), "GDKResult extends RefCounted")
+	assert_true(ClassDB.is_parent_class("Xbox", "Object"), "Xbox extends Object")
+	assert_true(ClassDB.is_parent_class("XboxUsers", "RefCounted"), "XboxUsers extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxUser", "RefCounted"), "XboxUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxAccessibility", "RefCounted"), "XboxAccessibility extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxClosedCaptionProperties", "RefCounted"), "XboxClosedCaptionProperties extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxAchievements", "RefCounted"), "XboxAchievements extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxAchievement", "RefCounted"), "XboxAchievement extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPackage", "RefCounted"), "XboxPackage extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPackageMount", "RefCounted"), "XboxPackageMount extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPackageResourcePack", "RefCounted"), "XboxPackageResourcePack extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxStats", "RefCounted"), "XboxStats extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxLeaderboards", "RefCounted"), "XboxLeaderboards extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxLeaderboard", "RefCounted"), "XboxLeaderboard extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxLeaderboardColumn", "RefCounted"), "XboxLeaderboardColumn extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxLeaderboardRow", "RefCounted"), "XboxLeaderboardRow extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPrivacy", "RefCounted"), "XboxPrivacy extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPresence", "RefCounted"), "XboxPresence extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxPresenceRecord", "RefCounted"), "XboxPresenceRecord extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxSocial", "RefCounted"), "XboxSocial extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxSocialFilter", "RefCounted"), "XboxSocialFilter extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxSocialGroup", "RefCounted"), "XboxSocialGroup extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxSocialUser", "RefCounted"), "XboxSocialUser extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxStore", "RefCounted"), "XboxStore extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxStoreLicenseStatus", "RefCounted"), "XboxStoreLicenseStatus extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxProfile", "RefCounted"), "XboxProfile extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxUserProfile", "RefCounted"), "XboxUserProfile extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxStringVerify", "RefCounted"), "XboxStringVerify extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxTitleStorage", "RefCounted"), "XboxTitleStorage extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxTitleStorageBlobMetadata", "RefCounted"), "XboxTitleStorageBlobMetadata extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxTitleStorageBlobMetadataResult", "RefCounted"), "XboxTitleStorageBlobMetadataResult extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxErrorReporting", "RefCounted"), "XboxErrorReporting extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxSystem", "RefCounted"), "XboxSystem extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxLauncher", "RefCounted"), "XboxLauncher extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxCapture", "RefCounted"), "XboxCapture extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxCaptureMetaData", "RefCounted"), "XboxCaptureMetaData extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxDisplay", "RefCounted"), "XboxDisplay extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxDisplayTimeoutDeferral", "RefCounted"), "XboxDisplayTimeoutDeferral extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxActivation", "RefCounted"), "XboxActivation extends RefCounted")
+	assert_true(ClassDB.is_parent_class("XboxResult", "RefCounted"), "XboxResult extends RefCounted")
 
 
 func test_gdk_root_api() -> void:
@@ -162,7 +162,7 @@ func test_gdk_root_api() -> void:
 	gdk.connect("runtime_error", func(result): runtime_errors.append(result))
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "initialize() returns GDKResult")
+	assert_not_null(init_result, "initialize() returns XboxResult")
 	if init_result == null:
 		disconnect_signal_handlers(gdk, ["initialized", "shutdown_completed", "runtime_error"])
 		return
@@ -174,14 +174,14 @@ func test_gdk_root_api() -> void:
 
 		var runtime_error_count_before_repeat = runtime_errors.size()
 		var repeat_init_result = gdk.initialize()
-		assert_not_null(repeat_init_result, "second initialize() returns GDKResult")
+		assert_not_null(repeat_init_result, "second initialize() returns XboxResult")
 		if repeat_init_result != null:
 			assert_eq(repeat_init_result.ok, false, "second initialize() fails while already initialized")
 			assert_eq(repeat_init_result.code, "already_initialized", "second initialize() reports already_initialized")
 
 			# After the result-only refactor the root GDK.runtime_error is reserved
 			# for XError callback events, so repeated initialize() failures only
-			# surface via the returned GDKResult and must NOT emit runtime_error.
+			# surface via the returned XboxResult and must NOT emit runtime_error.
 			assert_eq(runtime_errors.size(), runtime_error_count_before_repeat, "repeated initialize() does not emit root runtime_error")
 
 		gdk.shutdown()
@@ -197,22 +197,22 @@ func test_gdk_root_api() -> void:
 
 func test_bootstrap_routes_user_signals_through_combined_handler() -> void:
 	var src := FileAccess.get_file_as_string(GDK_BOOTSTRAP_SCRIPT_PATH)
-	assert_true(src.length() > 0, "GDKBootstrap source is mirrored into the GDK test host")
+	assert_true(src.length() > 0, "XboxBootstrap source is mirrored into the GDK test host")
 	if src.is_empty():
 		return
 
-	assert_string_contains(src, "func _on_gdk_user_changed", "GDKBootstrap defines one GDK user-event handler")
-	assert_string_contains(src, 'Callable(self, "_on_gdk_user_changed")', "GDKBootstrap binds the user_changed handler")
-	assert_string_contains(src, "gdk.users.user_changed.connect", "GDKBootstrap connects only the public GDKUsers user event")
+	assert_string_contains(src, "func _on_gdk_user_changed", "XboxBootstrap defines one GDK user-event handler")
+	assert_string_contains(src, 'Callable(self, "_on_gdk_user_changed")', "XboxBootstrap binds the user_changed handler")
+	assert_string_contains(src, "gdk.users.user_changed.connect", "XboxBootstrap connects only the public XboxUsers user event")
 	for signal_name in ["user_added", "user_removed", "primary_user_changed"]:
 		assert_false(
 				src.contains("gdk.users.%s" % signal_name),
-				"GDKBootstrap does not reference removed GDKUsers.%s signal" % signal_name)
+				"XboxBootstrap does not reference removed XboxUsers.%s signal" % signal_name)
 
 	for legacy_handler_name in ["_on_user_added", "_on_user_removed", "_on_user_changed", "_on_primary_user_changed"]:
 		assert_false(
 				src.contains("func %s" % legacy_handler_name),
-				"GDKBootstrap no longer keeps separate %s handlers" % legacy_handler_name)
+				"XboxBootstrap no longer keeps separate %s handlers" % legacy_handler_name)
 
 
 func test_embed_dispatch_behavior() -> void:
@@ -232,7 +232,7 @@ func test_embed_dispatch_behavior() -> void:
 	# posts a completion).
 	set_embed_dispatch_enabled(false)
 	var manual_init_result = initialize_runtime()
-	assert_not_null(manual_init_result, "initialize() returns GDKResult for manual-dispatch coverage")
+	assert_not_null(manual_init_result, "initialize() returns XboxResult for manual-dispatch coverage")
 	if manual_init_result == null:
 		set_embed_dispatch_enabled(original_embed_dispatch)
 		return
@@ -283,7 +283,7 @@ func test_embed_dispatch_behavior() -> void:
 	# positive evidence the op resolves.
 	set_embed_dispatch_enabled(true)
 	var auto_init_result = initialize_runtime()
-	assert_not_null(auto_init_result, "initialize() returns GDKResult for auto-dispatch coverage")
+	assert_not_null(auto_init_result, "initialize() returns XboxResult for auto-dispatch coverage")
 	if auto_init_result == null:
 		set_embed_dispatch_enabled(original_embed_dispatch)
 		return

@@ -25,9 +25,9 @@ internal static class ParityChecker
             return singletonType;
         }
 
-        // GDK native classes use a "GDK" prefix; the C# facade uses "Gdk".
+        // GDK native classes use a "GDK" prefix; the C# facade uses "Xbox".
         string candidate = nativeClassName.StartsWith("GDK", StringComparison.Ordinal)
-            ? "Gdk" + nativeClassName.Substring(3)
+            ? "Xbox" + nativeClassName.Substring(3)
             : nativeClassName;
 
         return facade.GetTypes().FirstOrDefault(t => t.IsPublic && t.Name == candidate)

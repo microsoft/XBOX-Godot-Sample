@@ -73,7 +73,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 Do not expose wrappers for:
 
 - `XGameProtocol.h` — not a *public* wrapper surface. On April 2026+ editions `XGameProtocolRegisterForActivation` / `XGameProtocolUnregisterForActivation` are explicitly `__declspec(deprecated)` and superseded by `XGameActivationRegisterForEvent` / `XGameActivationUnregisterForEvent`; on October 2025 editions (no `XGameActivation.h`) `GDK.activation` uses them internally as the protocol-activation backend. Either way, consume `GDK.activation.protocol_activated` — never a standalone `XGameProtocol` wrapper.
-- `XGameInvite.h` — not a *public* wrapper surface. On April 2026+ editions every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK points each one at the `XGameActivation*` equivalent; on October 2025 editions `GDK.activation` uses them internally as the pending/accepted-invite backend. Consume `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `GDKMultiplayerActivity` subscribes to `GDK.activation`'s internal event fan-out and must not register its own native activation callback.
+- `XGameInvite.h` — not a *public* wrapper surface. On April 2026+ editions every entry point (`XGameInviteRegisterForEvent`, `XGameInviteRegisterForPendingEvent`, the matching `Unregister` calls, and `XGameInviteAcceptPendingInvite`) is `__declspec(deprecated)` and the SDK points each one at the `XGameActivation*` equivalent; on October 2025 editions `GDK.activation` uses them internally as the pending/accepted-invite backend. Consume `GDK.activation` (the `pending_invite_received` and `invite_accepted` signals plus `accept_pending_invite()`); `XboxMultiplayerActivity` subscribes to `GDK.activation`'s internal event fan-out and must not register its own native activation callback.
 
 > Note: `XGameEvent.h`'s `XGameEventWrite` is **wrapped** by `GDK.events` (see the Events scope row and the `GDK.events` service section) and is intentionally not listed here.
 
@@ -100,7 +100,7 @@ This spec borrows the Godot-facing integration patterns that already work well i
 
 Godot's native async/event style is built around first-class [signals](https://docs.godotengine.org/en/stable/classes/class_signal.html), [`await`](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_basics.html#awaiting-signals-or-coroutines), and [`RefCounted`](https://docs.godotengine.org/en/stable/classes/class_refcounted.html) objects. Exposing raw native handles like `XUserHandle`, `XAsyncBlock`, or queue handles directly to GDScript would fight both Godot ergonomics and Godot lifetime rules.
 
-Wrapping native state in Godot objects such as `GDKUser`, `GDKLeaderboard`, and `GDKTitleStorageBlobMetadata`, plus exposing one-shot work through completion signals or op objects where handles are still needed, makes the API fit normal GDScript usage patterns like signal connections and `await GDK.users.add_default_user_async()`. The common Godot pattern `await get_tree().create_timer(...).timeout` ([SceneTreeTimer](https://docs.godotengine.org/en/stable/classes/class_scenetreetimer.html), [SceneTree.create_timer](https://docs.godotengine.org/en/stable/classes/class_scenetree.html#class-scenetree-method-create-timer)) is the bar this API should feel native next to.
+Wrapping native state in Godot objects such as `XboxUser`, `XboxLeaderboard`, and `XboxTitleStorageBlobMetadata`, plus exposing one-shot work through completion signals or op objects where handles are still needed, makes the API fit normal GDScript usage patterns like signal connections and `await GDK.users.add_default_user_async()`. The common Godot pattern `await get_tree().create_timer(...).timeout` ([SceneTreeTimer](https://docs.godotengine.org/en/stable/classes/class_scenetreetimer.html), [SceneTree.create_timer](https://docs.godotengine.org/en/stable/classes/class_scenetree.html#class-scenetree-method-create-timer)) is the bar this API should feel native next to.
 
 ### Why service namespaces instead of a flat root
 
@@ -124,26 +124,50 @@ Godot's observer model is signal-based ([Using Signals](https://docs.godotengine
 
 ## Public API conventions
 
+### Naming: `Xbox*` classes, `GDK` singleton
+
+Godot-facing classes registered by this addon use the `Xbox` prefix (`XboxUser`,
+`XboxAchievement`, `XboxResult`, …), and the native root class is `Xbox`.
+
+The engine **singleton name** is deliberately *not* renamed: the root class is
+registered under the name `GDK` by default, so `GDK.initialize()`,
+`GDK.users`, and every other `GDK.*` call site keeps working. This preserves
+source compatibility for forks and titles already written against the `GDK`
+global while moving the type names to the `Xbox*` convention.
+
+Consequences worth knowing:
+
+- The singleton *name* and the singleton's *class name* are now different
+  strings. Code that validates a resolved singleton must call
+  `is_class("Xbox")` (C#: `IsClass("Xbox")`), not `is_class(<singleton name>)`.
+- `gdk/runtime/*` Project Settings (including `gdk/runtime/singleton_name`,
+  default `"GDK"`), the `addons/godot_gdk` folder, and `godot_gdk.gdextension`
+  are unchanged.
+- No deprecated `GDK*` class aliases are registered. The old class names are
+  gone from `ClassDB`; only the singleton name is preserved for compatibility.
+- The C# facade follows the same rule: namespace `GodotXbox`, static entry
+  point `Xbox`, wrapper types `Xbox*` — resolving the singleton named `GDK`.
+
 ### Global singleton
 
-- `GDK`
+- `GDK` (engine singleton name) — an instance of the `Xbox` class.
 
 ### Wrapper types exposed to GDScript
 
 | Native concept | GDScript wrapper |
 | --- | --- |
 | one-shot async request | `Signal` |
-| `HRESULT` + payload | `GDKResult` |
-| `XUserHandle` | `GDKUser` |
-| package mount lifetime | `GDKPackageMount` |
-| loaded resource-pack metadata | `GDKPackageResourcePack` |
-| Stats and leaderboard payloads | stats `Dictionary`, `GDKLeaderboard`, `GDKLeaderboardColumn`, `GDKLeaderboardRow` |
+| `HRESULT` + payload | `XboxResult` |
+| `XUserHandle` | `XboxUser` |
+| package mount lifetime | `XboxPackageMount` |
+| loaded resource-pack metadata | `XboxPackageResourcePack` |
+| Stats and leaderboard payloads | stats `Dictionary`, `XboxLeaderboard`, `XboxLeaderboardColumn`, `XboxLeaderboardRow` |
 | Privacy check payloads | `Dictionary` |
-| Presence payloads | `GDKPresenceRecord` |
-| Social graph payloads | `GDKSocialUser`, `GDKSocialGroup` |
-| process-wide `XAppCaptureMetadata*` calls | `GDKCaptureMetaData` |
-| Profile payloads | `GDKUserProfile` |
-| Title Storage payloads | `GDKTitleStorageBlobMetadata`, `GDKTitleStorageBlobMetadataResult` |
+| Presence payloads | `XboxPresenceRecord` |
+| Social graph payloads | `XboxSocialUser`, `XboxSocialGroup` |
+| process-wide `XAppCaptureMetadata*` calls | `XboxCaptureMetaData` |
+| Profile payloads | `XboxUserProfile` |
+| Title Storage payloads | `XboxTitleStorageBlobMetadata`, `XboxTitleStorageBlobMetadataResult` |
 
 ### General rules
 
@@ -173,7 +197,7 @@ The wrapper layer should therefore normalize the following mismatches:
 | Ownership | The caller owns the `XAsyncBlock`, callback context, and any result buffers needed by `*Result()` functions. | Script code should never manage raw native handles or callback memory. | Native async state must stay inside extension-owned helper objects. |
 | Completion | Completion may be observed by `XAsync` callback/result extraction or by manager/event state during dispatch. | Completion should be a signal that can be `await`ed. | Every one-shot wrapper returns a completion signal that emits the final result exactly once. |
 | Threading | Work and completion threads are chosen by `XTaskQueue` ports and may differ. | Godot-visible object creation, cache mutation, and signal emission should happen on the main thread. | Use a shared queue with background work and manual completion dispatch, then finalize on `GDK.dispatch()`. |
-| Results | Success/failure lives in `HRESULT` plus API-specific payload structs. | Script code expects one stable result shape with Godot-native data. | Convert native status into a reusable `GDKResult` carrying `ok`, `hresult`, `code`, `message`, and `data`. |
+| Results | Success/failure lives in `HRESULT` plus API-specific payload structs. | Script code expects one stable result shape with Godot-native data. | Convert native status into a reusable `XboxResult` carrying `ok`, `hresult`, `code`, `message`, and `data`. |
 | Cancellation | `XAsyncCancel` is best effort and late completion is still legal. | Completion should resolve at most once even when shutdown or cancellation races native work. | Track cancel state in the internal pending request and ignore or normalize late completions deterministically. |
 | Long-lived updates | Notifications and manager feeds may never finish. | Ongoing state is modeled as caches plus signals. | Use one-shot completion signals only for bounded request/response waits; long-lived systems update service-owned caches and emit service signals. |
 
@@ -189,7 +213,7 @@ The public one-shot completion-signal contract needs a reusable internal bridge 
 
 2. **Script-facing async wrapper**
    - One-shot public methods return a completion `Signal`.
-   - `GDKResult` is the only public success/error payload shape.
+   - `XboxResult` is the only public success/error payload shape.
    - Immediate failures and sync-adapted helpers still complete through the same completion-signal surface.
 
 3. **Internal `XAsync` bridge context**
@@ -222,7 +246,7 @@ Every one-shot wrapper should follow this lifecycle:
 Not every public wrapper maps to a documented native async API. Some operations will adapt synchronous native calls into the same completion-signal shape so GDScript still sees one consistent async contract. Those operations should:
 
 - return a completion `Signal` even when the result is already known
-- resolve the signal with an already-finalized `GDKResult`
+- resolve the signal with an already-finalized `XboxResult`
 - preserve the same cache-before-completion ordering guarantees as native async calls
 
 #### Shutdown behavior
@@ -230,7 +254,7 @@ Not every public wrapper maps to a documented native async API. Some operations 
 Shutdown must be queue-safe and op-safe:
 
 - active one-shot requests should be retained by the runtime until they reach a terminal state
-- queue termination should surface cancellation as failed `GDKResult` values rather than silently dropping callbacks
+- queue termination should surface cancellation as failed `XboxResult` values rather than silently dropping callbacks
 - no service cache or Godot object should be mutated after the runtime starts teardown
 - `GDK.shutdown()` should clean up services first, then terminate and close the shared queue. `XGameRuntimeUninitialize()` is process-lifetime cleanup that runs once when the extension is torn down.
 
@@ -256,17 +280,17 @@ Shutdown must be queue-safe and op-safe:
    - Convert native payloads into Godot-friendly types.
    - Update the owning service cache (`GDK.stats`, `GDK.presence`, etc.).
    - Emit service-level signals like `stats_updated()` or `presence_changed()`.
-   - Resolve the returned completion signal with the final `GDKResult`.
+   - Resolve the returned completion signal with the final `XboxResult`.
 
 By the time the completion signal resolves, the relevant service cache should already be current.
 
 #### Completion signal
 
 ```gdscript
-await some_service.some_method_async() # -> GDKResult
+await some_service.some_method_async() # -> XboxResult
 ```
 
-#### `GDKResult`
+#### `XboxResult`
 
 ```gdscript
 ok: bool
@@ -301,9 +325,9 @@ if not init_result.ok:
     push_error(init_result.message)
     return
 
-var result: GDKResult = await GDK.users.add_default_user_async()
+var result: XboxResult = await GDK.users.add_default_user_async()
 if result.ok:
-    var user: GDKUser = result.data
+    var user: XboxUser = result.data
 ```
 
 #### Example: service cache is current before `completed`
@@ -311,12 +335,12 @@ if result.ok:
 ```gdscript
 GDK.stats.stats_updated.connect(_on_stats_updated)
 
-var result: GDKResult = await GDK.stats.query_user_stats_async(user, PackedStringArray(["xp", "wins"]))
+var result: XboxResult = await GDK.stats.query_user_stats_async(user, PackedStringArray(["xp", "wins"]))
 if result.ok:
     # Safe to read the cache here; service state should already be updated.
     print(GDK.stats.get_cached_stats(user))
 
-func _on_stats_updated(updated_user: GDKUser, stats: Dictionary) -> void:
+func _on_stats_updated(updated_user: XboxUser, stats: Dictionary) -> void:
     print("Stats cache updated before op completion is observed")
 ```
 
@@ -331,7 +355,7 @@ func _process(_delta: float) -> void:
 #### Example: fire-and-forget async operation
 
 ```gdscript
-GDK.stats.query_user_stats_async(user, PackedStringArray(["xp"])).connect(func(result: GDKResult) -> void:
+GDK.stats.query_user_stats_async(user, PackedStringArray(["xp"])).connect(func(result: XboxResult) -> void:
     if not result.ok:
         push_error(result.message)
 )
@@ -344,7 +368,7 @@ var start_result := GDK.social.start_social_graph(user)
 if start_result.ok:
     GDK.social.social_group_updated.connect(_on_social_group_updated)
 
-func _on_social_group_updated(group: GDKSocialGroup) -> void:
+func _on_social_group_updated(group: XboxSocialGroup) -> void:
     var users_result := GDK.social.get_group_users(group)
     if users_result.ok:
         print("Group now has %d users" % users_result.data.size())
@@ -355,41 +379,41 @@ func _on_social_group_updated(group: GDKSocialGroup) -> void:
 #### Root API
 
 ```gdscript
-GDK.initialize(config: Variant = null) -> GDKResult
+GDK.initialize(config: Variant = null) -> XboxResult
 GDK.shutdown() -> void
 GDK.is_available() -> bool
 GDK.is_initialized() -> bool
 GDK.dispatch() -> int
-GDK.get_capture() -> GDKCapture
-GDK.get_system() -> GDKSystem
+GDK.get_capture() -> XboxCapture
+GDK.get_system() -> XboxSystem
 ```
 
 #### Root properties
 
 ```gdscript
-GDK.users: GDKUsers
-GDK.game_ui: GDKGameUI
-GDK.system: GDKSystem
-GDK.accessibility: GDKAccessibility
-GDK.achievements: GDKAchievements
-GDK.package: GDKPackage
-GDK.stats: GDKStats
-GDK.leaderboards: GDKLeaderboards
-GDK.privacy: GDKPrivacy
-GDK.presence: GDKPresence
-GDK.social: GDKSocial
-GDK.profile: GDKProfile
-GDK.string_verify: GDKStringVerify
-GDK.title_storage: GDKTitleStorage
-GDK.error_reporting: GDKErrorReporting
-GDK.launcher: GDKLauncher
-GDK.capture: GDKCapture
-GDK.activation: GDKActivation
-GDK.multiplayer_activity: GDKMultiplayerActivity
-GDK.speech: GDKSpeechSynthesizer
-GDK.events: GDKEvents
-GDK.game_save: GDKGameSave
-GDK.game_chat: GDKGameChat
+GDK.users: XboxUsers
+GDK.game_ui: XboxGameUI
+GDK.system: XboxSystem
+GDK.accessibility: XboxAccessibility
+GDK.achievements: XboxAchievements
+GDK.package: XboxPackage
+GDK.stats: XboxStats
+GDK.leaderboards: XboxLeaderboards
+GDK.privacy: XboxPrivacy
+GDK.presence: XboxPresence
+GDK.social: XboxSocial
+GDK.profile: XboxProfile
+GDK.string_verify: XboxStringVerify
+GDK.title_storage: XboxTitleStorage
+GDK.error_reporting: XboxErrorReporting
+GDK.launcher: XboxLauncher
+GDK.capture: XboxCapture
+GDK.activation: XboxActivation
+GDK.multiplayer_activity: XboxMultiplayerActivity
+GDK.speech: XboxSpeechSynthesizer
+GDK.events: XboxEvents
+GDK.game_save: XboxGameSave
+GDK.game_chat: XboxGameChat
 ```
 
 #### Root signals
@@ -397,12 +421,12 @@ GDK.game_chat: GDKGameChat
 ```gdscript
 initialized()
 shutdown_completed()
-runtime_error(result: GDKResult)  # XError-only: see Error reporting
+runtime_error(result: XboxResult)  # XError-only: see Error reporting
 ```
 
 `runtime_error` on the root singleton is reserved for `XError` callback events
-sourced from `GDKErrorReporting::dispatch()`. Caller-driven failures are
-delivered as the per-call `GDKResult` (return value or async signal payload),
+sourced from `XboxErrorReporting::dispatch()`. Caller-driven failures are
+delivered as the per-call `XboxResult` (return value or async signal payload),
 not via this signal. Per-service unsolicited errors (e.g. background social
 graph or achievement dispatch failures) are emitted as
 `GDK.<service>.runtime_error(result)` (currently `GDK.social.runtime_error`
@@ -411,8 +435,8 @@ and `GDK.achievements.runtime_error`).
 #### Runtime behavior
 
 - `initialize()` sets up the GDK runtime and the shared `XTaskQueue`. When `config` is a `Dictionary`, Xbox services accepts the first SCID override found at `scid`, `service_configuration_id`, `xbox_live/scid`, or nested `xbox_live.scid`; otherwise it derives the current-title SCID from `XGameGetXboxTitleId()`.
-- Calling `initialize()` again without `shutdown()` returns `GDKResult.code == "already_initialized"`, so startup helpers should guard with `GDK.is_initialized()`.
-- `is_available()` reflects the compile-time `_GAMING_DESKTOP` gate exposed by `GDKRuntime::is_available()`.
+- Calling `initialize()` again without `shutdown()` returns `XboxResult.code == "already_initialized"`, so startup helpers should guard with `GDK.is_initialized()`.
+- `is_available()` reflects the compile-time `_GAMING_DESKTOP` gate exposed by `XboxRuntime::is_available()`.
 - `dispatch()` manually dispatches pending completions when automatic dispatch is disabled or when deterministic control is needed.
 - `gdk/runtime/embed_dispatch` defaults to `true` and enables automatic per-frame dispatch from the main thread.
 
@@ -421,12 +445,12 @@ and `GDK.achievements.runtime_error`).
 | Public surface | Native API(s) | Notes |
 | --- | --- | --- |
 | `GDK.initialize()` | `XGameRuntimeInitializeWithOptions` (`File` source pointing at `res://MicrosoftGame.config`) in Godot editor sessions only, otherwise plain `XGameRuntimeInitialize`, `XTaskQueueCreate` | Creates the shared task queue and runtime bootstrap state used by all one-shot completion signals and service-owned callback bridges. The `WithOptions` path is gated to editor sessions (the editor and editor-launched `godot project.godot` runs, detected via the `editor` feature tag), which lack package identity, so downstream `XGameGetXboxTitleId` / `XblInitialize` calls do not surface `xbox_title_id_unavailable`. Every exported/templated build (packaged, registered, or loose) gets identity from its package and takes the plain-init path; packaged builds reject custom options with `E_GAMERUNTIME_OPTIONS_NOT_SUPPORTED` (`0x8924010A`). |
-| `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle` | Service and user cleanup runs first; queue teardown happens last. `XGameRuntimeUninitialize()` is intentionally reserved for extension teardown (`~GDKRuntime()`), not each shutdown cycle. |
+| `GDK.shutdown()` | `XTaskQueueTerminate`, `XTaskQueueCloseHandle` | Service and user cleanup runs first; queue teardown happens last. `XGameRuntimeUninitialize()` is intentionally reserved for extension teardown (`~XboxRuntime()`), not each shutdown cycle. |
 | `GDK.dispatch()` | `XTaskQueueDispatch`, `XblAchievementsManagerDoWork`, `XblSocialManagerDoWork`, `XErrorSetCallback` callback-drain bridge | Main-thread pump. Dispatch the completion port, translate native payloads into Godot objects, update caches, then emit signals. |
 | `GDK.launcher.launch_uri()` | `XLaunchUri` (`XLauncher.h`, `xgameruntime.lib`) | PC-supported URI launcher surface for app-to-app, Store, and Settings destinations. |
-| per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `GDKUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
+| per-user Xbox services context | `XblContextCreateHandle`, `XblContextCloseHandle` | Create once for each admitted `XboxUser`; store inside the wrapper for achievements, stats, leaderboards, presence, and social calls. |
 
-Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared queue and complete it only after the Godot-side cache and wrapper state are current. Shutdown cancellation is terminal: retained pending signals must queue exactly one completion with `GDKResult.code == "cancelled"` before the shared queue is terminated.
+Every one-shot async wrapper should allocate an `XAsyncBlock` against the shared queue and complete it only after the Godot-side cache and wrapper state are current. Shutdown cancellation is terminal: retained pending signals must queue exactly one completion with `XboxResult.code == "cancelled"` before the shared queue is terminated.
 
 ### Service specifications
 
@@ -437,14 +461,14 @@ Unless otherwise noted, the service sections below follow the global naming, typ
 ##### Methods
 
 ```gdscript
-launch_uri(uri: String, user: GDKUser = null) -> GDKResult
+launch_uri(uri: String, user: XboxUser = null) -> XboxResult
 ```
 
 ##### Validation contract
 
 - `launch_uri` rejects blank/malformed input with `invalid_uri`.
 - Unsupported URI destinations reject with `unsupported_launcher_destination`.
-- Optional `user` must be a signed-in `GDKUser` when provided (`invalid_user`).
+- Optional `user` must be a signed-in `XboxUser` when provided (`invalid_user`).
 
 #### `GDK.speech` service
 
@@ -452,10 +476,10 @@ launch_uri(uri: String, user: GDKUser = null) -> GDKResult
 
 ```gdscript
 get_installed_voices() -> Array            # [{id, display_name, language, gender, description}, ...]
-set_default_voice() -> GDKResult
-set_custom_voice(voice_id: String) -> GDKResult
-synthesize_text(text: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
-synthesize_ssml(ssml: String) -> GDKResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+set_default_voice() -> XboxResult
+set_custom_voice(voice_id: String) -> XboxResult
+synthesize_text(text: String) -> XboxResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
+synthesize_ssml(ssml: String) -> XboxResult        # data.audio_wav := PackedByteArray (RIFF/WAV), data.byte_count
 synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on failure
 ```
 
@@ -474,7 +498,7 @@ synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on fa
 | `get_installed_voices()` | `XSpeechSynthesizerEnumerateInstalledVoices` | Collects `XSpeechSynthesizerVoiceInformation` rows into dictionaries. |
 | `set_default_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetDefaultVoice` | Creates the synthesizer lazily. |
 | `set_custom_voice()` | `XSpeechSynthesizerCreate`, `XSpeechSynthesizerSetCustomVoice` | Selects a voice by id. |
-| `synthesize_text()` | `XSpeechSynthesizerCreateStreamFromText`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | Returns RIFF/WAV bytes in `GDKResult.data.audio_wav`. |
+| `synthesize_text()` | `XSpeechSynthesizerCreateStreamFromText`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | Returns RIFF/WAV bytes in `XboxResult.data.audio_wav`. |
 | `synthesize_ssml()` | `XSpeechSynthesizerCreateStreamFromSsml`, `XSpeechSynthesizerGetStreamDataSize`, `XSpeechSynthesizerGetStreamData`, `XSpeechSynthesizerCloseStreamHandle` | SSML variant of `synthesize_text`. |
 | `synthesize_to_stream()` | (decodes the `synthesize_text` WAV bytes) | Parses the RIFF/WAV header and returns a ready-to-play `AudioStreamWAV`. |
 | service shutdown | `XSpeechSynthesizerCloseHandle` | Releases the cached synthesizer. |
@@ -484,7 +508,7 @@ synthesize_to_stream(text: String) -> AudioStreamWAV   # convenience; null on fa
 ##### Methods
 
 ```gdscript
-write_event(user: GDKUser, event_name: String, dimensions := {}, measurements := {}) -> GDKResult
+write_event(user: XboxUser, event_name: String, dimensions := {}, measurements := {}) -> XboxResult
 set_play_session_id(play_session_id: String)   # empty string regenerates a fresh GUID
 get_play_session_id() -> String
 ```
@@ -492,9 +516,9 @@ get_play_session_id() -> String
 ##### Behavior contract
 
 - `GDK.events` is the GDK-native in-game telemetry path, complementary to PlayFab analytics (`godot_playfab`). Titles may use either or both.
-- `write_event()` is synchronous and returns a `GDKResult`; the runtime batches and uploads events asynchronously.
+- `write_event()` is synchronous and returns an `XboxResult`; the runtime batches and uploads events asynchronously.
 - `dimensions` hold fields with a finite set of values (map id, difficulty, mode, boolean settings); `measurements` hold scalar numeric metrics (score, time, counters, position). Both `Dictionary` payloads are serialized to JSON internally.
-- The SCID is pulled from the cached `GDKXboxServices` state; `play_session_id` is a per-session GUID auto-generated on runtime init and overridable via `set_play_session_id()`.
+- The SCID is pulled from the cached `XboxServices` state; `play_session_id` is a per-session GUID auto-generated on runtime init and overridable via `set_play_session_id()`.
 - The event name and the names of all `dimensions`/`measurements` fields must match the title's Xbox Live service-configuration event manifest (case-insensitive); the service **silently drops** events whose names do not match.
 - Graceful degradation: returns `events_feature_unavailable` on `E_NOTIMPL` when the GRTS XGameEvent feature/runtime is not installed. Other validation failures return `invalid_event_name`, `invalid_user`, `not_initialized`, or `xbox_services_uninitialized`.
 
@@ -502,7 +526,7 @@ get_play_session_id() -> String
 
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
-| `write_event()` | `XGameEventWrite` (`XGameEvent.h`) | Primary GDK telemetry write path. Requires a signed-in `GDKUser` handle and the cached SCID; `dimensions`/`measurements` are JSON-serialized. |
+| `write_event()` | `XGameEventWrite` (`XGameEvent.h`) | Primary GDK telemetry write path. Requires a signed-in `XboxUser` handle and the cached SCID; `dimensions`/`measurements` are JSON-serialized. |
 | `set_play_session_id()` / `get_play_session_id()` | (wrapper-managed GUID) | Session-scoped GUID forwarded as `playSessionId` to `XGameEventWrite`. |
 
 > The alternate Xbox Services write path `XblEventsWriteInGameEvent` (`events_c.h`) is intentionally **not** wrapped; `XGameEventWrite` is the primary GDK path. The `XblEventsSet*` configuration/tuning functions remain internal-gated.
@@ -512,17 +536,17 @@ get_play_session_id() -> String
 ##### Methods
 
 ```gdscript
-get_folder_async(user: GDKUser) -> Signal            # GDKResult.data.path := absolute save-folder path
-get_remaining_quota_async(user: GDKUser) -> Signal   # GDKResult.data.bytes := remaining quota in bytes
+get_folder_async(user: XboxUser) -> Signal            # XboxResult.data.path := absolute save-folder path
+get_remaining_quota_async(user: XboxUser) -> Signal   # XboxResult.data.bytes := remaining quota in bytes
 ```
 
 ##### Behavior contract
 
 - `GDK.game_save` wraps the GDK-native file-style save API (`XGameSaveFiles.h`), which is backed by **Connected Storage**. It is distinct from PlayFab Game Saves (`godot_playfab`) and from Xbox Services Title Storage (`GDK.title_storage`).
 - The title must be configured for Connected Storage-backed saves: `TitleId` + `MSAAppId` in `MicrosoftGame.config`, a SCID matching Partner Center (**Xbox services → Xbox settings**), **Connected Storage** enabled for the title in Partner Center, and registered package identity (the per-user store lives under `%LOCALAPPDATA%\Packages\<package>\SystemAppData\xgs\`). The Connected Storage option currently sits on Partner Center's **Gameplay settings → Title Storage** page, but Connected Storage is a different system from Xbox Services Title Storage — enabling the title/global/universal storage types does nothing for Game Saves. A mismatch surfaces as `E_GS_NO_ACCESS` (`0x80830002`), which the wrapper propagates verbatim. The `SaveGameStorage` element is **not** required for these APIs — it configures the separate no-code cloud-saves feature.
-- `get_folder_async()` wraps `XGameSaveFilesGetFolderWithUiAsync`: it resolves (and may surface a system UI for) the user's save folder, returning the absolute path in `GDKResult.data.path`. Titles then read/write ordinary files under that folder.
-- `get_remaining_quota_async()` wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `GDKResult.data.bytes`. The native entry point is synchronous and `XGameSaveFiles` exposes no async variant, but the GDK fails the call with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`) when it is issued from a time-sensitive thread such as Godot's main thread. The wrapper therefore drives it through a custom `XAsyncProvider` that executes the call on the shared task queue's work port and completes the pending signal from the queue's completion port on the main thread. Unlike `get_folder_async()`, the request binds no cancel handler: the blocking native call cannot be interrupted, so forwarding to `XAsyncCancel` would be inert. This is not caller-visible — neither method exposes a cancel API, since both return a bare `Signal` and `GDKPendingSignal` is an internal class. Runtime shutdown still resolves the awaiter with a cancelled `GDKResult`, so no `await` can hang.
-- The service configuration id (SCID) is pulled from the cached `GDKXboxServices` state. Validation failures return `not_initialized`, `invalid_user`, or `xbox_services_uninitialized`.
+- `get_folder_async()` wraps `XGameSaveFilesGetFolderWithUiAsync`: it resolves (and may surface a system UI for) the user's save folder, returning the absolute path in `XboxResult.data.path`. Titles then read/write ordinary files under that folder.
+- `get_remaining_quota_async()` wraps `XGameSaveFilesGetRemainingQuota`, returning the remaining byte quota in `XboxResult.data.bytes`. The native entry point is synchronous and `XGameSaveFiles` exposes no async variant, but the GDK fails the call with `E_GS_ASYNC_FUNCTION_REQUIRED` (`0x8083000E`) when it is issued from a time-sensitive thread such as Godot's main thread. The wrapper therefore drives it through a custom `XAsyncProvider` that executes the call on the shared task queue's work port and completes the pending signal from the queue's completion port on the main thread. Unlike `get_folder_async()`, the request binds no cancel handler: the blocking native call cannot be interrupted, so forwarding to `XAsyncCancel` would be inert. This is not caller-visible — neither method exposes a cancel API, since both return a bare `Signal` and `XboxPendingSignal` is an internal class. Runtime shutdown still resolves the awaiter with a cancelled `XboxResult`, so no `await` can hang.
+- The service configuration id (SCID) is pulled from the cached `XboxServices` state. Validation failures return `not_initialized`, `invalid_user`, or `xbox_services_uninitialized`.
 
 ##### Native API mapping
 
@@ -538,19 +562,19 @@ get_remaining_quota_async(user: GDKUser) -> Signal   # GDKResult.data.bytes := r
 ##### Methods
 
 ```gdscript
-initialize(max_users := 16, default_relationship := GDKGameChat.RELATIONSHIP_SEND_AND_RECEIVE_ALL) -> GDKResult
+initialize(max_users := 16, default_relationship := XboxGameChat.RELATIONSHIP_SEND_AND_RECEIVE_ALL) -> XboxResult
 is_initialized() -> bool
 cleanup() -> void
-add_local_user(user: GDKUser) -> GDKResult                                  # GDKResult.data.xuid
-add_remote_user(xuid: String, endpoint_id: int) -> GDKResult               # GDKResult.data := {xuid, endpoint_id}
-remove_user(xuid: String) -> GDKResult
-set_communication_relationship(local_xuid, target_xuid, relationship: int) -> GDKResult
-set_microphone_muted(local_xuid: String, muted: bool) -> GDKResult
-set_remote_user_muted(local_xuid: String, target_xuid: String, muted: bool) -> GDKResult
-set_audio_render_volume(local_xuid: String, target_xuid: String, volume: float) -> GDKResult
-send_text(local_xuid: String, text: String) -> GDKResult
-synthesize_text_to_speech(local_xuid: String, text: String) -> GDKResult
-process_incoming_data_frame(source_endpoint_id: int, bytes: PackedByteArray) -> GDKResult
+add_local_user(user: XboxUser) -> XboxResult                                  # XboxResult.data.xuid
+add_remote_user(xuid: String, endpoint_id: int) -> XboxResult               # XboxResult.data := {xuid, endpoint_id}
+remove_user(xuid: String) -> XboxResult
+set_communication_relationship(local_xuid, target_xuid, relationship: int) -> XboxResult
+set_microphone_muted(local_xuid: String, muted: bool) -> XboxResult
+set_remote_user_muted(local_xuid: String, target_xuid: String, muted: bool) -> XboxResult
+set_audio_render_volume(local_xuid: String, target_xuid: String, volume: float) -> XboxResult
+send_text(local_xuid: String, text: String) -> XboxResult
+synthesize_text_to_speech(local_xuid: String, text: String) -> XboxResult
+process_incoming_data_frame(source_endpoint_id: int, bytes: PackedByteArray) -> XboxResult
 get_chat_users() -> Array          # [{xuid, is_local, chat_indicator}]
 ```
 
@@ -567,8 +591,8 @@ transcribed_chat_received(speaker_xuid: String, message: String)
 - `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) C++ `chat_manager` singleton. It is the GDK-native voice + text chat option; PlayFab Party (`godot_playfab`) is the batteries-included alternative that owns its own transport.
 - **No transport is built or selected.** Game Chat encodes its own opaque audio/text data frames; the wrapper exposes that surface only. During the per-frame pump (driven by `GDK.dispatch()`), each frame Game Chat wants to send is emitted on `outgoing_data_frame`; the title delivers those bytes over whatever transport it already has and calls `process_incoming_data_frame()` on each receiving instance. The sample and tests demonstrate this with single-process **loopback** (feeding each `outgoing_data_frame` straight back into `process_incoming_data_frame`).
 - `initialize()` requires the GDK runtime to be initialized; it then initializes the `chat_manager` for `max_users` combined local + remote users with `default_relationship` between new users. Re-initializing without `cleanup()` first returns `already_initialized`; `max_users <= 0` returns `invalid_max_users`.
-- `add_local_user()` requires a signed-in `GDKUser` (its decimal XUID); remote users are added by XUID + a title-assigned `endpoint_id` used to address outgoing frames and attribute incoming ones.
-- Independent voice and text control mirrors PlayFab Party: `set_communication_relationship()` takes a bitwise combination of `GDKGameChat.CommunicationRelationship` flags (separate send/receive bits for microphone, text-to-speech audio, and text), and `set_microphone_muted()` / `set_remote_user_muted()` / `set_audio_render_volume()` provide per-user mute and volume.
+- `add_local_user()` requires a signed-in `XboxUser` (its decimal XUID); remote users are added by XUID + a title-assigned `endpoint_id` used to address outgoing frames and attribute incoming ones.
+- Independent voice and text control mirrors PlayFab Party: `set_communication_relationship()` takes a bitwise combination of `XboxGameChat.CommunicationRelationship` flags (separate send/receive bits for microphone, text-to-speech audio, and text), and `set_microphone_muted()` / `set_remote_user_muted()` / `set_audio_render_volume()` provide per-user mute and volume.
 - Inbound text and transcription surface on `text_chat_received` / `transcribed_chat_received` during the pump. `shutdown()` calls `cleanup()` automatically.
 - Real voice capture/render requires multi-machine audio hardware and cannot be validated headlessly (mirrors the Party "voice deferred" stance); headless coverage exercises the service surface, enum constants, lifecycle, and data-frame plumbing.
 
@@ -602,35 +626,35 @@ transcribed_chat_received(speaker_xuid: String, message: String)
 add_default_user_async() -> Signal
 add_user_with_ui_async(allow_guests := false) -> Signal
 add_user_by_id_with_ui_async(xuid: String) -> Signal
-get_primary_user() -> GDKUser
-get_users() -> Array[GDKUser]
-get_max_users() -> GDKResult                       # data: int
+get_primary_user() -> XboxUser
+get_users() -> Array[XboxUser]
+get_max_users() -> XboxResult                       # data: int
 is_sign_out_available() -> bool
-sign_out_async(user: GDKUser) -> Signal
-acquire_sign_out_deferral() -> GDKResult           # data: GDKUserSignOutDeferral
-find_user_by_xuid(xuid: String) -> GDKResult       # data: GDKUser
-find_user_by_local_id(local_id: int) -> GDKResult  # data: GDKUser
-find_user_for_device(device_id: String) -> GDKResult  # data: GDKUser
-find_controller_for_user_with_ui_async(user: GDKUser) -> Signal
+sign_out_async(user: XboxUser) -> Signal
+acquire_sign_out_deferral() -> XboxResult           # data: XboxUserSignOutDeferral
+find_user_by_xuid(xuid: String) -> XboxResult       # data: XboxUser
+find_user_by_local_id(local_id: int) -> XboxResult  # data: XboxUser
+find_user_for_device(device_id: String) -> XboxResult  # data: XboxUser
+find_controller_for_user_with_ui_async(user: XboxUser) -> Signal
 get_device_associations() -> Array                 # [{device_id, user_local_id}]
-get_devices_for_user(user: GDKUser) -> PackedStringArray
-get_default_audio_endpoint(user: GDKUser, kind := GDKUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER) -> GDKResult
-check_privilege_async(user: GDKUser, privilege: int) -> Signal
-resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
-resolve_issue_with_ui_async(user: GDKUser, url := "") -> Signal
-get_gamer_picture_async(user: GDKUser, size := "medium") -> Signal
-get_token_and_signature_async(user: GDKUser, method: String, url: String, headers := {}, body := PackedByteArray(), force_refresh := false) -> Signal
+get_devices_for_user(user: XboxUser) -> PackedStringArray
+get_default_audio_endpoint(user: XboxUser, kind := XboxUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER) -> XboxResult
+check_privilege_async(user: XboxUser, privilege: int) -> Signal
+resolve_privilege_with_ui_async(user: XboxUser, privilege: int) -> Signal
+resolve_issue_with_ui_async(user: XboxUser, url := "") -> Signal
+get_gamer_picture_async(user: XboxUser, size := "medium") -> Signal
+get_token_and_signature_async(user: XboxUser, method: String, url: String, headers := {}, body := PackedByteArray(), force_refresh := false) -> Signal
 ```
 
 ##### Signals
 
 ```gdscript
-user_changed(user: GDKUser, change_kind: String)
+user_changed(user: XboxUser, change_kind: String)
 device_association_changed(device_id: String, old_user_local_id: int, new_user_local_id: int)
 default_audio_endpoint_changed(user_local_id: int, kind: int, endpoint_id: String)
 ```
 
-##### `GDKUser`
+##### `XboxUser`
 
 ```gdscript
 get_local_id() -> int
@@ -639,19 +663,19 @@ get_gamertag() -> String                  # classic component
 get_modern_gamertag() -> String
 get_modern_gamertag_suffix() -> String
 get_unique_modern_gamertag() -> String
-get_age_group() -> GDKUser.AgeGroup
+get_age_group() -> XboxUser.AgeGroup
 get_age_group_name() -> String
-get_sign_in_state() -> GDKUser.SignInState
+get_sign_in_state() -> XboxUser.SignInState
 get_sign_in_state_name() -> String
 is_guest() -> bool
 is_signed_in() -> bool
 is_store_user() -> bool
 is_valid() -> bool
-is_same_user(other: GDKUser) -> bool
-duplicate_user() -> GDKUser
+is_same_user(other: XboxUser) -> bool
+duplicate_user() -> XboxUser
 ```
 
-##### `GDKUserSignOutDeferral`
+##### `XboxUserSignOutDeferral`
 
 ```gdscript
 is_valid() -> bool
@@ -662,29 +686,29 @@ release() -> void
 
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
-| `add_default_user_async()` | `XUserAddAsync`, `XUserAddResult` | Uses the silent default-user path without guest support; on success, populate `GDKUser`, create `XblContextHandle`, and ensure change notifications are registered. |
-| `add_user_with_ui_async(allow_guests := false)` | `XUserAddAsync`, `XUserAddResult` | Interactive add path. **Requires the advanced user model** — under the simplified (PC-default) user model `XUserAddAsync` rejects every interactive option (`None`, `AddDefaultUserAllowingUI`, `AllowGuests`) with `E_INVALIDARG`; only the silent `add_default_user_async()` works there. By default (`allow_guests = false`) uses `AddDefaultUserAllowingUI` to resolve the launching default user with the system sign-in UI. Pass `allow_guests = true` to open the full account picker (`AllowGuests`, without the default/silent options) so the player can choose any account, including guests. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation (`E_ABORT`) the wrapper normalizes it to a cancelled `GDKResult`. Post-processing matches the default-user path except that later adds do not replace the session primary user once one already exists. |
+| `add_default_user_async()` | `XUserAddAsync`, `XUserAddResult` | Uses the silent default-user path without guest support; on success, populate `XboxUser`, create `XblContextHandle`, and ensure change notifications are registered. |
+| `add_user_with_ui_async(allow_guests := false)` | `XUserAddAsync`, `XUserAddResult` | Interactive add path. **Requires the advanced user model** — under the simplified (PC-default) user model `XUserAddAsync` rejects every interactive option (`None`, `AddDefaultUserAllowingUI`, `AllowGuests`) with `E_INVALIDARG`; only the silent `add_default_user_async()` works there. By default (`allow_guests = false`) uses `AddDefaultUserAllowingUI` to resolve the launching default user with the system sign-in UI. Pass `allow_guests = true` to open the full account picker (`AllowGuests`, without the default/silent options) so the player can choose any account, including guests. Whether dismissing the system UI completes the request is GDK platform behavior; when the platform reports cancellation (`E_ABORT`) the wrapper normalizes it to a cancelled `XboxResult`. Post-processing matches the default-user path except that later adds do not replace the session primary user once one already exists. |
 | `add_user_by_id_with_ui_async(xuid)` | `XUserAddByIdWithUiAsync`, `XUserAddByIdWithUiResult` | Re-establishes one specific account by decimal XUID, showing UI only if that account needs attention. This is the XR-112 "resume the prior user's session" path: after resume the title asks for the same user it had rather than opening a blind account picker. Post-processing is identical to the other add paths. |
-| `get_max_users()` | `XUserGetMaxUsers` | Synchronous capability probe returning the platform's simultaneous local-user cap in `GDKResult.data`. |
+| `get_max_users()` | `XUserGetMaxUsers` | Synchronous capability probe returning the platform's simultaneous local-user cap in `XboxResult.data`. |
 | `is_sign_out_available()` | `XUserIsSignOutPresent` | Synchronous `bool`. It is the documented gate for `sign_out_async()`; the wrapper also enforces it and fails with `sign_out_not_available` when the platform has no title-driven sign-out. |
 | `sign_out_async(user)` | `XUserSignOutAsync`, `XUserSignOutResult` | On success the wrapper reconciles the users cache itself instead of waiting for the `XUserChangeEvent::SignedOut` callback, so `get_users()`/`get_primary_user()` are already correct when the completion `Signal` resolves. Whichever path (completion or change event) runs first removes the user and emits `user_changed(user, "removed")` exactly once. |
-| `acquire_sign_out_deferral()` | `XUserGetSignOutDeferral`, `XUserCloseSignOutDeferralHandle` | Returns a `GDKUserSignOutDeferral` in `GDKResult.data`, mirroring `GDKDisplayTimeoutDeferral`. The handle is closed on `release()` or when the wrapper is freed; closing does not require an initialized runtime, so `release()` is safe after `GDK.shutdown()`. |
-| `find_user_by_xuid(xuid)` | `XUserFindUserById` | Synchronous, non-prompting lookup of a signed-in user. Used on resume to validate that an expected user is still signed in. When the found user is already cached, the wrapper returns the cached `GDKUser` (matching object identity with `get_users()`) and releases the freshly opened handle. |
+| `acquire_sign_out_deferral()` | `XUserGetSignOutDeferral`, `XUserCloseSignOutDeferralHandle` | Returns an `XboxUserSignOutDeferral` in `XboxResult.data`, mirroring `XboxDisplayTimeoutDeferral`. The handle is closed on `release()` or when the wrapper is freed; closing does not require an initialized runtime, so `release()` is safe after `GDK.shutdown()`. |
+| `find_user_by_xuid(xuid)` | `XUserFindUserById` | Synchronous, non-prompting lookup of a signed-in user. Used on resume to validate that an expected user is still signed in. When the found user is already cached, the wrapper returns the cached `XboxUser` (matching object identity with `get_users()`) and releases the freshly opened handle. |
 | `find_user_by_local_id(local_id)` | `XUserFindUserByLocalId` | Same contract as `find_user_by_xuid()`; the natural way to resolve a local id delivered by `device_association_changed`. |
 | `find_user_for_device(device_id)` | `XUserFindForDevice` | Resolves the user currently paired with a device id. `device_id` is the 64-character lowercase hex encoding of `APP_LOCAL_DEVICE_ID`. |
 | `find_controller_for_user_with_ui_async(user)` | `XUserFindControllerForUserWithUiAsync`, `XUserFindControllerForUserWithUiResult` | **XR-112 requirement.** Opens the system controller-selection dialog when a user has no assigned controller at activation or after resume. Successful results carry `device_id` and `has_device` (false when the platform returns `XUserNullDeviceId`). |
 | `get_device_associations()`, `get_devices_for_user()`, `device_association_changed` | `XUserRegisterForDeviceAssociationChanged`, `XUserUnregisterForDeviceAssociationChanged` | One runtime-wide registration against the shared queue, installed during `GDK.initialize()`. The platform replays every existing pairing when the registration is added, so the service's association cache is the authoritative user↔controller view XR-112 requires. Registration failure is **non-fatal**: it is reported through `GDK.runtime_error` and leaves the cache empty rather than failing initialization. A local id of `0` means "no user" and removes the device from the cache. |
 | `get_default_audio_endpoint()`, `default_audio_endpoint_changed` | `XUserGetDefaultAudioEndpointUtf16`, `XUserRegisterForDefaultAudioEndpointUtf16Changed`, `XUserUnregisterForDefaultAudioEndpointUtf16Changed` | Per-user default communication render/capture endpoint id. The change registration is installed and torn down alongside the device-association registration and is non-fatal in the same way. |
-| `check_privilege_async()` | `XUserCheckPrivilege` | There is no documented async privilege-check API in `XUser`; this wrapper should convert the synchronous result into a deferred completion `Signal`. Successful results carry a `Dictionary` in `GDKResult.data` with `privilege`, `has_privilege`, `deny_reason`, and `deny_reason_value`. If the check returns `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED`, the request should fail and direct callers to `resolve_issue_with_ui_async()`. |
+| `check_privilege_async()` | `XUserCheckPrivilege` | There is no documented async privilege-check API in `XUser`; this wrapper should convert the synchronous result into a deferred completion `Signal`. Successful results carry a `Dictionary` in `XboxResult.data` with `privilege`, `has_privilege`, `deny_reason`, and `deny_reason_value`. If the check returns `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED`, the request should fail and direct callers to `resolve_issue_with_ui_async()`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Use the native UI remediation path when `check_privilege_async()` reports that a privilege is denied and the title wants to let the player resolve it immediately. Successful results can carry a small `Dictionary` payload that echoes the resolved privilege id. |
 | `resolve_issue_with_ui_async()` | `XUserResolveIssueWithUiAsync`, `XUserResolveIssueWithUiResult` | This is the remediation path for `E_GAMEUSER_RESOLVE_USER_ISSUE_REQUIRED` from `XUser` getters such as age-group lookups and from privilege checks. Treat an empty `url` as the Xbox services/default flow and pass a URL only when the underlying issue is request-specific. |
-| `get_gamer_picture_async()` | `XUserGetGamerPictureAsync`, `XUserGetGamerPictureResultSize`, `XUserGetGamerPictureResult` | Accept `small`, `medium`, `large`, and `extra_large` size strings. Decode the returned PNG bytes into a Godot `Image` and place that `Image` in `GDKResult.data`. |
+| `get_gamer_picture_async()` | `XUserGetGamerPictureAsync`, `XUserGetGamerPictureResultSize`, `XUserGetGamerPictureResult` | Accept `small`, `medium`, `large`, and `extra_large` size strings. Decode the returned PNG bytes into a Godot `Image` and place that `Image` in `XboxResult.data`. |
 | `get_token_and_signature_async()` | `XUserGetTokenAndSignatureAsync`, `XUserGetTokenAndSignatureResultSize`, `XUserGetTokenAndSignatureResult` | First-pass token support should expose explicit request parameters: HTTP method, full URL, headers `Dictionary`, optional `PackedByteArray` body, and `force_refresh`. Successful results carry a `Dictionary` with `token` and `signature`. |
-| `user_changed` | `XUserRegisterForChangeEvent`, `XUserUnregisterForChangeEvent` | Register one runtime-wide change callback against the shared queue and reconcile affected `GDKUser` wrappers by local id. `user_changed` is the only public users-service event and should emit the affected wrapper plus a snake_case `change_kind` string: `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`. For `removed`, emit the removed wrapper after it has been removed from the users cache so handlers can read identity fields without seeing it in `get_users()`. |
-| `GDKUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `GDKUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. `XUserGetGamertag` is read once per component: `get_gamertag()` is the required `Classic` component and fails the populate, while the `Modern`, `ModernSuffix`, and `UniqueModern` components are optional metadata that degrade to empty strings on accounts or platforms that do not expose them. |
-| `GDKUser.is_same_user()`, `GDKUser.duplicate_user()` | `XUserCompare`, `XUserDuplicateHandle` | `is_same_user()` compares two handles so a cached wrapper and a fresh `find_user_*()` lookup for the same account compare equal. `duplicate_user()` hands back an independently owned handle for titles that need a user to outlive the service cache. |
+| `user_changed` | `XUserRegisterForChangeEvent`, `XUserUnregisterForChangeEvent` | Register one runtime-wide change callback against the shared queue and reconcile affected `XboxUser` wrappers by local id. `user_changed` is the only public users-service event and should emit the affected wrapper plus a snake_case `change_kind` string: `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`. For `removed`, emit the removed wrapper after it has been removed from the users cache so handlers can read identity fields without seeing it in `get_users()`. |
+| `XboxUser` getters | `XUserGetLocalId`, `XUserGetId`, `XUserGetGamertag`, `XUserGetAgeGroup`, `XUserGetIsGuest`, `XUserGetState`, `XUserIsStoreUser` | Pure wrapper accessors with no extra service traffic. Expose age-group and sign-in state as Godot enums with bound constants on `XboxUser`, and provide `get_age_group_name()` / `get_sign_in_state_name()` for human-readable snake_case strings such as `adult` and `signed_in`. `XUserGetGamertag` is read once per component: `get_gamertag()` is the required `Classic` component and fails the populate, while the `Modern`, `ModernSuffix`, and `UniqueModern` components are optional metadata that degrade to empty strings on accounts or platforms that do not expose them. |
+| `XboxUser.is_same_user()`, `XboxUser.duplicate_user()` | `XUserCompare`, `XUserDuplicateHandle` | `is_same_user()` compares two handles so a cached wrapper and a fresh `find_user_*()` lookup for the same account compare equal. `duplicate_user()` hands back an independently owned handle for titles that need a user to outlive the service cache. |
 
-Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtime should own a single change-event registration token. Cleanup order should be: unregister runtime change notifications, remove the user from service-owned caches/managers, close the Xbox services context, then call `XUserCloseHandle`. The first successful user add establishes the session primary user; later adds should not promote a different cached user to primary.
+Each `XboxUser` should own an `XUserHandle` and an `XblContextHandle`. The runtime should own a single change-event registration token. Cleanup order should be: unregister runtime change notifications, remove the user from service-owned caches/managers, close the Xbox services context, then call `XUserCloseHandle`. The first successful user add establishes the session primary user; later adds should not promote a different cached user to primary.
 
 ##### Intentionally unwrapped `XUser` APIs
 
@@ -693,7 +717,7 @@ Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtim
 | `XUserGetTokenAndSignatureUtf16Async` / `...Utf16ResultSize` / `...Utf16Result`, `XUserResolveIssueWithUiUtf16Async` / `...Utf16Result` | UTF-16 duplicates of surfaces already wrapped in their UTF-8 form. Godot `String` conversion happens inside the wrapper, so a second binding would add a redundant public surface with identical semantics. |
 | `XUserGetMsaTokenSilentlyAsync` / `...Result` / `...ResultSize` | Deprecated by the GDK (`__declspec(deprecated)`); no longer supported. |
 | `XUserPlatformRemoteConnectSetEventHandlers`, `XUserPlatformRemoteConnectCancelPrompt`, `XUserPlatformSpopPromptSetEventHandlers`, `XUserPlatformSpopPromptComplete` | Platform-implementer hooks for hosting the sign-in prompt UI, not title-facing APIs. Out of scope for a Godot title-side addon. |
-| `XUserDuplicateHandle`, `XUserCloseHandle`, `XUserCompare`, `XUserCloseSignOutDeferralHandle` | Handle lifetime primitives. These are used internally by `GDKUser` / `GDKUserSignOutDeferral` and surface as `duplicate_user()`, `is_same_user()`, `release()`, and normal Godot `RefCounted` lifetime — raw handles are never exposed to GDScript. |
+| `XUserDuplicateHandle`, `XUserCloseHandle`, `XUserCompare`, `XUserCloseSignOutDeferralHandle` | Handle lifetime primitives. These are used internally by `XboxUser` / `XboxUserSignOutDeferral` and surface as `duplicate_user()`, `is_same_user()`, `release()`, and normal Godot `RefCounted` lifetime — raw handles are never exposed to GDScript. |
 
 ##### XR-112 coverage
 
@@ -706,32 +730,32 @@ Each `GDKUser` should own an `XUserHandle` and an `XblContextHandle`. The runtim
 | Ensure a controller is assigned to the user; engage the system dialog when none is | `get_devices_for_user()` → `find_controller_for_user_with_ui_async()` |
 | Respect the controller/user binding set by the platform or account picker | `get_device_associations()`, `find_user_for_device()` |
 | React to controller re-pairing on resume | `device_association_changed` |
-| Validate that the expected user is still signed in after resume | `find_user_by_xuid()`, `find_user_by_local_id()`, `GDKUser.is_signed_in()` |
+| Validate that the expected user is still signed in after resume | `find_user_by_xuid()`, `find_user_by_local_id()`, `XboxUser.is_signed_in()` |
 | Re-establish the prior user rather than opening a blind picker | `add_user_by_id_with_ui_async(xuid)` |
-| Display the gamertag before any profile-related action | `GDKUser.get_gamertag()` / `get_unique_modern_gamertag()`, `get_gamer_picture_async()` |
+| Display the gamertag before any profile-related action | `XboxUser.get_gamertag()` / `get_unique_modern_gamertag()`, `get_gamer_picture_async()` |
 | Flush per-user state when the platform reports a pending sign-out | `user_changed` (`removed`), `acquire_sign_out_deferral()` |
 
 The addon deliberately does not implement the requirement *for* the title: it does not auto-open the controller dialog or auto-re-add users, because the correct reaction is game-design dependent (XR-112 allows removing the player, showing a picker, or resuming). The addon's contract is that every decision the requirement asks a title to make is observable and actionable from GDScript.
 
 ###### Known issue: shutdown during an in-flight user async
 
-Calling `GDK.shutdown()` while an `XUser` async operation is still in flight terminates the process with exit code `0x80004004` (`E_ABORT`) — no crash dump and no Windows event-log entry. `GDKRuntime::shutdown()` cancels pending signals, force-completes them, calls `XTaskQueueTerminate(queue, false, ...)`, then drains the completion port and closes the handle; the XAsync completion thunk runs during that post-terminate drain and deletes its own context.
+Calling `GDK.shutdown()` while an `XUser` async operation is still in flight terminates the process with exit code `0x80004004` (`E_ABORT`) — no crash dump and no Windows event-log entry. `XboxRuntime::shutdown()` cancels pending signals, force-completes them, calls `XTaskQueueTerminate(queue, false, ...)`, then drains the completion port and closes the handle; the XAsync completion thunk runs during that post-terminate drain and deletes its own context.
 
 This is pre-existing (reproduced against the commit before the XUser wrapper work landed) and is **not** caused by the wrappers, but it is directly relevant to XR-112: the resume path is exactly where a title is most likely to shut the runtime down with sign-in work outstanding. Two consequences today:
 
 - A title must let any pending `add_*_async()` / `find_controller_for_user_with_ui_async()` settle before calling `GDK.shutdown()`.
 - The GDK coverage host therefore leaves `runtime/auto_add_primary_user` at `false`, so the bootstrap's startup sign-in cannot race GUT's per-test `reset_runtime()`. See `tests/godot/gdk/project.godot`.
 
-The fix belongs in `GDKRuntime::shutdown()` (drain or explicitly cancel-and-await in-flight XAsync contexts before terminating the queue) and is tracked as follow-up work.
+The fix belongs in `XboxRuntime::shutdown()` (drain or explicitly cancel-and-await in-flight XAsync contexts before terminating the queue) and is tracked as follow-up work.
 
 #### `GDK.accessibility` service
 
 ##### Methods
 
 ```gdscript
-query_closed_caption_properties() -> GDKResult
-set_closed_caption_enabled(enabled: bool) -> GDKResult
-query_high_contrast_mode() -> GDKResult
+query_closed_caption_properties() -> XboxResult
+set_closed_caption_enabled(enabled: bool) -> XboxResult
+query_high_contrast_mode() -> XboxResult
 ```
 
 ##### Notes
@@ -744,10 +768,10 @@ query_high_contrast_mode() -> GDKResult
 
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
-| `query_closed_caption_properties()` | `XClosedCaptionGetProperties` | Returns a `GDKClosedCaptionProperties` wrapper in `GDKResult.data`. |
-| `set_closed_caption_enabled()` | `XClosedCaptionSetEnabled` | Returns an ok/error `GDKResult`; success payload includes `enabled`. |
+| `query_closed_caption_properties()` | `XClosedCaptionGetProperties` | Returns an `XboxClosedCaptionProperties` wrapper in `XboxResult.data`. |
+| `set_closed_caption_enabled()` | `XClosedCaptionSetEnabled` | Returns an ok/error `XboxResult`; success payload includes `enabled`. |
 | `query_high_contrast_mode()` | `XHighContrastGetMode` | Returns a `Dictionary` payload with `mode` and `mode_name`. |
-| `GDKClosedCaptionProperties` getters | `XClosedCaptionProperties` struct fields | Wrapper exposes Godot-native colors/enums/flags without exposing native handles. |
+| `XboxClosedCaptionProperties` getters | `XClosedCaptionProperties` struct fields | Wrapper exposes Godot-native colors/enums/flags without exposing native handles. |
 
 #### `GDK.game_ui` service
 
@@ -755,13 +779,13 @@ query_high_contrast_mode() -> GDKResult
 
 ```gdscript
 show_message_dialog_async(title: String, message: String, first_button := "OK", second_button := "", third_button := "", default_button := "first", cancel_button := "first") -> Signal
-set_notification_position_hint(position: String) -> GDKResult
-show_player_profile_card_async(requesting_user: GDKUser, target_xuid: String) -> Signal
-show_player_picker_async(requesting_user: GDKUser, prompt: String, selectable_xuids: PackedStringArray, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal
-resolve_privilege_with_ui_async(user: GDKUser, privilege: int) -> Signal
-show_achievements_async(requesting_user: GDKUser) -> Signal
+set_notification_position_hint(position: String) -> XboxResult
+show_player_profile_card_async(requesting_user: XboxUser, target_xuid: String) -> Signal
+show_player_picker_async(requesting_user: XboxUser, prompt: String, selectable_xuids: PackedStringArray, preselected_xuids := PackedStringArray(), min_selection_count := 1, max_selection_count := 1) -> Signal
+resolve_privilege_with_ui_async(user: XboxUser, privilege: int) -> Signal
+show_achievements_async(requesting_user: XboxUser) -> Signal
 show_error_dialog_async(error_code: int, context := "") -> Signal
-show_send_game_invite_async(requesting_user: GDKUser, session_configuration_id: String, session_template_name: String, session_id: String, invitation_text := "", custom_activation_context := "") -> Signal
+show_send_game_invite_async(requesting_user: XboxUser, session_configuration_id: String, session_template_name: String, session_id: String, invitation_text := "", custom_activation_context := "") -> Signal
 show_text_entry_async(title_text := "", description_text := "", default_text := "", input_scope := "default", max_text_length := 0) -> Signal
 ```
 
@@ -776,15 +800,15 @@ show_text_entry_async(title_text := "", description_text := "", default_text := 
 
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
-| `show_message_dialog_async()` | `XGameUiShowMessageDialogAsync`, `XGameUiShowMessageDialogResult` | Validate title/message/button layout before invoking native UI. Return button selection in `GDKResult.data` on success. |
+| `show_message_dialog_async()` | `XGameUiShowMessageDialogAsync`, `XGameUiShowMessageDialogResult` | Validate title/message/button layout before invoking native UI. Return button selection in `XboxResult.data` on success. |
 | `set_notification_position_hint()` | `XGameUiSetNotificationPositionHint` | Accept snake_case positions (`bottom_center`, etc.). This is available on PC GDK even where the shell may ignore placement hints. |
-| `show_player_profile_card_async()` | `XGameUiShowPlayerProfileCardAsync`, `XGameUiShowPlayerProfileCardResult` | Requires a signed-in `GDKUser` requesting handle and numeric target XUID. |
-| `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `GDKResult.data`. |
+| `show_player_profile_card_async()` | `XGameUiShowPlayerProfileCardAsync`, `XGameUiShowPlayerProfileCardResult` | Requires a signed-in `XboxUser` requesting handle and numeric target XUID. |
+| `show_player_picker_async()` | `XGameUiShowPlayerPickerAsync`, `XGameUiShowPlayerPickerResultCount`, `XGameUiShowPlayerPickerResult` | Validate XUID lists and selection ranges up front; return selected XUIDs in `XboxResult.data`. |
 | `resolve_privilege_with_ui_async()` | `XUserResolvePrivilegeWithUiAsync`, `XUserResolvePrivilegeWithUiResult` | Delegate to `GDK.users` privilege-remediation flow so existing users-service behavior remains authoritative. |
-| `show_achievements_async()` | `XGameUiShowAchievementsAsync`, `XGameUiShowAchievementsResult` | Title ID resolved via `XGameGetXboxTitleId`. Requires a signed-in `GDKUser`. |
+| `show_achievements_async()` | `XGameUiShowAchievementsAsync`, `XGameUiShowAchievementsResult` | Title ID resolved via `XGameGetXboxTitleId`. Requires a signed-in `XboxUser`. |
 | `show_error_dialog_async()` | `XGameUiShowErrorDialogAsync`, `XGameUiShowErrorDialogResult` | Takes an HRESULT `error_code` plus optional `context` text. |
 | `show_send_game_invite_async()` | `XGameUiShowSendGameInviteAsync`, `XGameUiShowSendGameInviteResult` | Requires session configuration/template/id; optional invitation text and custom activation context. Title owns the MPSD session identifiers. |
-| `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `GDKResult.data.text`. |
+| `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `XboxResult.data.text`. |
 
 > Excluded from `GDK.game_ui` (engine/host overlap): `XGameUiShowStateShareAsync` and `XGameUiShowWebAuthenticationAsync`/`WithOptions` — Godot already provides web-auth/state-share equivalents.
 
@@ -793,18 +817,18 @@ show_text_entry_async(title_text := "", description_text := "", default_text := 
 ##### Methods
 
 ```gdscript
-query_player_achievements_async(user: GDKUser) -> Signal
-update_achievement_async(user: GDKUser, achievement_id: String, percent_complete: int) -> Signal
-get_cached_achievements(user: GDKUser) -> Array
-get_achievements_by_state(user: GDKUser, progress_state: String) -> GDKResult  # data.achievements: Array[GDKAchievement]
+query_player_achievements_async(user: XboxUser) -> Signal
+update_achievement_async(user: XboxUser, achievement_id: String, percent_complete: int) -> Signal
+get_cached_achievements(user: XboxUser) -> Array
+get_achievements_by_state(user: XboxUser, progress_state: String) -> XboxResult  # data.achievements: Array[XboxAchievement]
 ```
 
 ##### Signals
 
 ```gdscript
-achievement_unlocked(user: GDKUser, achievement_id: String)
-achievements_updated(user: GDKUser)
-runtime_error(result: GDKResult)  # unsolicited achievement-service errors
+achievement_unlocked(user: XboxUser, achievement_id: String)
+achievements_updated(user: XboxUser)
+runtime_error(result: XboxResult)  # unsolicited achievement-service errors
 ```
 
 ##### Notes
@@ -833,18 +857,18 @@ The manager result handles should be copied into extension-owned data immediatel
 ##### Methods
 
 ```gdscript
-enumerate_packages(package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> GDKResult
-find_package_by_identifier(package_identifier: String, package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> GDKResult
-get_current_process_package_identifier() -> GDKResult
+enumerate_packages(package_kind := XboxPackage.PACKAGE_KIND_CONTENT, scope := XboxPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> XboxResult
+find_package_by_identifier(package_identifier: String, package_kind := XboxPackage.PACKAGE_KIND_CONTENT, scope := XboxPackage.ENUMERATION_SCOPE_THIS_AND_RELATED) -> XboxResult
+get_current_process_package_identifier() -> XboxResult
 mount_package_async(package_identifier: String) -> Signal
 load_resource_pack_async(package_identifier: String, pack_relative_path: String, replace_files := false, offset := 0) -> Signal
 get_loaded_resource_packs() -> Array
-get_install_progress(package_identifier: String) -> GDKResult
+get_install_progress(package_identifier: String) -> XboxResult
 ```
 
 ##### Notes
 
-- `mount_package_async()` returns a `GDKPackageMount` for temporary loose-file access under an open mount handle.
+- `mount_package_async()` returns an `XboxPackageMount` for temporary loose-file access under an open mount handle.
 - `load_resource_pack_async()` is the primary Godot-native DLC path; successful loads retain service-owned mounts because `ProjectSettings.load_resource_pack()` has no unload counterpart.
 - Missing package identifiers return `package_not_found`. Invalid package-relative paths and unsupported pack extensions return explicit validation errors.
 
@@ -863,25 +887,25 @@ get_install_progress(package_identifier: String) -> GDKResult
 ##### Methods
 
 ```gdscript
-query_user_stats_async(user: GDKUser, stat_names := PackedStringArray()) -> Signal
-query_users_stats_async(user: GDKUser, xuids: PackedStringArray, stat_names := PackedStringArray()) -> Signal
-get_single_stat_async(user: GDKUser, stat_name: String) -> Signal
-set_stat_number(user: GDKUser, stat_name: String, value: float) -> GDKResult
-set_stat_integer(user: GDKUser, stat_name: String, value: int) -> GDKResult
-flush_stats_async(user: GDKUser) -> Signal
-write_stats_async(user: GDKUser, stats: Dictionary) -> Signal
-delete_stats_async(user: GDKUser, stat_names: PackedStringArray) -> Signal
-track_stats(user: GDKUser, stat_names: PackedStringArray) -> GDKResult
-stop_tracking_stats(user: GDKUser, stat_names := PackedStringArray()) -> GDKResult
-get_cached_stats(user: GDKUser) -> Dictionary
+query_user_stats_async(user: XboxUser, stat_names := PackedStringArray()) -> Signal
+query_users_stats_async(user: XboxUser, xuids: PackedStringArray, stat_names := PackedStringArray()) -> Signal
+get_single_stat_async(user: XboxUser, stat_name: String) -> Signal
+set_stat_number(user: XboxUser, stat_name: String, value: float) -> XboxResult
+set_stat_integer(user: XboxUser, stat_name: String, value: int) -> XboxResult
+flush_stats_async(user: XboxUser) -> Signal
+write_stats_async(user: XboxUser, stats: Dictionary) -> Signal
+delete_stats_async(user: XboxUser, stat_names: PackedStringArray) -> Signal
+track_stats(user: XboxUser, stat_names: PackedStringArray) -> XboxResult
+stop_tracking_stats(user: XboxUser, stat_names := PackedStringArray()) -> XboxResult
+get_cached_stats(user: XboxUser) -> Dictionary
 ```
 
 ##### Signals
 
 ```gdscript
-stats_updated(user: GDKUser, stats: Dictionary)
-stat_changed(user: GDKUser, stat_name: String, value: Variant)
-stats_flushed(user: GDKUser, result: GDKResult)
+stats_updated(user: XboxUser, stats: Dictionary)
+stat_changed(user: XboxUser, stat_name: String, value: Variant)
+stats_flushed(user: XboxUser, result: XboxResult)
 ```
 
 ##### Notes
@@ -915,17 +939,17 @@ Earlier undocumented stats-family references were removed during audit. The docu
 ##### Methods
 
 ```gdscript
-get_leaderboard_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
-get_leaderboard_around_user_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
-get_social_leaderboard_async(user: GDKUser, stat_name: String, max_items := 25) -> Signal
-get_next_page_async(leaderboard: GDKLeaderboard) -> Signal
-get_cached_leaderboard(stat_name: String) -> GDKLeaderboard
+get_leaderboard_async(user: XboxUser, stat_name: String, max_items := 25) -> Signal
+get_leaderboard_around_user_async(user: XboxUser, stat_name: String, max_items := 25) -> Signal
+get_social_leaderboard_async(user: XboxUser, stat_name: String, max_items := 25) -> Signal
+get_next_page_async(leaderboard: XboxLeaderboard) -> Signal
+get_cached_leaderboard(stat_name: String) -> XboxLeaderboard
 ```
 
 ##### Signals
 
 ```gdscript
-leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)
+leaderboard_updated(stat_name: String, leaderboard: XboxLeaderboard)
 ```
 
 ##### Notes
@@ -940,7 +964,7 @@ leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)
 | `get_leaderboard_async()` | `XblLeaderboardGetLeaderboardAsync`, `XblLeaderboardGetLeaderboardResultSize`, `XblLeaderboardGetLeaderboardResult`, `XblLeaderboardQuery`, `XblLeaderboardQueryType` | Global leaderboard query uses `XblLeaderboardQueryType::TitleManagedStatBackedGlobal`. |
 | `get_leaderboard_around_user_async()` | `XblLeaderboardGetLeaderboardAsync`, `XblLeaderboardQuery`, `XblLeaderboardQueryType` | Use `XblLeaderboardQuery.skipToXboxUserId` to center the result set around the local user. |
 | `get_social_leaderboard_async()` | `XblLeaderboardGetLeaderboardAsync`, `XblLeaderboardQuery`, `XblLeaderboardQueryType` | Social leaderboard query uses `XblLeaderboardQueryType::TitleManagedStatBackedSocial`. |
-| pagination inside `GDKLeaderboard` | `XblLeaderboardResultGetNextAsync`, `XblLeaderboardResultGetNextResultSize`, `XblLeaderboardResultGetNextResult` | Store continuation state in the wrapper so GDScript can request another page later without exposing native handles. |
+| pagination inside `XboxLeaderboard` | `XblLeaderboardResultGetNextAsync`, `XblLeaderboardResultGetNextResultSize`, `XblLeaderboardResultGetNextResult` | Store continuation state in the wrapper so GDScript can request another page later without exposing native handles. |
 | `get_cached_leaderboard()` | service cache only | Return the most recent translated leaderboard snapshot. |
 
 #### `GDK.privacy` service
@@ -948,11 +972,11 @@ leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)
 ##### Methods
 
 ```gdscript
-check_permission_async(user: GDKUser, permission: String, target_xuid: String) -> Signal
-check_permission_for_anonymous_user_async(user: GDKUser, permission: String, anonymous_user_type: String) -> Signal
-batch_check_permission_async(user: GDKUser, permission: String, target_xuids: PackedStringArray) -> Signal
-get_avoid_list_async(user: GDKUser) -> Signal
-get_mute_list_async(user: GDKUser) -> Signal
+check_permission_async(user: XboxUser, permission: String, target_xuid: String) -> Signal
+check_permission_for_anonymous_user_async(user: XboxUser, permission: String, anonymous_user_type: String) -> Signal
+batch_check_permission_async(user: XboxUser, permission: String, target_xuids: PackedStringArray) -> Signal
+get_avoid_list_async(user: XboxUser) -> Signal
+get_mute_list_async(user: XboxUser) -> Signal
 ```
 
 ##### Notes
@@ -978,20 +1002,20 @@ get_mute_list_async(user: GDKUser) -> Signal
 ##### Methods
 
 ```gdscript
-set_presence_async(user: GDKUser, state: String, rich_presence := {}) -> Signal
-clear_presence_async(user: GDKUser) -> Signal
+set_presence_async(user: XboxUser, state: String, rich_presence := {}) -> Signal
+clear_presence_async(user: XboxUser) -> Signal
 get_presence_async(xuids: PackedStringArray) -> Signal
-get_presence_for_social_group_async(user: GDKUser, social_group: String) -> Signal
-track_presence(user: GDKUser, xuids: PackedStringArray, title_ids := PackedInt64Array()) -> GDKResult
-stop_tracking_presence(user: GDKUser, xuids := PackedStringArray(), title_ids := PackedInt64Array()) -> GDKResult
-get_cached_presence(xuid: String) -> GDKPresenceRecord
+get_presence_for_social_group_async(user: XboxUser, social_group: String) -> Signal
+track_presence(user: XboxUser, xuids: PackedStringArray, title_ids := PackedInt64Array()) -> XboxResult
+stop_tracking_presence(user: XboxUser, xuids := PackedStringArray(), title_ids := PackedInt64Array()) -> XboxResult
+get_cached_presence(xuid: String) -> XboxPresenceRecord
 ```
 
 ##### Signals
 
 ```gdscript
-presence_changed(xuid: String, presence: GDKPresenceRecord)
-local_presence_set(user: GDKUser)
+presence_changed(xuid: String, presence: XboxPresenceRecord)
+local_presence_set(user: XboxUser)
 device_presence_changed(xuid: String)
 title_presence_changed(xuid: String, title_id: int)
 ```
@@ -1021,26 +1045,26 @@ title_presence_changed(xuid: String, title_id: int)
 ##### Methods
 
 ```gdscript
-start_social_graph(user: GDKUser) -> GDKResult
-stop_social_graph(user: GDKUser) -> void
-get_friends_async(user: GDKUser) -> Signal
-create_social_group(user: GDKUser, filter: GDKSocialFilter = null) -> GDKResult  # data: GDKSocialGroup
-create_social_group_from_xuids(user: GDKUser, xuids: PackedStringArray) -> GDKResult  # data: GDKSocialGroup
-update_social_user_group(group: GDKSocialGroup, xuids: PackedStringArray) -> GDKResult  # data.count: int
-set_rich_presence_polling(user: GDKUser, enabled: bool) -> GDKResult  # data.enabled: bool
-destroy_social_group(group: GDKSocialGroup) -> void
-get_group_users(group: GDKSocialGroup) -> GDKResult  # data: Array[GDKSocialUser]
-submit_reputation_feedback_async(user: GDKUser, target_xuid: String, feedback_type: String, reason := "", evidence_id := "") -> Signal
-submit_batch_reputation_feedback_async(user: GDKUser, feedback_items: Array) -> Signal
+start_social_graph(user: XboxUser) -> XboxResult
+stop_social_graph(user: XboxUser) -> void
+get_friends_async(user: XboxUser) -> Signal
+create_social_group(user: XboxUser, filter: XboxSocialFilter = null) -> XboxResult  # data: XboxSocialGroup
+create_social_group_from_xuids(user: XboxUser, xuids: PackedStringArray) -> XboxResult  # data: XboxSocialGroup
+update_social_user_group(group: XboxSocialGroup, xuids: PackedStringArray) -> XboxResult  # data.count: int
+set_rich_presence_polling(user: XboxUser, enabled: bool) -> XboxResult  # data.enabled: bool
+destroy_social_group(group: XboxSocialGroup) -> void
+get_group_users(group: XboxSocialGroup) -> XboxResult  # data: Array[XboxSocialUser]
+submit_reputation_feedback_async(user: XboxUser, target_xuid: String, feedback_type: String, reason := "", evidence_id := "") -> Signal
+submit_batch_reputation_feedback_async(user: XboxUser, feedback_items: Array) -> Signal
 ```
 
 ##### Signals
 
 ```gdscript
-social_graph_changed(user: GDKUser)
-social_group_updated(group: GDKSocialGroup)
-social_user_changed(xuid: String, social_user: GDKSocialUser)
-runtime_error(result: GDKResult)  # unsolicited social-service errors
+social_graph_changed(user: XboxUser)
+social_group_updated(group: XboxSocialGroup)
+social_user_changed(xuid: String, social_user: XboxSocialUser)
+runtime_error(result: XboxResult)  # unsolicited social-service errors
 ```
 
 ##### Notes
@@ -1096,34 +1120,34 @@ Excluded (console-only):
 ##### Methods
 
 ```gdscript
-enable_capture() -> GDKResult
-disable_capture() -> GDKResult
+enable_capture() -> XboxResult
+disable_capture() -> XboxResult
 record_diagnostic_clip_async(duration: float) -> Signal
 take_diagnostic_screenshot_async(path_hint: String) -> Signal
-create_metadata(reserved_bytes := 0) -> GDKCaptureMetaData
+create_metadata(reserved_bytes := 0) -> XboxCaptureMetaData
 ```
 
-##### `GDKCaptureMetaData`
+##### `XboxCaptureMetaData`
 
 ```gdscript
 is_valid() -> bool
 close() -> void
-stop_all_states() -> GDKResult
+stop_all_states() -> XboxResult
 get_remaining_storage_bytes() -> int
-add_string_event(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> GDKResult
-add_double_event(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> GDKResult
-add_int32_event(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GDKResult
-start_string_state(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> GDKResult
-start_double_state(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> GDKResult
-start_int32_state(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GDKResult
+add_string_event(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> XboxResult
+add_double_event(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> XboxResult
+add_int32_event(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> XboxResult
+start_string_state(name: String, value: String, priority := PRIORITY_GAMEPLAY) -> XboxResult
+start_double_state(name: String, value: float, priority := PRIORITY_GAMEPLAY) -> XboxResult
+start_int32_state(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> XboxResult
 ```
 
 ##### Notes
 
 - `create_metadata()` returns `null` when the runtime is not initialized.
-- PC GDK metadata APIs are process-wide/stateless; `GDKCaptureMetaData` is a script-side context that gates intentional writes rather than a native handle wrapper.
+- PC GDK metadata APIs are process-wide/stateless; `XboxCaptureMetaData` is a script-side context that gates intentional writes rather than a native handle wrapper.
 - All event/state methods validate the context (`invalid_metadata_handle`) and the name (`invalid_metadata_name`) before calling native APIs.
-- `record_diagnostic_clip_async` and `take_diagnostic_screenshot_async` require Game Bar active on the device; they return `GDKResult` errors when unavailable.
+- `record_diagnostic_clip_async` and `take_diagnostic_screenshot_async` require Game Bar active on the device; they return `XboxResult` errors when unavailable.
 - `on_runtime_initialized()` for capture has no side-effects beyond setting `m_runtime_ready`; it cannot fail.
 
 ##### Native API mapping
@@ -1135,7 +1159,7 @@ start_int32_state(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GD
 | `record_diagnostic_clip_async()` | `XAppCaptureRecordDiagnosticClip` | Native API is synchronous; wrapper returns a deferred completion signal to match the public async contract. |
 | `take_diagnostic_screenshot_async()` | `XAppCaptureTakeDiagnosticScreenshot` | Native API is synchronous; wrapper returns a deferred completion signal to match the public async contract. |
 | `create_metadata()` | none | Opens a script-side context for stateless metadata calls; `reserved_bytes` is retained for compatibility and ignored. |
-| `GDKCaptureMetaData::close()` | none | Closes the script-side context. |
+| `XboxCaptureMetaData::close()` | none | Closes the script-side context. |
 | `add_string_event()` | `XAppCaptureMetadataAddStringEvent` | |
 | `add_double_event()` | `XAppCaptureMetadataAddDoubleEvent` | |
 | `add_int32_event()` | `XAppCaptureMetadataAddInt32Event` | Value clamped to `int32_t`. |
@@ -1150,22 +1174,22 @@ start_int32_state(name: String, value: int, priority := PRIORITY_GAMEPLAY) -> GD
 ##### Methods
 
 ```gdscript
-get_profile_async(user: GDKUser, xuid: String) -> Signal
-get_profiles_async(user: GDKUser, xuids: PackedStringArray) -> Signal
-get_profiles_for_social_group_async(user: GDKUser, social_group: String) -> Signal
+get_profile_async(user: XboxUser, xuid: String) -> Signal
+get_profiles_async(user: XboxUser, xuids: PackedStringArray) -> Signal
+get_profiles_for_social_group_async(user: XboxUser, social_group: String) -> Signal
 ```
 
 ##### Wrapper types
 
 ```gdscript
-GDKUserProfile
+XboxUserProfile
 ```
 
 ##### Notes
 
-- Methods require a signed-in local `GDKUser` to create the Xbox Services context.
+- Methods require a signed-in local `XboxUser` to create the Xbox Services context.
 - XUID arguments are accepted as decimal strings to match other public Xbox identity surfaces.
-- Single-profile queries return a `GDKUserProfile` in `GDKResult.data`; list and social-group queries return an `Array[GDKUserProfile]`.
+- Single-profile queries return an `XboxUserProfile` in `XboxResult.data`; list and social-group queries return an `Array[XboxUserProfile]`.
 - Supported profile fields mirror `XblUserProfile`: app/game display names and picture URIs, gamerscore, classic gamertag, modern gamertag, modern suffix, and unique modern gamertag.
 
 ##### Native API mapping
@@ -1181,14 +1205,14 @@ GDKUserProfile
 ##### Methods
 
 ```gdscript
-verify_string_async(user: GDKUser, text: String) -> Signal
-verify_strings_async(user: GDKUser, strings: PackedStringArray) -> Signal
+verify_string_async(user: XboxUser, text: String) -> Signal
+verify_strings_async(user: XboxUser, strings: PackedStringArray) -> Signal
 ```
 
 ##### Notes
 
-- Methods require a signed-in local `GDKUser` to create the Xbox Services context.
-- `verify_string_async()` returns one dictionary in `GDKResult.data`.
+- Methods require a signed-in local `XboxUser` to create the Xbox Services context.
+- `verify_string_async()` returns one dictionary in `XboxResult.data`.
 - `verify_strings_async()` requires at least one string and returns an `Array` of dictionaries.
 - Result dictionaries contain `result_code` (`success`, `offensive`, `too_long`, or `unknown_error`), `acceptable`, and `first_offending_substring`.
 
@@ -1204,19 +1228,19 @@ verify_strings_async(user: GDKUser, strings: PackedStringArray) -> Signal
 ##### Methods
 
 ```gdscript
-get_quota_async(user: GDKUser, storage_type: String) -> Signal
-list_blob_metadata_async(user: GDKUser, storage_type: String, blob_path := "", skip_items := 0, max_items := 25) -> Signal
-get_next_blob_metadata_async(result: GDKTitleStorageBlobMetadataResult) -> Signal
-download_blob_async(user: GDKUser, storage_type: String, blob_path: String) -> Signal
-upload_blob_async(user: GDKUser, storage_type: String, blob_path: String, data: PackedByteArray, display_name := "", e_tag := "", match_condition := "not_used") -> Signal
-delete_blob_async(user: GDKUser, storage_type: String, blob_path: String, e_tag := "", match_condition := "not_used") -> Signal
+get_quota_async(user: XboxUser, storage_type: String) -> Signal
+list_blob_metadata_async(user: XboxUser, storage_type: String, blob_path := "", skip_items := 0, max_items := 25) -> Signal
+get_next_blob_metadata_async(result: XboxTitleStorageBlobMetadataResult) -> Signal
+download_blob_async(user: XboxUser, storage_type: String, blob_path: String) -> Signal
+upload_blob_async(user: XboxUser, storage_type: String, blob_path: String, data: PackedByteArray, display_name := "", e_tag := "", match_condition := "not_used") -> Signal
+delete_blob_async(user: XboxUser, storage_type: String, blob_path: String, e_tag := "", match_condition := "not_used") -> Signal
 ```
 
 ##### Wrapper types
 
 ```gdscript
-GDKTitleStorageBlobMetadata
-GDKTitleStorageBlobMetadataResult
+XboxTitleStorageBlobMetadata
+XboxTitleStorageBlobMetadataResult
 ```
 
 ##### Notes
@@ -1244,21 +1268,21 @@ GDKTitleStorageBlobMetadataResult
 ##### Methods
 
 ```gdscript
-configure_options(debugger_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE) -> GDKResult
-set_callback_enabled(enabled: bool) -> GDKResult
+configure_options(debugger_present_options := XboxErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := XboxErrorReporting.ERROR_OPTIONS_NONE) -> XboxResult
+set_callback_enabled(enabled: bool) -> XboxResult
 is_callback_enabled() -> bool
 ```
 
 ##### Signals
 
 ```gdscript
-error_reported(result: GDKResult)
+error_reported(result: XboxResult)
 ```
 
 ##### Notes
 
 - Scope is intentionally limited to the public PC GDK `XError` callback/options surface.
-- `GDKErrorReporting.ErrorOptions` mirrors the public `XErrorOptions` flag bits: `ERROR_OPTIONS_OUTPUT_DEBUG_STRING_ON_ERROR` (`0x1`), `ERROR_OPTIONS_DEBUG_BREAK_ON_ERROR` (`0x2`), and `ERROR_OPTIONS_FAIL_FAST_ON_ERROR` (`0x4`).
+- `XboxErrorReporting.ErrorOptions` mirrors the public `XErrorOptions` flag bits: `ERROR_OPTIONS_OUTPUT_DEBUG_STRING_ON_ERROR` (`0x1`), `ERROR_OPTIONS_DEBUG_BREAK_ON_ERROR` (`0x2`), and `ERROR_OPTIONS_FAIL_FAST_ON_ERROR` (`0x4`).
 - Do not invent report-submission wrappers when no public PC GDK submission API is available.
 - If callers attach custom metadata to downstream telemetry triggered by callback events, callers own privacy/compliance review for that metadata.
 
@@ -1266,7 +1290,7 @@ error_reported(result: GDKResult)
 
 | Wrapper/API | Native API(s) | Notes |
 | --- | --- | --- |
-| `configure_options()` | `XErrorSetOptions` | Uses `GDKErrorReporting.ErrorOptions` enum flags (including bitwise OR combinations) to configure debugger-present and debugger-absent option sets. |
+| `configure_options()` | `XErrorSetOptions` | Uses `XboxErrorReporting.ErrorOptions` enum flags (including bitwise OR combinations) to configure debugger-present and debugger-absent option sets. |
 | `set_callback_enabled()` | `XErrorSetCallback`, `XErrorCallback` | Registers/unregisters the callback bridge and forwards events to main-thread Godot signals via `GDK.dispatch()`. |
 | `is_callback_enabled()` | wrapper state only | Reports whether callback forwarding is active. |
 

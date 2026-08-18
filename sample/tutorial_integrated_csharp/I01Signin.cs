@@ -1,7 +1,7 @@
 using Godot;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 using GodotPlayFab.Types;
 
 public partial class I01Signin : Control
@@ -63,7 +63,7 @@ public partial class I01Signin : Control
         }
     }
 
-    private void RefreshIdentity(GdkUser xboxUser, PlayFabUser playFabUser)
+    private void RefreshIdentity(XboxUser xboxUser, PlayFabUser playFabUser)
     {
         if (xboxUser == null)
         {

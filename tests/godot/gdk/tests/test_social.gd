@@ -40,28 +40,28 @@ func test_social_full_flow() -> void:
 	for signal_name in ["social_graph_changed", "social_group_updated", "social_user_changed"]:
 		assert_has_signal_named(social, signal_name)
 
-	var filter = instantiate_class("GDKSocialFilter")
-	assert_not_null(filter, "GDKSocialFilter.new() returns wrapper")
+	var filter = instantiate_class("XboxSocialFilter")
+	assert_not_null(filter, "XboxSocialFilter.new() returns wrapper")
 	if filter != null:
 		for method_name in ["get_presence_filter", "set_presence_filter", "get_relationship_filter", "set_relationship_filter"]:
 			assert_has_method_named(filter, method_name)
-		assert_eq(filter.get_presence_filter(), get_class_constant("GDKSocialFilter", "PRESENCE_FILTER_ALL"), "GDKSocialFilter presence_filter defaults to PRESENCE_FILTER_ALL")
-		assert_eq(filter.get_relationship_filter(), get_class_constant("GDKSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "GDKSocialFilter relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
+		assert_eq(filter.get_presence_filter(), get_class_constant("XboxSocialFilter", "PRESENCE_FILTER_ALL"), "XboxSocialFilter presence_filter defaults to PRESENCE_FILTER_ALL")
+		assert_eq(filter.get_relationship_filter(), get_class_constant("XboxSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "XboxSocialFilter relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
 
-	var group = instantiate_class("GDKSocialGroup")
-	assert_not_null(group, "GDKSocialGroup.new() returns wrapper")
+	var group = instantiate_class("XboxSocialGroup")
+	assert_not_null(group, "XboxSocialGroup.new() returns wrapper")
 	if group != null:
 		for method_name in ["get_local_user", "is_loaded", "get_group_type", "get_group_type_name", "get_presence_filter", "get_relationship_filter", "get_tracked_xuids"]:
 			assert_has_method_named(group, method_name)
-		assert_eq(group.is_loaded(), false, "blank GDKSocialGroup loaded defaults false")
-		assert_eq(group.get_group_type(), get_class_constant("GDKSocialGroup", "GROUP_TYPE_FILTER"), "blank GDKSocialGroup group_type defaults to GROUP_TYPE_FILTER")
-		assert_eq(group.get_group_type_name(), "filter", "blank GDKSocialGroup group_type_name defaults to filter")
-		assert_eq(group.get_presence_filter(), get_class_constant("GDKSocialFilter", "PRESENCE_FILTER_ALL"), "blank GDKSocialGroup presence_filter defaults to PRESENCE_FILTER_ALL")
-		assert_eq(group.get_relationship_filter(), get_class_constant("GDKSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "blank GDKSocialGroup relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
-		assert_true(group.get_tracked_xuids() is PackedStringArray, "blank GDKSocialGroup tracked_xuids returns PackedStringArray")
+		assert_eq(group.is_loaded(), false, "blank XboxSocialGroup loaded defaults false")
+		assert_eq(group.get_group_type(), get_class_constant("XboxSocialGroup", "GROUP_TYPE_FILTER"), "blank XboxSocialGroup group_type defaults to GROUP_TYPE_FILTER")
+		assert_eq(group.get_group_type_name(), "filter", "blank XboxSocialGroup group_type_name defaults to filter")
+		assert_eq(group.get_presence_filter(), get_class_constant("XboxSocialFilter", "PRESENCE_FILTER_ALL"), "blank XboxSocialGroup presence_filter defaults to PRESENCE_FILTER_ALL")
+		assert_eq(group.get_relationship_filter(), get_class_constant("XboxSocialFilter", "RELATIONSHIP_FILTER_FRIENDS"), "blank XboxSocialGroup relationship_filter defaults to RELATIONSHIP_FILTER_FRIENDS")
+		assert_true(group.get_tracked_xuids() is PackedStringArray, "blank XboxSocialGroup tracked_xuids returns PackedStringArray")
 
-	var social_user = instantiate_class("GDKSocialUser")
-	assert_not_null(social_user, "GDKSocialUser.new() returns wrapper")
+	var social_user = instantiate_class("XboxSocialUser")
+	assert_not_null(social_user, "XboxSocialUser.new() returns wrapper")
 	if social_user != null:
 		for method_name in [
 			"get_xuid",
@@ -83,24 +83,24 @@ func test_social_full_flow() -> void:
 			"get_preferred_color",
 		]:
 			assert_has_method_named(social_user, method_name)
-		assert_eq(social_user.get_xuid(), "", "blank GDKSocialUser xuid defaults empty")
-		assert_eq(social_user.is_friend(), false, "blank GDKSocialUser friend defaults false")
-		assert_true(social_user.get_title_history() is Dictionary, "blank GDKSocialUser title_history returns Dictionary")
-		assert_true(social_user.get_preferred_color() is Dictionary, "blank GDKSocialUser preferred_color returns Dictionary")
+		assert_eq(social_user.get_xuid(), "", "blank XboxSocialUser xuid defaults empty")
+		assert_eq(social_user.is_friend(), false, "blank XboxSocialUser friend defaults false")
+		assert_true(social_user.get_title_history() is Dictionary, "blank XboxSocialUser title_history returns Dictionary")
+		assert_true(social_user.get_preferred_color() is Dictionary, "blank XboxSocialUser preferred_color returns Dictionary")
 
-	var blank_user = instantiate_class("GDKUser")
+	var blank_user = instantiate_class("XboxUser")
 	var blank_create_result = social.create_social_group(blank_user)
-	assert_not_null(blank_create_result, "create_social_group() returns GDKResult even when the graph cannot start")
+	assert_not_null(blank_create_result, "create_social_group() returns XboxResult even when the graph cannot start")
 	if blank_create_result != null:
 		assert_eq(blank_create_result.ok, false, "create_social_group() reports failure for blank user")
 		assert_true(blank_create_result.data == null, "create_social_group() failure carries no data payload")
 	var blank_xuid_result = social.create_social_group_from_xuids(blank_user, PackedStringArray(["1"]))
-	assert_not_null(blank_xuid_result, "create_social_group_from_xuids() returns GDKResult even when the graph cannot start")
+	assert_not_null(blank_xuid_result, "create_social_group_from_xuids() returns XboxResult even when the graph cannot start")
 	if blank_xuid_result != null:
 		assert_eq(blank_xuid_result.ok, false, "create_social_group_from_xuids() reports failure for blank user")
 		assert_true(blank_xuid_result.data == null, "create_social_group_from_xuids() failure carries no data payload")
 	var blank_users_result = social.get_group_users(null)
-	assert_not_null(blank_users_result, "get_group_users(null) returns GDKResult")
+	assert_not_null(blank_users_result, "get_group_users(null) returns XboxResult")
 	if blank_users_result != null:
 		assert_eq(blank_users_result.ok, true, "get_group_users(null) reports ok with empty data")
 		assert_true(blank_users_result.data is Array, "get_group_users() data is an Array")
@@ -108,7 +108,7 @@ func test_social_full_flow() -> void:
 			assert_eq(blank_users_result.data.size(), 0, "get_group_users(null) returns empty Array data")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for social behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for social behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -157,7 +157,7 @@ func test_social_full_flow() -> void:
 	await assert_signal_result_error(missing_batch_keys_signal, "invalid_feedback_item", "submit_batch_reputation_feedback_async() rejects missing required keys")
 
 	var start_result = social.start_social_graph(user)
-	assert_not_null(start_result, "start_social_graph() returns GDKResult for a signed-in user")
+	assert_not_null(start_result, "start_social_graph() returns XboxResult for a signed-in user")
 	if start_result == null:
 		disconnect_signal_handlers(gdk, ["runtime_error"])
 		disconnect_signal_handlers(social, ["runtime_error"])
@@ -175,8 +175,8 @@ func test_social_full_flow() -> void:
 				return
 
 			if friends_result.ok:
-				assert_object_is(friends_result.data, "GDKSocialGroup", "friends query returns a GDKSocialGroup on success")
-				if is_class_instance(friends_result.data, "GDKSocialGroup"):
+				assert_object_is(friends_result.data, "XboxSocialGroup", "friends query returns an XboxSocialGroup on success")
+				if is_class_instance(friends_result.data, "XboxSocialGroup"):
 					var friends_group = friends_result.data
 					assert_eq(friends_group.is_loaded(), true, "friends group reports loaded after a successful query")
 					var local_user = friends_group.get_local_user()
@@ -185,21 +185,21 @@ func test_social_full_flow() -> void:
 						assert_eq(local_user.get_local_id(), user.get_local_id(), "friends group local user matches the signed-in user")
 
 					var group_users_result = social.get_group_users(friends_group)
-					assert_not_null(group_users_result, "get_group_users() returns GDKResult")
+					assert_not_null(group_users_result, "get_group_users() returns XboxResult")
 					if group_users_result != null:
 						assert_eq(group_users_result.ok, true, "get_group_users() succeeds for a loaded group")
 						if group_users_result.ok:
 							var group_users = group_users_result.data
-							assert_true(group_users is Array, "GDKResult.data carries the Array of social users")
+							assert_true(group_users is Array, "XboxResult.data carries the Array of social users")
 							if group_users is Array and group_users.size() > 0:
-								assert_object_is(group_users[0], "GDKSocialUser", "loaded social groups return GDKSocialUser wrappers")
+								assert_object_is(group_users[0], "XboxSocialUser", "loaded social groups return XboxSocialUser wrappers")
 
 				var social_error_count = social_runtime_errors.size()
 				var root_error_count = root_runtime_errors.size()
 				var invalid_result = social.create_social_group_from_xuids(user, PackedStringArray())
-				assert_not_null(invalid_result, "create_social_group_from_xuids() returns GDKResult")
+				assert_not_null(invalid_result, "create_social_group_from_xuids() returns XboxResult")
 				if invalid_result != null:
-					assert_eq(invalid_result.ok, false, "empty XUID list returns failed GDKResult")
+					assert_eq(invalid_result.ok, false, "empty XUID list returns failed XboxResult")
 					assert_eq(invalid_result.code, "missing_social_group_xuids", "empty social groups report missing_social_group_xuids")
 
 				assert_eq(social_runtime_errors.size(), social_error_count + 1, "empty social groups emit GDK.social.runtime_error")
@@ -231,7 +231,7 @@ func test_social_group_update_and_rich_presence_validation() -> void:
 
 	# update_social_user_group() validates the group handle before any runtime
 	# state, so a blank group is rejected deterministically.
-	var blank_group = instantiate_class("GDKSocialGroup")
+	var blank_group = instantiate_class("XboxSocialGroup")
 	var blank_update = social.update_social_user_group(blank_group, PackedStringArray(["1"]))
 	assert_result_error(blank_update, "invalid_social_group", "update_social_user_group() rejects an unloaded social group")
 	var null_update = social.update_social_user_group(null, PackedStringArray(["1"]))
@@ -242,7 +242,7 @@ func test_social_group_update_and_rich_presence_validation() -> void:
 	assert_result_error(pre_init_polling, "not_initialized", "set_rich_presence_polling() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for social group/polling validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for social group/polling validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -263,7 +263,7 @@ func test_social_group_update_and_rich_presence_validation() -> void:
 		return
 
 	var polling_result = social.set_rich_presence_polling(user, true)
-	assert_not_null(polling_result, "set_rich_presence_polling() returns GDKResult for a signed-in user")
+	assert_not_null(polling_result, "set_rich_presence_polling() returns XboxResult for a signed-in user")
 	if polling_result == null:
 		return
 	if polling_result.ok:

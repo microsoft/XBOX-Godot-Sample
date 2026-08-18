@@ -16,8 +16,8 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
-GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
-GdkAuth="*res://autoload/gdk_auth.gd"
+XboxBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
+XboxAuth="*res://autoload/gdk_auth.gd"
 
 [editor_plugins]
 

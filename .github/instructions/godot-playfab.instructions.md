@@ -22,7 +22,7 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_playf
 
 ## User and Service Model
 
-- PlayFab sign-in is an explicit gameplay action keyed by a `GDKUser` object or a title-defined custom id; do not expose raw local Xbox user ids for XUser-backed sign-in.
+- PlayFab sign-in is an explicit gameplay action keyed by an `XboxUser` object or a title-defined custom id; do not expose raw local Xbox user ids for XUser-backed sign-in.
 - `PlayFabUser` represents one signed-in PlayFab session associated with either one Xbox-backed user object flow or one custom id.
 - Game Saves requires an Xbox-backed `PlayFabUser` with a local user handle; custom-ID sessions must fail with `xbox_user_required` instead of surfacing a low-level handle error.
 - Higher-level service calls should require a `PlayFabUser` rather than raw ids or loosely typed user variants whenever the session is required.
@@ -82,8 +82,8 @@ cd tests\godot\playfab
 
 Lessons that have cost rework in past sessions. Apply them as starting assumptions:
 
-- **No `Ref<GDKUser>` in PlayFab public bindings.** `godot_playfab` and `godot_gdk` ship as separate GDExtension DLLs and cannot exchange typed `Ref<>` values directly. Public PlayFab methods that need a GDK user accept `Object *` and duck-type via `has_method` / `call`. See `addons\godot_playfab\src\playfab_users.h` and `playfab_users.cpp` for the established pattern.
-- **PlayFab `sign_in_with_xuser_async` accepts a `GDKUser` object only — never a raw local Xbox user id.** When the supplied user object is null or invalid the call returns `invalid_xuser`; do not re-introduce a `local_id` parameter.
+- **No `Ref<XboxUser>` in PlayFab public bindings.** `godot_playfab` and `godot_gdk` ship as separate GDExtension DLLs and cannot exchange typed `Ref<>` values directly. Public PlayFab methods that need a GDK user accept `Object *` and duck-type via `has_method` / `call`. See `addons\godot_playfab\src\playfab_users.h` and `playfab_users.cpp` for the established pattern.
+- **PlayFab `sign_in_with_xuser_async` accepts an `XboxUser` object only — never a raw local Xbox user id.** When the supplied user object is null or invalid the call returns `invalid_xuser`; do not re-introduce a `local_id` parameter.
 - **Party SDK typedefs (`PartyError`, `PartyString`, `PartyBool`) live in the global namespace.** They are defined in `<playfab/party/PartyTypes.h>`, not inside `namespace Party`. Writing `Party::PartyError` will not compile.
 - **`<playfab/party/PartyImpl.h>` must be included in exactly one `.cpp`.** Party.lib only exports the C interface; the C++ wrappers (`Party::PartyManager`, …) require `PartyImpl.h` for inline definitions. The current home is `addons\godot_playfab\src\playfab_party.cpp`; do not duplicate the include elsewhere.
 - **PlayFab Lobby `search_properties` must use service keys.** Use `string_key1` … `string_keyN` and `number_key1` … `number_keyN`. Custom key names cause live create/search to fail. See `docs\playfab\plugin.md` and `spec\gdext-playfab-lobby-matchmaking.md` for the canonical list.

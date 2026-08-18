@@ -1,4 +1,4 @@
-// Doctest coverage for gdk_internal:: HRESULT formatting helpers extracted in
+// Doctest coverage for xbox_internal:: HRESULT formatting helpers extracted in
 // Wave 2 (commit 668fa4c). Pins the formatting contract for the only surface
 // that is actually exercisable from a standalone doctest exe: the pure
 // char-buffer formatter `format_hresult_hex`.
@@ -16,31 +16,31 @@
 //   helpers and crashed at runtime — see the final-report deviation note for
 //   this wave. The String-returning helpers are thin one-line forwarders and
 //   are observed end-to-end through the GUT suites that drive
-//   `GDKResult::format_hresult` / `hresult_error` from real Godot processes.
+//   `XboxResult::format_hresult` / `hresult_error` from real Godot processes.
 //
 // The PlayFab addon ships a byte-identical helper set; see
 // test_playfab_result_codes.cpp. If the two ever desync, both suites should
 // surface the regression.
 #include "../third_party/doctest/doctest.h"
 
-#include "gdk_result_codes_internal.h"
+#include "xbox_result_codes_internal.h"
 
 #include <cstring>
 
-using gdk_internal::HRESULT_HEX_BUFFER_SIZE;
-using gdk_internal::format_hresult_hex;
+using xbox_internal::HRESULT_HEX_BUFFER_SIZE;
+using xbox_internal::format_hresult_hex;
 
 // Compile-time pin: format_hresult_hex must remain noexcept (callable from
 // finalizers, async completion paths, etc.).
 static_assert(noexcept(format_hresult_hex(HRESULT{}, static_cast<char *>(nullptr), std::size_t{0})),
-        "gdk_internal::format_hresult_hex must remain noexcept");
+        "xbox_internal::format_hresult_hex must remain noexcept");
 
 // Compile-time pin: the buffer-size constant must stay 11 ("0xFFFFFFFF" + NUL).
 static_assert(HRESULT_HEX_BUFFER_SIZE == 11,
-        "gdk_internal::HRESULT_HEX_BUFFER_SIZE must remain 11 to match the "
+        "xbox_internal::HRESULT_HEX_BUFFER_SIZE must remain 11 to match the "
         "fixed-width 0xXXXXXXXX format used everywhere else in the codebase");
 
-TEST_CASE("gdk_internal::format_hresult_hex formats canonical HRESULTs") {
+TEST_CASE("xbox_internal::format_hresult_hex formats canonical HRESULTs") {
     char buffer[HRESULT_HEX_BUFFER_SIZE] = {};
 
     SUBCASE("S_OK -> 0x00000000") {
@@ -79,7 +79,7 @@ TEST_CASE("gdk_internal::format_hresult_hex formats canonical HRESULTs") {
     }
 }
 
-TEST_CASE("gdk_internal::format_hresult_hex undersized buffer is documented-safe") {
+TEST_CASE("xbox_internal::format_hresult_hex undersized buffer is documented-safe") {
     // Header contract: "If buffer_size is too small the buffer is left empty
     // (out_buffer[0] == '\0') and out_buffer is still returned." Pin both
     // halves of that contract.
@@ -91,7 +91,7 @@ TEST_CASE("gdk_internal::format_hresult_hex undersized buffer is documented-safe
     CHECK(buffer[0] == '\0');
 }
 
-TEST_CASE("gdk_internal::format_hresult_hex zero-size buffer returns pointer untouched") {
+TEST_CASE("xbox_internal::format_hresult_hex zero-size buffer returns pointer untouched") {
     char buffer[HRESULT_HEX_BUFFER_SIZE];
     std::memset(buffer, 'X', sizeof(buffer));
 
@@ -101,7 +101,7 @@ TEST_CASE("gdk_internal::format_hresult_hex zero-size buffer returns pointer unt
     CHECK(buffer[0] == 'X');
 }
 
-TEST_CASE("gdk_internal::format_hresult_hex nullptr buffer returns nullptr") {
+TEST_CASE("xbox_internal::format_hresult_hex nullptr buffer returns nullptr") {
     char *result = format_hresult_hex(static_cast<HRESULT>(0x80004005L), nullptr, HRESULT_HEX_BUFFER_SIZE);
     CHECK(result == nullptr);
 }

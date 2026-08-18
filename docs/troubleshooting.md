@@ -513,7 +513,7 @@ schema. Two common slip-ups:
 - Edit `MicrosoftGame.config` so `Identity/@Name` is alphanumeric +
   hyphens only (`GodotGDK-Sample`, not `GodotGDK Sample`).
 - Keep `Identity/@Publisher` as `CN=<your publisher name>`.
-- If you generated the config from `GDKEditorToolsConfig`, re-run the
+- If you generated the config from `XboxEditorToolsConfig`, re-run the
   generator after fixing the source name; the generator sanitizes the
   Identity name automatically.
 
@@ -566,7 +566,7 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
 ```
 
 **Cause:** `PlayFab.users.sign_in_with_xuser_async` takes a typed
-`GDKUser` object and reads its `local_id` to find the matching
+`XboxUser` object and reads its `local_id` to find the matching
 `XUserHandle`. Two failure paths show up most often:
 
 - `invalid_xuser` — the Microsoft GDK user you passed in is `null`, has not
@@ -587,15 +587,15 @@ for you when you flip `playfab/runtime/initialize_on_startup` to
    var xbox_result := await GDK.users.add_default_user_async()
    assert(xbox_result.ok, "Xbox sign-in failed before PlayFab")
    ```
-2. Pass the `xbox_result.data` (a `GDKUser`) into PlayFab sign-in:
+2. Pass the `xbox_result.data` (an `XboxUser`) into PlayFab sign-in:
    ```gdscript
    var pf_result := await PlayFab.users.sign_in_with_xuser_async(xbox_result.data)
    ```
    Do not pass an `xuid` or a raw local id directly — `sign_in_with_xuser_async`
-   takes the typed `GDKUser` object.
+   takes the typed `XboxUser` object.
 3. If the XBOX sign-in succeeded but PlayFab still fails with
    `xuser_not_found`, re-run `GDK.users.add_default_user_async()` to
-   obtain a fresh `GDKUser` and immediately retry — the previous
+   obtain a fresh `XboxUser` and immediately retry — the previous
    handle was released.
 4. If the failure is consistent across fresh sign-ins, your PlayFab
    title may not have XBOX Live linked. In

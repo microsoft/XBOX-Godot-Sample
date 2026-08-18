@@ -17,32 +17,32 @@ accessed as namespaces under this root.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `initialize(config := null)` | `GDKResult` | Start the Microsoft GDK runtime. See [Initialization config](#initialization-config). Re-initializing returns `already_initialized`; guard repeated startup with `GDK.is_initialized()`. |
+| `initialize(config := null)` | `XboxResult` | Start the Microsoft GDK runtime. See [Initialization config](#initialization-config). Re-initializing returns `already_initialized`; guard repeated startup with `GDK.is_initialized()`. |
 | `shutdown()` | `void` | Clean up the runtime |
 | `is_available()` | `bool` | Whether this build was compiled with `_GAMING_DESKTOP` support |
 | `is_initialized()` | `bool` | Whether the runtime has been initialized |
 | `dispatch()` | `int` | Pump async completions and manager state manually when `gdk/runtime/embed_dispatch` is disabled or when deterministic control is needed |
-| `get_users()` | `GDKUsers` | Access the users service |
-| `get_game_ui()` | `GDKGameUI` | Access the system UI service |
-| `get_accessibility()` | `GDKAccessibility` | Access the accessibility service |
-| `get_achievements()` | `GDKAchievements` | Access the achievements service |
-| `get_package()` | `GDKPackage` | Access package metadata and DLC content-loading helpers |
-| `get_stats()` | `GDKStats` | Access the XBOX Services statistics service |
-| `get_leaderboards()` | `GDKLeaderboards` | Access the XBOX Services leaderboard service |
-| `get_privacy()` | `GDKPrivacy` | Access the XBOX Services privacy service |
-| `get_presence()` | `GDKPresence` | Access the presence service |
-| `get_social()` | `GDKSocial` | Access the social graph service |
-| `get_store()` | `GDKStore` | Access the XStore commerce service |
-| `get_profile()` | `GDKProfile` | Access the XBOX Services profile service |
-| `get_string_verify()` | `GDKStringVerify` | Access the XBOX Services string verification service |
-| `get_title_storage()` | `GDKTitleStorage` | Access the XBOX Services Title Storage service |
-| `get_error_reporting()` | `GDKErrorReporting` | Access the Microsoft GDK `XError` callback/options service |
-| `get_launcher()` | `GDKLauncher` | Access the launcher service for URI/store/settings flows |
-| `get_multiplayer_activity()` | `GDKMultiplayerActivity` | Access the multiplayer activity service |
-| `get_capture()` | `GDKCapture` | Access the capture metadata and capture-state service |
-| `get_system()` | `GDKSystem` | Access title/runtime metadata and environment facts |
-| `get_display()` | `GDKDisplay` | Access HDR mode probing and display timeout deferrals |
-| `get_activation()` | `GDKActivation` | Access game activation events (protocol/file/invite launches) |
+| `get_users()` | `XboxUsers` | Access the users service |
+| `get_game_ui()` | `XboxGameUI` | Access the system UI service |
+| `get_accessibility()` | `XboxAccessibility` | Access the accessibility service |
+| `get_achievements()` | `XboxAchievements` | Access the achievements service |
+| `get_package()` | `XboxPackage` | Access package metadata and DLC content-loading helpers |
+| `get_stats()` | `XboxStats` | Access the XBOX Services statistics service |
+| `get_leaderboards()` | `XboxLeaderboards` | Access the XBOX Services leaderboard service |
+| `get_privacy()` | `XboxPrivacy` | Access the XBOX Services privacy service |
+| `get_presence()` | `XboxPresence` | Access the presence service |
+| `get_social()` | `XboxSocial` | Access the social graph service |
+| `get_store()` | `XboxStore` | Access the XStore commerce service |
+| `get_profile()` | `XboxProfile` | Access the XBOX Services profile service |
+| `get_string_verify()` | `XboxStringVerify` | Access the XBOX Services string verification service |
+| `get_title_storage()` | `XboxTitleStorage` | Access the XBOX Services Title Storage service |
+| `get_error_reporting()` | `XboxErrorReporting` | Access the Microsoft GDK `XError` callback/options service |
+| `get_launcher()` | `XboxLauncher` | Access the launcher service for URI/store/settings flows |
+| `get_multiplayer_activity()` | `XboxMultiplayerActivity` | Access the multiplayer activity service |
+| `get_capture()` | `XboxCapture` | Access the capture metadata and capture-state service |
+| `get_system()` | `XboxSystem` | Access title/runtime metadata and environment facts |
+| `get_display()` | `XboxDisplay` | Access HDR mode probing and display timeout deferrals |
+| `get_activation()` | `XboxActivation` | Access game activation events (protocol/file/invite launches) |
 
 ### Signals
 
@@ -50,7 +50,7 @@ accessed as namespaces under this root.
 |--------|-------------|
 | `initialized()` | Runtime initialized successfully |
 | `shutdown_completed()` | Runtime shutdown complete |
-| `runtime_error(result: GDKResult)` | An `XError` callback reported a runtime-wide error. Reserved for the global X-error bridge — caller-driven failures are returned as the per-call `GDKResult` and per-service unsolicited errors are emitted on `GDK.<service>.runtime_error` (e.g. `GDK.social.runtime_error`, `GDK.achievements.runtime_error`). |
+| `runtime_error(result: XboxResult)` | An `XError` callback reported a runtime-wide error. Reserved for the global X-error bridge — caller-driven failures are returned as the per-call `XboxResult` and per-service unsolicited errors are emitted on `GDK.<service>.runtime_error` (e.g. `GDK.social.runtime_error`, `GDK.achievements.runtime_error`). |
 
 ### Usage
 
@@ -84,12 +84,12 @@ matching SCID override it finds in this order:
 
 If no override is supplied, the addon derives the default SCID from
 `XGameGetXboxTitleId()` as the current-title SCID. Calling `initialize()` again
-while the runtime is still active returns `GDKResult.code == "already_initialized"`,
+while the runtime is still active returns `XboxResult.code == "already_initialized"`,
 so repeated startup paths should guard with `GDK.is_initialized()`.
 
 ```gdscript
 if not GDK.is_initialized():
-    var init_result: GDKResult = GDK.initialize({
+    var init_result: XboxResult = GDK.initialize({
         "xbox_live": {
             "scid": "00000000-0000-0000-0000-00001234ABCD"
         }
@@ -111,21 +111,21 @@ peer test-account XUIDs from the checklist in
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_title_id()` | `GDKResult` | Read the current XBOX title ID (`data` is `int`) |
-| `get_title_id_hex()` | `GDKResult` | Read the current XBOX title ID as uppercase `0x`-prefixed hex (`data` is `String`) |
-| `get_sandbox_id()` | `GDKResult` | Read the current sandbox ID (`data` is `String`) |
-| `get_service_configuration_id()` | `GDKResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
+| `get_title_id()` | `XboxResult` | Read the current XBOX title ID (`data` is `int`) |
+| `get_title_id_hex()` | `XboxResult` | Read the current XBOX title ID as uppercase `0x`-prefixed hex (`data` is `String`) |
+| `get_sandbox_id()` | `XboxResult` | Read the current sandbox ID (`data` is `String`) |
+| `get_service_configuration_id()` | `XboxResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
 | `is_xbox_services_initialized()` | `bool` | Check whether the shared XBOX services scaffold is initialized |
 | `is_feature_available(name)` | `bool` | Check whether an optional GDK runtime feature is available (`XGameRuntimeIsFeatureAvailable`). `name` is a case-insensitive feature id such as `"XAccessibility"`, `"XGameUI"`, `"XGameSave"`, or `"XGameStreaming"`. Unknown names push a warning and return `false`. |
 
 ### Usage
 
 ```gdscript
-var title_result: GDKResult = GDK.system.get_title_id()
+var title_result: XboxResult = GDK.system.get_title_id()
 if title_result.ok:
     print("Title ID:", title_result.data)
 
-var sandbox_result: GDKResult = GDK.system.get_sandbox_id()
+var sandbox_result: XboxResult = GDK.system.get_sandbox_id()
 if sandbox_result.ok:
     print("Sandbox:", sandbox_result.data)
 ```
@@ -139,21 +139,21 @@ if sandbox_result.ok:
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `add_default_user_async()` | `Signal` | Silent XBOX sign-in for a non-guest user |
-| `add_user_with_ui_async(allow_guests := false)` | `Signal` | Interactive XBOX sign-in. **Requires the advanced user model**; under the simplified (PC-default) user model the native call returns a failed `GDKResult` (`E_INVALIDARG`), so PC titles should use the silent `add_default_user_async()`. By default resolves the launching default user with the system sign-in UI; pass `allow_guests = true` to open the guest-capable account picker. It does not replace the session primary user. When the platform reports cancellation, the result resolves with a failed `GDKResult` whose `code` is `cancelled`. |
+| `add_user_with_ui_async(allow_guests := false)` | `Signal` | Interactive XBOX sign-in. **Requires the advanced user model**; under the simplified (PC-default) user model the native call returns a failed `XboxResult` (`E_INVALIDARG`), so PC titles should use the silent `add_default_user_async()`. By default resolves the launching default user with the system sign-in UI; pass `allow_guests = true` to open the guest-capable account picker. It does not replace the session primary user. When the platform reports cancellation, the result resolves with a failed `XboxResult` whose `code` is `cancelled`. |
 | `add_user_by_id_with_ui_async(xuid)` | `Signal` | Re-establish one specific account by decimal XUID, showing UI only if that account needs attention. Use this on resume instead of a blind account picker. |
-| `get_primary_user()` | `GDKUser` | Current primary user (or `null`) |
+| `get_primary_user()` | `XboxUser` | Current primary user (or `null`) |
 | `get_users()` | `Array` | All local users |
-| `get_max_users()` | `GDKResult` | Maximum simultaneous local users on this platform; `data` is an `int` |
+| `get_max_users()` | `XboxResult` | Maximum simultaneous local users on this platform; `data` is an `int` |
 | `is_sign_out_available()` | `bool` | Whether this platform supports title-initiated sign-out. Check before `sign_out_async()`. |
 | `sign_out_async(user)` | `Signal` | Sign `user` out. On success the user is already removed from `get_users()` and `user_changed` has fired once with `removed`. Fails with `sign_out_not_available` when `is_sign_out_available()` is `false`. |
-| `acquire_sign_out_deferral()` | `GDKResult` | Acquire a `GDKUserSignOutDeferral` (in `data`) to delay a pending sign-out while flushing per-user state |
-| `find_user_by_xuid(xuid)` | `GDKResult` | Non-prompting lookup of a signed-in user by decimal XUID; `data` is a `GDKUser` |
-| `find_user_by_local_id(local_id)` | `GDKResult` | Non-prompting lookup by local user ID; `data` is a `GDKUser` |
-| `find_user_for_device(device_id)` | `GDKResult` | The user currently paired with `device_id`; `data` is a `GDKUser` |
+| `acquire_sign_out_deferral()` | `XboxResult` | Acquire an `XboxUserSignOutDeferral` (in `data`) to delay a pending sign-out while flushing per-user state |
+| `find_user_by_xuid(xuid)` | `XboxResult` | Non-prompting lookup of a signed-in user by decimal XUID; `data` is an `XboxUser` |
+| `find_user_by_local_id(local_id)` | `XboxResult` | Non-prompting lookup by local user ID; `data` is an `XboxUser` |
+| `find_user_for_device(device_id)` | `XboxResult` | The user currently paired with `device_id`; `data` is an `XboxUser` |
 | `find_controller_for_user_with_ui_async(user)` | `Signal` | Open the system controller-selection dialog for `user`. Success `data` contains `device_id` and `has_device`. **Required by XR-112** when a user has no assigned controller. |
 | `get_device_associations()` | `Array` | Current user/device pairings as `{device_id, user_local_id}` dictionaries |
 | `get_devices_for_user(user)` | `PackedStringArray` | Device IDs currently paired with `user` |
-| `get_default_audio_endpoint(user, kind := GDKUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER)` | `GDKResult` | The user's default communication audio endpoint; success `data` contains `kind` and `endpoint_id` |
+| `get_default_audio_endpoint(user, kind := XboxUsers.AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER)` | `XboxResult` | The user's default communication audio endpoint; success `data` contains `kind` and `endpoint_id` |
 | `check_privilege_async(user, privilege)` | `Signal` | Check user privilege |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Resolve privilege with UI |
 | `resolve_issue_with_ui_async(user, url)` | `Signal` | Resolve account issue with UI |
@@ -170,7 +170,7 @@ Device IDs are the 64-character lowercase hex encoding of the platform's
 
 | Signal | Description |
 |--------|-------------|
-| `user_changed(user: GDKUser, change_kind: String)` | The single user lifecycle/state event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()` |
+| `user_changed(user: XboxUser, change_kind: String)` | The single user lifecycle/state event. `change_kind` is `added`, `removed`, `signed_in_again`, `gamertag`, `gamer_picture`, or `privileges`; for `removed`, `user` identifies the removed user and is no longer present in `get_users()` |
 | `device_association_changed(device_id: String, old_user_local_id: int, new_user_local_id: int)` | The platform re-paired a device (typically a controller) with a different user. Also fires once per existing pairing at startup. A local ID of `0` means "no user"; resolve non-zero IDs with `find_user_by_local_id()`. |
 | `default_audio_endpoint_changed(user_local_id: int, kind: int, endpoint_id: String)` | A user's default communication audio endpoint changed. `endpoint_id` is empty when the endpoint was removed. |
 
@@ -186,7 +186,7 @@ game-design dependent.
 
 ```gdscript
 func _establish_user_and_controller() -> void:
-    var result: GDKResult = await GDK.users.add_default_user_async()
+    var result: XboxResult = await GDK.users.add_default_user_async()
     if not result.ok:
         # No default user: the advanced user model can fall back to the picker.
         result = await GDK.users.add_user_with_ui_async(true)
@@ -194,7 +194,7 @@ func _establish_user_and_controller() -> void:
             _warn_progress_will_not_be_saved()
             return
 
-    var user: GDKUser = result.data
+    var user: XboxUser = result.data
     _show_gamertag(user.gamertag)  # XR-112: show who is playing before profile actions
 
     # XR-112: the user must have a controller before gameplay input is accepted.
@@ -203,7 +203,7 @@ func _establish_user_and_controller() -> void:
 
 
 func _on_resumed(previous_xuid: String) -> void:
-    var found: GDKResult = GDK.users.find_user_by_xuid(previous_xuid)
+    var found: XboxResult = GDK.users.find_user_by_xuid(previous_xuid)
     if not found.ok:
         # The expected player signed out while suspended: re-establish or drop them.
         found = await GDK.users.add_user_by_id_with_ui_async(previous_xuid)
@@ -211,7 +211,7 @@ func _on_resumed(previous_xuid: String) -> void:
             _remove_player()
             return
 
-    var user: GDKUser = found.data
+    var user: XboxUser = found.data
     if GDK.users.get_devices_for_user(user).is_empty():
         await GDK.users.find_controller_for_user_with_ui_async(user)
 ```
@@ -245,7 +245,7 @@ func _ready():
     if result.ok:
         print("Signed in: ", result.data.gamertag)
 
-func _on_user_changed(user: GDKUser, change_kind: String):
+func _on_user_changed(user: XboxUser, change_kind: String):
     print("User %s: %s" % [change_kind, user.gamertag])
 ```
 
@@ -258,7 +258,7 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `show_message_dialog_async(title, message, first_button, second_button, third_button, default_button, cancel_button)` | `Signal` | Show a system message dialog; success data includes `selected_button` and `selected_button_index` |
-| `set_notification_position_hint(position)` | `GDKResult` | Set the notification position hint (`bottom_center`, `bottom_left`, `bottom_right`, `top_center`, `top_left`, `top_right`) |
+| `set_notification_position_hint(position)` | `XboxResult` | Set the notification position hint (`bottom_center`, `bottom_left`, `bottom_right`, `top_center`, `top_left`, `top_right`) |
 | `show_player_profile_card_async(requesting_user, target_xuid)` | `Signal` | Show the profile card UI for a target XUID |
 | `show_player_picker_async(requesting_user, prompt, selectable_xuids, preselected_xuids, min_selection_count, max_selection_count)` | `Signal` | Show player picker UI; success data includes `selected_xuids` and `selection_count` |
 | `resolve_privilege_with_ui_async(user, privilege)` | `Signal` | Forward to users-service privilege remediation UI flow |
@@ -274,7 +274,7 @@ func _on_user_changed(user: GDKUser, change_kind: String):
 `invalid_button_label`, `invalid_default_button`, `invalid_cancel_button`, or
 `invalid_button_layout`.
 
-## `GDKUser`
+## `XboxUser`
 
 Script-visible wrapper around a local XBOX user.
 
@@ -288,8 +288,8 @@ Script-visible wrapper around a local XBOX user.
 | `modern_gamertag` | `String` | Modern gamertag component, without the numeric suffix. Empty when the platform or account does not expose it. |
 | `modern_gamertag_suffix` | `String` | Numeric suffix of the modern gamertag (for example `#1234`). Empty when unused. |
 | `unique_modern_gamertag` | `String` | Modern gamertag combined with its suffix — the preferred display string. Empty when unavailable. |
-| `age_group` | `GDKUser.AgeGroup` | Age group enum |
-| `sign_in_state` | `GDKUser.SignInState` | Sign-in state enum |
+| `age_group` | `XboxUser.AgeGroup` | Age group enum |
+| `sign_in_state` | `XboxUser.SignInState` | Sign-in state enum |
 | `guest` | `bool` | Whether the user is a guest |
 | `signed_in` | `bool` | Whether the user is signed in |
 | `store_user` | `bool` | Whether the user is a store user |
@@ -302,11 +302,11 @@ Script-visible wrapper around a local XBOX user.
 | `get_sign_in_state_name()` | `String` | Sign-in state as human-readable string |
 | `is_valid()` | `bool` | Whether this wrapper still holds a live native user handle |
 | `is_same_user(other)` | `bool` | Whether `other` refers to the same underlying account, even if it is a different wrapper instance |
-| `duplicate_user()` | `GDKUser` | An independently owned copy of this user, or `null` on failure. Use when a user must outlive the service cache. |
+| `duplicate_user()` | `XboxUser` | An independently owned copy of this user, or `null` on failure. Use when a user must outlive the service cache. |
 
-## `GDKUserSignOutDeferral`
+## `XboxUserSignOutDeferral`
 
-`RefCounted` handle returned in `GDKResult.data` by
+`RefCounted` handle returned in `XboxResult.data` by
 `GDK.users.acquire_sign_out_deferral()`. While it is held, the platform delays a
 pending sign-out so the title can flush per-user state. Release it as soon as
 that work completes — the handle is also released automatically when the object
@@ -318,9 +318,9 @@ is freed.
 | `release()` | `void` | Release the deferral. Safe to call more than once, and safe after `GDK.shutdown()`. |
 
 ```gdscript
-var deferral_result: GDKResult = GDK.users.acquire_sign_out_deferral()
+var deferral_result: XboxResult = GDK.users.acquire_sign_out_deferral()
 if deferral_result.ok:
-    var deferral: GDKUserSignOutDeferral = deferral_result.data
+    var deferral: XboxUserSignOutDeferral = deferral_result.data
     await _flush_save_data()
     deferral.release()
 ```
@@ -333,17 +333,17 @@ if deferral_result.ok:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `query_closed_caption_properties()` | `GDKResult` | Query closed-caption properties from `XClosedCaptionGetProperties`; on success `result.data` is `GDKClosedCaptionProperties` |
-| `set_closed_caption_enabled(enabled)` | `GDKResult` | Set caption-enabled state using `XClosedCaptionSetEnabled` |
-| `query_high_contrast_mode()` | `GDKResult` | Query current high-contrast mode from `XHighContrastGetMode`; on success `result.data` includes `mode` and `mode_name` |
-| `get_high_contrast_mode_name(mode)` | `String` | Convert `GDKAccessibility.HighContrastMode` to snake_case name |
+| `query_closed_caption_properties()` | `XboxResult` | Query closed-caption properties from `XClosedCaptionGetProperties`; on success `result.data` is `XboxClosedCaptionProperties` |
+| `set_closed_caption_enabled(enabled)` | `XboxResult` | Set caption-enabled state using `XClosedCaptionSetEnabled` |
+| `query_high_contrast_mode()` | `XboxResult` | Query current high-contrast mode from `XHighContrastGetMode`; on success `result.data` includes `mode` and `mode_name` |
+| `get_high_contrast_mode_name(mode)` | `String` | Convert `XboxAccessibility.HighContrastMode` to snake_case name |
 
 ### Notes
 
 - These wrappers are scoped to concrete PC-supported APIs documented under `XAccessibility.h`.
 - Speech-to-text overlay APIs are intentionally excluded from this first deterministic accessibility surface.
 
-## `GDKClosedCaptionProperties`
+## `XboxClosedCaptionProperties`
 
 Script-visible wrapper around the native `XClosedCaptionProperties` payload.
 
@@ -354,8 +354,8 @@ Script-visible wrapper around the native `XClosedCaptionProperties` payload.
 | `background_color` | `Color` | Caption background color |
 | `font_color` | `Color` | Caption font color |
 | `window_color` | `Color` | Caption window color |
-| `font_edge_attribute` | `GDKClosedCaptionProperties.FontEdgeAttribute` | Caption edge style |
-| `font_style` | `GDKClosedCaptionProperties.FontStyle` | Caption font style |
+| `font_edge_attribute` | `XboxClosedCaptionProperties.FontEdgeAttribute` | Caption edge style |
+| `font_style` | `XboxClosedCaptionProperties.FontStyle` | Caption font style |
 | `font_scale` | `float` | Caption font scale |
 | `enabled` | `bool` | Whether captions are enabled |
 
@@ -372,15 +372,15 @@ with direct-await completion signals.
 | `query_player_achievements_async(user)` | `Signal` | Query achievements for a user |
 | `update_achievement_async(user, achievement_id, percent_complete)` | `Signal` | Update achievement progress |
 | `get_cached_achievements(user)` | `Array` | Get cached achievement list |
-| `get_achievements_by_state(user, progress_state)` | `GDKResult` | Filter the cached achievements by progress state (`"Achieved"`, `"NotStarted"`, `"InProgress"`, `"Unknown"`; case-insensitive). `data.achievements` is an `Array` of `GDKAchievement`. Returns `achievements_not_loaded` until `query_player_achievements_async()` has warmed the cache for `user`. |
+| `get_achievements_by_state(user, progress_state)` | `XboxResult` | Filter the cached achievements by progress state (`"Achieved"`, `"NotStarted"`, `"InProgress"`, `"Unknown"`; case-insensitive). `data.achievements` is an `Array` of `XboxAchievement`. Returns `achievements_not_loaded` until `query_player_achievements_async()` has warmed the cache for `user`. |
 
 ### Signals
 
 | Signal | Description |
 |--------|-------------|
-| `achievement_unlocked(user: GDKUser, achievement_id: String)` | An achievement was unlocked |
-| `achievements_updated(user: GDKUser)` | Achievement cache was updated |
-| `runtime_error(result: GDKResult)` | An unsolicited achievement-service error occurred (background failure with no per-call response). Caller-driven errors are returned as the per-call `GDKResult` from each method. |
+| `achievement_unlocked(user: XboxUser, achievement_id: String)` | An achievement was unlocked |
+| `achievements_updated(user: XboxUser)` | Achievement cache was updated |
+| `runtime_error(result: XboxResult)` | An unsolicited achievement-service error occurred (background failure with no per-call response). Caller-driven errors are returned as the per-call `XboxResult` from each method. |
 
 ### Usage
 
@@ -395,7 +395,7 @@ if result.ok:
 await GDK.achievements.update_achievement_async(user, "1", 25)
 ```
 
-## `GDKAchievement`
+## `XboxAchievement`
 
 Script-visible wrapper around a cached achievement.
 
@@ -428,19 +428,19 @@ Script-visible wrapper around a cached achievement.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `enumerate_packages(package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `GDKResult` | Enumerate installed packages; `data` is an `Array` of package dictionaries |
-| `find_package_by_identifier(package_identifier, package_kind := GDKPackage.PACKAGE_KIND_CONTENT, scope := GDKPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `GDKResult` | Find one installed package by package identifier |
-| `get_current_process_package_identifier()` | `GDKResult` | Resolve package identity for the current process |
-| `mount_package_async(package_identifier)` | `Signal` | Mount package content and return `GDKPackageMount` in `GDKResult.data` |
+| `enumerate_packages(package_kind := XboxPackage.PACKAGE_KIND_CONTENT, scope := XboxPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `XboxResult` | Enumerate installed packages; `data` is an `Array` of package dictionaries |
+| `find_package_by_identifier(package_identifier, package_kind := XboxPackage.PACKAGE_KIND_CONTENT, scope := XboxPackage.ENUMERATION_SCOPE_THIS_AND_RELATED)` | `XboxResult` | Find one installed package by package identifier |
+| `get_current_process_package_identifier()` | `XboxResult` | Resolve package identity for the current process |
+| `mount_package_async(package_identifier)` | `Signal` | Mount package content and return `XboxPackageMount` in `XboxResult.data` |
 | `load_resource_pack_async(package_identifier, pack_relative_path, replace_files := false, offset := 0)` | `Signal` | Mount package content and load package-relative `.pck`/`.zip` into `res://` |
-| `get_loaded_resource_packs()` | `Array` | Return service-owned `GDKPackageResourcePack` metadata for loaded packs |
-| `get_install_progress(package_identifier)` | `GDKResult` | Snapshot install progress for a package identifier |
+| `get_loaded_resource_packs()` | `Array` | Return service-owned `XboxPackageResourcePack` metadata for loaded packs |
+| `get_install_progress(package_identifier)` | `XboxResult` | Snapshot install progress for a package identifier |
 
 ### Notes
 
 - `mount_package_async()` is the loose-file path; callers are responsible for closing the returned mount.
 - `load_resource_pack_async()` is the Godot-native DLC path; mounts for loaded resource packs stay service-owned until `GDK.shutdown()`.
-- If shutdown cancels an in-flight package mount/resource-pack load, the completion signal resolves with `GDKResult.code == "cancelled"`.
+- If shutdown cancels an in-flight package mount/resource-pack load, the completion signal resolves with `XboxResult.code == "cancelled"`.
 
 ### Package dictionary keys
 
@@ -470,10 +470,10 @@ inside that mounted package, and the runtime rejects empty paths, absolute
 paths, `.`/`..`, and other extensions.
 
 ```gdscript
-var packages_result: GDKResult = GDK.package.enumerate_packages()
+var packages_result: XboxResult = GDK.package.enumerate_packages()
 if packages_result.ok and not packages_result.data.is_empty():
     var package_info: Dictionary = packages_result.data[0]
-    var load_result: GDKResult = await GDK.package.load_resource_pack_async(
+    var load_result: XboxResult = await GDK.package.load_resource_pack_async(
             package_info["package_identifier"],
             "content/dlc/episode1.pck")
     if load_result.ok:
@@ -497,22 +497,22 @@ real-time statistic tracking, and a per-user in-memory cache.
 | `query_user_stats_async(user, stat_names := PackedStringArray())` | `Signal` | Query named stats for one local user; success data is a `Dictionary` keyed by stat name |
 | `query_users_stats_async(user, xuids, stat_names := PackedStringArray())` | `Signal` | Query named stats for multiple target XUIDs using the local user as caller context; success data is keyed by XUID |
 | `get_single_stat_async(user, stat_name)` | `Signal` | Read a single named stat for the signed-in user; success data is a `Dictionary` keyed by stat name (one entry) |
-| `set_stat_integer(user, stat_name, value)` | `GDKResult` | Stage an integer title-managed statistic for the user |
-| `set_stat_number(user, stat_name, value)` | `GDKResult` | Stage a numeric title-managed statistic for the user |
+| `set_stat_integer(user, stat_name, value)` | `XboxResult` | Stage an integer title-managed statistic for the user |
+| `set_stat_number(user, stat_name, value)` | `XboxResult` | Stage a numeric title-managed statistic for the user |
 | `flush_stats_async(user)` | `Signal` | Submit staged title-managed statistics for the user (merge semantics) |
 | `write_stats_async(user, stats)` | `Signal` | Replace-all write: the `stats` `Dictionary` (name → number) becomes the user's complete title-managed stat document. Non-numeric values are rejected with `invalid_stat_value`. Live-write surface |
 | `delete_stats_async(user, stat_names)` | `Signal` | Delete the named title-managed stats for the user. Live-write surface |
-| `track_stats(user, stat_names)` | `GDKResult` | Start tracking real-time changes for named stats |
-| `stop_tracking_stats(user, stat_names := PackedStringArray())` | `GDKResult` | Stop tracking named stats, or all tracked stats for the user when empty |
+| `track_stats(user, stat_names)` | `XboxResult` | Start tracking real-time changes for named stats |
+| `stop_tracking_stats(user, stat_names := PackedStringArray())` | `XboxResult` | Stop tracking named stats, or all tracked stats for the user when empty |
 | `get_cached_stats(user)` | `Dictionary` | Return cached stats for the user keyed by stat name |
 
 ### Signals
 
 | Signal | Description |
 |--------|-------------|
-| `stats_updated(user: GDKUser, stats: Dictionary)` | Cached stats changed for a user |
-| `stat_changed(user: GDKUser, stat_name: String, value: Variant)` | A tracked statistic changed |
-| `stats_flushed(user: GDKUser, result: GDKResult)` | Staged statistics finished flushing |
+| `stats_updated(user: XboxUser, stats: Dictionary)` | Cached stats changed for a user |
+| `stat_changed(user: XboxUser, stat_name: String, value: Variant)` | A tracked statistic changed |
+| `stats_flushed(user: XboxUser, result: XboxResult)` | Staged statistics finished flushing |
 
 ### Data shape
 
@@ -547,16 +547,16 @@ backed by title-managed statistics.
 | `get_leaderboard_async(user, stat_name, max_items := 25)` | `Signal` | Query the global leaderboard for a stat |
 | `get_leaderboard_around_user_async(user, stat_name, max_items := 25)` | `Signal` | Query the global leaderboard around the local user's XUID |
 | `get_social_leaderboard_async(user, stat_name, max_items := 25)` | `Signal` | Query the followed-people social leaderboard for a stat |
-| `get_next_page_async(leaderboard)` | `Signal` | Fetch the next page for a returned `GDKLeaderboard` |
-| `get_cached_leaderboard(stat_name)` | `GDKLeaderboard` | Return the cached leaderboard for a stat, or `null` |
+| `get_next_page_async(leaderboard)` | `Signal` | Fetch the next page for a returned `XboxLeaderboard` |
+| `get_cached_leaderboard(stat_name)` | `XboxLeaderboard` | Return the cached leaderboard for a stat, or `null` |
 
 ### Signals
 
 | Signal | Description |
 |--------|-------------|
-| `leaderboard_updated(stat_name: String, leaderboard: GDKLeaderboard)` | A leaderboard query or next-page request updated the cache |
+| `leaderboard_updated(stat_name: String, leaderboard: XboxLeaderboard)` | A leaderboard query or next-page request updated the cache |
 
-### `GDKLeaderboard`
+### `XboxLeaderboard`
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -564,10 +564,10 @@ backed by title-managed statistics.
 | `query_type` | `String` | `global`, `around_user`, or `social` |
 | `total_row_count` | `int` | Total rows reported by XBOX Services |
 | `has_next` | `bool` | Whether another page can be fetched |
-| `columns` | `Array[GDKLeaderboardColumn]` | Column metadata |
-| `rows` | `Array[GDKLeaderboardRow]` | Row data |
+| `columns` | `Array[XboxLeaderboardColumn]` | Column metadata |
+| `rows` | `Array[XboxLeaderboardRow]` | Row data |
 
-`GDKLeaderboardRow.column_values` contains the JSON-encoded column values
+`XboxLeaderboardRow.column_values` contains the JSON-encoded column values
 returned by XBOX Services.
 
 ### Usage
@@ -575,7 +575,7 @@ returned by XBOX Services.
 ```gdscript
 var result = await GDK.leaderboards.get_leaderboard_async(user, "score", 25)
 if result.ok:
-    var leaderboard: GDKLeaderboard = result.data
+    var leaderboard: XboxLeaderboard = result.data
     for row in leaderboard.rows:
         print("%s: %s" % [row.unique_modern_gamertag, row.column_values])
 
@@ -618,8 +618,8 @@ Supported permission strings are normalized case-insensitively and include
 
 Anonymous user type values are `cross_network_user` and
 `cross_network_friend`. Invalid permission inputs return
-`GDKResult.code == "invalid_permission"`; invalid anonymous-user inputs return
-`GDKResult.code == "invalid_anonymous_user_type"`.
+`XboxResult.code == "invalid_permission"`; invalid anonymous-user inputs return
+`XboxResult.code == "invalid_anonymous_user_type"`.
 
 ### Usage
 
@@ -648,9 +648,9 @@ if mute_list_result.ok:
 | `clear_presence_async(user)` | `Signal` | Clear presence for a local user |
 | `get_presence_async(xuids)` | `Signal` | Query presence records for a list of XUIDs |
 | `get_presence_for_social_group_async(user, social_group)` | `Signal` | Query presence records for a named social group |
-| `track_presence(user, xuids, title_ids := PackedInt64Array())` | `GDKResult` | Track device/title presence changes for XUIDs and optional title IDs |
-| `stop_tracking_presence(user, xuids := PackedStringArray(), title_ids := PackedInt64Array())` | `GDKResult` | Stop tracking specific XUIDs/title IDs, or all tracked values when arrays are empty |
-| `get_cached_presence(xuid)` | `GDKPresenceRecord` | Get a cached presence record by XUID |
+| `track_presence(user, xuids, title_ids := PackedInt64Array())` | `XboxResult` | Track device/title presence changes for XUIDs and optional title IDs |
+| `stop_tracking_presence(user, xuids := PackedStringArray(), title_ids := PackedInt64Array())` | `XboxResult` | Stop tracking specific XUIDs/title IDs, or all tracked values when arrays are empty |
+| `get_cached_presence(xuid)` | `XboxPresenceRecord` | Get a cached presence record by XUID |
 
 **Notes:**
 - `state` is the configured rich-presence string ID for the title's SCID in Partner Center. It is not arbitrary display text.
@@ -661,8 +661,8 @@ if mute_list_result.ok:
 
 | Signal | Description |
 |--------|-------------|
-| `presence_changed(xuid: String, presence: GDKPresenceRecord)` | A cached presence record was updated |
-| `local_presence_set(user: GDKUser)` | Local user presence was set successfully |
+| `presence_changed(xuid: String, presence: XboxPresenceRecord)` | A cached presence record was updated |
+| `local_presence_set(user: XboxUser)` | Local user presence was set successfully |
 | `device_presence_changed(xuid: String)` | A tracked user's device presence changed |
 | `title_presence_changed(xuid: String, title_id: int)` | A tracked user's title presence changed |
 
@@ -675,7 +675,7 @@ await GDK.presence.set_presence_async(user, "InGame")
 # Query presence for a list of XUIDs
 var result = await GDK.presence.get_presence_async(["1234567890123456"])
 if result.ok:
-    var record: GDKPresenceRecord = GDK.presence.get_cached_presence("1234567890123456")
+    var record: XboxPresenceRecord = GDK.presence.get_cached_presence("1234567890123456")
     if record != null:
         print("%s is %s" % [record.xuid, record.get_user_state_name()])
         for title in record.title_records:
@@ -684,7 +684,7 @@ if result.ok:
             print("%s: %s" % [title_name, rich_presence])
 ```
 
-## `GDKPresenceRecord`
+## `XboxPresenceRecord`
 
 Script-visible wrapper around a cached XBOX presence record.
 
@@ -693,7 +693,7 @@ Script-visible wrapper around a cached XBOX presence record.
 | Property | Type | Description |
 |----------|------|-------------|
 | `xuid` | `String` | XBOX User ID |
-| `user_state` | `GDKPresenceRecord.UserState` | `USER_STATE_UNKNOWN`, `USER_STATE_ONLINE`, `USER_STATE_AWAY`, or `USER_STATE_OFFLINE` |
+| `user_state` | `XboxPresenceRecord.UserState` | `USER_STATE_UNKNOWN`, `USER_STATE_ONLINE`, `USER_STATE_AWAY`, or `USER_STATE_OFFLINE` |
 | `title_records` | `Array[Dictionary]` | Title/device presence records translated from XBOX Services |
 
 ### Methods
@@ -715,15 +715,15 @@ and broadcast fields when XBOX Services reports them.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `start_social_graph(user)` | `GDKResult` | Start tracking the social graph for a user |
+| `start_social_graph(user)` | `XboxResult` | Start tracking the social graph for a user |
 | `stop_social_graph(user)` | `void` | Stop tracking the social graph for a user |
 | `get_friends_async(user)` | `Signal` | Query the default friends group |
-| `create_social_group(user, filter)` | `GDKResult` | Create a filtered social group. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
-| `create_social_group_from_xuids(user, xuids)` | `GDKResult` | Create a social group from explicit XUIDs. On success `result.data` is the `GDKSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
-| `update_social_user_group(group, xuids)` | `GDKResult` | Replace the tracked-user list of a list-based `GDKSocialGroup` (one created via `create_social_group_from_xuids`). `result.data.count` is the new tracked-user count. Filter-based groups cannot be updated this way. |
-| `set_rich_presence_polling(user, enabled)` | `GDKResult` | Enable or disable Social Manager rich-presence polling for `user`. `result.data.enabled` echoes the requested state; the user's social graph is started if needed. |
+| `create_social_group(user, filter)` | `XboxResult` | Create a filtered social group. On success `result.data` is the `XboxSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
+| `create_social_group_from_xuids(user, xuids)` | `XboxResult` | Create a social group from explicit XUIDs. On success `result.data` is the `XboxSocialGroup`; on failure `result.ok` is false and `runtime_error` is also emitted on `GDK.social`. |
+| `update_social_user_group(group, xuids)` | `XboxResult` | Replace the tracked-user list of a list-based `XboxSocialGroup` (one created via `create_social_group_from_xuids`). `result.data.count` is the new tracked-user count. Filter-based groups cannot be updated this way. |
+| `set_rich_presence_polling(user, enabled)` | `XboxResult` | Enable or disable Social Manager rich-presence polling for `user`. `result.data.enabled` echoes the requested state; the user's social graph is started if needed. |
 | `destroy_social_group(group)` | `void` | Destroy a social group |
-| `get_group_users(group)` | `GDKResult` | Get the `GDKSocialUser` list for a group. `result.data` is always an `Array` (possibly empty); `result.ok` is false when the underlying lookup fails. |
+| `get_group_users(group)` | `XboxResult` | Get the `XboxSocialUser` list for a group. `result.data` is always an `Array` (possibly empty); `result.ok` is false when the underlying lookup fails. |
 | `submit_reputation_feedback_async(user, target_xuid, feedback_type, reason := "", evidence_id := "")` | `Signal` | Submit one reputation feedback item |
 | `submit_batch_reputation_feedback_async(user, feedback_items)` | `Signal` | Submit multiple reputation feedback items |
 
@@ -764,10 +764,10 @@ batch item is not a dictionary or is missing `target_xuid`/`feedback_type`, and
 
 | Signal | Description |
 |--------|-------------|
-| `social_graph_changed(user: GDKUser)` | The social graph loaded or changed for a user |
-| `social_group_updated(group: GDKSocialGroup)` | A social group's membership was updated |
-| `social_user_changed(xuid: String, social_user: GDKSocialUser)` | A tracked user's social/presence data changed |
-| `runtime_error(result: GDKResult)` | An unsolicited social-service error occurred (background failure with no per-call response). Caller-driven errors from the public `create_social_group*` and `get_group_users` methods are also mirrored here in addition to being returned. |
+| `social_graph_changed(user: XboxUser)` | The social graph loaded or changed for a user |
+| `social_group_updated(group: XboxSocialGroup)` | A social group's membership was updated |
+| `social_user_changed(xuid: String, social_user: XboxSocialUser)` | A tracked user's social/presence data changed |
+| `runtime_error(result: XboxResult)` | An unsolicited social-service error occurred (background failure with no per-call response). Caller-driven errors from the public `create_social_group*` and `get_group_users` methods are also mirrored here in addition to being returned. |
 
 ### Usage
 
@@ -783,7 +783,7 @@ if result.ok:
                 print(friend.gamertag)
 ```
 
-## `GDKSocialUser`
+## `XboxSocialUser`
 
 Script-visible wrapper around a tracked social user.
 
@@ -799,7 +799,7 @@ Script-visible wrapper around a tracked social user.
 | `display_picture_url` | `String` | Raw display-picture URL |
 | `gamerscore` | `String` | Gamerscore string |
 | `gamertag` | `String` | Classic gamertag |
-| `presence` | `GDKPresenceRecord` | Current Social Manager presence snapshot |
+| `presence` | `XboxPresenceRecord` | Current Social Manager presence snapshot |
 | `title_history` | `Dictionary` | Title-history fields reported by Social Manager |
 | `preferred_color` | `Dictionary` | Preferred color fields reported by Social Manager |
 
@@ -815,10 +815,10 @@ Script-visible wrapper around a tracked social user.
 | `get_unique_modern_gamertag()` | `String` | Modern gamertag including suffix |
 
 Use `presence.user_state` and `presence.title_records` for online state,
-current-title, and rich-presence details; those are not direct `GDKSocialUser`
+current-title, and rich-presence details; those are not direct `XboxSocialUser`
 properties.
 
-## `GDKSocialGroup`
+## `XboxSocialGroup`
 
 Script-visible wrapper around a Social Manager group.
 
@@ -826,10 +826,10 @@ Script-visible wrapper around a Social Manager group.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `presence_filter` | `GDKSocialFilter.PresenceFilter` | Presence filter used to create this group |
-| `relationship_filter` | `GDKSocialFilter.RelationshipFilter` | Relationship filter used to create this group |
+| `presence_filter` | `XboxSocialFilter.PresenceFilter` | Presence filter used to create this group |
+| `relationship_filter` | `XboxSocialFilter.RelationshipFilter` | Relationship filter used to create this group |
 
-## `GDKSocialFilter`
+## `XboxSocialFilter`
 
 Namespace for social filter enums.
 
@@ -861,13 +861,13 @@ Namespace for social filter enums.
 `GDK.store` is a `RefCounted` service object returned by `GDK.get_store()`.
 It wraps PC-supported `XStore` commerce APIs and caches the latest
 license-acquire result per Store product ID. All operations require a
-signed-in [`GDKUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-singleton-gdk) runtime.
+signed-in [`XboxUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-singleton-gdk) runtime.
 
 ### Methods
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `query_license_status_async(user, store_id)` | `Signal` | Query whether `user` can acquire a license for `store_id`. Completion `GDKResult.data` is a `GDKStoreLicenseStatus` on success. |
+| `query_license_status_async(user, store_id)` | `Signal` | Query whether `user` can acquire a license for `store_id`. Completion `XboxResult.data` is an `XboxStoreLicenseStatus` on success. |
 | `refresh_entitlements_async(user, store_id)` | `Signal` | Refresh entitlements for `store_id` by re-querying license-acquire status. |
 | `show_purchase_ui_async(user, store_id)` | `Signal` | Show the system purchase UI for `store_id`. |
 | `show_product_page_ui_async(user, store_id)` | `Signal` | Show the system product page UI for `store_id`. |
@@ -875,19 +875,19 @@ signed-in [`GDKUser`](#users-service-gdkusers) and an initialized [`GDK`](#root-
 | `show_rate_and_review_ui_async(user)` | `Signal` | Show the rate-and-review UI; success data includes `was_updated`. |
 | `show_redeem_token_ui_async(user, token, allowed_store_ids, disallow_csv_redemption)` | `Signal` | Show the token-redemption UI for `token`. `allowed_store_ids` optionally restricts redeemable products. |
 | `show_gifting_ui_async(user, store_id, name, extended_json)` | `Signal` | Show the gifting UI for `store_id` with optional gifting metadata. |
-| `get_cached_license_status(store_id)` | `GDKStoreLicenseStatus` | Returns the cached license status for `store_id`, or `null` when no cached value exists. |
-| `check_cached_license_status(store_id)` | `GDKResult` | Synchronous cache-only check; returns `license_status_not_cached` when no cached status exists. |
+| `get_cached_license_status(store_id)` | `XboxStoreLicenseStatus` | Returns the cached license status for `store_id`, or `null` when no cached value exists. |
+| `check_cached_license_status(store_id)` | `XboxResult` | Synchronous cache-only check; returns `license_status_not_cached` when no cached status exists. |
 
 ### Usage
 
 ```gdscript
 var result = await GDK.store.query_license_status_async(user, "9NBLGGH4R315")
 if result.ok:
-    var status: GDKStoreLicenseStatus = result.data
+    var status: XboxStoreLicenseStatus = result.data
     print(status.store_id, status.licensable_sku, status.status)
 ```
 
-### `GDKStoreLicenseStatus`
+### `XboxStoreLicenseStatus`
 
 Typed wrapper around an `XStore` license-acquire result.
 
@@ -913,20 +913,20 @@ your installed SDK version.
 | `get_profiles_async(user, xuids)` | `Signal` | Query XBOX profiles for a list of XUID strings |
 | `get_profiles_for_social_group_async(user, social_group)` | `Signal` | Query XBOX profiles for a social group such as `People` or `Favorites` |
 
-On success, `get_profile_async()` returns a `GDKResult` whose `data` is a
-`GDKUserProfile`. Batch and social-group queries return an `Array` of
-`GDKUserProfile` objects.
+On success, `get_profile_async()` returns an `XboxResult` whose `data` is a
+`XboxUserProfile`. Batch and social-group queries return an `Array` of
+`XboxUserProfile` objects.
 
 ### Usage
 
 ```gdscript
 var result = await GDK.profile.get_profile_async(user, target_xuid)
 if result.ok:
-    var profile: GDKUserProfile = result.data
+    var profile: XboxUserProfile = result.data
     print(profile.unique_modern_gamertag)
 ```
 
-## `GDKUserProfile`
+## `XboxUserProfile`
 
 Script-visible wrapper around an XBOX Services profile record.
 
@@ -957,7 +957,7 @@ Script-visible wrapper around an XBOX Services profile record.
 | `verify_string_async(user, text)` | `Signal` | Verify one string for XBOX Live acceptability |
 | `verify_strings_async(user, strings)` | `Signal` | Verify multiple strings for XBOX Live acceptability |
 
-On success, `verify_string_async()` returns a `GDKResult` whose `data` is a
+On success, `verify_string_async()` returns an `XboxResult` whose `data` is a
 dictionary with:
 
 | Key | Type | Description |
@@ -996,7 +996,7 @@ if result.ok and not result.data.acceptable:
 
 Quota results return a dictionary with `storage_type`, `used_bytes`, and
 `quota_bytes`. Download results return a dictionary with `metadata` and `data`.
-Upload results return a `GDKTitleStorageBlobMetadata`.
+Upload results return an `XboxTitleStorageBlobMetadata`.
 
 ### Usage
 
@@ -1004,12 +1004,12 @@ Upload results return a `GDKTitleStorageBlobMetadata`.
 var list_result = await GDK.title_storage.list_blob_metadata_async(
         user, "universal", "saves", 0, 25)
 if list_result.ok:
-    var page: GDKTitleStorageBlobMetadataResult = list_result.data
-    for metadata: GDKTitleStorageBlobMetadata in page.items:
+    var page: XboxTitleStorageBlobMetadataResult = list_result.data
+    for metadata: XboxTitleStorageBlobMetadata in page.items:
         print(metadata.blob_path, " -> ", metadata.length)
 ```
 
-## `GDKTitleStorageBlobMetadata`
+## `XboxTitleStorageBlobMetadata`
 
 Script-visible wrapper around Title Storage blob metadata.
 
@@ -1027,7 +1027,7 @@ Script-visible wrapper around Title Storage blob metadata.
 | `service_configuration_id` | `String` | SCID |
 | `xuid` | `String` | Owning XUID when present |
 
-## `GDKTitleStorageBlobMetadataResult`
+## `XboxTitleStorageBlobMetadataResult`
 
 Paged Title Storage metadata result. Keep the object alive while requesting
 additional pages.
@@ -1036,7 +1036,7 @@ additional pages.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `items` | `Array` | `GDKTitleStorageBlobMetadata` items |
+| `items` | `Array` | `XboxTitleStorageBlobMetadata` items |
 | `has_next` | `bool` | Whether another page can be fetched |
 | `storage_type` | `String` | Storage type for the query |
 | `blob_path` | `String` | Blob path prefix for the query |
@@ -1054,8 +1054,8 @@ external endpoints.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `configure_options(debugger_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := GDKErrorReporting.ERROR_OPTIONS_NONE)` | `GDKResult` | Configure `XError` behavior using `GDKErrorReporting.ErrorOptions` enum flags (bitwise OR supported) |
-| `set_callback_enabled(enabled)` | `GDKResult` | Enable/disable forwarding from `XError` callback into Godot signals |
+| `configure_options(debugger_present_options := XboxErrorReporting.ERROR_OPTIONS_NONE, debugger_not_present_options := XboxErrorReporting.ERROR_OPTIONS_NONE)` | `XboxResult` | Configure `XError` behavior using `XboxErrorReporting.ErrorOptions` enum flags (bitwise OR supported) |
+| `set_callback_enabled(enabled)` | `XboxResult` | Enable/disable forwarding from `XError` callback into Godot signals |
 | `is_callback_enabled()` | `bool` | Whether callback forwarding is currently enabled |
 
 ### `ErrorOptions` enum
@@ -1071,7 +1071,7 @@ external endpoints.
 
 | Signal | Description |
 |--------|-------------|
-| `error_reported(result: GDKResult)` | Emitted when `XError` callback reports an error; also mirrored through `GDK.runtime_error(result)` |
+| `error_reported(result: XboxResult)` | Emitted when `XError` callback reports an error; also mirrored through `GDK.runtime_error(result)` |
 
 **Privacy note:** if your title attaches metadata to downstream telemetry based
 on callback events, your title owns privacy/compliance review for that metadata.
@@ -1087,13 +1087,13 @@ on callback events, your title owns privacy/compliance review for that metadata.
 |--------|---------|-------------|
 | `set_activity_async(user, connection_string, join_restriction, max_players, current_players, group_id, allow_cross_platform_join)` | `Signal` | Set the current multiplayer activity for a user |
 | `get_activities_async(user, xuids)` | `Signal` | Fetch activities for a list of XUIDs |
-| `get_cached_activity(xuid)` | `GDKMultiplayerActivityInfo` | Get a cached activity by XUID (or `null`) |
+| `get_cached_activity(xuid)` | `XboxMultiplayerActivityInfo` | Get a cached activity by XUID (or `null`) |
 | `delete_activity_async(user)` | `Signal` | Delete the current user's activity |
 | `send_invites_async(user, xuids, allow_cross_platform_join, connection_string)` | `Signal` | Send invites to the given XUIDs |
 | `show_invite_ui_async(user)` | `Signal` | Show the system invite UI |
-| `update_recent_players(user, xuids, encounter_type)` | `GDKResult` | Record recent-player encounters |
+| `update_recent_players(user, xuids, encounter_type)` | `XboxResult` | Record recent-player encounters |
 | `flush_recent_players_async(user)` | `Signal` | Flush pending recent-player records |
-| `accept_pending_invite(invite_uri)` | `GDKResult` | Parse and accept a pending invite URI |
+| `accept_pending_invite(invite_uri)` | `XboxResult` | Parse and accept a pending invite URI |
 
 ### Signals
 
@@ -1113,7 +1113,7 @@ Invite dictionaries match `GDK.activation` and include `raw_uri`, `activation_ty
 2. Otherwise reuse the cached local activity connection string set by
    `set_activity_async()`.
 3. If neither path yields a non-empty value, the call fails with
-   `GDKResult.code == "missing_connection_string"`.
+   `XboxResult.code == "missing_connection_string"`.
 
 ### Usage
 
@@ -1122,7 +1122,7 @@ var mpa = GDK.multiplayer_activity
 
 # Set your activity first so empty-string invites can reuse the cached
 # connection string for this local user.
-var set_result: GDKResult = await mpa.set_activity_async(
+var set_result: XboxResult = await mpa.set_activity_async(
         user,
         "myserver://connect?session=abc",
         "followed",
@@ -1151,7 +1151,7 @@ mpa.invite_accepted.connect(func(invite):
 )
 ```
 
-## `GDKMultiplayerActivityInfo`
+## `XboxMultiplayerActivityInfo`
 
 Script-visible wrapper around a cached multiplayer activity snapshot.
 
@@ -1175,11 +1175,11 @@ Script-visible wrapper around a cached multiplayer activity snapshot.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `enable_capture()` | `GDKResult` | Re-enable Game Bar capture for this title after a previous `disable_capture()` call |
-| `disable_capture()` | `GDKResult` | Disable Game Bar capture for this title |
+| `enable_capture()` | `XboxResult` | Re-enable Game Bar capture for this title after a previous `disable_capture()` call |
+| `disable_capture()` | `XboxResult` | Disable Game Bar capture for this title |
 | `record_diagnostic_clip_async(duration: float)` | `Signal` | Record a diagnostic video clip of the given duration in seconds and return a deferred completion signal. Requires Game Bar. |
 | `take_diagnostic_screenshot_async(path_hint: String)` | `Signal` | Take a diagnostic screenshot and return a deferred completion signal. Requires Game Bar. |
-| `create_metadata(reserved_bytes := 0)` | `GDKCaptureMetaData` | Create a script-side metadata write context, or `null` if the runtime is not initialized. `reserved_bytes` is retained for compatibility and ignored. |
+| `create_metadata(reserved_bytes := 0)` | `XboxCaptureMetaData` | Create a script-side metadata write context, or `null` if the runtime is not initialized. `reserved_bytes` is retained for compatibility and ignored. |
 
 ### Microsoft GDK availability
 
@@ -1220,7 +1220,7 @@ if result.ok:
     print("Clip recorded")
 ```
 
-## `GDKCaptureMetaData`
+## `XboxCaptureMetaData`
 
 Script-side write context for the process-wide `XAppCaptureMetadata*` APIs. Created by `GDK.capture.create_metadata()`.
 
@@ -1230,14 +1230,14 @@ Script-side write context for the process-wide `XAppCaptureMetadata*` APIs. Crea
 |--------|---------|-------------|
 | `is_valid()` | `bool` | Whether the script-side metadata context is open |
 | `close()` | `void` | Close the script-side context early (also closed automatically on free) |
-| `stop_all_states()` | `GDKResult` | Stop all active persistent metadata states |
+| `stop_all_states()` | `XboxResult` | Stop all active persistent metadata states |
 | `get_remaining_storage_bytes()` | `int` | Bytes remaining in the local metadata buffer (`-1` on error) |
-| `add_string_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot string event |
-| `add_double_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot double event |
-| `add_int32_event(name, value, priority := 0)` | `GDKResult` | Write a one-shot int32 event |
-| `start_string_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent string state |
-| `start_double_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent double state |
-| `start_int32_state(name, value, priority := 0)` | `GDKResult` | Begin a persistent int32 state |
+| `add_string_event(name, value, priority := 0)` | `XboxResult` | Write a one-shot string event |
+| `add_double_event(name, value, priority := 0)` | `XboxResult` | Write a one-shot double event |
+| `add_int32_event(name, value, priority := 0)` | `XboxResult` | Write a one-shot int32 event |
+| `start_string_state(name, value, priority := 0)` | `XboxResult` | Begin a persistent string state |
+| `start_double_state(name, value, priority := 0)` | `XboxResult` | Begin a persistent double state |
+| `start_int32_state(name, value, priority := 0)` | `XboxResult` | Begin a persistent int32 state |
 
 **`Priority` enum**
 
@@ -1255,7 +1255,7 @@ It wraps PC-supported `XLaunchUri` flows.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `launch_uri(uri, user := null)` | `GDKResult` | Launch an absolute URI with `XLaunchUri` |
+| `launch_uri(uri, user := null)` | `XboxResult` | Launch an absolute URI with `XLaunchUri` |
 
 ### Validation notes
 
@@ -1275,7 +1275,7 @@ var result = GDK.launcher.launch_uri("ms-settings:privacy-microphone")
 print(result.ok, result.code, result.message)
 ```
 
-### `GDKResult`
+### `XboxResult`
 
 Normalized result payload returned by all async operations.
 
@@ -1285,7 +1285,7 @@ Normalized result payload returned by all async operations.
 | `hresult` | `int` | Native HRESULT code |
 | `code` | `String` | Error code string |
 | `message` | `String` | Human-readable error message |
-| `data` | `Variant` | Operation payload (e.g., `GDKUser`, `Dictionary`, `Image`) |
+| `data` | `Variant` | Operation payload (e.g., `XboxUser`, `Dictionary`, `Image`) |
 
 ## Display service: `GDK.display`
 
@@ -1297,8 +1297,8 @@ timeout deferrals.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `try_enable_hdr_mode(preference := HDR_MODE_PREFERENCE_PREFER_HDR)` | `GDKResult` | Probe and best-effort enable HDR via `XDisplayTryEnableHdrMode` |
-| `acquire_timeout_deferral()` | `GDKResult` | Acquire a `GDKDisplayTimeoutDeferral` that suppresses idle display blanking |
+| `try_enable_hdr_mode(preference := HDR_MODE_PREFERENCE_PREFER_HDR)` | `XboxResult` | Probe and best-effort enable HDR via `XDisplayTryEnableHdrMode` |
+| `acquire_timeout_deferral()` | `XboxResult` | Acquire an `XboxDisplayTimeoutDeferral` that suppresses idle display blanking |
 
 ### Constants
 
@@ -1312,14 +1312,14 @@ timeout deferrals.
 
 ### Result data
 
-`try_enable_hdr_mode` success payload (`GDKResult.data`) is a `Dictionary`:
+`try_enable_hdr_mode` success payload (`XboxResult.data`) is a `Dictionary`:
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `mode` | `int` | One of the `HDR_MODE_*` constants above |
 | `info` | `Dictionary` | Present when `mode == HDR_MODE_ENABLED`. Contains `min_tone_map_luminance`, `max_tone_map_luminance`, and `max_full_frame_tone_map_luminance` (all `float`). |
 
-`acquire_timeout_deferral` success payload is a `GDKDisplayTimeoutDeferral`
+`acquire_timeout_deferral` success payload is an `XboxDisplayTimeoutDeferral`
 ref-counted handle wrapper. Call `release()` (or drop all references) to release
 the deferral and re-enable system idle behavior.
 
@@ -1330,7 +1330,7 @@ the deferral and re-enable system idle behavior.
 - Native failures surface as `hdr_mode_failed` / `acquire_timeout_deferral_failed`
   with the underlying HRESULT formatted into `message`.
 
-### `GDKDisplayTimeoutDeferral`
+### `XboxDisplayTimeoutDeferral`
 
 Ref-counted wrapper around an `XDisplayTimeoutDeferralHandle`.
 
@@ -1358,7 +1358,7 @@ fan-out so both services see the same parsed invite dictionary.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `accept_pending_invite(invite_uri)` | `GDKResult` | Accept a pending invite URI (`XGameActivationAcceptPendingInvite`, or `XGameInviteAcceptPendingInvite` on October 2025 editions) |
+| `accept_pending_invite(invite_uri)` | `XboxResult` | Accept a pending invite URI (`XGameActivationAcceptPendingInvite`, or `XGameInviteAcceptPendingInvite` on October 2025 editions) |
 
 ### Signals
 
@@ -1403,10 +1403,10 @@ and releases it on `GDK.shutdown()`.
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `get_installed_voices()` | `Array` | Installed voices as dictionaries with `id`, `display_name`, `language`, `gender` (`"male"`/`"female"`), and `description`. Empty before `GDK.initialize()` |
-| `set_default_voice()` | `GDKResult` | Select the platform default voice for subsequent synthesis |
-| `set_custom_voice(voice_id)` | `GDKResult` | Select a voice by `id`; rejects an empty id with `invalid_voice_id` |
-| `synthesize_text(text)` | `GDKResult` | Synthesize plain text; `data.audio_wav` is a `PackedByteArray` of RIFF/WAV bytes and `data.byte_count` is its length |
-| `synthesize_ssml(ssml)` | `GDKResult` | Synthesize an SSML document; same payload shape as `synthesize_text` |
+| `set_default_voice()` | `XboxResult` | Select the platform default voice for subsequent synthesis |
+| `set_custom_voice(voice_id)` | `XboxResult` | Select a voice by `id`; rejects an empty id with `invalid_voice_id` |
+| `synthesize_text(text)` | `XboxResult` | Synthesize plain text; `data.audio_wav` is a `PackedByteArray` of RIFF/WAV bytes and `data.byte_count` is its length |
+| `synthesize_ssml(ssml)` | `XboxResult` | Synthesize an SSML document; same payload shape as `synthesize_text` |
 | `synthesize_to_stream(text)` | `AudioStreamWAV` | Convenience helper returning a ready-to-play stream, or `null` on failure |
 
 ### Validation notes
@@ -1424,7 +1424,7 @@ if voices.size() > 0:
     GDK.speech.set_custom_voice(voices[0]["id"])
 
 # Synthesize to raw WAV bytes
-var result: GDKResult = GDK.speech.synthesize_text("Welcome to the game.")
+var result: XboxResult = GDK.speech.synthesize_text("Welcome to the game.")
 if result.ok:
     var wav_bytes: PackedByteArray = result.data["audio_wav"]
     # ...persist or hand off the WAV bytes...
@@ -1447,7 +1447,7 @@ PlayFab analytics (`godot_playfab`); titles may use either or both.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `write_event(user, event_name, dimensions, measurements)` | `GDKResult` | Write a telemetry event for `user`. `dimensions`/`measurements` are `Dictionary` payloads serialized to JSON. Success data includes `event_name` and `play_session_id`. |
+| `write_event(user, event_name, dimensions, measurements)` | `XboxResult` | Write a telemetry event for `user`. `dimensions`/`measurements` are `Dictionary` payloads serialized to JSON. Success data includes `event_name` and `play_session_id`. |
 | `set_play_session_id(play_session_id)` | `void` | Set the play-session GUID used to group events. Pass `""` to regenerate a fresh GUID. |
 | `get_play_session_id()` | `String` | Return the current play-session GUID (auto-generated on first access). |
 
@@ -1463,12 +1463,12 @@ PlayFab analytics (`godot_playfab`); titles may use either or both.
 ### Usage
 
 ```gdscript
-var user: GDKUser = GDK.users.get_primary_user()
+var user: XboxUser = GDK.users.get_primary_user()
 
 # Tag the play session (optional; a GUID is generated automatically otherwise)
 GDK.events.set_play_session_id("")  # regenerate, or pass your own id
 
-var result: GDKResult = GDK.events.write_event(
+var result: XboxResult = GDK.events.write_event(
     user,
     "LevelComplete",
     {"level_id": "forest_01", "difficulty": "hard"},   # dimensions
@@ -1527,7 +1527,7 @@ it configures the separate no-code cloud-saves feature.
 Neither method exposes a caller-facing cancel API — both return a bare `Signal`,
 and the underlying pending-signal object is engine-internal. Cancellation is
 driven by the runtime: `GDK.shutdown()` cancels every in-flight request and
-resolves its awaiter with a cancelled `GDKResult`, so an `await` can never hang.
+resolves its awaiter with a cancelled `XboxResult`, so an `await` can never hang.
 
 Internally the two differ. `get_folder_async()` forwards cancellation to
 `XAsyncCancel`. `get_remaining_quota_async()` does not: it wraps a single
@@ -1537,16 +1537,16 @@ would be inert. The awaiter is still resolved as cancelled either way.
 ### Usage
 
 ```gdscript
-var user: GDKUser = GDK.users.get_primary_user()
+var user: XboxUser = GDK.users.get_primary_user()
 
-var folder_result: GDKResult = await GDK.game_save.get_folder_async(user)
+var folder_result: XboxResult = await GDK.game_save.get_folder_async(user)
 if folder_result.ok:
     var save_path: String = folder_result.data.path
     var f := FileAccess.open(save_path.path_join("save1.dat"), FileAccess.WRITE)
     f.store_var({"level": 3, "score": 1450})
     f.close()
 
-var quota_result: GDKResult = await GDK.game_save.get_remaining_quota_async(user)
+var quota_result: XboxResult = await GDK.game_save.get_remaining_quota_async(user)
 if quota_result.ok:
     print("Remaining save quota: %d bytes" % quota_result.data.bytes)
 ```
@@ -1576,19 +1576,19 @@ constants, lifecycle, and data-frame plumbing.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `initialize(max_users := 16, default_relationship := RELATIONSHIP_SEND_AND_RECEIVE_ALL)` | `GDKResult` | Initialize the `chat_manager` for `max_users` combined local + remote users. Errors: `not_initialized`, `already_initialized`, `invalid_max_users`. |
+| `initialize(max_users := 16, default_relationship := RELATIONSHIP_SEND_AND_RECEIVE_ALL)` | `XboxResult` | Initialize the `chat_manager` for `max_users` combined local + remote users. Errors: `not_initialized`, `already_initialized`, `invalid_max_users`. |
 | `is_initialized()` | `bool` | `true` between a successful `initialize()` and `cleanup()`. |
 | `cleanup()` | `void` | Release all Game Chat resources (also called on `GDK.shutdown`). |
-| `add_local_user(user)` | `GDKResult` | Add a signed-in `GDKUser` as a local chat user. Success data is `data.xuid`. |
-| `add_remote_user(xuid, endpoint_id)` | `GDKResult` | Add a remote user by XUID reachable on a title-assigned `endpoint_id`. Success data is `{xuid, endpoint_id}`. |
-| `remove_user(xuid)` | `GDKResult` | Remove the local or remote user matching `xuid`. |
-| `set_communication_relationship(local_xuid, target_xuid, relationship)` | `GDKResult` | Set the bitwise `CommunicationRelationship` flags from a local user toward a target. |
-| `set_microphone_muted(local_xuid, muted)` | `GDKResult` | Mute/unmute a local user's microphone. |
-| `set_remote_user_muted(local_xuid, target_xuid, muted)` | `GDKResult` | Mute/unmute a remote user for a local user. |
-| `set_audio_render_volume(local_xuid, target_xuid, volume)` | `GDKResult` | Set the render volume (0.0–1.0) for audio from a remote user. |
-| `send_text(local_xuid, text)` | `GDKResult` | Send a 1–1023 character chat text message. |
-| `synthesize_text_to_speech(local_xuid, text)` | `GDKResult` | Synthesize text as speech from the local user (when TTS is enabled). |
-| `process_incoming_data_frame(source_endpoint_id, bytes)` | `GDKResult` | Hand Game Chat a frame received from a remote endpoint. |
+| `add_local_user(user)` | `XboxResult` | Add a signed-in `XboxUser` as a local chat user. Success data is `data.xuid`. |
+| `add_remote_user(xuid, endpoint_id)` | `XboxResult` | Add a remote user by XUID reachable on a title-assigned `endpoint_id`. Success data is `{xuid, endpoint_id}`. |
+| `remove_user(xuid)` | `XboxResult` | Remove the local or remote user matching `xuid`. |
+| `set_communication_relationship(local_xuid, target_xuid, relationship)` | `XboxResult` | Set the bitwise `CommunicationRelationship` flags from a local user toward a target. |
+| `set_microphone_muted(local_xuid, muted)` | `XboxResult` | Mute/unmute a local user's microphone. |
+| `set_remote_user_muted(local_xuid, target_xuid, muted)` | `XboxResult` | Mute/unmute a remote user for a local user. |
+| `set_audio_render_volume(local_xuid, target_xuid, volume)` | `XboxResult` | Set the render volume (0.0–1.0) for audio from a remote user. |
+| `send_text(local_xuid, text)` | `XboxResult` | Send a 1–1023 character chat text message. |
+| `synthesize_text_to_speech(local_xuid, text)` | `XboxResult` | Synthesize text as speech from the local user (when TTS is enabled). |
+| `process_incoming_data_frame(source_endpoint_id, bytes)` | `XboxResult` | Hand Game Chat a frame received from a remote endpoint. |
 | `get_chat_users()` | `Array` | Snapshot of current users as `{xuid, is_local, chat_indicator}` dictionaries. |
 
 ### Signals
@@ -1623,7 +1623,7 @@ controlled via `set_microphone_muted()`, `set_remote_user_muted()`, and
 GDK.game_chat.initialize()
 
 # Local (signed-in) user plus a remote peer reachable on endpoint 1001.
-var me: GDKUser = GDK.users.get_primary_user()
+var me: XboxUser = GDK.users.get_primary_user()
 var local := GDK.game_chat.add_local_user(me)
 GDK.game_chat.add_remote_user("2814639011419087", 1001)
 

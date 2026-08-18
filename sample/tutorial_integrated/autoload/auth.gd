@@ -182,7 +182,7 @@ func _ensure_playfab_user(xbox):
 			_set_error("playfab.initialize", init.message)
 			return null
 
-	# Pass the GDKUser object directly. The addon reads the local user
+	# Pass the XboxUser object directly. The addon reads the local user
 	# handle out of it internally; the boundary is intentionally typed
 	# as Object because Ref<> types cannot cross GDExtension DLLs.
 	var result = await AddonApi.singleton("PlayFab").users.sign_in_with_xuser_async(xbox)

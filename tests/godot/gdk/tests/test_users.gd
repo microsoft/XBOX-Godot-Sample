@@ -53,8 +53,8 @@ func test_users_full_flow() -> void:
 	for removed_signal_name in ["user_added", "user_removed", "primary_user_changed"]:
 		assert_false(users.has_signal(removed_signal_name), "GDK.users exposes only user_changed, not %s" % removed_signal_name)
 
-	assert_eq(get_class_constant("GDKUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER"), 0, "GDKUsers exposes AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER")
-	assert_eq(get_class_constant("GDKUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE"), 1, "GDKUsers exposes AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE")
+	assert_eq(get_class_constant("XboxUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER"), 0, "XboxUsers exposes AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER")
+	assert_eq(get_class_constant("XboxUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE"), 1, "XboxUsers exposes AUDIO_ENDPOINT_KIND_COMMUNICATION_CAPTURE")
 
 	assert_true(users.get_users() is Array, "get_users() returns Array")
 	assert_true(users.get_primary_user() == null, "get_primary_user() starts null before init")
@@ -71,8 +71,8 @@ func test_users_full_flow() -> void:
 	assert_result_error(users.find_user_for_device("00"), "not_initialized", "find_user_for_device() rejects before initialize")
 	assert_result_error(users.get_default_audio_endpoint(null), "not_initialized", "get_default_audio_endpoint() rejects before initialize")
 
-	var blank_user = instantiate_class("GDKUser")
-	assert_not_null(blank_user, "GDKUser.new() returns wrapper")
+	var blank_user = instantiate_class("XboxUser")
+	assert_not_null(blank_user, "XboxUser.new() returns wrapper")
 	if blank_user != null:
 		for method_name in [
 			"get_local_id",
@@ -94,34 +94,34 @@ func test_users_full_flow() -> void:
 		]:
 			assert_has_method_named(blank_user, method_name)
 
-		assert_eq(blank_user.get_local_id(), 0, "blank GDKUser local_id defaults to 0")
-		assert_eq(blank_user.get_xuid(), "", "blank GDKUser xuid defaults empty")
-		assert_eq(blank_user.get_gamertag(), "", "blank GDKUser gamertag defaults empty")
-		assert_eq(blank_user.get_modern_gamertag(), "", "blank GDKUser modern_gamertag defaults empty")
-		assert_eq(blank_user.get_modern_gamertag_suffix(), "", "blank GDKUser modern_gamertag_suffix defaults empty")
-		assert_eq(blank_user.get_unique_modern_gamertag(), "", "blank GDKUser unique_modern_gamertag defaults empty")
-		assert_eq(blank_user.get_age_group(), get_class_constant("GDKUser", "AGE_GROUP_UNKNOWN"), "blank GDKUser age_group defaults to AGE_GROUP_UNKNOWN")
-		assert_eq(blank_user.get_age_group_name(), "unknown", "blank GDKUser age_group_name defaults to unknown")
-		assert_eq(blank_user.get_sign_in_state(), get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_OUT"), "blank GDKUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
-		assert_eq(blank_user.get_sign_in_state_name(), "signed_out", "blank GDKUser sign_in_state_name defaults to signed_out")
-		assert_eq(blank_user.is_guest(), false, "blank GDKUser guest defaults false")
-		assert_eq(blank_user.is_signed_in(), false, "blank GDKUser signed_in defaults false")
-		assert_eq(blank_user.is_store_user(), false, "blank GDKUser store_user defaults false")
-		assert_eq(blank_user.is_valid(), false, "blank GDKUser is_valid() defaults false")
-		assert_eq(blank_user.is_same_user(null), false, "blank GDKUser is_same_user(null) is false")
+		assert_eq(blank_user.get_local_id(), 0, "blank XboxUser local_id defaults to 0")
+		assert_eq(blank_user.get_xuid(), "", "blank XboxUser xuid defaults empty")
+		assert_eq(blank_user.get_gamertag(), "", "blank XboxUser gamertag defaults empty")
+		assert_eq(blank_user.get_modern_gamertag(), "", "blank XboxUser modern_gamertag defaults empty")
+		assert_eq(blank_user.get_modern_gamertag_suffix(), "", "blank XboxUser modern_gamertag_suffix defaults empty")
+		assert_eq(blank_user.get_unique_modern_gamertag(), "", "blank XboxUser unique_modern_gamertag defaults empty")
+		assert_eq(blank_user.get_age_group(), get_class_constant("XboxUser", "AGE_GROUP_UNKNOWN"), "blank XboxUser age_group defaults to AGE_GROUP_UNKNOWN")
+		assert_eq(blank_user.get_age_group_name(), "unknown", "blank XboxUser age_group_name defaults to unknown")
+		assert_eq(blank_user.get_sign_in_state(), get_class_constant("XboxUser", "SIGN_IN_STATE_SIGNED_OUT"), "blank XboxUser sign_in_state defaults to SIGN_IN_STATE_SIGNED_OUT")
+		assert_eq(blank_user.get_sign_in_state_name(), "signed_out", "blank XboxUser sign_in_state_name defaults to signed_out")
+		assert_eq(blank_user.is_guest(), false, "blank XboxUser guest defaults false")
+		assert_eq(blank_user.is_signed_in(), false, "blank XboxUser signed_in defaults false")
+		assert_eq(blank_user.is_store_user(), false, "blank XboxUser store_user defaults false")
+		assert_eq(blank_user.is_valid(), false, "blank XboxUser is_valid() defaults false")
+		assert_eq(blank_user.is_same_user(null), false, "blank XboxUser is_same_user(null) is false")
 		# A handle-less wrapper must never reach XUserCompare(), which has no
 		# defined behavior for a null handle — on either side of the comparison.
-		var other_blank_user = instantiate_class("GDKUser")
+		var other_blank_user = instantiate_class("XboxUser")
 		if other_blank_user != null:
-			assert_eq(blank_user.is_same_user(other_blank_user), false, "two handle-less GDKUsers are not the same user")
-		assert_true(blank_user.duplicate_user() == null, "blank GDKUser duplicate_user() returns null")
+			assert_eq(blank_user.is_same_user(other_blank_user), false, "two handle-less XboxUsers are not the same user")
+		assert_true(blank_user.duplicate_user() == null, "blank XboxUser duplicate_user() returns null")
 
-	var blank_deferral = instantiate_class("GDKUserSignOutDeferral")
-	assert_not_null(blank_deferral, "GDKUserSignOutDeferral.new() returns wrapper")
+	var blank_deferral = instantiate_class("XboxUserSignOutDeferral")
+	assert_not_null(blank_deferral, "XboxUserSignOutDeferral.new() returns wrapper")
 	if blank_deferral != null:
 		assert_has_method_named(blank_deferral, "is_valid")
 		assert_has_method_named(blank_deferral, "release")
-		assert_eq(blank_deferral.is_valid(), false, "blank GDKUserSignOutDeferral is_valid() defaults false")
+		assert_eq(blank_deferral.is_valid(), false, "blank XboxUserSignOutDeferral is_valid() defaults false")
 		blank_deferral.release()
 		assert_eq(blank_deferral.is_valid(), false, "releasing an unheld deferral stays invalid")
 
@@ -141,7 +141,7 @@ func test_users_full_flow() -> void:
 	await assert_signal_result_error(pre_init_find_controller_signal, "not_initialized", "find_controller_for_user_with_ui_async() rejects before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for users behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for users behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -152,7 +152,7 @@ func test_users_full_flow() -> void:
 	assert_true(users.get_primary_user() == null, "get_primary_user() starts null after init")
 
 	var max_users_result = users.get_max_users()
-	assert_not_null(max_users_result, "get_max_users() returns GDKResult after initialize")
+	assert_not_null(max_users_result, "get_max_users() returns XboxResult after initialize")
 	if max_users_result != null and max_users_result.ok:
 		assert_true(max_users_result.data is int, "get_max_users() data is an int")
 		assert_true(max_users_result.data >= 1, "get_max_users() reports at least one supported user")
@@ -225,8 +225,8 @@ func test_users_full_flow() -> void:
 		disconnect_signal_handlers(users, ["user_changed"])
 		return
 
-	assert_object_is(user, "GDKUser", "default-user flow returns a GDKUser")
-	if add_result != null and is_class_instance(add_result.data, "GDKUser"):
+	assert_object_is(user, "XboxUser", "default-user flow returns an XboxUser")
+	if add_result != null and is_class_instance(add_result.data, "XboxUser"):
 		assert_eq(add_result.data.get_local_id(), user.get_local_id(), "default-user result data matches the cached primary user")
 
 	var primary_user = users.get_primary_user()
@@ -245,7 +245,7 @@ func test_users_full_flow() -> void:
 	assert_true(user.get_local_id() != 0, "signed-in user local_id is populated")
 	assert_true(user.get_xuid().length() > 0, "signed-in user XUID is populated")
 	assert_true(user.get_gamertag().length() > 0, "signed-in user gamertag is populated")
-	assert_eq(user.get_sign_in_state(), get_class_constant("GDKUser", "SIGN_IN_STATE_SIGNED_IN"), "signed-in user reports SIGNED_IN")
+	assert_eq(user.get_sign_in_state(), get_class_constant("XboxUser", "SIGN_IN_STATE_SIGNED_IN"), "signed-in user reports SIGNED_IN")
 	assert_eq(user.is_signed_in(), true, "signed-in user reports signed_in == true")
 	assert_eq(user.is_valid(), true, "signed-in user wrapper reports is_valid() == true")
 	assert_eq(user.is_same_user(user), true, "signed-in user is the same user as itself")
@@ -254,14 +254,14 @@ func test_users_full_flow() -> void:
 	var duplicated_user = user.duplicate_user()
 	assert_not_null(duplicated_user, "duplicate_user() returns an independently owned wrapper")
 	if duplicated_user != null:
-		assert_object_is(duplicated_user, "GDKUser", "duplicate_user() returns a GDKUser")
+		assert_object_is(duplicated_user, "XboxUser", "duplicate_user() returns an XboxUser")
 		assert_eq(duplicated_user.get_local_id(), user.get_local_id(), "duplicated user keeps the same local id")
 		assert_eq(user.is_same_user(duplicated_user), true, "duplicated user compares equal to its source")
 
 	var found_by_xuid = users.find_user_by_xuid(user.get_xuid())
 	assert_result_ok(found_by_xuid, "find_user_by_xuid() locates the signed-in user")
 	if found_by_xuid != null and found_by_xuid.ok:
-		assert_object_is(found_by_xuid.data, "GDKUser", "find_user_by_xuid() returns a GDKUser")
+		assert_object_is(found_by_xuid.data, "XboxUser", "find_user_by_xuid() returns an XboxUser")
 		assert_eq(found_by_xuid.data.get_local_id(), user.get_local_id(), "find_user_by_xuid() returns the cached user")
 
 	var found_by_local_id = users.find_user_by_local_id(user.get_local_id())
@@ -280,13 +280,13 @@ func test_users_full_flow() -> void:
 			assert_eq(device_user.data.get_local_id(), user.get_local_id(), "find_user_for_device() resolves back to the paired user")
 
 	var render_endpoint = users.get_default_audio_endpoint(user)
-	assert_not_null(render_endpoint, "get_default_audio_endpoint() returns GDKResult for a signed-in user")
+	assert_not_null(render_endpoint, "get_default_audio_endpoint() returns XboxResult for a signed-in user")
 	if render_endpoint != null and render_endpoint.ok:
 		assert_true(render_endpoint.data is Dictionary, "get_default_audio_endpoint() returns Dictionary data")
 		if render_endpoint.data is Dictionary:
 			assert_dict_has_key(render_endpoint.data, "kind", "audio endpoint result includes kind")
 			assert_dict_has_key(render_endpoint.data, "endpoint_id", "audio endpoint result includes endpoint_id")
-			assert_eq(render_endpoint.data["kind"], get_class_constant("GDKUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER"), "audio endpoint result echoes the requested kind")
+			assert_eq(render_endpoint.data["kind"], get_class_constant("XboxUsers", "AUDIO_ENDPOINT_KIND_COMMUNICATION_RENDER"), "audio endpoint result echoes the requested kind")
 
 	assert_result_error(
 		users.get_default_audio_endpoint(user, 7),
@@ -295,9 +295,9 @@ func test_users_full_flow() -> void:
 	)
 
 	var deferral_result = users.acquire_sign_out_deferral()
-	assert_not_null(deferral_result, "acquire_sign_out_deferral() returns GDKResult after initialize")
+	assert_not_null(deferral_result, "acquire_sign_out_deferral() returns XboxResult after initialize")
 	if deferral_result != null and deferral_result.ok:
-		assert_object_is(deferral_result.data, "GDKUserSignOutDeferral", "acquire_sign_out_deferral() returns a GDKUserSignOutDeferral")
+		assert_object_is(deferral_result.data, "XboxUserSignOutDeferral", "acquire_sign_out_deferral() returns an XboxUserSignOutDeferral")
 		var deferral = deferral_result.data
 		assert_eq(deferral.is_valid(), true, "an acquired sign-out deferral reports is_valid() == true")
 		deferral.release()

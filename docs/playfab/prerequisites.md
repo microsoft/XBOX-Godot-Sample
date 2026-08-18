@@ -65,7 +65,7 @@ extension unloads.
 
 ### XBOX-backed sign-in prerequisites
 
-`PlayFab.users.sign_in_with_xuser_async(...)` accepts a signed-in `GDKUser`
+`PlayFab.users.sign_in_with_xuser_async(...)` accepts a signed-in `XboxUser`
 object, not a raw local XBOX user id. Reuse `GDK.users.get_primary_user()`
 when a primary user is already present, or prompt for one with
 `await GDK.users.add_user_with_ui_async()`, then pass that returned object to

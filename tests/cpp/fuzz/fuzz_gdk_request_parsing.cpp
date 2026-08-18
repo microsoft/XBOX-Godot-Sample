@@ -1,7 +1,7 @@
 // fuzz_gdk_request_parsing.cpp — Phase 3 libFuzzer target.
 //
 // Fuzzes the GDK request-input parsing seam (addons/godot_gdk/src/
-// gdk_request_parsing.cpp). These helpers validate caller-supplied (ultimately
+// xbox_request_parsing.cpp). These helpers validate caller-supplied (ultimately
 // script-supplied) request values and touch raw memory: strtoull over a UTF-8
 // buffer (try_parse_xuid), memcpy into a fixed native buffer (copy_utf8_to_buffer),
 // integer bounds-checks (parse_uint32), and PackedByteArray<->std::vector
@@ -17,7 +17,7 @@
 
 #include "godot_stub_init.h"
 
-#include "gdk_request_parsing.h"
+#include "xbox_request_parsing.h"
 
 #include <cstdint>
 #include <cstring>
@@ -25,7 +25,7 @@
 
 namespace {
 
-namespace parsing = godot::gdk_request_parsing;
+namespace parsing = godot::xbox_request_parsing;
 
 using godot::PackedByteArray;
 using godot::String;

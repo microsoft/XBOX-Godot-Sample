@@ -14,7 +14,7 @@ extends EditorExportPlugin
 ## An export plugin's features *are* consulted, whichever platform is running,
 ## so the tag is restored here for the duration of the delegated export.
 
-const GDKExportPlatform = preload("res://addons/godot_gdk/editor/gdk_export_platform.gd")
+const XboxExportPlatform = preload("res://addons/godot_gdk/editor/gdk_export_platform.gd")
 
 
 func _get_name() -> String:
@@ -22,9 +22,9 @@ func _get_name() -> String:
 
 
 func _get_export_features(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
-	# The flag is set only while GDKExportPlatform._export_project() is driving
+	# The flag is set only while XboxExportPlatform._export_project() is driving
 	# the built-in Windows exporter, so a plain `Windows Desktop` export in the
 	# same editor session is unaffected.
-	if not GDKExportPlatform.exporting_for_gdk:
+	if not XboxExportPlatform.exporting_for_gdk:
 		return PackedStringArray()
 	return PackedStringArray(["gdk"])

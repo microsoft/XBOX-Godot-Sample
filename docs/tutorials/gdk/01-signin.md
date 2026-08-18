@@ -2,7 +2,7 @@
 
 ## What you'll build
 
-Build the `GdkAuth` autoload used by the GDK track. It initializes `GDK`, checks for an already-signed-in primary user, tries silent sign-in, falls back to the system sign-in UI, and exposes a read-only `xbox_user` once the state reaches `SIGNED_IN`. The scene `g01_signin` renders that state and lets the player retry.
+Build the `XboxAuth` autoload used by the GDK track. It initializes `GDK`, checks for an already-signed-in primary user, tries silent sign-in, falls back to the system sign-in UI, and exposes a read-only `xbox_user` once the state reaches `SIGNED_IN`. The scene `g01_signin` renders that state and lets the player retry.
 
 ## Prerequisites
 
@@ -14,15 +14,15 @@ Build the `GdkAuth` autoload used by the GDK track. It initializes `GDK`, checks
 ## Relevant addon surfaces
 
 - [`GDK`](../../../addons/godot_gdk/doc_classes/GDK.xml) — runtime initialization.
-- [`GDKUsers`](../../../addons/godot_gdk/doc_classes/GDKUsers.xml) — `get_primary_user`, `add_default_user_async`, and `add_user_with_ui_async`.
-- [`GDKUser`](../../../addons/godot_gdk/doc_classes/GDKUser.xml) — signed-in user data (`gamertag`, `xuid`, `signed_in`).
-- [`GDKResult`](../../../addons/godot_gdk/doc_classes/GDKResult.xml) — normalized async results.
+- [`XboxUsers`](../../../addons/godot_gdk/doc_classes/XboxUsers.xml) — `get_primary_user`, `add_default_user_async`, and `add_user_with_ui_async`.
+- [`XboxUser`](../../../addons/godot_gdk/doc_classes/XboxUser.xml) — signed-in user data (`gamertag`, `xuid`, `signed_in`).
+- [`XboxResult`](../../../addons/godot_gdk/doc_classes/XboxResult.xml) — normalized async results.
 
 ## Steps
 
-### Step 1 — Add the `GdkAuth` autoload
+### Step 1 — Add the `XboxAuth` autoload
 
-Create `res://autoload/gdk_auth.gd`, then register it in **Project → Project Settings → Autoload** as `GdkAuth`. The sample uses a small state machine so every scene can await the same sign-in attempt safely.
+Create `res://autoload/gdk_auth.gd`, then register it in **Project → Project Settings → Autoload** as `XboxAuth`. The sample uses a small state machine so every scene can await the same sign-in attempt safely.
 
 ```gdscript
 extends Node
@@ -31,21 +31,21 @@ const AddonApi = preload("res://shared/addon_api.gd")
 
 ## GDK Tutorial — Xbox sign-in (state-machine autoload).
 ##
-## The `GdkAuth` autoload is the GDK-only track's identity service. Unlike
+## The `XboxAuth` autoload is the GDK-only track's identity service. Unlike
 ## the integrated track's `Auth` autoload, it stops at Xbox: there is no
 ## PlayFab step. It runs a phased sign-in:
 ##   1. UNINITIALIZED  → SIGNING_IN_XBOX (GDK: check → silent → UI)
 ##   2. SIGNING_IN_XBOX → SIGNED_IN (or FAILED at any step)
 ##
-## Consumers gate work by awaiting [code]GdkAuth.sign_in()[/code], which is
+## Consumers gate work by awaiting [code]XboxAuth.sign_in()[/code], which is
 ## idempotent and joins an in-flight attempt instead of starting a new one.
 ## The single [code]state_changed[/code] signal carries the new state;
 ## accessors return the current truth.
 ##
-##     if not await GdkAuth.sign_in():
-##         _show_error(GdkAuth.get_last_error_stage(), GdkAuth.get_last_error_message())
+##     if not await XboxAuth.sign_in():
+##         _show_error(XboxAuth.get_last_error_stage(), XboxAuth.get_last_error_message())
 ##         return
-##     var user = GdkAuth.xbox_user
+##     var user = XboxAuth.xbox_user
 ##
 ## Source: docs/tutorials/gdk/01-signin.md
 
@@ -70,7 +70,7 @@ var xbox_user:
 	get:
 		return _xbox_user if _state == State.SIGNED_IN else null
 	set(_value):
-		push_error("[GdkAuth] xbox_user is read-only — drive state via sign_in()")
+		push_error("[XboxAuth] xbox_user is read-only — drive state via sign_in()")
 
 func get_state() -> State:
 	return _state
@@ -109,7 +109,7 @@ func sign_in() -> bool:
 
 func _ready() -> void:
 	# Kick off silent sign-in immediately so the first scene to load can
-	# simply `await GdkAuth.sign_in()` and join the in-flight attempt.
+	# simply `await XboxAuth.sign_in()` and join the in-flight attempt.
 	sign_in()
 
 func _do_sign_in() -> bool:
@@ -123,8 +123,8 @@ func _do_sign_in() -> bool:
 		_set_state(State.FAILED)
 		return false
 	_xbox_user = xbox
-	print("[GdkAuth] Xbox primary user: %s" % xbox.gamertag)
-	print("[GdkAuth] Sign-in complete.")
+	print("[XboxAuth] Xbox primary user: %s" % xbox.gamertag)
+	print("[XboxAuth] Sign-in complete.")
 
 	_set_state(State.SIGNED_IN)
 	return true
@@ -138,7 +138,7 @@ func _set_state(new_state: State) -> void:
 func _set_error(stage: String, message: String) -> void:
 	_last_error_stage = stage
 	_last_error_message = message
-	push_warning("[GdkAuth] sign-in failed at %s: %s" % [stage, message])
+	push_warning("[XboxAuth] sign-in failed at %s: %s" % [stage, message])
 
 func _ensure_xbox_user():
 	if not Engine.has_singleton("GDK"):
@@ -162,7 +162,7 @@ func _ensure_xbox_user():
 	if silent.ok and silent.data != null and silent.data.signed_in:
 		return silent.data
 
-	print("[GdkAuth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
+	print("[XboxAuth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
 	# 3. UI fallback. Shows the system sign-in UI for the default user.
 	#    Pass add_user_with_ui_async(true) for the guest-capable account
@@ -184,12 +184,12 @@ extends Control
 
 ## GDK Tutorial 1 reference scene — Xbox sign-in status panel.
 ##
-## Reads the `GdkAuth` autoload and renders the current sign-in state via
-## GdkAuth.state_changed. Pressing **Sign in** re-runs the
+## Reads the `XboxAuth` autoload and renders the current sign-in state via
+## XboxAuth.state_changed. Pressing **Sign in** re-runs the
 ## check → silent → UI fallback; **Back** returns to the picker.
 ##
-## NOTE: scene scripts use `get_node("/root/GdkAuth")` instead of the bare
-## `GdkAuth.` reference shown in the tutorial markdown so that the headless
+## NOTE: scene scripts use `get_node("/root/XboxAuth")` instead of the bare
+## `XboxAuth.` reference shown in the tutorial markdown so that the headless
 ## parse gate (`tools\check_gd_scripts_headless.ps1`) — which does not
 ## resolve GDScript autoloads — stays clean.
 ##
@@ -206,9 +206,9 @@ func _ready() -> void:
 	_back_button.pressed.connect(_on_back_pressed)
 	_sign_in_button.pressed.connect(_on_sign_in_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if _auth == null:
-		_status.text = "GdkAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
+		_status.text = "XboxAuth autoload missing — register autoload/gdk_auth.gd in project.godot."
 		_sign_in_button.disabled = true
 		return
 
@@ -258,25 +258,25 @@ func _on_back_pressed() -> void:
 ### Step 3 — Consume sign-in from later GDK scenes
 
 ```gdscript
-if not await GdkAuth.sign_in():
+if not await XboxAuth.sign_in():
 	push_error("Sign-in failed at %s: %s" % [
-		GdkAuth.get_last_error_stage(),
-		GdkAuth.get_last_error_message(),
+		XboxAuth.get_last_error_stage(),
+		XboxAuth.get_last_error_message(),
 	])
 	return
 
-var user: GDKUser = GdkAuth.xbox_user
+var user: XboxUser = XboxAuth.xbox_user
 ```
 
 ## Verify
 
-Run `sample/tutorial_gdk`, open `g01_signin`, and press **Sign in**. You should see the gamertag and XUID. Output should include `[GdkAuth] Xbox primary user:` and `[GdkAuth] Sign-in complete.`
+Run `sample/tutorial_gdk`, open `g01_signin`, and press **Sign in**. You should see the gamertag and XUID. Output should include `[XboxAuth] Xbox primary user:` and `[XboxAuth] Sign-in complete.`
 
 ## Common failures
 
 | Output | Diagnosis | Fix |
 |---|---|---|
-| `GdkAuth autoload missing` | The autoload is not registered or has the wrong name. | Register `autoload/gdk_auth.gd` as `GdkAuth`. |
+| `XboxAuth autoload missing` | The autoload is not registered or has the wrong name. | Register `autoload/gdk_auth.gd` as `XboxAuth`. |
 | `gdk.missing` | The GDK extension did not load. | Build the addons and confirm the mirrored `addons/godot_gdk/bin` files exist. |
 | `no_default_user` before UI | No Xbox app default user is available. | This is handled; choose a test account in the sign-in UI. |
 | `gdk.add_user_with_ui` failure | Sign-in UI dismissed, wrong sandbox, or test account issue. | When the platform reports the dismissal (`E_ABORT`), the result is `cancelled` so the game can continue offline. Whether dismissing the UI completes the request is GDK platform behavior and is not guaranteed (see issue #115). Otherwise retry, verify sandbox, and confirm the account has access to the title. |

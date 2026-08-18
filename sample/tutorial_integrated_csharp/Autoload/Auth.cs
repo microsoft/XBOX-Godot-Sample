@@ -1,8 +1,8 @@
 using Godot;
 using System;
 using System.Threading.Tasks;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 using GodotPlayFab;
 using GodotPlayFab.Types;
 
@@ -13,14 +13,14 @@ public partial class Auth : Node
     public event Action<State> StateChanged;
 
     private State _state = State.Uninitialized;
-    private GdkUser _xboxUser;
+    private XboxUser _xboxUser;
     private PlayFabUser _playFabUser;
     private string _lastErrorStage = string.Empty;
     private string _lastErrorMessage = string.Empty;
     private Task<bool> _inFlight;
 
     public State CurrentState => _state;
-    public GdkUser XboxUser => _state == State.SignedIn ? _xboxUser : null;
+    public XboxUser XboxUser => _state == State.SignedIn ? _xboxUser : null;
     public PlayFabUser PlayFabUser => _state == State.SignedIn ? _playFabUser : null;
 
     public override void _Ready() => _ = SignInAsync();
@@ -48,7 +48,7 @@ public partial class Auth : Node
         _playFabUser = null;
 
         SetState(State.SigningInXbox);
-        GdkUser xbox = await EnsureXboxUserAsync();
+        XboxUser xbox = await EnsureXboxUserAsync();
         if (xbox == null)
         {
             SetState(State.Failed);
@@ -86,17 +86,17 @@ public partial class Auth : Node
         GD.PushWarning($"[Auth] sign-in failed at {stage}: {_lastErrorMessage}");
     }
 
-    private async Task<GdkUser> EnsureXboxUserAsync()
+    private async Task<XboxUser> EnsureXboxUserAsync()
     {
-        if (!Gdk.IsAvailable)
+        if (!Xbox.IsAvailable)
         {
             SetError("gdk.missing", "godot_gdk extension is not loaded");
             return null;
         }
 
-        if (!Gdk.IsInitialized)
+        if (!Xbox.IsInitialized)
         {
-            GdkResult init = Gdk.Initialize();
+            XboxResult init = Xbox.Initialize();
             if (!init.Ok)
             {
                 SetError("gdk.initialize", init.Message);
@@ -104,23 +104,23 @@ public partial class Auth : Node
             }
         }
 
-        GdkUser primary = Gdk.Users.GetPrimaryUser();
+        XboxUser primary = Xbox.Users.GetPrimaryUser();
         if (primary != null && primary.IsSignedIn) return primary;
 
-        GdkResult silent = await Gdk.Users.AddDefaultUserAsync();
-        GdkUser silentUser = silent?.DataAs<GdkUser>();
+        XboxResult silent = await Xbox.Users.AddDefaultUserAsync();
+        XboxUser silentUser = silent?.DataAs<XboxUser>();
         if (silent != null && silent.Ok && silentUser != null && silentUser.IsSignedIn) return silentUser;
 
         GD.Print($"[Auth] Silent sign-in failed ({silent?.Message}) — falling back to UI.");
-        GdkResult ui = await Gdk.Users.AddUserWithUiAsync();
-        GdkUser uiUser = ui?.DataAs<GdkUser>();
+        XboxResult ui = await Xbox.Users.AddUserWithUiAsync();
+        XboxUser uiUser = ui?.DataAs<XboxUser>();
         if (ui != null && ui.Ok && uiUser != null && uiUser.IsSignedIn) return uiUser;
 
         SetError("gdk.add_user_with_ui", ui?.Message ?? "Unknown GDK sign-in failure");
         return null;
     }
 
-    private async Task<PlayFabUser> EnsurePlayFabUserAsync(GdkUser xbox)
+    private async Task<PlayFabUser> EnsurePlayFabUserAsync(XboxUser xbox)
     {
         if (!PlayFab.IsAvailable)
         {

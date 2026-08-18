@@ -16,8 +16,8 @@ config/features=PackedStringArray("4.6", "C#")
 
 [autoload]
 
-GDKBootstrap="*res://Autoload/GdkBootstrap.cs"
-GdkAuth="*res://Autoload/GdkAuth.cs"
+XboxBootstrap="*res://Autoload/XboxBootstrap.cs"
+XboxAuth="*res://Autoload/XboxAuth.cs"
 
 [dotnet]
 

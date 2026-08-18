@@ -1,6 +1,6 @@
 using Godot;
-using GodotGdk;
-using GodotGdk.Types;
+using GodotXbox;
+using GodotXbox.Types;
 using GodotPlayFab;
 using GodotPlayFab.Types;
 
@@ -26,10 +26,10 @@ public partial class I02Integration : Control
         if (_auth == null) { _identity.Text = "[ERR] Auth autoload missing"; return; }
         _auth.StateChanged += OnAuthStateChanged;
         OnAuthStateChanged(_auth.GetState());
-        if (Gdk.IsAvailable)
+        if (Xbox.IsAvailable)
         {
-            Gdk.RuntimeError += OnGdkRuntimeError;
-            Gdk.Achievements.RuntimeError += OnAchievementsRuntimeError;
+            Xbox.RuntimeError += OnXboxRuntimeError;
+            Xbox.Achievements.RuntimeError += OnAchievementsRuntimeError;
         }
         if (PlayFab.IsAvailable)
         {
@@ -42,10 +42,10 @@ public partial class I02Integration : Control
     public override void _ExitTree()
     {
         if (_auth != null) _auth.StateChanged -= OnAuthStateChanged;
-        if (Gdk.IsAvailable)
+        if (Xbox.IsAvailable)
         {
-            Gdk.RuntimeError -= OnGdkRuntimeError;
-            Gdk.Achievements.RuntimeError -= OnAchievementsRuntimeError;
+            Xbox.RuntimeError -= OnXboxRuntimeError;
+            Xbox.Achievements.RuntimeError -= OnAchievementsRuntimeError;
         }
         if (PlayFab.IsAvailable)
         {
@@ -68,8 +68,8 @@ public partial class I02Integration : Control
         else _identity.Text = "(not signed in)";
     }
     private async System.Threading.Tasks.Task OnRetryPressed() { _error.Text = string.Empty; if (_auth != null) await _auth.SignInAsync(); }
-    private void OnGdkRuntimeError(GdkResult result) => OnRuntimeError(result.Message, "gdk");
-    private void OnAchievementsRuntimeError(GdkResult result) => OnRuntimeError(result.Message, "achievements");
+    private void OnXboxRuntimeError(XboxResult result) => OnRuntimeError(result.Message, "gdk");
+    private void OnAchievementsRuntimeError(XboxResult result) => OnRuntimeError(result.Message, "achievements");
     private void OnMultiplayerRuntimeError(PlayFabResult result) => OnRuntimeError(result.Message, "multiplayer");
     private void OnPartyRuntimeError(PlayFabResult result) => OnRuntimeError(result.Message, "party");
     private void OnRuntimeError(string message, string source) { _error.Text = $"[{source}] {message}"; GD.PushWarning($"[Hud] runtime error from {source}: {message}"); }

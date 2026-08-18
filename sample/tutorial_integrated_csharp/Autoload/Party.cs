@@ -1,7 +1,7 @@
 using Godot;
 using System;
 using System.Threading.Tasks;
-using GodotGdk;
+using GodotXbox;
 using GodotPlayFab;
 using GodotPlayFab.Types;
 using GodotPlayFab.Services;
@@ -329,14 +329,14 @@ public partial class Party : Node
     private async Task<bool> HasPrivilegeAsync(int privilege)
     {
         if (_auth.XboxUser == null) return false;
-        GodotGdk.GdkResult pf = await Gdk.Users.CheckPrivilegeAsync(_auth.XboxUser, privilege);
+        GodotXbox.XboxResult pf = await Xbox.Users.CheckPrivilegeAsync(_auth.XboxUser, privilege);
         return pf.Ok && TutorialSupport.DictBool(pf.Data.AsGodotDictionary(), "has_privilege");
     }
 
     private async Task<bool> CheckPermissionAsync(string permission, string peerXuid)
     {
         if (_auth.XboxUser == null) return false;
-        GodotGdk.GdkResult pf = await Gdk.Privacy.CheckPermissionAsync(_auth.XboxUser, permission, peerXuid);
+        GodotXbox.XboxResult pf = await Xbox.Privacy.CheckPermissionAsync(_auth.XboxUser, permission, peerXuid);
         return pf.Ok && TutorialSupport.DictBool(pf.Data.AsGodotDictionary(), "allowed");
     }
 

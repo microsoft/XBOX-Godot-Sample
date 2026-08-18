@@ -54,7 +54,7 @@ func test_error_reporting_runtime_configuration() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "initialize() returns GDKResult")
+	assert_not_null(init_result, "initialize() returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -92,7 +92,7 @@ func test_error_reporting_live_register_unregister_shutdown_callback_context() -
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult for live XError callback-lifetime test")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult for live XError callback-lifetime test")
 	if init_result == null:
 		return
 	if not init_result.ok:

@@ -59,15 +59,15 @@ func test_game_chat_surface_and_constants() -> void:
 	]:
 		assert_has_signal_named(game_chat, signal_name)
 
-	# Communication-relationship flags compose as documented in GDKGameChat.xml.
-	assert_eq(get_class_constant("GDKGameChat", "RELATIONSHIP_NONE"), 0, "RELATIONSHIP_NONE == 0")
-	assert_eq(get_class_constant("GDKGameChat", "RELATIONSHIP_SEND_ALL"), 7, "RELATIONSHIP_SEND_ALL == 7")
-	assert_eq(get_class_constant("GDKGameChat", "RELATIONSHIP_RECEIVE_ALL"), 24, "RELATIONSHIP_RECEIVE_ALL == 24")
-	assert_eq(get_class_constant("GDKGameChat", "RELATIONSHIP_SEND_AND_RECEIVE_ALL"), 31, "RELATIONSHIP_SEND_AND_RECEIVE_ALL == 31")
-	assert_eq(get_class_constant("GDKGameChat", "TRANSPORT_GUARANTEED"), 0, "TRANSPORT_GUARANTEED == 0")
-	assert_eq(get_class_constant("GDKGameChat", "TRANSPORT_BEST_EFFORT"), 1, "TRANSPORT_BEST_EFFORT == 1")
-	assert_eq(get_class_constant("GDKGameChat", "CHAT_INDICATOR_SILENT"), 0, "CHAT_INDICATOR_SILENT == 0")
-	assert_eq(get_class_constant("GDKGameChat", "CHAT_INDICATOR_NO_MICROPHONE"), 7, "CHAT_INDICATOR_NO_MICROPHONE == 7")
+	# Communication-relationship flags compose as documented in XboxGameChat.xml.
+	assert_eq(get_class_constant("XboxGameChat", "RELATIONSHIP_NONE"), 0, "RELATIONSHIP_NONE == 0")
+	assert_eq(get_class_constant("XboxGameChat", "RELATIONSHIP_SEND_ALL"), 7, "RELATIONSHIP_SEND_ALL == 7")
+	assert_eq(get_class_constant("XboxGameChat", "RELATIONSHIP_RECEIVE_ALL"), 24, "RELATIONSHIP_RECEIVE_ALL == 24")
+	assert_eq(get_class_constant("XboxGameChat", "RELATIONSHIP_SEND_AND_RECEIVE_ALL"), 31, "RELATIONSHIP_SEND_AND_RECEIVE_ALL == 31")
+	assert_eq(get_class_constant("XboxGameChat", "TRANSPORT_GUARANTEED"), 0, "TRANSPORT_GUARANTEED == 0")
+	assert_eq(get_class_constant("XboxGameChat", "TRANSPORT_BEST_EFFORT"), 1, "TRANSPORT_BEST_EFFORT == 1")
+	assert_eq(get_class_constant("XboxGameChat", "CHAT_INDICATOR_SILENT"), 0, "CHAT_INDICATOR_SILENT == 0")
+	assert_eq(get_class_constant("XboxGameChat", "CHAT_INDICATOR_NO_MICROPHONE"), 7, "CHAT_INDICATOR_NO_MICROPHONE == 7")
 
 
 func test_game_chat_rejects_calls_before_initialize() -> void:
@@ -93,7 +93,7 @@ func test_game_chat_lifecycle_and_validation_paths() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for game chat returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for game chat returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -133,7 +133,7 @@ func test_game_chat_lifecycle_and_validation_paths() -> void:
 	assert_true(found_remote, "get_chat_users() lists the added remote user")
 
 	# Argument validation against an initialized manager.
-	var send_all := get_class_constant("GDKGameChat", "RELATIONSHIP_SEND_ALL")
+	var send_all := get_class_constant("XboxGameChat", "RELATIONSHIP_SEND_ALL")
 	assert_result_error(game_chat.set_communication_relationship("unknown-local", REMOTE_XUID, send_all), "user_not_found", "set_communication_relationship() rejects an unknown local user")
 	assert_result_error(game_chat.set_microphone_muted("unknown-local", true), "user_not_found", "set_microphone_muted() rejects an unknown local user")
 	assert_result_error(game_chat.set_microphone_muted(REMOTE_XUID, true), "not_local_user", "set_microphone_muted() rejects a remote user")

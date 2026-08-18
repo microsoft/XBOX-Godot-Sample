@@ -43,11 +43,11 @@ Everything in tutorials 2–5 assumes you can reach this state.
 
 ## Relevant addon surfaces
 
-- [`GDK.users`](../../../addons/godot_gdk/doc_classes/GDKUsers.xml)
+- [`GDK.users`](../../../addons/godot_gdk/doc_classes/XboxUsers.xml)
   — `get_primary_user`, `add_default_user_async`,
   `add_user_with_ui_async`, `user_changed` (avoid for sign-in
   bootstrap).
-- [`GDKUser`](../../../addons/godot_gdk/doc_classes/GDKUser.xml) —
+- [`XboxUser`](../../../addons/godot_gdk/doc_classes/XboxUser.xml) —
   the typed wrapper your `Auth.xbox_user` holds. Read
   `signed_in`, `gamertag`, `xbox_user_id`.
 - [`PlayFab.users`](../../../addons/godot_playfab/doc_classes/PlayFabUsers.xml) —
@@ -55,7 +55,7 @@ Everything in tutorials 2–5 assumes you can reach this state.
 - [`PlayFabUser`](../../../addons/godot_playfab/doc_classes/PlayFabUser.xml) — the typed wrapper your
   `Auth.playfab_user` holds. Read `entity_key`,
   `has_local_user_handle`.
-- [`GDKResult`](../../../addons/godot_gdk/doc_classes/GDKResult.xml)
+- [`XboxResult`](../../../addons/godot_gdk/doc_classes/XboxResult.xml)
   / [`PlayFabResult`](../../../addons/godot_playfab/doc_classes/PlayFabResult.xml) — the normalized result type returned by every
   `_async` call (see [Async patterns](../../async-patterns.md)).
 
@@ -78,14 +78,14 @@ enum State {
 signal state_changed(state: State)
 
 var _state: State = State.UNINITIALIZED
-var _xbox_user: GDKUser = null
+var _xbox_user: XboxUser = null
 var _playfab_user: PlayFabUser = null
 var _last_error_stage: String = ""
 var _last_error_message: String = ""
 
 # Guarded getters so callers can't accidentally use a half-completed
 # session (e.g. Xbox signed in, PlayFab still in flight).
-var xbox_user: GDKUser:
+var xbox_user: XboxUser:
     get:
         return _xbox_user if _state == State.SIGNED_IN else null
 
@@ -114,37 +114,37 @@ Every other tutorial can now reach the signed-in users as
 on `Auth.state_changed`, and call `await Auth.sign_in()` when
 they need to gate work on a completed session.
 
-## Step 2 — Reach a `GDKUser` (check → silent → UI)
+## Step 2 — Reach an `XboxUser` (check → silent → UI)
 
 Add the XBOX sign-in routine to `auth.gd`:
 
 ```gdscript
-func _ensure_xbox_user() -> GDKUser:
+func _ensure_xbox_user() -> XboxUser:
     if not Engine.has_singleton("GDK"):
         _set_error("gdk.missing", "godot_gdk extension is not loaded")
         return null
 
     if not GDK.is_initialized():
-        var init: GDKResult = GDK.initialize()
+        var init: XboxResult = GDK.initialize()
         if not init.ok:
             _set_error("gdk.initialize", init.message)
             return null
 
     # 1. Already have a primary user (auto-init, prior sign-in)? Use it.
-    var primary: GDKUser = GDK.users.get_primary_user()
+    var primary: XboxUser = GDK.users.get_primary_user()
     if primary != null and primary.signed_in:
         return primary
 
     # 2. Try the silent path. This picks up the Xbox-app account on the
     #    PC without surfacing any UI. Common failure: no_default_user.
-    var silent: GDKResult = await GDK.users.add_default_user_async()
+    var silent: XboxResult = await GDK.users.add_default_user_async()
     if silent.ok and silent.data != null and silent.data.signed_in:
         return silent.data
 
     print("[Auth] Silent sign-in failed (%s) — falling back to UI." % silent.message)
 
     # 3. UI fallback. Shows the system sign-in UI for the default user.
-    var ui: GDKResult = await GDK.users.add_user_with_ui_async()
+    var ui: XboxResult = await GDK.users.add_user_with_ui_async()
     if ui.ok and ui.data != null and ui.data.signed_in:
         return ui.data
 
@@ -171,10 +171,10 @@ A few things worth calling out:
 ## Step 3 — Hand the XBOX user to PlayFab
 
 PlayFab does not have its own silent/UI distinction — once you have a
-signed-in `GDKUser`, `sign_in_with_xuser_async` does the rest:
+signed-in `XboxUser`, `sign_in_with_xuser_async` does the rest:
 
 ```gdscript
-func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
+func _ensure_playfab_user(xbox: XboxUser) -> PlayFabUser:
     if not Engine.has_singleton("PlayFab"):
         _set_error("playfab.missing", "godot_playfab extension is not loaded")
         return null
@@ -189,7 +189,7 @@ func _ensure_playfab_user(xbox: GDKUser) -> PlayFabUser:
             _set_error("playfab.initialize", init.message)
             return null
 
-    # Pass the GDKUser object directly. The addon reads the local user
+    # Pass the XboxUser object directly. The addon reads the local user
     # handle out of it internally; the boundary is intentionally typed
     # as Object because Ref<> types cannot cross GDExtension DLLs.
     var result: PlayFabResult = await PlayFab.users.sign_in_with_xuser_async(xbox)
@@ -245,7 +245,7 @@ func _do_sign_in() -> bool:
     _playfab_user = null
 
     _set_state(State.SIGNING_IN_XBOX)
-    var xbox: GDKUser = await _ensure_xbox_user()
+    var xbox: XboxUser = await _ensure_xbox_user()
     if xbox == null:
         _set_state(State.FAILED)
         return false

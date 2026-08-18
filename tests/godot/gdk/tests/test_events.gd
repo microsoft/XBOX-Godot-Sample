@@ -26,13 +26,13 @@ func test_events_surface_and_validation_paths() -> void:
 	]:
 		assert_has_method_named(events, method_name)
 
-	var blank_user = instantiate_class("GDKUser")
+	var blank_user = instantiate_class("XboxUser")
 
 	var pre_init_result = events.write_event(blank_user, "LevelComplete")
 	assert_result_error(pre_init_result, "not_initialized", "write_event() rejects calls before GDK.initialize()")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for events behavior returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for events behavior returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

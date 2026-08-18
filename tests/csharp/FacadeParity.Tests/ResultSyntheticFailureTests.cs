@@ -12,9 +12,9 @@ namespace FacadeParity.Tests;
 public class ResultSyntheticFailureTests
 {
     [Fact]
-    public void GdkResultFromNullIsDiagnosableFailure()
+    public void XboxResultFromNullIsDiagnosableFailure()
     {
-        GodotGdk.GdkResult r = GodotGdk.GdkResult.From(null);
+        GodotXbox.XboxResult r = GodotXbox.XboxResult.From(null);
         Assert.False(r.Ok);
         Assert.Equal("null_native_result", r.Code);
         Assert.False(string.IsNullOrEmpty(r.Message));

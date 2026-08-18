@@ -10,13 +10,13 @@ const AddonApi = preload("res://shared/addon_api.gd")
 ##   - Synthesize the text box to an AudioStreamWAV and play it back
 ##     (GDK.speech.synthesize_to_stream → AudioStreamPlayer).
 ##   - Synthesize SSML markup so prosody/voice control is demonstrated
-##     (GDK.speech.synthesize_ssml → GDKResult.data.audio_wav).
+##     (GDK.speech.synthesize_ssml → XboxResult.data.audio_wav).
 ##
 ## Text-to-speech only needs the GDK runtime initialized; it does NOT require a
 ## signed-in user, so the scene works even if Xbox sign-in is unavailable.
 ##
-## NOTE: scene scripts use `get_node("/root/GdkAuth")` instead of the bare
-## `GdkAuth.` reference so the headless parse gate stays clean.
+## NOTE: scene scripts use `get_node("/root/XboxAuth")` instead of the bare
+## `XboxAuth.` reference so the headless parse gate stays clean.
 ##
 ## Source: docs/gdk/api-reference.md (Speech service: GDK.speech)
 
@@ -36,7 +36,7 @@ func _ready() -> void:
 	_speak_btn.pressed.connect(_on_speak_pressed)
 	_ssml_btn.pressed.connect(_on_ssml_pressed)
 
-	_auth = get_node_or_null("/root/GdkAuth")
+	_auth = get_node_or_null("/root/XboxAuth")
 	if not Engine.has_singleton("GDK"):
 		_append("[color=red]GDK extension is not loaded.[/color]")
 		_set_buttons_enabled(false)
@@ -45,7 +45,7 @@ func _ready() -> void:
 	_set_buttons_enabled(false)
 	_append("Initializing GDK runtime…")
 
-	# TTS only needs GDK.initialize() (done by GdkAuth.sign_in()); a signed-in
+	# TTS only needs GDK.initialize() (done by XboxAuth.sign_in()); a signed-in
 	# user is not required, so a failed sign-in still leaves speech usable.
 	if _auth != null:
 		await _auth.call("sign_in")

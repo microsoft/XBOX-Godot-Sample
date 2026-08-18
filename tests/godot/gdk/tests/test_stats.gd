@@ -46,7 +46,7 @@ func test_stats_surface_and_validation() -> void:
 	await assert_signal_result_error(pre_init_query_signal, "runtime_unavailable", "query_user_stats_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for stats validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for stats validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -106,7 +106,7 @@ func test_set_stat_integer_live_stages_value() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for set_stat_integer live coverage returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for set_stat_integer live coverage returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -152,7 +152,7 @@ func test_stats_live_track_stop_shutdown_callback_context() -> void:
 		return
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult for live stats callback-lifetime test")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult for live stats callback-lifetime test")
 	if init_result == null:
 		return
 	if not init_result.ok:
@@ -264,7 +264,7 @@ func test_stats_single_write_delete_validation() -> void:
 	await assert_signal_result_error(pre_init_delete, "runtime_unavailable", "delete_stats_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for stats write/delete validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for stats write/delete validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

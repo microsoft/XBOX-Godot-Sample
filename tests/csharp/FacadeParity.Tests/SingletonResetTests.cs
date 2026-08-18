@@ -9,7 +9,7 @@ namespace FacadeParity.Tests;
 
 /// <summary>
 /// Guards the hand-maintained <c>ResetSingletonState()</c> cache-invalidation
-/// methods on the <c>Gdk</c> and <c>PlayFab</c> facades. When the native
+/// methods on the <c>Xbox</c> and <c>PlayFab</c> facades. When the native
 /// singleton is re-resolved (extension reload / editor restart), these methods
 /// must null every cached service-wrapper field; otherwise callers receive
 /// wrappers still bound to the freed native instance. This test fails if a new
@@ -20,7 +20,7 @@ public class SingletonResetTests
 {
     public static IEnumerable<object[]> Facades() => new[]
     {
-        new object[] { typeof(GodotGdk.Gdk) },
+        new object[] { typeof(GodotXbox.Xbox) },
         new object[] { typeof(GodotPlayFab.PlayFab) },
     };
 

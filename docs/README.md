@@ -64,6 +64,8 @@ docs/
 
 ### User guides
 
+- [**Migrating to v0.3.0**](gdk/migration-v0.3.md) — the `GDK*` → `Xbox*`
+  type rename, the old → new table, and the codemod
 - [**Sample Project Setup**](gdk/sample-setup.md) — Partner Center
   configuration, sandbox setup, test accounts, and the config flow
 - [**GDScript API Reference**](gdk/api-reference.md) — public API

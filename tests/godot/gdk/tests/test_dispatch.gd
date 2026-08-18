@@ -22,7 +22,7 @@ func test_dispatch_returns_number_of_drained_completion_events() -> void:
 
 	var gdk = get_gdk()
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() returns GDKResult for dispatch count coverage")
+	assert_not_null(init_result, "GDK.initialize() returns XboxResult for dispatch count coverage")
 	if init_result == null:
 		return
 	if not init_result.ok:

@@ -32,7 +32,7 @@ func test_privacy_surface_and_validation() -> void:
 	await assert_signal_result_error(pre_init_signal, "runtime_unavailable", "check_permission_async() reports unavailable runtime before initialize")
 
 	var init_result = initialize_runtime()
-	assert_not_null(init_result, "GDK.initialize() for privacy validation returns GDKResult")
+	assert_not_null(init_result, "GDK.initialize() for privacy validation returns XboxResult")
 	if init_result == null:
 		return
 	if not init_result.ok:

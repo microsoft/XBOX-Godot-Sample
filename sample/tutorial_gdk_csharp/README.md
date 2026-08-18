@@ -39,20 +39,20 @@ the GDScript samples demonstrate, expressed in C#.
 
 ## Autoloads
 
-- `GDKBootstrap` (`Autoload/GdkBootstrap.cs`) — `GodotGdk.Runtime.GdkRuntime`; initializes the GDK runtime and pumps dispatch.
-- `GdkAuth` (`Autoload/GdkAuth.cs`) — Xbox-only sign-in; exposes `XboxUser`, `SignInAsync()`, state helpers, and `StateChanged`.
+- `XboxBootstrap` (`Autoload/XboxBootstrap.cs`) — `GodotXbox.Runtime.XboxRuntime`; initializes the GDK runtime and pumps dispatch.
+- `XboxAuth` (`Autoload/XboxAuth.cs`) — Xbox-only sign-in; exposes `XboxUser`, `SignInAsync()`, state helpers, and `StateChanged`.
 
 ## Public API used (C# facade)
 
-- `Gdk.Users` — `GetPrimaryUser`, `AddDefaultUserAsync`, `AddUserWithUiAsync`
-- `Gdk.Achievements` — `QueryPlayerAchievementsAsync`, `GetCachedAchievements`, `UpdateAchievementAsync`, `AchievementUnlocked`
-- `Gdk.TitleStorage` — `ListBlobMetadataAsync`, `DownloadBlobAsync`
-- `Gdk.Stats` — `TrackStats`, `SetStatInteger`, `FlushStatsAsync`, `QueryUserStatsAsync`, `StatChanged`
-- `Gdk.Social` — `StartSocialGraph`, `GetFriendsAsync`, `GetGroupUsers`, `DestroySocialGroup`, `StopSocialGraph`
-- `Gdk.Privacy` — `BatchCheckPermissionAsync`
-- `Gdk.MultiplayerActivity` — `SetActivityAsync`, `SendInvitesAsync`, `ShowInviteUiAsync`, `GetActivitiesAsync`, `GetCachedActivity`
-- `Gdk.Presence` — `TrackPresence`, `GetPresenceAsync`, `StopTrackingPresence`
-- `Gdk.Speech` — `GetInstalledVoices`, `SetDefaultVoice`, `SynthesizeToStream`, `SynthesizeSsml`
+- `Xbox.Users` — `GetPrimaryUser`, `AddDefaultUserAsync`, `AddUserWithUiAsync`
+- `Xbox.Achievements` — `QueryPlayerAchievementsAsync`, `GetCachedAchievements`, `UpdateAchievementAsync`, `AchievementUnlocked`
+- `Xbox.TitleStorage` — `ListBlobMetadataAsync`, `DownloadBlobAsync`
+- `Xbox.Stats` — `TrackStats`, `SetStatInteger`, `FlushStatsAsync`, `QueryUserStatsAsync`, `StatChanged`
+- `Xbox.Social` — `StartSocialGraph`, `GetFriendsAsync`, `GetGroupUsers`, `DestroySocialGroup`, `StopSocialGraph`
+- `Xbox.Privacy` — `BatchCheckPermissionAsync`
+- `Xbox.MultiplayerActivity` — `SetActivityAsync`, `SendInvitesAsync`, `ShowInviteUiAsync`, `GetActivitiesAsync`, `GetCachedActivity`
+- `Xbox.Presence` — `TrackPresence`, `GetPresenceAsync`, `StopTrackingPresence`
+- `Xbox.Speech` — `GetInstalledVoices`, `SetDefaultVoice`, `SynthesizeToStream`, `SynthesizeSsml`
 
 ## Configuration
 

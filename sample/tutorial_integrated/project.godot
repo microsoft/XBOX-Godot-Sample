@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
-GDKBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
+XboxBootstrap="*res://addons/godot_gdk/runtime/gdk_bootstrap.gd"
 PlayFabBootstrap="*res://addons/godot_playfab/runtime/playfab_bootstrap.gd"
 Auth="*res://autoload/auth.gd"
 Lobby="*res://autoload/lobby.gd"

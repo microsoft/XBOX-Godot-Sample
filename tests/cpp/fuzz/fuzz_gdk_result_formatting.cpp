@@ -11,7 +11,7 @@
 
 #include "godot_stub_init.h"
 
-#include "gdk_result_codes_internal.h"
+#include "xbox_result_codes_internal.h"
 #include "playfab_result_codes_internal.h"
 
 #include <cstdint>
@@ -41,10 +41,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     // Build a godot::String from the action buffer (stub harness handles conversion)
     godot::String action = godot::String(action_buf);
 
-    // Exercise gdk_internal formatting
-    godot::String hex_str = gdk_internal::format_hresult_string(hr);
-    godot::String msg_str = gdk_internal::format_hresult_message(action, hr);
-    godot::String code_or = gdk_internal::code_or_format_hresult(action, hr);
+    // Exercise xbox_internal formatting
+    godot::String hex_str = xbox_internal::format_hresult_string(hr);
+    godot::String msg_str = xbox_internal::format_hresult_message(action, hr);
+    godot::String code_or = xbox_internal::code_or_format_hresult(action, hr);
 
     // Exercise playfab_internal formatting
     godot::String pf_hex = playfab_internal::format_hresult_string(hr);
