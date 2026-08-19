@@ -43,6 +43,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves backed by Connected Storage. Requires the title's Partner Center Xbox services configuration (`TitleId`/`MSAAppId`, matching SCID, Connected Storage enabled) and registered package identity. Unrelated to Xbox Services Title Storage (`GDK.title_storage`). The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
 | Runtime feature probe | Implemented | `GDK.system.is_feature_available(name)` wraps `XGameRuntimeIsFeatureAvailable` (`XGameRuntimeFeature.h`) so titles can gate optional GDK features (e.g. Events, GameChat) at runtime |
 | Voice and text chat | Implemented | `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) `chat_manager` for GDK-native voice + text chat: user management, communication relationships, mute/volume controls, text, and text-to-speech. The wrapper exposes Game Chat's opaque data-frame surface (`outgoing_data_frame` signal + `process_incoming_data_frame`) and builds **no** network transport — titles ferry frames over their own transport (sample/tests use single-process loopback). This is the GDK-native alternative to PlayFab Party (`godot_playfab`) |
+| Networking | Implemented | `GDK.networking` wraps `XNetworking.h`: the preferred local UDP multiplayer port (sync + async + change signal), connectivity hints (query + change signal), NSAL security information for title endpoints, and the TCP queued-receive-buffer configuration/statistics surfaces. `XNetworkingVerifyServerCertificate` is excluded (it needs a WinHTTP `HINTERNET` handle Godot cannot produce) and the `Utf16` security-information variant is excluded as redundant for Godot's single `String` type. This is a diagnostics/configuration surface only — it builds no transport |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
 | Store/commerce/licensing | Implemented (XStore-only) | Exposed via `GDK.store` using public XStore APIs; excluded from the Xbox Services coverage matrix below |
 
@@ -414,6 +415,7 @@ GDK.speech: XboxSpeechSynthesizer
 GDK.events: XboxEvents
 GDK.game_save: XboxGameSave
 GDK.game_chat: XboxGameChat
+GDK.networking: XboxNetworking
 ```
 
 #### Root signals
@@ -761,7 +763,7 @@ query_high_contrast_mode() -> XboxResult
 ##### Notes
 
 - Scope is intentionally limited to concrete APIs verified in public PC GDK docs/headers for `_GAMING_DESKTOP`.
-- Do not add unrelated families in this service (`XGameStreaming`, `XPersistentLocalStorage`, `XNetworking`, console-only `XAppCapture`).
+- Do not add unrelated families in this service (`XGameStreaming`, `XPersistentLocalStorage`, console-only `XAppCapture`). `XNetworking` has its own service (`GDK.networking`) and does not belong here either.
 - Speech-to-text overlay APIs are deferred for manual/UI-focused follow-up coverage.
 
 ##### Native API mapping
@@ -792,7 +794,7 @@ show_text_entry_async(title_text := "", description_text := "", default_text := 
 ##### Notes
 
 - This service should expose only APIs verified as available in the public PC GDK (`_GAMING_DESKTOP`) headers/libs used by this repo.
-- Do not add wrappers for console-only or unavailable surfaces (for example `XGameStreaming`, `XPersistentLocalStorage`, `XNetworking`, or console-only `XAppCapture` flows).
+- Do not add wrappers for console-only or unavailable surfaces (for example `XGameStreaming`, `XPersistentLocalStorage`, or console-only `XAppCapture` flows). `XNetworking` is wrapped, but by its own service (`GDK.networking`) — not here.
 - `show_message_dialog_async()` and `show_player_picker_async()` should distinguish user-cancelled flows (`E_ABORT`) from other native failures.
 - Keep `GDK.multiplayer_activity.show_invite_ui_async()` compatible; that API remains callable through the multiplayer-activity service.
 
@@ -1293,6 +1295,54 @@ error_reported(result: XboxResult)
 | `configure_options()` | `XErrorSetOptions` | Uses `XboxErrorReporting.ErrorOptions` enum flags (including bitwise OR combinations) to configure debugger-present and debugger-absent option sets. |
 | `set_callback_enabled()` | `XErrorSetCallback`, `XErrorCallback` | Registers/unregisters the callback bridge and forwards events to main-thread Godot signals via `GDK.dispatch()`. |
 | `is_callback_enabled()` | wrapper state only | Reports whether callback forwarding is active. |
+
+#### `GDK.networking` service
+
+##### Methods
+
+```gdscript
+query_preferred_local_udp_multiplayer_port() -> XboxResult
+query_preferred_local_udp_multiplayer_port_async() -> Signal
+get_connectivity_hint() -> XboxResult
+query_security_information_for_url_async(url: String) -> Signal
+query_configuration_setting(setting: int) -> XboxResult
+set_configuration_setting(setting: int, value: int) -> XboxResult
+query_statistics(statistics_type: int) -> XboxResult
+```
+
+##### Signals
+
+```gdscript
+preferred_local_udp_multiplayer_port_changed(port: int)
+connectivity_hint_changed(hint: Dictionary)
+```
+
+##### Notes
+
+- This service is diagnostics and configuration only. It deliberately builds **no** transport, matching the `GDK.game_chat` rule that titles own their own networking.
+- Both change registrations are owned by the service and established during `GDK.initialize()` on the shared task queue. The GDK fires an initial callback on registration, so the first emission of each signal reports current state rather than a change. Registration failure degrades with a warning (signals disabled, query methods still work) instead of failing `GDK.initialize()`.
+- `network_initialized` is the only authoritative field in the connectivity hint. Every other field is a best-effort, device-wide hint and must not be treated as a reachability test for a specific endpoint. Document this wherever the hint is surfaced.
+- The synchronous `query_preferred_local_udp_multiplayer_port()` is documented by the GDK as unsafe on time-sensitive threads, which Godot's main thread is. Keep the async overload as the recommended main-thread path; this is the same hazard that forced `GDK.game_save.get_remaining_quota_async()` onto a work-port thread.
+- `query_configuration_setting()`, `set_configuration_setting()`, and `query_statistics()` are documented no-ops on Windows (setter returns `E_NOTIMPL`, queries return zeros). They are wrapped anyway so the surface is identical on console-capable Godot forks; do not gate them out on `_GAMING_DESKTOP`.
+- Native `uint64` configuration values do not round-trip through GDScript's signed `int`, so `query_configuration_setting()` reports a companion `unlimited: bool` for the `UINT64_MAX` case.
+- Do not wrap `XNetworkingVerifyServerCertificate`: it requires a WinHTTP `HINTERNET` request handle from `WinHttpOpenRequest`, and Godot exposes no such handle. `XboxNetworkingSecurityInformation` retains the native result buffer so a native-interop entry point can be added later without a breaking change.
+- Do not add a second wrapper for `XNetworkingQuerySecurityInformationForUrlUtf16Async`; it differs from the UTF-8 entry point only in input encoding, which Godot's single `String` type cannot express.
+
+##### Native API mapping
+
+| Wrapper/API | Native API(s) | Notes |
+| --- | --- | --- |
+| `query_preferred_local_udp_multiplayer_port()` | `XNetworkingQueryPreferredLocalUdpMultiplayerPort` | Synchronous. Success payload is `{ port: int }` in host byte order. |
+| `query_preferred_local_udp_multiplayer_port_async()` | `XNetworkingQueryPreferredLocalUdpMultiplayerPortAsync`, `XNetworkingQueryPreferredLocalUdpMultiplayerPortAsyncResult` | Main-thread-safe form of the above; same payload. |
+| `preferred_local_udp_multiplayer_port_changed` | `XNetworkingRegisterPreferredLocalUdpMultiplayerPortChanged`, `XNetworkingUnregisterPreferredLocalUdpMultiplayerPortChanged` | Registered at init, unregistered at service shutdown. Delivered on the main thread via `GDK.dispatch()`. |
+| `get_connectivity_hint()` | `XNetworkingGetConnectivityHint` | Synchronous and main-thread safe. Payload flattens `XNetworkingConnectivityHint` into a `Dictionary` with `*_name` companions for the two enums. |
+| `connectivity_hint_changed` | `XNetworkingRegisterConnectivityHintChanged`, `XNetworkingUnregisterConnectivityHintChanged` | Same registration lifecycle and payload shape as `get_connectivity_hint()`. |
+| `query_security_information_for_url_async()` | `XNetworkingQuerySecurityInformationForUrlAsync`, `XNetworkingQuerySecurityInformationForUrlAsyncResultSize`, `XNetworkingQuerySecurityInformationForUrlAsyncResult` | Returns an `XboxNetworkingSecurityInformation`, which owns the native buffer the result pointers reference. |
+| `query_configuration_setting()` | `XNetworkingQueryConfigurationSetting` | Payload is `{ value: int, unlimited: bool }`. No-op (zeros) on Windows. |
+| `set_configuration_setting()` | `XNetworkingSetConfigurationSetting` | Rejects negative values. `E_NOTIMPL` surfaces as the `not_supported_on_platform` code rather than a generic HRESULT failure. |
+| `query_statistics()` | `XNetworkingQueryStatistics` | Payload flattens `XNetworkingTcpQueuedReceivedBufferUsageStatistics`. Always zeros on Windows. |
+| `XboxNetworkingSecurityInformation` getters | `XNetworkingSecurityInformation`, `XNetworkingThumbprint` struct fields | Exposes flags plus per-thumbprint `type` / `type_name` / `bytes` / `hex` without exposing native pointers. |
+| *(not wrapped)* | `XNetworkingVerifyServerCertificate`, `XNetworkingQuerySecurityInformationForUrlUtf16Async` (+ its `ResultSize` / `Result`) | See the Notes above for why each is excluded. |
 
 ## Plugin settings
 

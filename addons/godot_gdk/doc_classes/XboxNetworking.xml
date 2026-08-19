@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="XboxNetworking" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Networking service accessed via GDK.networking.
+	</brief_description>
+	<description>
+		Wraps the [code]XNetworking[/code] family: the preferred local UDP multiplayer port, connectivity hints, Network Security Allow List (NSAL) information for title endpoints, and the TCP queued-receive-buffer configuration and statistics surfaces. All methods return [XboxResult] with the success payload in [code]XboxResult.data[/code]; [code]*_async[/code] methods return a [Signal] to [code]await[/code] that completes with an [XboxResult].
+		[b]Windows behavior:[/b] [method query_configuration_setting], [method set_configuration_setting], and [method query_statistics] are documented no-ops on Windows — the setter reports [code]E_NOTIMPL[/code] and the queries report zeros. They are wrapped so the surface is identical on console-capable Godot forks.
+		[b]Not wrapped:[/b] [code]XNetworkingVerifyServerCertificate[/code] requires a WinHTTP [code]HINTERNET[/code] request handle from [code]WinHttpOpenRequest[/code], which Godot's HTTP classes do not expose, so it cannot be called correctly from GDScript. Read the thumbprints from [XboxNetworkingSecurityInformation] and validate in native code instead. [code]XNetworkingQuerySecurityInformationForUrlUtf16Async[/code] differs from the UTF-8 entry point only in input encoding, which is not observable through Godot's single [String] type.
+		[codeblock]
+		var init: XboxResult = GDK.initialize()
+		if not init.is_ok():
+		    push_error(init.message)
+		    return
+
+		GDK.networking.connectivity_hint_changed.connect(func(hint: Dictionary) -> void:
+		    print("network ready: ", hint["network_initialized"], " level: ", hint["connectivity_level_name"]))
+
+		var port_result: XboxResult = await GDK.networking.query_preferred_local_udp_multiplayer_port_async()
+		if port_result.is_ok():
+		    print("bind multiplayer UDP socket to port ", port_result.data["port"])
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="query_preferred_local_udp_multiplayer_port">
+			<return type="XboxResult" />
+			<description>
+				Returns the preferred local UDP port for multiplayer traffic (3074 by default), in host byte order. Wraps [code]XNetworkingQueryPreferredLocalUdpMultiplayerPort[/code]. On success [code]data[/code] is a [Dictionary] with [code]port: int[/code].
+				The GDK documents this synchronous call as unsafe on time-sensitive threads, which Godot's main thread is. Prefer [method query_preferred_local_udp_multiplayer_port_async] from [code]_ready()[/code] or [code]_process()[/code] and keep this overload for worker threads and startup code.
+				Returns [code]not_initialized[/code] before [method GDK.initialize], or [code]preferred_local_udp_multiplayer_port_failed[/code] on HRESULT failure.
+			</description>
+		</method>
+		<method name="query_preferred_local_udp_multiplayer_port_async">
+			<return type="Signal" />
+			<description>
+				Asynchronous form of [method query_preferred_local_udp_multiplayer_port], safe to start from the main thread. Wraps [code]XNetworkingQueryPreferredLocalUdpMultiplayerPortAsync[/code] and [code]XNetworkingQueryPreferredLocalUdpMultiplayerPortAsyncResult[/code]. Completes with an [XboxResult] whose [code]data[/code] is a [Dictionary] with [code]port: int[/code].
+				Fails with [code]not_initialized[/code] before [method GDK.initialize], [code]preferred_local_udp_multiplayer_port_start_failed[/code] when the request cannot be started, or [code]preferred_local_udp_multiplayer_port_failed[/code] when it completes in error.
+			</description>
+		</method>
+		<method name="get_connectivity_hint">
+			<return type="XboxResult" />
+			<description>
+				Returns the current connectivity hint. Wraps [code]XNetworkingGetConnectivityHint[/code]; safe to call on the main thread. On success [code]data[/code] is a [Dictionary] with [code]connectivity_level: int[/code] (one of [enum ConnectivityLevelHint]), [code]connectivity_level_name: String[/code], [code]connectivity_cost: int[/code] (one of [enum ConnectivityCostHint]), [code]connectivity_cost_name: String[/code], [code]iana_interface_type: int[/code], [code]network_initialized: bool[/code], [code]approaching_data_limit: bool[/code], [code]over_data_limit: bool[/code], and [code]roaming: bool[/code].
+				[code]network_initialized[/code] is the only authoritative field. Everything else is a best-effort, device-wide hint and must not be treated as a reachability test for a specific endpoint — attempt the connection and use the hint only to explain a failure.
+				Returns [code]not_initialized[/code] before [method GDK.initialize], or [code]connectivity_hint_failed[/code] on HRESULT failure.
+			</description>
+		</method>
+		<method name="query_security_information_for_url_async">
+			<return type="Signal" />
+			<param index="0" name="url" type="String" />
+			<description>
+				Queries the Network Security Allow List (NSAL) entry for [param url], which must be a title endpoint registered in Partner Center. Wraps [code]XNetworkingQuerySecurityInformationForUrlAsync[/code], [code]XNetworkingQuerySecurityInformationForUrlAsyncResultSize[/code], and [code]XNetworkingQuerySecurityInformationForUrlAsyncResult[/code]. Completes with an [XboxResult] whose [code]data[/code] is an [XboxNetworkingSecurityInformation].
+				Fails with [code]not_initialized[/code] before [method GDK.initialize], [code]invalid_url[/code] for an empty URL, [code]security_information_start_failed[/code] when the request cannot be started, or [code]security_information_size_failed[/code] / [code]security_information_failed[/code] when it completes in error.
+			</description>
+		</method>
+		<method name="query_configuration_setting">
+			<return type="XboxResult" />
+			<param index="0" name="setting" type="int" enum="XboxNetworking.ConfigurationSetting" />
+			<description>
+				Reads a TCP queued-receive-buffer configuration setting. Wraps [code]XNetworkingQueryConfigurationSetting[/code]. On success [code]data[/code] is a [Dictionary] with [code]value: int[/code] and [code]unlimited: bool[/code]. [code]unlimited[/code] is [code]true[/code] when the native [code]uint64[/code] value is [code]UINT64_MAX[/code], which GDScript's signed [int] reports as [code]-1[/code].
+				Always reports [code]0[/code] and [code]false[/code] on Windows, where these settings are a documented no-op.
+				Returns [code]not_initialized[/code] before [method GDK.initialize], [code]invalid_configuration_setting[/code] for unknown values, or [code]configuration_setting_query_failed[/code] on HRESULT failure.
+			</description>
+		</method>
+		<method name="set_configuration_setting">
+			<return type="XboxResult" />
+			<param index="0" name="setting" type="int" enum="XboxNetworking.ConfigurationSetting" />
+			<param index="1" name="value" type="int" />
+			<description>
+				Writes a TCP queued-receive-buffer configuration setting. Wraps [code]XNetworkingSetConfigurationSetting[/code]. [param value] must be zero or greater. On success [code]data[/code] is a [Dictionary] echoing [code]setting[/code] and [code]value[/code].
+				On Windows this always fails with [code]not_supported_on_platform[/code] ([code]E_NOTIMPL[/code]), which is the documented behavior rather than a real error.
+				Returns [code]not_initialized[/code] before [method GDK.initialize], [code]invalid_configuration_setting[/code] for unknown settings, [code]invalid_configuration_value[/code] for negative values, or [code]configuration_setting_set_failed[/code] on other HRESULT failures.
+			</description>
+		</method>
+		<method name="query_statistics">
+			<return type="XboxResult" />
+			<param index="0" name="statistics_type" type="int" enum="XboxNetworking.StatisticsType" />
+			<description>
+				Reads TCP queued-receive-buffer usage statistics. Wraps [code]XNetworkingQueryStatistics[/code]. On success [code]data[/code] is a [Dictionary] with [code]num_bytes_currently_queued[/code], [code]peak_num_bytes_ever_queued[/code], [code]total_num_bytes_queued[/code], [code]num_bytes_dropped_for_exceeding_configured_max[/code], and [code]num_bytes_dropped_due_to_any_failure[/code].
+				Succeeds but always reports zeros on Windows, where these statistics are a documented no-op.
+				Returns [code]not_initialized[/code] before [method GDK.initialize], [code]invalid_statistics_type[/code] for unknown values, or [code]statistics_query_failed[/code] on HRESULT failure.
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+		<signal name="preferred_local_udp_multiplayer_port_changed">
+			<param index="0" name="port" type="int" />
+			<description>
+				Emitted when the preferred local UDP multiplayer port changes, and once shortly after [method GDK.initialize] with the current value — the GDK fires an initial callback on registration, so the first emission reports current state rather than a change.
+				A socket bound to the previous port stops receiving inbound traffic from new peers, so titles should rebind when this fires. Delivered on the main thread during [method GDK.dispatch].
+			</description>
+		</signal>
+		<signal name="connectivity_hint_changed">
+			<param index="0" name="hint" type="Dictionary" />
+			<description>
+				Emitted when the device connectivity hint changes, and once shortly after [method GDK.initialize] with the current value for the same reason as [signal preferred_local_udp_multiplayer_port_changed]. [param hint] has the same shape as the [method get_connectivity_hint] payload. Delivered on the main thread during [method GDK.dispatch].
+			</description>
+		</signal>
+	</signals>
+	<constants>
+		<constant name="CONNECTIVITY_LEVEL_UNKNOWN" value="0" enum="ConnectivityLevelHint">
+			Connectivity level could not be determined, which is also the reported level before the network is initialized ([code]XNetworkingConnectivityLevelHint::Unknown[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_LEVEL_NONE" value="1" enum="ConnectivityLevelHint">
+			No connectivity ([code]XNetworkingConnectivityLevelHint::None[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_LEVEL_LOCAL_ACCESS" value="2" enum="ConnectivityLevelHint">
+			Local network access only, no internet access ([code]XNetworkingConnectivityLevelHint::LocalAccess[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_LEVEL_INTERNET_ACCESS" value="3" enum="ConnectivityLevelHint">
+			Local and internet access ([code]XNetworkingConnectivityLevelHint::InternetAccess[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_LEVEL_CONSTRAINED_INTERNET_ACCESS" value="4" enum="ConnectivityLevelHint">
+			Captive-portal style access: a local web portal is reachable but full internet access requires credentials ([code]XNetworkingConnectivityLevelHint::ConstrainedInternetAccess[/code]). Captive portals are not guaranteed to be detected.
+		</constant>
+		<constant name="CONNECTIVITY_COST_UNKNOWN" value="0" enum="ConnectivityCostHint">
+			Cost information is unavailable, which is also the reported cost before the network is initialized ([code]XNetworkingConnectivityCostHint::Unknown[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_COST_UNRESTRICTED" value="1" enum="ConnectivityCostHint">
+			No data limits apply, as on typical home broadband ([code]XNetworkingConnectivityCostHint::Unrestricted[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_COST_FIXED" value="2" enum="ConnectivityCostHint">
+			Unrestricted up to a data cap, after which usage is throttled or charged ([code]XNetworkingConnectivityCostHint::Fixed[/code]).
+		</constant>
+		<constant name="CONNECTIVITY_COST_VARIABLE" value="3" enum="ConnectivityCostHint">
+			Charged per byte, as on cellular data ([code]XNetworkingConnectivityCostHint::Variable[/code]).
+		</constant>
+		<constant name="THUMBPRINT_TYPE_LEAF" value="0" enum="ThumbprintType">
+			The thumbprint identifies the leaf (server) certificate ([code]XNetworkingThumbprintType::Leaf[/code]).
+		</constant>
+		<constant name="THUMBPRINT_TYPE_ISSUER" value="1" enum="ThumbprintType">
+			The thumbprint identifies the issuing intermediate certificate ([code]XNetworkingThumbprintType::Issuer[/code]).
+		</constant>
+		<constant name="THUMBPRINT_TYPE_ROOT" value="2" enum="ThumbprintType">
+			The thumbprint identifies the root certificate ([code]XNetworkingThumbprintType::Root[/code]).
+		</constant>
+		<constant name="CONFIGURATION_SETTING_MAX_TITLE_TCP_QUEUED_RECEIVE_BUFFER_SIZE" value="0" enum="ConfigurationSetting">
+			Maximum bytes of received TCP data queued for the title ([code]XNetworkingConfigurationSetting::MaxTitleTcpQueuedReceiveBufferSize[/code]). No-op on Windows.
+		</constant>
+		<constant name="CONFIGURATION_SETTING_MAX_SYSTEM_TCP_QUEUED_RECEIVE_BUFFER_SIZE" value="1" enum="ConfigurationSetting">
+			Maximum bytes of received TCP data queued for the system ([code]XNetworkingConfigurationSetting::MaxSystemTcpQueuedReceiveBufferSize[/code]). No-op on Windows.
+		</constant>
+		<constant name="CONFIGURATION_SETTING_MAX_TOOLS_TCP_QUEUED_RECEIVE_BUFFER_SIZE" value="2" enum="ConfigurationSetting">
+			Maximum bytes of received TCP data queued for tools ([code]XNetworkingConfigurationSetting::MaxToolsTcpQueuedReceiveBufferSize[/code]). No-op on Windows.
+		</constant>
+		<constant name="STATISTICS_TYPE_TITLE_TCP_QUEUED_RECEIVED_BUFFER_USAGE" value="0" enum="StatisticsType">
+			Queued-receive-buffer usage for title traffic ([code]XNetworkingStatisticsType::TitleTcpQueuedReceivedBufferUsage[/code]). Always zero on Windows.
+		</constant>
+		<constant name="STATISTICS_TYPE_SYSTEM_TCP_QUEUED_RECEIVED_BUFFER_USAGE" value="1" enum="StatisticsType">
+			Queued-receive-buffer usage for system traffic ([code]XNetworkingStatisticsType::SystemTcpQueuedReceivedBufferUsage[/code]). Always zero on Windows.
+		</constant>
+		<constant name="STATISTICS_TYPE_TOOLS_TCP_QUEUED_RECEIVED_BUFFER_USAGE" value="2" enum="StatisticsType">
+			Queued-receive-buffer usage for tools traffic ([code]XNetworkingStatisticsType::ToolsTcpQueuedReceivedBufferUsage[/code]). Always zero on Windows.
+		</constant>
+	</constants>
+</class>

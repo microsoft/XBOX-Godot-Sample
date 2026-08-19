@@ -1,6 +1,6 @@
 # Godot Microsoft GDK async system
 
-This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared XBOX services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.activation`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, and `GDK.store`).
+This document explains how the `godot_gdk` async system works today: the shared runtime, the generic async wrappers, the internal `XAsync` bridge, the shared XBOX services scaffold, and the current concrete services built on top of it (`GDK.users`, `GDK.system`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.activation`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.launcher`, `GDK.networking`, and `GDK.store`).
 
 For the plugin-wide view, including build, editor tooling, sample integration, and current scope boundaries, see [`gdk/plugin.md`](plugin.md).
 
@@ -57,6 +57,7 @@ Current public methods:
 - `get_multiplayer_activity() -> XboxMultiplayerActivity`
 - `get_capture() -> XboxCapture`
 - `get_activation() -> XboxActivation`
+- `get_networking() -> XboxNetworking`
 
 Current public signals:
 
@@ -204,7 +205,7 @@ Fields:
   `XboxAchievements`, `XboxPackage`, `XboxStats`, `XboxLeaderboards`,
   `XboxPrivacy`, `XboxPresence`, `XboxSocial`, `XboxStore`, `XboxProfile`,
   `XboxStringVerify`, `XboxTitleStorage`,   `XboxErrorReporting`, `XboxLauncher`, `XboxActivation`,
-  `XboxMultiplayerActivity`, and `XboxCapture`).
+  `XboxMultiplayerActivity`, `XboxCapture`, and `XboxNetworking`).
 - `xbox_runtime.cpp` / `xbox_runtime.h`  
   Shared Microsoft GDK runtime owner. Creates the queue, retains active pending signals, dispatches completions, and shuts everything down safely. During shutdown it cancels every retained pending signal and queues a cancelled completion so GDScript `await` sites are not stranded by queue teardown.
 
@@ -283,6 +284,9 @@ Fields:
 
 - `xbox_capture.cpp` / `xbox_capture.h`  
   `XboxCapture`, `XboxCaptureMetaData`, and the PC-supported `XAppCapture` capture-state and metadata flows.
+
+- `xbox_networking.cpp` / `xbox_networking.h`  
+  `XboxNetworking` and `XboxNetworkingSecurityInformation`: `XNetworking.h` preferred multiplayer port (sync + async), connectivity hints, the two change registrations, NSAL security information, and the TCP queued-receive-buffer configuration/statistics surfaces.
 
 - `register_types.cpp`  
   Registers every public class listed above plus `XboxResult` and the

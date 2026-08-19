@@ -39,6 +39,7 @@ add_library(godot_gdk SHARED
     src/xbox_events.cpp
     src/xbox_game_save.cpp
     src/xbox_game_chat.cpp
+    src/xbox_networking.cpp
 )
 
 target_include_directories(godot_gdk PRIVATE

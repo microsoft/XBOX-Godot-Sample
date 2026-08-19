@@ -14,8 +14,8 @@ See also:
 The current native implementation has one root singleton and 21 public service namespaces:
 
 - root singleton: `GDK`
-- service namespaces: `GDK.users`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.store`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.launcher`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.system`, `GDK.display`, and `GDK.activation`
-- wrapper types: `XboxResult`, `XboxUsers`, `XboxUser`, `XboxGameUI`, `XboxAccessibility`, `XboxClosedCaptionProperties`, `XboxAchievements`, `XboxAchievement`, `XboxPackage`, `XboxPackageMount`, `XboxPackageResourcePack`, `XboxStats`, `XboxLeaderboards`, `XboxLeaderboard`, `XboxLeaderboardColumn`, `XboxLeaderboardRow`, `XboxPrivacy`, `XboxPresence`, `XboxPresenceRecord`, `XboxSocial`, `XboxSocialFilter`, `XboxSocialGroup`, `XboxSocialUser`, `XboxStore`, `XboxStoreLicenseStatus`, `XboxProfile`, `XboxUserProfile`, `XboxStringVerify`, `XboxTitleStorage`, `XboxTitleStorageBlobMetadata`, `XboxTitleStorageBlobMetadataResult`, `XboxErrorReporting`, `XboxLauncher`, `XboxMultiplayerActivity`, `XboxMultiplayerActivityInfo`, `XboxCapture`, `XboxCaptureMetaData`, `XboxSystem`, `XboxDisplay`, `XboxDisplayTimeoutDeferral`, and `XboxActivation`
+- service namespaces: `GDK.users`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.store`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.launcher`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.system`, `GDK.display`, `GDK.activation`, and `GDK.networking`
+- wrapper types: `XboxResult`, `XboxUsers`, `XboxUser`, `XboxGameUI`, `XboxAccessibility`, `XboxClosedCaptionProperties`, `XboxAchievements`, `XboxAchievement`, `XboxPackage`, `XboxPackageMount`, `XboxPackageResourcePack`, `XboxStats`, `XboxLeaderboards`, `XboxLeaderboard`, `XboxLeaderboardColumn`, `XboxLeaderboardRow`, `XboxPrivacy`, `XboxPresence`, `XboxPresenceRecord`, `XboxSocial`, `XboxSocialFilter`, `XboxSocialGroup`, `XboxSocialUser`, `XboxStore`, `XboxStoreLicenseStatus`, `XboxProfile`, `XboxUserProfile`, `XboxStringVerify`, `XboxTitleStorage`, `XboxTitleStorageBlobMetadata`, `XboxTitleStorageBlobMetadataResult`, `XboxErrorReporting`, `XboxLauncher`, `XboxMultiplayerActivity`, `XboxMultiplayerActivityInfo`, `XboxCapture`, `XboxCaptureMetaData`, `XboxSystem`, `XboxDisplay`, `XboxDisplayTimeoutDeferral`, `XboxActivation`, `XboxNetworking`, and `XboxNetworkingSecurityInformation`
 - internal direct-await helpers: `XboxPendingSignal`, `XboxSignalXAsyncContext`
 - internal XBOX services scaffold: `XboxServices`
 
@@ -27,7 +27,7 @@ It owns:
 
 - `XboxRuntime`
 - `XboxServices`
-- service objects for `XboxUsers`, `XboxGameUI`, `XboxAccessibility`, `XboxAchievements`, `XboxPackage`, `XboxStats`, `XboxLeaderboards`, `XboxPrivacy`, `XboxPresence`, `XboxSocial`, `XboxStore`, `XboxProfile`, `XboxStringVerify`, `XboxTitleStorage`, `XboxErrorReporting`, `XboxLauncher`, `XboxMultiplayerActivity`, `XboxCapture`, `XboxSystem`, `XboxDisplay`, and `XboxActivation`
+- service objects for `XboxUsers`, `XboxGameUI`, `XboxAccessibility`, `XboxAchievements`, `XboxPackage`, `XboxStats`, `XboxLeaderboards`, `XboxPrivacy`, `XboxPresence`, `XboxSocial`, `XboxStore`, `XboxProfile`, `XboxStringVerify`, `XboxTitleStorage`, `XboxErrorReporting`, `XboxLauncher`, `XboxMultiplayerActivity`, `XboxCapture`, `XboxSystem`, `XboxDisplay`, `XboxActivation`, and `XboxNetworking`
 
 Its responsibilities are:
 
@@ -65,6 +65,7 @@ Current public shape:
 - `get_system() -> XboxSystem`
 - `get_display() -> XboxDisplay`
 - `get_activation() -> XboxActivation`
+- `get_networking() -> XboxNetworking`
 
 ## Shared runtime: `XboxRuntime`
 

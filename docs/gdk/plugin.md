@@ -32,6 +32,7 @@ This is the landing page for the `godot_gdk` docs set.
 - launcher service (`GDK.launcher`) — `XLaunchUri` only
 - display service (`GDK.display`) — `XDisplay.h` HDR mode + idle-timeout deferrals
 - activation service (`GDK.activation`) — activation events via `XGameActivation.h` (April 2026+ editions) or `XGameProtocol.h` / `XGameInvite.h` (October 2025 editions)
+- networking service (`GDK.networking`) — `XNetworking.h` preferred multiplayer port, connectivity hints, NSAL security information, and TCP queued-receive-buffer configuration/statistics
 - XStore commerce service (`GDK.store`)
 - dispatch-backed manager wait ops
 - sample bootstrap for dispatch
@@ -78,7 +79,7 @@ See [`gdk/sample-and-tests.md`](sample-and-tests.md) for the orchestrator stages
   `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`,
   `GDK.social`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`,
   `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`,
-  `GDK.launcher`, `GDK.display`, `GDK.activation`, and `GDK.store`.
+  `GDK.launcher`, `GDK.display`, `GDK.activation`, `GDK.networking`, and `GDK.store`.
 
 ### Architecture
 
