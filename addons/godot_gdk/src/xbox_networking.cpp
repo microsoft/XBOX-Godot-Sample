@@ -1,6 +1,8 @@
 #include "xbox_networking.h"
 
 #include <cstdio>
+#include <cstring>
+#include <limits>
 
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -15,6 +17,19 @@
 namespace godot {
 
 namespace {
+
+// Mirrors the `to_variant_u64` helper in xbox_package.cpp: GDScript's `int` is
+// signed 64-bit, so UINT64_MAX (the documented "unlimited" sentinel) surfaces as
+// -1 and any other out-of-range value clamps instead of wrapping negative.
+int64_t to_variant_u64(uint64_t p_value) {
+    if (p_value == UINT64_MAX) {
+        return -1;
+    }
+    if (p_value > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+        return std::numeric_limits<int64_t>::max();
+    }
+    return static_cast<int64_t>(p_value);
+}
 
 String _connectivity_level_name(XNetworkingConnectivityLevelHint p_level) {
     switch (p_level) {
@@ -588,9 +603,10 @@ Ref<XboxResult> XboxNetworking::query_configuration_setting(int64_t p_setting) {
 
     // uint64 does not round-trip through GDScript's signed int, and UINT64_MAX
     // is the documented "unlimited" default for some settings on console.
+    // `unlimited` is the authoritative flag; `value` is clamped for display.
     const bool unlimited = value == UINT64_MAX;
     Dictionary data;
-    data["value"] = static_cast<int64_t>(value);
+    data["value"] = to_variant_u64(value);
     data["unlimited"] = unlimited;
     return XboxResult::ok_result(data);
 }
@@ -664,11 +680,11 @@ Ref<XboxResult> XboxNetworking::query_statistics(int64_t p_statistics_type) {
 
     const XNetworkingTcpQueuedReceivedBufferUsageStatistics &usage = buffer.tcpQueuedReceiveBufferUsage;
     Dictionary data;
-    data["num_bytes_currently_queued"] = static_cast<int64_t>(usage.numBytesCurrentlyQueued);
-    data["peak_num_bytes_ever_queued"] = static_cast<int64_t>(usage.peakNumBytesEverQueued);
-    data["total_num_bytes_queued"] = static_cast<int64_t>(usage.totalNumBytesQueued);
-    data["num_bytes_dropped_for_exceeding_configured_max"] = static_cast<int64_t>(usage.numBytesDroppedForExceedingConfiguredMax);
-    data["num_bytes_dropped_due_to_any_failure"] = static_cast<int64_t>(usage.numBytesDroppedDueToAnyFailure);
+    data["num_bytes_currently_queued"] = to_variant_u64(usage.numBytesCurrentlyQueued);
+    data["peak_num_bytes_ever_queued"] = to_variant_u64(usage.peakNumBytesEverQueued);
+    data["total_num_bytes_queued"] = to_variant_u64(usage.totalNumBytesQueued);
+    data["num_bytes_dropped_for_exceeding_configured_max"] = to_variant_u64(usage.numBytesDroppedForExceedingConfiguredMax);
+    data["num_bytes_dropped_due_to_any_failure"] = to_variant_u64(usage.numBytesDroppedDueToAnyFailure);
     return XboxResult::ok_result(data);
 }
 

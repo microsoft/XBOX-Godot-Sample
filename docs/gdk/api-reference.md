@@ -1729,8 +1729,8 @@ thread during `GDK.dispatch()`.
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `value` | `int` | Setting value; `-1` when the native `uint64` is `UINT64_MAX` |
-| `unlimited` | `bool` | `true` when the native value is `UINT64_MAX`, which a signed `int` cannot represent |
+| `value` | `int` | Setting value. `-1` when the native `uint64` is `UINT64_MAX`; any other value above `INT64_MAX` is clamped to `INT64_MAX`. Read `unlimited` rather than testing for `-1`. |
+| `unlimited` | `bool` | `true` when the native value is `UINT64_MAX`, which a signed `int` cannot represent. This is the authoritative flag. |
 
 `query_statistics` success payload has `num_bytes_currently_queued`,
 `peak_num_bytes_ever_queued`, `total_num_bytes_queued`,

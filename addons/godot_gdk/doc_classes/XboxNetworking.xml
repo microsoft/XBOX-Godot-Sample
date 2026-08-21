@@ -59,7 +59,7 @@
 			<return type="XboxResult" />
 			<param index="0" name="setting" type="int" enum="XboxNetworking.ConfigurationSetting" />
 			<description>
-				Reads a TCP queued-receive-buffer configuration setting. Wraps [code]XNetworkingQueryConfigurationSetting[/code]. On success [code]data[/code] is a [Dictionary] with [code]value: int[/code] and [code]unlimited: bool[/code]. [code]unlimited[/code] is [code]true[/code] when the native [code]uint64[/code] value is [code]UINT64_MAX[/code], which GDScript's signed [int] reports as [code]-1[/code].
+				Reads a TCP queued-receive-buffer configuration setting. Wraps [code]XNetworkingQueryConfigurationSetting[/code]. On success [code]data[/code] is a [Dictionary] with [code]value: int[/code] and [code]unlimited: bool[/code]. [code]unlimited[/code] is the authoritative flag: it is [code]true[/code] when the native [code]uint64[/code] value is [code]UINT64_MAX[/code], which GDScript's signed [int] reports as [code]-1[/code]. Any other value above [code]INT64_MAX[/code] is clamped to [code]INT64_MAX[/code] rather than wrapping negative.
 				Always reports [code]0[/code] and [code]false[/code] on Windows, where these settings are a documented no-op.
 				Returns [code]not_initialized[/code] before [method GDK.initialize], [code]invalid_configuration_setting[/code] for unknown values, or [code]configuration_setting_query_failed[/code] on HRESULT failure.
 			</description>

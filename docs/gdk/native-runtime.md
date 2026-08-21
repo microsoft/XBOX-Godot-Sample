@@ -11,7 +11,7 @@ See also:
 
 ## Runtime structure
 
-The current native implementation has one root singleton and 21 public service namespaces:
+The current native implementation has one root singleton and 22 public service namespaces:
 
 - root singleton: `GDK`
 - service namespaces: `GDK.users`, `GDK.game_ui`, `GDK.accessibility`, `GDK.achievements`, `GDK.package`, `GDK.stats`, `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`, `GDK.store`, `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`, `GDK.error_reporting`, `GDK.launcher`, `GDK.multiplayer_activity`, `GDK.capture`, `GDK.system`, `GDK.display`, `GDK.activation`, and `GDK.networking`
