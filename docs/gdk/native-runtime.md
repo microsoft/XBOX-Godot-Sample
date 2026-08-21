@@ -34,7 +34,7 @@ Its responsibilities are:
 - runtime initialization
 - runtime shutdown
 - queue dispatch
-- service access through the 21 public namespaces
+- service access through the 22 public namespaces
 - root-level runtime signals
 
 Current public shape:
