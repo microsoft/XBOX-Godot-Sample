@@ -26,6 +26,7 @@ class XboxGameUI;
 class XboxLauncher;
 class XboxLeaderboards;
 class XboxMultiplayerActivity;
+class XboxNetworking;
 class XboxPackage;
 class XboxPresence;
 class XboxPrivacy;
@@ -75,6 +76,7 @@ class Xbox : public Object {
     Ref<XboxEvents> m_events;
     Ref<XboxGameSave> m_game_save;
     Ref<XboxGameChat> m_game_chat;
+    Ref<XboxNetworking> m_networking;
 
 protected:
     static void _bind_methods();
@@ -115,6 +117,7 @@ public:
     Ref<XboxEvents> get_events() const;
     Ref<XboxGameSave> get_game_save() const;
     Ref<XboxGameChat> get_game_chat() const;
+    Ref<XboxNetworking> get_networking() const;
 
     XboxRuntime *get_runtime() const;
     XboxServices *get_xbox_services() const;

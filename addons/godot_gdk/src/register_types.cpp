@@ -22,6 +22,7 @@
 #include "xbox_launcher.h"
 #include "xbox_leaderboards.h"
 #include "xbox_multiplayer_activity.h"
+#include "xbox_networking.h"
 #include "xbox_package.h"
 #include "xbox_pending_signal.h"
 #include "xbox_presence.h"
@@ -228,6 +229,8 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<XboxEvents>();
     ClassDB::register_class<XboxGameSave>();
     ClassDB::register_class<XboxGameChat>();
+    ClassDB::register_class<XboxNetworkingSecurityInformation>();
+    ClassDB::register_class<XboxNetworking>();
 
     gdk_singleton = memnew(Xbox);
     register_gdk_project_settings();

@@ -13,6 +13,7 @@
 #include "xbox_launcher.h"
 #include "xbox_leaderboards.h"
 #include "xbox_multiplayer_activity.h"
+#include "xbox_networking.h"
 #include "xbox_package.h"
 #include "xbox_presence.h"
 #include "xbox_profile.h"
@@ -96,6 +97,8 @@ Xbox::Xbox() {
     m_game_save->set_owner(this);
     m_game_chat.instantiate();
     m_game_chat->set_owner(this);
+    m_networking.instantiate();
+    m_networking->set_owner(this);
 }
 
 Xbox::~Xbox() {
@@ -136,6 +139,7 @@ Xbox::~Xbox() {
     m_events.unref();
     m_game_save.unref();
     m_game_chat.unref();
+    m_networking.unref();
     singleton = nullptr;
 }
 
@@ -170,6 +174,7 @@ void Xbox::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_events"), &Xbox::get_events);
     ClassDB::bind_method(D_METHOD("get_game_save"), &Xbox::get_game_save);
     ClassDB::bind_method(D_METHOD("get_game_chat"), &Xbox::get_game_chat);
+    ClassDB::bind_method(D_METHOD("get_networking"), &Xbox::get_networking);
 
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "users", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxUsers"), "", "get_users");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_ui", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxGameUI"), "", "get_game_ui");
@@ -196,6 +201,7 @@ void Xbox::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "events", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxEvents"), "", "get_events");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_save", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxGameSave"), "", "get_game_save");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "game_chat", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxGameChat"), "", "get_game_chat");
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "networking", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE, "XboxNetworking"), "", "get_networking");
 
     ADD_SIGNAL(MethodInfo("initialized"));
     ADD_SIGNAL(MethodInfo("shutdown_completed"));
@@ -256,6 +262,8 @@ const XboxInitStep INIT_STEPS[] = {
       [](Xbox *g) { g->get_game_save()->shutdown(); } },
     { [](Xbox *g) { return g->get_game_chat()->on_runtime_initialized(); },
       [](Xbox *g) { g->get_game_chat()->shutdown(); } },
+    { [](Xbox *g) { return g->get_networking()->on_runtime_initialized(); },
+      [](Xbox *g) { g->get_networking()->shutdown(); } },
 };
 
 struct XboxDispatchStep {
@@ -461,6 +469,10 @@ Ref<XboxGameSave> Xbox::get_game_save() const {
 
 Ref<XboxGameChat> Xbox::get_game_chat() const {
     return m_game_chat;
+}
+
+Ref<XboxNetworking> Xbox::get_networking() const {
+    return m_networking;
 }
 
 XboxRuntime *Xbox::get_runtime() const {

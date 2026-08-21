@@ -198,6 +198,9 @@ public static class Xbox
     private static XboxActivation _activation;
     public static XboxActivation Activation => _activation ??= new XboxActivation(Service("activation"));
 
+    private static XboxNetworking _networking;
+    public static XboxNetworking Networking => _networking ??= new XboxNetworking(Service("networking"));
+
     // The following services are reached via getter methods on the native
     // singleton (no backing property member), so resolve them through Call.
     private static GodotObject ServiceCall(string getter) => Require().Call(getter).AsGodotObject();
@@ -241,6 +244,7 @@ public static class Xbox
         _system = null;
         _display = null;
         _activation = null;
+        _networking = null;
         _gameChat = null;
         _speech = null;
         _gameSave = null;

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="XboxNetworkingSecurityInformation" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Network Security Allow List (NSAL) information for a title endpoint.
+	</brief_description>
+	<description>
+		Returned in [code]XboxResult.data[/code] by [method XboxNetworking.query_security_information_for_url_async]. Wraps the native [code]XNetworkingSecurityInformation[/code] record: the HTTP security protocols enabled for the URL, plus the certificate thumbprints a title can pin against.
+		The wrapper owns the native result buffer for its whole lifetime, because the native record's pointers point into it, and parses the contents into Godot types up front.
+		[codeblock]
+		var result: XboxResult = await GDK.networking.query_security_information_for_url_async("https://api.example.com")
+		if result.is_ok():
+		    var info: XboxNetworkingSecurityInformation = result.data
+		    for thumbprint in info.get_thumbprints():
+		        print(thumbprint["type_name"], ": ", thumbprint["hex"])
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_enabled_http_security_protocol_flags" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the bitmask of HTTP security protocols the NSAL entry enables for the URL ([code]XNetworkingSecurityInformation::enabledHttpSecurityProtocolFlags[/code]).
+			</description>
+		</method>
+		<method name="get_thumbprints" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns one [Dictionary] per certificate thumbprint, each with [code]type: int[/code] (one of [enum XboxNetworking.ThumbprintType]), [code]type_name: String[/code] ([code]leaf[/code], [code]issuer[/code], or [code]root[/code]), [code]bytes: PackedByteArray[/code], and [code]hex: String[/code] (lowercase hex encoding of [code]bytes[/code]).
+			</description>
+		</method>
+		<method name="to_dictionary" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns the whole record as a [Dictionary] with [code]enabled_http_security_protocol_flags: int[/code] and [code]thumbprints: Array[/code].
+			</description>
+		</method>
+	</methods>
+	<members>
+	</members>
+	<signals>
+	</signals>
+	<constants>
+	</constants>
+</class>

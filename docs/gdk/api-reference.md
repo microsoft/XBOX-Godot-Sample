@@ -43,6 +43,7 @@ accessed as namespaces under this root.
 | `get_system()` | `XboxSystem` | Access title/runtime metadata and environment facts |
 | `get_display()` | `XboxDisplay` | Access HDR mode probing and display timeout deferrals |
 | `get_activation()` | `XboxActivation` | Access game activation events (protocol/file/invite launches) |
+| `get_networking()` | `XboxNetworking` | Access `XNetworking.h` port, connectivity, NSAL, and TCP buffer surfaces |
 
 ### Signals
 
@@ -1646,3 +1647,174 @@ GDK.game_chat.text_chat_received.connect(
 GDK.game_chat.send_text(local.data.xuid, "hello over game chat")
 ```
 
+
+## Networking service: `GDK.networking`
+
+`GDK.networking` is a `RefCounted` service object returned by `GDK.get_networking()`.
+It wraps the Microsoft GDK `XNetworking.h` family: the preferred local UDP
+multiplayer port, device connectivity hints, Network Security Allow List (NSAL)
+information for title endpoints, and the TCP queued-receive-buffer configuration
+and statistics surfaces.
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `query_preferred_local_udp_multiplayer_port()` | `XboxResult` | Preferred multiplayer UDP port via `XNetworkingQueryPreferredLocalUdpMultiplayerPort` |
+| `query_preferred_local_udp_multiplayer_port_async()` | `Signal` | Same query via `XNetworkingQueryPreferredLocalUdpMultiplayerPortAsync`; safe on the main thread |
+| `get_connectivity_hint()` | `XboxResult` | Current connectivity hint via `XNetworkingGetConnectivityHint` |
+| `query_security_information_for_url_async(url)` | `Signal` | NSAL certificate thumbprints for a registered title endpoint |
+| `query_configuration_setting(setting)` | `XboxResult` | Read a TCP queued-receive-buffer setting |
+| `set_configuration_setting(setting, value)` | `XboxResult` | Write a TCP queued-receive-buffer setting |
+| `query_statistics(statistics_type)` | `XboxResult` | Read TCP queued-receive-buffer usage statistics |
+
+### Signals
+
+| Signal | Payload | Description |
+|--------|---------|-------------|
+| `preferred_local_udp_multiplayer_port_changed` | `port: int` | The preferred multiplayer UDP port changed; rebind sockets |
+| `connectivity_hint_changed` | `hint: Dictionary` | The device connectivity hint changed; same shape as `get_connectivity_hint()` data |
+
+Both signals also fire once shortly after `GDK.initialize()`: the GDK delivers an
+initial callback on registration, so the first emission carries current state
+rather than a change. Like every other GDK callback they arrive on the main
+thread during `GDK.dispatch()`.
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `CONNECTIVITY_LEVEL_UNKNOWN` | `0` | Level unknown; also reported before the network is initialized |
+| `CONNECTIVITY_LEVEL_NONE` | `1` | No connectivity |
+| `CONNECTIVITY_LEVEL_LOCAL_ACCESS` | `2` | Local network only, no internet |
+| `CONNECTIVITY_LEVEL_INTERNET_ACCESS` | `3` | Local and internet access |
+| `CONNECTIVITY_LEVEL_CONSTRAINED_INTERNET_ACCESS` | `4` | Captive portal; credentials needed for full access |
+| `CONNECTIVITY_COST_UNKNOWN` | `0` | Cost unknown; also reported before the network is initialized |
+| `CONNECTIVITY_COST_UNRESTRICTED` | `1` | No data limits |
+| `CONNECTIVITY_COST_FIXED` | `2` | Unrestricted up to a cap, then throttled or charged |
+| `CONNECTIVITY_COST_VARIABLE` | `3` | Charged per byte |
+| `THUMBPRINT_TYPE_LEAF` | `0` | Leaf (server) certificate thumbprint |
+| `THUMBPRINT_TYPE_ISSUER` | `1` | Issuing intermediate certificate thumbprint |
+| `THUMBPRINT_TYPE_ROOT` | `2` | Root certificate thumbprint |
+| `CONFIGURATION_SETTING_MAX_TITLE_TCP_QUEUED_RECEIVE_BUFFER_SIZE` | `0` | Max queued received TCP bytes for the title |
+| `CONFIGURATION_SETTING_MAX_SYSTEM_TCP_QUEUED_RECEIVE_BUFFER_SIZE` | `1` | Max queued received TCP bytes for the system |
+| `CONFIGURATION_SETTING_MAX_TOOLS_TCP_QUEUED_RECEIVE_BUFFER_SIZE` | `2` | Max queued received TCP bytes for tools |
+| `STATISTICS_TYPE_TITLE_TCP_QUEUED_RECEIVED_BUFFER_USAGE` | `0` | Queued-receive-buffer usage for title traffic |
+| `STATISTICS_TYPE_SYSTEM_TCP_QUEUED_RECEIVED_BUFFER_USAGE` | `1` | Queued-receive-buffer usage for system traffic |
+| `STATISTICS_TYPE_TOOLS_TCP_QUEUED_RECEIVED_BUFFER_USAGE` | `2` | Queued-receive-buffer usage for tools traffic |
+
+### Result data
+
+`query_preferred_local_udp_multiplayer_port[_async]` success payload:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `port` | `int` | Preferred UDP port in host byte order (3074 by default) |
+
+`get_connectivity_hint` success payload (also the `connectivity_hint_changed` argument):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `connectivity_level` | `int` | One of the `CONNECTIVITY_LEVEL_*` constants |
+| `connectivity_level_name` | `String` | `unknown`, `none`, `local_access`, `internet_access`, or `constrained_internet_access` |
+| `connectivity_cost` | `int` | One of the `CONNECTIVITY_COST_*` constants |
+| `connectivity_cost_name` | `String` | `unknown`, `unrestricted`, `fixed`, or `variable` |
+| `iana_interface_type` | `int` | IANA/NDIS interface type of the active interface |
+| `network_initialized` | `bool` | The only authoritative field; gate all networking on it |
+| `approaching_data_limit` | `bool` | Nearing a metered-connection data cap |
+| `over_data_limit` | `bool` | Past a metered-connection data cap |
+| `roaming` | `bool` | Connection is roaming |
+
+`query_configuration_setting` success payload:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `value` | `int` | Setting value. `-1` when the native `uint64` is `UINT64_MAX`; any other value above `INT64_MAX` is clamped to `INT64_MAX`. Read `unlimited` rather than testing for `-1`. |
+| `unlimited` | `bool` | `true` when the native value is `UINT64_MAX`, which a signed `int` cannot represent. This is the authoritative flag. |
+
+`query_statistics` success payload has `num_bytes_currently_queued`,
+`peak_num_bytes_ever_queued`, `total_num_bytes_queued`,
+`num_bytes_dropped_for_exceeding_configured_max`, and
+`num_bytes_dropped_due_to_any_failure` (all `int`).
+
+`query_security_information_for_url_async` success payload is an
+`XboxNetworkingSecurityInformation`.
+
+### Windows behavior
+
+`query_configuration_setting`, `set_configuration_setting`, and `query_statistics`
+are documented no-ops on Windows: the setter reports `E_NOTIMPL` (surfaced as
+`not_supported_on_platform`) and the queries report zeros. They are wrapped anyway
+so the surface is identical on console-capable Godot forks. Every other method in
+this service is fully functional on the PC GDK.
+
+### Not wrapped
+
+- `XNetworkingVerifyServerCertificate` takes a WinHTTP `HINTERNET` request handle
+  from `WinHttpOpenRequest` and is meant to be called inside a
+  `WINHTTP_CALLBACK_STATUS_SENDING_REQUEST` callback. Godot's `HTTPClient` and
+  `HTTPRequest` do not expose such a handle, so there is no way to call it
+  correctly from GDScript. Read the thumbprints from
+  `XboxNetworkingSecurityInformation` and validate in your own native code.
+- `XNetworkingQuerySecurityInformationForUrlUtf16Async` differs from the UTF-8
+  entry point only in input encoding, which is not observable through Godot's
+  single `String` type.
+
+### Validation notes
+
+- All methods return `not_initialized` when called before `GDK.initialize()`.
+- `query_configuration_setting` / `set_configuration_setting` return
+  `invalid_configuration_setting` for unknown settings; `set_configuration_setting`
+  returns `invalid_configuration_value` for negative values.
+- `query_statistics` returns `invalid_statistics_type` for unknown types.
+- `query_security_information_for_url_async` returns `invalid_url` for an empty URL.
+
+### `XboxNetworkingSecurityInformation`
+
+Ref-counted wrapper around the native `XNetworkingSecurityInformation` record. It
+owns the native result buffer for its whole lifetime, because the native record's
+pointers point into it.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_enabled_http_security_protocol_flags()` | `int` | Bitmask of HTTP security protocols enabled for the URL |
+| `get_thumbprints()` | `Array` | One `Dictionary` per thumbprint: `type`, `type_name`, `bytes` (`PackedByteArray`), `hex` |
+| `to_dictionary()` | `Dictionary` | `enabled_http_security_protocol_flags` plus `thumbprints` |
+
+Construction is internal — instances are produced by
+`GDK.networking.query_security_information_for_url_async()`.
+
+### Usage
+
+```gdscript
+var init: XboxResult = GDK.initialize()
+if not init.is_ok():
+    push_error(init.message)
+    return
+
+# Gate networking on network_initialized, not on the level hint.
+GDK.networking.connectivity_hint_changed.connect(func(hint: Dictionary) -> void:
+    if hint["network_initialized"]:
+        start_matchmaking()
+    else:
+        show_offline_banner(hint["connectivity_level_name"])
+)
+
+# Rebind when the system changes the preferred multiplayer port.
+GDK.networking.preferred_local_udp_multiplayer_port_changed.connect(
+    func(port: int) -> void: rebind_udp_socket(port)
+)
+
+# Prefer the async query on the main thread; the sync overload is documented as
+# unsafe on time-sensitive threads.
+var port_result: XboxResult = await GDK.networking.query_preferred_local_udp_multiplayer_port_async()
+if port_result.is_ok():
+    rebind_udp_socket(port_result.data["port"])
+
+# Certificate thumbprints for a title endpoint registered in Partner Center.
+var security: XboxResult = await GDK.networking.query_security_information_for_url_async("https://api.example.com")
+if security.is_ok():
+    var info: XboxNetworkingSecurityInformation = security.data
+    for thumbprint in info.get_thumbprints():
+        print("%s: %s" % [thumbprint["type_name"], thumbprint["hex"]])
+```

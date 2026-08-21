@@ -166,6 +166,12 @@
 				Returns the [XboxActivation] service for game activation events (protocol/file/invite launches).
 			</description>
 		</method>
+		<method name="get_networking" qualifiers="const">
+			<return type="XboxNetworking" />
+			<description>
+				Returns the [XboxNetworking] service for the preferred local UDP multiplayer port, connectivity hints, and endpoint security information.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="users" type="XboxUsers" setter="" getter="get_users">
@@ -230,6 +236,9 @@
 		</member>
 		<member name="activation" type="XboxActivation" setter="" getter="get_activation">
 			The [XboxActivation] service instance for game activation events (protocol/file/invite launches).
+		</member>
+		<member name="networking" type="XboxNetworking" setter="" getter="get_networking">
+			The [XboxNetworking] service instance for the preferred local UDP multiplayer port, connectivity hints, and endpoint security information.
 		</member>
 	</members>
 	<signals>

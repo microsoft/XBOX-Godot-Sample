@@ -74,7 +74,7 @@ docs/
   `GDK.leaderboards`, `GDK.privacy`, `GDK.presence`, `GDK.social`,
   `GDK.profile`, `GDK.string_verify`, `GDK.title_storage`,
   `GDK.error_reporting`, `GDK.multiplayer_activity`, `GDK.capture`,
-  `GDK.launcher`, and `GDK.store`
+  `GDK.launcher`, `GDK.networking`, and `GDK.store`
 
 ### Architecture
 

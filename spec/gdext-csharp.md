@@ -185,6 +185,7 @@ and value type.
 | `GDK.activation` / `XboxActivation` | `Xbox.Activation` | service |
 | `GDK.launcher` / `XboxLauncher` | `Xbox.Launcher` / `XboxLauncher` | service |
 | `GDK.error_reporting` / `XboxErrorReporting` | `Xbox.ErrorReporting` | service |
+| `GDK.networking` / `XboxNetworking` | `Xbox.Networking` / `XboxNetworking` | service |
 | `GDK.get_game_chat()` / `XboxGameChat` | `Xbox.GameChat` / `XboxGameChat` | service (Game Chat 2, via getter) |
 | `GDK.get_speech()` / `XboxSpeechSynthesizer` | `Xbox.Speech` / `XboxSpeechSynthesizer` | service (text-to-speech, via getter) |
 | `GDK.get_game_save()` / `XboxGameSave` | `Xbox.GameSave` / `XboxGameSave` | service (XGameSaveFiles, via getter) |
