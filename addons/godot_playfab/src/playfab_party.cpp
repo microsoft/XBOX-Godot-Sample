@@ -1854,11 +1854,25 @@ Error PlayFabPartyPeer::_put_packet_script(const PackedByteArray &p_buffer) {
     return _put_packet(p_buffer.ptr(), p_buffer.size());
 }
 
+// SceneMultiplayer::poll() reads get_packet_peer()/get_packet_channel()/
+// get_packet_mode() BEFORE calling get_packet(), so these accessors describe
+// the packet still at the head of the queue -- not the one most recently
+// dequeued. ENetMultiplayerPeer implements them by peeking
+// incoming_packets.front(); anything else attributes each packet to the
+// PREVIOUS packet's sender, which silently corrupts SceneCacheInterface's
+// per-peer node-path cache once more than one remote peer is connected.
+// The m_current_packet_* members remain the fallback for an empty queue.
 int32_t PlayFabPartyPeer::_get_packet_channel() const {
+    if (!m_inbound.empty()) {
+        return m_inbound.front().channel;
+    }
     return m_current_packet_channel;
 }
 
 MultiplayerPeer::TransferMode PlayFabPartyPeer::_get_packet_mode() const {
+    if (!m_inbound.empty()) {
+        return m_inbound.front().mode;
+    }
     return m_current_packet_mode;
 }
 
@@ -1882,7 +1896,11 @@ void PlayFabPartyPeer::_set_target_peer(int32_t p_peer) {
     m_target_peer = p_peer;
 }
 
+// See the note on _get_packet_channel(): this must peek the head of the queue.
 int32_t PlayFabPartyPeer::_get_packet_peer() const {
+    if (!m_inbound.empty()) {
+        return m_inbound.front().source_peer;
+    }
     return m_current_packet_peer;
 }
 
