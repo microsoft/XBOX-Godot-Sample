@@ -593,10 +593,18 @@ func _drain_packets() -> void:
 		if peer.has_method("poll"):
 			peer.poll()
 		while peer.get_available_packet_count() > 0:
-			var packet: PackedByteArray = peer.get_packet()
+			# Read the sender BEFORE dequeuing. get_packet_peer() describes the
+			# packet at the head of the queue, not the one most recently returned
+			# by get_packet() -- this is the same order SceneMultiplayer::poll()
+			# uses, and matches ENetMultiplayerPeer, which answers by peeking
+			# incoming_packets.front(). Reading it afterwards attributes each
+			# packet to whatever is queued next (or to the previous packet on a
+			# peer that caches the last dequeue), which silently mis-attributes
+			# senders as soon as more than one remote peer is connected.
 			var sender_peer_id: int = 0
 			if peer.has_method("get_packet_peer"):
 				sender_peer_id = int(peer.get_packet_peer())
+			var packet: PackedByteArray = peer.get_packet()
 			var text: String = packet.get_string_from_utf8()
 			var parsed: Variant = JSON.parse_string(text)
 			if typeof(parsed) != TYPE_DICTIONARY:
@@ -609,6 +617,8 @@ func _drain_packets() -> void:
 			var payload: Dictionary = {
 				"handle": handle,
 				"peer_id": sender_peer_id,
+				"sender_unique_id": int(frame.get("sender_unique_id", 0)),
+				"attribution_ok": int(frame.get("sender_unique_id", 0)) == sender_peer_id,
 				"correlation_id": String(frame.get("correlation_id", "")),
 				"payload": frame.get("payload", {}),
 			}
@@ -628,7 +638,13 @@ func _drain_packets() -> void:
 
 
 func _send_rpc_frame(peer: Object, frame: Dictionary) -> int:
-	var bytes: PackedByteArray = JSON.stringify(frame).to_utf8_buffer()
+	# Stamp the sender's own transport id into the frame so the receiver can
+	# compare it against get_packet_peer(). A mismatch means the peer attributed
+	# the packet to the wrong sender, which is invisible to payload-only asserts.
+	var stamped: Dictionary = frame.duplicate()
+	if peer != null and peer.has_method("get_unique_id"):
+		stamped["sender_unique_id"] = int(peer.get_unique_id())
+	var bytes: PackedByteArray = JSON.stringify(stamped).to_utf8_buffer()
 	return peer.put_packet(bytes)
 
 

@@ -232,6 +232,7 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | --- | --- | --- | --- | --- | --- |
 | `party.rpc.round_trip.post_join_first_message` | First RPC from guest after join arrives at host (PR #132 regression) | P0 | host, guest | `playfab_party_available` | N |
 | `party.rpc.bidirectional` | Host → guest → host RPC sequence preserved | P0 | host, guest | `playfab_party_available` | N |
+| `party.rpc.three_clients` | Two guests interleave RPCs to the host; every packet is attributed to its real sender (netrumble #6 regression) | P0 | host, guest, guest2 | `playfab_party_available`, `live_write_allowed`, `multi_host_processes` | N |
 | `party.rpc.large_payload` | RPC payload at the max recommended size roundtrips | P2 | host, guest | `playfab_party_available` | N |
 | `party.rpc.burst` | 100 RPCs in 1s do not lose any frames | P2 | host, guest | `playfab_party_available` | N |
 | `party.transport.peer_id_assignment` | Host is peer 1; guest receives a positive, stable peer id | P1 | host, guest | `playfab_party_available` | N |

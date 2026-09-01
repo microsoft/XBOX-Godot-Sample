@@ -98,6 +98,73 @@ func run_party_rpc_bidirectional(orch) -> Dictionary:
 	return ok()
 
 
+# Regression coverage for the PlayFabPartyPeer packet-attribution defect
+# (netrumble issue #6).
+#
+# SceneMultiplayer::poll() reads get_packet_peer() BEFORE get_packet(), so those
+# accessors must describe the packet at the head of the queue. A peer that
+# instead answers from the last dequeue books every packet against the PREVIOUS
+# packet's sender. Two clients cannot detect that -- with a single remote sender
+# the shifted attribution still lands on the right id -- which is exactly why
+# every pre-existing Party RPC scenario was 2-client and this shipped.
+#
+# Three clients make the host's inbound queue interleave two distinct senders,
+# so the shift becomes observable. The test client stamps its own
+# get_unique_id() into each frame and the receiver compares that against
+# get_packet_peer(); a mismatch is the defect signature.
+func run_party_rpc_three_clients(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var triplet: Variant = await _party_triplet(orch, false)
+	if _is_failure(triplet): return triplet
+	var guest_roles: Array = ["guest", "guest2"]
+	var observed_ids: Dictionary = {}
+	var rounds: int = 3
+	for round_index in range(rounds):
+		var correlations: Dictionary = {}
+		var ping_waits: Dictionary = {}
+		var pong_waits: Dictionary = {}
+		for role in guest_roles:
+			var corr: String = _unique_token(orch, "rpc3-%s-%d" % [role, round_index])
+			correlations[role] = corr
+			ping_waits[role] = _client(orch, "host").expect_event("party.rpc.ping_received", { "correlation_id": corr })
+			pong_waits[role] = _client(orch, role).expect_event("party.rpc.pong_received", { "correlation_id": corr })
+		# Fire both guests before awaiting either delivery. _party_send_rpc_ping
+		# only awaits the client's local command ack, not delivery, so the two
+		# pings stay in flight together and can land in a single host drain --
+		# the same-drain interleave that makes the head-vs-last-dequeue
+		# difference observable.
+		for role in guest_roles:
+			var sent: Variant = await _party_send_rpc_ping(orch, role, String(correlations[role]), { "from": role })
+			if _is_failure(sent): return sent
+		for role in guest_roles:
+			var result: Dictionary = await ping_waits[role].wait(PARTY_WAIT_MS)
+			if not bool(result.get("ok", false)):
+				return fail("host did not receive %s RPC in round %d" % [role, round_index], { "event": result })
+			var payload: Dictionary = result.get("event", {}).get("payload", {})
+			var peer_id: int = int(payload.get("peer_id", 0))
+			var sender_id: int = int(payload.get("sender_unique_id", 0))
+			var err: Variant = assert_true(sender_id > 1, "%s should report a positive non-host unique id" % role, { "payload": payload })
+			if err != null: return err
+			err = assert_true(peer_id == sender_id, "host mis-attributed the %s packet in round %d: get_packet_peer must describe the queue head" % [role, round_index], { "payload": payload })
+			if err != null: return err
+			if observed_ids.has(role):
+				err = assert_true(peer_id == int(observed_ids[role]), "%s peer id changed between rounds" % role, { "payload": payload, "observed": observed_ids })
+				if err != null: return err
+			else:
+				observed_ids[role] = peer_id
+		for role in guest_roles:
+			var pong: Dictionary = await pong_waits[role].wait(PARTY_WAIT_MS)
+			if not bool(pong.get("ok", false)):
+				return fail("%s did not receive host pong in round %d" % [role, round_index], { "event": pong })
+			var pong_payload: Dictionary = pong.get("event", {}).get("payload", {})
+			var pong_err: Variant = assert_true(int(pong_payload.get("peer_id", 0)) == 1, "%s should attribute the host pong to peer 1" % role, { "payload": pong_payload })
+			if pong_err != null: return pong_err
+	var distinct_err: Variant = assert_true(int(observed_ids.get("guest", 0)) != int(observed_ids.get("guest2", 0)), "the two guests must be attributed distinct peer ids", { "observed": observed_ids })
+	if distinct_err != null: return distinct_err
+	return ok({ "guest_peer_id": int(observed_ids.get("guest", 0)), "guest2_peer_id": int(observed_ids.get("guest2", 0)), "rounds": rounds })
+
+
 func run_party_transport_peer_id_assignment(orch) -> Dictionary:
 	var gate: Variant = requires_live_write(orch)
 	if gate != null: return gate
