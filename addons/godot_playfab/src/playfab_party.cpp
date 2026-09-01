@@ -1834,7 +1834,7 @@ int32_t PlayFabPartyPeer::_get_available_packet_count() const {
 }
 
 int32_t PlayFabPartyPeer::_get_max_packet_size() const {
-    return 1024;
+    return 1200;
 }
 
 PackedByteArray PlayFabPartyPeer::_get_packet_script() {
