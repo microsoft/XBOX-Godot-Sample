@@ -196,7 +196,9 @@ For Godot clients, prefer the statistic-backed leaderboard path: write scores wi
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
 
-Lobby and member property update dictionaries use [String] or [StringName] values; on `PlayFabLobby.set_properties_async()` / `set_member_properties_async()`, a `null` value deletes that key through the SDK's native delete representation while omitted keys stay unchanged. Initial create/join property dictionaries accept [String]/[StringName] values only (null is rejected).
+Lobby and member property update dictionaries use [String] or [StringName] values; on `PlayFabLobby.set_properties_async()` / `set_search_properties_async()` / `set_member_properties_async()`, a `null` value deletes that key through the SDK's native delete representation while omitted keys stay unchanged. Initial create/join property dictionaries accept [String]/[StringName] values only (null is rejected).
+
+Lobby settings other than properties are changed through `PlayFabLobby.post_update_async(PlayFabLobbyUpdateConfig)`, which batches membership lock, access policy, member capacity, owner-only invites, ownership transfer, and both property buckets into a single service round trip. Fields on `PlayFabLobbyUpdateConfig` are presence-tracked, so assigning `false` or an enum value of `0` is still sent; `clear_<field>()` reverts a field to "unchanged". Unlike `create_lobby_async`, which clamps capacity, `post_update_async` rejects out-of-range or below-occupancy `max_member_count` with `invalid_update` rather than applying a different capacity than requested.
 
 ```gdscript
 var mp_result = await PlayFab.multiplayer.initialize_async()
@@ -214,7 +216,18 @@ if lobby_result.ok:
     print("Join with: ", lobby.get_connection_string())
     await lobby.set_properties_async({"score": "42", "round": "1"})
     await lobby.set_properties_async({"score": null}) # deletes score; round is unchanged
+
+    # Seal the lobby and advertise the new state in one round trip.
+    var update := PlayFabLobbyUpdateConfig.new()
+    update.membership_lock = PlayFabLobbyUpdateConfig.MEMBERSHIP_LOCK_LOCKED
+    update.max_member_count = lobby.member_count
+    update.search_properties = {"string_key1": "in_progress"}
+    var update_result = await lobby.post_update_async(update).completed
+    if not update_result.ok:
+        push_warning(update_result.message)
 ```
+
+`PlayFabLobby.state_changed` reports each category of a native lobby update separately, so an update batch that changes ownership, member connectivity, and properties at once emits one change per category instead of collapsing to a single kind. `MEMBER_CONNECTION_CHANGED` is emitted in addition to `MEMBER_UPDATED`, and `SEARCH_PROPERTIES_UPDATED` / `CONFIGURATION_UPDATED` cover changes that were previously dropped. `PlayFabLobbyMember.connection_status` distinguishes an offline member from one who actually left, and `PlayFabLobbyStateChange.reason` carries the SDK's `MEMBER_REMOVED_*` / `DISCONNECTING_*` reason. `DISCONNECTED` is an OK result only for a normal end of session (`DISCONNECTING_NO_LOCAL_MEMBERS`); every other disconnect reason surfaces a failed result so a dropped connection is not mistaken for a clean `leave_async()`.
 
 Use `tools\configure_playfab_test_title.ps1` with a PlayFab developer secret in `PLAYFAB_DEVELOPER_SECRET_KEY` to provision a sandbox title for live coverage. The script creates the custom-ID smoke account, Multiplayer worker accounts, a two-player matchmaking queue keyed by a `run_id` equality rule, leaderboard/statistic definitions, service fixture accounts, title/publisher/player data keys, a catalog draft item, and a title-data marker describing those resources.
 

@@ -80,6 +80,85 @@ public:
     void set_restrict_invites_to_lobby_owner(bool p_restrict);
 };
 
+// Typed, presence-tracked update request for an existing lobby.
+//
+// Every field maps to an optional field of the native PFLobbyDataUpdate.
+// Presence is explicit: a field is only submitted after its setter runs, so
+// `false` and enum value zero remain legal requested values rather than being
+// confused with "unchanged". clear_*() returns a field to the unset state.
+class PlayFabLobbyUpdateConfig : public RefCounted {
+    GDCLASS(PlayFabLobbyUpdateConfig, RefCounted);
+
+    int64_t m_membership_lock = MEMBERSHIP_LOCK_UNLOCKED;
+    bool m_has_membership_lock = false;
+    int64_t m_access_policy = ACCESS_POLICY_PRIVATE;
+    bool m_has_access_policy = false;
+    int64_t m_max_member_count = 0;
+    bool m_has_max_member_count = false;
+    bool m_restrict_invites_to_lobby_owner = false;
+    bool m_has_restrict_invites_to_lobby_owner = false;
+    Dictionary m_new_owner_entity_key;
+    bool m_has_new_owner_entity_key = false;
+    Dictionary m_search_properties;
+    bool m_has_search_properties = false;
+    Dictionary m_lobby_properties;
+    bool m_has_lobby_properties = false;
+
+protected:
+    static void _bind_methods();
+
+public:
+    // Values intentionally mirror PlayFabLobbyConfig so a title can pass the
+    // same constant to creation and to updates.
+    enum AccessPolicy : int64_t {
+        ACCESS_POLICY_PUBLIC = 0,
+        ACCESS_POLICY_FRIENDS = 1,
+        ACCESS_POLICY_PRIVATE = 2,
+    };
+
+    enum MembershipLock : int64_t {
+        MEMBERSHIP_LOCK_UNLOCKED = 0,
+        MEMBERSHIP_LOCK_LOCKED = 1,
+    };
+
+    int64_t get_membership_lock() const;
+    void set_membership_lock(int64_t p_membership_lock);
+    bool has_membership_lock() const;
+    void clear_membership_lock();
+
+    int64_t get_access_policy() const;
+    void set_access_policy(int64_t p_access_policy);
+    bool has_access_policy() const;
+    void clear_access_policy();
+
+    int64_t get_max_member_count() const;
+    void set_max_member_count(int64_t p_max_member_count);
+    bool has_max_member_count() const;
+    void clear_max_member_count();
+
+    bool get_restrict_invites_to_lobby_owner() const;
+    void set_restrict_invites_to_lobby_owner(bool p_restrict);
+    bool has_restrict_invites_to_lobby_owner() const;
+    void clear_restrict_invites_to_lobby_owner();
+
+    Dictionary get_new_owner_entity_key() const;
+    void set_new_owner_entity_key(const Dictionary &p_entity_key);
+    bool has_new_owner_entity_key() const;
+    void clear_new_owner_entity_key();
+
+    Dictionary get_search_properties() const;
+    void set_search_properties(const Dictionary &p_properties);
+    bool has_search_properties() const;
+    void clear_search_properties();
+
+    Dictionary get_lobby_properties() const;
+    void set_lobby_properties(const Dictionary &p_properties);
+    bool has_lobby_properties() const;
+    void clear_lobby_properties();
+
+    bool is_empty() const;
+};
+
 class PlayFabLobbyJoinConfig : public RefCounted {
     GDCLASS(PlayFabLobbyJoinConfig, RefCounted);
 
@@ -154,16 +233,25 @@ class PlayFabLobbyMember : public RefCounted {
     Dictionary m_entity_key;
     Dictionary m_properties;
     bool m_is_local = false;
+    int64_t m_connection_status = CONNECTION_STATUS_NOT_CONNECTED;
 
 protected:
     static void _bind_methods();
 
 public:
-    void set_snapshot(const String &p_user_id, const Dictionary &p_entity_key, const Dictionary &p_properties, bool p_is_local);
+    // Connection to the PlayFab Lobby *notification service* — not a
+    // measurement of gameplay or Party connectivity.
+    enum ConnectionStatus : int64_t {
+        CONNECTION_STATUS_NOT_CONNECTED = 0,
+        CONNECTION_STATUS_CONNECTED = 1,
+    };
+
+    void set_snapshot(const String &p_user_id, const Dictionary &p_entity_key, const Dictionary &p_properties, bool p_is_local, int64_t p_connection_status = CONNECTION_STATUS_NOT_CONNECTED);
     String get_user_id() const;
     Dictionary get_entity_key() const;
     Dictionary get_properties() const;
     bool is_local_member() const;
+    int64_t get_connection_status() const;
 };
 
 class PlayFabLobbyInvite : public RefCounted {
@@ -246,16 +334,22 @@ class PlayFabLobbyStateChange : public RefCounted {
     Ref<PlayFabLobbyInvite> m_invite;
     Ref<PlayFabUser> m_user;
     Dictionary m_properties;
+    int64_t m_reason = REASON_NONE;
 
 protected:
     static void _bind_methods();
 
 public:
+    enum Reason : int64_t {
+        REASON_NONE = -1,
+    };
+
     void set_values(int64_t p_kind, const Ref<RefCounted> &p_lobby, const Ref<PlayFabResult> &p_result = Ref<PlayFabResult>());
     void set_member(const Ref<PlayFabLobbyMember> &p_member);
     void set_invite(const Ref<PlayFabLobbyInvite> &p_invite);
     void set_user(const Ref<PlayFabUser> &p_user);
     void set_properties(const Dictionary &p_properties);
+    void set_reason(int64_t p_reason);
     int64_t get_kind() const;
     Ref<RefCounted> get_lobby() const;
     Ref<PlayFabResult> get_result() const;
@@ -263,6 +357,7 @@ public:
     Ref<PlayFabLobbyInvite> get_invite() const;
     Ref<PlayFabUser> get_user() const;
     Dictionary get_properties() const;
+    int64_t get_reason() const;
 };
 
 class PlayFabMatchTicketStateChange : public RefCounted {
@@ -335,6 +430,13 @@ class PlayFabLobby : public RefCounted {
     Dictionary m_local_member_properties;
     bool m_local_member_properties_known = false;
     bool m_disconnected = false;
+    int64_t m_access_policy = PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    int64_t m_owner_migration_policy = PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+    int64_t m_membership_lock = MEMBERSHIP_LOCK_UNLOCKED;
+    bool m_restrict_invites_to_lobby_owner = false;
+    // Cached before the native handle is detached so the terminal DISCONNECTED
+    // notification can still explain why the lobby went away.
+    int64_t m_disconnecting_reason = PlayFabLobbyStateChange::REASON_NONE;
 
     bool _is_local_entity_key(const Dictionary &p_entity_key) const;
     Ref<PlayFabLobbyMember> _find_local_member() const;
@@ -351,6 +453,33 @@ public:
         PROPERTIES_UPDATED = 4,
         OWNER_CHANGED = 5,
         DISCONNECTED = 6,
+        MEMBER_CONNECTION_CHANGED = 7,
+        SEARCH_PROPERTIES_UPDATED = 8,
+        CONFIGURATION_UPDATED = 9,
+        DISCONNECTING = 10,
+    };
+
+    enum MembershipLock : int64_t {
+        MEMBERSHIP_LOCK_UNLOCKED = 0,
+        MEMBERSHIP_LOCK_LOCKED = 1,
+    };
+
+    // Why a member left, mirroring PFLobbyMemberRemovedReason. Delivered on
+    // MEMBER_REMOVED through PlayFabLobbyStateChange.reason.
+    enum MemberRemovedReason : int64_t {
+        MEMBER_REMOVED_LOCAL_USER_LEFT_LOBBY = 0,
+        MEMBER_REMOVED_LOCAL_USER_FORCIBLY_REMOVED = 1,
+        MEMBER_REMOVED_REMOTE_USER_LEFT_LOBBY = 2,
+    };
+
+    // Why the client lost access to the lobby, mirroring
+    // PFLobbyDisconnectingReason. Delivered on DISCONNECTING and DISCONNECTED
+    // through PlayFabLobbyStateChange.reason.
+    enum DisconnectingReason : int64_t {
+        DISCONNECTING_NO_LOCAL_MEMBERS = 0,
+        DISCONNECTING_LOBBY_DELETED = 1,
+        DISCONNECTING_CONNECTION_INTERRUPTION = 2,
+        DISCONNECTING_LOBBY_SERVER_LEFT = 3,
     };
 
     void set_owner(PlayFabMultiplayer *p_owner);
@@ -359,6 +488,7 @@ public:
     Ref<PlayFabUser> get_local_user() const;
     void mark_disconnected();
     bool is_disconnected() const;
+    void set_disconnecting_reason(int64_t p_reason);
     HRESULT refresh_snapshot();
     void replace_local_member_properties(const Dictionary &p_properties);
     void apply_local_member_property_update(const Dictionary &p_update);
@@ -371,10 +501,18 @@ public:
     Array get_members() const;
     Dictionary get_properties() const;
     Dictionary get_search_properties() const;
+    int64_t get_access_policy() const;
+    int64_t get_owner_migration_policy() const;
+    int64_t get_membership_lock() const;
+    bool get_restrict_invites_to_lobby_owner() const;
+    int64_t get_disconnecting_reason() const;
     Ref<PlayFabLobbyMember> find_member(const Dictionary &p_entity_key) const;
     bool is_owner(const Ref<PlayFabUser> &p_user) const;
     Signal set_properties_async(const Dictionary &p_properties);
+    Signal set_search_properties_async(const Dictionary &p_properties);
     Signal set_member_properties_async(const Dictionary &p_properties);
+    Signal set_membership_lock_async(int64_t p_membership_lock);
+    Signal post_update_async(const Ref<PlayFabLobbyUpdateConfig> &p_update);
     Signal leave_async();
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     void _test_seed_local_member(const Dictionary &p_entity_key, const Dictionary &p_properties);
@@ -478,7 +616,8 @@ private:
             const Ref<PlayFabLobby> &p_lobby,
             const Ref<PlayFabResult> &p_result = Ref<PlayFabResult>(),
             const Ref<PlayFabLobbyMember> &p_member = Ref<PlayFabLobbyMember>(),
-            const Dictionary &p_properties = Dictionary());
+            const Dictionary &p_properties = Dictionary(),
+            int64_t p_reason = PlayFabLobbyStateChange::REASON_NONE);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Signal _test_enqueue_shutdown_pending();
     int64_t _test_pending_operation_count() const;
@@ -492,6 +631,7 @@ private:
             const String &p_match_id,
             const String &p_arranged_lobby_connection_string);
     Signal _set_lobby_properties_async(const Ref<PlayFabLobby> &p_lobby, const Dictionary &p_properties);
+    Signal _post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update);
     Signal _set_member_properties_async(const Ref<PlayFabLobby> &p_lobby, const Dictionary &p_properties);
     Signal _leave_lobby_async(const Ref<PlayFabLobby> &p_lobby);
     Signal _refresh_match_ticket_async(const Ref<PlayFabMatchTicket> &p_ticket);

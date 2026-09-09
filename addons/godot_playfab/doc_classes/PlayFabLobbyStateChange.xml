@@ -9,14 +9,17 @@
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
-		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabMultiplayer]'s lobby constants.</member>
+		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabLobby]'s lobby state-change constants.</member>
 		<member name="lobby" type="PlayFabLobby" setter="" getter="get_lobby">Lobby that changed.</member>
-		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for completed operations.</member>
-		<member name="member" type="PlayFabLobbyMember" setter="" getter="get_member">Affected member. Guaranteed non-null for successful [code]MEMBER_ADDED[/code] (the joining member), [code]MEMBER_REMOVED[/code] (the leaving member, resolved before the snapshot drops them), and [code]MEMBER_UPDATED[/code] (the member whose properties or connection status changed). Local-self member-property writes patch the local snapshot eagerly before this payload is emitted; remote member updates are populated from SDK change notifications. May be [code]null[/code] when [member result] is a failure (e.g. join/post-update operation completed with an error) and for kinds outside the member-scoped set.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for completed operations. For [constant PlayFabLobby.DISCONNECTED] this is OK only when the session ended normally ([constant PlayFabLobby.DISCONNECTING_NO_LOCAL_MEMBERS]); every other disconnect reason reports a failure so an unexpected drop is not mistaken for a clean leave.</member>
+		<member name="member" type="PlayFabLobbyMember" setter="" getter="get_member">Affected member. Guaranteed non-null for successful [code]MEMBER_ADDED[/code] (the joining member), [code]MEMBER_REMOVED[/code] (the leaving member, resolved before the snapshot drops them), [code]MEMBER_UPDATED[/code] (the member whose properties or connection status changed), and [code]MEMBER_CONNECTION_CHANGED[/code]. Local-self member-property writes patch the local snapshot eagerly before this payload is emitted; remote member updates are populated from SDK change notifications. May be [code]null[/code] when [member result] is a failure (e.g. join/post-update operation completed with an error) and for kinds outside the member-scoped set.</member>
 		<member name="invite" type="PlayFabLobbyInvite" setter="" getter="get_invite">Invite payload when available.</member>
 		<member name="user" type="PlayFabUser" setter="" getter="get_user">Affected user when available.</member>
-		<member name="properties" type="Dictionary" setter="" getter="get_properties">Changed lobby properties. Populated for [code]PROPERTIES_UPDATED[/code] with the keys reported by the underlying [code]Updated[/code] state change — values are the post-update strings, or [Variant] [code]null[/code] when the key was cleared. Empty for other kinds.</member>
+		<member name="properties" type="Dictionary" setter="" getter="get_properties">Changed values for the kinds that carry them. For [constant PlayFabLobby.PROPERTIES_UPDATED] and [constant PlayFabLobby.SEARCH_PROPERTIES_UPDATED] these are the keys reported by the underlying [code]Updated[/code] state change — values are the post-update strings, or [Variant] [code]null[/code] when the key was cleared. For [constant PlayFabLobby.CONFIGURATION_UPDATED] these are the changed configuration fields ([code]max_member_count[/code], [code]access_policy[/code], [code]membership_lock[/code], [code]restrict_invites_to_lobby_owner[/code]) with their refreshed values. Empty for other kinds.</member>
+		<member name="reason" type="int" setter="" getter="get_reason">Why the change happened, for the kinds that carry a reason: a [code]MEMBER_REMOVED_*[/code] constant on [constant PlayFabLobby.MEMBER_REMOVED], and a [code]DISCONNECTING_*[/code] constant on [constant PlayFabLobby.DISCONNECTING] and [constant PlayFabLobby.DISCONNECTED]. [constant REASON_NONE] for every other kind.</member>
 	</members>
 	<signals></signals>
-	<constants></constants>
+	<constants>
+		<constant name="REASON_NONE" value="-1">No reason applies to this state change.</constant>
+	</constants>
 </class>

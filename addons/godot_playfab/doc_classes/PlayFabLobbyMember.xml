@@ -11,7 +11,11 @@
 		<member name="entity_key" type="Dictionary" setter="" getter="get_entity_key">Entity key dictionary with [code]id[/code] and [code]type[/code].</member>
 		<member name="properties" type="Dictionary" setter="" getter="get_properties">Member string properties. For the local member, successful [method PlayFabLobby.set_member_properties_async] writes are reflected eagerly in this snapshot; remote member updates arrive through SDK-driven [code]MEMBER_UPDATED[/code] changes.</member>
 		<member name="is_local" type="bool" setter="" getter="is_local_member">Whether this is the local user for the lobby handle.</member>
+		<member name="connection_status" type="int" setter="" getter="get_connection_status">Whether this member currently has a live connection to the lobby; one of [constant CONNECTION_STATUS_NOT_CONNECTED] or [constant CONNECTION_STATUS_CONNECTED]. A member that drops offline stays in [member PlayFabLobby.members] with a [constant CONNECTION_STATUS_NOT_CONNECTED] status until it is actually removed, so use this rather than membership to decide whether to hold a slot, pause, or reassign a role.</member>
 	</members>
 	<signals></signals>
-	<constants></constants>
+	<constants>
+		<constant name="CONNECTION_STATUS_NOT_CONNECTED" value="0">The member is in the lobby but has no live connection to it.</constant>
+		<constant name="CONNECTION_STATUS_CONNECTED" value="1">The member is in the lobby and connected to it.</constant>
+	</constants>
 </class>
