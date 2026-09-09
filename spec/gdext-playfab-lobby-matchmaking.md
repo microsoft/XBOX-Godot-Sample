@@ -328,6 +328,8 @@ PlayFabLobby.DISCONNECTING_LOBBY_SERVER_LEFT          # 3
 
 `PFLobbyDisconnectedStateChange` carries no reason of its own, so the reason is cached on the lobby when `DISCONNECTING` arrives (while the native handle is still live) and replayed on `DISCONNECTED`. `DISCONNECTED` reports an OK result only for `DISCONNECTING_NO_LOCAL_MEMBERS` — the normal end of a session — and a failed `PlayFabResult` for every other reason, so a dropped connection is not indistinguishable from a clean `leave_async()`. `REASON_NONE` is treated as a failure too: it means no `DISCONNECTING` was observed before the disconnect, which is exactly the case where a clean shutdown cannot be proven.
 
+A completed `leave_async()` is terminal for that lobby: the wrapper is untracked at `LeaveLobbyCompleted`, so any `Disconnecting` / `Disconnected` the SDK raises afterwards no longer resolves and cannot duplicate or reorder the notification the title already received. To keep that suppression from swallowing a late `Disconnecting`, the handler synthesizes one with `DISCONNECTING_NO_LOCAL_MEMBERS` when none has been seen yet. Listeners therefore always observe `DISCONNECTING` followed by `DISCONNECTED`, exactly once, whichever order the SDK uses.
+
 ## Matchmaking model
 
 `PlayFabMatchTicket` wraps a PlayFab matchmaking ticket and exposes cached ticket and completed-match metadata.

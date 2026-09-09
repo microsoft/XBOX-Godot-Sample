@@ -386,10 +386,12 @@ func leave_lobby(params: Dictionary) -> Dictionary:
 	# failure would let lobby membership persist into the next scenario.
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "leave_async")
-	# leave_async completes on MEMBER_REMOVED, which the SDK raises *before*
-	# DISCONNECTING/DISCONNECTED. Detaching here would disconnect the signal
-	# and swallow both, so scenarios that assert on the disconnect sequence
-	# ask to keep the subscription alive until reset.
+	# leave_async completes on LeaveLobbyCompleted, and the addon resolves the
+	# awaited signal *before* it emits the terminal DISCONNECTED for the same
+	# state change. Detaching the moment this await returns would therefore
+	# disconnect state_changed in between, swallowing DISCONNECTING (if the SDK
+	# raised it after the completion) and DISCONNECTED. Scenarios that assert on
+	# the disconnect sequence keep the subscription alive until reset instead.
 	if bool(params.get("keep_events", false)):
 		_lobbies.erase(handle)
 		_observed_after_leave.append({ "handle": handle, "lobby": lobby })

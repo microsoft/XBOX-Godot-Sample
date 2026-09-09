@@ -2714,10 +2714,21 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
                 Ref<PlayFabResult> result = PlayFabResult::ok_result();
+                bool synthesize_disconnecting = false;
                 if (lobby.is_valid()) {
                     // A completed leave_async() is an ordinary end of session:
                     // record NoLocalMembers so the terminal notification is
                     // distinguishable from an unexpected disconnect.
+                    //
+                    // Untracking below makes any Disconnecting/Disconnected the
+                    // SDK raises *after* this point unresolvable, which is what
+                    // keeps the terminal notification from being duplicated or
+                    // delivered out of order. The cost is that a trailing
+                    // Disconnecting would be lost, so if none has been seen yet
+                    // one is synthesized here to guarantee listeners always get
+                    // the DISCONNECTING -> DISCONNECTED pair regardless of the
+                    // order the SDK happens to use.
+                    synthesize_disconnecting = lobby->get_disconnecting_reason() == PlayFabLobbyStateChange::REASON_NONE;
                     lobby->set_disconnecting_reason(PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS);
                     lobby->mark_disconnected();
                     m_lobbies.erase(std::remove_if(m_lobbies.begin(), m_lobbies.end(), [&lobby](const Ref<PlayFabLobby> &tracked_lobby) {
@@ -2725,6 +2736,9 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     }), m_lobbies.end());
                 }
                 _complete_pending_operation(operation, result);
+                if (synthesize_disconnecting) {
+                    _emit_lobby_change(PlayFabLobby::DISCONNECTING, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), Dictionary(), PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS);
+                }
                 // Emit DISCONNECTED here, not MEMBER_REMOVED — the SDK already
                 // fired a per-member MemberRemoved for every local user that
                 // left as part of this op. Re-emitting MEMBER_REMOVED would
