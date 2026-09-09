@@ -26,4 +26,8 @@ public sealed class PlayFabLobbyStateChange : PlayFabObject
     public PlayFabUser User => PlayFabUser.From(GetObject("user"));
 
     public Godot.Collections.Dictionary Properties => GetDict("properties");
+
+    public int Reason => GetInt32("reason");
+
+    public const int REASONNONE = -1;
 }

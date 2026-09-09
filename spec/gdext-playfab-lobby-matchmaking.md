@@ -85,9 +85,9 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
 | `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
 | `find_lobbies_async(user, search)` | `PFMultiplayerFindLobbies(...)` entity-handle overload | find completed state; stable search summaries populated |
-| `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | lobby update completed state; cached lobby snapshot refreshed |
-| `PlayFabLobby.post_update_async(update)` | `PFLobbyPostUpdateWithEntityHandle(...)` with a `PFLobbyDataUpdate` carrying only the assigned fields | lobby update completed state; cached lobby snapshot refreshed |
-| `PlayFabLobby.set_search_properties_async(...)` / `set_membership_lock_async(...)` | Same as `post_update_async`, with a single field assigned | lobby update completed state; cached lobby snapshot refreshed |
+| `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | `PROPERTIES_UPDATED` completion state; cached lobby snapshot refreshed |
+| `PlayFabLobby.post_update_async(update)` | `PFLobbyPostUpdateWithEntityHandle(...)` with a `PFLobbyDataUpdate` carrying only the assigned fields | `UPDATE_COMPLETED` completion state; cached lobby snapshot refreshed |
+| `PlayFabLobby.set_search_properties_async(...)` / `set_membership_lock_async(...)` | Same as `post_update_async`, with a single field assigned | `SEARCH_PROPERTIES_UPDATED` / `CONFIGURATION_UPDATED` completion state; cached lobby snapshot refreshed |
 | `PlayFabLobby.get_membership_lock()` / `get_access_policy()` / `get_owner_migration_policy()` / `get_restrict_invites_to_lobby_owner()` | `PFLobbyGetMembershipLock` / `PFLobbyGetAccessPolicy` / `PFLobbyGetOwnerMigrationPolicy` / `PFLobbyGetRestrictInvitesToLobbyOwner` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobbyMember.get_connection_status()` | `PFLobbyGetMemberConnectionStatus(...)` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobby.set_member_properties_async(properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
@@ -300,11 +300,14 @@ PlayFabLobby.MEMBER_CONNECTION_CHANGED    # 7
 PlayFabLobby.SEARCH_PROPERTIES_UPDATED    # 8
 PlayFabLobby.CONFIGURATION_UPDATED        # 9
 PlayFabLobby.DISCONNECTING                # 10
+PlayFabLobby.UPDATE_COMPLETED             # 11
 ```
 
 Values 1-6 are frozen; new kinds append from 7 so existing `match` statements in titles and samples keep working.
 
 A native `PFLobbyUpdatedStateChange` batch can report several independent categories at once, so the dispatcher emits one change per category rather than picking a single winner. Owner, per-member, lobby-property, search-property, and configuration updates in the same batch each produce their own state change. `MEMBER_CONNECTION_CHANGED` is additive: a member whose connection status changed still emits `MEMBER_UPDATED` first, so listeners that only watch `MEMBER_UPDATED` are unaffected.
+
+An update *completion* — the state change that carries the `PlayFabResult` for the posting client's own call — reports the kind that matches what was posted: `PROPERTIES_UPDATED` for `set_properties_async`, `SEARCH_PROPERTIES_UPDATED` for `set_search_properties_async`, `CONFIGURATION_UPDATED` for `set_membership_lock_async`, and `UPDATE_COMPLETED` for a batched `post_update_async` whose contents are not reducible to one category. Completions are never relabelled as `PROPERTIES_UPDATED` for updates that touched no lobby properties.
 
 `reason` carries the "why" the native SDK provides and the addon previously discarded:
 
@@ -323,7 +326,7 @@ PlayFabLobby.DISCONNECTING_CONNECTION_INTERRUPTION    # 2
 PlayFabLobby.DISCONNECTING_LOBBY_SERVER_LEFT          # 3
 ```
 
-`PFLobbyDisconnectedStateChange` carries no reason of its own, so the reason is cached on the lobby when `DISCONNECTING` arrives (while the native handle is still live) and replayed on `DISCONNECTED`. `DISCONNECTED` reports an OK result only for `DISCONNECTING_NO_LOCAL_MEMBERS` — the normal end of a session — and a failed `PlayFabResult` for every other reason, so a dropped connection is not indistinguishable from a clean `leave_async()`.
+`PFLobbyDisconnectedStateChange` carries no reason of its own, so the reason is cached on the lobby when `DISCONNECTING` arrives (while the native handle is still live) and replayed on `DISCONNECTED`. `DISCONNECTED` reports an OK result only for `DISCONNECTING_NO_LOCAL_MEMBERS` — the normal end of a session — and a failed `PlayFabResult` for every other reason, so a dropped connection is not indistinguishable from a clean `leave_async()`. `REASON_NONE` is treated as a failure too: it means no `DISCONNECTING` was observed before the disconnect, which is exactly the case where a clean shutdown cannot be proven.
 
 ## Matchmaking model
 
@@ -456,6 +459,9 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
             print("Lobby configuration changed: ", change.properties)
         PlayFabLobby.DISCONNECTING:
             print("Lobby session ending, reason ", change.reason)
+        PlayFabLobby.UPDATE_COMPLETED:
+            # A batched post_update_async finished; change.result carries the outcome.
+            print("Batched lobby update completed: ", change.result.ok)
         PlayFabLobby.DISCONNECTED:
             if not change.result.ok:
                 push_warning("Lost the lobby: %s" % change.result.message)

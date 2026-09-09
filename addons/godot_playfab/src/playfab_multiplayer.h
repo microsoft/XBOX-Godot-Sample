@@ -457,6 +457,7 @@ public:
         SEARCH_PROPERTIES_UPDATED = 8,
         CONFIGURATION_UPDATED = 9,
         DISCONNECTING = 10,
+        UPDATE_COMPLETED = 11,
     };
 
     enum MembershipLock : int64_t {
@@ -631,7 +632,8 @@ private:
             const String &p_match_id,
             const String &p_arranged_lobby_connection_string);
     Signal _set_lobby_properties_async(const Ref<PlayFabLobby> &p_lobby, const Dictionary &p_properties);
-    Signal _post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update);
+    Signal _post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update,
+            int64_t p_completion_kind = PlayFabLobby::UPDATE_COMPLETED);
     Signal _set_member_properties_async(const Ref<PlayFabLobby> &p_lobby, const Dictionary &p_properties);
     Signal _leave_lobby_async(const Ref<PlayFabLobby> &p_lobby);
     Signal _refresh_match_ticket_async(const Ref<PlayFabMatchTicket> &p_ticket);

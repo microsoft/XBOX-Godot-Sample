@@ -54,6 +54,7 @@ func test_multiplayer_service_contract() -> void:
 	assert_eq(get_class_constant("PlayFabLobby", "SEARCH_PROPERTIES_UPDATED"), 8, "PlayFabLobby.SEARCH_PROPERTIES_UPDATED constant is stable")
 	assert_eq(get_class_constant("PlayFabLobby", "CONFIGURATION_UPDATED"), 9, "PlayFabLobby.CONFIGURATION_UPDATED constant is stable")
 	assert_eq(get_class_constant("PlayFabLobby", "DISCONNECTING"), 10, "PlayFabLobby.DISCONNECTING constant is stable")
+	assert_eq(get_class_constant("PlayFabLobby", "UPDATE_COMPLETED"), 11, "PlayFabLobby.UPDATE_COMPLETED constant is stable")
 
 	# Membership-lock, departure-reason and connection-status constants mirror
 	# the native PFLobby enums; titles branch on them directly.

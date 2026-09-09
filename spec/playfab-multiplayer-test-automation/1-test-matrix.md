@@ -74,10 +74,14 @@ These tables anchor the `state_transitions` scenarios. Each cell is a transition
 | `joined(host, guest)` | `join_lobby_async(guest2, conn_str)` | `joined(host, guest, guest2)` | `lobby.member_added` on host, guest, and guest2 |
 | `joined(host, guest)` | `set_member_properties_async(guest)` | `joined(host, guest)` w/ updated member properties | `lobby.member_updated` on host and guest |
 | `joined(host, guest)` | `set_properties_async(host)` | `joined(host, guest)` w/ updated lobby properties | `lobby.properties_updated` on host and guest |
+| `joined(host, guest)` | `set_search_properties_async(host)` | `joined(host, guest)` w/ updated search properties | `lobby.search_properties_updated` on host |
+| `joined(host, guest)` | `set_membership_lock_async(host, LOCKED)` | `joined(host, guest)` locked against new joins | `lobby.configuration_updated` on host |
+| `joined(host, guest)` | `post_update_async(host, batched update)` | `joined(host, guest)` w/ every batched field applied | `lobby.update_completed` on host |
 | `joined(host, guest)` | `leave_async(guest)` | `joined(host)` | `lobby.member_removed` on host and guest |
 | `joined(host, guest)` | `leave_async(host)` | `joined(guest)` w/ owner migrated to guest | `lobby.owner_changed` on guest, `lobby.member_removed` on guest |
 | `joined(host, guest)` | host process killed | `joined(guest)` w/ owner migrated to guest after grace | `lobby.disconnected` on host (last) + `lobby.owner_changed` on guest |
 | `joined(host)` | `leave_async(host)` | `none` | `lobby.disconnected` on host |
+| `joined(host, guest)` | `leave_async(guest)` | `none` for guest | `lobby.disconnecting` w/ `DISCONNECTING_NO_LOCAL_MEMBERS` then `lobby.disconnected` w/ an OK result on guest |
 
 ### Match ticket state transitions
 

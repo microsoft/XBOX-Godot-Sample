@@ -241,6 +241,9 @@ func _register_commands() -> void:
 	_dispatcher.register("search_lobbies", func(params): return await _lobby_ops.search_lobbies(params))
 	_dispatcher.register("set_lobby_properties", func(params): return await _lobby_ops.set_lobby_properties(params))
 	_dispatcher.register("set_member_properties", func(params): return await _lobby_ops.set_member_properties(params))
+	_dispatcher.register("set_search_properties", func(params): return await _lobby_ops.set_search_properties(params))
+	_dispatcher.register("set_membership_lock", func(params): return await _lobby_ops.set_membership_lock(params))
+	_dispatcher.register("post_lobby_update", func(params): return await _lobby_ops.post_lobby_update(params))
 	_dispatcher.register("get_lobby_snapshot", func(params): return await _lobby_ops.get_lobby_snapshot(params))
 	_dispatcher.register("leave_lobby", func(params): return await _lobby_ops.leave_lobby(params))
 

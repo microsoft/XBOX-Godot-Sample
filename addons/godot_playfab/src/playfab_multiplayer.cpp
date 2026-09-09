@@ -340,8 +340,13 @@ int64_t from_disconnecting_reason(PFLobbyDisconnectingReason p_value) {
 // Only NoLocalMembers is an ordinary end-of-session; every other reason means
 // the title lost the lobby without asking. Callers must be able to tell those
 // apart from a normal leave_async() completion.
+//
+// REASON_NONE means no Disconnecting state change preceded the Disconnected
+// one, so the runtime cannot prove the disconnect was intentional. Treat that
+// as a failure: DISCONNECTED is only reported OK for
+// DISCONNECTING_NO_LOCAL_MEMBERS.
 bool disconnecting_reason_is_failure(int64_t p_reason) {
-    return p_reason != PlayFabLobbyStateChange::REASON_NONE && p_reason != PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS;
+    return p_reason != PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS;
 }
 
 String disconnecting_reason_message(int64_t p_reason) {
@@ -352,6 +357,8 @@ String disconnecting_reason_message(int64_t p_reason) {
             return "The client lost its connection to the PlayFab Lobby notification service.";
         case PlayFabLobby::DISCONNECTING_LOBBY_SERVER_LEFT:
             return "The PlayFab lobby's server owner left the lobby.";
+        case PlayFabLobbyStateChange::REASON_NONE:
+            return "The client was disconnected from the PlayFab lobby without a preceding DISCONNECTING notification, so the reason is unknown.";
         default:
             return "The client is no longer connected to the PlayFab lobby.";
     }
@@ -583,7 +590,8 @@ bool PlayFabLobbyUpdateConfig::is_empty() const {
             !m_has_search_properties && !m_has_lobby_properties;
 }
 
-void PlayFabLobbyJoinConfig::_bind_methods() {    ClassDB::bind_method(D_METHOD("get_member_properties"), &PlayFabLobbyJoinConfig::get_member_properties);
+void PlayFabLobbyJoinConfig::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("get_member_properties"), &PlayFabLobbyJoinConfig::get_member_properties);
     ClassDB::bind_method(D_METHOD("set_member_properties", "member_properties"), &PlayFabLobbyJoinConfig::set_member_properties);
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "member_properties"), "set_member_properties", "get_member_properties");
 }
@@ -903,6 +911,7 @@ void PlayFabLobby::_bind_methods() {
     BIND_CONSTANT(SEARCH_PROPERTIES_UPDATED);
     BIND_CONSTANT(CONFIGURATION_UPDATED);
     BIND_CONSTANT(DISCONNECTING);
+    BIND_CONSTANT(UPDATE_COMPLETED);
 
     BIND_CONSTANT(MEMBERSHIP_LOCK_UNLOCKED);
     BIND_CONSTANT(MEMBERSHIP_LOCK_LOCKED);
@@ -1193,7 +1202,7 @@ Signal PlayFabLobby::set_search_properties_async(const Dictionary &p_properties)
     Ref<PlayFabLobbyUpdateConfig> update;
     update.instantiate();
     update->set_search_properties(p_properties);
-    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update);
+    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update, PlayFabLobby::SEARCH_PROPERTIES_UPDATED);
 }
 Signal PlayFabLobby::set_membership_lock_async(int64_t p_membership_lock) {
     if (m_owner == nullptr) {
@@ -1202,7 +1211,7 @@ Signal PlayFabLobby::set_membership_lock_async(int64_t p_membership_lock) {
     Ref<PlayFabLobbyUpdateConfig> update;
     update.instantiate();
     update->set_membership_lock(p_membership_lock);
-    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update);
+    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update, PlayFabLobby::CONFIGURATION_UPDATED);
 }
 Signal PlayFabLobby::post_update_async(const Ref<PlayFabLobbyUpdateConfig> &p_update) {
     if (m_owner == nullptr) {
@@ -2077,10 +2086,11 @@ Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &
     Ref<PlayFabLobbyUpdateConfig> update;
     update.instantiate();
     update->set_lobby_properties(p_properties);
-    return _post_lobby_update_async(p_lobby, update);
+    return _post_lobby_update_async(p_lobby, update, PlayFabLobby::PROPERTIES_UPDATED);
 }
 
-Signal PlayFabMultiplayer::_post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update) {
+Signal PlayFabMultiplayer::_post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update,
+        int64_t p_completion_kind) {
     if (m_shutting_down) {
         return _make_error_signal(E_ABORT, "shutting_down", "PlayFab Multiplayer operations cannot start while shutdown is in progress.");
     }
@@ -2191,7 +2201,7 @@ Signal PlayFabMultiplayer::_post_lobby_update_async(const Ref<PlayFabLobby> &p_l
     // also permits a non-owner to claim `newOwner` depending on the lobby's
     // owner-migration policy. Let the service decide and surface its failure.
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
-    PendingOperation *operation = _create_pending_operation(PlayFabLobby::PROPERTIES_UPDATED, pending_signal);
+    PendingOperation *operation = _create_pending_operation(p_completion_kind, pending_signal);
     operation->lobby = p_lobby;
 
     HRESULT hr = PFLobbyPostUpdateWithEntityHandle(

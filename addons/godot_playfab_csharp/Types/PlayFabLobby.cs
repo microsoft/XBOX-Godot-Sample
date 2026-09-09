@@ -36,6 +36,34 @@ public sealed class PlayFabLobby : PlayFabObject
 
     public const int DISCONNECTED = 6;
 
+    public const int MEMBERCONNECTIONCHANGED = 7;
+
+    public const int SEARCHPROPERTIESUPDATED = 8;
+
+    public const int CONFIGURATIONUPDATED = 9;
+
+    public const int DISCONNECTING = 10;
+
+    public const int UPDATECOMPLETED = 11;
+
+    public const int MEMBERSHIPLOCKUNLOCKED = 0;
+
+    public const int MEMBERSHIPLOCKLOCKED = 1;
+
+    public const int MEMBERREMOVEDLOCALUSERLEFTLOBBY = 0;
+
+    public const int MEMBERREMOVEDLOCALUSERFORCIBLYREMOVED = 1;
+
+    public const int MEMBERREMOVEDREMOTEUSERLEFTLOBBY = 2;
+
+    public const int DISCONNECTINGNOLOCALMEMBERS = 0;
+
+    public const int DISCONNECTINGLOBBYDELETED = 1;
+
+    public const int DISCONNECTINGCONNECTIONINTERRUPTION = 2;
+
+    public const int DISCONNECTINGLOBBYSERVERLEFT = 3;
+
     public string LobbyId => GetString("lobby_id");
 
     public string ConnectionString => GetString("connection_string");
@@ -52,15 +80,40 @@ public sealed class PlayFabLobby : PlayFabObject
 
     public Godot.Collections.Dictionary SearchProperties => GetDict("search_properties");
 
+    public int AccessPolicy => GetInt32("access_policy");
+
+    public int OwnerMigrationPolicy => GetInt32("owner_migration_policy");
+
+    public int MembershipLock => GetInt32("membership_lock");
+
+    public bool RestrictInvitesToLobbyOwner => GetBool("restrict_invites_to_lobby_owner");
+
+    public int DisconnectingReason => GetInt32("disconnecting_reason");
+
     public Task<PlayFabResult> SetPropertiesAsync(Godot.Collections.Dictionary properties) =>
         CallResultAsync("set_properties_async", properties ?? new Godot.Collections.Dictionary());
 
     public Task<PlayFabResult> SetMemberPropertiesAsync(Godot.Collections.Dictionary properties) =>
         CallResultAsync("set_member_properties_async", properties ?? new Godot.Collections.Dictionary());
 
+    public Task<PlayFabResult> SetSearchPropertiesAsync(Godot.Collections.Dictionary searchProperties) =>
+        CallResultAsync("set_search_properties_async", searchProperties ?? new Godot.Collections.Dictionary());
+
+    public Task<PlayFabResult> SetMembershipLockAsync(int membershipLock) =>
+        CallResultAsync("set_membership_lock_async", membershipLock);
+
+    public Task<PlayFabResult> PostUpdateAsync(PlayFabLobbyUpdateConfig update) =>
+        CallResultAsync("post_update_async", update?.Raw);
+
     public Task<PlayFabResult> LeaveAsync() =>
         CallResultAsync("leave_async");
 
     public bool IsOwner(PlayFabUser user) =>
         Call("is_owner", user?.Raw).AsBool();
+
+    public bool IsDisconnected() =>
+        Call("is_disconnected").AsBool();
+
+    public PlayFabLobbyMember FindMember(Godot.Collections.Dictionary entityKey) =>
+        PlayFabLobbyMember.From(Call("find_member", entityKey ?? new Godot.Collections.Dictionary()).AsGodotObject());
 }

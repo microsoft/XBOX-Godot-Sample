@@ -20,4 +20,10 @@ public sealed class PlayFabLobbyMember : PlayFabObject
     public Godot.Collections.Dictionary Properties => GetDict("properties");
 
     public bool IsLocal => GetBool("is_local");
+
+    public int ConnectionStatus => GetInt32("connection_status");
+
+    public const int CONNECTIONSTATUSNOTCONNECTED = 0;
+
+    public const int CONNECTIONSTATUSCONNECTED = 1;
 }

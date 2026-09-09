@@ -29,6 +29,10 @@ const CONVERGENCE_TIMEOUT_MS := 10_000
 
 var _runtime: PlayFabRuntime = null
 var _lobbies: Dictionary = {}  # handle (String) -> PlayFabLobby (Object)
+## Lobbies that were left with `keep_events`, still connected to state_changed
+## so DISCONNECTING/DISCONNECTED (which the SDK raises after leave_async has
+## already completed) can still be observed. Drained in reset().
+var _observed_after_leave: Array[Dictionary] = []
 var _pending_events: Array[Dictionary] = []
 
 
@@ -193,6 +197,97 @@ func set_lobby_properties(params: Dictionary) -> Dictionary:
 	return _ok({ "handle": lookup["handle"], "lobby": _lobby_snapshot(lobby) })
 
 
+func set_search_properties(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_lobby(params, "set_search_properties")
+	if not lookup.has("lobby"):
+		return lookup
+	var lobby: Object = lookup["lobby"]
+	var requested: Dictionary = params.get("search_properties", {})
+	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
+		func(): return lobby.set_search_properties_async(requested),
+		"set_search_properties_async",
+		int(params.get("timeout_ms", DEFAULT_TIMEOUT_MS)),
+	)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "set_search_properties_async")
+	var converged: bool = await _runtime.wait_until(
+		func(): return _properties_match(lobby.get_search_properties(), requested),
+		int(params.get("convergence_timeout_ms", CONVERGENCE_TIMEOUT_MS)),
+	)
+	if not converged:
+		return _err(
+			"convergence_timeout",
+			"lobby search properties did not converge to set values within %dms (last=%s, expected=%s)" % [
+				int(params.get("convergence_timeout_ms", CONVERGENCE_TIMEOUT_MS)),
+				str(lobby.get_search_properties()),
+				str(requested),
+			],
+		)
+	return _ok({ "handle": lookup["handle"], "lobby": _lobby_snapshot(lobby) })
+
+
+func set_membership_lock(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_lobby(params, "set_membership_lock")
+	if not lookup.has("lobby"):
+		return lookup
+	var lobby: Object = lookup["lobby"]
+	var requested: int = int(params.get("membership_lock", 0))
+	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
+		func(): return lobby.set_membership_lock_async(requested),
+		"set_membership_lock_async",
+		int(params.get("timeout_ms", DEFAULT_TIMEOUT_MS)),
+	)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "set_membership_lock_async")
+	var converged: bool = await _runtime.wait_until(
+		func(): return int(lobby.get_membership_lock()) == requested,
+		int(params.get("convergence_timeout_ms", CONVERGENCE_TIMEOUT_MS)),
+	)
+	if not converged:
+		return _err(
+			"convergence_timeout",
+			"lobby membership_lock did not converge to %d within %dms (last=%d)" % [
+				requested,
+				int(params.get("convergence_timeout_ms", CONVERGENCE_TIMEOUT_MS)),
+				int(lobby.get_membership_lock()),
+			],
+		)
+	return _ok({ "handle": lookup["handle"], "lobby": _lobby_snapshot(lobby) })
+
+
+## Applies a batched PlayFabLobbyUpdateConfig via post_update_async.
+## `params.update` may carry any of: membership_lock, access_policy,
+## max_member_count, restrict_invites_to_lobby_owner, new_owner_entity_key,
+## search_properties, lobby_properties. Only the supplied keys are assigned,
+## so the scenario controls exactly which presence flags are set.
+func post_lobby_update(params: Dictionary) -> Dictionary:
+	var lookup: Dictionary = _lookup_lobby(params, "post_lobby_update")
+	if not lookup.has("lobby"):
+		return lookup
+	var lobby: Object = lookup["lobby"]
+	var update: Object = _instantiate("PlayFabLobbyUpdateConfig")
+	if update == null:
+		return _err("class_unavailable", "PlayFabLobbyUpdateConfig not registered in ClassDB")
+	var requested: Dictionary = params.get("update", {})
+	for key in ["membership_lock", "access_policy", "max_member_count"]:
+		if requested.has(key):
+			update.set(key, int(requested[key]))
+	if requested.has("restrict_invites_to_lobby_owner"):
+		update.set("restrict_invites_to_lobby_owner", bool(requested["restrict_invites_to_lobby_owner"]))
+	for key in ["new_owner_entity_key", "search_properties", "lobby_properties"]:
+		if requested.has(key):
+			update.set(key, requested[key])
+
+	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
+		func(): return lobby.post_update_async(update),
+		"post_update_async",
+		int(params.get("timeout_ms", DEFAULT_TIMEOUT_MS)),
+	)
+	if result == null or not bool(result.ok):
+		return _err_from_result(result, "post_update_async")
+	return _ok({ "handle": lookup["handle"], "lobby": _lobby_snapshot(lobby) })
+
+
 func set_member_properties(params: Dictionary) -> Dictionary:
 	var lookup: Dictionary = _lookup_lobby(params, "set_member_properties")
 	if not lookup.has("lobby"):
@@ -291,7 +386,15 @@ func leave_lobby(params: Dictionary) -> Dictionary:
 	# failure would let lobby membership persist into the next scenario.
 	if result == null or not bool(result.ok):
 		return _err_from_result(result, "leave_async")
-	_detach_lobby(handle, lobby)
+	# leave_async completes on MEMBER_REMOVED, which the SDK raises *before*
+	# DISCONNECTING/DISCONNECTED. Detaching here would disconnect the signal
+	# and swallow both, so scenarios that assert on the disconnect sequence
+	# ask to keep the subscription alive until reset.
+	if bool(params.get("keep_events", false)):
+		_lobbies.erase(handle)
+		_observed_after_leave.append({ "handle": handle, "lobby": lobby })
+	else:
+		_detach_lobby(handle, lobby)
 	_queue_event("lobby.left", { "handle": handle, "left_lobby_id": lobby_id })
 	return _ok({ "handle": handle, "left_lobby_id": lobby_id })
 
@@ -321,6 +424,10 @@ func reset(_params: Dictionary = {}) -> Dictionary:
 		if detach_lobby != null:
 			_detach_lobby(String(detach_handle), detach_lobby)
 	_lobbies.clear()
+	for entry in _observed_after_leave:
+		if entry.get("lobby") != null:
+			_detach_lobby(String(entry.get("handle", "")), entry["lobby"])
+	_observed_after_leave.clear()
 	if not failures.is_empty():
 		return _err(
 			"reset_failed",
@@ -361,6 +468,7 @@ func _on_lobby_state_changed(change: Object, handle: String) -> void:
 		"kind_name": event_type,
 		"lobby": _lobby_snapshot(change.lobby),
 		"properties": change.properties,
+		"reason": int(change.reason),
 	}
 	if change.member != null:
 		payload["member"] = _member_snapshot(change.member)
@@ -383,6 +491,16 @@ func _lobby_event_type(kind: int) -> String:
 			return "lobby.owner_changed"
 		6:
 			return "lobby.disconnected"
+		7:
+			return "lobby.member_connection_changed"
+		8:
+			return "lobby.search_properties_updated"
+		9:
+			return "lobby.configuration_updated"
+		10:
+			return "lobby.disconnecting"
+		11:
+			return "lobby.update_completed"
 		_:
 			return "lobby.state_changed"
 
@@ -427,6 +545,11 @@ func _lobby_snapshot(lobby: Object) -> Dictionary:
 		"member_count": lobby.get_member_count(),
 		"properties": lobby.get_properties(),
 		"search_properties": lobby.get_search_properties(),
+		"access_policy": lobby.get_access_policy(),
+		"owner_migration_policy": lobby.get_owner_migration_policy(),
+		"membership_lock": lobby.get_membership_lock(),
+		"restrict_invites_to_lobby_owner": lobby.get_restrict_invites_to_lobby_owner(),
+		"disconnecting_reason": lobby.get_disconnecting_reason(),
 		"members": members,
 	}
 
@@ -439,6 +562,7 @@ func _member_snapshot(member: Object) -> Dictionary:
 		"entity_key": member.get_entity_key(),
 		"properties": member.get_properties(),
 		"is_local": member.is_local_member(),
+		"connection_status": member.get_connection_status(),
 	}
 
 

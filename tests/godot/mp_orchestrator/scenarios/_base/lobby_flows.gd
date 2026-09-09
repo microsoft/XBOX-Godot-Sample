@@ -383,3 +383,152 @@ func run_lobby_tracking_multiple_lobbies_per_host(orch) -> Dictionary:
 	err = assert_eq(String(snap_b.get("lobby_id", "")), String(b.get("lobby_id", "")), "remaining handle should still address lobby b")
 	if err != null: return err
 	return ok()
+
+
+# ---------------------------------------------------------------------------
+# Typed lobby updates (post_update_async and its single-field helpers)
+# ---------------------------------------------------------------------------
+
+## A batched post_update_async must complete with the neutral
+## UPDATE_COMPLETED kind, never with PROPERTIES_UPDATED. Regression coverage
+## for the completion kind being hard-coded to PROPERTIES_UPDATED, which made
+## every typed update announce itself as a lobby-property change.
+func run_lobby_update_post_update_typed_completion(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var setup: Variant = await _create_join_lobby(orch, ["host", "guest"])
+	if _is_failure(setup): return setup
+	var token: String = _unique_token(orch, "batch-update")
+	var posted: Variant = await _command_ok(orch, "host", "post_lobby_update", {
+		"handle": "main",
+		"update": {
+			"lobby_properties": { "round": token },
+			"membership_lock": 1,
+		},
+	}, COMMAND_TIMEOUT_MS)
+	if _is_failure(posted): return posted
+
+	var completed: Variant = await _wait_event(_client(orch, "host"), "lobby.update_completed", { "result.ok": true }, LOBBY_WAIT_MS)
+	if _is_failure(completed): return completed
+	var err: Variant = assert_eq(int(completed.get("event", {}).get("payload", {}).get("kind", -1)),
+			11, "post_update_async completion should use UPDATE_COMPLETED (11)")
+	if err != null: return err
+
+	# Both batched fields must actually land, proving the neutral completion
+	# kind did not come at the cost of applying the update.
+	var prop: Variant = await _wait_lobby_property(orch, "guest", "main", "round", token)
+	if _is_failure(prop): return prop
+	var locked: Variant = await _wait_lobby_field(orch, "guest", "main", "membership_lock", 1)
+	if _is_failure(locked): return locked
+	return ok({ "round": token })
+
+
+## set_membership_lock_async completes as CONFIGURATION_UPDATED, propagates to
+## every member, and actually seals the lobby against new joins.
+func run_lobby_update_membership_lock(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var setup: Variant = await _create_join_lobby(orch, ["host", "guest"], "main", 0, 4)
+	if _is_failure(setup): return setup
+	var connection_string: String = String(setup.get("connection_string", ""))
+
+	var locked_result: Variant = await _command_ok(orch, "host", "set_membership_lock", { "handle": "main", "membership_lock": 1 }, COMMAND_TIMEOUT_MS)
+	if _is_failure(locked_result): return locked_result
+
+	# `result.ok` is the discriminator that matters. PlayFab broadcasts
+	# CONFIGURATION_UPDATED to every member regardless of who posted, and only
+	# the posting client's *completion* carries a PlayFabResult. Without this
+	# filter the wait would be satisfied by the broadcast and the scenario
+	# would still pass if the completion kind regressed.
+	var configured: Variant = await _wait_event(_client(orch, "host"), "lobby.configuration_updated", { "result.ok": true }, LOBBY_WAIT_MS)
+	if _is_failure(configured): return configured
+	var err: Variant = assert_eq(int(configured.get("event", {}).get("payload", {}).get("kind", -1)),
+			9, "set_membership_lock_async completion should use CONFIGURATION_UPDATED (9)")
+	if err != null: return err
+
+	for role in ["host", "guest"]:
+		var seen: Variant = await _wait_lobby_field(orch, role, "main", "membership_lock", 1)
+		if _is_failure(seen): return seen
+
+	# A locked lobby must reject new joins.
+	var signed: Variant = await _sign_in_roles(orch, ["guest2"])
+	if _is_failure(signed): return signed
+	var join: Dictionary = await _command(orch, "guest2", "join_lobby", {
+		"as": "main",
+		"connection_string": connection_string,
+		"member_properties": _role_member_properties("guest2"),
+	}, COMMAND_TIMEOUT_MS)
+	err = assert_true(not bool(join.get("ok", false)), "join should be rejected while the lobby is locked", { "join": join })
+	if err != null: return err
+
+	# Unlocking must be observable too, so the lock is not a one-way door.
+	var unlocked_result: Variant = await _command_ok(orch, "host", "set_membership_lock", { "handle": "main", "membership_lock": 0 }, COMMAND_TIMEOUT_MS)
+	if _is_failure(unlocked_result): return unlocked_result
+	var unlocked: Variant = await _wait_lobby_field(orch, "guest", "main", "membership_lock", 0)
+	if _is_failure(unlocked): return unlocked
+	return ok()
+
+
+## set_search_properties_async completes as SEARCH_PROPERTIES_UPDATED and the
+## new values reach every member. Asserted against the member-visible snapshot
+## rather than find_lobbies_async, which lags behind by search-index
+## propagation and would make this scenario flaky.
+func run_lobby_update_search_properties(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var setup: Variant = await _create_join_lobby(orch, ["host", "guest"])
+	if _is_failure(setup): return setup
+	var token: String = _unique_token(orch, "search-update")
+	var set_result: Variant = await _command_ok(orch, "host", "set_search_properties", {
+		"handle": "main",
+		"search_properties": { "string_key2": token },
+	}, COMMAND_TIMEOUT_MS)
+	if _is_failure(set_result): return set_result
+
+	# Filtering on result.ok isolates the poster's completion from the
+	# SEARCH_PROPERTIES_UPDATED broadcast every member receives; only the
+	# completion carries a PlayFabResult.
+	var updated: Variant = await _wait_event(_client(orch, "host"), "lobby.search_properties_updated", { "result.ok": true }, LOBBY_WAIT_MS)
+	if _is_failure(updated): return updated
+	var err: Variant = assert_eq(int(updated.get("event", {}).get("payload", {}).get("kind", -1)),
+			8, "set_search_properties_async completion should use SEARCH_PROPERTIES_UPDATED (8)")
+	if err != null: return err
+
+	for role in ["host", "guest"]:
+		var seen: Variant = await _wait_lobby_search_property(orch, role, "main", "string_key2", token)
+		if _is_failure(seen): return seen
+	return ok({ "string_key2": token })
+
+
+## A deliberate leave must surface DISCONNECTING with
+## DISCONNECTING_NO_LOCAL_MEMBERS (0) and a successful DISCONNECTED result.
+## This is what proves the runtime can distinguish an intentional leave from
+## an unexpected disconnect, which DISCONNECTED's result now depends on.
+func run_lobby_disconnect_reason_on_leave(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var setup: Variant = await _create_join_lobby(orch, ["host", "guest"])
+	if _is_failure(setup): return setup
+	# keep_events stops the client from detaching the state_changed
+	# subscription when leave_async completes; DISCONNECTING/DISCONNECTED
+	# arrive after that completion and would otherwise be dropped.
+	var left: Variant = await _command_ok(orch, "guest", "leave_lobby", { "handle": "main", "keep_events": true }, COMMAND_TIMEOUT_MS)
+	if _is_failure(left): return left
+
+	var disconnecting: Variant = await _wait_event(_client(orch, "guest"), "lobby.disconnecting", {}, LOBBY_WAIT_MS)
+	if _is_failure(disconnecting): return disconnecting
+	var disconnecting_payload: Dictionary = disconnecting.get("event", {}).get("payload", {})
+	var err: Variant = assert_eq(int(disconnecting_payload.get("reason", -1)), 0,
+			"a deliberate leave should report DISCONNECTING_NO_LOCAL_MEMBERS (0)")
+	if err != null: return err
+
+	var disconnected: Variant = await _wait_event(_client(orch, "guest"), "lobby.disconnected", {}, LOBBY_WAIT_MS)
+	if _is_failure(disconnected): return disconnected
+	var disconnected_payload: Dictionary = disconnected.get("event", {}).get("payload", {})
+	err = assert_eq(int(disconnected_payload.get("reason", -1)), 0,
+			"DISCONNECTED should replay the cached DISCONNECTING reason")
+	if err != null: return err
+	err = assert_true(bool(disconnected_payload.get("result", {}).get("ok", false)),
+			"DISCONNECTED after a deliberate leave should report a successful result", { "disconnected": disconnected_payload })
+	if err != null: return err
+	return ok()

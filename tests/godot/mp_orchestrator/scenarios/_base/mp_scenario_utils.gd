@@ -221,6 +221,55 @@ func _wait_lobby_property(orch, role: String, handle: String, key: String, value
 	return fail("lobby property did not converge", { "role": role, "handle": handle, "key": key, "value": value, "last": last })
 
 
+## Polls `role`'s snapshot of `handle` until top-level field `key` equals
+## `value`. Used for lobby configuration fields (membership_lock,
+## access_policy, max_member_count, ...) that PlayFab propagates as
+## CONFIGURATION_UPDATED state changes rather than as properties.
+func _wait_lobby_field(orch, role: String, handle: String, key: String, value: Variant, timeout_ms: int = LOBBY_WAIT_MS) -> Variant:
+	var deadline: int = Time.get_ticks_msec() + timeout_ms
+	var last: Dictionary = {}
+	while Time.get_ticks_msec() < deadline:
+		var lobby: Variant = await _lobby_snapshot(orch, role, handle)
+		if _is_failure(lobby):
+			return lobby
+		last = lobby
+		if _values_equal(lobby.get(key, null), value):
+			return lobby
+		await _sleep_ms(orch, 500)
+	return fail("lobby field did not converge", { "role": role, "handle": handle, "key": key, "value": value, "last": last })
+
+
+## Compares two snapshot values without tripping over JSON's number handling:
+## the wire format has no int type, so a lobby field of 1 comes back as 1.0 and
+## a plain string or `==` comparison against 1 would never match.
+func _values_equal(actual: Variant, expected: Variant) -> bool:
+	if _is_numeric(actual) and _is_numeric(expected):
+		return is_equal_approx(float(actual), float(expected))
+	return str(actual) == str(expected)
+
+
+func _is_numeric(value: Variant) -> bool:
+	return typeof(value) in [TYPE_INT, TYPE_FLOAT, TYPE_BOOL]
+
+
+## Polls `role`'s snapshot of `handle` until search property `key` equals
+## `value`. Asserting on the member-visible snapshot rather than on
+## find_lobbies_async keeps the check independent of PlayFab's search-index
+## propagation delay.
+func _wait_lobby_search_property(orch, role: String, handle: String, key: String, value: String, timeout_ms: int = LOBBY_WAIT_MS) -> Variant:
+	var deadline: int = Time.get_ticks_msec() + timeout_ms
+	var last: Dictionary = {}
+	while Time.get_ticks_msec() < deadline:
+		var lobby: Variant = await _lobby_snapshot(orch, role, handle)
+		if _is_failure(lobby):
+			return lobby
+		last = lobby
+		if String(lobby.get("search_properties", {}).get(key, "")) == value:
+			return lobby
+		await _sleep_ms(orch, 500)
+	return fail("lobby search property did not converge", { "role": role, "handle": handle, "key": key, "value": value, "last": last })
+
+
 func _wait_member_property(orch, role: String, handle: String, member_role: String, key: String, value: String, timeout_ms: int = LOBBY_WAIT_MS) -> Variant:
 	var deadline: int = Time.get_ticks_msec() + timeout_ms
 	var last: Dictionary = {}
