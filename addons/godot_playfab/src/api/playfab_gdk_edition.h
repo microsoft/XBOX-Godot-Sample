@@ -19,6 +19,9 @@
 // and are absent from the October 2025 GDK PlayFab headers:
 //   * PFLobbyCreateConfiguration::restrictInvitesToLobbyOwner
 //   * PFLobbyArrangedJoinConfiguration::restrictInvitesToLobbyOwner
+//   * PFLobbyDataUpdate::restrictInvitesToLobbyOwner
+//   * PFLobbyGetRestrictInvitesToLobbyOwner()
+//   * PFLobbyUpdatedStateChange::restrictInvitesToLobbyOwnerUpdated
 //   * PFInventoryInventoryItem::startDate
 //   * PFInventoryRedemptionSuccess::expirationTimestamp
 // Gate the code that reads/writes those fields on this edition.

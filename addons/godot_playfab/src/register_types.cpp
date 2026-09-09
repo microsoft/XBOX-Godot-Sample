@@ -218,6 +218,7 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     ClassDB::register_class<PlayFabTitleData>();
     ClassDB::register_class<PlayFabMultiplayerConfig>();
     ClassDB::register_class<PlayFabLobbyConfig>();
+    ClassDB::register_class<PlayFabLobbyUpdateConfig>();
     ClassDB::register_class<PlayFabLobbyJoinConfig>();
     ClassDB::register_class<PlayFabLobbySearchConfig>();
     ClassDB::register_class<PlayFabLobbyMember>();

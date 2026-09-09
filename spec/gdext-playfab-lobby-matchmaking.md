@@ -67,6 +67,7 @@ func get_match_tickets() -> Array[PlayFabMatchTicket]
 | `create_lobby_async()` / `join_lobby_async()` / `join_arranged_lobby_async()` | `PlayFabLobby` |
 | `find_lobbies_async()` | `PlayFabLobbySearchResult` |
 | `PlayFabLobby.set_properties_async()` / `PlayFabLobby.set_member_properties_async()` | `null`, unless implementation chooses to return a refreshed `PlayFabLobby` |
+| `PlayFabLobby.post_update_async()` / `PlayFabLobby.set_search_properties_async()` / `PlayFabLobby.set_membership_lock_async()` | `null` |
 | `create_match_ticket_async()` / `PlayFabMatchTicket.refresh_async()` | `PlayFabMatchTicket` |
 | `PlayFabMatchTicket.cancel_async()` | `null` |
 
@@ -84,7 +85,11 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
 | `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
 | `find_lobbies_async(user, search)` | `PFMultiplayerFindLobbies(...)` entity-handle overload | find completed state; stable search summaries populated |
-| `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | lobby update completed state; cached lobby snapshot refreshed |
+| `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | `PROPERTIES_UPDATED` completion state; cached lobby snapshot refreshed |
+| `PlayFabLobby.post_update_async(update)` | `PFLobbyPostUpdateWithEntityHandle(...)` with a `PFLobbyDataUpdate` carrying only the assigned fields | `UPDATE_COMPLETED` completion state; cached lobby snapshot refreshed |
+| `PlayFabLobby.set_search_properties_async(...)` / `set_membership_lock_async(...)` | Same as `post_update_async`, with a single field assigned | `SEARCH_PROPERTIES_UPDATED` / `CONFIGURATION_UPDATED` completion state; cached lobby snapshot refreshed |
+| `PlayFabLobby.get_membership_lock()` / `get_access_policy()` / `get_owner_migration_policy()` / `get_restrict_invites_to_lobby_owner()` | `PFLobbyGetMembershipLock` / `PFLobbyGetAccessPolicy` / `PFLobbyGetOwnerMigrationPolicy` / `PFLobbyGetRestrictInvitesToLobbyOwner` during snapshot refresh | cached at every snapshot refresh; no async call |
+| `PlayFabLobbyMember.get_connection_status()` | `PFLobbyGetMemberConnectionStatus(...)` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobby.set_member_properties_async(properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
 | `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester and configured members | native handle returned and tracked; subsequent progress is pushed by matchmaking state changes |
 | `PlayFabMatchTicket.refresh_async()` | `PFMatchmakingTicketGetStatus(...)` / `PFMatchmakingTicketGetMatch(...)` snapshot refresh | diagnostic refresh only; normal progress is push-driven |
@@ -112,6 +117,11 @@ var member_count: int
 var properties: Dictionary
 var search_properties: Dictionary
 var members: Array[PlayFabLobbyMember]
+var access_policy: int
+var owner_migration_policy: int
+var membership_lock: int
+var restrict_invites_to_lobby_owner: bool
+var disconnecting_reason: int
 
 func get_lobby_id() -> String
 func get_connection_string() -> String
@@ -119,13 +129,27 @@ func get_owner_entity_key() -> Dictionary
 func get_members() -> Array[PlayFabLobbyMember]
 func get_properties() -> Dictionary
 func get_search_properties() -> Dictionary
+func get_access_policy() -> int
+func get_owner_migration_policy() -> int
+func get_membership_lock() -> int
+func get_restrict_invites_to_lobby_owner() -> bool
+func get_disconnecting_reason() -> int
 func is_owner(user: PlayFabUser) -> bool
+func is_disconnected() -> bool
+func find_member(entity_key: Dictionary) -> PlayFabLobbyMember
 func set_properties_async(properties: Dictionary) -> Signal
+func set_search_properties_async(search_properties: Dictionary) -> Signal
+func set_membership_lock_async(membership_lock: int) -> Signal
+func post_update_async(update: PlayFabLobbyUpdateConfig) -> Signal
 func set_member_properties_async(properties: Dictionary) -> Signal
 func leave_async() -> Signal
 ```
 
 Lobby updates are object-scoped. When a lobby state change arrives, the addon updates the cached snapshot before emitting `PlayFabLobby.state_changed(change)`. The MLP also emits `PlayFab.multiplayer.state_changed(change)` as an aggregate signal for titles that prefer one service-level subscription. `PlayFabLobby.set_member_properties_async()` is local-member-only; after a successful local write, the addon eagerly patches that local member's snapshot before settling the completion signal and emitting `MEMBER_UPDATED`, because the native SDK may only report remote member-property changes through SDK-driven update callbacks.
+
+`post_update_async(update)` is the general lobby-update entry point; `set_properties_async`, `set_search_properties_async`, and `set_membership_lock_async` are thin single-field shims over it. Batching matters: a title that needs to lock membership, shrink capacity, and flip a search property at match start posts one `PlayFabLobbyUpdateConfig` so the lobby is never observable in a half-updated state.
+
+Update validation is deliberately stricter than create validation. `create_lobby_async` clamps `max_players` into `[2, 128]`; `post_update_async` refuses out-of-range or below-occupancy capacity with `invalid_update` instead, because silently rewriting a shrink that would evict members is worse than failing. No client-side owner check is applied: the native SDK permits a non-owner to claim `new_owner_entity_key` under manual or disabled owner migration, so ownership is enforced by the service.
 
 ### Lobby configs
 
@@ -140,6 +164,26 @@ var search_properties: Dictionary = {}
 var lobby_properties: Dictionary = {}
 var member_properties: Dictionary = {}
 ```
+
+```gdscript
+class_name PlayFabLobbyUpdateConfig
+extends RefCounted
+
+var membership_lock: int = PlayFabLobbyUpdateConfig.MEMBERSHIP_LOCK_UNLOCKED
+var access_policy: int = PlayFabLobbyUpdateConfig.ACCESS_POLICY_PRIVATE
+var max_member_count: int = 0
+var restrict_invites_to_lobby_owner: bool = false
+var new_owner_entity_key: Dictionary = {}
+var search_properties: Dictionary = {}
+var lobby_properties: Dictionary = {}
+
+func is_empty() -> bool
+# Plus has_<field>() / clear_<field>() for every field above.
+```
+
+Every field is presence-tracked rather than value-tracked. Assigning a field marks it present; `clear_<field>()` returns it to "unchanged". This is required, not stylistic: `restrict_invites_to_lobby_owner = false` and `membership_lock = MEMBERSHIP_LOCK_UNLOCKED` are both legitimate values a title must be able to send, and a sentinel-value scheme cannot distinguish them from "leave alone". It also maps directly onto `PFLobbyDataUpdate`, whose optional fields are all pointers.
+
+`restrict_invites_to_lobby_owner` requires the April 2026 GDK (`260400`+). On older editions, posting an update that assigns it fails with `unsupported_on_gdk_edition`.
 
 ```gdscript
 class_name PlayFabLobbyJoinConfig
@@ -167,12 +211,16 @@ var user_id: String
 var entity_key: Dictionary
 var properties: Dictionary
 var is_local: bool
+var connection_status: int
 
 func get_user_id() -> String
 func get_entity_key() -> Dictionary
 func get_properties() -> Dictionary
 func is_local_member() -> bool
+func get_connection_status() -> int
 ```
+
+`connection_status` is `CONNECTION_STATUS_NOT_CONNECTED` or `CONNECTION_STATUS_CONNECTED`, mirroring `PFLobbyMemberConnectionStatus`. Membership and connectivity are distinct: a member who drops offline stays in `members` with a not-connected status until the service actually removes them, so titles must read this rather than inferring liveness from presence in the member list.
 
 ```gdscript
 class_name PlayFabLobbyInvite
@@ -236,18 +284,51 @@ var member: PlayFabLobbyMember
 var invite: PlayFabLobbyInvite
 var user: PlayFabUser
 var properties: Dictionary
+var reason: int
 ```
 
 Recommended stable constants:
 
 ```gdscript
-PlayFabLobby.MEMBER_ADDED
-PlayFabLobby.MEMBER_REMOVED
-PlayFabLobby.MEMBER_UPDATED
-PlayFabLobby.PROPERTIES_UPDATED
-PlayFabLobby.OWNER_CHANGED
-PlayFabLobby.DISCONNECTED
+PlayFabLobby.MEMBER_ADDED                 # 1
+PlayFabLobby.MEMBER_REMOVED               # 2
+PlayFabLobby.MEMBER_UPDATED               # 3
+PlayFabLobby.PROPERTIES_UPDATED           # 4
+PlayFabLobby.OWNER_CHANGED                # 5
+PlayFabLobby.DISCONNECTED                 # 6
+PlayFabLobby.MEMBER_CONNECTION_CHANGED    # 7
+PlayFabLobby.SEARCH_PROPERTIES_UPDATED    # 8
+PlayFabLobby.CONFIGURATION_UPDATED        # 9
+PlayFabLobby.DISCONNECTING                # 10
+PlayFabLobby.UPDATE_COMPLETED             # 11
 ```
+
+Values 1-6 are frozen; new kinds append from 7 so existing `match` statements in titles and samples keep working.
+
+A native `PFLobbyUpdatedStateChange` batch can report several independent categories at once, so the dispatcher emits one change per category rather than picking a single winner. Owner, per-member, lobby-property, search-property, and configuration updates in the same batch each produce their own state change. `MEMBER_CONNECTION_CHANGED` is additive: a member whose connection status changed still emits `MEMBER_UPDATED` first, so listeners that only watch `MEMBER_UPDATED` are unaffected.
+
+An update *completion* — the state change that carries the `PlayFabResult` for the posting client's own call — reports the kind that matches what was posted: `PROPERTIES_UPDATED` for `set_properties_async`, `SEARCH_PROPERTIES_UPDATED` for `set_search_properties_async`, `CONFIGURATION_UPDATED` for `set_membership_lock_async`, and `UPDATE_COMPLETED` for a batched `post_update_async` whose contents are not reducible to one category. Completions are never relabelled as `PROPERTIES_UPDATED` for updates that touched no lobby properties.
+
+`reason` carries the "why" the native SDK provides and the addon previously discarded:
+
+```gdscript
+PlayFabLobbyStateChange.REASON_NONE                   # -1, no reason applies
+
+# on MEMBER_REMOVED
+PlayFabLobby.MEMBER_REMOVED_LOCAL_USER_LEFT_LOBBY         # 0
+PlayFabLobby.MEMBER_REMOVED_LOCAL_USER_FORCIBLY_REMOVED   # 1
+PlayFabLobby.MEMBER_REMOVED_REMOTE_USER_LEFT_LOBBY        # 2
+
+# on DISCONNECTING and DISCONNECTED
+PlayFabLobby.DISCONNECTING_NO_LOCAL_MEMBERS           # 0
+PlayFabLobby.DISCONNECTING_LOBBY_DELETED              # 1
+PlayFabLobby.DISCONNECTING_CONNECTION_INTERRUPTION    # 2
+PlayFabLobby.DISCONNECTING_LOBBY_SERVER_LEFT          # 3
+```
+
+`PFLobbyDisconnectedStateChange` carries no reason of its own, so the reason is cached on the lobby when `DISCONNECTING` arrives (while the native handle is still live) and replayed on `DISCONNECTED`. `DISCONNECTED` reports an OK result only for `DISCONNECTING_NO_LOCAL_MEMBERS` — the normal end of a session — and a failed `PlayFabResult` for every other reason, so a dropped connection is not indistinguishable from a clean `leave_async()`. `REASON_NONE` is treated as a failure too: it means no `DISCONNECTING` was observed before the disconnect, which is exactly the case where a clean shutdown cannot be proven.
+
+A completed `leave_async()` is terminal for that lobby: the wrapper is untracked at `LeaveLobbyCompleted`, so any `Disconnecting` / `Disconnected` the SDK raises afterwards no longer resolves and cannot duplicate or reorder the notification the title already received. To keep that suppression from swallowing a late `Disconnecting`, the handler synthesizes one with `DISCONNECTING_NO_LOCAL_MEMBERS` when none has been seen yet. Listeners therefore always observe `DISCONNECTING` followed by `DISCONNECTED`, exactly once, whichever order the SDK uses.
 
 ## Matchmaking model
 
@@ -362,11 +443,58 @@ func _on_lobby_state_changed(change: PlayFabLobbyStateChange) -> void:
         PlayFabLobby.MEMBER_ADDED:
             print("Member joined: ", change.member.get_entity_key().get_id())
         PlayFabLobby.MEMBER_REMOVED:
-            print("Member left: ", change.member.get_entity_key().get_id())
+            match change.reason:
+                PlayFabLobby.MEMBER_REMOVED_LOCAL_USER_FORCIBLY_REMOVED:
+                    push_warning("You were removed from the lobby.")
+                _:
+                    print("Member left: ", change.member.get_entity_key().get_id())
+        PlayFabLobby.MEMBER_CONNECTION_CHANGED:
+            # Still a member, just offline. Hold the slot instead of dropping them.
+            var connected := change.member.connection_status == PlayFabLobbyMember.CONNECTION_STATUS_CONNECTED
+            print("%s is now %s" % [change.member.user_id, "online" if connected else "offline"])
         PlayFabLobby.PROPERTIES_UPDATED:
             print("Lobby properties: ", change.lobby.get_properties())
+        PlayFabLobby.SEARCH_PROPERTIES_UPDATED:
+            print("Search properties: ", change.lobby.get_search_properties())
+        PlayFabLobby.CONFIGURATION_UPDATED:
+            # change.properties carries only the fields that actually changed.
+            print("Lobby configuration changed: ", change.properties)
+        PlayFabLobby.DISCONNECTING:
+            print("Lobby session ending, reason ", change.reason)
+        PlayFabLobby.UPDATE_COMPLETED:
+            # A batched post_update_async finished; change.result carries the outcome.
+            print("Batched lobby update completed: ", change.result.ok)
         PlayFabLobby.DISCONNECTED:
-            push_warning(change.result.message)
+            if not change.result.ok:
+                push_warning("Lost the lobby: %s" % change.result.message)
+```
+
+### Update a lobby at match start
+
+```gdscript
+func lock_lobby_for_match(lobby: PlayFabLobby) -> void:
+    # One post keeps the lobby from being observable half-updated: members never
+    # see the search property flip before the lobby is actually sealed.
+    var update := PlayFabLobbyUpdateConfig.new()
+    update.membership_lock = PlayFabLobbyUpdateConfig.MEMBERSHIP_LOCK_LOCKED
+    update.max_member_count = lobby.member_count
+    update.search_properties = {"string_key1": "in_progress"}
+
+    var result = await lobby.post_update_async(update).completed
+    if not result.ok:
+        push_warning("Could not lock the lobby: %s" % result.message)
+
+func reopen_lobby(lobby: PlayFabLobby) -> void:
+    var result = await lobby.set_membership_lock_async(PlayFabLobby.MEMBERSHIP_LOCK_UNLOCKED).completed
+    if not result.ok:
+        push_warning(result.message)
+
+func hand_off_ownership(lobby: PlayFabLobby, new_owner: PlayFabLobbyMember) -> void:
+    var update := PlayFabLobbyUpdateConfig.new()
+    update.new_owner_entity_key = new_owner.entity_key
+    var result = await lobby.post_update_async(update).completed
+    if not result.ok:
+        push_warning(result.message)
 ```
 
 ### Search and join a lobby
@@ -538,6 +666,7 @@ Use stable error codes so GDScript callers can branch:
 "invalid_properties"
 "invalid_search"
 "invalid_lobby"
+"invalid_update"
 "invalid_match_ticket_config"
 "invalid_match_ticket_member"
 "invalid_match_ticket"
@@ -546,6 +675,9 @@ Use stable error codes so GDScript callers can branch:
 "arranged_lobby_join_failed"
 "lobby_search_failed"
 "lobby_update_failed"
+"lobby_update_start_failed"
+"lobby_disconnected"
+"unsupported_on_gdk_edition"
 "match_ticket_failed"
 "match_ticket_completed_failed"
 ```

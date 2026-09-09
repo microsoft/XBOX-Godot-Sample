@@ -279,6 +279,104 @@ PFLobbyOwnerMigrationPolicy to_lobby_owner_migration_policy(int64_t p_value) {
     }
 }
 
+int64_t from_lobby_access_policy(PFLobbyAccessPolicy p_value) {
+    switch (p_value) {
+        case PFLobbyAccessPolicy::Public:
+            return PlayFabLobbyConfig::ACCESS_POLICY_PUBLIC;
+        case PFLobbyAccessPolicy::Friends:
+            return PlayFabLobbyConfig::ACCESS_POLICY_FRIENDS;
+        case PFLobbyAccessPolicy::Private:
+        default:
+            return PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    }
+}
+
+int64_t from_lobby_owner_migration_policy(PFLobbyOwnerMigrationPolicy p_value) {
+    switch (p_value) {
+        case PFLobbyOwnerMigrationPolicy::Manual:
+            return PlayFabLobbyConfig::OWNER_MIGRATION_MANUAL;
+        case PFLobbyOwnerMigrationPolicy::None:
+            return PlayFabLobbyConfig::OWNER_MIGRATION_NONE;
+        case PFLobbyOwnerMigrationPolicy::Automatic:
+        default:
+            return PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+    }
+}
+
+int64_t from_lobby_membership_lock(PFLobbyMembershipLock p_value) {
+    return p_value == PFLobbyMembershipLock::Locked ? PlayFabLobby::MEMBERSHIP_LOCK_LOCKED : PlayFabLobby::MEMBERSHIP_LOCK_UNLOCKED;
+}
+
+int64_t from_member_connection_status(PFLobbyMemberConnectionStatus p_value) {
+    return p_value == PFLobbyMemberConnectionStatus::Connected ? PlayFabLobbyMember::CONNECTION_STATUS_CONNECTED : PlayFabLobbyMember::CONNECTION_STATUS_NOT_CONNECTED;
+}
+
+int64_t from_member_removed_reason(PFLobbyMemberRemovedReason p_value) {
+    switch (p_value) {
+        case PFLobbyMemberRemovedReason::LocalUserForciblyRemoved:
+            return PlayFabLobby::MEMBER_REMOVED_LOCAL_USER_FORCIBLY_REMOVED;
+        case PFLobbyMemberRemovedReason::RemoteUserLeftLobby:
+            return PlayFabLobby::MEMBER_REMOVED_REMOTE_USER_LEFT_LOBBY;
+        case PFLobbyMemberRemovedReason::LocalUserLeftLobby:
+        default:
+            return PlayFabLobby::MEMBER_REMOVED_LOCAL_USER_LEFT_LOBBY;
+    }
+}
+
+int64_t from_disconnecting_reason(PFLobbyDisconnectingReason p_value) {
+    switch (p_value) {
+        case PFLobbyDisconnectingReason::LobbyDeleted:
+            return PlayFabLobby::DISCONNECTING_LOBBY_DELETED;
+        case PFLobbyDisconnectingReason::ConnectionInterruption:
+            return PlayFabLobby::DISCONNECTING_CONNECTION_INTERRUPTION;
+        case PFLobbyDisconnectingReason::LobbyServerLeft:
+            return PlayFabLobby::DISCONNECTING_LOBBY_SERVER_LEFT;
+        case PFLobbyDisconnectingReason::NoLocalMembers:
+        default:
+            return PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS;
+    }
+}
+
+// Only NoLocalMembers is an ordinary end-of-session; every other reason means
+// the title lost the lobby without asking. Callers must be able to tell those
+// apart from a normal leave_async() completion.
+//
+// REASON_NONE means no Disconnecting state change preceded the Disconnected
+// one, so the runtime cannot prove the disconnect was intentional. Treat that
+// as a failure: DISCONNECTED is only reported OK for
+// DISCONNECTING_NO_LOCAL_MEMBERS.
+bool disconnecting_reason_is_failure(int64_t p_reason) {
+    return p_reason != PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS;
+}
+
+String disconnecting_reason_message(int64_t p_reason) {
+    switch (p_reason) {
+        case PlayFabLobby::DISCONNECTING_LOBBY_DELETED:
+            return "The PlayFab lobby was deleted by its server owner or expired due to inactivity.";
+        case PlayFabLobby::DISCONNECTING_CONNECTION_INTERRUPTION:
+            return "The client lost its connection to the PlayFab Lobby notification service.";
+        case PlayFabLobby::DISCONNECTING_LOBBY_SERVER_LEFT:
+            return "The PlayFab lobby's server owner left the lobby.";
+        case PlayFabLobbyStateChange::REASON_NONE:
+            return "The client was disconnected from the PlayFab lobby without a preceding DISCONNECTING notification, so the reason is unknown.";
+        default:
+            return "The client is no longer connected to the PlayFab lobby.";
+    }
+}
+
+// Backing storage for the optional (pointer-typed) fields of
+// PFLobbyDataUpdate. The instance must outlive the
+// PFLobbyPostUpdateWithEntityHandle call that reads through those pointers.
+struct LobbyDataUpdateStorage {
+    uint32_t max_member_count = 0;
+    PFLobbyAccessPolicy access_policy = PFLobbyAccessPolicy::Private;
+    PFLobbyMembershipLock membership_lock = PFLobbyMembershipLock::Unlocked;
+    bool restrict_invites_to_lobby_owner = false;
+    CharString new_owner_id;
+    CharString new_owner_type;
+    PFEntityKey new_owner = {};
+};
+
 String ticket_status_to_string(PFMatchmakingTicketStatus p_status) {
     switch (p_status) {
         case PFMatchmakingTicketStatus::Creating:
@@ -361,6 +459,137 @@ void PlayFabLobbyConfig::set_member_properties(const Dictionary &p_properties) {
 bool PlayFabLobbyConfig::get_restrict_invites_to_lobby_owner() const { return m_restrict_invites_to_lobby_owner; }
 void PlayFabLobbyConfig::set_restrict_invites_to_lobby_owner(bool p_restrict) { m_restrict_invites_to_lobby_owner = p_restrict; }
 
+void PlayFabLobbyUpdateConfig::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("get_membership_lock"), &PlayFabLobbyUpdateConfig::get_membership_lock);
+    ClassDB::bind_method(D_METHOD("set_membership_lock", "membership_lock"), &PlayFabLobbyUpdateConfig::set_membership_lock);
+    ClassDB::bind_method(D_METHOD("has_membership_lock"), &PlayFabLobbyUpdateConfig::has_membership_lock);
+    ClassDB::bind_method(D_METHOD("clear_membership_lock"), &PlayFabLobbyUpdateConfig::clear_membership_lock);
+    ClassDB::bind_method(D_METHOD("get_access_policy"), &PlayFabLobbyUpdateConfig::get_access_policy);
+    ClassDB::bind_method(D_METHOD("set_access_policy", "access_policy"), &PlayFabLobbyUpdateConfig::set_access_policy);
+    ClassDB::bind_method(D_METHOD("has_access_policy"), &PlayFabLobbyUpdateConfig::has_access_policy);
+    ClassDB::bind_method(D_METHOD("clear_access_policy"), &PlayFabLobbyUpdateConfig::clear_access_policy);
+    ClassDB::bind_method(D_METHOD("get_max_member_count"), &PlayFabLobbyUpdateConfig::get_max_member_count);
+    ClassDB::bind_method(D_METHOD("set_max_member_count", "max_member_count"), &PlayFabLobbyUpdateConfig::set_max_member_count);
+    ClassDB::bind_method(D_METHOD("has_max_member_count"), &PlayFabLobbyUpdateConfig::has_max_member_count);
+    ClassDB::bind_method(D_METHOD("clear_max_member_count"), &PlayFabLobbyUpdateConfig::clear_max_member_count);
+    ClassDB::bind_method(D_METHOD("get_restrict_invites_to_lobby_owner"), &PlayFabLobbyUpdateConfig::get_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("set_restrict_invites_to_lobby_owner", "restrict"), &PlayFabLobbyUpdateConfig::set_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("has_restrict_invites_to_lobby_owner"), &PlayFabLobbyUpdateConfig::has_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("clear_restrict_invites_to_lobby_owner"), &PlayFabLobbyUpdateConfig::clear_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("get_new_owner_entity_key"), &PlayFabLobbyUpdateConfig::get_new_owner_entity_key);
+    ClassDB::bind_method(D_METHOD("set_new_owner_entity_key", "entity_key"), &PlayFabLobbyUpdateConfig::set_new_owner_entity_key);
+    ClassDB::bind_method(D_METHOD("has_new_owner_entity_key"), &PlayFabLobbyUpdateConfig::has_new_owner_entity_key);
+    ClassDB::bind_method(D_METHOD("clear_new_owner_entity_key"), &PlayFabLobbyUpdateConfig::clear_new_owner_entity_key);
+    ClassDB::bind_method(D_METHOD("get_search_properties"), &PlayFabLobbyUpdateConfig::get_search_properties);
+    ClassDB::bind_method(D_METHOD("set_search_properties", "search_properties"), &PlayFabLobbyUpdateConfig::set_search_properties);
+    ClassDB::bind_method(D_METHOD("has_search_properties"), &PlayFabLobbyUpdateConfig::has_search_properties);
+    ClassDB::bind_method(D_METHOD("clear_search_properties"), &PlayFabLobbyUpdateConfig::clear_search_properties);
+    ClassDB::bind_method(D_METHOD("get_lobby_properties"), &PlayFabLobbyUpdateConfig::get_lobby_properties);
+    ClassDB::bind_method(D_METHOD("set_lobby_properties", "lobby_properties"), &PlayFabLobbyUpdateConfig::set_lobby_properties);
+    ClassDB::bind_method(D_METHOD("has_lobby_properties"), &PlayFabLobbyUpdateConfig::has_lobby_properties);
+    ClassDB::bind_method(D_METHOD("clear_lobby_properties"), &PlayFabLobbyUpdateConfig::clear_lobby_properties);
+    ClassDB::bind_method(D_METHOD("is_empty"), &PlayFabLobbyUpdateConfig::is_empty);
+
+    // Assigning any property marks that field present; use the matching
+    // clear_*() to return it to "unchanged".
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "membership_lock"), "set_membership_lock", "get_membership_lock");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "access_policy"), "set_access_policy", "get_access_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "max_member_count"), "set_max_member_count", "get_max_member_count");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "restrict_invites_to_lobby_owner"), "set_restrict_invites_to_lobby_owner", "get_restrict_invites_to_lobby_owner");
+    ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "new_owner_entity_key"), "set_new_owner_entity_key", "get_new_owner_entity_key");
+    ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "search_properties"), "set_search_properties", "get_search_properties");
+    ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "lobby_properties"), "set_lobby_properties", "get_lobby_properties");
+
+    BIND_CONSTANT(ACCESS_POLICY_PUBLIC);
+    BIND_CONSTANT(ACCESS_POLICY_FRIENDS);
+    BIND_CONSTANT(ACCESS_POLICY_PRIVATE);
+    BIND_CONSTANT(MEMBERSHIP_LOCK_UNLOCKED);
+    BIND_CONSTANT(MEMBERSHIP_LOCK_LOCKED);
+}
+
+int64_t PlayFabLobbyUpdateConfig::get_membership_lock() const { return m_membership_lock; }
+void PlayFabLobbyUpdateConfig::set_membership_lock(int64_t p_membership_lock) {
+    m_membership_lock = p_membership_lock;
+    m_has_membership_lock = true;
+}
+bool PlayFabLobbyUpdateConfig::has_membership_lock() const { return m_has_membership_lock; }
+void PlayFabLobbyUpdateConfig::clear_membership_lock() {
+    m_membership_lock = MEMBERSHIP_LOCK_UNLOCKED;
+    m_has_membership_lock = false;
+}
+
+int64_t PlayFabLobbyUpdateConfig::get_access_policy() const { return m_access_policy; }
+void PlayFabLobbyUpdateConfig::set_access_policy(int64_t p_access_policy) {
+    m_access_policy = p_access_policy;
+    m_has_access_policy = true;
+}
+bool PlayFabLobbyUpdateConfig::has_access_policy() const { return m_has_access_policy; }
+void PlayFabLobbyUpdateConfig::clear_access_policy() {
+    m_access_policy = ACCESS_POLICY_PRIVATE;
+    m_has_access_policy = false;
+}
+
+int64_t PlayFabLobbyUpdateConfig::get_max_member_count() const { return m_max_member_count; }
+void PlayFabLobbyUpdateConfig::set_max_member_count(int64_t p_max_member_count) {
+    m_max_member_count = p_max_member_count;
+    m_has_max_member_count = true;
+}
+bool PlayFabLobbyUpdateConfig::has_max_member_count() const { return m_has_max_member_count; }
+void PlayFabLobbyUpdateConfig::clear_max_member_count() {
+    m_max_member_count = 0;
+    m_has_max_member_count = false;
+}
+
+bool PlayFabLobbyUpdateConfig::get_restrict_invites_to_lobby_owner() const { return m_restrict_invites_to_lobby_owner; }
+void PlayFabLobbyUpdateConfig::set_restrict_invites_to_lobby_owner(bool p_restrict) {
+    m_restrict_invites_to_lobby_owner = p_restrict;
+    m_has_restrict_invites_to_lobby_owner = true;
+}
+bool PlayFabLobbyUpdateConfig::has_restrict_invites_to_lobby_owner() const { return m_has_restrict_invites_to_lobby_owner; }
+void PlayFabLobbyUpdateConfig::clear_restrict_invites_to_lobby_owner() {
+    m_restrict_invites_to_lobby_owner = false;
+    m_has_restrict_invites_to_lobby_owner = false;
+}
+
+Dictionary PlayFabLobbyUpdateConfig::get_new_owner_entity_key() const { return m_new_owner_entity_key; }
+void PlayFabLobbyUpdateConfig::set_new_owner_entity_key(const Dictionary &p_entity_key) {
+    m_new_owner_entity_key = p_entity_key;
+    m_has_new_owner_entity_key = true;
+}
+bool PlayFabLobbyUpdateConfig::has_new_owner_entity_key() const { return m_has_new_owner_entity_key; }
+void PlayFabLobbyUpdateConfig::clear_new_owner_entity_key() {
+    m_new_owner_entity_key = Dictionary();
+    m_has_new_owner_entity_key = false;
+}
+
+Dictionary PlayFabLobbyUpdateConfig::get_search_properties() const { return m_search_properties; }
+void PlayFabLobbyUpdateConfig::set_search_properties(const Dictionary &p_properties) {
+    m_search_properties = p_properties;
+    m_has_search_properties = true;
+}
+bool PlayFabLobbyUpdateConfig::has_search_properties() const { return m_has_search_properties; }
+void PlayFabLobbyUpdateConfig::clear_search_properties() {
+    m_search_properties = Dictionary();
+    m_has_search_properties = false;
+}
+
+Dictionary PlayFabLobbyUpdateConfig::get_lobby_properties() const { return m_lobby_properties; }
+void PlayFabLobbyUpdateConfig::set_lobby_properties(const Dictionary &p_properties) {
+    m_lobby_properties = p_properties;
+    m_has_lobby_properties = true;
+}
+bool PlayFabLobbyUpdateConfig::has_lobby_properties() const { return m_has_lobby_properties; }
+void PlayFabLobbyUpdateConfig::clear_lobby_properties() {
+    m_lobby_properties = Dictionary();
+    m_has_lobby_properties = false;
+}
+
+bool PlayFabLobbyUpdateConfig::is_empty() const {
+    return !m_has_membership_lock && !m_has_access_policy && !m_has_max_member_count &&
+            !m_has_restrict_invites_to_lobby_owner && !m_has_new_owner_entity_key &&
+            !m_has_search_properties && !m_has_lobby_properties;
+}
+
 void PlayFabLobbyJoinConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_member_properties"), &PlayFabLobbyJoinConfig::get_member_properties);
     ClassDB::bind_method(D_METHOD("set_member_properties", "member_properties"), &PlayFabLobbyJoinConfig::set_member_properties);
@@ -427,22 +656,29 @@ void PlayFabLobbyMember::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_entity_key"), &PlayFabLobbyMember::get_entity_key);
     ClassDB::bind_method(D_METHOD("get_properties"), &PlayFabLobbyMember::get_properties);
     ClassDB::bind_method(D_METHOD("is_local_member"), &PlayFabLobbyMember::is_local_member);
+    ClassDB::bind_method(D_METHOD("get_connection_status"), &PlayFabLobbyMember::get_connection_status);
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "user_id"), "", "get_user_id");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "entity_key"), "", "get_entity_key");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "properties"), "", "get_properties");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "is_local"), "", "is_local_member");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "connection_status"), "", "get_connection_status");
+
+    BIND_CONSTANT(CONNECTION_STATUS_NOT_CONNECTED);
+    BIND_CONSTANT(CONNECTION_STATUS_CONNECTED);
 }
 
-void PlayFabLobbyMember::set_snapshot(const String &p_user_id, const Dictionary &p_entity_key, const Dictionary &p_properties, bool p_is_local) {
+void PlayFabLobbyMember::set_snapshot(const String &p_user_id, const Dictionary &p_entity_key, const Dictionary &p_properties, bool p_is_local, int64_t p_connection_status) {
     m_user_id = p_user_id;
     m_entity_key = p_entity_key;
     m_properties = p_properties;
     m_is_local = p_is_local;
+    m_connection_status = p_connection_status;
 }
 String PlayFabLobbyMember::get_user_id() const { return m_user_id; }
 Dictionary PlayFabLobbyMember::get_entity_key() const { return m_entity_key; }
 Dictionary PlayFabLobbyMember::get_properties() const { return m_properties; }
 bool PlayFabLobbyMember::is_local_member() const { return m_is_local; }
+int64_t PlayFabLobbyMember::get_connection_status() const { return m_connection_status; }
 
 void PlayFabLobbyInvite::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_lobby_id"), &PlayFabLobbyInvite::get_lobby_id);
@@ -531,6 +767,7 @@ void PlayFabLobbyStateChange::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_invite"), &PlayFabLobbyStateChange::get_invite);
     ClassDB::bind_method(D_METHOD("get_user"), &PlayFabLobbyStateChange::get_user);
     ClassDB::bind_method(D_METHOD("get_properties"), &PlayFabLobbyStateChange::get_properties);
+    ClassDB::bind_method(D_METHOD("get_reason"), &PlayFabLobbyStateChange::get_reason);
     ADD_PROPERTY(PropertyInfo(Variant::INT, "kind"), "", "get_kind");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "lobby", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabLobby"), "", "get_lobby");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabResult"), "", "get_result");
@@ -538,6 +775,9 @@ void PlayFabLobbyStateChange::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "invite", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabLobbyInvite"), "", "get_invite");
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "user", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabUser"), "", "get_user");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "properties"), "", "get_properties");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "reason"), "", "get_reason");
+
+    BIND_CONSTANT(REASON_NONE);
 }
 
 void PlayFabLobbyStateChange::set_values(int64_t p_kind, const Ref<RefCounted> &p_lobby, const Ref<PlayFabResult> &p_result) {
@@ -549,6 +789,7 @@ void PlayFabLobbyStateChange::set_member(const Ref<PlayFabLobbyMember> &p_member
 void PlayFabLobbyStateChange::set_invite(const Ref<PlayFabLobbyInvite> &p_invite) { m_invite = p_invite; }
 void PlayFabLobbyStateChange::set_user(const Ref<PlayFabUser> &p_user) { m_user = p_user; }
 void PlayFabLobbyStateChange::set_properties(const Dictionary &p_properties) { m_properties = p_properties; }
+void PlayFabLobbyStateChange::set_reason(int64_t p_reason) { m_reason = p_reason; }
 int64_t PlayFabLobbyStateChange::get_kind() const { return m_kind; }
 Ref<RefCounted> PlayFabLobbyStateChange::get_lobby() const { return m_lobby; }
 Ref<PlayFabResult> PlayFabLobbyStateChange::get_result() const { return m_result; }
@@ -556,6 +797,7 @@ Ref<PlayFabLobbyMember> PlayFabLobbyStateChange::get_member() const { return m_m
 Ref<PlayFabLobbyInvite> PlayFabLobbyStateChange::get_invite() const { return m_invite; }
 Ref<PlayFabUser> PlayFabLobbyStateChange::get_user() const { return m_user; }
 Dictionary PlayFabLobbyStateChange::get_properties() const { return m_properties; }
+int64_t PlayFabLobbyStateChange::get_reason() const { return m_reason; }
 
 void PlayFabMatchTicketStateChange::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_kind"), &PlayFabMatchTicketStateChange::get_kind);
@@ -626,9 +868,19 @@ void PlayFabLobby::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_members"), &PlayFabLobby::get_members);
     ClassDB::bind_method(D_METHOD("get_properties"), &PlayFabLobby::get_properties);
     ClassDB::bind_method(D_METHOD("get_search_properties"), &PlayFabLobby::get_search_properties);
+    ClassDB::bind_method(D_METHOD("get_access_policy"), &PlayFabLobby::get_access_policy);
+    ClassDB::bind_method(D_METHOD("get_owner_migration_policy"), &PlayFabLobby::get_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("get_membership_lock"), &PlayFabLobby::get_membership_lock);
+    ClassDB::bind_method(D_METHOD("get_restrict_invites_to_lobby_owner"), &PlayFabLobby::get_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("get_disconnecting_reason"), &PlayFabLobby::get_disconnecting_reason);
+    ClassDB::bind_method(D_METHOD("is_disconnected"), &PlayFabLobby::is_disconnected);
+    ClassDB::bind_method(D_METHOD("find_member", "entity_key"), &PlayFabLobby::find_member);
     ClassDB::bind_method(D_METHOD("is_owner", "user"), &PlayFabLobby::is_owner);
     ClassDB::bind_method(D_METHOD("set_properties_async", "properties"), &PlayFabLobby::set_properties_async);
+    ClassDB::bind_method(D_METHOD("set_search_properties_async", "properties"), &PlayFabLobby::set_search_properties_async);
     ClassDB::bind_method(D_METHOD("set_member_properties_async", "properties"), &PlayFabLobby::set_member_properties_async);
+    ClassDB::bind_method(D_METHOD("set_membership_lock_async", "membership_lock"), &PlayFabLobby::set_membership_lock_async);
+    ClassDB::bind_method(D_METHOD("post_update_async", "update"), &PlayFabLobby::post_update_async);
     ClassDB::bind_method(D_METHOD("leave_async"), &PlayFabLobby::leave_async);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     ClassDB::bind_method(D_METHOD("_test_seed_local_member", "entity_key", "properties"), &PlayFabLobby::_test_seed_local_member);
@@ -642,6 +894,11 @@ void PlayFabLobby::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "members"), "", "get_members");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "properties"), "", "get_properties");
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "search_properties"), "", "get_search_properties");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "access_policy"), "", "get_access_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "owner_migration_policy"), "", "get_owner_migration_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "membership_lock"), "", "get_membership_lock");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "restrict_invites_to_lobby_owner"), "", "get_restrict_invites_to_lobby_owner");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "disconnecting_reason"), "", "get_disconnecting_reason");
     ADD_SIGNAL(MethodInfo("state_changed", PropertyInfo(Variant::OBJECT, "change", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabLobbyStateChange")));
 
     BIND_CONSTANT(MEMBER_ADDED);
@@ -650,6 +907,23 @@ void PlayFabLobby::_bind_methods() {
     BIND_CONSTANT(PROPERTIES_UPDATED);
     BIND_CONSTANT(OWNER_CHANGED);
     BIND_CONSTANT(DISCONNECTED);
+    BIND_CONSTANT(MEMBER_CONNECTION_CHANGED);
+    BIND_CONSTANT(SEARCH_PROPERTIES_UPDATED);
+    BIND_CONSTANT(CONFIGURATION_UPDATED);
+    BIND_CONSTANT(DISCONNECTING);
+    BIND_CONSTANT(UPDATE_COMPLETED);
+
+    BIND_CONSTANT(MEMBERSHIP_LOCK_UNLOCKED);
+    BIND_CONSTANT(MEMBERSHIP_LOCK_LOCKED);
+
+    BIND_CONSTANT(MEMBER_REMOVED_LOCAL_USER_LEFT_LOBBY);
+    BIND_CONSTANT(MEMBER_REMOVED_LOCAL_USER_FORCIBLY_REMOVED);
+    BIND_CONSTANT(MEMBER_REMOVED_REMOTE_USER_LEFT_LOBBY);
+
+    BIND_CONSTANT(DISCONNECTING_NO_LOCAL_MEMBERS);
+    BIND_CONSTANT(DISCONNECTING_LOBBY_DELETED);
+    BIND_CONSTANT(DISCONNECTING_CONNECTION_INTERRUPTION);
+    BIND_CONSTANT(DISCONNECTING_LOBBY_SERVER_LEFT);
 }
 
 void PlayFabLobby::set_owner(PlayFabMultiplayer *p_owner) { m_owner = p_owner; }
@@ -661,6 +935,7 @@ PFLobbyHandle PlayFabLobby::get_native_handle() const { return m_lobby_handle; }
 Ref<PlayFabUser> PlayFabLobby::get_local_user() const { return m_local_user; }
 void PlayFabLobby::mark_disconnected() { m_disconnected = true; m_lobby_handle = nullptr; }
 bool PlayFabLobby::is_disconnected() const { return m_disconnected; }
+void PlayFabLobby::set_disconnecting_reason(int64_t p_reason) { m_disconnecting_reason = p_reason; }
 
 bool PlayFabLobby::_is_local_entity_key(const Dictionary &p_entity_key) const {
     if (!m_local_user.is_valid()) {
@@ -704,7 +979,8 @@ void PlayFabLobby::_apply_local_member_properties_to_snapshot(bool p_allow_synth
                 String(entity_key.get("id", String())),
                 entity_key,
                 copy_dictionary(m_local_member_properties),
-                true);
+                true,
+                local_member->get_connection_status());
         return;
     }
 
@@ -725,11 +1001,15 @@ void PlayFabLobby::_apply_local_member_properties_to_snapshot(bool p_allow_synth
     const Dictionary entity_key = m_local_user->get_entity_key();
     Ref<PlayFabLobbyMember> member;
     member.instantiate();
+    // This path only runs right after a successful create/join, so the local
+    // user is connected to the Lobby notification service by definition. The
+    // next refresh_snapshot() replaces this with the SDK-reported status.
     member->set_snapshot(
             String(entity_key.get("id", String())),
             entity_key,
             copy_dictionary(m_local_member_properties),
-            true);
+            true,
+            PlayFabLobbyMember::CONNECTION_STATUS_CONNECTED);
     m_members.push_back(member);
     m_member_count = std::max<int64_t>(m_member_count, static_cast<int64_t>(m_members.size()));
 }
@@ -804,6 +1084,28 @@ HRESULT PlayFabLobby::refresh_snapshot() {
     m_properties = get_property_dictionary(m_lobby_handle, PFLobbyGetLobbyPropertyKeys, PFLobbyGetLobbyProperty);
     m_search_properties = get_property_dictionary(m_lobby_handle, PFLobbyGetSearchPropertyKeys, PFLobbyGetSearchProperty);
 
+    PFLobbyAccessPolicy access_policy = PFLobbyAccessPolicy::Private;
+    if (SUCCEEDED(PFLobbyGetAccessPolicy(m_lobby_handle, &access_policy))) {
+        m_access_policy = from_lobby_access_policy(access_policy);
+    }
+
+    PFLobbyOwnerMigrationPolicy owner_migration_policy = PFLobbyOwnerMigrationPolicy::Automatic;
+    if (SUCCEEDED(PFLobbyGetOwnerMigrationPolicy(m_lobby_handle, &owner_migration_policy))) {
+        m_owner_migration_policy = from_lobby_owner_migration_policy(owner_migration_policy);
+    }
+
+    PFLobbyMembershipLock membership_lock = PFLobbyMembershipLock::Unlocked;
+    if (SUCCEEDED(PFLobbyGetMembershipLock(m_lobby_handle, &membership_lock))) {
+        m_membership_lock = from_lobby_membership_lock(membership_lock);
+    }
+
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
+    bool restrict_invites = false;
+    if (SUCCEEDED(PFLobbyGetRestrictInvitesToLobbyOwner(m_lobby_handle, &restrict_invites))) {
+        m_restrict_invites_to_lobby_owner = restrict_invites;
+    }
+#endif
+
     uint32_t member_count = 0;
     const PFEntityKey *members = nullptr;
     if (SUCCEEDED(PFLobbyGetMembers(m_lobby_handle, &member_count, &members))) {
@@ -824,11 +1126,16 @@ HRESULT PlayFabLobby::refresh_snapshot() {
                     m_local_member_properties_known = true;
                 }
             }
+            PFLobbyMemberConnectionStatus connection_status = PFLobbyMemberConnectionStatus::NotConnected;
+            const int64_t member_connection_status = SUCCEEDED(PFLobbyGetMemberConnectionStatus(m_lobby_handle, member_key, &connection_status)) ?
+                    from_member_connection_status(connection_status) :
+                    PlayFabLobbyMember::CONNECTION_STATUS_NOT_CONNECTED;
             member->set_snapshot(
                     String(entity_key.get("id", String())),
                     entity_key,
                     member_properties,
-                    is_local);
+                    is_local,
+                    member_connection_status);
             member_wrappers.push_back(member);
         }
         m_members = member_wrappers;
@@ -853,6 +1160,11 @@ int64_t PlayFabLobby::get_member_count() const { return m_member_count; }
 Array PlayFabLobby::get_members() const { return m_members; }
 Dictionary PlayFabLobby::get_properties() const { return m_properties; }
 Dictionary PlayFabLobby::get_search_properties() const { return m_search_properties; }
+int64_t PlayFabLobby::get_access_policy() const { return m_access_policy; }
+int64_t PlayFabLobby::get_owner_migration_policy() const { return m_owner_migration_policy; }
+int64_t PlayFabLobby::get_membership_lock() const { return m_membership_lock; }
+bool PlayFabLobby::get_restrict_invites_to_lobby_owner() const { return m_restrict_invites_to_lobby_owner; }
+int64_t PlayFabLobby::get_disconnecting_reason() const { return m_disconnecting_reason; }
 Ref<PlayFabLobbyMember> PlayFabLobby::find_member(const Dictionary &p_entity_key) const {
     const String id = p_entity_key.get("id", String());
     const String type = p_entity_key.get("type", String());
@@ -882,6 +1194,30 @@ Signal PlayFabLobby::set_properties_async(const Dictionary &p_properties) {
         return detached_error_signal(E_INVALIDARG, "invalid_lobby", "set_properties_async requires a PlayFabLobby created or joined through PlayFab.multiplayer.");
     }
     return m_owner->_set_lobby_properties_async(Ref<PlayFabLobby>(this), p_properties);
+}
+Signal PlayFabLobby::set_search_properties_async(const Dictionary &p_properties) {
+    if (m_owner == nullptr) {
+        return detached_error_signal(E_INVALIDARG, "invalid_lobby", "set_search_properties_async requires a PlayFabLobby created or joined through PlayFab.multiplayer.");
+    }
+    Ref<PlayFabLobbyUpdateConfig> update;
+    update.instantiate();
+    update->set_search_properties(p_properties);
+    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update, PlayFabLobby::SEARCH_PROPERTIES_UPDATED);
+}
+Signal PlayFabLobby::set_membership_lock_async(int64_t p_membership_lock) {
+    if (m_owner == nullptr) {
+        return detached_error_signal(E_INVALIDARG, "invalid_lobby", "set_membership_lock_async requires a PlayFabLobby created or joined through PlayFab.multiplayer.");
+    }
+    Ref<PlayFabLobbyUpdateConfig> update;
+    update.instantiate();
+    update->set_membership_lock(p_membership_lock);
+    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), update, PlayFabLobby::CONFIGURATION_UPDATED);
+}
+Signal PlayFabLobby::post_update_async(const Ref<PlayFabLobbyUpdateConfig> &p_update) {
+    if (m_owner == nullptr) {
+        return detached_error_signal(E_INVALIDARG, "invalid_lobby", "post_update_async requires a PlayFabLobby created or joined through PlayFab.multiplayer.");
+    }
+    return m_owner->_post_lobby_update_async(Ref<PlayFabLobby>(this), p_update);
 }
 Signal PlayFabLobby::set_member_properties_async(const Dictionary &p_properties) {
     if (m_owner == nullptr) {
@@ -1747,6 +2083,14 @@ Signal PlayFabMultiplayer::find_lobbies_async(const Ref<PlayFabUser> &p_user, co
 }
 
 Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &p_lobby, const Dictionary &p_properties) {
+    Ref<PlayFabLobbyUpdateConfig> update;
+    update.instantiate();
+    update->set_lobby_properties(p_properties);
+    return _post_lobby_update_async(p_lobby, update, PlayFabLobby::PROPERTIES_UPDATED);
+}
+
+Signal PlayFabMultiplayer::_post_lobby_update_async(const Ref<PlayFabLobby> &p_lobby, const Ref<PlayFabLobbyUpdateConfig> &p_update,
+        int64_t p_completion_kind) {
     if (m_shutting_down) {
         return _make_error_signal(E_ABORT, "shutting_down", "PlayFab Multiplayer operations cannot start while shutdown is in progress.");
     }
@@ -1754,22 +2098,110 @@ Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &
         return _make_error_signal(E_FAIL, "not_initialized", "PlayFab Multiplayer is not initialized. Call PlayFab.multiplayer.initialize_async() first.");
     }
     if (!p_lobby.is_valid() || p_lobby->get_native_handle() == nullptr || !p_lobby->get_local_user().is_valid()) {
-        return _make_error_signal(E_INVALIDARG, "invalid_lobby", "PlayFabLobby.set_properties_async requires a tracked PlayFabLobby with a local user.");
+        return _make_error_signal(E_INVALIDARG, "invalid_lobby", "PlayFabLobby.post_update_async requires a tracked PlayFabLobby with a local user.");
+    }
+    if (p_update.is_null()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_update", "PlayFabLobby.post_update_async requires a PlayFabLobbyUpdateConfig.");
+    }
+    if (p_update->is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_update", "PlayFabLobbyUpdateConfig has no fields set; set at least one field before posting an update.");
     }
 
     String error_message;
+    StringPairList search_properties;
     StringPairList lobby_properties;
-    if (!lobby_properties.assign(p_properties, true, &error_message)) {
+    if (p_update->has_search_properties() && !search_properties.assign(p_update->get_search_properties(), true, &error_message)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
+    }
+    if (p_update->has_lobby_properties() && !lobby_properties.assign(p_update->get_lobby_properties(), true, &error_message)) {
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
+    LobbyDataUpdateStorage storage;
     PFLobbyDataUpdate lobby_update = {};
-    lobby_update.lobbyPropertyCount = lobby_properties.count();
-    lobby_update.lobbyPropertyKeys = lobby_properties.keys();
-    lobby_update.lobbyPropertyValues = lobby_properties.values();
 
+    if (p_update->has_membership_lock()) {
+        const int64_t membership_lock = p_update->get_membership_lock();
+        if (membership_lock != PlayFabLobby::MEMBERSHIP_LOCK_UNLOCKED && membership_lock != PlayFabLobby::MEMBERSHIP_LOCK_LOCKED) {
+            return _make_error_signal(E_INVALIDARG, "invalid_update", "PlayFabLobbyUpdateConfig.membership_lock must be MEMBERSHIP_LOCK_UNLOCKED or MEMBERSHIP_LOCK_LOCKED.");
+        }
+        storage.membership_lock = membership_lock == PlayFabLobby::MEMBERSHIP_LOCK_LOCKED ? PFLobbyMembershipLock::Locked : PFLobbyMembershipLock::Unlocked;
+        lobby_update.membershipLock = &storage.membership_lock;
+    }
+
+    if (p_update->has_access_policy()) {
+        const int64_t access_policy = p_update->get_access_policy();
+        if (access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PUBLIC && access_policy != PlayFabLobbyConfig::ACCESS_POLICY_FRIENDS &&
+                access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE) {
+            return _make_error_signal(E_INVALIDARG, "invalid_update", "PlayFabLobbyUpdateConfig.access_policy must be ACCESS_POLICY_PUBLIC, ACCESS_POLICY_FRIENDS, or ACCESS_POLICY_PRIVATE.");
+        }
+        storage.access_policy = to_lobby_access_policy(access_policy);
+        lobby_update.accessPolicy = &storage.access_policy;
+    }
+
+    if (p_update->has_max_member_count()) {
+        // Updates are not clamped the way creation is: an out-of-range or
+        // below-occupancy capacity is a caller error, and silently applying a
+        // different capacity than requested would be worse than failing.
+        const int64_t max_member_count = p_update->get_max_member_count();
+        if (max_member_count < static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit) ||
+                max_member_count > static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)) {
+            return _make_error_signal(E_INVALIDARG, "invalid_update",
+                    vformat("PlayFabLobbyUpdateConfig.max_member_count must be between %d and %d.",
+                            static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit),
+                            static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)));
+        }
+        if (max_member_count < p_lobby->get_member_count()) {
+            return _make_error_signal(E_INVALIDARG, "invalid_update",
+                    vformat("PlayFabLobbyUpdateConfig.max_member_count (%d) is below the lobby's current occupancy (%d).",
+                            max_member_count, p_lobby->get_member_count()));
+        }
+        storage.max_member_count = static_cast<uint32_t>(max_member_count);
+        lobby_update.maxMemberCount = &storage.max_member_count;
+    }
+
+    if (p_update->has_new_owner_entity_key()) {
+        const Dictionary new_owner = p_update->get_new_owner_entity_key();
+        const String new_owner_id = String(new_owner.get("id", String()));
+        const String new_owner_type = String(new_owner.get("type", String()));
+        if (new_owner_id.is_empty() || new_owner_type.is_empty()) {
+            return _make_error_signal(E_INVALIDARG, "invalid_update", "PlayFabLobbyUpdateConfig.new_owner_entity_key requires non-empty \"id\" and \"type\" entries.");
+        }
+        storage.new_owner_id = new_owner_id.utf8();
+        storage.new_owner_type = new_owner_type.utf8();
+        storage.new_owner.id = storage.new_owner_id.get_data();
+        storage.new_owner.type = storage.new_owner_type.get_data();
+        lobby_update.newOwner = &storage.new_owner;
+    }
+
+    if (p_update->has_restrict_invites_to_lobby_owner()) {
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
+        storage.restrict_invites_to_lobby_owner = p_update->get_restrict_invites_to_lobby_owner();
+        lobby_update.restrictInvitesToLobbyOwner = &storage.restrict_invites_to_lobby_owner;
+#else
+        return _make_error_signal(E_NOTIMPL, "unsupported_on_gdk_edition",
+                "PlayFabLobbyUpdateConfig.restrict_invites_to_lobby_owner requires the April 2026 GDK "
+                "(edition 260400+). This build targets the October 2025 GDK, whose PFLobbyDataUpdate has no "
+                "owner-only invite field; clear the field or build against April 2026 or later.");
+#endif
+    }
+
+    if (p_update->has_search_properties()) {
+        lobby_update.searchPropertyCount = search_properties.count();
+        lobby_update.searchPropertyKeys = search_properties.keys();
+        lobby_update.searchPropertyValues = search_properties.values();
+    }
+    if (p_update->has_lobby_properties()) {
+        lobby_update.lobbyPropertyCount = lobby_properties.count();
+        lobby_update.lobbyPropertyKeys = lobby_properties.keys();
+        lobby_update.lobbyPropertyValues = lobby_properties.values();
+    }
+
+    // No client-side owner precheck: most fields are owner-only, but the SDK
+    // also permits a non-owner to claim `newOwner` depending on the lobby's
+    // owner-migration policy. Let the service decide and surface its failure.
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
-    PendingOperation *operation = _create_pending_operation(PlayFabLobby::PROPERTIES_UPDATED, pending_signal);
+    PendingOperation *operation = _create_pending_operation(p_completion_kind, pending_signal);
     operation->lobby = p_lobby;
 
     HRESULT hr = PFLobbyPostUpdateWithEntityHandle(
@@ -1780,7 +2212,7 @@ Signal PlayFabMultiplayer::_set_lobby_properties_async(const Ref<PlayFabLobby> &
             operation);
     if (FAILED(hr)) {
         _release_pending_operation(operation);
-        Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start updating PlayFab lobby properties.", "lobby_update_start_failed");
+        Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start updating the PlayFab lobby.", "lobby_update_start_failed");
         pending_signal->complete_deferred(result);
     }
 
@@ -2063,7 +2495,8 @@ void PlayFabMultiplayer::_emit_lobby_change(
         const Ref<PlayFabLobby> &p_lobby,
         const Ref<PlayFabResult> &p_result,
         const Ref<PlayFabLobbyMember> &p_member,
-        const Dictionary &p_properties) {
+        const Dictionary &p_properties,
+        int64_t p_reason) {
     // Defense in depth: member-scoped kinds with a successful result must
     // carry a non-null member, or the listener will null-deref on
     // `change.member.<anything>`. Surface this loud-fail in dev rather than
@@ -2087,6 +2520,7 @@ void PlayFabMultiplayer::_emit_lobby_change(
     if (!p_properties.is_empty()) {
         lobby_change->set_properties(p_properties);
     }
+    lobby_change->set_reason(p_reason);
     if (p_lobby.is_valid()) {
         p_lobby->emit_signal("state_changed", lobby_change);
     }
@@ -2280,13 +2714,31 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 PendingOperation *operation = static_cast<PendingOperation *>(change->asyncContext);
                 Ref<PlayFabLobby> lobby = operation != nullptr ? operation->lobby : _find_lobby(change->lobby);
                 Ref<PlayFabResult> result = PlayFabResult::ok_result();
+                bool synthesize_disconnecting = false;
                 if (lobby.is_valid()) {
+                    // A completed leave_async() is an ordinary end of session:
+                    // record NoLocalMembers so the terminal notification is
+                    // distinguishable from an unexpected disconnect.
+                    //
+                    // Untracking below makes any Disconnecting/Disconnected the
+                    // SDK raises *after* this point unresolvable, which is what
+                    // keeps the terminal notification from being duplicated or
+                    // delivered out of order. The cost is that a trailing
+                    // Disconnecting would be lost, so if none has been seen yet
+                    // one is synthesized here to guarantee listeners always get
+                    // the DISCONNECTING -> DISCONNECTED pair regardless of the
+                    // order the SDK happens to use.
+                    synthesize_disconnecting = lobby->get_disconnecting_reason() == PlayFabLobbyStateChange::REASON_NONE;
+                    lobby->set_disconnecting_reason(PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS);
                     lobby->mark_disconnected();
                     m_lobbies.erase(std::remove_if(m_lobbies.begin(), m_lobbies.end(), [&lobby](const Ref<PlayFabLobby> &tracked_lobby) {
                         return tracked_lobby == lobby;
                     }), m_lobbies.end());
                 }
                 _complete_pending_operation(operation, result);
+                if (synthesize_disconnecting) {
+                    _emit_lobby_change(PlayFabLobby::DISCONNECTING, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), Dictionary(), PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS);
+                }
                 // Emit DISCONNECTED here, not MEMBER_REMOVED — the SDK already
                 // fired a per-member MemberRemoved for every local user that
                 // left as part of this op. Re-emitting MEMBER_REMOVED would
@@ -2294,7 +2746,7 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 // refresh_snapshot dropped the leaving user from m_members)
                 // would also carry change.member = null, since the user is no
                 // longer in the cached members list.
-                _emit_lobby_change(PlayFabLobby::DISCONNECTED, lobby, result);
+                _emit_lobby_change(PlayFabLobby::DISCONNECTED, lobby, result, Ref<PlayFabLobbyMember>(), Dictionary(), PlayFabLobby::DISCONNECTING_NO_LOCAL_MEMBERS);
             } break;
             case PFLobbyStateChangeType::MemberAdded: {
                 const auto *change = static_cast<const PFLobbyMemberAddedStateChange *>(state_change);
@@ -2314,7 +2766,13 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                     // from the members list and their properties are emptied.
                     Ref<PlayFabLobbyMember> removed_member = lobby->find_member(entity_key_to_dictionary(&change->member));
                     lobby->refresh_snapshot();
-                    _emit_lobby_change(PlayFabLobby::MEMBER_REMOVED, lobby, PlayFabResult::ok_result(), removed_member);
+                    _emit_lobby_change(
+                            PlayFabLobby::MEMBER_REMOVED,
+                            lobby,
+                            PlayFabResult::ok_result(),
+                            removed_member,
+                            Dictionary(),
+                            from_member_removed_reason(change->reason));
                 }
             } break;
             case PFLobbyStateChangeType::Updated: {
@@ -2322,23 +2780,37 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
                 if (lobby.is_valid()) {
                     lobby->refresh_snapshot();
+                    // A single native Updated batch can carry several
+                    // categories at once. Emit one notification per changed
+                    // category instead of picking a winner, so nothing a
+                    // listener cares about is silently dropped.
                     if (change->ownerUpdated) {
                         _emit_lobby_change(PlayFabLobby::OWNER_CHANGED, lobby, PlayFabResult::ok_result());
-                    } else if (change->memberUpdateCount > 0) {
-                        // Fire one MEMBER_UPDATED per affected member so a
-                        // listener can attribute every update; member-update
-                        // bundling is rare but legal in the PFLobby SDK.
-                        for (uint32_t mi = 0; mi < change->memberUpdateCount; ++mi) {
-                            Ref<PlayFabLobbyMember> updated_member = lobby->find_member(entity_key_to_dictionary(&change->memberUpdates[mi].member));
-                            _emit_lobby_change(PlayFabLobby::MEMBER_UPDATED, lobby, PlayFabResult::ok_result(), updated_member);
+                    }
+
+                    // Fire one MEMBER_UPDATED per affected member so a
+                    // listener can attribute every update; member-update
+                    // bundling is rare but legal in the PFLobby SDK.
+                    for (uint32_t mi = 0; mi < change->memberUpdateCount; ++mi) {
+                        const PFLobbyMemberUpdateSummary &member_update = change->memberUpdates[mi];
+                        Ref<PlayFabLobbyMember> updated_member = lobby->find_member(entity_key_to_dictionary(&member_update.member));
+                        _emit_lobby_change(PlayFabLobby::MEMBER_UPDATED, lobby, PlayFabResult::ok_result(), updated_member);
+                        if (member_update.connectionStatusUpdated) {
+                            // Additive: MEMBER_UPDATED above preserves the
+                            // pre-existing contract, and this narrower kind
+                            // lets a listener react specifically to Lobby
+                            // notification-service connectivity.
+                            _emit_lobby_change(PlayFabLobby::MEMBER_CONNECTION_CHANGED, lobby, PlayFabResult::ok_result(), updated_member);
                         }
-                    } else {
+                    }
+
+                    PFLobbyHandle handle = lobby->get_native_handle();
+                    if (change->updatedLobbyPropertyCount > 0) {
                         // Build the changed-properties dictionary from the
                         // updated keys. A missing value (PFLobbyGetLobbyProperty
                         // returning null) maps to Variant() and signals the key
                         // was cleared.
                         Dictionary updated_lobby_props;
-                        PFLobbyHandle handle = lobby->get_native_handle();
                         if (handle != nullptr) {
                             for (uint32_t pi = 0; pi < change->updatedLobbyPropertyCount; ++pi) {
                                 const char *key = change->updatedLobbyPropertyKeys[pi];
@@ -2355,6 +2827,47 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                         }
                         _emit_lobby_change(PlayFabLobby::PROPERTIES_UPDATED, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), updated_lobby_props);
                     }
+
+                    if (change->updatedSearchPropertyCount > 0) {
+                        Dictionary updated_search_props;
+                        if (handle != nullptr) {
+                            for (uint32_t pi = 0; pi < change->updatedSearchPropertyCount; ++pi) {
+                                const char *key = change->updatedSearchPropertyKeys[pi];
+                                if (key == nullptr) {
+                                    continue;
+                                }
+                                const char *value = nullptr;
+                                if (SUCCEEDED(PFLobbyGetSearchProperty(handle, key, &value)) && value != nullptr) {
+                                    updated_search_props[String::utf8(key)] = String::utf8(value);
+                                } else {
+                                    updated_search_props[String::utf8(key)] = Variant();
+                                }
+                            }
+                        }
+                        _emit_lobby_change(PlayFabLobby::SEARCH_PROPERTIES_UPDATED, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), updated_search_props);
+                    }
+
+                    // Mutable lobby configuration. change.properties carries
+                    // only the fields this batch changed, with their refreshed
+                    // values.
+                    Dictionary updated_configuration;
+                    if (change->maxMembersUpdated) {
+                        updated_configuration["max_member_count"] = lobby->get_max_member_count();
+                    }
+                    if (change->accessPolicyUpdated) {
+                        updated_configuration["access_policy"] = lobby->get_access_policy();
+                    }
+                    if (change->membershipLockUpdated) {
+                        updated_configuration["membership_lock"] = lobby->get_membership_lock();
+                    }
+#if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
+                    if (change->restrictInvitesToLobbyOwnerUpdated) {
+                        updated_configuration["restrict_invites_to_lobby_owner"] = lobby->get_restrict_invites_to_lobby_owner();
+                    }
+#endif
+                    if (!updated_configuration.is_empty()) {
+                        _emit_lobby_change(PlayFabLobby::CONFIGURATION_UPDATED, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), updated_configuration);
+                    }
                 }
             } break;
             case PFLobbyStateChangeType::InviteReceived: {
@@ -2364,12 +2877,32 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
                 invite->set_snapshot(pf_string(change->lobbyId), pf_string(change->connectionString), entity_key_to_dictionary(&change->invitingEntity));
                 emit_signal("invite_received", invite);
             } break;
+            case PFLobbyStateChangeType::Disconnecting: {
+                const auto *change = static_cast<const PFLobbyDisconnectingStateChange *>(state_change);
+                Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
+                if (lobby.is_valid()) {
+                    // Cache the reason while the native handle is still live;
+                    // the Disconnected state change that follows carries no
+                    // reason of its own.
+                    const int64_t reason = from_disconnecting_reason(change->reason);
+                    lobby->set_disconnecting_reason(reason);
+                    _emit_lobby_change(PlayFabLobby::DISCONNECTING, lobby, PlayFabResult::ok_result(), Ref<PlayFabLobbyMember>(), Dictionary(), reason);
+                }
+            } break;
             case PFLobbyStateChangeType::Disconnected: {
                 const auto *change = static_cast<const PFLobbyDisconnectedStateChange *>(state_change);
                 Ref<PlayFabLobby> lobby = _find_lobby(change->lobby);
                 if (lobby.is_valid()) {
+                    const int64_t reason = lobby->get_disconnecting_reason();
                     lobby->mark_disconnected();
-                    _emit_lobby_change(PlayFabLobby::DISCONNECTED, lobby, PlayFabResult::ok_result());
+                    // A normal end of session (no local members remain) stays
+                    // an OK result. Anything else means the title lost the
+                    // lobby without asking, and must not be reported as a
+                    // successful local leave.
+                    Ref<PlayFabResult> result = disconnecting_reason_is_failure(reason) ?
+                            PlayFabResult::error_result(E_ABORT, "lobby_disconnected", disconnecting_reason_message(reason)) :
+                            PlayFabResult::ok_result();
+                    _emit_lobby_change(PlayFabLobby::DISCONNECTED, lobby, result, Ref<PlayFabLobbyMember>(), Dictionary(), reason);
                 }
             } break;
             default:

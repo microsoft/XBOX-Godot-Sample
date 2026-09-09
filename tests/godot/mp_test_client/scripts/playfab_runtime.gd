@@ -87,6 +87,9 @@ const RATE_BUDGETS: Dictionary = {
 	"leave_lobby_async":            { "max_calls": 18, "window_ms": 120_000 },
 	"set_properties_async":         { "max_calls": 35, "window_ms": 120_000 },
 	"set_member_properties_async":  { "max_calls": 35, "window_ms": 120_000 },
+	"set_search_properties_async":  { "max_calls": 35, "window_ms": 120_000 },
+	"set_membership_lock_async":    { "max_calls": 35, "window_ms": 120_000 },
+	"post_update_async":            { "max_calls": 35, "window_ms": 120_000 },
 	"create_match_ticket_async":    { "max_calls": 4,  "window_ms": 60_000  },
 	"cancel_match_ticket_async":    { "max_calls": 5,  "window_ms": 60_000  },
 }

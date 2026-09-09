@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="PlayFabLobbyUpdateConfig" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Batched update request for an existing PlayFab lobby.
+	</brief_description>
+	<description>
+		Passed to [method PlayFabLobby.post_update_async] to change one or more lobby settings in a single service round trip.
+		Fields are tracked by presence, not by value: a field is only sent when it has been explicitly assigned, so [code]false[/code] and enum value [code]0[/code] stay sendable instead of being indistinguishable from "leave unchanged". Assigning a property marks the field present; the matching [code]clear_*[/code] method returns it to "unchanged", and [method is_empty] reports whether anything is pending.
+		Changing lobby configuration requires lobby ownership; non-owner callers receive a failure result from the service. [member new_owner_entity_key] is the exception — a non-owner may claim ownership when the lobby was created with [code]OWNER_MIGRATION_MANUAL[/code] or [code]OWNER_MIGRATION_NONE[/code], so no client-side owner check is applied.
+		[codeblock]
+		var update := PlayFabLobbyUpdateConfig.new()
+		update.membership_lock = PlayFabLobbyUpdateConfig.MEMBERSHIP_LOCK_LOCKED
+		update.access_policy = PlayFabLobbyUpdateConfig.ACCESS_POLICY_PRIVATE
+		update.max_member_count = 4
+		update.search_properties = {"string_key1": "in_progress"}
+
+		var result = await lobby.post_update_async(update).completed
+		if not result.ok:
+		    push_error("Lobby update failed: %s" % result.message)
+		[/codeblock]
+	</description>
+	<tutorials></tutorials>
+	<methods>
+		<method name="is_empty" qualifiers="const"><return type="bool" /><description>Returns [code]true[/code] when no field has been assigned. Posting an empty update fails immediately with the [code]invalid_update[/code] error code instead of making a service call.</description></method>
+		<method name="has_membership_lock" qualifiers="const"><return type="bool" /><description>Returns whether [member membership_lock] was explicitly assigned.</description></method>
+		<method name="clear_membership_lock"><return type="void" /><description>Drops [member membership_lock] from the update.</description></method>
+		<method name="has_access_policy" qualifiers="const"><return type="bool" /><description>Returns whether [member access_policy] was explicitly assigned.</description></method>
+		<method name="clear_access_policy"><return type="void" /><description>Drops [member access_policy] from the update.</description></method>
+		<method name="has_max_member_count" qualifiers="const"><return type="bool" /><description>Returns whether [member max_member_count] was explicitly assigned.</description></method>
+		<method name="clear_max_member_count"><return type="void" /><description>Drops [member max_member_count] from the update.</description></method>
+		<method name="has_restrict_invites_to_lobby_owner" qualifiers="const"><return type="bool" /><description>Returns whether [member restrict_invites_to_lobby_owner] was explicitly assigned. Assigning [code]false[/code] still marks the field present, which is how the flag can be turned back off.</description></method>
+		<method name="clear_restrict_invites_to_lobby_owner"><return type="void" /><description>Drops [member restrict_invites_to_lobby_owner] from the update.</description></method>
+		<method name="has_new_owner_entity_key" qualifiers="const"><return type="bool" /><description>Returns whether [member new_owner_entity_key] was explicitly assigned.</description></method>
+		<method name="clear_new_owner_entity_key"><return type="void" /><description>Drops [member new_owner_entity_key] from the update.</description></method>
+		<method name="has_search_properties" qualifiers="const"><return type="bool" /><description>Returns whether [member search_properties] was explicitly assigned.</description></method>
+		<method name="clear_search_properties"><return type="void" /><description>Drops [member search_properties] from the update.</description></method>
+		<method name="has_lobby_properties" qualifiers="const"><return type="bool" /><description>Returns whether [member lobby_properties] was explicitly assigned.</description></method>
+		<method name="clear_lobby_properties"><return type="void" /><description>Drops [member lobby_properties] from the update.</description></method>
+	</methods>
+	<members>
+		<member name="membership_lock" type="int" setter="set_membership_lock" getter="get_membership_lock">Whether new members may join; use [code]MEMBERSHIP_LOCK_*[/code] constants. Locking closes the lobby to further joins without changing [member access_policy] and without removing existing members — use it to seal a lobby once a match starts.</member>
+		<member name="access_policy" type="int" setter="set_access_policy" getter="get_access_policy">Who can discover and join the lobby; use [code]ACCESS_POLICY_*[/code] constants. Values mirror [PlayFabLobbyConfig], so the same constant works at create time and at update time.</member>
+		<member name="max_member_count" type="int" setter="set_max_member_count" getter="get_max_member_count">New member capacity. Must be between [code]2[/code] and [code]128[/code] inclusive and must not be below the lobby's current member count. Unlike [method PlayFabMultiplayer.create_lobby_async], which clamps, out-of-range values here fail with the [code]invalid_update[/code] error code so a shrink that would evict members is never silently rewritten.</member>
+		<member name="restrict_invites_to_lobby_owner" type="bool" setter="set_restrict_invites_to_lobby_owner" getter="get_restrict_invites_to_lobby_owner">When true, only the lobby owner can invite. [b]Requires the April 2026 GDK ([code]260400[/code]+).[/b] On the October 2025 GDK, posting an update that assigns this field fails with the [code]unsupported_on_gdk_edition[/code] error code.</member>
+		<member name="new_owner_entity_key" type="Dictionary" setter="set_new_owner_entity_key" getter="get_new_owner_entity_key">Entity key of the member to transfer ownership to, as [code]{"id": ..., "type": ...}[/code]. Both entries are required and must be non-empty; otherwise the update fails with [code]invalid_update[/code].</member>
+		<member name="search_properties" type="Dictionary" setter="set_search_properties" getter="get_search_properties">Search string properties to write (the [member PlayFabLobbyConfig.search_properties] bucket). Keys must use the reserved [code]string_keyN[/code] / [code]number_keyN[/code] names PlayFab requires for search. Values must be [String] or [StringName], or [code]null[/code] to delete that key; omitted keys are left unchanged.</member>
+		<member name="lobby_properties" type="Dictionary" setter="set_lobby_properties" getter="get_lobby_properties">Member-visible lobby properties to write (the [member PlayFabLobbyConfig.lobby_properties] bucket). Values must be [String] or [StringName], or [code]null[/code] to delete that key; omitted keys are left unchanged. Equivalent to [method PlayFabLobby.set_properties_async] when it is the only assigned field.</member>
+	</members>
+	<signals></signals>
+	<constants>
+		<constant name="ACCESS_POLICY_PUBLIC" value="0">Publicly searchable lobby.</constant>
+		<constant name="ACCESS_POLICY_FRIENDS" value="1">Friends-visible lobby.</constant>
+		<constant name="ACCESS_POLICY_PRIVATE" value="2">Private lobby.</constant>
+		<constant name="MEMBERSHIP_LOCK_UNLOCKED" value="0">New members may join.</constant>
+		<constant name="MEMBERSHIP_LOCK_LOCKED" value="1">New members may not join. Existing members stay in the lobby.</constant>
+	</constants>
+</class>
