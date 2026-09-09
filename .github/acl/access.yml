@@ -16,6 +16,5 @@ configuration:
     role: Maintain
   - member: jameslen
     role: Maintain
-  # Write (Push) members
   - member: GerardoMal-ATG
-    role: Push
+    role: Maintain
