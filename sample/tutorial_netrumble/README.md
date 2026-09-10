@@ -1,7 +1,8 @@
 # XBOX Godot NetRumble
 
-**This folder is a pointer, not a project.** NetRumble lives in its own repository (currently private):
+**This folder is a pointer, not a project.** NetRumble lives in its own repository:
 [microsoft/XBOX-Godot-NetRumble](https://github.com/microsoft/XBOX-Godot-NetRumble)
+
 ## What it is
 
 NetRumble is a complete Godot 4 multiplayer game that integrates the Microsoft Game
@@ -44,11 +45,6 @@ account. Exporting to XBOX Series X|S additionally requires the W4 Games console
 Godot.
 
 Full setup lives in the NetRumble repository's own README and `docs/`.
-
-> [!NOTE]
-> The NetRumble repository is currently private, so the link above will return a 404 unless
-> you have been granted access. Request access from the XBOX Developer Middleware, Samples
-> and Skills squad.
 
 ## See also
 
