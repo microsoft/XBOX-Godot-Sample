@@ -73,4 +73,4 @@ the GDScript samples demonstrate, expressed in C#.
 - GDScript counterpart: [`sample/tutorial_gdk/`](../tutorial_gdk/README.md)
 - [C# facade reference](../../docs/gdk/csharp.md)
 - [Tutorials index](../../docs/tutorials/README.md)
-- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
+- Full game reference (external): [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
