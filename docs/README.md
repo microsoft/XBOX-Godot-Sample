@@ -53,7 +53,7 @@ docs/
 > - `sample/tutorial_playfab/` — PlayFab-only tutorial track (sign-in,
 >   leaderboards, lobby, Party)
 > - `sample/tutorial_integrated/` — integrated GDK + PlayFab track
->   (Xbox→PlayFab sign-in, integration tech demo)
+>   (XBOX→PlayFab sign-in, integration tech demo)
 > - `sample/tutorial_gameinput/` — standalone GameInput demo
 >
 > `sample/tutorial_netrumble/` is a pointer rather than a committed

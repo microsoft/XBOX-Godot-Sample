@@ -50,7 +50,7 @@ If your project drifts from a tutorial, open the matching sample scene and compa
 
 - [`sample/tutorial_gdk/`](../../sample/tutorial_gdk/README.md) — GDK-only track (`g01` → `g04`).
 - [`sample/tutorial_playfab/`](../../sample/tutorial_playfab/README.md) — PlayFab-only track (`p01` → `p05`).
-- [`sample/tutorial_integrated/`](../../sample/tutorial_integrated/README.md) — integrated Xbox + PlayFab track (`i01` → `i02`).
+- [`sample/tutorial_integrated/`](../../sample/tutorial_integrated/README.md) — integrated XBOX + PlayFab track (`i01` → `i02`).
 - [`sample/tutorial_gameinput/`](../../sample/tutorial_gameinput/README.md) — standalone GameInput sample.
 
 For a complete game rather than a per-surface reference, see
