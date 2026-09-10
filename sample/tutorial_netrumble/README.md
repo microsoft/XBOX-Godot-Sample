@@ -24,7 +24,7 @@ like once the addons are in use. It is a working sample, not a certified title.
 - Voice chat, and text verification before user-authored content is published
 - One-shot and incremental achievements
 - Cloud saves written to the Game Save folder rather than `user://`
-- Suspend, resume and constrain handling
+- Suspend, resume, and constraint handling
 - Activity publishing, join-from-guide invites, and connectivity detection
 
 Every platform call goes through a single services facade, so gameplay and UI never reach
