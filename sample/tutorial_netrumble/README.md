@@ -1,7 +1,7 @@
 # XBOX Godot NetRumble
 
 **This folder is a pointer, not a project.** NetRumble lives in its own repository (currently private):
-`microsoft/XBOX-Godot-NetRumble`
+[microsoft/XBOX-Godot-NetRumble](https://github.com/microsoft/XBOX-Godot-NetRumble)
 ## What it is
 
 NetRumble is a complete Godot 4 multiplayer game that integrates the Microsoft Game
