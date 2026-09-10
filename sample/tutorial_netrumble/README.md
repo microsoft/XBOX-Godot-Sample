@@ -42,7 +42,7 @@ GDK, PlayFab and GameInput addons flow into NetRumble when it moves that pin.
 
 Godot 4.6 or later on Windows, with the addons built once from the submodule. Sign-in,
 multiplayer and achievements need the PC in the **XDKS.1** sandbox and a signed-in test
-account. Exporting to XBOX Series X|S additionally requires the W4 Games console fork of
+account. Exporting to XBOX Series X|S additionally requires a middleware console fork of
 Godot.
 
 Full setup lives in the NetRumble repository's own README and `docs/`.
