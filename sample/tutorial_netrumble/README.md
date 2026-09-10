@@ -6,9 +6,9 @@
 ## What it is
 
 NetRumble is a complete Godot 4 multiplayer game that integrates the Microsoft Game
-Development Kit (GDK) and PlayFab. It is a 2D top-down space shooter: up to 8 players fly
-ships around a wrapping asteroid field, collect weapon power-ups, and shoot each other for
-points.
+Development Kit (GDK) and PlayFab. It is a 2D top-down space shooter: players fly ships
+through an asteroid field inside a walled arena, collect weapon power-ups, and shoot each
+other for points.
 
 Where the tutorial samples in this repository demonstrate one surface at a time, NetRumble
 wires every service into actual gameplay. It is the reference for what a full title looks
