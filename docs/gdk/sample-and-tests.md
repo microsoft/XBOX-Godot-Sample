@@ -26,6 +26,11 @@ The repository currently ships four tutorial-driven sample projects:
 - `sample\tutorial_gameinput\` — standalone GameInput tutorial sample. It is
   wired for the GameInput addon rather than the Microsoft GDK runtime addon.
 
+`sample\tutorial_netrumble\` is not one of those four. It holds documentation only,
+pointing at [XBOX Godot NetRumble](../../sample/tutorial_netrumble/README.md), a full
+multiplayer game hosted in a separate repository. Nothing is mirrored into it by the
+CMake build.
+
 The test hosts under `tests\godot\` remain the automated coverage projects;
 the sample projects are reader-facing tutorial references, not GUT hosts.
 

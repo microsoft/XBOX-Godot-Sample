@@ -56,6 +56,8 @@ This is the **first step** in our XBOX Godot Sample integration journey. We plan
 
 The addons are designed to be dropped into any Godot 4.5+ project. This repository is where the addons are authored, built, tested, and demonstrated through the tutorial sample projects under `sample/tutorial_gdk/`, `sample/tutorial_playfab/`, `sample/tutorial_integrated/`, and `sample/tutorial_gameinput/`. Build the addons from source per [Getting started](docs/getting-started.md), then drop the addon folders into your project.
 
+For a complete game built on these addons rather than a per-surface walkthrough, see [XBOX Godot NetRumble](sample/tutorial_netrumble/README.md), which lives in a separate repository.
+
 | Addon | Description |
 |-------|-------------|
 | [`godot_gdk`](addons/godot_gdk/) | GDK runtime + PC-supported XBOX services: users, achievements, presence, social, profile, privacy, multiplayer activity, stats, leaderboards, title storage, string verification, package metadata + DLC, XStore commerce, GameUI, accessibility, capture, launcher, error reporting, system metadata |
