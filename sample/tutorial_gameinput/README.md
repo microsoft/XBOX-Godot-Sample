@@ -41,4 +41,4 @@ Install the Godot 4.6.1 export templates under
 - GDK-only sample: [`sample/tutorial_gdk/`](../tutorial_gdk/README.md)
 - PlayFab-only sample: [`sample/tutorial_playfab/`](../tutorial_playfab/README.md)
 - Integrated GDK + PlayFab sample: [`sample/tutorial_integrated/`](../tutorial_integrated/README.md)
-- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
+- Full game reference (external): [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
