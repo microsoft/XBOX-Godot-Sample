@@ -65,4 +65,4 @@ The P1 sign-in scene and the picker status show the active custom id.
 - [Tutorials index](../../docs/tutorials/README.md)
 - [PlayFab prerequisites](../../docs/playfab/prerequisites.md)
 - [Troubleshooting](../../docs/troubleshooting.md)
-- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
+- Full game reference (external): [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
