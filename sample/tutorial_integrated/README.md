@@ -61,3 +61,4 @@ The sample includes a committed `export_presets.cfg` so a clean clone has editab
 - GDK-only sample: [`sample/tutorial_gdk/`](../tutorial_gdk/README.md)
 - PlayFab-only sample: [`sample/tutorial_playfab/`](../tutorial_playfab/README.md)
 - Standalone GameInput sample: [`sample/tutorial_gameinput/`](../tutorial_gameinput/README.md)
+- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)

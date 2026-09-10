@@ -67,3 +67,4 @@ Party tab uses PlayFab Party's managed transport.
 - GDScript counterpart: [`sample/tutorial_integrated/`](../tutorial_integrated/README.md)
 - [C# facade reference](../../docs/gdk/csharp.md)
 - [Tutorials index](../../docs/tutorials/README.md)
+- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)

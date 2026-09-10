@@ -53,6 +53,11 @@ If your project drifts from a tutorial, open the matching sample scene and compa
 - [`sample/tutorial_integrated/`](../../sample/tutorial_integrated/README.md) — integrated Xbox + PlayFab track (`i01` → `i02`).
 - [`sample/tutorial_gameinput/`](../../sample/tutorial_gameinput/README.md) — standalone GameInput sample.
 
+For a complete game rather than a per-surface reference, see
+[`sample/tutorial_netrumble/`](../../sample/tutorial_netrumble/README.md), which documents
+XBOX Godot NetRumble. NetRumble is built on these addons and hosted in a separate
+repository.
+
 Samples have CMake-mirrored `addons/` folders; run `cmake --build build --preset debug` from the repo root once before opening them in Godot.
 
 ## Recommended reading order

@@ -797,6 +797,11 @@ files stay intact.
 > once (`cmake --build build --preset debug`) so each project's mirrored
 > `addons/` are populated, then open one in Godot. See
 > [the tutorials](tutorials/README.md) for the per-track walkthroughs.
+>
+> `sample/tutorial_netrumble/` contains no project of its own. It
+> documents [XBOX Godot NetRumble](../sample/tutorial_netrumble/README.md),
+> a full multiplayer game built on these addons and hosted in a
+> separate repository.
 
 ### Run the tests
 
@@ -846,6 +851,7 @@ sample/                   # Tutorial sample projects:
                           #   tutorial_playfab/     — PlayFab-only track
                           #   tutorial_integrated/  — GDK + PlayFab track
                           #   tutorial_gameinput/   — standalone GameInput
+                          #   tutorial_netrumble/   — pointer to the external NetRumble game
 tests/                    # Baselines, C++ doctest sources, and Godot test hosts
   godot/gdk/              # GDK and GDK packaging test host
   godot/playfab/          # PlayFab test host

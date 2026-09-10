@@ -56,6 +56,11 @@ docs/
 >   (Xbox→PlayFab sign-in, integration tech demo)
 > - `sample/tutorial_gameinput/` — standalone GameInput demo
 >
+> `sample/tutorial_netrumble/` is a pointer rather than a committed
+> host: it documents [XBOX Godot NetRumble](../sample/tutorial_netrumble/README.md),
+> a full multiplayer game built on these addons that lives in a
+> separate repository.
+>
 > [The tutorials](../docs/tutorials/README.md) walk through each
 > surface, and the test hosts under `tests/godot/` exercise the
 > addons end-to-end.
