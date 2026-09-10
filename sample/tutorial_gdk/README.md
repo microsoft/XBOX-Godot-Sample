@@ -52,4 +52,4 @@ This Godot 4.x project is the reference implementation for the [GDK tutorial tra
 - [Tutorials index](../../docs/tutorials/README.md)
 - [GDK setup](../../docs/gdk/sample-setup.md)
 - [Troubleshooting](../../docs/troubleshooting.md)
-- Full game sample: [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
+- Full game reference (external): [`sample/tutorial_netrumble/`](../tutorial_netrumble/README.md)
