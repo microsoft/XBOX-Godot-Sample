@@ -767,13 +767,17 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
         const String &p_leaderboard_name,
         bool p_include_xbox_friends,
         int64_t p_version) {
-    const FriendSources sources =
-            p_include_xbox_friends ? FRIEND_SOURCE_XBOX : FRIEND_SOURCE_NONE;
+    const FriendSources sources = _friend_sources_from_legacy_bool(p_include_xbox_friends);
     return get_friend_leaderboard_with_sources_async(
             p_user,
             p_leaderboard_name,
             BitField<FriendSources>(sources),
             p_version);
+}
+
+PlayFabLeaderboards::FriendSources PlayFabLeaderboards::_friend_sources_from_legacy_bool(
+        bool p_include_xbox_friends) {
+    return p_include_xbox_friends ? FRIEND_SOURCE_XBOX : FRIEND_SOURCE_NONE;
 }
 
 Signal PlayFabLeaderboards::get_friend_leaderboard_with_sources_async(

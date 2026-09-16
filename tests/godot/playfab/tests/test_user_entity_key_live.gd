@@ -11,33 +11,19 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 
 
 func test_entity_key_populated_and_consistent_after_sign_in() -> void:
-	if pending_unless_live():
-		return
-	if pending_unless_playfab_available():
-		return
-
-	var playfab = get_playfab()
-
-	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
-	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise PlayFabUser.entity_key live coverage.")
-		return
-
-	reset_playfab_runtime()
-	var init_result = playfab.initialize()
-	if init_result == null or not init_result.ok:
-		pending("PlayFab.initialize() live setup skipped: %s" % (init_result.message if init_result != null else "null result"))
-		return
-
-	var custom_id_session = await sign_in_with_configured_custom_id(playfab, "entity_key live coverage")
-	var playfab_user = custom_id_session.get("playfab_user")
+	var session = await begin_playfab_live_session(
+		"PlayFabUser.entity_key live coverage",
+		false,
+		false,
+		false,
+		true)
+	var playfab_user = session.get("playfab_user")
 	if playfab_user == null:
-		playfab.shutdown()
 		return
 
+	var playfab = session["playfab"]
 	assert_object_is(playfab_user, "PlayFabUser", "PlayFab sign-in returns PlayFabUser")
 	if playfab_user == null:
-		playfab.shutdown()
 		return
 
 	var first_key: Dictionary = playfab_user.entity_key
@@ -63,5 +49,3 @@ func test_entity_key_populated_and_consistent_after_sign_in() -> void:
 		var cached_key: Dictionary = cached_user.entity_key
 		assert_eq(str(cached_key.get("id", "")), first_id, "cached PlayFabUser.entity_key.id matches original")
 		assert_eq(str(cached_key.get("type", "")), first_type, "cached PlayFabUser.entity_key.type matches original")
-
-	playfab.shutdown()

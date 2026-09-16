@@ -209,6 +209,10 @@ expected rows fail the test. The fixture uses pre-existing identities,
 relationships, and scores; this change does not automatically provision or
 link platform accounts.
 
+The separate live-write settle check also fails once selected if the submitted
+score does not appear within `playfab/tests/leaderboard_settle_msec`; increase
+that test-host-only budget for a consistently slower sandbox.
+
 For production titles that require validated writes (anti-cheat,
 server-authoritative scoring), keep client writes off the direct
 leaderboard endpoint and route the writes through CloudScript, Azure
@@ -423,4 +427,3 @@ the diagnostic next steps.
   `PlayFabResult`.
 - [Troubleshooting](../troubleshooting.md) — error-code references
   for common failure modes.
-

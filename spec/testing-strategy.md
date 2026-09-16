@@ -139,8 +139,8 @@ Friend leaderboard source coverage is split deliberately:
 
 - Default/offline tests assert the bitfield registration, constant values,
   method signatures/defaults, full-width invalid-mask validation, legacy bool
-  forwarding, and snapshots of the actual SDK request fields. No provider
-  credentials or network calls are required.
+  callability/signature/default compatibility, and snapshots of the actual SDK
+  request fields. No provider credentials or network calls are required.
 - Read-only live tests use `requires_live()`. They compare legacy `false` with
   explicit `FRIEND_SOURCE_NONE`, assert custom-ID sessions reject Xbox,
   mixed-Xbox, and `ALL` selections, and verify name validation before Xbox

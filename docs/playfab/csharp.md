@@ -119,16 +119,6 @@ the native source bitfield through the nested
 ```csharp
 using FriendSources = GodotPlayFab.Services.PlayFabLeaderboards.FriendSources;
 
-// PlayFab friends only.
-PlayFabResult playFabOnly =
-    await PlayFab.Leaderboards.GetFriendLeaderboardWithSourcesAsync(
-        pf, "high_score", FriendSources.None);
-
-// Steam only; provider setup/linkage happens before this call.
-PlayFabResult steam =
-    await PlayFab.Leaderboards.GetFriendLeaderboardWithSourcesAsync(
-        steamUser, "high_score", FriendSources.Steam);
-
 // Ordinary provider flags can be combined. Xbox requires an Xbox-backed
 // PlayFabUser returned by SignInWithXUserAsync.
 PlayFabResult steamAndXbox =
@@ -136,11 +126,6 @@ PlayFabResult steamAndXbox =
         xboxBackedUser,
         "high_score",
         FriendSources.Steam | FriendSources.Xbox);
-
-// All is the standalone PlayFab selector 0x10, not the OR value 0x0f.
-PlayFabResult all =
-    await PlayFab.Leaderboards.GetFriendLeaderboardWithSourcesAsync(
-        xboxBackedUser, "high_score", FriendSources.All);
 ```
 
 The values are `None = 0`, `Steam = 1`, `Facebook = 2`, `Xbox = 4`,
@@ -149,6 +134,10 @@ Xbox-containing by the addon. The unchanged
 `GetFriendLeaderboardAsync(user, leaderboard_name,
 include_xbox_friends: true, version: -1)` remains available; `false` maps to
 `None` and `true` maps to `Xbox`.
+
+See the [PlayFab plugin guide](plugin.md#friend-leaderboard-sources) for the
+complete source-selection behavior and
+[PlayFab prerequisites](prerequisites.md) for provider setup.
 
 The facade does not duplicate validation or token acquisition. Invalid masks,
 missing Xbox-backed sessions, provider failures, and other native errors arrive

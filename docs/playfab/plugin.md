@@ -200,34 +200,12 @@ For Godot clients, prefer the statistic-backed leaderboard path: write scores wi
 explicit source-selecting API:
 
 ```gdscript
-# Compatibility API: false maps to NONE; true maps to XBOX.
-await PlayFab.leaderboards.get_friend_leaderboard_async(
-        user, "high_score", false)
-
-# PlayFab friends only.
-await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
-        user,
-        "high_score",
-        PlayFabLeaderboards.FRIEND_SOURCE_NONE)
-
-# Steam only.
-await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
-        steam_user,
-        "high_score",
-        PlayFabLeaderboards.FRIEND_SOURCE_STEAM)
-
-# Ordinary source flags can be combined.
+# Ordinary source flags can be combined; Xbox requires an Xbox-backed user.
 var steam_and_xbox := (
         PlayFabLeaderboards.FRIEND_SOURCE_STEAM
         | PlayFabLeaderboards.FRIEND_SOURCE_XBOX)
-await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
+var result = await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
         xbox_backed_user, "high_score", steam_and_xbox)
-
-# ALL is the standalone PlayFab selector 0x10, not a 0x0f expansion.
-await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
-        xbox_backed_user,
-        "high_score",
-        PlayFabLeaderboards.FRIEND_SOURCE_ALL)
 ```
 
 The source constants are `FRIEND_SOURCE_NONE` (`0`),
@@ -236,6 +214,12 @@ The source constants are `FRIEND_SOURCE_NONE` (`0`),
 `FRIEND_SOURCE_ALL` (`16`). Accepted masks are `0..15` plus standalone `16`;
 unknown bits and `ALL` combined with any ordinary source return
 `invalid_friend_sources`.
+
+The compatibility method maps `include_xbox_friends = false` to `NONE` and
+`true` to `XBOX`. See the
+[leaderboard tutorial](../tutorials/playfab/02-leaderboard.md) for the runnable
+PlayFab-only flow and [PlayFab prerequisites](prerequisites.md) for provider
+configuration.
 
 Steam, Facebook, and PSN source selection assumes the title and account were
 already configured or linked for that provider. The request has no per-call
@@ -305,7 +289,7 @@ Live tests run with `-Live` and require a PlayFab title id plus a pre-existing c
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 -Hosts tests\godot\playfab -Live -PlayFabTitleId "10D176" -PlayFabCustomId "godot-gdk-ext-live-smoke" -PlayFabMatchmakingQueue "godot_gdk_ext_live_smoke_queue"
 ```
 
-The runner forwards those values only to child processes as `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`; the PlayFab test base applies the title id to `playfab/runtime/title_id` and uses the custom id for `create_account=false` sign-in. The Multiplayer runner derives worker accounts from `PLAYFAB_CUSTOM_ID` as `<custom-id>-multiplayer-host/client/observer` unless `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` overrides the prefix. The developer secret key is only consumed by `tools\configure_playfab_test_title.ps1`, not by Godot test processes. Project settings (`playfab/runtime/title_id`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Friend leaderboard reads run in the read-only `-Live` tier; optional provider fixtures use `PLAYFAB_TEST_FRIEND_SOURCES` and `PLAYFAB_TEST_FRIEND_ENTITY_IDS` and fail strictly once selected. Persistent writes, including leaderboard submissions and the PlayFab Multiplayer multi-client lobby smoke, remain behind `-AllowLiveWrites`, so run that tier only against a personal sandbox title. Leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and mark pending, not failed, when the service is eventually consistent beyond that budget. The live Multiplayer orchestration uses three worker processes and covers lobby creation, search isolation, private lobby discovery behavior, invalid joins, three-member snapshots, member/lobby property propagation, leave/rejoin behavior, owner migration, and cleanup; when `-PlayFabMatchmakingQueue` or `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set it also covers match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
+The runner forwards those values only to child processes as `PLAYFAB_TITLE_ID`, `PLAYFAB_CUSTOM_ID`, and `PLAYFAB_MULTIPLAYER_MATCH_QUEUE`; the PlayFab test base applies the title id to `playfab/runtime/title_id` and uses the custom id for `create_account=false` sign-in. The Multiplayer runner derives worker accounts from `PLAYFAB_CUSTOM_ID` as `<custom-id>-multiplayer-host/client/observer` unless `PLAYFAB_MULTIPLAYER_CUSTOM_ID_PREFIX` overrides the prefix. The developer secret key is only consumed by `tools\configure_playfab_test_title.ps1`, not by Godot test processes. Project settings (`playfab/runtime/title_id`, `playfab/tests/custom_id`) and the `PLAYFAB_CUSTOM_ID` environment variable remain supported for manual runs. Friend leaderboard reads run in the read-only `-Live` tier; optional provider fixtures use `PLAYFAB_TEST_FRIEND_SOURCES` and `PLAYFAB_TEST_FRIEND_ENTITY_IDS` and fail strictly once selected. Persistent writes, including leaderboard submissions and the PlayFab Multiplayer multi-client lobby smoke, remain behind `-AllowLiveWrites`, so run that tier only against a personal sandbox title. Once selected, leaderboard read-after-write checks poll up to `playfab/tests/leaderboard_settle_msec` and fail when the service does not converge within that budget. The live Multiplayer orchestration uses three worker processes and covers lobby creation, search isolation, private lobby discovery behavior, invalid joins, three-member snapshots, member/lobby property propagation, leave/rejoin behavior, owner migration, and cleanup; when `-PlayFabMatchmakingQueue` or `PLAYFAB_MULTIPLAYER_MATCH_QUEUE` is set it also covers match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
 
 The PlayFab host uses custom-ID sign-in for default coverage. By default, CMake also mirrors `godot_gdk` into `tests\godot\playfab` so optional XBOX-backed compatibility tests can call `ensure_gdk_primary_user_for_playfab()`. Configure with `-DGODOT_PLAYFAB_TEST_HOST_WITH_GDK=OFF` to omit that mirror; Microsoft GDK-backed helpers skip cleanly when the addon is not present.
 

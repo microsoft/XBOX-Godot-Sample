@@ -31,7 +31,7 @@ theme_override_font_sizes/font_size = 24
 
 [node name="Subtitle" type="Label" parent="Root"]
 layout_mode = 2
-text = "PlayFab.leaderboards.submit_score_async / get_leaderboard_async / get_leaderboard_around_user_async / get_friend_leaderboard_with_sources_async."
+text = "PlayFab.statistics.update_statistics_async / get_leaderboard_async / get_leaderboard_around_user_async / get_friend_leaderboard_with_sources_async."
 autowrap_mode = 3
 
 [node name="Buttons" type="HBoxContainer" parent="Root"]
@@ -70,4 +70,3 @@ size_flags_vertical = 3
 layout_mode = 2
 bbcode_enabled = true
 scroll_following = true
-

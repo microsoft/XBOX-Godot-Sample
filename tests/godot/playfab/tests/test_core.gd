@@ -199,6 +199,24 @@ func test_project_settings_registration() -> void:
 	assert_eq(bool(get_setting_default(PLAYFAB_INITIALIZE_ON_STARTUP_SETTING)), false, "playfab/runtime/initialize_on_startup defaults to false")
 
 
+func test_live_rate_limit_detection() -> void:
+	assert_true(
+		is_playfab_rate_limit_result({"hresult": -1994173219}),
+		"rate-limit detection accepts the signed HRESULT exposed by PlayFabResult")
+	assert_true(
+		is_playfab_rate_limit_result({"hresult": 0x892354DD}),
+		"rate-limit detection accepts the unsigned HRESULT")
+	assert_false(
+		is_playfab_rate_limit_result({"ok": true, "hresult": -1994173219}),
+		"rate-limit detection rejects successful results before inspecting HRESULT")
+	assert_false(
+		is_playfab_rate_limit_result({
+			"hresult": 0x80004005,
+			"code": "playfab_custom_id_sign_in_failed",
+		}),
+		"rate-limit detection rejects unrelated PlayFab failures")
+
+
 func test_initialize_rejects_blank_title_id() -> void:
 	if pending_unless_playfab_available():
 		return

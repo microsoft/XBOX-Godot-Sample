@@ -158,6 +158,10 @@ func test_friend_leaderboard_request_shape() -> void:
 			friend_sources, SYNTHETIC_TOKEN)
 		assert_playfab_result_ok(
 			result, "friend request snapshot accepts source mask %d" % friend_sources)
+		if result != null and result.ok:
+			assert_true(
+				result.data is Dictionary,
+				"friend request snapshot returns Dictionary data for source mask %d" % friend_sources)
 		if result == null or not result.ok or not (result.data is Dictionary):
 			continue
 
@@ -191,6 +195,10 @@ func test_friend_leaderboard_request_shape() -> void:
 		var version_result = leaderboards._test_friend_leaderboard_request(0, "", version)
 		assert_playfab_result_ok(
 			version_result, "friend request snapshot accepts version %d" % version)
+		if version_result != null and version_result.ok:
+			assert_true(
+				version_result.data is Dictionary,
+				"friend request snapshot returns Dictionary data for version %d" % version)
 		if version_result != null and version_result.ok and version_result.data is Dictionary:
 			assert_eq(
 				int(version_result.data.get("version", -1)),
@@ -203,6 +211,10 @@ func test_friend_leaderboard_request_shape() -> void:
 		assert_playfab_result_ok(
 			empty_token_result,
 			"friend request snapshot accepts empty synthetic token for mask %d" % friend_sources)
+		if empty_token_result != null and empty_token_result.ok:
+			assert_true(
+				empty_token_result.data is Dictionary,
+				"empty-token friend request snapshot returns Dictionary data for mask %d" % friend_sources)
 		if empty_token_result != null and empty_token_result.ok and empty_token_result.data is Dictionary:
 			assert_null(
 				empty_token_result.data.get("xbox_token"),

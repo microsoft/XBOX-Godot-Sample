@@ -23,19 +23,39 @@ const _DEFAULT_OP_TIMEOUT_MSEC := 60000
 const _STATE_PUMP_FRAMES := 30
 
 
+func after_each() -> void:
+	var playfab: Object = get_playfab()
+	if playfab == null or not playfab.is_initialized():
+		return
+	var multiplayer: Object = playfab.get_multiplayer()
+	if multiplayer == null or not multiplayer.is_initialized():
+		return
+
+	var lobbies: Array = multiplayer.get_lobbies()
+	for lobby in lobbies:
+		if lobby == null:
+			continue
+		var leave_result = await await_completion(
+			lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
+		if leave_result == null:
+			push_warning("Timed out while cleaning up a live-test lobby.")
+		elif not leave_result.ok:
+			push_warning("Failed to clean up a live-test lobby: %s" % leave_result.message)
+	if not lobbies.is_empty():
+		await advance_process_frames(_STATE_PUMP_FRAMES)
+
+
 func test_lobby_member_props_and_leave_state_signals() -> void:
 	var session = await _begin_multiplayer_session()
 	var playfab_user = session.get("playfab_user")
 	if playfab_user == null:
 		return
 
-	var playfab: Object = session["playfab"]
 	var multiplayer: Object = session["multiplayer"]
 
 	var lobby_config = instantiate_class("PlayFabLobbyConfig")
 	assert_object_is(lobby_config, "PlayFabLobbyConfig", "PlayFabLobbyConfig instantiable for live create")
 	if lobby_config == null:
-		_finish_session(playfab, null)
 		return
 
 	lobby_config.max_players = 4
@@ -50,12 +70,10 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	if create_result == null:
 		multiplayer.state_changed.disconnect(on_service_change)
 		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
-		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
 		multiplayer.state_changed.disconnect(on_service_change)
 		pending("PlayFab.multiplayer.create_lobby_async failed: %s" % create_result.message)
-		_finish_session(playfab, null)
 		return
 
 	var lobby: Object = create_result.data
@@ -63,7 +81,6 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	assert_true(lobby != null and lobby.is_owner(playfab_user), "PlayFabLobby.is_owner(playfab_user) reports true for creating user")
 	if lobby == null:
 		multiplayer.state_changed.disconnect(on_service_change)
-		_finish_session(playfab, null)
 		return
 
 	var lobby_changes: Array = []
@@ -103,8 +120,6 @@ func test_lobby_member_props_and_leave_state_signals() -> void:
 	if multiplayer.is_connected("state_changed", on_service_change):
 		multiplayer.state_changed.disconnect(on_service_change)
 
-	_finish_session(playfab, null)
-
 
 func test_lobby_local_member_properties_converge_after_live_write() -> void:
 	var session = await _begin_multiplayer_session()
@@ -112,12 +127,10 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 	if playfab_user == null:
 		return
 
-	var playfab: Object = session["playfab"]
 	var multiplayer: Object = session["multiplayer"]
 
 	var lobby_config = instantiate_class("PlayFabLobbyConfig")
 	if lobby_config == null:
-		_finish_session(playfab, null)
 		return
 	lobby_config.max_players = 2
 	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
@@ -126,16 +139,13 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
 		fail("PlayFab.multiplayer.create_lobby_async timed out before local member property convergence check.")
-		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
 		pending("PlayFab.multiplayer.create_lobby_async failed before local member property convergence check: %s" % create_result.message)
-		_finish_session(playfab, null)
 		return
 
 	var lobby: Object = create_result.data
 	if lobby == null:
-		_finish_session(playfab, null)
 		return
 
 	# Subscribe BEFORE the local-self write so the MEMBER_UPDATED change the
@@ -154,7 +164,6 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 	if props_result == null or not props_result.ok:
 		if lobby.is_connected("state_changed", on_lobby_change):
 			lobby.state_changed.disconnect(on_lobby_change)
-		_finish_session(playfab, lobby)
 		return
 
 	await advance_process_frames(_STATE_PUMP_FRAMES)
@@ -180,7 +189,6 @@ func test_lobby_local_member_properties_converge_after_live_write() -> void:
 	if lobby.is_connected("state_changed", on_lobby_change):
 		lobby.state_changed.disconnect(on_lobby_change)
 
-	_finish_session(playfab, lobby)
 
 func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	var session = await _begin_multiplayer_session()
@@ -193,7 +201,6 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 
 	var lobby_config = instantiate_class("PlayFabLobbyConfig")
 	if lobby_config == null:
-		_finish_session(playfab, null)
 		return
 	lobby_config.max_players = 4
 	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
@@ -201,16 +208,13 @@ func test_lobby_shutdown_without_leave_does_not_emit_null_member() -> void:
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
 		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
-		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
 		pending("PlayFab.multiplayer.create_lobby_async failed: %s" % create_result.message)
-		_finish_session(playfab, null)
 		return
 
 	var lobby: Object = create_result.data
 	if lobby == null:
-		_finish_session(playfab, null)
 		return
 
 	var lobby_changes: Array = []
@@ -237,12 +241,10 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 	if playfab_user == null:
 		return
 
-	var playfab: Object = session["playfab"]
 	var multiplayer: Object = session["multiplayer"]
 
 	var lobby_config = instantiate_class("PlayFabLobbyConfig")
 	if lobby_config == null:
-		_finish_session(playfab, null)
 		return
 	lobby_config.max_players = 2
 	lobby_config.access_policy = get_class_constant("PlayFabLobbyConfig", "ACCESS_POLICY_PRIVATE")
@@ -250,27 +252,22 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 	var create_result = await await_completion(multiplayer.create_lobby_async(playfab_user, lobby_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if create_result == null:
 		fail_test("PlayFab.multiplayer.create_lobby_async timed out.")
-		_finish_session(playfab, null)
 		return
 	if not create_result.ok:
 		pending("PlayFab.multiplayer.create_lobby_async failed: %s" % create_result.message)
-		_finish_session(playfab, null)
 		return
 
 	var lobby: Object = create_result.data
 	if lobby == null:
-		_finish_session(playfab, null)
 		return
 
 	var stale_connection_string := str(lobby.get_connection_string())
 	var leave_result = await await_completion(lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 	if leave_result == null:
 		fail_test("PlayFabLobby.leave_async timed out before stale-join regression check.")
-		_finish_session(playfab, null)
 		return
 	if not leave_result.ok:
 		pending("PlayFabLobby.leave_async failed before stale-join regression check: %s" % leave_result.message)
-		_finish_session(playfab, null)
 		return
 	await advance_process_frames(_STATE_PUMP_FRAMES)
 
@@ -279,21 +276,17 @@ func test_failed_lobby_join_does_not_leave_tracked_wrapper() -> void:
 	var join_result = await await_completion(multiplayer.join_lobby_async(playfab_user, stale_connection_string, join_config), _DEFAULT_OP_TIMEOUT_MSEC)
 	if join_result == null:
 		fail_test("PlayFab.multiplayer.join_lobby_async(stale_connection_string) timed out; cannot assert failure cleanup.")
-		_finish_session(playfab, null)
 		return
 	if join_result.ok:
 		var joined_lobby = join_result.data
 		if joined_lobby != null:
 			await await_completion(joined_lobby.leave_async(), _DEFAULT_OP_TIMEOUT_MSEC)
 		pending("PlayFab service accepted a stale lobby connection string; failure-cleanup path was not exercised.")
-		_finish_session(playfab, null)
 		return
 
 	await advance_process_frames(_STATE_PUMP_FRAMES)
 	assert_eq(multiplayer.get_lobbies().size(), before_count,
 			"failed join completion does not leave its PlayFabLobby wrapper tracked")
-
-	_finish_session(playfab, null)
 
 
 func test_multiplayer_live_validation_error_branches() -> void:
@@ -302,7 +295,6 @@ func test_multiplayer_live_validation_error_branches() -> void:
 	if playfab_user == null:
 		return
 
-	var playfab: Object = session["playfab"]
 	var multiplayer: Object = session["multiplayer"]
 
 	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
@@ -319,89 +311,44 @@ func test_multiplayer_live_validation_error_branches() -> void:
 			"invalid_properties",
 			"PlayFab.multiplayer.create_lobby_async() rejects non-string lobby property values")
 
-	_finish_session(playfab, null)
-
 
 # ── Live setup helpers ────────────────────────────────────────────────────
 
 func _begin_multiplayer_session() -> Dictionary:
-	var outcome := {
-		"playfab_user": null,
-		"playfab": null,
-		"multiplayer": null,
-	}
+	var outcome = await begin_playfab_live_session(
+		"Live PlayFab Multiplayer lobby",
+		true,
+		false,
+		true,
+		true,
+		_DEFAULT_OP_TIMEOUT_MSEC)
+	if outcome.get("playfab_user") == null:
+		return {}
 
-	if not requires_live_write():
-		return outcome
-	if pending_unless_playfab_available():
-		return outcome
+	var playfab: Object = outcome.get("playfab")
+	if playfab == null:
+		fail("PlayFab live session returned no runtime.")
+		return {}
 
-	var playfab: Object = get_playfab()
-	outcome["playfab"] = playfab
-
-	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
-	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise live PlayFab Multiplayer.")
-		return outcome
-
-	reset_playfab_runtime()
-	var init_result = playfab.initialize()
-	if init_result == null or not init_result.ok:
-		pending("PlayFab.initialize() live setup skipped: %s" % (init_result.message if init_result != null else "null result"))
-		return outcome
-
-	var custom_id_session = await _sign_in_with_or_create_custom_id(playfab, "PlayFab multiplayer lobby live test")
-	if custom_id_session.get("playfab_user") == null:
-		return outcome
-
-	var multiplayer: Object = playfab.get_multiplayer()
+	var multiplayer: Object = outcome.get("multiplayer")
 	if multiplayer == null:
-		pending("PlayFab.get_multiplayer() returned null in live session.")
-		return outcome
+		multiplayer = playfab.get_multiplayer()
+	if multiplayer == null:
+		fail("PlayFab.get_multiplayer() returned null in live session.")
+		return {}
 
-	var mp_init = await await_completion(multiplayer.initialize_async(), _DEFAULT_OP_TIMEOUT_MSEC)
-	if mp_init == null:
-		fail_test("PlayFab.multiplayer.initialize_async timed out.")
-		return outcome
-	if not mp_init.ok:
-		pending("PlayFab.multiplayer.initialize_async failed: %s" % mp_init.message)
-		return outcome
+	if not multiplayer.is_initialized():
+		var mp_init = await await_completion(
+			multiplayer.initialize_async(), _DEFAULT_OP_TIMEOUT_MSEC)
+		if mp_init == null:
+			fail_test("PlayFab.multiplayer.initialize_async timed out.")
+			return {}
+		if not mp_init.ok:
+			fail("PlayFab.multiplayer.initialize_async failed: %s" % mp_init.message)
+			return {}
 
-	outcome["playfab_user"] = custom_id_session["playfab_user"]
 	outcome["multiplayer"] = multiplayer
 	return outcome
-
-
-# Local sign-in helper. The shared sign_in_with_configured_custom_id() in the
-# base passes create_account=false (other live suites depend on a
-# preconfigured account from tools/configure_playfab_test_title.ps1). The
-# multiplayer regression coverage is happy to create-on-demand because it
-# only needs an entity-token-bearing user; pass create_account=true so the
-# tests work against any sandbox title without separate pre-provisioning.
-func _sign_in_with_or_create_custom_id(playfab: Object, label: String) -> Dictionary:
-	var outcome := {"playfab_user": null}
-	var custom_id := get_configured_playfab_custom_id()
-	if custom_id.is_empty():
-		pending("Set ProjectSettings['playfab/tests/custom_id'] or PLAYFAB_CUSTOM_ID to exercise %s." % label)
-		return outcome
-	var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, true)
-	if typeof(sign_in_signal) != TYPE_SIGNAL:
-		pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
-		return outcome
-	var sign_in_result = await await_completion(sign_in_signal, _DEFAULT_OP_TIMEOUT_MSEC)
-	if sign_in_result == null:
-		fail_test("%s sign_in_with_custom_id_async timed out." % label)
-		return outcome
-	if not sign_in_result.ok:
-		pending("%s skipped: %s" % [label, sign_in_result.message])
-		return outcome
-	outcome["playfab_user"] = sign_in_result.data
-	return outcome
-
-
-func _finish_session(playfab: Object, _ignored) -> void:
-	if playfab != null:
-		playfab.shutdown()
 
 
 # ── Lobby-change assertions ───────────────────────────────────────────────

@@ -32,6 +32,7 @@ private:
     PlayFab *m_owner = nullptr;
 
     PlayFabRuntime *_get_runtime() const;
+    static FriendSources _friend_sources_from_legacy_bool(bool p_include_xbox_friends);
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Ref<PlayFabResult> _test_friend_leaderboard_request(

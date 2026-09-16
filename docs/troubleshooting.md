@@ -705,10 +705,11 @@ cover the full pattern.
 > your own trusted backend with the developer secret key, and
 > validate scores before writing.
 
-### PlayFab friend leaderboard source selection fails
+## PlayFab friend leaderboard source selection fails
 
-Both friend-read entry points return a `PlayFabResult`; inspect its `code` and
-`message` instead of treating every empty or failed request as "no friends."
+Both friend-read entry points return a completion `Signal`; await it to obtain a
+`PlayFabResult`, then inspect its `code` and `message` instead of treating every
+empty or failed request as "no friends."
 
 - **`invalid_friend_sources`** means the explicit mask contains a negative
   value, an unknown bit, or combines `FRIEND_SOURCE_ALL` (`0x10`) with an
@@ -758,11 +759,10 @@ Drop an empty `.gut_skip_validation` sentinel at the tests root that contains GU
 
 This is expected in a free-standing executable. `godot::String` and other Variant-family types require the GDExtension function table that Godot initializes when it loads an addon. Move that case into a GUT test, or extract a pure helper that does not instantiate Godot Variant-family types.
 
-### Leaderboard test marked pending after submit
+### Leaderboard test fails after submit
 
-PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, set the test-host-only `playfab/tests/leaderboard_settle_msec` key in `tests\godot\playfab\project.godot` so the test polls longer before marking the read-after-write check pending.
+PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, set the test-host-only `playfab/tests/leaderboard_settle_msec` key in `tests\godot\playfab\project.godot` so the test polls longer before failing the read-after-write check.
 
 ### Bootstrap runner exit code is 0 but I never saw `BOOTSTRAP_OK:`
 
 Check that the script prints the literal success prefix before it exits and ends with `quit(0)`. `tools\run_all_tests.ps1` gates the bootstrap stage on process exit code, while the `BOOTSTRAP_OK:` and `BOOTSTRAP_FAIL:` prefixes are the log contract reviewers and manual runs use to understand what happened.
-

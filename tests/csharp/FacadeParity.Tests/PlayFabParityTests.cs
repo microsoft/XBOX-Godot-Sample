@@ -13,6 +13,22 @@ public class PlayFabParityTests
 {
     private static readonly Assembly Facade = typeof(GodotPlayFab.PlayFab).Assembly;
 
+    private static void AssertParameter(
+        ParameterInfo parameter,
+        string expectedName,
+        Type expectedType,
+        bool expectedOptional,
+        object expectedDefaultValue = null)
+    {
+        Assert.Equal(expectedName, parameter.Name);
+        Assert.Equal(expectedType, parameter.ParameterType);
+        Assert.Equal(expectedOptional, parameter.IsOptional);
+        if (expectedOptional)
+        {
+            Assert.Equal(expectedDefaultValue, parameter.DefaultValue);
+        }
+    }
+
     public static IEnumerable<object[]> Classes() =>
         Directory.GetFiles(RepoPaths.DocClasses("godot_playfab"), "*.xml")
             .Select(f => new object[] { Path.GetFileNameWithoutExtension(f) });
@@ -43,32 +59,14 @@ public class PlayFabParityTests
         ParameterInfo[] parameters = method.GetParameters();
         Assert.Collection(
             parameters,
-            parameter =>
-            {
-                Assert.Equal("user", parameter.Name);
-                Assert.Equal(typeof(GodotPlayFab.Types.PlayFabUser), parameter.ParameterType);
-                Assert.False(parameter.IsOptional);
-            },
-            parameter =>
-            {
-                Assert.Equal("leaderboard_name", parameter.Name);
-                Assert.Equal(typeof(string), parameter.ParameterType);
-                Assert.False(parameter.IsOptional);
-            },
-            parameter =>
-            {
-                Assert.Equal("include_xbox_friends", parameter.Name);
-                Assert.Equal(typeof(bool), parameter.ParameterType);
-                Assert.True(parameter.IsOptional);
-                Assert.Equal(true, parameter.DefaultValue);
-            },
-            parameter =>
-            {
-                Assert.Equal("version", parameter.Name);
-                Assert.Equal(typeof(int), parameter.ParameterType);
-                Assert.True(parameter.IsOptional);
-                Assert.Equal(-1, parameter.DefaultValue);
-            });
+            parameter => AssertParameter(
+                parameter, "user", typeof(GodotPlayFab.Types.PlayFabUser), false),
+            parameter => AssertParameter(
+                parameter, "leaderboard_name", typeof(string), false),
+            parameter => AssertParameter(
+                parameter, "include_xbox_friends", typeof(bool), true, true),
+            parameter => AssertParameter(
+                parameter, "version", typeof(int), true, -1));
     }
 
     [Fact]
@@ -85,47 +83,30 @@ public class PlayFabParityTests
         ParameterInfo[] parameters = method.GetParameters();
         Assert.Collection(
             parameters,
-            parameter =>
-            {
-                Assert.Equal("user", parameter.Name);
-                Assert.Equal(typeof(GodotPlayFab.Types.PlayFabUser), parameter.ParameterType);
-                Assert.False(parameter.IsOptional);
-            },
-            parameter =>
-            {
-                Assert.Equal("leaderboard_name", parameter.Name);
-                Assert.Equal(typeof(string), parameter.ParameterType);
-                Assert.False(parameter.IsOptional);
-            },
-            parameter =>
-            {
-                Assert.Equal("friend_sources", parameter.Name);
-                Assert.Equal(enumType, parameter.ParameterType);
-                Assert.False(parameter.IsOptional);
-            },
-            parameter =>
-            {
-                Assert.Equal("version", parameter.Name);
-                Assert.Equal(typeof(int), parameter.ParameterType);
-                Assert.True(parameter.IsOptional);
-                Assert.Equal(-1, parameter.DefaultValue);
-            });
+            parameter => AssertParameter(
+                parameter, "user", typeof(GodotPlayFab.Types.PlayFabUser), false),
+            parameter => AssertParameter(
+                parameter, "leaderboard_name", typeof(string), false),
+            parameter => AssertParameter(
+                parameter, "friend_sources", enumType, false),
+            parameter => AssertParameter(
+                parameter, "version", typeof(int), true, -1));
 
         Assert.NotNull(enumType.GetCustomAttribute<FlagsAttribute>());
         Assert.Equal(typeof(long), Enum.GetUnderlyingType(enumType));
 
-        var expectedValues = new Dictionary<string, long>
+        var values = new (string NativeName, string ManagedName, long Value)[]
         {
-            ["None"] = 0,
-            ["Steam"] = 1,
-            ["Facebook"] = 2,
-            ["Xbox"] = 4,
-            ["Psn"] = 8,
-            ["All"] = 16,
+            ("FRIEND_SOURCE_NONE", "None", 0),
+            ("FRIEND_SOURCE_STEAM", "Steam", 1),
+            ("FRIEND_SOURCE_FACEBOOK", "Facebook", 2),
+            ("FRIEND_SOURCE_XBOX", "Xbox", 4),
+            ("FRIEND_SOURCE_PSN", "Psn", 8),
+            ("FRIEND_SOURCE_ALL", "All", 16),
         };
-        foreach ((string name, long expectedValue) in expectedValues)
+        foreach ((string _, string managedName, long value) in values)
         {
-            Assert.Equal(expectedValue, Convert.ToInt64(Enum.Parse(enumType, name)));
+            Assert.Equal(value, Convert.ToInt64(Enum.Parse(enumType, managedName)));
         }
 
         var combined =
@@ -143,16 +124,7 @@ public class PlayFabParityTests
                 constant => (string)constant.Attribute("name"),
                 constant => long.Parse((string)constant.Attribute("value")));
 
-        var nativeToManaged = new Dictionary<string, string>
-        {
-            ["FRIEND_SOURCE_NONE"] = "None",
-            ["FRIEND_SOURCE_STEAM"] = "Steam",
-            ["FRIEND_SOURCE_FACEBOOK"] = "Facebook",
-            ["FRIEND_SOURCE_XBOX"] = "Xbox",
-            ["FRIEND_SOURCE_PSN"] = "Psn",
-            ["FRIEND_SOURCE_ALL"] = "All",
-        };
-        foreach ((string nativeName, string managedName) in nativeToManaged)
+        foreach ((string nativeName, string managedName, long _) in values)
         {
             Assert.True(nativeValues.TryGetValue(nativeName, out long nativeValue));
             Assert.Equal(
