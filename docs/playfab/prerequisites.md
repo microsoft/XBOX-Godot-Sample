@@ -156,7 +156,8 @@ After all three steps are complete, the T3 snippets work end-to-end:
 - Writes go through `PlayFab.statistics.update_statistics_async(user, {...})`.
 - Reads go through `PlayFab.leaderboards.get_leaderboard_async`,
   `get_leaderboard_around_user_async`, and
-  `get_friend_leaderboard_async` against the leaderboard name.
+  `get_friend_leaderboard_with_sources_async` (or the compatible
+  `get_friend_leaderboard_async`) against the leaderboard name.
 - The direct-write entry point
   `PlayFab.leaderboards.submit_score_async` is intentionally **not**
   used by the T3 snippets. For non-statistic-backed leaderboard writes,
@@ -179,6 +180,34 @@ After all three steps are complete, the T3 snippets work end-to-end:
   player stats** setting is still disabled — see step 3 above. Full
   diagnostic in
   [Troubleshooting → PlayFab leaderboard submit returns 0x89235472](../troubleshooting.md#playfab-leaderboard-submit-fails-with-e_pf_api_not_enabled_for_game_client_access-0x89235472).
+
+Friend leaderboard source selection has provider-specific prerequisites:
+
+| Selection | Prerequisites |
+|---|---|
+| `FRIEND_SOURCE_NONE` | No external provider configuration. The query uses the PlayFab friend list only. |
+| `FRIEND_SOURCE_STEAM` | Steam configured for the PlayFab title, plus a PlayFab account authenticated with or linked to the applicable Steam identity. The existing `sign_in_with_steam_async` and account-linking surfaces can establish that identity; the leaderboard call takes no Steam ticket. |
+| `FRIEND_SOURCE_FACEBOOK` / `FRIEND_SOURCE_PSN` | The title and account must already have the corresponding provider integration and linkage. This GDK-focused addon does not add Facebook or PSN login flows. |
+| Any ordinary mask containing `FRIEND_SOURCE_XBOX` | Xbox configured for the PlayFab title and an active Xbox-backed PlayFab session created through `sign_in_with_xuser_async`. A linked Xbox account without a local XUser-backed session is insufficient for the per-request token. |
+| `FRIEND_SOURCE_ALL` | The same Xbox-backed session requirement as `XBOX`, plus any provider integrations the title expects PlayFab's standalone `All` selector to consider. `ALL` is `0x10` and must not be combined with another source flag. |
+
+Friends from any selected source must also have entries in the queried
+leaderboard version to appear. A successful empty `rankings` array is therefore
+valid and does not, by itself, prove that provider configuration failed.
+
+The optional live external-friend fixture is selected entirely through test
+environment variables:
+
+- `PLAYFAB_TEST_FRIEND_SOURCES` is a nonzero decimal mask (`1` for Steam,
+  `5` for Steam + Xbox, or `16` for standalone `ALL`).
+- `PLAYFAB_TEST_FRIEND_ENTITY_IDS` is a comma-separated list of expected
+  PlayFab friend entity ids that must appear in the response.
+
+When the selector is unset, that provider-specific case is pending. Once it is
+set, missing configuration, sign-in failures, query failures, and missing
+expected rows fail the test. The fixture uses pre-existing identities,
+relationships, and scores; this change does not automatically provision or
+link platform accounts.
 
 For production titles that require validated writes (anti-cheat,
 server-authoritative scoring), keep client writes off the direct

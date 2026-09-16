@@ -56,6 +56,45 @@ bool validate_playfab_user(const Ref<PlayFabUser> &p_user, String *r_error_messa
     return true;
 }
 
+bool validate_friend_sources(int64_t p_friend_sources, String *r_error_message) {
+    if (p_friend_sources >= 0 && (p_friend_sources <= 0x0f || p_friend_sources == 0x10)) {
+        return true;
+    }
+
+    if (r_error_message != nullptr) {
+        *r_error_message =
+                "friend_sources must contain only FRIEND_SOURCE_STEAM, FRIEND_SOURCE_FACEBOOK, "
+                "FRIEND_SOURCE_XBOX, and FRIEND_SOURCE_PSN (0x00-0x0f), or FRIEND_SOURCE_ALL "
+                "(0x10) by itself.";
+    }
+    return false;
+}
+
+bool friend_sources_require_xbox(PFExternalFriendSources p_friend_sources) {
+    const uint32_t sources = static_cast<uint32_t>(p_friend_sources);
+    return p_friend_sources == PFExternalFriendSources::All ||
+            (sources & static_cast<uint32_t>(PFExternalFriendSources::Xbox)) != 0;
+}
+
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_NONE) ==
+        static_cast<int64_t>(PFExternalFriendSources::None));
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_STEAM) ==
+        static_cast<int64_t>(PFExternalFriendSources::Steam));
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_FACEBOOK) ==
+        static_cast<int64_t>(PFExternalFriendSources::Facebook));
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_XBOX) ==
+        static_cast<int64_t>(PFExternalFriendSources::Xbox));
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_PSN) ==
+        static_cast<int64_t>(PFExternalFriendSources::Psn));
+static_assert(
+        static_cast<int64_t>(PlayFabLeaderboards::FRIEND_SOURCE_ALL) ==
+        static_cast<int64_t>(PFExternalFriendSources::All));
+
 Dictionary make_leaderboard_response(const PFLeaderboardsGetEntityLeaderboardResponse *p_response) {
     Dictionary response;
     if (p_response == nullptr) {
@@ -132,7 +171,6 @@ private:
     uint32_t m_max_surrounding_entries = 10;
     bool m_use_start_position = false;
     bool m_use_version = false;
-    bool m_use_xbox_friends = false;
     PFExternalFriendSources m_external_friend_sources = PFExternalFriendSources::None;
 
     PFLeaderboardsGetEntityLeaderboardRequest m_global_request = {};
@@ -207,19 +245,31 @@ public:
         m_around_request.version = m_use_version ? &m_version : nullptr;
     }
 
-    void configure_friends(const String &p_xbox_token, int64_t p_version, bool p_include_xbox_friends) {
+    void configure_friends(
+            const String &p_xbox_token,
+            int64_t p_version,
+            PFExternalFriendSources p_friend_sources) {
         m_xbox_token_utf8 = p_xbox_token.utf8().get_data();
         m_use_version = p_version >= 0;
         m_version = m_use_version ? static_cast<uint32_t>(p_version) : 0;
-        m_use_xbox_friends = p_include_xbox_friends;
-        m_external_friend_sources = p_include_xbox_friends ? PFExternalFriendSources::Xbox : PFExternalFriendSources::None;
+        m_external_friend_sources = p_friend_sources;
 
         m_friend_request.entity = &m_entity_key;
-        m_friend_request.externalFriendSources = p_include_xbox_friends ? &m_external_friend_sources : nullptr;
+        m_friend_request.externalFriendSources =
+                p_friend_sources != PFExternalFriendSources::None ? &m_external_friend_sources : nullptr;
         m_friend_request.leaderboardName = m_leaderboard_name_utf8.c_str();
         m_friend_request.version = m_use_version ? &m_version : nullptr;
-        m_friend_request.xboxToken = p_include_xbox_friends ? m_xbox_token_utf8.c_str() : nullptr;
+        m_friend_request.xboxToken =
+                friend_sources_require_xbox(p_friend_sources) && !m_xbox_token_utf8.empty()
+                ? m_xbox_token_utf8.c_str()
+                : nullptr;
     }
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    const PFLeaderboardsGetFriendLeaderboardForEntityRequest &get_friend_request() const {
+        return m_friend_request;
+    }
+#endif
 
     HRESULT start() {
         switch (m_mode) {
@@ -378,26 +428,26 @@ protected:
 };
 
 class FriendLeaderboardTokenContext final : public PlayFabSignalXAsyncContext {
-    PlayFabLeaderboards *m_leaderboards = nullptr;
     Ref<PlayFabUser> m_user;
     std::string m_leaderboard_name_utf8;
     int64_t m_version = -1;
+    PFExternalFriendSources m_friend_sources = PFExternalFriendSources::None;
     XUserHandle m_user_handle = nullptr;
 
 public:
     FriendLeaderboardTokenContext(
-            PlayFabLeaderboards *p_leaderboards,
             PlayFabRuntime *p_runtime,
             const Ref<PlayFabPendingSignal> &p_pending_signal,
             const Ref<PlayFabUser> &p_user,
             XUserHandle p_user_handle,
             const String &p_leaderboard_name,
-            int64_t p_version) :
+            int64_t p_version,
+            PFExternalFriendSources p_friend_sources) :
             PlayFabSignalXAsyncContext(p_runtime, p_pending_signal),
-            m_leaderboards(p_leaderboards),
             m_user(p_user),
             m_leaderboard_name_utf8(p_leaderboard_name.utf8().get_data()),
             m_version(p_version),
+            m_friend_sources(p_friend_sources),
             m_user_handle(p_user_handle) {}
 
     ~FriendLeaderboardTokenContext() override {
@@ -406,6 +456,12 @@ public:
             m_user_handle = nullptr;
         }
     }
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    PFExternalFriendSources get_friend_sources() const {
+        return m_friend_sources;
+    }
+#endif
 
     HRESULT start() {
         static const char *PLAYFAB_TOKEN_URL = "https://playfabapi.com";
@@ -427,21 +483,21 @@ protected:
     void finalize(XAsyncBlock *p_async_block) override;
 };
 
-void start_friend_query_with_token(
-        PlayFabLeaderboards *p_service,
+void start_friend_query(
         PlayFabRuntime *p_runtime,
         const Ref<PlayFabPendingSignal> &p_pending_signal,
         const Ref<PlayFabUser> &p_user,
         const String &p_leaderboard_name,
         const String &p_xbox_token,
-        int64_t p_version) {
+        int64_t p_version,
+        PFExternalFriendSources p_friend_sources) {
     auto *context = new LeaderboardQueryContext(
             LeaderboardQueryContext::Mode::Friends,
             p_runtime,
             p_pending_signal,
             p_user,
             p_leaderboard_name);
-    context->configure_friends(p_xbox_token, p_version, true);
+    context->configure_friends(p_xbox_token, p_version, p_friend_sources);
     context->bind_cancel_handler();
 
     HRESULT hr = context->start();
@@ -504,14 +560,14 @@ void FriendLeaderboardTokenContext::finalize(XAsyncBlock *p_async_block) {
         return;
     }
 
-    start_friend_query_with_token(
-            m_leaderboards,
+    start_friend_query(
             get_runtime(),
             get_pending_signal(),
             m_user,
             String::utf8(m_leaderboard_name_utf8.c_str()),
             xbox_token,
-            m_version);
+            m_version,
+            m_friend_sources);
 }
 
 } // namespace
@@ -538,6 +594,28 @@ void PlayFabLeaderboards::_bind_methods() {
             &PlayFabLeaderboards::get_friend_leaderboard_async,
             DEFVAL(true),
             DEFVAL(-1));
+    ClassDB::bind_method(
+            D_METHOD("get_friend_leaderboard_with_sources_async", "user", "leaderboard_name", "friend_sources", "version"),
+            &PlayFabLeaderboards::get_friend_leaderboard_with_sources_async,
+            DEFVAL(-1));
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(
+            D_METHOD("_test_friend_leaderboard_request", "friend_sources", "xbox_token", "version"),
+            &PlayFabLeaderboards::_test_friend_leaderboard_request,
+            DEFVAL(String()),
+            DEFVAL(-1));
+    ClassDB::bind_method(
+            D_METHOD("_test_friend_token_context_sources", "friend_sources"),
+            &PlayFabLeaderboards::_test_friend_token_context_sources);
+#endif
+
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_NONE);
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_STEAM);
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_FACEBOOK);
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_XBOX);
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_PSN);
+    BIND_BITFIELD_FLAG(FRIEND_SOURCE_ALL);
 }
 
 void PlayFabLeaderboards::set_owner(PlayFab *p_owner) {
@@ -689,6 +767,30 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
         const String &p_leaderboard_name,
         bool p_include_xbox_friends,
         int64_t p_version) {
+    const FriendSources sources =
+            p_include_xbox_friends ? FRIEND_SOURCE_XBOX : FRIEND_SOURCE_NONE;
+    return get_friend_leaderboard_with_sources_async(
+            p_user,
+            p_leaderboard_name,
+            BitField<FriendSources>(sources),
+            p_version);
+}
+
+Signal PlayFabLeaderboards::get_friend_leaderboard_with_sources_async(
+        const Ref<PlayFabUser> &p_user,
+        const String &p_leaderboard_name,
+        BitField<FriendSources> p_friend_sources,
+        int64_t p_version) {
+    const int64_t friend_sources_value = p_friend_sources;
+    String sources_error;
+    if (!validate_friend_sources(friend_sources_value, &sources_error)) {
+        return make_leaderboards_error_signal(
+                _get_runtime(),
+                E_INVALIDARG,
+                "invalid_friend_sources",
+                sources_error);
+    }
+
     PlayFabRuntime *runtime = _get_runtime();
     if (runtime == nullptr || !runtime->is_initialized()) {
         return make_leaderboards_error_signal(runtime, E_FAIL, "not_initialized", "PlayFab is not initialized. Call PlayFab.initialize() first.");
@@ -705,30 +807,31 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
     }
 
     Ref<PlayFabPendingSignal> pending_signal = runtime->make_pending_signal();
+    const PFExternalFriendSources friend_sources =
+            static_cast<PFExternalFriendSources>(friend_sources_value);
 
-    if (!p_include_xbox_friends) {
-        auto *context = new LeaderboardQueryContext(
-                LeaderboardQueryContext::Mode::Friends,
+    if (!friend_sources_require_xbox(friend_sources)) {
+        start_friend_query(
                 runtime,
                 pending_signal,
                 p_user,
-                leaderboard_name);
-        context->configure_friends(String(), p_version, false);
-        context->bind_cancel_handler();
-
-        HRESULT hr = context->start();
-        if (FAILED(hr)) {
-            pending_signal->clear_cancel_handler();
-            delete context;
-
-            Ref<PlayFabResult> result = PlayFabResult::hresult_error(hr, "Failed to start the friend leaderboard request.", "friend_leaderboard_start_failed");
-            pending_signal->complete_deferred(result);
-        }
+                leaderboard_name,
+                String(),
+                p_version,
+                friend_sources);
         return pending_signal->get_completed_signal();
     }
 
     XUserLocalId local_id = {};
     local_id.value = p_user->get_local_id();
+    if (local_id.value == 0) {
+        Ref<PlayFabResult> result = PlayFabResult::error_result(
+                E_HANDLE,
+                "friend_leaderboard_xuser_not_found",
+                "Requested friend sources include Xbox. Sign in with PlayFab.users.sign_in_with_xuser_async(), or select sources without Xbox. ALL includes Xbox.");
+        pending_signal->complete_deferred(result);
+        return pending_signal->get_completed_signal();
+    }
 
     XUserHandle user_handle = nullptr;
     HRESULT hr = XUserFindUserByLocalId(local_id, &user_handle);
@@ -738,7 +841,14 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
         return pending_signal->get_completed_signal();
     }
 
-    auto *token_context = new FriendLeaderboardTokenContext(this, runtime, pending_signal, p_user, user_handle, leaderboard_name, p_version);
+    auto *token_context = new FriendLeaderboardTokenContext(
+            runtime,
+            pending_signal,
+            p_user,
+            user_handle,
+            leaderboard_name,
+            p_version,
+            friend_sources);
     token_context->bind_cancel_handler();
 
     hr = token_context->start();
@@ -752,5 +862,72 @@ Signal PlayFabLeaderboards::get_friend_leaderboard_async(
 
     return pending_signal->get_completed_signal();
 }
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+Ref<PlayFabResult> PlayFabLeaderboards::_test_friend_leaderboard_request(
+        BitField<FriendSources> p_friend_sources,
+        const String &p_xbox_token,
+        int64_t p_version) const {
+    const int64_t friend_sources_value = p_friend_sources;
+    String sources_error;
+    if (!validate_friend_sources(friend_sources_value, &sources_error)) {
+        return PlayFabResult::error_result(
+                E_INVALIDARG,
+                "invalid_friend_sources",
+                sources_error);
+    }
+
+    Ref<PlayFabUser> blank_user;
+    blank_user.instantiate();
+    LeaderboardQueryContext context(
+            LeaderboardQueryContext::Mode::Friends,
+            nullptr,
+            Ref<PlayFabPendingSignal>(),
+            blank_user,
+            "test_friend_leaderboard");
+    const PFExternalFriendSources friend_sources =
+            static_cast<PFExternalFriendSources>(friend_sources_value);
+    context.configure_friends(p_xbox_token, p_version, friend_sources);
+
+    const PFLeaderboardsGetFriendLeaderboardForEntityRequest &request =
+            context.get_friend_request();
+    Dictionary snapshot;
+    if (request.externalFriendSources != nullptr) {
+        snapshot["external_friend_sources"] =
+                static_cast<int64_t>(*request.externalFriendSources);
+    } else {
+        snapshot["external_friend_sources"] = Variant();
+    }
+    snapshot["requires_xbox_token"] =
+            friend_sources_require_xbox(friend_sources);
+    if (request.xboxToken != nullptr) {
+        snapshot["xbox_token"] = String::utf8(request.xboxToken);
+    } else {
+        snapshot["xbox_token"] = Variant();
+    }
+    if (request.version != nullptr) {
+        snapshot["version"] = static_cast<int64_t>(*request.version);
+    } else {
+        snapshot["version"] = Variant();
+    }
+    return PlayFabResult::ok_result(snapshot);
+}
+
+int64_t PlayFabLeaderboards::_test_friend_token_context_sources(
+        BitField<FriendSources> p_friend_sources) const {
+    Ref<PlayFabUser> blank_user;
+    blank_user.instantiate();
+    FriendLeaderboardTokenContext context(
+            nullptr,
+            Ref<PlayFabPendingSignal>(),
+            blank_user,
+            nullptr,
+            "test_friend_leaderboard",
+            -1,
+            static_cast<PFExternalFriendSources>(
+                    static_cast<int64_t>(p_friend_sources)));
+    return static_cast<int64_t>(context.get_friend_sources());
+}
+#endif
 
 } // namespace godot

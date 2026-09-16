@@ -58,7 +58,7 @@ separate PlayFab account (namespaced as `godot-playfab-tutorial-<name>`).
 
 - `PlayFab.Users` — `SignInWithCustomIdAsync`, `GetUserByCustomId`
 - `PlayFab.Statistics` — `UpdateStatisticsAsync`
-- `PlayFab.Leaderboards` — `GetLeaderboardAsync`, `GetLeaderboardAroundUserAsync`, `GetFriendLeaderboardAsync`
+- `PlayFab.Leaderboards` — `GetLeaderboardAsync`, `GetLeaderboardAroundUserAsync`, `GetFriendLeaderboardWithSourcesAsync` with `FriendSources.None` for the PlayFab-only tutorial
 - `PlayFab.Multiplayer` — `InitializeAsync`, `CreateLobbyAsync`, `JoinLobbyAsync`, `FindLobbiesAsync`
 - `PlayFabLobby` — `SetMemberPropertiesAsync`, `SetPropertiesAsync`, `LeaveAsync`, `StateChanged`
 - `PlayFab.Party` — `InitializeAsync`, `CreateAndJoinNetworkAsync`, `JoinNetworkAsync`, `GetChat`

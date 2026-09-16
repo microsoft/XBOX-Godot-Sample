@@ -14,7 +14,7 @@ the page first. By the end you will:
   read the same leaderboard "around the player" with
   `get_leaderboard_around_user_async`.
 - Pull a **PlayFab-friend leaderboard** with
-  `get_friend_leaderboard_async(..., include_xbox_friends=false)`.
+  `get_friend_leaderboard_with_sources_async(..., FRIEND_SOURCE_NONE)`.
 
 Sample output:
 
@@ -51,7 +51,9 @@ Sample output:
     name (`"high_score"`) for both.
   - The full walkthrough is in
     [PlayFab title prerequisites — §2 Leaderboards](../../playfab/prerequisites.md#leaderboards-t3-t8).
-- For the friend leaderboard step, this PlayFab-only track intentionally passes `include_xbox_friends=false`. Mutual PlayFab friends appear; Xbox friends are not queried because `PlayFabAuth` signs in with a custom id.
+- For the friend leaderboard step, this PlayFab-only track intentionally passes
+  `FRIEND_SOURCE_NONE`. PlayFab friends with entries can appear; external
+  providers are not queried because `PlayFabAuth` signs in with a custom id.
 
 > **Why statistic-backed instead of direct writes?** PlayFab's
 > `LeaderboardsV2/UpdateLeaderboardEntries` is, by default,
@@ -82,6 +84,7 @@ Sample output:
 - [`PlayFab.leaderboards`](../../../addons/godot_playfab/doc_classes/PlayFabLeaderboards.xml)
   — `get_leaderboard_async`,
   `get_leaderboard_around_user_async`,
+  `get_friend_leaderboard_with_sources_async`, and the compatibility method
   `get_friend_leaderboard_async`.
 - [`PlayFab.users`](../../../addons/godot_playfab/doc_classes/PlayFabUsers.xml) — provides the
   `PlayFabUser` every statistics and leaderboards call takes as its
@@ -288,14 +291,17 @@ ribbon, `10` for a 21-row panel, etc.
 ## Step 5 — Pull the PlayFab-friend leaderboard
 
 For social cards and "challenge a friend" UI, switch to
-`get_friend_leaderboard_async` with `include_xbox_friends=false`:
+`get_friend_leaderboard_with_sources_async` with
+`FRIEND_SOURCE_NONE`:
 
 ```gdscript
-func _print_xbox_friend_leaderboard() -> void:
+func _print_friend_leaderboard() -> void:
     var user: PlayFabUser = PlayFabAuth.playfab_user
 
-    var result: PlayFabResult = await PlayFab.leaderboards.get_friend_leaderboard_async(
-            user, LEADERBOARD_NAME, false)
+    var result: PlayFabResult = await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
+            user,
+            LEADERBOARD_NAME,
+            PlayFabLeaderboards.FRIEND_SOURCE_NONE)
     if not result.ok:
         push_warning("[Lead] friend leaderboard failed: %s" % result.message)
         return
@@ -308,7 +314,57 @@ func _print_xbox_friend_leaderboard() -> void:
         print("[Lead]   #%d  %s — %d" % [row.get("rank", 0), _display_name(row), _primary_score(row)])
 ```
 
-`include_xbox_friends=false` keeps this PlayFab-only track decoupled from Xbox. The result is scoped to mutual PlayFab friends; an Xbox-linked title can pass `true` in the integrated track when it also has an Xbox-backed PlayFab session.
+`FRIEND_SOURCE_NONE` keeps this PlayFab-only track decoupled from platform
+credentials and asks PlayFab for no additional external friend providers.
+External friends also need entries in the selected leaderboard to appear.
+Ordinary external-provider flags can be selected individually or combined:
+
+```gdscript
+# Steam only. The PlayFab account must already be authenticated with or linked
+# to Steam, and the title must have its Steam integration configured.
+var steam_result = await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
+        user,
+        LEADERBOARD_NAME,
+        PlayFabLeaderboards.FRIEND_SOURCE_STEAM)
+
+# Steam + Xbox. Xbox-containing requests require a PlayFabUser returned by
+# sign_in_with_xuser_async(); a custom-ID or Steam-only session is not enough.
+var steam_xbox := (
+        PlayFabLeaderboards.FRIEND_SOURCE_STEAM
+        | PlayFabLeaderboards.FRIEND_SOURCE_XBOX)
+var mixed_result = await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
+        xbox_backed_playfab_user,
+        LEADERBOARD_NAME,
+        steam_xbox)
+
+# ALL is PlayFab's distinct selector (0x10), not the OR of the named providers.
+# It must be used by itself and, by addon policy, requires Xbox-backed sign-in.
+var all_result = await PlayFab.leaderboards.get_friend_leaderboard_with_sources_async(
+        xbox_backed_playfab_user,
+        LEADERBOARD_NAME,
+        PlayFabLeaderboards.FRIEND_SOURCE_ALL)
+```
+
+Facebook and PSN selections follow the same source-selection contract, but
+their provider integration and account linkage must already exist outside this
+GDK-focused addon. Service failures are returned normally; an unconfigured
+provider is not converted into an empty successful result. `ALL & ~XBOX` does
+not mean "all except Xbox" because `ALL` is its own bit. Spell that selection
+explicitly instead:
+
+```gdscript
+var non_xbox_sources := (
+        PlayFabLeaderboards.FRIEND_SOURCE_STEAM
+        | PlayFabLeaderboards.FRIEND_SOURCE_FACEBOOK
+        | PlayFabLeaderboards.FRIEND_SOURCE_PSN)
+```
+
+The original bool entry point remains compatible:
+
+| Existing call | Equivalent source-selecting call |
+|---|---|
+| `get_friend_leaderboard_async(user, name, false, version)` | `get_friend_leaderboard_with_sources_async(user, name, FRIEND_SOURCE_NONE, version)` |
+| `get_friend_leaderboard_async(user, name, true, version)` | `get_friend_leaderboard_with_sources_async(user, name, FRIEND_SOURCE_XBOX, version)` |
 
 ## Verify
 
@@ -338,8 +394,10 @@ Common failures:
 | `get_leaderboard failed: not_found` | The leaderboard name does not match a leaderboard configured in Game Manager, or no entity has a statistic value yet. | Confirm the leaderboard exists and is sourced from the statistic. Then record at least one score (your own counts). |
 | Leaderboard renders `(no entries)` even after a successful record | The leaderboard is sourced from a different statistic than the one being written, or the rankings have not refreshed yet. | Confirm the Game Manager leaderboard's source statistic matches `STATISTIC_NAME`. Statistic-to-leaderboard propagation is typically a few seconds; wait and re-query. |
 | Around-user returns only one row | You are the only entity with a value in this statistic version. | Record values from a second test account, or use the global query for the demo. |
-| `friend leaderboard is empty` | There are no mutual PlayFab friends with submitted scores. | Add mutual PlayFab friends or treat the empty page as valid for this track. |
-| PlayFab-friend page is empty for a friended account | The friend has never recorded the statistic or is not a mutual PlayFab friend in this title. | Have the friend record a score and confirm both clients use the same PlayFab title id. |
+| `friend leaderboard is empty` | No selected friend source contributed a friend with an entry in this leaderboard version. | Treat the empty page as valid, or verify the relationship, provider linkage, and leaderboard entries for the selected source. |
+| `invalid_friend_sources` | The mask contains unknown bits or combines `FRIEND_SOURCE_ALL` with another source. | Use any combination from `NONE` through `STEAM | FACEBOOK | XBOX | PSN`, or use `ALL` by itself. |
+| `friend_leaderboard_xuser_not_found` | The selection contains `XBOX` (or is `ALL`) but the `PlayFabUser` came from custom-ID or another non-Xbox sign-in. | Sign in through `PlayFab.users.sign_in_with_xuser_async()` or remove Xbox from the ordinary source mask. |
+| A provider query fails instead of returning an empty page | The provider or title integration is unavailable, unconfigured, or rejected by PlayFab. | Inspect the returned `PlayFabResult`; only a successful response with an empty `rankings` array is a legitimate empty leaderboard. |
 
 ## Reference implementation
 

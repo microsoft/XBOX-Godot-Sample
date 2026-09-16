@@ -33,7 +33,8 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ##   - submit_score_async(user, name, score, ...)        → "not_initialized"
 ##   - get_leaderboard_async(user, name, ...)            → "not_initialized"
 ##   - get_leaderboard_around_user_async(user, name, ..) → "not_initialized"
-##   - get_friend_leaderboard_async(user, name, ...)     → "not_initialized"
+##   - get_friend_leaderboard_async(user, name, ...)     → compatibility + "not_initialized"
+##   - get_friend_leaderboard_with_sources_async(...)    → source validation precedes runtime/user validation
 
 
 # ── PlayFabUsers: not_initialized + invalid ──────────────────────────────
@@ -182,10 +183,103 @@ func test_leaderboards_get_friend_leaderboard_async_not_initialized() -> void:
 	reset_playfab_runtime()
 
 	var blank_user = instantiate_class("PlayFabUser")
-	var friend_signal = playfab.get_leaderboards().get_friend_leaderboard_async(blank_user, "validation_walk")
+	var leaderboards = playfab.get_leaderboards()
 	await _assert_signal_error(
-		friend_signal, "not_initialized",
-		"PlayFab.leaderboards.get_friend_leaderboard_async() before initialize()")
+		leaderboards.get_friend_leaderboard_async(
+			blank_user, "validation_walk"),
+		"not_initialized",
+		"legacy friend leaderboard omitted optional arguments before initialize()")
+	await _assert_signal_error(
+		leaderboards.get_friend_leaderboard_async(
+			blank_user, "validation_walk", true),
+		"not_initialized",
+		"legacy friend leaderboard explicit true before initialize()")
+	await _assert_signal_error(
+		leaderboards.get_friend_leaderboard_async(
+			blank_user, "validation_walk", false),
+		"not_initialized",
+		"legacy friend leaderboard explicit false before initialize()")
+
+
+func test_leaderboards_friend_sources_accepted_masks_reach_runtime_validation() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+
+	var blank_user = instantiate_class("PlayFabUser")
+	var leaderboards = playfab.get_leaderboards()
+	for friend_sources in range(17):
+		await _assert_signal_error(
+			leaderboards.get_friend_leaderboard_with_sources_async(
+				blank_user, "validation_walk", friend_sources),
+			"not_initialized",
+			"accepted friend source mask %d reaches runtime validation" % friend_sources)
+
+
+func test_leaderboards_friend_sources_invalid_masks_fail_before_runtime_validation() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+
+	var blank_user = instantiate_class("PlayFabUser")
+	var leaderboards = playfab.get_leaderboards()
+	var invalid_masks: Array[int] = [-1]
+	for friend_sources in range(17, 32):
+		invalid_masks.append(friend_sources)
+	invalid_masks.append_array([
+		32,
+		33,
+		1 << 32,
+		(1 << 32) | 4,
+		9223372036854775807,
+	])
+
+	for friend_sources in invalid_masks:
+		await _assert_signal_error(
+			leaderboards.get_friend_leaderboard_with_sources_async(
+				blank_user, "validation_walk", friend_sources),
+			"invalid_friend_sources",
+			"invalid friend source mask %d fails before runtime validation" % friend_sources)
+
+
+func test_leaderboards_friend_sources_validate_user_after_initialization() -> void:
+	if pending_unless_playfab_available():
+		return
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+
+	var original_title_id = ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")
+	var original_endpoint = ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, "00000")
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, "")
+
+	var init_result = playfab.initialize()
+	assert_playfab_result_ok(
+		init_result, "PlayFab initializes for offline friend-source user validation")
+	if init_result == null or not init_result.ok:
+		ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+		ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+		reset_playfab_runtime()
+		return
+
+	var leaderboards = playfab.get_leaderboards()
+	await _assert_signal_error(
+		leaderboards.get_friend_leaderboard_with_sources_async(
+			null, "validation_walk", 0),
+		"invalid_playfab_user",
+		"source-selecting friend method rejects a null user")
+	await _assert_signal_error(
+		leaderboards.get_friend_leaderboard_with_sources_async(
+			instantiate_class("PlayFabUser"), "validation_walk", 16),
+		"invalid_playfab_user",
+		"source-selecting friend method rejects an unsigned user before Xbox lookup")
+
+	playfab.shutdown()
+	ProjectSettings.set_setting(PLAYFAB_TITLE_ID_SETTING, original_title_id)
+	ProjectSettings.set_setting(PLAYFAB_ENDPOINT_SETTING, original_endpoint)
+	reset_playfab_runtime()
 
 
 # ── invalid_options on game_saves.add_user_with_ui_async (post-init only)

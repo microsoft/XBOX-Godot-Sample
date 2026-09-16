@@ -167,8 +167,53 @@ Supported calls:
 - `get_leaderboard_async(user, leaderboard_name, start_position := 1, page_size := 10, version := -1)`
 - `get_leaderboard_around_user_async(user, leaderboard_name, max_surrounding_entries := 10, version := -1)`
 - `get_friend_leaderboard_async(user, leaderboard_name, include_xbox_friends := true, version := -1)`
+- `get_friend_leaderboard_with_sources_async(user, leaderboard_name, friend_sources, version := -1)`
 
 Recommended client writes use `PlayFab.statistics.update_statistics_async()` against a statistic-backed leaderboard, then read through `PlayFab.leaderboards`. `submit_score_async()` maps to the direct LeaderboardsV2 update path; treat non-statistic-backed direct writes as server/trusted-backend work that uses a developer secret key outside the Godot client. Never ship a PlayFab developer secret in a Godot project.
+
+The bool method is a frozen compatibility surface: `false` forwards to
+`FRIEND_SOURCE_NONE`, and `true` forwards to `FRIEND_SOURCE_XBOX`. It keeps its
+argument name and defaults. Cross-platform callers use the required
+`friend_sources` bitfield on the separately named method.
+
+`PlayFabLeaderboards.FriendSources` is bound as:
+
+| Constant | Value |
+|---|---:|
+| `FRIEND_SOURCE_NONE` | `0x00` |
+| `FRIEND_SOURCE_STEAM` | `0x01` |
+| `FRIEND_SOURCE_FACEBOOK` | `0x02` |
+| `FRIEND_SOURCE_XBOX` | `0x04` |
+| `FRIEND_SOURCE_PSN` | `0x08` |
+| `FRIEND_SOURCE_ALL` | `0x10` |
+
+Accepted masks are exactly `0x00..0x0f` plus `0x10`. `ALL` is PlayFab's
+distinct service selector, not the OR of the four named platforms; it must be
+used alone. Negative values, unknown bits, and `ALL` mixed with an ordinary
+source fail with `E_INVALIDARG` / `invalid_friend_sources`. The new entry point
+validates in this order: source mask, initialized runtime, signed-in
+`PlayFabUser`, nonblank leaderboard name, then Xbox availability.
+
+`NONE` preserves the legacy-false wire behavior by leaving
+`externalFriendSources` null. Other accepted masks are stored in request-owned
+memory and passed through unchanged. Steam, Facebook, and PSN do not add
+per-request credentials; the title and account must have established the
+corresponding provider integration or linkage beforehand.
+
+Any ordinary mask containing `XBOX`, plus standalone `ALL`, requires an
+Xbox-backed PlayFab session. The addon acquires the existing Xbox token and
+preserves the complete source mask through that async continuation (for
+example, `STEAM | XBOX` remains `5`). A valid non-Xbox session with
+`local_id == 0` fails with `E_HANDLE` /
+`friend_leaderboard_xuser_not_found`; it never silently drops Xbox and returns
+a partial result. Token acquisition keeps the existing
+`friend_leaderboard_token_*` errors and successful responses keep the standard
+leaderboard dictionary shape.
+
+The C# facade mirrors this contract with nested
+`[Flags] PlayFabLeaderboards.FriendSources : long` and
+`GetFriendLeaderboardWithSourcesAsync`, while preserving
+`GetFriendLeaderboardAsync(..., bool include_xbox_friends = true, ...)`.
 
 ## PlayFab Services SDK wrappers
 
@@ -234,6 +279,7 @@ Use `sample\tutorial_playfab\` / `sample\tutorial_integrated\` and `tests\godot\
 
 ## Progress
 
+- Cross-platform friend leaderboard sources (#160): ✅ implemented — the native and C# surfaces expose explicit Steam, Facebook, Xbox, PSN, and standalone `All` selection while preserving the legacy bool API; request-shape, validation, docs, and tutorial coverage are synchronized.
 - Additional sign-in examples (#95): ✅ shipped — `PlayFab.users` gained `sign_in_with_steam_async()`, `sign_in_with_open_id_connect_async()`, and `sign_in_with_battle_net_async()` (token-based identity providers that the title authenticates first). Token logins yield an entity-keyed `PlayFabUser` (`local_id == 0`, empty `custom_id`), de-duplicated in the session cache by `entity_key.id`. The credential-based PlayFab flows (email/username/register) and other platform logins (Google, etc.) are unavailable in the GDK SDK build (`#if 0` / non-GDK `HC_PLATFORM` gates) and are documented in the sign-in coverage matrix rather than wrapped. No sample scene was added — the token-based flows cannot complete without a real platform token.
 - MP-test-automation: ✅ complete in the `feat/mpta-c5-c6-finalize` line. The C1 P0/P1 matrix is represented as one `mp_orchestrator` scenario file per scenario, P2/P3 remain deferred, and `tools\run_all_tests.ps1` is wired to run the P0/P1 set under `-Live` with live writes gated by `-AllowLiveWrites`.
 - Legacy PlayFab Multiplayer live harness: ✅ retired. `tools\run_playfab_multiplayer_live.ps1` and `tests\godot\playfab_multiplayer_worker\` have been removed; `tools\run_mp_orchestrator.ps1` is the canonical direct entry point.

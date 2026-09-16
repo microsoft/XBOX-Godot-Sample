@@ -47,7 +47,19 @@
 			<param index="2" name="include_xbox_friends" type="bool" default="true" />
 			<param index="3" name="version" type="int" default="-1" />
 			<description>
-				Queries the friend or social leaderboard for the specified [param user]. When [param include_xbox_friends] is [code]true[/code], the service requests the Xbox friend token required by PlayFab.
+				Compatibility entry point for friend leaderboards. [param include_xbox_friends] maps [code]false[/code] to [constant FRIEND_SOURCE_NONE] and [code]true[/code] to [constant FRIEND_SOURCE_XBOX], preserving the original defaults and result shape. New code that selects external platforms should use [method get_friend_leaderboard_with_sources_async].
+			</description>
+		</method>
+		<method name="get_friend_leaderboard_with_sources_async">
+			<return type="Signal" />
+			<param index="0" name="user" type="PlayFabUser" />
+			<param index="1" name="leaderboard_name" type="String" />
+			<param index="2" name="friend_sources" type="int" enum="PlayFabLeaderboards.FriendSources" is_bitfield="true" />
+			<param index="3" name="version" type="int" default="-1" />
+			<description>
+				Queries the friend leaderboard while selecting which external friend providers PlayFab should include. [constant FRIEND_SOURCE_NONE] requests only the PlayFab friend list. Ordinary provider flags can be combined, for example [code]FRIEND_SOURCE_STEAM | FRIEND_SOURCE_XBOX[/code]. [constant FRIEND_SOURCE_ALL] is a distinct service selector and must be used alone; it is not the same as combining the four named providers.
+				Steam, Facebook, and PSN selections require the corresponding provider integration and linked or authenticated account to have been established separately. Selections containing [constant FRIEND_SOURCE_XBOX], including [constant FRIEND_SOURCE_ALL], require an Xbox-backed PlayFab session created with [method PlayFabUsers.sign_in_with_xuser_async]. Invalid masks complete with [code]invalid_friend_sources[/code].
+				The completed [PlayFabResult] has the same data shape as other leaderboard reads: [code]rankings[/code], [code]entry_count[/code], [code]version[/code], and optional [code]next_reset[/code].
 			</description>
 		</method>
 	</methods>
@@ -56,5 +68,23 @@
 	<signals>
 	</signals>
 	<constants>
+		<constant name="FRIEND_SOURCE_NONE" value="0" enum="FriendSources" is_bitfield="true">
+			Request no additional external friend providers. The PlayFab friend list can still contribute results.
+		</constant>
+		<constant name="FRIEND_SOURCE_STEAM" value="1" enum="FriendSources" is_bitfield="true">
+			Include Steam friends for an appropriately configured and linked Steam account.
+		</constant>
+		<constant name="FRIEND_SOURCE_FACEBOOK" value="2" enum="FriendSources" is_bitfield="true">
+			Include Facebook friends for an account with the required provider integration.
+		</constant>
+		<constant name="FRIEND_SOURCE_XBOX" value="4" enum="FriendSources" is_bitfield="true">
+			Include Xbox friends. This requires an Xbox-backed PlayFab session and acquires the Xbox token required by PlayFab.
+		</constant>
+		<constant name="FRIEND_SOURCE_PSN" value="8" enum="FriendSources" is_bitfield="true">
+			Include PlayStation Network friends for an account with the required provider integration.
+		</constant>
+		<constant name="FRIEND_SOURCE_ALL" value="16" enum="FriendSources" is_bitfield="true">
+			Request PlayFab's distinct [code]All[/code] selector. Use this value alone. The addon treats it as including Xbox, so it requires an Xbox-backed PlayFab session.
+		</constant>
 	</constants>
 </class>

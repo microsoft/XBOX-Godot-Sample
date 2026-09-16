@@ -31,7 +31,7 @@ theme_override_font_sizes/font_size = 24
 
 [node name="Subtitle" type="Label" parent="Root"]
 layout_mode = 2
-text = "PlayFab.leaderboards.submit_score_async / get_leaderboard_async / get_leaderboard_around_user_async / get_friend_leaderboard_async."
+text = "PlayFab.leaderboards.submit_score_async / get_leaderboard_async / get_leaderboard_around_user_async / get_friend_leaderboard_with_sources_async."
 autowrap_mode = 3
 
 [node name="Buttons" type="HBoxContainer" parent="Root"]
@@ -56,7 +56,7 @@ text = "Around user (Step 4)"
 
 [node name="FriendBtn" type="Button" parent="Root/Buttons"]
 layout_mode = 2
-text = "Friends (Step 5)"
+text = "PlayFab friends (Step 5)"
 
 [node name="BackBtn" type="Button" parent="Root/Buttons"]
 layout_mode = 2
