@@ -229,7 +229,7 @@ plus the Multiplayer/Party value/config/state types.
 | `PlayFabResult` | `PlayFabResult` | result |
 | `PlayFab.users` / `PlayFabUsers`, `PlayFabUser` | `PlayFab.Users`, `PlayFabUser` | service + value |
 | `PlayFab.game_saves` / `PlayFabGameSaves` | `PlayFab.GameSaves` | service |
-| `PlayFab.leaderboards` / `PlayFabLeaderboards` | `PlayFab.Leaderboards` | service |
+| `PlayFab.leaderboards` / `PlayFabLeaderboards` | `PlayFab.Leaderboards`, including `GetFriendLeaderboardAsync`, `GetFriendLeaderboardWithSourcesAsync`, and nested `[Flags] FriendSources : long` | service |
 | `PlayFab.accounts` / `PlayFabAccounts` | `PlayFab.Accounts` | client service |
 | `PlayFab.catalog` / `PlayFabCatalog` | `PlayFab.Catalog` | client service |
 | `PlayFab.cloud_script` / `PlayFabCloudScript` | `PlayFab.CloudScript` | client service |
@@ -257,6 +257,13 @@ PlayFab-specific nuances the C# layer must honor:
   separate DLLs). The C# `PlayFab.Users.SignInWithXUserAsync(XboxUser user)` must pass
   the **underlying `GodotObject`** through unchanged — never marshal a raw local Xbox
   user id. This mirrors the repo anti-pattern guidance.
+- **Friend leaderboard source parity.** The original
+  `GetFriendLeaderboardAsync(..., bool include_xbox_friends = true, ...)`
+  remains unchanged. Cross-platform callers use
+  `GetFriendLeaderboardWithSourcesAsync` with the nested `FriendSources` enum.
+  Ordinary flags may be combined; `All = 0x10` is a standalone selector and is
+  not the OR of the other values. The facade casts the enum to `long` and lets
+  the native layer own validation and Xbox-token routing.
 - **Background error/state surfaces.** `PlayFab.multiplayer.multiplayer_error` and
   `PlayFab.party.party_error` are background callback-queue signals → exposed as C#
   `event Action<PlayFabResult>`. Lobby/match/party `*StateChange` notifications are

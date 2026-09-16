@@ -27,6 +27,7 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_playf
 - Game Saves requires an Xbox-backed `PlayFabUser` with a local user handle; custom-ID sessions must fail with `xbox_user_required` instead of surfacing a low-level handle error.
 - Higher-level service calls should require a `PlayFabUser` rather than raw ids or loosely typed user variants whenever the session is required.
 - Keep Xbox-facing identity details on the GDK side; the PlayFab wrapper should expose the PlayFab-facing session data higher-level services need.
+- Preserve `PlayFab.leaderboards.get_friend_leaderboard_async(..., include_xbox_friends := true, ...)` as the bool-based compatibility API. Cross-platform callers use `get_friend_leaderboard_with_sources_async`; Xbox-containing selections and standalone `ALL` require an Xbox-backed PlayFab session.
 
 ## Project Settings and Registration
 
@@ -77,6 +78,7 @@ cd tests\godot\playfab
 - Public Godot-facing class docs live in `addons\godot_playfab\doc_classes\`.
 - `docs\playfab\plugin.md` is the user-facing addon overview. Update it when the public surface or sample workflow changes.
 - `spec\gdext-playfab.md` is the source of truth for design direction and deferred work. Mark shipped sections or note deviations there when scope changes.
+- Public native surface changes must update the `godot_playfab_csharp` facade and targeted parity assertions in the same change.
 
 ## Build / Binding Gotchas
 
@@ -90,3 +92,4 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
 - **Lobby constants/mutators live on `PlayFabLobby`. Match-ticket constants and ticket ops live on `PlayFabMatchTicket`.** Do not put either set on `PlayFabMultiplayer` — that surface stays focused on factory/service-level entry points. This was corrected multiple times in PR #109 and is now the established convention.
 - **`PlayFabLobby` state-change kinds 1–6 are frozen; append new kinds from 7.** `tests\godot\playfab\tests\test_multiplayer_contract.gd` asserts the numeric values and samples `match` on them. New kinds must also be additive at emit time: a member connection change still emits `MEMBER_UPDATED` before the narrower `MEMBER_CONNECTION_CHANGED`, so existing listeners keep working.
 - **Optional lobby update fields are presence-tracked, not sentinel-valued.** `PlayFabLobbyUpdateConfig` pairs every field with a `has_*`/`clear_*` flag because `false` and enum value `0` are legitimate values a title must be able to send. This mirrors `PFLobbyDataUpdate`, whose optional fields are all pointers. Do not add "unset" sentinels to work around it.
+- **Combinable public flags use bitfield bindings.** Declare a class-local `int64_t` enum, bind each value with `BIND_BITFIELD_FLAG`, accept `BitField<Enum>`, and add exactly one `VARIANT_BITFIELD_CAST` outside the namespace. For friend leaderboard sources, `FRIEND_SOURCE_ALL` is the distinct value `0x10` and must be used alone; it is not the OR of Steam, Facebook, Xbox, and PSN.

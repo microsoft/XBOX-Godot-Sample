@@ -125,7 +125,7 @@ Two traps are baked into this contract because they were verified by the spike:
 Tests have two runtime modes, gated by the environment variable that the orchestrator forwards through `psi.EnvironmentVariables`:
 
 - **Default** — `LIVE_TESTS` is unset. Every live-network test falls through to `pending(...)` when its prerequisites are not met (no signed-in user, no PlayFab title id, etc.). The suite is green on any developer workstation.
-- **`LIVE_TESTS=1`** — live tests run strict. Missing prerequisites are real failures (`fail_test()`), not skips. Live calls execute against the configured service, including read-side calls (`add_user_with_ui_async` / sign-in, `get_folder`, `get_folder_size`, `get_leaderboard_async`, `get_leaderboard_around_user_async`, `get_friend_leaderboard_async`) and online-state writes (`submit_score_async`, `set_save_description_async`, `reset_cloud_async`, `set_activity_async` / `delete_activity_async`, `update_achievement_async`). Live write tests require:
+- **`LIVE_TESTS=1`** — live tests run strict. Missing prerequisites are real failures (`fail_test()`), not skips. Live calls execute against the configured service, including read-side calls (`add_user_with_ui_async` / sign-in, `get_folder`, `get_folder_size`, `get_leaderboard_async`, `get_leaderboard_around_user_async`, `get_friend_leaderboard_async`, `get_friend_leaderboard_with_sources_async`) and online-state writes (`submit_score_async`, `set_save_description_async`, `reset_cloud_async`, `set_activity_async` / `delete_activity_async`, `update_achievement_async`). Live write tests require:
   - Each test id is unique-per-run, formatted as `gdkfleet-<datetime>-<rand>`:
 
     ```gdscript
@@ -134,6 +134,25 @@ Tests have two runtime modes, gated by the environment variable that the orchest
 
   - Every live write test pairs setup with best-effort cleanup where the public API supports it; cleanup failure logs `pending`, not `fail`.
   - Leaderboard read-back after `submit_score_async` polls `get_leaderboard_async` up to `playfab/tests/leaderboard_settle_msec` (default `30000`) for the per-run id; timeout reports `pending(...)` (eventual-consistency flake), not `fail_test()`. Game Saves polls `get_folder_size` for the expected delta on the same pattern.
+
+Friend leaderboard source coverage is split deliberately:
+
+- Default/offline tests assert the bitfield registration, constant values,
+  method signatures/defaults, full-width invalid-mask validation, legacy bool
+  callability/signature/default compatibility, and snapshots of the actual SDK
+  request fields. No provider credentials or network calls are required.
+- Read-only live tests use `requires_live()`. They compare legacy `false` with
+  explicit `FRIEND_SOURCE_NONE`, assert custom-ID sessions reject Xbox,
+  mixed-Xbox, and `ALL` selections, and verify name validation before Xbox
+  lookup. Existing score submission/read-back remains behind
+  `requires_live_write()`.
+- The optional external-provider fixture is selected with
+  `PLAYFAB_TEST_FRIEND_SOURCES` (a nonzero accepted decimal mask) and
+  `PLAYFAB_TEST_FRIEND_ENTITY_IDS` (comma-separated expected PlayFab entity
+  ids). An unset selector is pending. Once selected, malformed or missing
+  configuration, sign-in/query failures, timeouts, and absent expected rows
+  are failures. The fixture is read-only and relies on pre-existing provider
+  linkage, friend relationships, and leaderboard entries.
 
 Manual sandbox cleanup is documented in `tools\reset_player_data.ps1`. Live write coverage should run only against sandbox titles and test accounts.
 

@@ -16,7 +16,7 @@ func test_optional_live_sign_in() -> void:
 
 	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
 	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise the live PlayFab flow.")
+		fail("Live PlayFab sign-in requires ProjectSettings['playfab/runtime/title_id'].")
 		return
 
 	var configured_endpoint := str(ProjectSettings.get_setting(PLAYFAB_ENDPOINT_SETTING, "")).strip_edges()
@@ -37,7 +37,7 @@ func test_optional_live_sign_in() -> void:
 		_disconnect_handlers(playfab, initialized_handler, shutdown_handler)
 		return
 	if not init_result.ok:
-		pending("PlayFab.initialize() live smoke skipped: %s" % init_result.message)
+		fail("PlayFab.initialize() live smoke failed: %s" % init_result.message)
 		_disconnect_handlers(playfab, initialized_handler, shutdown_handler)
 		return
 
@@ -48,7 +48,12 @@ func test_optional_live_sign_in() -> void:
 	var expected_endpoint := configured_endpoint if not configured_endpoint.is_empty() else "https://%s.playfabapi.com" % configured_title_id
 	assert_eq(playfab.get_endpoint(), expected_endpoint, "PlayFab.get_endpoint() resolves the configured endpoint")
 
-	var custom_id_session = await sign_in_with_configured_custom_id(playfab, "PlayFab custom-ID sign-in smoke")
+	var custom_id_session = await sign_in_with_configured_custom_id(
+		playfab,
+		"PlayFab custom-ID sign-in smoke",
+		DEFAULT_ASYNC_TIMEOUT_MSEC,
+		false,
+		true)
 	var playfab_user = custom_id_session.get("playfab_user")
 	if playfab_user == null:
 		playfab.shutdown()

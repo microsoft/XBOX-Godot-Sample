@@ -110,6 +110,39 @@ PlayFabResult saved = await PlayFab.GameSaves.UploadAsync(pf, "slot0", bytes);
 PlayFabResult board = await PlayFab.Leaderboards.GetLeaderboardAsync("score", 0, 10);
 ```
 
+### Friend leaderboard sources
+
+The managed leaderboard service preserves the original bool method and exposes
+the native source bitfield through the nested
+`[Flags] PlayFabLeaderboards.FriendSources : long` enum:
+
+```csharp
+using FriendSources = GodotPlayFab.Services.PlayFabLeaderboards.FriendSources;
+
+// Ordinary provider flags can be combined. Xbox requires an Xbox-backed
+// PlayFabUser returned by SignInWithXUserAsync.
+PlayFabResult steamAndXbox =
+    await PlayFab.Leaderboards.GetFriendLeaderboardWithSourcesAsync(
+        xboxBackedUser,
+        "high_score",
+        FriendSources.Steam | FriendSources.Xbox);
+```
+
+The values are `None = 0`, `Steam = 1`, `Facebook = 2`, `Xbox = 4`,
+`Psn = 8`, and `All = 16`. `All` must be used alone and is treated as
+Xbox-containing by the addon. The unchanged
+`GetFriendLeaderboardAsync(user, leaderboard_name,
+include_xbox_friends: true, version: -1)` remains available; `false` maps to
+`None` and `true` maps to `Xbox`.
+
+See the [PlayFab plugin guide](plugin.md#friend-leaderboard-sources) for the
+complete source-selection behavior and
+[PlayFab prerequisites](prerequisites.md) for provider setup.
+
+The facade does not duplicate validation or token acquisition. Invalid masks,
+missing Xbox-backed sessions, provider failures, and other native errors arrive
+through the returned `PlayFabResult`, not as managed argument exceptions.
+
 ### Lobby, Matchmaking, and Party
 
 `PlayFab.Multiplayer` covers lobby + matchmaking flows and `PlayFab.Party` covers
@@ -123,4 +156,6 @@ Godot-RPC-over-network path returns a `MultiplayerPeer` you can assign to
 
 Covered by `tests/csharp/FacadeParity.Tests` (run via
 `tools/run_csharp_tests.ps1`) — every native `doc_classes` member is asserted to
-have a managed wrapper.
+have a managed wrapper. Targeted reflection assertions also lock the legacy and
+source-selecting friend method signatures/defaults, the `[Flags]`/`long` enum
+shape, and all six values against the native XML.

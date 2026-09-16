@@ -2,6 +2,7 @@ using Godot;
 using System.Threading.Tasks;
 using GodotPlayFab;
 using GodotPlayFab.Types;
+using FriendSources = GodotPlayFab.Services.PlayFabLeaderboards.FriendSources;
 
 /// <summary>PlayFab Tutorial 2 reference scene — statistic writes + leaderboard reads.</summary>
 public partial class P02Leaderboard : Control
@@ -121,7 +122,8 @@ public partial class P02Leaderboard : Control
 
     private async Task PrintFriendLeaderboardAsync()
     {
-        PlayFabResult result = await PlayFab.Leaderboards.GetFriendLeaderboardAsync(_auth.PlayFabUser, LeaderboardName, false);
+        PlayFabResult result = await PlayFab.Leaderboards.GetFriendLeaderboardWithSourcesAsync(
+            _auth.PlayFabUser, LeaderboardName, FriendSources.None);
         if (!IsInsideTree()) return;
         if (!result.Ok) { Append($"[color=orange][Lead] friend leaderboard failed: {result.Message}[/color]"); return; }
         PrintPage("Friend leaderboard", result.Data.AsGodotDictionary());

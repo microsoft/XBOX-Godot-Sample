@@ -38,7 +38,7 @@ func _ready() -> void:
 	_top_btn.pressed.connect(func(): await _print_global_top())
 	_pages_btn.pressed.connect(func(): await _print_all_pages())
 	_around_btn.pressed.connect(func(): await _print_around_user())
-	_friend_btn.pressed.connect(func(): await _print_xbox_friend_leaderboard())
+	_friend_btn.pressed.connect(func(): await _print_friend_leaderboard())
 
 	_auth = get_node_or_null("/root/PlayFabAuth")
 	if _auth == null:
@@ -152,16 +152,17 @@ func _print_around_user() -> void:
 				_primary_score(row),
 				marker])
 
-func _print_xbox_friend_leaderboard() -> void:
+func _print_friend_leaderboard() -> void:
 	var user = _auth.get("playfab_user")
 	if user == null:
 		return
-	# include_xbox_friends=false: this PlayFab-only track signs in with a
-	# custom id and has no linked Xbox account, so the friend leaderboard
-	# is scoped to PlayFab friends. A title that also links Xbox accounts
-	# can pass true to fold in the Xbox friends list.
-	var result = await AddonApi.singleton("PlayFab").leaderboards.get_friend_leaderboard_async(
-			user, LEADERBOARD_NAME, false)
+	# This custom-ID tutorial requests PlayFab friends only. External sources
+	# require their corresponding linked accounts; Xbox and ALL also require
+	# an Xbox-backed PlayFab sign-in.
+	var friend_source_none := AddonApi.constant(
+			"PlayFabLeaderboards", "FRIEND_SOURCE_NONE")
+	var result = await AddonApi.singleton("PlayFab").leaderboards.get_friend_leaderboard_with_sources_async(
+			user, LEADERBOARD_NAME, friend_source_none)
 	if not result.ok:
 		_append("[color=orange][Lead] friend leaderboard failed: %s[/color]" % result.message)
 		return

@@ -20,11 +20,19 @@ const PLAYFAB_TITLE_ID_ENV := "PLAYFAB_TITLE_ID"
 const PLAYFAB_TEST_CUSTOM_ID_ENV := "PLAYFAB_CUSTOM_ID"
 const PLAYFAB_SINGLETON_NAME_SETTING := "playfab/runtime/singleton_name"
 const PLAYFAB_DEFAULT_SINGLETON_NAME := "PlayFab"
+const PLAYFAB_RATE_LIMIT_HRESULT := 0x892354DD
+const PLAYFAB_RATE_LIMIT_RETRY_DELAY_MSEC := 150000
 # Native class the singleton must be an instance of. The singleton *name* is
 # configurable; the class it resolves to is not.
 const PLAYFAB_SINGLETON_CLASS_NAME := "PlayFab"
 
 var _playfab_extension: Resource = null
+var _playfab_live_sessions: Dictionary = {}
+var _playfab_live_runtime: Object = null
+
+
+func after_all() -> void:
+	shutdown_playfab_live_sessions()
 
 
 # ── Singleton + runtime helpers ──────────────────────────────────────────
@@ -83,6 +91,7 @@ func apply_playfab_env_configuration() -> void:
 
 
 func reset_playfab_runtime() -> void:
+	clear_playfab_live_session_cache()
 	apply_playfab_env_configuration()
 	var playfab: Object = get_playfab()
 	if playfab != null:
@@ -114,40 +123,315 @@ func get_configured_playfab_custom_id() -> String:
 	return ""
 
 
-func sign_in_with_configured_custom_id(playfab: Object, label: String, timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dictionary:
+func clear_playfab_live_session_cache() -> void:
+	_playfab_live_sessions.clear()
+	_playfab_live_runtime = null
+
+
+func shutdown_playfab_live_sessions() -> void:
+	var playfab: Object = _playfab_live_runtime
+	clear_playfab_live_session_cache()
+	if playfab != null:
+		playfab.shutdown()
+
+
+func begin_playfab_live_session(
+		label: String,
+		write_required: bool = false,
+		xbox_backed: bool = false,
+		create_account: bool = false,
+		strict_failures: bool = false,
+		timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dictionary:
 	var outcome := {
-		"custom_id": "",
 		"playfab_user": null,
+		"playfab": null,
 		"result": null,
-		"skip_reason": "",
+		"custom_id": "",
+		"failure_kind": "",
+		"failure_message": "",
 	}
 
-	var custom_id := get_configured_playfab_custom_id()
-	outcome["custom_id"] = custom_id
-	if custom_id.is_empty():
-		pending("Set ProjectSettings['%s'] or %s to exercise %s." % [PLAYFAB_TEST_CUSTOM_ID_SETTING, PLAYFAB_TEST_CUSTOM_ID_ENV, label])
-		outcome["skip_reason"] = "custom_id_unconfigured"
+	if write_required:
+		if not requires_live_write():
+			return outcome
+	elif not requires_live():
 		return outcome
 
-	var sign_in_signal = playfab.users.sign_in_with_custom_id_async(custom_id, false)
-	if typeof(sign_in_signal) != TYPE_SIGNAL:
-		pending("%s skipped: PlayFab.users.sign_in_with_custom_id_async() did not start." % label)
-		outcome["skip_reason"] = "sign_in_did_not_start"
-		return outcome
+	var cache_key := "%d:%d" % [
+		int(xbox_backed),
+		int(create_account),
+	]
+	if _playfab_live_sessions.has(cache_key):
+		var cached: Dictionary = _playfab_live_sessions[cache_key]
+		var cached_playfab: Object = cached.get("playfab")
+		if cached.get("playfab_user") != null and (
+				cached_playfab == null or not cached_playfab.is_initialized()):
+			_playfab_live_sessions.erase(cache_key)
+		else:
+			if not str(cached.get("failure_kind", "")).is_empty():
+				_report_playfab_failure(
+					str(cached.get("failure_message", "")),
+					strict_failures)
+			return cached
 
-	var sign_in_result = await await_completion(sign_in_signal, timeout_msec)
-	outcome["result"] = sign_in_result
-	if sign_in_result == null:
-		pending("%s skipped: custom-ID sign-in timed out." % label)
-		outcome["skip_reason"] = "sign_in_timeout"
-		return outcome
-	if not sign_in_result.ok:
-		pending("%s skipped: %s" % [label, sign_in_result.message])
-		outcome["skip_reason"] = "sign_in_failed"
-		return outcome
+	var playfab: Object = get_playfab()
+	outcome["playfab"] = playfab
+	if playfab == null:
+		return _cache_playfab_live_session_failure(
+			cache_key,
+			outcome,
+			"playfab_unavailable",
+			"PlayFab singleton is not available in this host.",
+			strict_failures)
+	_playfab_live_runtime = playfab
 
-	outcome["playfab_user"] = sign_in_result.data
+	var configured_title_id := get_active_playfab_title_id().strip_edges()
+	if configured_title_id.is_empty():
+		return _cache_playfab_live_session_failure(
+			cache_key,
+			outcome,
+			"configuration",
+			"%s requires ProjectSettings['%s'] or %s." % [
+				label,
+				PLAYFAB_TITLE_ID_SETTING,
+				PLAYFAB_TITLE_ID_ENV,
+			],
+			strict_failures)
+
+	if not playfab.is_initialized():
+		var init_result = playfab.initialize()
+		outcome["result"] = init_result
+		if init_result == null:
+			return _cache_playfab_live_session_failure(
+				cache_key,
+				outcome,
+				"initialize_timeout",
+				"PlayFab.initialize() returned no result for %s." % label,
+				strict_failures)
+		if not init_result.ok:
+			return _cache_playfab_live_session_failure(
+				cache_key,
+				outcome,
+				"initialize_failed",
+				"PlayFab.initialize() failed for %s: %s" % [label, init_result.message],
+				strict_failures)
+
+	var sign_in_operation: Callable
+	var sign_in_label: String
+	if xbox_backed:
+		var xbox_session = await ensure_gdk_primary_user_for_playfab(timeout_msec)
+		var xbox_user = xbox_session.get("user")
+		if xbox_user == null:
+			return _cache_playfab_live_session_failure(
+				cache_key,
+				outcome,
+				"xbox_setup_failed",
+				"Xbox-backed PlayFab setup failed for %s: %s" % [
+					label,
+					str(xbox_session.get("skip_reason", "no Xbox user returned")),
+				],
+				strict_failures)
+
+		sign_in_label = "%s Xbox-backed sign-in" % label
+		sign_in_operation = func():
+			return playfab.users.sign_in_with_xuser_async(xbox_user, create_account)
+	else:
+		var custom_id := get_configured_playfab_custom_id()
+		outcome["custom_id"] = custom_id
+		if custom_id.is_empty():
+			return _cache_playfab_live_session_failure(
+				cache_key,
+				outcome,
+				"custom_id_unconfigured",
+				"%s requires ProjectSettings['%s'] or %s." % [
+					label,
+					PLAYFAB_TEST_CUSTOM_ID_SETTING,
+					PLAYFAB_TEST_CUSTOM_ID_ENV,
+				],
+				strict_failures)
+
+		sign_in_label = "%s custom-ID sign-in" % label
+		sign_in_operation = func():
+			return playfab.users.sign_in_with_custom_id_async(custom_id, create_account)
+
+	var sign_in := await _sign_in_playfab_user(
+		sign_in_operation,
+		sign_in_label,
+		timeout_msec)
+	outcome["result"] = sign_in.get("result")
+	var failure_kind := str(sign_in.get("failure_kind", ""))
+	if not failure_kind.is_empty():
+		return _cache_playfab_live_session_failure(
+			cache_key,
+			outcome,
+			failure_kind,
+			str(sign_in.get("failure_message", "")),
+			strict_failures)
+
+	outcome["playfab_user"] = sign_in.get("playfab_user")
+	_playfab_live_sessions[cache_key] = outcome
 	return outcome
+
+
+func sign_in_with_configured_custom_id(
+		playfab: Object,
+		label: String,
+		timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC,
+		create_account: bool = false,
+		strict_failures: bool = false) -> Dictionary:
+	var custom_id := get_configured_playfab_custom_id()
+	var outcome := {
+		"custom_id": custom_id,
+		"playfab_user": null,
+		"result": null,
+		"failure_kind": "",
+		"failure_message": "",
+	}
+	if custom_id.is_empty():
+		outcome["failure_kind"] = "custom_id_unconfigured"
+		outcome["failure_message"] = (
+			"Set ProjectSettings['%s'] or %s to exercise %s."
+		) % [
+				PLAYFAB_TEST_CUSTOM_ID_SETTING,
+				PLAYFAB_TEST_CUSTOM_ID_ENV,
+				label,
+			]
+		_report_playfab_failure(str(outcome["failure_message"]), strict_failures)
+		return outcome
+
+	var operation := func():
+		return playfab.users.sign_in_with_custom_id_async(custom_id, create_account)
+	outcome = await _sign_in_playfab_user(operation, label, timeout_msec)
+	outcome["custom_id"] = custom_id
+	if not str(outcome.get("failure_kind", "")).is_empty():
+		_report_playfab_failure(
+			str(outcome.get("failure_message", "")),
+			strict_failures)
+	return outcome
+
+
+func await_playfab_result_with_rate_limit_retry(
+		operation: Callable,
+		label: String,
+		timeout_msec: int = DEFAULT_ASYNC_TIMEOUT_MSEC) -> Dictionary:
+	var outcome := {
+		"result": null,
+		"failure_kind": "",
+		"failure_message": "",
+	}
+
+	for attempt_index in range(2):
+		var completion_signal: Variant = operation.call()
+		if typeof(completion_signal) != TYPE_SIGNAL:
+			outcome["failure_kind"] = "did_not_start"
+			outcome["failure_message"] = "%s did not return a Signal." % label
+			return outcome
+
+		var result = await await_completion(completion_signal, timeout_msec)
+		outcome["result"] = result
+		if result == null:
+			outcome["failure_kind"] = "timeout"
+			outcome["failure_message"] = "%s timed out." % label
+			return outcome
+		if not is_playfab_rate_limit_result(result):
+			return outcome
+		if attempt_index == 1:
+			outcome["failure_kind"] = "rate_limit"
+			outcome["failure_message"] = (
+				"%s remained rate-limited after one 150-second cooldown and retry "
+				+ "(E_PF_API_CLIENT_REQUEST_RATE_LIMIT_EXCEEDED, HRESULT 0x892354DD). "
+				+ "Wait at least 150 seconds for the per-player window to clear, then rerun the live tier."
+			) % label
+			return outcome
+
+		print(
+			"[PlayFab live] %s hit the per-player request rate limit; retrying once in 150s."
+			% label)
+		await _wait_for_playfab_retry(PLAYFAB_RATE_LIMIT_RETRY_DELAY_MSEC)
+
+	return outcome
+
+
+func is_playfab_rate_limit_result(result: Variant) -> bool:
+	if result == null:
+		return false
+
+	if result is Dictionary:
+		if bool(result.get("ok", false)):
+			return false
+		return (
+			int(result.get("hresult", 0)) & 0xFFFFFFFF
+		) == PLAYFAB_RATE_LIMIT_HRESULT
+	if result is Object:
+		if bool(result.get("ok")):
+			return false
+		return (
+			int(result.get("hresult")) & 0xFFFFFFFF
+		) == PLAYFAB_RATE_LIMIT_HRESULT
+	return false
+
+
+func _sign_in_playfab_user(
+		operation: Callable,
+		label: String,
+		timeout_msec: int) -> Dictionary:
+	var outcome := await await_playfab_result_with_rate_limit_retry(
+		operation,
+		label,
+		timeout_msec)
+	outcome["playfab_user"] = null
+	if not str(outcome.get("failure_kind", "")).is_empty():
+		return outcome
+
+	var result = outcome.get("result")
+	if result == null:
+		outcome["failure_kind"] = "sign_in_timeout"
+		outcome["failure_message"] = "%s timed out." % label
+	elif not result.ok:
+		outcome["failure_kind"] = "sign_in_failed"
+		outcome["failure_message"] = "%s failed: %s" % [label, result.message]
+	elif result.data == null:
+		outcome["failure_kind"] = "sign_in_missing_user"
+		outcome["failure_message"] = "%s returned no PlayFabUser." % label
+	else:
+		outcome["playfab_user"] = result.data
+	return outcome
+
+
+func _cache_playfab_live_session_failure(
+		cache_key: String,
+		outcome: Dictionary,
+		failure_kind: String,
+		failure_message: String,
+		strict_failures: bool) -> Dictionary:
+	outcome["failure_kind"] = failure_kind
+	outcome["failure_message"] = failure_message
+	_playfab_live_sessions[cache_key] = outcome
+	_report_playfab_failure(failure_message, strict_failures)
+	return outcome
+
+
+func _report_playfab_failure(failure_message: String, strict_failures: bool) -> void:
+	if strict_failures:
+		fail(failure_message)
+	else:
+		pending(failure_message)
+
+
+func _wait_for_playfab_retry(delay_msec: int) -> void:
+	var playfab: Object = get_playfab()
+	var gdk: Object = get_gdk()
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var started_msec := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - started_msec < delay_msec:
+		if playfab != null:
+			playfab.dispatch()
+		if gdk != null:
+			gdk.dispatch()
+		if main_loop != null and main_loop.has_signal("process_frame"):
+			await main_loop.process_frame
+		else:
+			OS.delay_msec(ASYNC_POLL_INTERVAL_MSEC)
 
 
 # ── Async helpers (override) ─────────────────────────────────────────────

@@ -20,7 +20,6 @@ func test_api_services_live_fixture_smoke() -> void:
 	var api_fixtures: Dictionary = marker.get("api_services", {})
 	if api_fixtures.is_empty():
 		pending("Run tools\\configure_playfab_test_title.ps1 so the live title marker includes api_services fixtures.")
-		playfab.shutdown()
 		return
 
 	var accounts_data = await _assert_api_ok(
@@ -69,40 +68,15 @@ func test_api_services_live_fixture_smoke() -> void:
 	await _assert_friend_fixture(playfab, playfab_user, api_fixtures)
 	await _assert_cloud_script_reaches_service(playfab, playfab_user, api_fixtures)
 
-	playfab.shutdown()
-
 
 func _begin_live_session() -> Dictionary:
-	var outcome := {
-		"playfab_user": null,
-		"playfab": null,
-	}
-
-	if pending_unless_live():
-		return outcome
-	if pending_unless_playfab_available():
-		return outcome
-
-	var playfab = get_playfab()
-	outcome["playfab"] = playfab
-
-	var configured_title_id := str(ProjectSettings.get_setting(PLAYFAB_TITLE_ID_SETTING, "")).strip_edges()
-	if configured_title_id.is_empty():
-		pending("Set ProjectSettings['playfab/runtime/title_id'] to exercise PlayFab service live coverage.")
-		return outcome
-
-	reset_playfab_runtime()
-	var init_result = playfab.initialize()
-	if init_result == null or not init_result.ok:
-		pending("PlayFab.initialize() live setup skipped: %s" % (init_result.message if init_result != null else "null result"))
-		return outcome
-
-	var custom_id_session = await sign_in_with_configured_custom_id(playfab, "PlayFab services live test")
-	if custom_id_session.get("playfab_user") == null:
-		return outcome
-
-	outcome["playfab_user"] = custom_id_session["playfab_user"]
-	return outcome
+	return await begin_playfab_live_session(
+		"Live PlayFab service coverage",
+		false,
+		false,
+		false,
+		true,
+		_DEFAULT_OP_TIMEOUT_MSEC)
 
 
 func _load_live_marker(playfab: Object, playfab_user) -> Dictionary:
@@ -244,12 +218,24 @@ func _assert_friend_fixture(playfab: Object, playfab_user, api_fixtures: Diction
 	if friend_custom_id.is_empty():
 		return
 
-	var friend_sign_in_signal = playfab.get_users().sign_in_with_custom_id_async(friend_custom_id, false)
-	assert_eq(typeof(friend_sign_in_signal), TYPE_SIGNAL, "friend fixture custom-ID sign-in returns Signal")
-	if typeof(friend_sign_in_signal) != TYPE_SIGNAL:
+	var start_friend_sign_in := func():
+		return playfab.get_users().sign_in_with_custom_id_async(friend_custom_id, false)
+
+	var friend_sign_in_retry = await await_playfab_result_with_rate_limit_retry(
+		start_friend_sign_in,
+		"friend fixture custom-ID sign-in",
+		_DEFAULT_OP_TIMEOUT_MSEC)
+	var failure_kind := str(friend_sign_in_retry.get("failure_kind", ""))
+	assert_false(
+		failure_kind == "did_not_start",
+		"friend fixture custom-ID sign-in returns Signal")
+	if failure_kind == "did_not_start":
+		return
+	if not failure_kind.is_empty():
+		fail(str(friend_sign_in_retry.get("failure_message", "Friend fixture sign-in failed.")))
 		return
 
-	var friend_sign_in_result = await await_completion(friend_sign_in_signal, _DEFAULT_OP_TIMEOUT_MSEC)
+	var friend_sign_in_result = friend_sign_in_retry.get("result")
 	assert_playfab_result_ok(friend_sign_in_result, "friend fixture custom-ID sign-in")
 	if friend_sign_in_result == null or not friend_sign_in_result.ok:
 		return

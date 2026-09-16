@@ -654,7 +654,8 @@ and enable the title's **Allow client to post player stats** setting
 so the statistic write itself reaches the service. The leaderboard
 ranks statistic values, so the read paths
 (`get_leaderboard_async`, `get_leaderboard_around_user_async`,
-`get_friend_leaderboard_async`) stay unchanged.
+`get_friend_leaderboard_async`, and
+`get_friend_leaderboard_with_sources_async`) stay unchanged.
 
 1. Open [PlayFab Game Manager](https://developer.playfab.com/) and
    select your title.
@@ -704,6 +705,42 @@ cover the full pattern.
 > your own trusted backend with the developer secret key, and
 > validate scores before writing.
 
+## PlayFab friend leaderboard source selection fails
+
+Both friend-read entry points return a completion `Signal`; await it to obtain a
+`PlayFabResult`, then inspect its `code` and `message` instead of treating every
+empty or failed request as "no friends."
+
+- **`invalid_friend_sources`** means the explicit mask contains a negative
+  value, an unknown bit, or combines `FRIEND_SOURCE_ALL` (`0x10`) with an
+  ordinary provider. Use a combination of `STEAM` (`1`), `FACEBOOK` (`2`),
+  `XBOX` (`4`), and `PSN` (`8`), or use `ALL` by itself. `ALL` is not `0x0f`,
+  and `ALL & ~XBOX` still leaves the standalone `ALL` selector rather than
+  expressing "all except Xbox."
+- **`friend_leaderboard_xuser_not_found`** means the selection contains Xbox
+  or is `ALL`, but the `PlayFabUser` is not backed by an active local XUser.
+  Sign in with `PlayFab.users.sign_in_with_xuser_async()` or select an ordinary
+  source mask without `XBOX`. Custom-ID and Steam-only sessions have
+  `local_id == 0` and cannot supply the required Xbox token.
+- **`friend_leaderboard_token_failed`,
+  `friend_leaderboard_token_result_size_failed`,
+  `friend_leaderboard_token_result_failed`,
+  `friend_leaderboard_token_empty`, or
+  `friend_leaderboard_token_start_failed`** indicate that the Xbox-backed
+  request reached token acquisition but could not obtain a usable token.
+  Confirm the local Xbox user is still signed in, the title's Xbox/PlayFab
+  configuration is valid, and the request runs in a packaged environment when
+  required.
+- **A provider-specific service error** is not converted into an empty
+  successful response. Confirm the provider is configured for the title and
+  the PlayFab account was authenticated with or linked to that provider.
+  Facebook and PSN selection does not add login flows to this addon.
+
+A successful result with an empty `rankings` array is legitimate: none of the
+selected friends may have an entry in that leaderboard version. A failed
+`PlayFabResult` instead means the query or provider integration failed and
+should be surfaced to the player or diagnostics.
+
 ## Tests
 
 ### Orchestrator says all green but my new test wasn't discovered
@@ -722,11 +759,10 @@ Drop an empty `.gut_skip_validation` sentinel at the tests root that contains GU
 
 This is expected in a free-standing executable. `godot::String` and other Variant-family types require the GDExtension function table that Godot initializes when it loads an addon. Move that case into a GUT test, or extract a pure helper that does not instantiate Godot Variant-family types.
 
-### Leaderboard test marked pending after submit
+### Leaderboard test fails after submit
 
-PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, set the test-host-only `playfab/tests/leaderboard_settle_msec` key in `tests\godot\playfab\project.godot` so the test polls longer before marking the read-after-write check pending.
+PlayFab leaderboard writes are eventually consistent. If your sandbox is slow, set the test-host-only `playfab/tests/leaderboard_settle_msec` key in `tests\godot\playfab\project.godot` so the test polls longer before failing the read-after-write check.
 
 ### Bootstrap runner exit code is 0 but I never saw `BOOTSTRAP_OK:`
 
 Check that the script prints the literal success prefix before it exits and ends with `quit(0)`. `tools\run_all_tests.ps1` gates the bootstrap stage on process exit code, while the `BOOTSTRAP_OK:` and `BOOTSTRAP_FAIL:` prefixes are the log contract reviewers and manual runs use to understand what happened.
-
