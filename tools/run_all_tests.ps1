@@ -88,6 +88,12 @@
     Optional PlayFab matchmaking queue name forwarded to child processes as
     PLAYFAB_MULTIPLAYER_MATCH_QUEUE for Multiplayer live smoke coverage.
 
+.PARAMETER MpScenarioFilter
+    Optional regex filter for the PlayFab Multiplayer orchestrator. When
+    omitted, the runner selects the repo's C1 P0/P1 scenario set. An explicit
+    filter requires -Live and -AllowLiveWrites, cannot be combined with
+    -SkipOrchestrator, and must produce at least one passed scenario.
+
 .PARAMETER GutTimeoutSec
     Per-host GUT and per-bootstrap-script timeout in seconds. Default: 600.
 
@@ -117,6 +123,7 @@ param(
     [string]$PlayFabTitleId,
     [string]$PlayFabCustomId,
     [string]$PlayFabMatchmakingQueue,
+    [string]$MpScenarioFilter,
     [int]$GutTimeoutSec = 600,
     [switch]$VerboseOutput
 )
@@ -783,6 +790,17 @@ function Invoke-PlayFabMultiplayerOrchestrator {
     )
 
     $rec = New-StageRecord 'playfab-multiplayer-orchestrator'
+    $hasExplicitFilter = -not [string]::IsNullOrWhiteSpace($MpScenarioFilter)
+    if ($hasExplicitFilter -and -not $LiveEnabled) {
+        $rec.status = 'fail'
+        $rec.message = 'Explicit -MpScenarioFilter requires -Live; refusing to skip a requested scenario.'
+        return $rec
+    }
+    if ($hasExplicitFilter -and -not $AllowLiveWritesEnabled) {
+        $rec.status = 'fail'
+        $rec.message = 'Explicit -MpScenarioFilter requires -AllowLiveWrites; refusing to skip a requested live-write scenario.'
+        return $rec
+    }
     if (-not $LiveEnabled) {
         $rec.status = 'skip'
         $rec.message = 'Skipped without -Live / LIVE_TESTS=1.'
@@ -805,10 +823,9 @@ function Invoke-PlayFabMultiplayerOrchestrator {
         $rec.message = "PlayFab Multiplayer orchestrator runner not found at $script:PlayFabMultiplayerOrchestratorRunner."
         return $rec
     }
-
     $pwsh = Resolve-PwshExecutable
     $resultsDir = Join-Path $OutDirAbsolute 'mp-orchestrator'
-    $filter = Get-MpP0P1ScenarioFilter
+    $filter = if ($hasExplicitFilter) { $MpScenarioFilter } else { Get-MpP0P1ScenarioFilter }
     $args = @(
         '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', $script:PlayFabMultiplayerOrchestratorRunner,
@@ -865,6 +882,12 @@ function Invoke-PlayFabMultiplayerOrchestrator {
         if ($rec.failing -gt 0) {
             $rec.status = 'fail'
             $rec.message = "C1 P0/P1 scenarios: passed=$($rec.passing) failed=$($rec.failing) skipped=$($rec.pending)"
+            $rec.details = $combined
+            return $rec
+        }
+        if ($hasExplicitFilter -and $rec.passing -le 0) {
+            $rec.status = 'fail'
+            $rec.message = "Explicitly filtered PlayFab Multiplayer run passed no scenarios (passed=$($rec.passing) skipped=$($rec.pending))."
             $rec.details = $combined
             return $rec
         }
@@ -1121,7 +1144,16 @@ function Main {
     }
 
     # 5. PlayFab Multiplayer orchestrator
-    if ($SkipOrchestrator) {
+    $hasExplicitMpFilter = -not [string]::IsNullOrWhiteSpace($MpScenarioFilter)
+    if ($SkipOrchestrator -and $hasExplicitMpFilter) {
+        Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
+        $stage = New-StageRecord 'playfab-multiplayer-orchestrator'
+        $stage.status = 'fail'
+        $stage.message = 'Explicit -MpScenarioFilter cannot be combined with -SkipOrchestrator; remove the skip or the filter.'
+        [void]$stages.Add($stage)
+        Write-Host "   FAIL: $($stage.message)`n"
+        $abort = $true
+    } elseif ($SkipOrchestrator) {
         Write-Host '== [5/7] PlayFab Multiplayer orchestrator (C1 P0/P1) ==' -ForegroundColor Cyan
         $skip = New-StageRecord 'playfab-multiplayer-orchestrator'
         $skip.status = 'skip'

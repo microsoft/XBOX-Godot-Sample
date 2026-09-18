@@ -82,9 +82,11 @@ func before_each() -> void:
 
 - Repo-wide live read/dry selection: `tools\run_all_tests.ps1 -Live -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>`
 - Full live-write MP sweep: `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>`
+- Issue #169 local-chat-control regression only: `tools\run_all_tests.ps1 -Live -AllowLiveWrites -SkipBuild -SkipDoctest -SkipGut -PlayFabTitleId <sandbox> -PlayFabCustomId <existing-custom-id> -MpScenarioFilter '^party\.chat\.destroy_local_control\.rejoin$'`
 - Direct scenario runs: `tools\run_mp_orchestrator.ps1 -Roles host,guest,guest2,observer -Filter "^party\.network\."`
 
 The repo-wide stage dynamically selects C1 P0/P1 scenario files from `tests\godot\mp_orchestrator\scenarios\`. P2/P3 scenarios stay out of that default sweep until promoted.
+The `party.chat.destroy_local_control.rejoin` live-write scenario keeps a host online while the guest destroys, explicitly recreates, and rejoins with its local chat control three times, verifying bidirectional text after every rejoin. Its final cleanup also retains the guest wrapper across `release_local_user_async()` and proves the detached wrapper rejects further chat safely. When `-MpScenarioFilter` is supplied, `-Live` and `-AllowLiveWrites` are required, `-SkipOrchestrator` is rejected, and the run is only green if at least one matching scenario passes.
 
 ## Why This Matters
 
