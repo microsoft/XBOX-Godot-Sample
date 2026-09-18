@@ -778,7 +778,7 @@ self-contained slice with its own validation.
   exactly-once completion, explicit recreation, and three repeated rejoins to
   one still-hosted network. Validated on 2026-09-17 with the installed-GDK
   debug build, the repo-wide GDScript parse gate, the offline PlayFab host
-  (98 tests, 75 passing, 0 failing, 23 pending, 2508/2508 asserts), and the
+  (98 tests, 75 passing, 0 failing, 23 pending, 2512/2512 asserts), and the
   targeted sandbox `10D176` live-write scenario (1 passed, 0 failed/skipped;
   3 cycles and 4 bidirectional text round trips).
 - **Phase A: ✅ implemented.** `addons/godot_playfab/src/playfab_party.cpp`:
