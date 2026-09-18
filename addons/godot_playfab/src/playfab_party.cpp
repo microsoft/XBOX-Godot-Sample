@@ -960,6 +960,11 @@ void PlayFabPartyChat::_bind_methods() {
 void PlayFabPartyChat::set_owner(PlayFabParty *p_owner) { m_owner = p_owner; }
 
 void PlayFabPartyChat::clear() {
+    for (const Ref<PlayFabPartyChatControl> &control : m_chat_controls) {
+        if (control.is_valid()) {
+            control->attach(nullptr, nullptr, control->is_local());
+        }
+    }
     m_chat_controls.clear();
 }
 
@@ -2261,6 +2266,63 @@ Signal PlayFabParty::_test_enqueue_shutdown_pending() {
     return operation->pending_signal->get_completed_signal();
 }
 
+Signal PlayFabParty::_test_enqueue_destroy_chat_control_pending() {
+    ERR_FAIL_COND_V_MSG(m_initialized, Signal(),
+            "PlayFab Party destroy completion tests require an uninitialized service.");
+    ERR_FAIL_COND_V_MSG(m_processing_state_changes, Signal(),
+            "PlayFab Party destroy completion tests cannot enqueue while dispatching.");
+
+    PendingOperation *operation = _create_pending(PENDING_DESTROY_CHAT_CONTROL);
+    return operation->pending_signal->get_completed_signal();
+}
+
+void PlayFabParty::_test_dispatch_destroy_chat_control_completed(
+        int64_t p_state_change_result,
+        int64_t p_error_detail,
+        bool p_shutdown_before_completion,
+        bool p_finish_failure) {
+    ERR_FAIL_COND_MSG(m_initialized,
+            "PlayFab Party destroy completion tests require an uninitialized service.");
+    ERR_FAIL_COND_MSG(m_processing_state_changes,
+            "PlayFab Party destroy completion tests cannot start while dispatching.");
+
+    PendingOperation *operation = nullptr;
+    for (PendingOperation *candidate : m_pending_operations) {
+        if (candidate != nullptr && candidate->kind == PENDING_DESTROY_CHAT_CONTROL) {
+            operation = candidate;
+            break;
+        }
+    }
+    ERR_FAIL_NULL_MSG(operation,
+            "PlayFab Party destroy completion tests require a queued destroy operation.");
+
+    Party::PartyDestroyChatControlCompletedStateChange change{};
+    change.stateChangeType = Party::PartyStateChangeType::DestroyChatControlCompleted;
+    change.result = static_cast<Party::PartyStateChangeResult>(p_state_change_result);
+    change.errorDetail = static_cast<uint32_t>(p_error_detail);
+    change.asyncIdentifier = operation;
+
+    m_processing_state_changes = true;
+    if (p_shutdown_before_completion) {
+        shutdown();
+    }
+
+    _process_state_change(&change);
+    _process_state_change(&change);
+
+    if (p_finish_failure) {
+        _reset_after_state_change_finish_failure(
+                PlayFabResult::error_result(E_FAIL, PARTY_STATE_FINISH_FAILED,
+                        "PartyManager::FinishProcessingStateChanges failed."));
+        return;
+    }
+
+    m_processing_state_changes = false;
+    if (m_shutdown_deferred_until_dispatch_complete) {
+        shutdown();
+    }
+}
+
 int64_t PlayFabParty::_test_pending_operation_count() const {
     return static_cast<int64_t>(m_pending_operations.size() + m_pending_operations_deferred_delete.size());
 }
@@ -2345,9 +2407,6 @@ void PlayFabParty::_release_local_user(PFEntityHandle p_handle) {
     auto cc = m_local_chat_controls.find(p_handle);
     if (cc != m_local_chat_controls.end()) {
         if (cc->second.is_valid()) {
-            if (m_chat.is_valid()) {
-                m_chat->untrack(cc->second);
-            }
             _destroy_chat_control(cc->second);
         }
         m_local_chat_controls.erase(cc);
@@ -2375,6 +2434,8 @@ void PlayFabParty::_release_all_local_users() {
 }
 
 void PlayFabParty::_reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result) {
+    m_shutting_down = true;
+
     Ref<PlayFabResult> result = p_result;
     if (result.is_null()) {
         result = PlayFabResult::error_result(E_FAIL, PARTY_STATE_FINISH_FAILED, "PartyManager::FinishProcessingStateChanges failed.");
@@ -2413,8 +2474,14 @@ void PlayFabParty::_reset_after_state_change_finish_failure(const Ref<PlayFabRes
 
     ERR_PRINT("PlayFab.party: FinishProcessingStateChanges failed; Party was reset. Call PlayFab.party.initialize_async() before using it again.");
     emit_signal("party_error", result);
+    _delete_deferred_pending_operations();
     m_processing_state_changes = false;
+    m_shutdown_deferred_until_dispatch_complete = false;
     m_shutting_down = false;
+    _complete_shutdown_pending_signals();
+    if (m_owner != nullptr) {
+        m_owner->finish_deferred_shutdown_if_ready();
+    }
 }
 
 PlayFabParty::PendingOperation *PlayFabParty::_create_pending(int32_t p_kind) {
@@ -2883,6 +2950,9 @@ void PlayFabParty::_process_state_change(const Party::PartyStateChange *p_change
             break;
         case Party::PartyStateChangeType::ConnectChatControlCompleted:
             _process_connect_chat_control_completed(p_change);
+            break;
+        case Party::PartyStateChangeType::DestroyChatControlCompleted:
+            _process_destroy_chat_control_completed(p_change);
             break;
         case Party::PartyStateChangeType::SetChatAudioInputCompleted:
             _process_set_chat_audio_input_completed(p_change);
@@ -3556,6 +3626,32 @@ void PlayFabParty::_process_connect_chat_control_completed(const Party::PartySta
     }
 }
 
+void PlayFabParty::_process_destroy_chat_control_completed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartyDestroyChatControlCompletedStateChange *>(p_change);
+
+    if (change->result == Party::PartyStateChangeResult::Succeeded) {
+        _cleanup_destroyed_chat_control(change->localChatControl);
+    }
+
+    PendingOperation *operation = static_cast<PendingOperation *>(change->asyncIdentifier);
+    if (operation == nullptr ||
+            std::find(m_pending_operations.begin(), m_pending_operations.end(), operation) ==
+                    m_pending_operations.end()) {
+        return;
+    }
+
+    ERR_FAIL_COND_MSG(operation->kind != PENDING_DESTROY_CHAT_CONTROL,
+            "PlayFab.party received DestroyChatControlCompleted for a different pending operation kind.");
+
+    Ref<PlayFabResult> result =
+            change->result == Party::PartyStateChangeResult::Succeeded
+            ? PlayFabResult::ok_result()
+            : _party_state_change_error_result(
+                    change->result, change->errorDetail,
+                    PARTY_RESOURCE_NOT_READY, "PartyLocalDevice::DestroyChatControl");
+    _complete_pending(operation, result);
+}
+
 void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
     if (p_chat_control == nullptr) {
         return;
@@ -3790,21 +3886,16 @@ void PlayFabParty::_process_chat_control_created(const Party::PartyStateChange *
     m_chat->emit_signal("chat_control_added", entity_key, wrapper);
 }
 
-void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange *p_change) {
-    const auto *change = static_cast<const Party::PartyChatControlDestroyedStateChange *>(p_change);
-    if (change->chatControl == nullptr) {
+void PlayFabParty::_cleanup_destroyed_chat_control(Party::PartyChatControl *p_chat_control) {
+    if (p_chat_control == nullptr) {
         return;
     }
-    if (m_chat.is_null()) {
-        return;
-    }
-    // Surface the removal on the meshed chat surface keyed by entity key, then
-    // untrack the wrapper.
-    Dictionary entity_key = entity_key_for_chat_control(change->chatControl);
+    Ref<PlayFabPartyChatControl> wrapper = _find_chat_control_wrapper(p_chat_control);
+
     // If a cached local chat control was destroyed (user release / shutdown),
-    // drop it from the per-user cache so a later join re-creates one.
+    // drop it from the per-user cache so it can be recreated explicitly later.
     for (auto it = m_local_chat_controls.begin(); it != m_local_chat_controls.end(); ++it) {
-        if (it->second.is_valid() && it->second->get_native_handle() == change->chatControl) {
+        if (it->second.is_valid() && it->second->get_native_handle() == p_chat_control) {
             m_local_chat_controls.erase(it);
             break;
         }
@@ -3813,19 +3904,26 @@ void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange
     // get_native_local_chat_control() / get_local_chat_control() accessors do
     // not hand back a freed native handle or a detached wrapper.
     for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        if (network.is_valid() && network->m_native_local_chat_control == change->chatControl) {
+        if (network.is_valid() && network->m_native_local_chat_control == p_chat_control) {
             network->m_native_local_chat_control = nullptr;
             network->m_local_chat_control = Ref<PlayFabPartyChatControl>();
         }
     }
-    for (Ref<PlayFabPartyChatControl> wrapper : m_chat->get_chat_controls()) {
-        if (wrapper.is_valid() && wrapper->get_native_handle() == change->chatControl) {
-            m_chat->emit_signal("chat_control_removed", entity_key);
-            m_chat->untrack(wrapper);
-            _emit_chat_state(wrapper, CHAT_CHANGE_DESTROYED, Ref<PlayFabResult>(), "chat control destroyed");
-            break;
-        }
+
+    if (wrapper.is_null()) {
+        return;
     }
+
+    Dictionary entity_key = entity_key_for_chat_control(p_chat_control);
+    wrapper->attach(nullptr, nullptr, wrapper->is_local());
+    m_chat->untrack(wrapper);
+    m_chat->emit_signal("chat_control_removed", entity_key);
+    _emit_chat_state(wrapper, CHAT_CHANGE_DESTROYED, Ref<PlayFabResult>(), "chat control destroyed");
+}
+
+void PlayFabParty::_process_chat_control_destroyed(const Party::PartyStateChange *p_change) {
+    const auto *change = static_cast<const Party::PartyChatControlDestroyedStateChange *>(p_change);
+    _cleanup_destroyed_chat_control(change->chatControl);
 }
 
 void PlayFabParty::_process_chat_text_received(const Party::PartyStateChange *p_change) {
@@ -4240,9 +4338,9 @@ Signal PlayFabParty::_destroy_local_chat_control(const Ref<PlayFabUser> &p_user)
     if (it == m_local_chat_controls.end() || !it->second.is_valid()) {
         return _make_ok_signal();
     }
-    // _process_chat_control_destroyed drops the per-user cache entry and clears
-    // any network still pointing at this control once the SDK confirms the
-    // destruction, so no manual cache erase is needed here.
+    // Confirmed-destruction cleanup drops the per-user cache entry and clears
+    // any network still pointing at this control, so no manual cache erase is
+    // needed here.
     return _destroy_chat_control(it->second);
 }
 
@@ -4681,6 +4779,9 @@ void PlayFabParty::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_networks"), &PlayFabParty::get_networks);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabParty::_test_enqueue_shutdown_pending);
+    ClassDB::bind_method(D_METHOD("_test_enqueue_destroy_chat_control_pending"), &PlayFabParty::_test_enqueue_destroy_chat_control_pending);
+    ClassDB::bind_method(D_METHOD("_test_dispatch_destroy_chat_control_completed", "state_change_result", "error_detail", "shutdown_before_completion", "finish_failure"),
+            &PlayFabParty::_test_dispatch_destroy_chat_control_completed, DEFVAL(false), DEFVAL(false));
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabParty::_test_pending_operation_count);
     ClassDB::bind_method(D_METHOD("_test_classify_leave_network_completed", "state_change_result", "error_detail"), &PlayFabParty::_test_classify_leave_network_completed);
 #endif

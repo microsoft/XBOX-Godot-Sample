@@ -160,6 +160,11 @@ func test_party_stable_constants() -> void:
 	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATE_DISCONNECTED"), 5, "NETWORK_STATE_DISCONNECTED == 5")
 	assert_eq(get_class_constant("PlayFabParty", "NETWORK_STATE_FAILED"), 6, "NETWORK_STATE_FAILED == 6")
 
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_CHANGE_CREATED"), 1, "CHAT_CHANGE_CREATED == 1")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_CHANGE_DESTROYED"), 2, "CHAT_CHANGE_DESTROYED == 2")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_CHANGE_PERMISSIONS_CHANGED"), 3, "CHAT_CHANGE_PERMISSIONS_CHANGED == 3")
+	assert_eq(get_class_constant("PlayFabParty", "CHAT_CHANGE_MUTED_CHANGED"), 4, "CHAT_CHANGE_MUTED_CHANGED == 4")
+
 	assert_eq(get_class_constant("PlayFabParty", "CHAT_PERMISSION_NONE"), 0, "CHAT_PERMISSION_NONE == 0")
 	assert_eq(get_class_constant("PlayFabParty", "CHAT_PERMISSION_SEND_AUDIO"), 1, "CHAT_PERMISSION_SEND_AUDIO == 1")
 	assert_eq(get_class_constant("PlayFabParty", "CHAT_PERMISSION_RECEIVE_AUDIO"), 2, "CHAT_PERMISSION_RECEIVE_AUDIO == 2")
@@ -516,6 +521,217 @@ func test_party_chat_control_helpers() -> void:
 		assert_playfab_result_ok(await await_completion(destroy_signal), "Detached PlayFabPartyChatControl.destroy_async()")
 
 
+func test_party_destroy_chat_control_completed_dispatch_resolves_once() -> void:
+	var party = _prepare_party_destroy_hook_test()
+	if party == null:
+		return
+
+	# Party SDK enum values from PartyStateChangeResult in Party.h.
+	const PARTY_STATE_CHANGE_SUCCEEDED := 0
+	const PARTY_STATE_CHANGE_UNKNOWN_ERROR := 1
+	const PARTY_STATE_CHANGE_CANCELED_BY_TITLE := 2
+	const PARTY_STATE_CHANGE_LEAVE_NETWORK_CALLED := 14
+	var cases := [
+		{
+			"name": "succeeded",
+			"result": PARTY_STATE_CHANGE_SUCCEEDED,
+			"detail": 0,
+			"ok": true,
+		},
+		{
+			"name": "succeeded_with_detail",
+			"result": PARTY_STATE_CHANGE_SUCCEEDED,
+			"detail": 1,
+			"ok": true,
+		},
+		{
+			"name": "unknown_error",
+			"result": PARTY_STATE_CHANGE_UNKNOWN_ERROR,
+			"detail": 0,
+			"ok": false,
+			"message_contains": "UnknownError",
+		},
+		{
+			"name": "canceled_zero_detail",
+			"result": PARTY_STATE_CHANGE_CANCELED_BY_TITLE,
+			"detail": 0,
+			"ok": false,
+			"exact_message": "PartyLocalDevice::DestroyChatControl failed with PartyStateChangeResult::CanceledByTitle.",
+		},
+		{
+			"name": "canceled_with_detail",
+			"result": PARTY_STATE_CHANGE_CANCELED_BY_TITLE,
+			"detail": 1,
+			"ok": false,
+			"message_prefix": "PartyLocalDevice::DestroyChatControl",
+		},
+		{
+			"name": "leave_network_called",
+			"result": PARTY_STATE_CHANGE_LEAVE_NETWORK_CALLED,
+			"detail": 0,
+			"ok": false,
+		},
+	]
+
+	for case in cases:
+		var completion := {
+			"count": 0,
+			"result": null,
+		}
+		var completion_signal = party._test_enqueue_destroy_chat_control_pending()
+		assert_eq(typeof(completion_signal), TYPE_SIGNAL, "%s enqueue returns completion Signal" % case.name)
+		assert_eq(party._test_pending_operation_count(), 1, "%s queues one destroy operation" % case.name)
+		completion_signal.connect(func(result):
+			completion["count"] = int(completion["count"]) + 1
+			completion["result"] = result
+		)
+
+		party._test_dispatch_destroy_chat_control_completed(case.result, case.detail)
+
+		assert_eq(completion["count"], 1, "%s completion emits exactly once despite duplicate dispatch" % case.name)
+		assert_eq(party._test_pending_operation_count(), 0, "%s releases the destroy pending operation" % case.name)
+		var result = completion["result"]
+		assert_not_null(result, "%s completion returns PlayFabResult" % case.name)
+		if result == null:
+			continue
+		assert_eq(bool(result.ok), bool(case.ok), "%s result.ok" % case.name)
+		if bool(case.ok):
+			assert_eq(int(result.hresult), 0, "%s result HRESULT is S_OK" % case.name)
+			assert_eq(String(result.code), "ok", "%s result code is ok" % case.name)
+			assert_null(result.data, "%s result data is null" % case.name)
+		else:
+			assert_eq(String(result.code), "party_resource_not_ready", "%s keeps destroy error vocabulary" % case.name)
+			if case.has("exact_message"):
+				assert_eq(String(result.message), String(case.exact_message), "%s exact failure message" % case.name)
+			if case.has("message_prefix"):
+				assert_true(String(result.message).begins_with(String(case.message_prefix)), "%s failure message names DestroyChatControl" % case.name)
+			if case.has("message_contains"):
+				assert_true(String(result.message).contains(String(case.message_contains)), "%s failure message names the SDK state result" % case.name)
+
+
+func test_party_destroy_local_chat_control_missing_is_idempotent() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	if party == null:
+		return
+	if not party.has_method("_test_pending_operation_count"):
+		pending("PlayFab Party destroy idempotency test requires debug test hooks.")
+		return
+
+	var chat = party.get_chat()
+	var detached_user = instantiate_class("PlayFabUser")
+	for case in [
+		{ "name": "null user", "user": null },
+		{ "name": "detached user", "user": detached_user },
+	]:
+		for attempt in range(2):
+			var result = await await_completion(chat.destroy_local_chat_control_async(case.user))
+			assert_playfab_result_ok(result, "destroy missing %s attempt %d" % [case.name, attempt + 1])
+			if result != null:
+				assert_null(result.data, "destroy missing %s returns null data" % case.name)
+			assert_eq(party._test_pending_operation_count(), 0, "destroy missing %s allocates no pending operation" % case.name)
+
+
+func test_party_destroy_chat_control_shutdown_cancels_before_late_completion() -> void:
+	var party = _prepare_party_destroy_hook_test()
+	if party == null:
+		return
+
+	var completion := {
+		"count": 0,
+		"result": null,
+	}
+	var completion_signal = party._test_enqueue_destroy_chat_control_pending()
+	completion_signal.connect(func(result):
+		completion["count"] = int(completion["count"]) + 1
+		completion["result"] = result
+	)
+
+	party._test_dispatch_destroy_chat_control_completed(0, 0, true)
+
+	assert_eq(completion["count"], 1, "Shutdown cancellation completes destroy exactly once")
+	var result = completion["result"]
+	assert_playfab_result_failed(result, "Destroy canceled by Party shutdown")
+	if result != null:
+		assert_eq(String(result.code), "cancelled", "Destroy shutdown result code")
+		assert_eq(int(result.hresult), -2147467260, "Destroy shutdown HRESULT is E_ABORT")
+		assert_eq(String(result.message), "PlayFab Party is shutting down.", "Destroy shutdown result message")
+	assert_eq(party._test_pending_operation_count(), 0, "Late destroy completion cannot resurrect canceled pending storage")
+
+
+func test_party_destroy_chat_control_completion_can_reenter_shutdown() -> void:
+	var party = _prepare_party_destroy_hook_test()
+	if party == null:
+		return
+
+	var completion := {
+		"count": 0,
+		"result": null,
+		"shutdown": {},
+	}
+	var completion_signal = party._test_enqueue_destroy_chat_control_pending()
+	completion_signal.connect(func(result):
+		completion["count"] = int(completion["count"]) + 1
+		completion["result"] = result
+		completion["shutdown"] = track_signal(party.shutdown_async())
+	)
+
+	party._test_dispatch_destroy_chat_control_completed(0, 0)
+
+	assert_eq(completion["count"], 1, "Destroy completion emits exactly once before reentrant shutdown")
+	assert_playfab_result_ok(completion["result"], "Destroy completion before reentrant shutdown")
+	var shutdown_state: Dictionary = completion["shutdown"]
+	assert_true(bool(shutdown_state.get("completed", false)), "Reentrant Party shutdown completes after the synthetic state-change batch")
+	assert_playfab_result_ok(shutdown_state.get("result"), "Reentrant Party shutdown")
+	assert_eq(party._test_pending_operation_count(), 0, "Reentrant shutdown releases destroy operation storage")
+	assert_false(party.is_initialized(), "Party remains uninitialized after reentrant shutdown")
+
+
+func test_party_destroy_chat_control_shutdown_drains_on_finish_failure() -> void:
+	var party = _prepare_party_destroy_hook_test()
+	if party == null:
+		return
+
+	var destroy_completion := {
+		"count": 0,
+		"result": null,
+		"shutdown": {},
+	}
+	var destroy_signal = party._test_enqueue_destroy_chat_control_pending()
+	destroy_signal.connect(func(result):
+		destroy_completion["count"] = int(destroy_completion["count"]) + 1
+		destroy_completion["result"] = result
+		destroy_completion["shutdown"] = track_signal(party.shutdown_async())
+	)
+	var party_error_state := track_signal(party.party_error)
+
+	party._test_dispatch_destroy_chat_control_completed(0, 0, true, true)
+	assert_engine_error("FinishProcessingStateChanges failed; Party was reset.")
+
+	assert_eq(destroy_completion["count"], 1, "Finish-failure recovery preserves exactly-once destroy cancellation")
+	var destroy_result = destroy_completion["result"]
+	assert_playfab_result_failed(destroy_result, "Destroy canceled before finish-failure recovery")
+	if destroy_result != null:
+		assert_eq(String(destroy_result.code), "cancelled", "Finish-failure destroy result remains cancelled")
+		assert_eq(String(destroy_result.message), "PlayFab Party is shutting down.", "Finish-failure destroy cancellation message")
+
+	assert_true(bool(party_error_state.get("completed", false)), "Finish-failure recovery emits party_error")
+	var party_error_result = party_error_state.get("result")
+	assert_playfab_result_failed(party_error_result, "FinishProcessingStateChanges failure")
+	if party_error_result != null:
+		assert_eq(String(party_error_result.code), "party_state_finish_failed", "Finish-failure diagnostic code")
+
+	var shutdown_state: Dictionary = destroy_completion["shutdown"]
+	assert_true(bool(shutdown_state.get("completed", false)), "Deferred shutdown waiter completes during finish-failure recovery")
+	assert_playfab_result_ok(shutdown_state.get("result"), "Deferred shutdown after finish failure")
+	assert_eq(party._test_pending_operation_count(), 0, "Finish-failure recovery deletes deferred pending storage")
+	assert_false(party.is_initialized(), "Finish-failure recovery leaves Party uninitialized")
+
+
 func test_party_shutdown_async_explicit_await_uninitialized() -> void:
 	if pending_unless_playfab_available():
 		return
@@ -591,6 +807,23 @@ func test_party_leave_network_completed_classification_uses_state_result() -> vo
 	assert_eq(String(canceled_zero_detail.get("code", "")), "party_resource_not_ready", "Failed PartyLeaveNetwork keeps the expected error code")
 	assert_true(String(canceled_zero_detail.get("message", "")).contains("CanceledByTitle"), "Zero-detail PartyLeaveNetwork failure names the SDK state result")
 	assert_false(String(canceled_zero_detail.get("message", "")).contains("operation succeeded"), "Zero-detail PartyLeaveNetwork failure does not report operation succeeded")
+
+
+func _prepare_party_destroy_hook_test() -> Object:
+	if pending_unless_playfab_available():
+		return null
+
+	var playfab = get_playfab()
+	reset_playfab_runtime()
+	var party = playfab.get_party()
+	assert_not_null(party, "PlayFab.party service is available for destroy completion tests")
+	if party == null:
+		return null
+	if not party.has_method("_test_enqueue_destroy_chat_control_pending") \
+			or not party.has_method("_test_dispatch_destroy_chat_control_completed"):
+		pending("PlayFab Party destroy completion test requires debug test hooks.")
+		return null
+	return party
 
 
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:

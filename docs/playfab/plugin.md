@@ -122,7 +122,7 @@ Service methods use the common shape `service.method_async(playfab_user, request
 
 ## Async shutdown lifecycle
 
-`PlayFab.shutdown()`, `PlayFab.party.shutdown_async()`, and `PlayFab.multiplayer.shutdown_async()` cancel outstanding Party, lobby, and matchmaking completion signals before native SDK teardown, but retain the native async context pointers until after `PartyManager::Cleanup()` or `PFMultiplayerUninitialize()`. If shutdown is requested from inside a Party or Multiplayer state-change handler, native teardown is deferred until the current SDK state-change batch has been finished. If a cancellation handler calls back into Party or Multiplayer while shutdown is in progress, new operations fail with a shutdown-in-progress error instead of mutating SDK state.
+`PlayFab.shutdown()`, `PlayFab.party.shutdown_async()`, and `PlayFab.multiplayer.shutdown_async()` cancel outstanding Party, lobby, and matchmaking completion signals—including in-flight local chat-control destruction—before native SDK teardown, but retain the native async context pointers until after `PartyManager::Cleanup()` or `PFMultiplayerUninitialize()`. If shutdown is requested from inside a Party or Multiplayer state-change handler, native teardown is deferred until the current SDK state-change batch has been finished. If finishing a Party state-change batch fails, the same deferred operation storage and shutdown waiters are finalized as part of recovery. If a cancellation handler calls back into Party or Multiplayer while shutdown is in progress, new operations fail with a shutdown-in-progress error instead of mutating SDK state.
 
 ## Sample usage
 
@@ -234,6 +234,30 @@ partial result.
 ## Multiplayer and Party notes
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
+
+Leaving a Party network retains its reusable local chat control. A full reset uses one checked, awaited sequence: leave the network, destroy the local control, explicitly recreate it, then join the existing still-hosted network. Native destruction failures report `party_resource_not_ready`; shutdown cancellation reports `cancelled`. A timeout is not success.
+
+```gdscript
+var leave_result = await network.leave_async()
+if not leave_result.ok:
+	push_warning(leave_result.message)
+	return
+
+var destroy_result = await PlayFab.party.chat.destroy_local_chat_control_async(user)
+if not destroy_result.ok:
+	push_warning(destroy_result.message)
+	return
+
+var create_result = await PlayFab.party.chat.create_local_chat_control_async(user, config)
+if not create_result.ok:
+	push_warning(create_result.message)
+	return
+
+var join_result = await PlayFab.party.join_network_async(user, descriptor, config)
+if not join_result.ok:
+	push_warning(join_result.message)
+	return
+```
 
 Lobby and member property update dictionaries use [String] or [StringName] values; on `PlayFabLobby.set_properties_async()` / `set_search_properties_async()` / `set_member_properties_async()`, a `null` value deletes that key through the SDK's native delete representation while omitted keys stay unchanged. Initial create/join property dictionaries accept [String]/[StringName] values only (null is rejected).
 

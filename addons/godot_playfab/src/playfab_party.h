@@ -953,12 +953,14 @@ private:
     void _process_network_destroyed(const Party::PartyStateChange *p_change);
     void _process_create_chat_control_completed(const Party::PartyStateChange *p_change);
     void _process_connect_chat_control_completed(const Party::PartyStateChange *p_change);
+    void _process_destroy_chat_control_completed(const Party::PartyStateChange *p_change);
     void _process_set_chat_audio_input_completed(const Party::PartyStateChange *p_change);
     void _process_set_chat_audio_output_completed(const Party::PartyStateChange *p_change);
     void _process_local_chat_audio_input_changed(const Party::PartyStateChange *p_change);
     void _process_local_chat_audio_output_changed(const Party::PartyStateChange *p_change);
     void _process_chat_control_created(const Party::PartyStateChange *p_change);
     void _process_chat_control_destroyed(const Party::PartyStateChange *p_change);
+    void _cleanup_destroyed_chat_control(Party::PartyChatControl *p_chat_control);
     void _process_chat_text_received(const Party::PartyStateChange *p_change);
     void _process_voice_chat_transcription_received(const Party::PartyStateChange *p_change);
     void _process_set_language_completed(const Party::PartyStateChange *p_change);
@@ -971,6 +973,12 @@ private:
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     Signal _test_enqueue_shutdown_pending();
+    Signal _test_enqueue_destroy_chat_control_pending();
+    void _test_dispatch_destroy_chat_control_completed(
+            int64_t p_state_change_result,
+            int64_t p_error_detail,
+            bool p_shutdown_before_completion = false,
+            bool p_finish_failure = false);
     int64_t _test_pending_operation_count() const;
     Dictionary _test_classify_leave_network_completed(int64_t p_state_change_result, int64_t p_error_detail) const;
 #endif

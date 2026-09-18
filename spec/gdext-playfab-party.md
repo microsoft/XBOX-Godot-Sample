@@ -18,7 +18,7 @@ PlayFab Multiplayer lobbies and matchmaking remain separate and are described in
 6. **Final descriptors only** - never expose the provisional immediate descriptor from `CreateNewNetwork(...)`; expose only the finalized base64 serialized `PartyNetworkDescriptor`.
 7. **Separate Party from Multiplayer** - Party does not create lobbies, matchmaking tickets, or arranged-lobby joins.
 8. **Chat is not packet transport** - text, transcription, mute, and permissions use Party chat-control APIs internally and are surfaced on the meshed `PlayFab.party.chat` ([PlayFabPartyChat]) surface keyed by PlayFab entity keys, not on the transport peer and not through Godot RPC packets.
-9. **One chat control per local user** - the local Party chat control is created once for a local user (first network join), reused (reconnected) across networks, and destroyed only on user release or Party shutdown.
+9. **One chat control per local user** - the local Party chat control is created explicitly before network join, reused (reconnected) across networks, and destroyed only on explicit request, user release, or Party shutdown.
 
 ## Scope
 
@@ -269,6 +269,22 @@ the `PlayFabPartyChatControl`. `get_local_chat_control(user)` and
 `get_chat_control(entity_key)` are advanced escape hatches; normal title code
 should prefer the entity-key helper methods so it does not maintain Party
 chat-control identity itself.
+
+`destroy_local_chat_control_async()` resolves only from
+`DestroyChatControlCompleted`, preserving the SDK's success or failure result.
+On success, confirmed-destruction cleanup removes the control from the per-user
+cache and from the references held by networks the title is still joined to,
+detaches the wrapper, and emits removal
+notifications before the completion signal fires. A `PlayFabPartyNetwork` the
+title already left is detached and no longer tracked, so it is not revisited by
+this cleanup; do not read chat-control accessors off a network wrapper after
+leaving it. The separate
+`ChatControlDestroyed` notification shares the same idempotent cleanup because
+the SDK does not guarantee which event arrives first. Missing, detached, or
+non-local controls remain idempotent successes; native failures use
+`party_resource_not_ready`, and Party shutdown cancels an in-flight destroy
+with `cancelled`. Titles must await successful destruction before explicitly
+calling `create_local_chat_control_async()` to recreate the control.
 
 ## Transport semantics
 
@@ -753,6 +769,18 @@ self-contained slice with its own validation.
 
 ## Progress
 
+- **Issue #169: ✅ implemented.** Local chat-control destruction now routes
+  `DestroyChatControlCompleted`, performs order-independent confirmed cleanup
+  before resolving success, invalidates retained wrappers, and finalizes
+  deferred shutdown state when `FinishProcessingStateChanges` fails. Offline
+  production-path contract coverage and the live-write
+  `party.chat.destroy_local_control.rejoin` scenario cover cancellation,
+  exactly-once completion, explicit recreation, and three repeated rejoins to
+  one still-hosted network. Validated on 2026-09-17 with the installed-GDK
+  debug build, the repo-wide GDScript parse gate, the offline PlayFab host
+  (98 tests, 75 passing, 0 failing, 23 pending, 2508/2508 asserts), and the
+  targeted sandbox `10D176` live-write scenario (1 passed, 0 failed/skipped;
+  3 cycles and 4 bidirectional text round trips).
 - **Phase A: ✅ implemented.** `addons/godot_playfab/src/playfab_party.cpp`:
   host sets `pf.role=host` on its endpoint; `endpoint_is_handshake_target()`
   drives client→host handshake targeting in both the join-enumeration loop
@@ -888,8 +916,9 @@ local chat controls) were only freed at full Party shutdown
 **Resolved.** `PlayFab.party.release_local_user_async(user)` now exposes
 `_release_local_user`: it tears down the user's local chat control and destroys
 the `PartyLocalUser`, freeing the per-device slot. It is idempotent (releasing an
-unknown/already-released user resolves with success), and a later create/join for
-the same user re-creates the user and control. The MP harness `reset()`
+unknown/already-released user resolves with success). A later create/join for the
+same user re-creates only the `PartyLocalUser`; callers that require chat must
+explicitly call `create_local_chat_control_async()` before joining. The MP harness `reset()`
 (`tests/godot/mp_test_client/scripts/playfab_party_ops.gd`) calls it after leaving
 networks, so each scenario starts with no accumulated local users or chat
 controls. Pre-existing and unchanged by Phase C (Phase C's second caller of
