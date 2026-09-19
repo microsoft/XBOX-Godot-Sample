@@ -8,6 +8,8 @@
 
 #include <XGame.h>
 #include <XGameUI.h>
+#include <roapi.h>
+#include <winrt/Windows.UI.ViewManagement.Core.h>
 
 #include "xbox.h"
 #include "xbox_pending_signal.h"
@@ -20,6 +22,24 @@
 namespace godot {
 
 namespace {
+
+class ScopedRoInitialize {
+    HRESULT m_result = E_FAIL;
+
+public:
+    ScopedRoInitialize() :
+            m_result(RoInitialize(RO_INIT_SINGLETHREADED)) {}
+
+    ~ScopedRoInitialize() {
+        if (SUCCEEDED(m_result)) {
+            RoUninitialize();
+        }
+    }
+
+    HRESULT get_result() const {
+        return m_result;
+    }
+};
 
 bool _try_parse_xuid(const String &p_xuid, uint64_t *r_xuid) {
     return xbox_request_parsing::try_parse_xuid(p_xuid, r_xuid, /*p_reject_zero=*/true);
@@ -500,6 +520,8 @@ void XboxGameUI::_bind_methods() {
             DEFVAL(String()),
             DEFVAL(String("default")),
             DEFVAL(static_cast<int64_t>(0)));
+    ClassDB::bind_method(D_METHOD("show_virtual_keyboard"), &XboxGameUI::show_virtual_keyboard);
+    ClassDB::bind_method(D_METHOD("hide_virtual_keyboard"), &XboxGameUI::hide_virtual_keyboard);
 }
 
 void XboxGameUI::set_owner(Xbox *p_owner) {
@@ -957,6 +979,54 @@ Signal XboxGameUI::show_text_entry_async(
     }
 
     return pending_signal->get_completed_signal();
+}
+
+Ref<XboxResult> XboxGameUI::show_virtual_keyboard() {
+    ScopedRoInitialize ro_initialize;
+    if (FAILED(ro_initialize.get_result())) {
+        return XboxResult::hresult_error(
+                ro_initialize.get_result(),
+                "Failed to initialize the Windows Runtime apartment for virtual keyboard UI.",
+                "virtual_keyboard_runtime_initialization_failed");
+    }
+
+    try {
+        using namespace winrt::Windows::UI::ViewManagement::Core;
+
+        // CoreInputViewKind::Gamepad was added after the CoreInputView API.
+        // Value 7 is Microsoft's documented compatibility value for builds
+        // using Windows SDK headers that do not name the enum member yet.
+        constexpr CoreInputViewKind gamepad_input_view = static_cast<CoreInputViewKind>(7);
+        const bool accepted = CoreInputView::GetForCurrentView().TryShow(gamepad_input_view);
+        return XboxResult::ok_result(accepted);
+    } catch (const winrt::hresult_error &error) {
+        return XboxResult::hresult_error(
+                error.code(),
+                "Failed to request the Windows virtual keyboard.",
+                "virtual_keyboard_show_failed");
+    }
+}
+
+Ref<XboxResult> XboxGameUI::hide_virtual_keyboard() {
+    ScopedRoInitialize ro_initialize;
+    if (FAILED(ro_initialize.get_result())) {
+        return XboxResult::hresult_error(
+                ro_initialize.get_result(),
+                "Failed to initialize the Windows Runtime apartment for virtual keyboard UI.",
+                "virtual_keyboard_runtime_initialization_failed");
+    }
+
+    try {
+        using namespace winrt::Windows::UI::ViewManagement::Core;
+
+        const bool accepted = CoreInputView::GetForCurrentView().TryHide();
+        return XboxResult::ok_result(accepted);
+    } catch (const winrt::hresult_error &error) {
+        return XboxResult::hresult_error(
+                error.code(),
+                "Failed to dismiss the Windows virtual keyboard.",
+                "virtual_keyboard_hide_failed");
+    }
 }
 
 XboxRuntime *XboxGameUI::get_runtime_internal() const {

@@ -21,6 +21,7 @@ Each tutorial follows the same shape: **What you'll build**, **Prerequisites**, 
 | 2 | [Unlock an achievement](gdk/02-achievement.md) | `g02_achievement.tscn` | 20 min |
 | 3 | [Title Storage and stats](gdk/03-storage-stats.md) | `g03_storage_stats.tscn` | 25 min |
 | 4 | [Multiplayer Activity](gdk/04-mpa.md) | `g04_mpa.tscn` | 25 min |
+| 6 | [Windows handheld text input](gdk/06-handheld-input.md) | `g06_handheld_input.tscn` | 10 min |
 
 ## PlayFab track
 

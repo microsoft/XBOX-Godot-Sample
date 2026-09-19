@@ -29,6 +29,8 @@ func test_game_ui_surface_and_validation() -> void:
 		"show_error_dialog_async",
 		"show_send_game_invite_async",
 		"show_text_entry_async",
+		"show_virtual_keyboard",
+		"hide_virtual_keyboard",
 	]:
 		assert_has_method_named(game_ui, method_name)
 

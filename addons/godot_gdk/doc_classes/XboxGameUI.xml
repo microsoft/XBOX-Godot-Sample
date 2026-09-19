@@ -94,6 +94,18 @@
 				Shows the system virtual-keyboard text entry UI. [param input_scope] accepts [code]default[/code], [code]url[/code], [code]email[/code], [code]number[/code], [code]password[/code], [code]telephone[/code], [code]alphanumeric[/code], [code]search[/code], or [code]chat[/code]. [param max_text_length] of [code]0[/code] uses the platform default. On success, [code]XboxResult.data.text[/code] holds the entered string.
 			</description>
 		</method>
+		<method name="show_virtual_keyboard">
+			<return type="XboxResult" />
+			<description>
+				Requests the Windows gamepad virtual keyboard for the currently focused Godot text control. This baseline Windows API does not require [method GDK.initialize]. On success, [member XboxResult.data] is a [code]bool[/code] indicating whether Windows accepted the best-effort show request. A [code]false[/code] value is expected when the app is not foreground or Windows prefers an attached hardware keyboard. Unlike [method show_text_entry_async], this method does not collect or return text; keyboard input is delivered to the focused [LineEdit] or [TextEdit]. Call from Godot's main thread.
+			</description>
+		</method>
+		<method name="hide_virtual_keyboard">
+			<return type="XboxResult" />
+			<description>
+				Requests that Windows dismiss the virtual keyboard. This baseline Windows API does not require [method GDK.initialize]. On success, [member XboxResult.data] is a [code]bool[/code] indicating whether Windows accepted the best-effort hide request. Call from Godot's main thread.
+			</description>
+		</method>
 	</methods>
 	<members>
 	</members>

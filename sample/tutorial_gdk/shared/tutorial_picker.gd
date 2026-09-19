@@ -16,6 +16,7 @@ const TUTORIALS := [
 	{ "label": "G3 — Title storage & stats",     "scene": "res://g03_storage_stats.tscn", "needs_auth": true },
 	{ "label": "G4 — Multiplayer Activity",      "scene": "res://g04_mpa.tscn",           "needs_auth": true },
 	{ "label": "G5 — Text-to-Speech",            "scene": "res://g05_speech.tscn",        "needs_auth": false },
+	{ "label": "G6 — Handheld text input",       "scene": "res://g06_handheld_input.tscn", "needs_auth": false, "needs_config": false },
 ]
 
 @onready var _status: Label = $Root/Status
@@ -38,9 +39,9 @@ func _ready() -> void:
 	var problems := _detect_config_problems()
 	if not problems.is_empty():
 		_show_config_problems(problems)
-		# GDK initialize will fail without a real MicrosoftGame.config —
-		# even G1 can't run, so lock everything down.
-		_set_all_gated(true)
+		# GDK-backed tutorials cannot run without a real MicrosoftGame.config.
+		# Baseline Windows tutorials such as G6 remain available.
+		_set_config_gated(true)
 		return
 
 	if _auth == null:
@@ -68,8 +69,11 @@ func _set_signin_gated(gated: bool) -> void:
 		var button: Button = _buttons.get_child(i)
 		button.disabled = gated
 
-func _set_all_gated(gated: bool) -> void:
+func _set_config_gated(gated: bool) -> void:
 	for i in range(TUTORIALS.size()):
+		var entry: Dictionary = TUTORIALS[i]
+		if not entry.get("needs_config", true):
+			continue
 		var button: Button = _buttons.get_child(i)
 		button.disabled = gated
 
