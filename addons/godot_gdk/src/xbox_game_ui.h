@@ -70,6 +70,8 @@ public:
             const String &p_default_text,
             const String &p_input_scope,
             int64_t p_max_text_length);
+    Ref<XboxResult> show_virtual_keyboard();
+    Ref<XboxResult> hide_virtual_keyboard();
 
     XboxRuntime *get_runtime_internal() const;
     XboxUsers *get_users_internal() const;

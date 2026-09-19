@@ -26,6 +26,7 @@ func test_system_surface_and_validation_paths() -> void:
 		"get_service_configuration_id",
 		"is_xbox_services_initialized",
 		"is_feature_available",
+		"is_handheld",
 	]:
 		assert_has_method_named(system, method_name)
 
@@ -102,4 +103,15 @@ func test_is_feature_available() -> void:
 	# Unknown feature names push a warning and return false.
 	assert_eq(system.is_feature_available("NotARealFeature"), false, "is_feature_available() returns false for unknown feature names")
 	assert_eq(system.is_feature_available(""), false, "is_feature_available('') returns false")
+
+func test_is_handheld() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var system = get_gdk().get_system()
+	assert_not_null(system, "GDK.system returns service object")
+	if system == null:
+		return
+
+	assert_typeof(system.is_handheld(), TYPE_BOOL, "is_handheld() returns a bool")
 

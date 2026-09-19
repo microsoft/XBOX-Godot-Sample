@@ -1,0 +1,65 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://g06_handheld_input.gd" id="1_g06"]
+
+[node name="G06HandheldInput" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_g06")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "G6 — Windows Handheld Text Input"
+theme_override_font_sizes/font_size = 24
+
+[node name="Subtitle" type="Label" parent="Root"]
+layout_mode = 2
+text = "Focus the text field, then ask Windows to show its gamepad virtual keyboard. Input remains in this Godot LineEdit."
+autowrap_mode = 3
+
+[node name="DeviceStatus" type="Label" parent="Root"]
+layout_mode = 2
+text = "Detecting Windows device form…"
+
+[node name="TextInput" type="LineEdit" parent="Root"]
+layout_mode = 2
+placeholder_text = "Virtual-keyboard text appears here"
+virtual_keyboard_enabled = true
+
+[node name="Buttons" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ShowBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Show virtual keyboard"
+
+[node name="HideBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "Hide virtual keyboard"
+
+[node name="BackBtn" type="Button" parent="Root/Buttons"]
+layout_mode = 2
+text = "← Back"
+
+[node name="Result" type="Label" parent="Root"]
+layout_mode = 2
+text = "No keyboard request made yet."
+autowrap_mode = 3

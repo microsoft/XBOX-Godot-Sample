@@ -52,6 +52,7 @@ target_link_libraries(godot_gdk PRIVATE
     Xbox::XSAPI
     Xbox::HTTPClient
     Xbox::GameChat2
+    windowsapp
 )
 
 godot_cpp_config_guard(godot_gdk)
