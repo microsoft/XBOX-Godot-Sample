@@ -162,6 +162,32 @@ func test_destruction_during_rollback_retains_leave_context_across_batches() -> 
 	_assert_drained("party_network_connect_failed")
 
 
+func test_shutdown_from_network_destroyed_retains_context_until_cleanup() -> void:
+	for during_handshake in [false, true]:
+		_begin(false)
+		if during_handshake:
+			_batch([_done("connect"), _done("authenticate"), _done("endpoint")])
+		var network: Object = _party._test_party_snapshot().network
+		var shutdown_results: Array = []
+		var observed: Array = []
+		network.state_changed.connect(func(change):
+			if change.kind == 5 and observed.is_empty():
+				_party.shutdown_async().connect(func(result): shutdown_results.append(result))
+				var snapshot: Dictionary = _party._test_party_snapshot()
+				observed.append({"pending": snapshot.pending, "shutting_down": snapshot.shutting_down})
+				assert_eq(_results.size(), 0, "Destroyed callback cannot settle before cleanup")
+				assert_eq(shutdown_results.size(), 0, "Shutdown stays deferred inside the SDK batch")
+		)
+		_batch([{"stage": "destroy"}])
+		await get_tree().process_frame
+		assert_eq(observed.size(), 1)
+		assert_eq(observed[0].pending, 1, "Pending context remains owned during the notification")
+		assert_true(observed[0].shutting_down)
+		assert_eq(shutdown_results.size(), 1)
+		assert_true(shutdown_results[0].ok)
+		_assert_drained("party_resource_not_ready")
+
+
 func test_leave_completion_then_destruction_settles_once() -> void:
 	_begin(false)
 	_batch([_done("connect", true), _done("leave"), {"stage": "destroy"}])

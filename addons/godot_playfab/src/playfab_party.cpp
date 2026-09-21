@@ -3661,7 +3661,10 @@ void PlayFabParty::_process_network_destroyed(const Party::PartyStateChange *p_c
     }
     _emit_network_state(network, NETWORK_CHANGE_DESTROYED, 0, result, "network destroyed");
     for (PendingOperation *operation : operations) {
-        if (operation->native_network == change->network && !operation->sdk_pending && !m_shutting_down) {
+        if (m_shutting_down) {
+            return;
+        }
+        if (operation->native_network == change->network && !operation->sdk_pending) {
             _complete_pending(operation, operation->failure.is_valid() ? operation->failure : PlayFabResult::ok_result());
         }
     }
