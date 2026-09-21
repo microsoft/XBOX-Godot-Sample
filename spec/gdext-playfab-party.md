@@ -83,10 +83,10 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 1. Validate the signed-in `PlayFabUser` and its `PFEntityHandle`.
 2. Initialize Party lazily if needed.
 3. Create or reuse the local Party user for that entity handle.
-4. Create the Party network.
-5. Connect to the Party network.
+4. Create the Party network and await `CreateNewNetworkCompleted`.
+5. Only after successful creation, connect using the completed descriptor. A failed create never dispatches connect; the two SDK operations never share an outstanding async context.
 6. Authenticate the local Party user to the connected network.
-7. Optionally create/connect the local chat control when chat is enabled. The local chat control's capture (microphone) and render (speaker) audio devices are always bound on creation; the `audio_input`/`audio_output` config fields choose specific devices and fall back to the system default communication device when empty. Audio binding is best-effort: device-init failures surface via `LocalChatAudioInputChanged`/`LocalChatAudioOutputChanged` warnings (degrading voice) without failing the join.
+7. Connect the user's existing reusable local chat control, if present. Chat creation is explicit and optional; no control means a transport-only join (with a warning when chat was requested). Optional chat creation/device degradation remains nonfatal to transport, but failure to attach an existing control fails and rolls back this join.
 8. Create the local data endpoint.
 9. Capture the finalized network descriptor from the completed/connected network state, serialize it, and expose it as a base64 string.
 10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
@@ -99,12 +99,25 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use newer e
 4. Create or reuse the local Party user for that entity handle.
 5. Connect to the Party network.
 6. Authenticate the local Party user to the connected network.
-7. Optionally create/connect the local chat control when chat is enabled. The local chat control's capture (microphone) and render (speaker) audio devices are always bound on creation; the `audio_input`/`audio_output` config fields choose specific devices and fall back to the system default communication device when empty. Audio binding is best-effort: device-init failures surface via `LocalChatAudioInputChanged`/`LocalChatAudioOutputChanged` warnings (degrading voice) without failing the join.
+7. Connect the user's existing reusable local chat control, if present, with the same optional-creation and required-attachment policy as hosting.
 8. Create the local data endpoint.
 9. Run the peer-id handshake with the host.
 10. Create a ready `PlayFabPartyNetwork` with a local `PlayFabPartyPeer`.
 
 The lower-level native steps remain implementation details. Public host/join signals resolve only when every resource required for normal use is complete and usable.
+
+### Failure, rollback, and callback ownership
+
+- Host and guest connect/authentication/chat attachment/endpoint/handshake dispatch or completion failures use one rollback path. The original result code, HRESULT, and native diagnostic stage are preserved; `result.data` includes `stage`, `party_error`, and (for asynchronous failures) `state_change_result`.
+- Failed establishment resolves exactly once, only after successful native leave/destruction and its outstanding SDK completion, or successful `PartyManager::Cleanup`. A failed/stalled leave stays pending: a title deadline must escalate to `PlayFab.party.shutdown_async()`, not free a callback context.
+- Destruction immediately detaches the wrapper before script notifications. A later completion cannot continue the join or resurrect a peer. Context storage survives separate dispatch batches until its own completion or SDK cleanup, not merely until end of frame.
+- `get_networks()` exposes only successfully established sessions. Partial/rollback-owned networks remain privately tracked, including operations that have not returned a network to the caller.
+- Scoped shutdown waits until the current SDK batch ends and keeps every context alive through cleanup. Cancellation signals settle **after** successful cleanup. Failed cleanup returns `party_cleanup_failed`, retains ownership, and blocks new work; another `shutdown_async()` may retry. Root runtime, signed-in accounts, and saves are not shut down by this scoped API.
+- Successful Cleanup is followed by two-phase invalidation: all retained networks (including pending-only wrappers), local/remote endpoints, chat controls, and Party user registries become inert before **any** synchronous peer, network, or pending-result callback. All peers already report disconnected with id zero. Only then are shutdown notifications emitted; reentrant shutdown calls share the same completion boundary. `release_local_user_async()` rejects with `party_shutting_down` while shutdown owns the service. Failed Cleanup preserves handles/initialized state and emits no false shutdown terminal notifications.
+- Start/finish state-pump failures emit `party_error` (`party_state_start_failed` / `party_state_finish_failed`), mark networks failed, and request a scoped reset. Successful reset emits terminal `NETWORK_CHANGE_DESTROYED`; cleanup failure is explicit, never success-shaped.
+- The six network-change constants remain frozen at `STATE=1`, `PEER_JOINED=2`, `PEER_LEFT=3`, `DESCRIPTOR_UPDATED=4`, `DESTROYED=5`, `ERROR=6`. An ERROR alone is not necessarily terminal; inspect the state/result.
+
+`tests/godot/playfab/tests/test_party_failures.gd` uses test-only native dispatch interception and the production completion handlers. It covers sync/async failures, same/separate-batch destruction, rollback failure, reentrant shutdown, pending drain, and retry without networking. Multi-network shutdown regressions inspect native-handle presence before calling detached public methods, so a failing test never dereferences sentinel SDK pointers. They cover retained live/private/pending-create wrappers, first peer/terminal callbacks, reentrant local-user release, and failed Cleanup preserving ownership. Missing `GODOT_PLAYFAB_TEST_HOOKS_ENABLED` is a test failure, not a skipped required suite. This proves the ownership invariant, not attribution of a previously observed console crash; live network disruption and memory-checker coverage must be reported separately.
 
 ## Runtime and dispatch ownership
 
@@ -118,7 +131,7 @@ Rules:
 4. Auto dispatch may update internal state and complete one-shot operations.
 5. Network-facing emissions are queued until the owning `PlayFabPartyPeer::_poll()` flushes them through Godot's normal multiplayer polling path.
 6. Shutdown closes active Party peers, networks, endpoints, and chat controls before PlayFab Multiplayer, PlayFab Services, and the core runtime are uninitialized.
-7. Shutdown emits cancelled completion results from a snapshot of pending operations, rejects new Party work while the service is shutting down, defers native cleanup until any active Party state-change batch has unwound, and defers freeing native async context storage until after `PartyManager::Cleanup()` returns.
+7. Shutdown rejects new Party work, defers native cleanup until any active state-change batch has unwound, and completes cancelled requests and frees their context storage only after `PartyManager::Cleanup()` succeeds. Use graceful network leave before shutdown when possible; scoped shutdown is the local ownership fence, not a promise of immediate remote artifact removal.
 
 ## Config wrappers
 

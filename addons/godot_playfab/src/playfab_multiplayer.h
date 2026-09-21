@@ -585,6 +585,7 @@ private:
     bool m_shutting_down = false;
     uint64_t m_dispatch_generation = 0;
     bool m_shutdown_deferred_until_dispatch_complete = false;
+    bool m_shutdown_running = false;
     std::vector<Ref<PlayFabLobby>> m_lobbies;
     std::vector<Ref<PlayFabMatchTicket>> m_tickets;
     std::vector<PendingOperation *> m_pending_operations;
@@ -598,7 +599,7 @@ private:
     void _cancel_active_pending_operations(const String &p_cancel_message);
     void _defer_pending_delete(PendingOperation *p_operation);
     void _delete_deferred_pending_operations();
-    void _complete_shutdown_pending_signals();
+    void _complete_shutdown_pending_signals(const Ref<PlayFabResult> &p_result);
     void _complete_pending_operation(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
     void _release_pending_operation(PendingOperation *p_operation);
     PendingOperation *_find_pending_ticket_operation(const Ref<PlayFabMatchTicket> &p_ticket, int64_t p_kind) const;
@@ -609,6 +610,7 @@ private:
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
     void _complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket);
     void _terminate_multiplayer_queue();
+    HRESULT _uninitialize_native();
     void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
     int _dispatch_lobby_state_changes();
     int _dispatch_matchmaking_state_changes();
@@ -620,6 +622,8 @@ private:
             const Dictionary &p_properties = Dictionary(),
             int64_t p_reason = PlayFabLobbyStateChange::REASON_NONE);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
+    bool m_test_cleanup_failure = false;
+    void _test_set_cleanup_failure(bool p_fail);
     Signal _test_enqueue_shutdown_pending();
     int64_t _test_pending_operation_count() const;
 #endif

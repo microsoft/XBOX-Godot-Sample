@@ -37,6 +37,8 @@ constexpr const char *PARTY_SHUTTING_DOWN = "party_shutting_down";
 constexpr const char *PARTY_CHAT_CONTROL_CREATE_FAILED = "party_chat_control_create_failed";
 constexpr const char *PARTY_CHAT_PERMISSION_FAILED = "party_chat_permission_failed";
 constexpr const char *PARTY_STATE_FINISH_FAILED = "party_state_finish_failed";
+constexpr const char *PARTY_STATE_START_FAILED = "party_state_start_failed";
+constexpr const char *PARTY_CLEANUP_FAILED = "party_cleanup_failed";
 
 // The wire packet kind markers and the transport codec (build/parse handshake,
 // wrap/unwrap gameplay) live in the engine-free playfab_party_codec seam so
@@ -477,6 +479,17 @@ void PlayFabPartyChatControl::set_snapshot(
 }
 
 Party::PartyChatControl *PlayFabPartyChatControl::get_native_handle() const { return m_native_handle; }
+
+void PlayFabPartyChatControl::detach_native() {
+    m_owner = nullptr;
+    m_native_handle = nullptr;
+    m_voice_enabled = false;
+    m_text_enabled = false;
+    m_transcription_enabled = false;
+    m_audio_input_state = PlayFabParty::AUDIO_INPUT_STATE_NO_INPUT;
+    m_audio_output_state = PlayFabParty::AUDIO_OUTPUT_STATE_NO_OUTPUT;
+    m_text_to_speech_profiles.clear();
+}
 
 String PlayFabPartyChatControl::get_id() const { return m_id; }
 Ref<PlayFabUser> PlayFabPartyChatControl::get_user() const { return m_user; }
@@ -960,9 +973,9 @@ void PlayFabPartyChat::_bind_methods() {
 void PlayFabPartyChat::set_owner(PlayFabParty *p_owner) { m_owner = p_owner; }
 
 void PlayFabPartyChat::clear() {
-    for (const Ref<PlayFabPartyChatControl> &control : m_chat_controls) {
+    for (Ref<PlayFabPartyChatControl> control : m_chat_controls) {
         if (control.is_valid()) {
-            control->attach(nullptr, nullptr, control->is_local());
+            control->detach_native();
         }
     }
     m_chat_controls.clear();
@@ -1449,9 +1462,13 @@ void PlayFabPartyNetwork::attach_native(
 
 void PlayFabPartyNetwork::detach_native() {
     m_native_network = nullptr;
+    m_native_local_user = nullptr;
     m_native_local_endpoint = nullptr;
     m_native_local_chat_control = nullptr;
-    // local_user is owned by PlayFabParty; the wrapper does not unref native resources here.
+    m_local_chat_control.unref();
+    // The peer retains the network snapshot; break the reverse ownership edge
+    // when native resources are gone, including failed guest handshakes.
+    m_local_peer.unref();
 }
 
 Party::PartyNetwork *PlayFabPartyNetwork::get_native_handle() const { return m_native_network; }
@@ -1969,7 +1986,7 @@ bool PlayFabParty::is_initialized() const {
 }
 
 bool PlayFabParty::has_deferred_shutdown() const {
-    return m_shutdown_deferred_until_dispatch_complete;
+    return m_shutdown_deferred_until_dispatch_complete || m_shutting_down;
 }
 
 PlayFabRuntime *PlayFabParty::_get_runtime() const {
@@ -2155,94 +2172,112 @@ Signal PlayFabParty::initialize_async(const Ref<PlayFabPartyConfig> &p_config, i
 
 Signal PlayFabParty::shutdown_async() {
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+    m_shutdown_pending_signals.push_back(pending_signal);
     shutdown();
-    if (m_shutdown_deferred_until_dispatch_complete) {
-        m_shutdown_pending_signals.push_back(pending_signal);
-    } else {
-        pending_signal->complete_deferred(PlayFabResult::ok_result());
-    }
     return pending_signal->get_completed_signal();
 }
 
 void PlayFabParty::shutdown() {
+    m_shutting_down = true;
+    _cancel_active_pending_operations("PlayFab Party is shutting down.");
     if (m_processing_state_changes) {
         m_shutdown_deferred_until_dispatch_complete = true;
-        if (!m_shutting_down) {
-            m_shutting_down = true;
-            _cancel_active_pending_operations("PlayFab Party is shutting down.");
-        }
         return;
     }
-    if (m_shutting_down && !m_shutdown_deferred_until_dispatch_complete) {
+    if (m_shutdown_running) {
         return;
     }
-    if (!m_initialized && m_pending_operations.empty() && m_pending_operations_deferred_delete.empty() && m_networks.empty() && m_local_users.empty()) {
-        return;
-    }
-
+    m_shutdown_running = true;
     m_shutdown_deferred_until_dispatch_complete = false;
-    m_shutting_down = true;
-
-    _cancel_active_pending_operations("PlayFab Party is shutting down.");
-
-    std::vector<Ref<PlayFabPartyNetwork>> networks_to_leave = m_networks;
-    for (const Ref<PlayFabPartyNetwork> &network : networks_to_leave) {
-        if (network.is_valid() && network->get_native_handle() != nullptr) {
-            network->get_native_handle()->LeaveNetwork(nullptr);
+    // Cleanup is the ownership fence for every outstanding asyncIdentifier,
+    // including create operations which have not produced a network yet.
+    if (m_initialized) {
+        PartyError err = _invoke_native("cleanup", []() { return Party::PartyManager::GetSingleton().Cleanup(); });
+        if (PARTY_FAILED(err)) {
+            Ref<PlayFabResult> result = _party_error_result(err, PARTY_CLEANUP_FAILED, "PartyManager::Cleanup");
+            emit_signal("party_error", result);
+            _complete_shutdown_pending_signals(result);
+            m_shutdown_running = false;
+            // Keep entry blocked and all contexts alive. shutdown_async may retry.
+            return;
         }
     }
 
-    for (int attempt = 0; attempt < 50 && m_initialized; ++attempt) {
-        dispatch();
-        _cancel_active_pending_operations("PlayFab Party is shutting down.");
-        bool any_active = false;
-        std::vector<Ref<PlayFabPartyNetwork>> networks_snapshot = m_networks;
-        for (const Ref<PlayFabPartyNetwork> &network : networks_snapshot) {
-            if (network.is_valid() && network->get_native_handle() != nullptr) {
-                any_active = true;
-                break;
+    std::vector<Ref<PlayFabPartyNetwork>> networks = m_networks;
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation->network.is_valid() &&
+                std::find(networks.begin(), networks.end(), operation->network) == networks.end()) {
+            networks.push_back(operation->network);
+        }
+        operation->sdk_pending = false;
+        operation->native_user = nullptr;
+        operation->native_network = nullptr;
+        operation->native_endpoint = nullptr;
+        operation->native_chat_control = nullptr;
+    }
+    // Keep wrappers alive while silently invalidating the whole service.
+    // _detach_network cannot be used here: its peer setter emits synchronously.
+    Array chat_controls = m_chat.is_valid() ? m_chat->get_chat_controls() : Array();
+    for (const auto &entry : m_local_chat_controls) {
+        chat_controls.push_back(entry.second);
+    }
+    std::vector<std::pair<Ref<PlayFabPartyPeer>, bool>> peers;
+    for (const Ref<PlayFabPartyNetwork> &network : networks) {
+        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+        const bool notify_peer = peer.is_valid() && peer->m_connection_status != MultiplayerPeer::CONNECTION_DISCONNECTED;
+        peers.emplace_back(peer, notify_peer);
+        if (peer.is_valid()) {
+            peer->m_connection_status = MultiplayerPeer::CONNECTION_DISCONNECTED;
+            peer->set_unique_id(0);
+            for (auto &entry : peer->m_peer_records) {
+                entry.second.endpoint = nullptr;
             }
         }
-        if (!any_active && m_pending_operations.empty()) {
-            break;
-        }
-        Sleep(10);
+        chat_controls.push_back(network->get_local_chat_control());
+        network->detach_native();
+        network->set_state_value(NETWORK_STATE_DISCONNECTED);
+        network->set_owner(nullptr);
     }
-
-    _cancel_active_pending_operations("PlayFab Party is shutting down.");
-
-    std::vector<Ref<PlayFabPartyNetwork>> networks_to_detach = m_networks;
-    for (const Ref<PlayFabPartyNetwork> &network : networks_to_detach) {
-        if (network.is_valid()) {
-            network->detach_native();
-            network->set_owner(nullptr);
+    for (int64_t i = 0; i < chat_controls.size(); ++i) {
+        Ref<PlayFabPartyChatControl> control = chat_controls[i];
+        if (control.is_valid()) {
+            control->detach_native();
         }
     }
-    m_networks.clear();
-
     if (m_chat.is_valid()) {
         m_chat->clear();
     }
+    m_networks.clear();
+    m_local_users.clear();
+    m_local_chat_controls.clear();
+    m_initialized = false;
 
-    _release_all_local_users();
-
-    if (m_initialized) {
-        Party::PartyManager::GetSingleton().Cleanup();
-        m_initialized = false;
+    // Only now may callbacks inspect any retained network, peer, chat control,
+    // or user registry. Entry remains fenced until all cancellations settle.
+    for (size_t i = 0; i < networks.size(); ++i) {
+        if (peers[i].second) {
+            peers[i].first->emit_signal("connection_state_changed", static_cast<int64_t>(MultiplayerPeer::CONNECTION_DISCONNECTED));
+        }
+        _emit_network_state(networks[i], NETWORK_CHANGE_DESTROYED, 0, Ref<PlayFabResult>(), "PlayFab Party shut down.");
     }
-
-    _delete_deferred_pending_operations();
-
+    while (!m_pending_operations.empty()) {
+        PendingOperation *operation = m_pending_operations.back();
+        if (operation->failure.is_null()) {
+            operation->failure = PlayFabResult::cancelled("PlayFab Party is shutting down.");
+        }
+        _complete_pending(operation, operation->failure);
+    }
     m_processing_state_changes = false;
     m_shutting_down = false;
-    _complete_shutdown_pending_signals();
+    m_shutdown_running = false;
+    _complete_shutdown_pending_signals(PlayFabResult::ok_result());
     if (m_owner != nullptr) {
         m_owner->finish_deferred_shutdown_if_ready();
     }
 }
 
 int PlayFabParty::dispatch() {
-    if (!m_initialized || m_processing_state_changes) {
+    if (!m_initialized || m_processing_state_changes || m_shutting_down) {
         return 0;
     }
     return _pump_state_changes();
@@ -2255,12 +2290,226 @@ Ref<PlayFabPartyChat> PlayFabParty::get_chat() const {
 Array PlayFabParty::get_networks() const {
     Array networks;
     for (const Ref<PlayFabPartyNetwork> &network : m_networks) {
-        networks.push_back(network);
+        if (network->m_established) {
+            networks.push_back(network);
+        }
     }
     return networks;
 }
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
+Signal PlayFabParty::_test_begin_establishment(bool p_host, bool p_chat, const Dictionary &p_dispatch_errors, bool p_append) {
+    if (m_owner != nullptr || !m_pending_operations.empty() || (!p_append && !m_networks.empty()) || m_shutting_down ||
+            (m_initialized && !m_test_native)) {
+        return _make_error_signal(E_NOT_VALID_STATE, PARTY_RESOURCE_NOT_READY, "Fault injection requires an idle, detached test service.");
+    }
+    m_test_native = true;
+    m_initialized = true;
+    m_test_dispatch_errors = p_dispatch_errors.duplicate();
+    if (!p_append) {
+        m_test_dispatches.clear();
+        m_chat->clear();
+        m_test_chat_control.unref();
+    }
+    if (p_chat && m_test_chat_control.is_null()) {
+        m_test_chat_control.instantiate();
+        m_test_chat_control->attach(this, reinterpret_cast<Party::PartyLocalChatControl *>(&m_test_handles[2]), true);
+        m_chat->track(m_test_chat_control);
+    }
+    PendingOperation *operation = _create_pending(p_host ? PENDING_CREATE_NETWORK : PENDING_CONNECT_NETWORK);
+    operation->host = p_host;
+    operation->user.instantiate();
+    operation->config.instantiate();
+    operation->config->set_voice_chat_enabled(false);
+    operation->config->set_text_chat_enabled(false);
+    operation->native_user = reinterpret_cast<Party::PartyLocalUser *>(&m_test_handles[1]);
+    // Registry-only identity: never attach a sentinel PF handle to PlayFabUser
+    // or pass it to the SDK. Public release tests use the unsigned-in wrapper.
+    PFEntityHandle registry_key = reinterpret_cast<PFEntityHandle>(&m_test_handles[0]);
+    m_local_users[registry_key] = operation->native_user;
+    if (m_test_chat_control.is_valid()) {
+        m_local_chat_controls[registry_key] = m_test_chat_control;
+    }
+    operation->network.instantiate();
+    operation->network->set_owner(this);
+    operation->network->m_host = p_host;
+    operation->network->m_local_user = operation->user;
+    operation->network->m_native_local_user = operation->native_user;
+    operation->network->set_state_value(p_host ? NETWORK_STATE_CREATING : NETWORK_STATE_CONNECTING);
+    m_test_network = operation->network;
+    m_test_network_handle = nullptr;
+    Ref<PlayFabPendingSignal> signal = operation->pending_signal;
+    Party::PartyNetworkDescriptor descriptor = {};
+    Ref<PlayFabResult> error = p_host ? _start_create_network_step(operation) : _start_connect_network_step(operation, descriptor);
+    if (error.is_valid()) {
+        _fail_join(operation, error);
+    }
+    return signal->get_completed_signal();
+}
+
+void PlayFabParty::_test_party_batch(const Array &p_changes) {
+    ERR_FAIL_COND(!m_test_native || m_processing_state_changes);
+    // Pump failures use the production pump itself, with an empty injected
+    // batch. No sentinel native handle is ever handed to the SDK.
+    if (int64_t(m_test_dispatch_errors.get("start", 0)) != 0 ||
+            int64_t(m_test_dispatch_errors.get("finish", 0)) != 0) {
+        _pump_state_changes();
+        return;
+    }
+    m_processing_state_changes = true;
+    for (int i = 0; i < p_changes.size(); ++i) {
+        Dictionary input = p_changes[i];
+        String stage = input.get("stage", String());
+        auto result = static_cast<Party::PartyStateChangeResult>(int64_t(input.get("result", 0)));
+        uint32_t detail = static_cast<uint32_t>(int64_t(input.get("error", 0)));
+        Party::PartyNetwork *network = m_test_network_handle;
+        if (stage == "destroy") {
+            Party::PartyNetworkDestroyedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::NetworkDestroyed;
+            change.network = network;
+            change.errorDetail = detail;
+            change.reason = Party::PartyDestroyedReason::Requested;
+            _process_state_change(&change);
+            continue;
+        }
+        if (stage == "endpoint_created") {
+            Party::PartyEndpointCreatedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::EndpointCreated;
+            change.network = network;
+            change.endpoint = reinterpret_cast<Party::PartyEndpoint *>(&m_test_handles[2]);
+            _process_state_change(&change);
+            continue;
+        }
+        if (stage == "request") {
+            PackedByteArray packet = build_handshake_request(1, "offline-fixture", "title_player_account");
+            Party::PartyEndpointMessageReceivedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::EndpointMessageReceived;
+            change.network = network;
+            change.senderEndpoint = reinterpret_cast<Party::PartyEndpoint *>(&m_test_handles[2]);
+            change.messageBuffer = packet.ptr();
+            change.messageSize = static_cast<uint32_t>(packet.size());
+            _process_state_change(&change);
+            continue;
+        }
+        if (m_shutting_down) {
+            continue;
+        }
+        ERR_CONTINUE(m_pending_operations.size() != 1);
+        PendingOperation *operation = m_pending_operations.front();
+        if (stage == "create") {
+            ERR_CONTINUE(operation->kind != PENDING_CREATE_NETWORK || !operation->sdk_pending);
+            Party::PartyCreateNewNetworkCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::CreateNewNetworkCompleted;
+            change.asyncIdentifier = operation;
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "connect") {
+            ERR_CONTINUE(operation->kind != PENDING_CONNECT_NETWORK || !operation->sdk_pending);
+            Party::PartyConnectToNetworkCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::ConnectToNetworkCompleted;
+            change.asyncIdentifier = operation;
+            change.network = network;
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "authenticate") {
+            ERR_CONTINUE(operation->kind != PENDING_AUTHENTICATE || !operation->sdk_pending);
+            Party::PartyAuthenticateLocalUserCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::AuthenticateLocalUserCompleted;
+            change.asyncIdentifier = operation;
+            change.network = network;
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "chat") {
+            ERR_CONTINUE(operation->kind != PENDING_CONNECT_CHAT_CONTROL || !operation->sdk_pending);
+            Party::PartyConnectChatControlCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::ConnectChatControlCompleted;
+            change.asyncIdentifier = operation;
+            change.network = network;
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "endpoint") {
+            ERR_CONTINUE(operation->kind != PENDING_CREATE_ENDPOINT || !operation->sdk_pending);
+            Party::PartyCreateEndpointCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::CreateEndpointCompleted;
+            change.asyncIdentifier = operation;
+            change.network = network;
+            change.localEndpoint = reinterpret_cast<Party::PartyLocalEndpoint *>(&m_test_handles[3]);
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "leave") {
+            ERR_CONTINUE(operation->kind != PENDING_LEAVE_NETWORK || !operation->sdk_pending);
+            Party::PartyLeaveNetworkCompletedStateChange change = {};
+            change.stateChangeType = Party::PartyStateChangeType::LeaveNetworkCompleted;
+            change.asyncIdentifier = operation;
+            change.network = network;
+            change.result = result;
+            change.errorDetail = detail;
+            _process_state_change(&change);
+        } else if (stage == "reply") {
+            ERR_CONTINUE(operation->kind != PENDING_JOIN_HANDSHAKE);
+            _resolve_handshake_assignment(operation->network->get_local_peer().ptr(), nullptr, 2, operation);
+        } else {
+            ERR_PRINT("Unknown Party fault-injection completion stage.");
+        }
+    }
+    m_processing_state_changes = false;
+    if (m_shutdown_deferred_until_dispatch_complete) {
+        shutdown();
+    }
+}
+
+Dictionary PlayFabParty::_test_party_snapshot() const {
+    Dictionary result;
+    result["dispatches"] = m_test_dispatches.duplicate();
+    result["pending"] = static_cast<int64_t>(m_pending_operations.size());
+    result["networks"] = static_cast<int64_t>(m_networks.size());
+    result["network"] = m_test_network;
+    result["initialized"] = m_initialized;
+    result["shutting_down"] = m_shutting_down;
+    result["local_users"] = static_cast<int64_t>(m_local_users.size());
+    result["local_chat_controls"] = static_cast<int64_t>(m_local_chat_controls.size());
+    int64_t native_contexts = 0;
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation->sdk_pending || operation->native_user != nullptr || operation->native_network != nullptr ||
+                operation->native_endpoint != nullptr || operation->native_chat_control != nullptr) {
+            ++native_contexts;
+        }
+    }
+    result["native_contexts"] = native_contexts;
+    return result;
+}
+
+Dictionary PlayFabParty::_test_native_handles(const Ref<PlayFabPartyNetwork> &p_network, const Ref<PlayFabPartyPeer> &p_peer) const {
+    Dictionary result;
+    if (p_network.is_valid()) {
+        result["network"] = p_network->get_native_handle() != nullptr;
+        result["user"] = p_network->get_native_local_user() != nullptr;
+        result["endpoint"] = p_network->get_native_local_endpoint() != nullptr;
+        result["chat"] = p_network->get_native_local_chat_control() != nullptr;
+        result["owner"] = p_network->m_owner != nullptr;
+    }
+    int64_t remote_endpoints = 0;
+    if (p_peer.is_valid()) {
+        for (const auto &entry : p_peer->m_peer_records) {
+            if (entry.second.endpoint != nullptr) {
+                ++remote_endpoints;
+            }
+        }
+    }
+    result["remote_endpoints"] = remote_endpoints;
+    return result;
+}
+
+void PlayFabParty::_test_set_dispatch_errors(const Dictionary &p_errors) {
+    ERR_FAIL_COND(!m_test_native);
+    m_test_dispatch_errors = p_errors.duplicate();
+}
+
 Signal PlayFabParty::_test_enqueue_shutdown_pending() {
     PendingOperation *operation = _create_pending(PENDING_NONE);
     return operation->pending_signal->get_completed_signal();
@@ -2324,7 +2573,7 @@ void PlayFabParty::_test_dispatch_destroy_chat_control_completed(
 }
 
 int64_t PlayFabParty::_test_pending_operation_count() const {
-    return static_cast<int64_t>(m_pending_operations.size() + m_pending_operations_deferred_delete.size());
+    return static_cast<int64_t>(m_pending_operations.size());
 }
 
 Dictionary PlayFabParty::_test_classify_leave_network_completed(int64_t p_state_change_result, int64_t p_error_detail) const {
@@ -2434,54 +2683,28 @@ void PlayFabParty::_release_all_local_users() {
 }
 
 void PlayFabParty::_reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result) {
-    m_shutting_down = true;
-
     Ref<PlayFabResult> result = p_result;
     if (result.is_null()) {
         result = PlayFabResult::error_result(E_FAIL, PARTY_STATE_FINISH_FAILED, "PartyManager::FinishProcessingStateChanges failed.");
     }
 
-    if (m_initialized) {
-        Party::PartyManager::GetSingleton().Cleanup();
-        m_initialized = false;
+    m_shutting_down = true;
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation->failure.is_null()) {
+            operation->failure = result;
+        }
     }
-    m_local_users.clear();
-    m_local_chat_controls.clear();
-    if (m_chat.is_valid()) {
-        m_chat->clear();
-    }
-
-    std::vector<Ref<PlayFabPartyNetwork>> networks;
-    networks.swap(m_networks);
+    std::vector<Ref<PlayFabPartyNetwork>> networks = m_networks;
     for (const Ref<PlayFabPartyNetwork> &network : networks) {
         if (!network.is_valid()) {
             continue;
         }
         network->set_state_value(NETWORK_STATE_FAILED);
-        network->detach_native();
-        _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, result, "PlayFab Party state processing failed; PlayFab.party was reset.");
-        network->set_owner(nullptr);
+        _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, result, "PlayFab Party state processing failed.");
     }
-
-    std::vector<PendingOperation *> pending_operations;
-    pending_operations.swap(m_pending_operations);
-    for (PendingOperation *operation : pending_operations) {
-        if (operation != nullptr && operation->pending_signal.is_valid()) {
-            operation->pending_signal->complete(result);
-        }
-        delete operation;
-    }
-
-    ERR_PRINT("PlayFab.party: FinishProcessingStateChanges failed; Party was reset. Call PlayFab.party.initialize_async() before using it again.");
     emit_signal("party_error", result);
-    _delete_deferred_pending_operations();
     m_processing_state_changes = false;
-    m_shutdown_deferred_until_dispatch_complete = false;
-    m_shutting_down = false;
-    _complete_shutdown_pending_signals();
-    if (m_owner != nullptr) {
-        m_owner->finish_deferred_shutdown_if_ready();
-    }
+    shutdown();
 }
 
 PlayFabParty::PendingOperation *PlayFabParty::_create_pending(int32_t p_kind) {
@@ -2493,95 +2716,99 @@ PlayFabParty::PendingOperation *PlayFabParty::_create_pending(int32_t p_kind) {
 }
 
 void PlayFabParty::_cancel_active_pending_operations(const String &p_cancel_message) {
-    while (!m_pending_operations.empty()) {
-        std::vector<PendingOperation *> pending_operations;
-        pending_operations.swap(m_pending_operations);
-        for (PendingOperation *operation : pending_operations) {
-            _defer_pending_delete(operation);
-        }
-        for (PendingOperation *operation : pending_operations) {
-            if (operation != nullptr && operation->pending_signal.is_valid()) {
-                operation->pending_signal->complete(PlayFabResult::cancelled(p_cancel_message));
-            }
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation->failure.is_null()) {
+            operation->failure = PlayFabResult::cancelled(p_cancel_message);
         }
     }
 }
 
-void PlayFabParty::_defer_pending_delete(PendingOperation *p_operation) {
-    if (p_operation == nullptr) {
-        return;
-    }
-    auto active_it = std::find(m_pending_operations.begin(), m_pending_operations.end(), p_operation);
-    if (active_it != m_pending_operations.end()) {
-        m_pending_operations.erase(active_it);
-    }
-    auto deferred_it = std::find(m_pending_operations_deferred_delete.begin(), m_pending_operations_deferred_delete.end(), p_operation);
-    if (deferred_it == m_pending_operations_deferred_delete.end()) {
-        m_pending_operations_deferred_delete.push_back(p_operation);
-    }
-}
-
-void PlayFabParty::_delete_deferred_pending_operations() {
-    std::vector<PendingOperation *> active_operations;
-    active_operations.swap(m_pending_operations);
-    for (PendingOperation *operation : active_operations) {
-        _defer_pending_delete(operation);
-    }
-
-    for (PendingOperation *operation : m_pending_operations_deferred_delete) {
-        delete operation;
-    }
-    m_pending_operations_deferred_delete.clear();
-}
-
-void PlayFabParty::_complete_shutdown_pending_signals() {
+void PlayFabParty::_complete_shutdown_pending_signals(const Ref<PlayFabResult> &p_result) {
     std::vector<Ref<PlayFabPendingSignal>> pending_signals;
     pending_signals.swap(m_shutdown_pending_signals);
     for (const Ref<PlayFabPendingSignal> &pending_signal : pending_signals) {
         if (pending_signal.is_valid()) {
-            pending_signal->complete(PlayFabResult::ok_result());
+            pending_signal->complete_deferred(p_result);
         }
     }
-}
-
-void PlayFabParty::_release_pending(PendingOperation *p_operation) {
-    if (p_operation == nullptr) {
-        return;
-    }
-    auto it = std::find(m_pending_operations.begin(), m_pending_operations.end(), p_operation);
-    if (it != m_pending_operations.end()) {
-        m_pending_operations.erase(it);
-    }
-    if (m_shutting_down) {
-        _defer_pending_delete(p_operation);
-        return;
-    }
-    delete p_operation;
 }
 
 void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result) {
     if (p_operation == nullptr) {
         return;
     }
-
-    m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
-
-    if (p_operation->pending_signal.is_valid()) {
-        Ref<PlayFabResult> final_result = p_result;
-        if (p_operation->pending_signal->was_cancel_requested()) {
-            final_result = PlayFabResult::cancelled("PlayFab Party operation cancelled.");
-        }
-        p_operation->pending_signal->complete(final_result);
+    if (m_shutting_down && m_initialized) {
+        return;
     }
 
-    // Deferring after complete() (rather than both before and after) keeps the
-    // operation alive across the complete() call without double-tracking it.
-    // The check is re-read here in case complete() re-entrantly flipped
-    // m_shutting_down (e.g. an awaiter calling PlayFab.shutdown()).
-    if (m_shutting_down) {
-        _defer_pending_delete(p_operation);
+    Ref<PlayFabPendingSignal> signal = p_operation->pending_signal;
+    Ref<PlayFabResult> result = p_result;
+    m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
+    delete p_operation;
+    // Never retain a raw operation across a synchronous script callback.
+    if (m_processing_state_changes || m_shutdown_running) {
+        signal->complete(result);
     } else {
-        delete p_operation;
+        signal->complete_deferred(result);
+    }
+}
+
+uint32_t PlayFabParty::_invoke_native(const String &p_stage, const std::function<uint32_t()> &p_invoke) {
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_native) {
+        m_test_dispatches.push_back(p_stage);
+        return static_cast<uint32_t>(int64_t(m_test_dispatch_errors.get(p_stage, 0)));
+    }
+#endif
+    return p_invoke();
+}
+
+void PlayFabParty::_detach_network(const Ref<PlayFabPartyNetwork> &p_network) {
+    if (p_network.is_null()) {
+        return;
+    }
+    Ref<PlayFabPartyPeer> peer = p_network->get_local_peer();
+    p_network->detach_native();
+    _untrack_network(p_network);
+    if (peer.is_valid()) {
+        peer->set_connection_status(MultiplayerPeer::CONNECTION_DISCONNECTED);
+        peer->set_unique_id(0);
+    }
+}
+
+void PlayFabParty::_fail_join(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result) {
+    if (p_operation->failure.is_null()) {
+        p_operation->failure = p_result;
+    }
+    Ref<PlayFabResult> failure = p_operation->failure;
+    Ref<PlayFabPartyNetwork> network = p_operation->network;
+    if (network.is_valid()) {
+        network->set_state_value(NETWORK_STATE_FAILED);
+        Ref<PlayFabPartyPeer> peer = network->get_local_peer();
+        if (peer.is_valid()) {
+            peer->set_connection_status(MultiplayerPeer::CONNECTION_DISCONNECTED);
+        }
+    }
+    if (!m_shutting_down && !p_operation->sdk_pending) {
+        if (network.is_null() || network->get_native_handle() == nullptr) {
+            _detach_network(network);
+            _complete_pending(p_operation, failure);
+        } else {
+            p_operation->kind = PENDING_LEAVE_NETWORK;
+            PartyError err = _invoke_native("leave", [p_operation]() {
+                return p_operation->native_network->LeaveNetwork(p_operation);
+            });
+            if (PARTY_FAILED(err)) {
+                // No ownership boundary was reached. Keep the original failure
+                // and context until the caller escalates to scoped shutdown.
+                emit_signal("party_error", _party_error_result(err, PARTY_RESOURCE_NOT_READY, "PartyNetwork::LeaveNetwork (rollback)"));
+            } else {
+                p_operation->sdk_pending = true;
+            }
+        }
+    }
+    if (network.is_valid()) {
+        _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, failure, "Network establishment failed; rolling back.");
     }
 }
 
@@ -2613,12 +2840,18 @@ bool PlayFabParty::_abort_join_op_if_network_dead(PendingOperation *p_operation)
     if (p_operation == nullptr) {
         return false;
     }
-    // The target network is considered dead when the wrapper has been detached
-    // (PartyNetworkDestroyed already processed). detach_native() nulls the
-    // wrapper's native handle, so an in-flight join-chain *Completed delivered
-    // in the same batch as NetworkDestroyed must not be allowed to dereference
-    // the stale native_network pointer.
-    if (p_operation->network.is_null() || p_operation->network->get_native_handle() != nullptr) {
+    if (m_shutting_down) {
+        return true;
+    }
+    if (p_operation->failure.is_valid()) {
+        _fail_join(p_operation, p_operation->failure);
+        return true;
+    }
+    if (p_operation->pending_signal->was_cancel_requested()) {
+        _fail_join(p_operation, PlayFabResult::cancelled("PlayFab Party operation cancelled."));
+        return true;
+    }
+    if (p_operation->kind == PENDING_CREATE_NETWORK || p_operation->network.is_null() || p_operation->network->get_native_handle() != nullptr) {
         return false;
     }
     // _process_network_destroyed already emitted NETWORK_CHANGE_DESTROYED on
@@ -2629,7 +2862,7 @@ bool PlayFabParty::_abort_join_op_if_network_dead(PendingOperation *p_operation)
     if (result.is_null()) {
         result = PlayFabResult::error_result(E_FAIL, PARTY_RESOURCE_NOT_READY, "Network destroyed during join.");
     }
-    _complete_pending(p_operation, result);
+    _fail_join(p_operation, result);
     return true;
 }
 
@@ -2675,21 +2908,6 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
                 String("Failed to create Party local user: ") + error_text);
     }
 
-    Party::PartyNetworkConfiguration net_config = {};
-    net_config.maxUserCount = static_cast<uint32_t>(std::max<int64_t>(2, std::min<int64_t>(128, config->get_max_players())));
-    net_config.maxDeviceCount = net_config.maxUserCount;
-    net_config.maxUsersPerDeviceCount = 1;
-    net_config.maxDevicesPerUserCount = 1;
-    net_config.maxEndpointsPerDeviceCount = 1;
-    net_config.directPeerConnectivityOptions = static_cast<Party::PartyDirectPeerConnectivityOptions>(config->get_direct_peer_connectivity());
-
-    Party::PartyInvitationConfiguration invite_config = {};
-    const CharString invite_id_utf8 = config->get_invitation_id().utf8();
-    invite_config.identifier = invite_id_utf8.length() > 0 ? invite_id_utf8.get_data() : nullptr;
-    invite_config.revocability = Party::PartyInvitationRevocability::Anyone;
-    invite_config.entityIdCount = 0;
-    invite_config.entityIds = nullptr;
-
     PendingOperation *operation = _create_pending(PENDING_CREATE_NETWORK);
     operation->user = p_user;
     operation->config = config;
@@ -2703,40 +2921,68 @@ Signal PlayFabParty::create_and_join_network_async(const Ref<PlayFabUser> &p_use
     operation->network->m_host = true;
     operation->network->m_native_local_user = local_user;
 
-    Party::PartyNetworkDescriptor descriptor = {};
+    Ref<PlayFabPendingSignal> signal = operation->pending_signal;
+    Ref<PlayFabResult> error = _start_create_network_step(operation);
+    if (error.is_valid()) {
+        _fail_join(operation, error);
+    }
+    return signal->get_completed_signal();
+}
+
+Ref<PlayFabResult> PlayFabParty::_start_create_network_step(PendingOperation *operation) {
+    Ref<PlayFabPartyConfig> config = operation->config;
+    Party::PartyNetworkConfiguration net_config = {};
+    net_config.maxUserCount = static_cast<uint32_t>(std::max<int64_t>(2, std::min<int64_t>(128, config->get_max_players())));
+    net_config.maxDeviceCount = net_config.maxUserCount;
+    net_config.maxUsersPerDeviceCount = 1;
+    net_config.maxDevicesPerUserCount = 1;
+    net_config.maxEndpointsPerDeviceCount = 1;
+    net_config.directPeerConnectivityOptions = static_cast<Party::PartyDirectPeerConnectivityOptions>(config->get_direct_peer_connectivity());
+    Party::PartyInvitationConfiguration invite_config = {};
+    const CharString invite_id_utf8 = config->get_invitation_id().utf8();
+    invite_config.identifier = invite_id_utf8.length() > 0 ? invite_id_utf8.get_data() : nullptr;
+    invite_config.revocability = Party::PartyInvitationRevocability::Anyone;
     char applied_invitation_id[Party::c_maxInvitationIdentifierStringLength + 1] = {};
-    PartyError err = Party::PartyManager::GetSingleton().CreateNewNetwork(
-            local_user,
+    PartyError err = _invoke_native("create", [&]() { return Party::PartyManager::GetSingleton().CreateNewNetwork(
+            operation->native_user,
             &net_config,
             0,
             nullptr,
             &invite_config,
             operation,
-            &descriptor,
-            applied_invitation_id);
+            nullptr,
+            applied_invitation_id); });
     if (PARTY_FAILED(err)) {
-        Ref<PlayFabResult> result = _party_error_result(err, PARTY_NETWORK_CREATE_FAILED, "PartyManager::CreateNewNetwork");
-        _complete_pending(operation, result);
-        return _make_error_signal(E_FAIL, PARTY_NETWORK_CREATE_FAILED, result.is_valid() ? result->get_message() : String("PartyManager::CreateNewNetwork failed."));
+        return _party_error_result(err, PARTY_NETWORK_CREATE_FAILED, "PartyManager::CreateNewNetwork");
     }
-
     operation->invitation_id = String::utf8(applied_invitation_id);
-    operation->network->set_network_id(String::utf8(descriptor.networkIdentifier));
+    operation->sdk_pending = true;
+    return Ref<PlayFabResult>();
+}
 
+Ref<PlayFabResult> PlayFabParty::_start_connect_network_step(PendingOperation *operation, const Party::PartyNetworkDescriptor &descriptor) {
     Party::PartyNetwork *network_handle = nullptr;
-    err = Party::PartyManager::GetSingleton().ConnectToNetwork(&descriptor, operation, &network_handle);
+    PartyError err = _invoke_native("connect", [&]() {
+        return Party::PartyManager::GetSingleton().ConnectToNetwork(&descriptor, operation, &network_handle);
+    });
     if (PARTY_FAILED(err)) {
-        Ref<PlayFabResult> result = _party_error_result(err, PARTY_NETWORK_CONNECT_FAILED, "PartyManager::ConnectToNetwork");
-        _complete_pending(operation, result);
-        return _make_error_signal(E_FAIL, PARTY_NETWORK_CONNECT_FAILED, result.is_valid() ? result->get_message() : String("PartyManager::ConnectToNetwork failed."));
+        return _party_error_result(err, PARTY_NETWORK_CONNECT_FAILED, "PartyManager::ConnectToNetwork");
     }
-
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_native) {
+        m_test_network_handles.push_back(0);
+        network_handle = reinterpret_cast<Party::PartyNetwork *>(&m_test_network_handles.back());
+        m_test_network_handle = network_handle;
+    }
+#endif
+    operation->sdk_pending = true;
     operation->kind = PENDING_CONNECT_NETWORK;
     operation->native_network = network_handle;
-    operation->network->attach_native(network_handle, local_user, nullptr, nullptr);
+    operation->network->set_network_id(String::utf8(descriptor.networkIdentifier));
+    operation->network->attach_native(network_handle, operation->native_user, nullptr, nullptr);
     operation->network->set_state_value(NETWORK_STATE_CONNECTING);
     _track_network(operation->network);
-    return operation->pending_signal->get_completed_signal();
+    return Ref<PlayFabResult>();
 }
 
 Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const String &p_descriptor, const Ref<PlayFabPartyConfig> &p_config) {
@@ -2800,18 +3046,12 @@ Signal PlayFabParty::join_network_async(const Ref<PlayFabUser> &p_user, const St
     operation->network->set_descriptor(p_descriptor);
     operation->network->set_network_id(String::utf8(descriptor.networkIdentifier));
 
-    Party::PartyNetwork *network_handle = nullptr;
-    PartyError err = Party::PartyManager::GetSingleton().ConnectToNetwork(&descriptor, operation, &network_handle);
-    if (PARTY_FAILED(err)) {
-        Ref<PlayFabResult> result = _party_error_result(err, PARTY_NETWORK_CONNECT_FAILED, "PartyManager::ConnectToNetwork");
-        _complete_pending(operation, result);
-        return _make_error_signal(E_FAIL, PARTY_NETWORK_CONNECT_FAILED, result.is_valid() ? result->get_message() : String("PartyManager::ConnectToNetwork failed."));
+    Ref<PlayFabPendingSignal> signal = operation->pending_signal;
+    Ref<PlayFabResult> error = _start_connect_network_step(operation, descriptor);
+    if (error.is_valid()) {
+        _fail_join(operation, error);
     }
-
-    operation->native_network = network_handle;
-    operation->network->attach_native(network_handle, local_user, nullptr, nullptr);
-    _track_network(operation->network);
-    return operation->pending_signal->get_completed_signal();
+    return signal->get_completed_signal();
 }
 
 Signal PlayFabParty::leave_network_async(const Ref<PlayFabPartyNetwork> &p_network) {
@@ -2840,15 +3080,16 @@ Signal PlayFabParty::leave_network_async(const Ref<PlayFabPartyNetwork> &p_netwo
     operation->network = tracked;
     operation->native_network = tracked->get_native_handle();
 
-    PartyError err = tracked->get_native_handle()->LeaveNetwork(operation);
+    Ref<PlayFabPendingSignal> signal = operation->pending_signal;
+    PartyError err = _invoke_native("leave", [&]() { return tracked->get_native_handle()->LeaveNetwork(operation); });
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_RESOURCE_NOT_READY, "PartyNetwork::LeaveNetwork");
         _complete_pending(operation, result);
-        return _make_error_signal(E_FAIL, PARTY_RESOURCE_NOT_READY, result.is_valid() ? result->get_message() : String("PartyNetwork::LeaveNetwork failed."));
+        return signal->get_completed_signal();
     }
-
+    operation->sdk_pending = true;
     tracked->set_state_value(NETWORK_STATE_DISCONNECTING);
-    return operation->pending_signal->get_completed_signal();
+    return signal->get_completed_signal();
 }
 
 // ---------------------------------------------------------------------------
@@ -2865,39 +3106,23 @@ int PlayFabParty::_pump_state_changes() {
 
     uint32_t change_count = 0;
     Party::PartyStateChangeArray changes = nullptr;
-    PartyError err = Party::PartyManager::GetSingleton().StartProcessingStateChanges(&change_count, &changes);
+    PartyError err = _invoke_native("start", [&]() { return Party::PartyManager::GetSingleton().StartProcessingStateChanges(&change_count, &changes); });
     if (PARTY_FAILED(err)) {
-        m_processing_state_changes = false;
+        _reset_after_state_change_finish_failure(_party_error_result(err, PARTY_STATE_START_FAILED, "PartyManager::StartProcessingStateChanges"));
         return 0;
     }
 
-    std::vector<const Party::PartyStateChange *> deferred_network_destroys;
     int processed = 0;
     for (uint32_t i = 0; i < change_count; ++i) {
         const Party::PartyStateChange *change = changes[i];
         if (change == nullptr) {
             continue;
         }
-        if (change->stateChangeType == Party::PartyStateChangeType::NetworkDestroyed) {
-            const auto *destroyed = static_cast<const Party::PartyNetworkDestroyedStateChange *>(change);
-            if (_find_pending_join(destroyed->network) != nullptr) {
-                // Same-host joins can receive NetworkDestroyed before the
-                // completion/message that resolves the join later in this
-                // DoWork batch. Hold destruction until the rest of the batch
-                // has had a chance to deliver the pending join result.
-                deferred_network_destroys.push_back(change);
-                continue;
-            }
-        }
-        _process_state_change(change);
-        ++processed;
-    }
-    for (const Party::PartyStateChange *change : deferred_network_destroys) {
         _process_state_change(change);
         ++processed;
     }
 
-    err = Party::PartyManager::GetSingleton().FinishProcessingStateChanges(change_count, changes);
+    err = _invoke_native("finish", [&]() { return Party::PartyManager::GetSingleton().FinishProcessingStateChanges(change_count, changes); });
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_STATE_FINISH_FAILED, "PartyManager::FinishProcessingStateChanges");
         _reset_after_state_change_finish_failure(result);
@@ -2911,7 +3136,7 @@ int PlayFabParty::_pump_state_changes() {
 }
 
 void PlayFabParty::_process_state_change(const Party::PartyStateChange *p_change) {
-    if (p_change == nullptr) {
+    if (p_change == nullptr || m_shutting_down) {
         return;
     }
     switch (p_change->stateChangeType) {
@@ -3014,17 +3239,19 @@ void PlayFabParty::_process_create_new_network_completed(const Party::PartyState
     if (operation == nullptr) {
         return;
     }
+    operation->sdk_pending = false;
+    if (_abort_join_op_if_network_dead(operation)) {
+        return;
+    }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CREATE_FAILED, "PartyCreateNewNetwork");
-        if (operation->network.is_valid()) {
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create new network failed.");
-            _untrack_network(operation->network);
-            operation->network->detach_native();
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
+        return;
     }
-    // Success path: ConnectToNetwork was already invoked synchronously after CreateNewNetwork.
+    Ref<PlayFabResult> error = _start_connect_network_step(operation, change->networkDescriptor);
+    if (error.is_valid()) {
+        _fail_join(operation, error);
+    }
 }
 
 void PlayFabParty::_process_connect_to_network_completed(const Party::PartyStateChange *p_change) {
@@ -3033,18 +3260,13 @@ void PlayFabParty::_process_connect_to_network_completed(const Party::PartyState
     if (operation == nullptr) {
         return;
     }
+    operation->sdk_pending = false;
     if (_abort_join_op_if_network_dead(operation)) {
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyConnectToNetwork");
-        if (operation->network.is_valid()) {
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Connect to network failed.");
-            _untrack_network(operation->network);
-            operation->network->detach_native();
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
         return;
     }
 
@@ -3054,23 +3276,21 @@ void PlayFabParty::_process_connect_to_network_completed(const Party::PartyState
         operation->network->set_state_value(NETWORK_STATE_AUTHENTICATING);
         _emit_network_state(operation->network, NETWORK_CHANGE_STATE, 0, Ref<PlayFabResult>(), "connecting");
     }
+    if (_abort_join_op_if_network_dead(operation)) {
+        return;
+    }
 
-    PartyError err = change->network->AuthenticateLocalUser(
+    PartyError err = _invoke_native("authenticate", [&]() { return change->network->AuthenticateLocalUser(
             operation->native_user,
             operation->invitation_id.utf8().get_data(),
-            operation);
+            operation); });
     if (PARTY_FAILED(err)) {
         Ref<PlayFabResult> result = _party_error_result(err, PARTY_NETWORK_CONNECT_FAILED, "PartyNetwork::AuthenticateLocalUser");
-        if (operation->network.is_valid()) {
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Authenticate dispatch failed.");
-            _untrack_network(operation->network);
-            operation->network->detach_native();
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
         return;
     }
     operation->kind = PENDING_AUTHENTICATE;
+    operation->sdk_pending = true;
 }
 
 void PlayFabParty::_process_authenticate_local_user_completed(const Party::PartyStateChange *p_change) {
@@ -3079,18 +3299,13 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
     if (operation == nullptr) {
         return;
     }
+    operation->sdk_pending = false;
     if (_abort_join_op_if_network_dead(operation)) {
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_NETWORK_CONNECT_FAILED, "PartyAuthenticateLocalUser");
-        if (operation->network.is_valid()) {
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Authenticate failed.");
-            _untrack_network(operation->network);
-            operation->network->detach_native();
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
         return;
     }
 
@@ -3106,6 +3321,11 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
     // network; otherwise this network simply carries no chat, regardless of the
     // join config's voice/text flags.
     Ref<PlayFabPartyChatControl> existing_chat_control;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_native) {
+        existing_chat_control = m_test_chat_control;
+    }
+#endif
     if (operation->user.is_valid() && operation->user->get_entity_handle() != nullptr) {
         auto it = m_local_chat_controls.find(operation->user->get_entity_handle());
         if (it != m_local_chat_controls.end()) {
@@ -3115,11 +3335,8 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
     if (existing_chat_control.is_valid() && existing_chat_control->get_native_handle() != nullptr) {
         HRESULT hr = _start_connect_chat_control_step(operation, existing_chat_control);
         if (FAILED(hr)) {
-            Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_CHAT_CONTROL_CREATE_FAILED, "Failed to connect chat control.");
-            if (operation->network.is_valid()) {
-                _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Chat control connection failed.");
-            }
-            _complete_pending(operation, result);
+            _fail_join(operation, operation->dispatch_error.is_valid() ? operation->dispatch_error :
+                    PlayFabResult::error_result(hr, PARTY_CHAT_CONTROL_CREATE_FAILED, "Failed to connect chat control."));
         }
         return;
     }
@@ -3133,11 +3350,8 @@ void PlayFabParty::_process_authenticate_local_user_completed(const Party::Party
 
     HRESULT hr = _start_create_endpoint_step(operation);
     if (FAILED(hr)) {
-        Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_TRANSPORT_CREATE_FAILED, "Failed to create endpoint.");
-        if (operation->network.is_valid()) {
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Endpoint creation failed.");
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, operation->dispatch_error.is_valid() ? operation->dispatch_error :
+                PlayFabResult::error_result(hr, PARTY_TRANSPORT_CREATE_FAILED, "Failed to create endpoint."));
     }
 }
 
@@ -3147,29 +3361,31 @@ void PlayFabParty::_process_create_endpoint_completed(const Party::PartyStateCha
     if (operation == nullptr) {
         return;
     }
+    operation->sdk_pending = false;
     if (_abort_join_op_if_network_dead(operation)) {
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_TRANSPORT_CREATE_FAILED, "PartyCreateEndpoint");
-        if (operation->network.is_valid()) {
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create endpoint failed.");
-            _untrack_network(operation->network);
-            operation->network->detach_native();
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
         return;
     }
 
     if (operation->network.is_valid()) {
         operation->native_endpoint = change->localEndpoint;
         operation->network->m_native_local_endpoint = change->localEndpoint;
-        const String descriptor = _capture_finalized_descriptor(operation->network->get_native_handle());
+        String descriptor;
+        String network_id;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+        if (!m_test_native)
+#endif
+        {
+            descriptor = _capture_finalized_descriptor(operation->network->get_native_handle());
+            network_id = _capture_network_identifier(operation->network->get_native_handle());
+        }
         if (!descriptor.is_empty()) {
             operation->network->set_descriptor(descriptor);
         }
-        const String network_id = _capture_network_identifier(operation->network->get_native_handle());
         if (!network_id.is_empty()) {
             operation->network->set_network_id(network_id);
         }
@@ -3186,6 +3402,10 @@ void PlayFabParty::_process_create_endpoint_completed(const Party::PartyStateCha
             operation->network->set_state_value(NETWORK_STATE_CONNECTED);
             _emit_network_state(operation->network, NETWORK_CHANGE_STATE, HOST_PEER_ID, Ref<PlayFabResult>(), "connected");
         }
+        if (_abort_join_op_if_network_dead(operation)) {
+            return;
+        }
+        operation->network->m_established = true;
         _complete_pending(operation, PlayFabResult::ok_result(operation->network));
         return;
     }
@@ -3204,16 +3424,8 @@ void PlayFabParty::_process_create_endpoint_completed(const Party::PartyStateCha
 
     HRESULT hr = _start_handshake_step(operation);
     if (FAILED(hr)) {
-        Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_PEER_NOT_CONNECTED, "Failed to issue handshake.");
-        if (operation->network.is_valid()) {
-            // Roll back the speculative client-side state we set above so a
-            // subsequent retry sees a clean wrapper instead of a stale
-            // CONNECTING peer.
-            operation->network->m_local_peer = Ref<PlayFabPartyPeer>();
-            operation->network->set_state_value(NETWORK_STATE_FAILED);
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Handshake start failed.");
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, operation->dispatch_error.is_valid() ? operation->dispatch_error :
+                PlayFabResult::error_result(hr, PARTY_PEER_NOT_CONNECTED, "Failed to issue handshake."));
     }
 }
 
@@ -3246,10 +3458,23 @@ void PlayFabParty::_process_endpoint_created(const Party::PartyStateChange *p_ch
     // read failure can't strand the join; the host still only answers when it
     // is the host (is_host_network guard below).
     if (!network->is_host_network()) {
-        if (endpoint_is_handshake_target(change->endpoint)) {
+        bool is_target = false;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+        if (m_test_native) {
+            is_target = true;
+        } else
+#endif
+        {
+            is_target = endpoint_is_handshake_target(change->endpoint);
+        }
+        if (is_target) {
             PendingOperation *op = _find_handshake_pending(network);
             if (op != nullptr) {
-                _send_handshake_request_to(op, change->endpoint);
+                HRESULT hr = _send_handshake_request_to(op, change->endpoint);
+                if (FAILED(hr)) {
+                    _fail_join(op, op->dispatch_error.is_valid() ? op->dispatch_error :
+                            PlayFabResult::error_result(hr, PARTY_PEER_NOT_CONNECTED, "Failed to issue handshake."));
+                }
             }
         }
     }
@@ -3304,16 +3529,20 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
             bool newly_joined = false;
             if (assigned_id == 0) {
                 assigned_id = peer->allocate_peer_id();
-                peer->register_peer(assigned_id, change->senderEndpoint, entity_key);
                 newly_joined = true;
-            } else {
-                peer->update_peer_endpoint(assigned_id, change->senderEndpoint);
             }
             // Echo the client's nonce so it can match the reply to its request
             // and reject replays with a different nonce.
-            _send_handshake_assignment(peer.ptr(), change->senderEndpoint, nonce, assigned_id);
+            Ref<PlayFabResult> error = _send_handshake_assignment(peer.ptr(), change->senderEndpoint, nonce, assigned_id);
+            if (error.is_valid()) {
+                _emit_network_state(network, NETWORK_CHANGE_ERROR, assigned_id, error, "Handshake reply failed.");
+                return;
+            }
             if (newly_joined) {
+                peer->register_peer(assigned_id, change->senderEndpoint, entity_key);
                 _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, assigned_id, Ref<PlayFabResult>(), "handshake");
+            } else {
+                peer->update_peer_endpoint(assigned_id, change->senderEndpoint);
             }
         }
         return;
@@ -3335,27 +3564,8 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
                 _resolve_handshake_assignment(peer.ptr(), change->senderEndpoint, assigned_id, operation);
                 return;
             }
-            // No pending op (late/duplicate reply). Only accept if our peer id
-            // hasn't already been assigned, to avoid mutating connected state.
-            if (peer->get_unique_id() == 0) {
-                peer->set_unique_id(assigned_id);
-                peer->set_connection_status(MultiplayerPeer::CONNECTION_CONNECTED);
-                if (change->senderEndpoint != nullptr && peer->find_peer_by_endpoint(change->senderEndpoint) == 0) {
-                    // Populate the host's entity_key from the endpoint so the
-                    // host shows up as a transport peer (peer id 1) on the
-                    // client. Chat is meshed independently of these records,
-                    // so no chat bookkeeping happens here.
-                    Dictionary host_entity_key = entity_key_for_endpoint(change->senderEndpoint);
-                    peer->register_peer(HOST_PEER_ID, change->senderEndpoint, host_entity_key);
-                }
-                network->set_state_value(NETWORK_STATE_CONNECTED);
-                // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see
-                // line 2205) so client-side listeners see the host as a
-                // joined peer. Without this, the autoload's peer_connected
-                // signal never fires on the client for the host.
-                _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, HOST_PEER_ID, Ref<PlayFabResult>(), "handshake reply");
-                _emit_network_state(network, NETWORK_CHANGE_STATE, assigned_id, Ref<PlayFabResult>(), "connected");
-            }
+            // A reply without its live operation must never resurrect a
+            // cancelled/rolling-back join.
         }
         return;
     }
@@ -3394,51 +3604,38 @@ void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChang
     Ref<PlayFabResult> result = _party_leave_network_completed_result(change->result, change->errorDetail);
     Ref<PlayFabPartyNetwork> network;
     if (operation != nullptr) {
+        operation->sdk_pending = false;
         network = operation->network;
     }
     if (!network.is_valid()) {
         network = _find_network_by_native(change->network);
     }
-    if (network.is_valid()) {
+    if (network.is_valid() && result->is_ok()) {
+        _detach_network(network);
         network->set_state_value(NETWORK_STATE_DISCONNECTED);
         _emit_network_state(network, NETWORK_CHANGE_STATE, 0, result, "disconnected");
-
-        // Issue #73 — after a title-initiated LeaveNetwork completes, detach
-        // and untrack the wrapper here instead of waiting for the
-        // PartyNetworkDestroyed event (which arrives some Party DoWork cycles
-        // later). If the title immediately rejoins the same network, holding
-        // the dying wrapper in m_networks lets stale local_peer entity-key
-        // records steal PartyChatControlCreated events from the new network
-        // (the iteration in _process_chat_control_created is order-sensitive
-        // and the older wrapper wins). The GDScript autoload
-        // disconnects its handlers via _detach_network, so chat_control_added
-        // emitted on the stale peer is silently dropped — voice and text never
-        // re-arm on the rejoined network. Only do this on a successful leave;
-        // if the leave failed the wrapper may still own live native resources
-        // and we must keep tracking it until PartyNetworkDestroyed lands.
-        if (result.is_valid() && result->is_ok()) {
-            Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-            if (peer.is_valid()) {
-                peer->set_connection_status(MultiplayerPeer::CONNECTION_DISCONNECTED);
-                peer->set_unique_id(0);
+        while (!m_shutting_down) {
+            PendingOperation *handshake_op = _find_pending(PENDING_JOIN_HANDSHAKE, change->network);
+            if (handshake_op == nullptr) {
+                break;
             }
-            // PENDING_JOIN_HANDSHAKE has no Party-side completion event of its
-            // own — it waits for a HANDSHAKE_REPLY packet. After we detach
-            // the wrapper, the message-received path can no longer route the
-            // reply, so drain any such op here (mirrors _process_network_destroyed).
-            // Other join-chain pending kinds will gracefully bail through
-            // _abort_join_op_if_network_dead once they observe the detached
-            // native handle on their *Completed event.
-            while (PendingOperation *handshake_op = _find_pending(PENDING_JOIN_HANDSHAKE, change->network)) {
-                _complete_pending(handshake_op, PlayFabResult::error_result(E_ABORT, PARTY_RESOURCE_NOT_READY, "Network left during handshake."));
-            }
-            network->detach_native();
-            _untrack_network(network);
+            _fail_join(handshake_op, PlayFabResult::error_result(E_ABORT, PARTY_RESOURCE_NOT_READY, "Network left during handshake."));
         }
     }
-    if (operation != nullptr) {
-        _complete_pending(operation, result);
+    if (operation == nullptr || m_shutting_down) {
+        return;
     }
+    if (operation->failure.is_valid()) {
+        if (network.is_null() || network->get_native_handle() == nullptr) {
+            _complete_pending(operation, operation->failure);
+        } else {
+            // A failed leave does not release native ownership. Destruction or
+            // scoped shutdown must fence it before we settle the original error.
+            emit_signal("party_error", result);
+        }
+        return;
+    }
+    _complete_pending(operation, result);
 }
 
 void PlayFabParty::_process_network_destroyed(const Party::PartyStateChange *p_change) {
@@ -3451,37 +3648,23 @@ void PlayFabParty::_process_network_destroyed(const Party::PartyStateChange *p_c
     if (change->reason != Party::PartyDestroyedReason::Requested) {
         result = _party_error_result(change->errorDetail, PARTY_RESOURCE_NOT_READY, "PartyNetworkDestroyed");
     }
-    // Remember the destruction reason on the wrapper so any join-chain
-    // *Completed delivered after this point (potentially in the same Party
-    // DoWork batch) can surface the real failure via
-    // _abort_join_op_if_network_dead instead of the generic
-    // "Network destroyed during join." string.
     network->m_destroyed_result = result;
+    _detach_network(network);
     network->set_state_value(NETWORK_STATE_DISCONNECTED);
+    std::vector<PendingOperation *> operations = m_pending_operations;
+    for (PendingOperation *operation : operations) {
+        if (operation->native_network == change->network && operation->failure.is_null() &&
+                operation->kind != PENDING_LEAVE_NETWORK) {
+            operation->failure = result.is_valid() ? result :
+                    PlayFabResult::error_result(E_FAIL, PARTY_RESOURCE_NOT_READY, "Network destroyed during join.");
+        }
+    }
     _emit_network_state(network, NETWORK_CHANGE_DESTROYED, 0, result, "network destroyed");
-    Ref<PlayFabPartyPeer> peer = network->get_local_peer();
-    if (peer.is_valid()) {
-        peer->set_connection_status(MultiplayerPeer::CONNECTION_DISCONNECTED);
-        peer->set_unique_id(0);
+    for (PendingOperation *operation : operations) {
+        if (operation->native_network == change->network && !operation->sdk_pending && !m_shutting_down) {
+            _complete_pending(operation, operation->failure.is_valid() ? operation->failure : PlayFabResult::ok_result());
+        }
     }
-    // Drain any handshake operation that is in flight against this native
-    // network. PENDING_JOIN_HANDSHAKE has no Party-side completion event of its
-    // own (it waits for a HANDSHAKE_REPLY message from the host), so without
-    // this drain a network that dies between CreateEndpoint and the host's
-    // reply would leave join_network_async() awaiting forever. Other join-chain
-    // kinds (CONNECT_NETWORK, AUTHENTICATE, CREATE_CHAT_CONTROL,
-    // CONNECT_CHAT_CONTROL, CREATE_ENDPOINT) MUST NOT be drained here because
-    // Party still owns the PendingOperation* via asyncIdentifier and will
-    // deliver the matching *Completed state change later (same or subsequent
-    // batch). Freeing the op here would dangle that pointer.
-    while (PendingOperation *handshake_op = _find_pending(PENDING_JOIN_HANDSHAKE, change->network)) {
-        Ref<PlayFabResult> handshake_failure = result.is_valid()
-                ? result
-                : PlayFabResult::error_result(E_FAIL, PARTY_RESOURCE_NOT_READY, "Network destroyed during handshake.");
-        _complete_pending(handshake_op, handshake_failure);
-    }
-    network->detach_native();
-    _untrack_network(network);
 }
 
 void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStateChange *p_change) {
@@ -3604,25 +3787,20 @@ void PlayFabParty::_process_connect_chat_control_completed(const Party::PartySta
     if (operation == nullptr) {
         return;
     }
+    operation->sdk_pending = false;
     if (_abort_join_op_if_network_dead(operation)) {
         return;
     }
     if (change->result != Party::PartyStateChangeResult::Succeeded) {
         Ref<PlayFabResult> result = _party_state_change_error_result(change->result, change->errorDetail, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyNetwork::ConnectChatControl");
-        if (operation->network.is_valid()) {
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Connect chat control failed.");
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, result);
         return;
     }
 
     HRESULT hr = _start_create_endpoint_step(operation);
     if (FAILED(hr)) {
-        Ref<PlayFabResult> result = PlayFabResult::error_result(hr, PARTY_TRANSPORT_CREATE_FAILED, "Failed to dispatch CreateEndpoint after chat control connection.");
-        if (operation->network.is_valid()) {
-            _emit_network_state(operation->network, NETWORK_CHANGE_ERROR, 0, result, "Create endpoint dispatch failed.");
-        }
-        _complete_pending(operation, result);
+        _fail_join(operation, operation->dispatch_error.is_valid() ? operation->dispatch_error :
+                PlayFabResult::error_result(hr, PARTY_TRANSPORT_CREATE_FAILED, "Failed to dispatch CreateEndpoint after chat control connection."));
     }
 }
 
@@ -3643,6 +3821,7 @@ void PlayFabParty::_process_destroy_chat_control_completed(const Party::PartySta
     ERR_FAIL_COND_MSG(operation->kind != PENDING_DESTROY_CHAT_CONTROL,
             "PlayFab.party received DestroyChatControlCompleted for a different pending operation kind.");
 
+    operation->sdk_pending = false;
     Ref<PlayFabResult> result =
             change->result == Party::PartyStateChangeResult::Succeeded
             ? PlayFabResult::ok_result()
@@ -3909,13 +4088,12 @@ void PlayFabParty::_cleanup_destroyed_chat_control(Party::PartyChatControl *p_ch
             network->m_local_chat_control = Ref<PlayFabPartyChatControl>();
         }
     }
-
     if (wrapper.is_null()) {
         return;
     }
 
     Dictionary entity_key = entity_key_for_chat_control(p_chat_control);
-    wrapper->attach(nullptr, nullptr, wrapper->is_local());
+    wrapper->detach_native();
     m_chat->untrack(wrapper);
     m_chat->emit_signal("chat_control_removed", entity_key);
     _emit_chat_state(wrapper, CHAT_CHANGE_DESTROYED, Ref<PlayFabResult>(), "chat control destroyed");
@@ -4274,6 +4452,7 @@ Signal PlayFabParty::_destroy_chat_control(const Ref<PlayFabPartyChatControl> &p
         _complete_pending(operation, result);
         return _make_error_signal(E_FAIL, PARTY_RESOURCE_NOT_READY, result.is_valid() ? result->get_message() : String("PartyLocalDevice::DestroyChatControl failed."));
     }
+    operation->sdk_pending = true;
     return operation->pending_signal->get_completed_signal();
 }
 
@@ -4345,6 +4524,10 @@ Signal PlayFabParty::_destroy_local_chat_control(const Ref<PlayFabUser> &p_user)
 }
 
 Signal PlayFabParty::release_local_user_async(const Ref<PlayFabUser> &p_user) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
+                "PlayFab.party.release_local_user_async() cannot start while PlayFab Party is shutting down.");
+    }
     // Fully release a local user: tears down its reusable local chat control
     // (via _release_local_user) and destroys the underlying PartyLocalUser so
     // the per-device local-user slot is freed. Idempotent — releasing an
@@ -4366,7 +4549,7 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
         return E_INVALIDARG;
     }
     Party::PartyLocalEndpoint *endpoint = nullptr;
-    PartyError err;
+    PartyError err = _invoke_native("endpoint", [&]() {
     if (p_operation->network.is_valid() && p_operation->network->is_host_network()) {
         // Host marks its endpoint so every device can identify it without a
         // handshake round-trip. Shared properties are immutable post-creation,
@@ -4375,7 +4558,7 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
         Party::PartyDataBuffer values[1] = {};
         values[0].buffer = PF_ENDPOINT_ROLE_HOST;
         values[0].bufferByteCount = static_cast<uint32_t>(std::strlen(PF_ENDPOINT_ROLE_HOST));
-        err = p_operation->native_network->CreateEndpoint(
+        return p_operation->native_network->CreateEndpoint(
                 p_operation->native_user,
                 1,
                 keys,
@@ -4383,7 +4566,7 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
                 p_operation,
                 &endpoint);
     } else {
-        err = p_operation->native_network->CreateEndpoint(
+        return p_operation->native_network->CreateEndpoint(
                 p_operation->native_user,
                 0,
                 nullptr,
@@ -4391,10 +4574,13 @@ HRESULT PlayFabParty::_start_create_endpoint_step(PendingOperation *p_operation)
                 p_operation,
                 &endpoint);
     }
+    });
     if (PARTY_FAILED(err)) {
+        p_operation->dispatch_error = _party_error_result(err, PARTY_TRANSPORT_CREATE_FAILED, "PartyNetwork::CreateEndpoint");
         return E_FAIL;
     }
     p_operation->kind = PENDING_CREATE_ENDPOINT;
+    p_operation->sdk_pending = true;
     return S_OK;
 }
 
@@ -4438,11 +4624,13 @@ HRESULT PlayFabParty::_start_connect_chat_control_step(PendingOperation *p_opera
         p_operation->network->m_native_local_chat_control = native;
         p_operation->network->m_local_chat_control = p_chat_control;
     }
-    PartyError err = p_operation->native_network->ConnectChatControl(native, p_operation);
+    PartyError err = _invoke_native("chat", [&]() { return p_operation->native_network->ConnectChatControl(native, p_operation); });
     if (PARTY_FAILED(err)) {
+        p_operation->dispatch_error = _party_error_result(err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyNetwork::ConnectChatControl");
         return E_FAIL;
     }
     p_operation->kind = PENDING_CONNECT_CHAT_CONTROL;
+    p_operation->sdk_pending = true;
     return S_OK;
 }
 
@@ -4468,10 +4656,17 @@ HRESULT PlayFabParty::_start_handshake_step(PendingOperation *p_operation) {
 
     uint32_t endpoint_count = 0;
     Party::PartyEndpointArray endpoints = nullptr;
-    PartyError err = native_net->GetEndpoints(&endpoint_count, &endpoints);
+    PartyError err = _invoke_native("endpoints", [&]() { return native_net->GetEndpoints(&endpoint_count, &endpoints); });
     if (PARTY_FAILED(err)) {
+        p_operation->dispatch_error = _party_error_result(err, PARTY_PEER_NOT_CONNECTED, "PartyNetwork::GetEndpoints (handshake)");
         return E_FAIL;
     }
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    Party::PartyEndpoint *test_target = reinterpret_cast<Party::PartyEndpoint *>(&m_test_handles[3]);
+    if (m_test_native) {
+        return _send_handshake_request_to(p_operation, test_target);
+    }
+#endif
     // Send to the host endpoint only (identified by its immutable role
     // marker). If none of the currently-visible endpoints is the host yet,
     // the handshake is deferred and re-attempted from
@@ -4483,7 +4678,10 @@ HRESULT PlayFabParty::_start_handshake_step(PendingOperation *p_operation) {
         if (endpoints[i] != nullptr &&
                 endpoints[i] != static_cast<Party::PartyEndpoint *>(local) &&
                 endpoint_is_handshake_target(endpoints[i])) {
-            _send_handshake_request_to(p_operation, endpoints[i]);
+            HRESULT hr = _send_handshake_request_to(p_operation, endpoints[i]);
+            if (FAILED(hr)) {
+                return hr;
+            }
         }
     }
     return S_OK;
@@ -4511,7 +4709,7 @@ HRESULT PlayFabParty::_send_handshake_request_to(PendingOperation *p_operation, 
     buffer.bufferByteCount = static_cast<uint32_t>(request.size());
 
     Party::PartyEndpoint *targets[1] = {p_target};
-    PartyError err = local->SendMessage(
+    PartyError err = _invoke_native("handshake", [&]() { return local->SendMessage(
             1,
             targets,
             static_cast<Party::PartySendMessageOptions>(
@@ -4520,30 +4718,31 @@ HRESULT PlayFabParty::_send_handshake_request_to(PendingOperation *p_operation, 
             nullptr,
             1,
             &buffer,
-            nullptr);
+            nullptr); });
     if (PARTY_FAILED(err)) {
+        p_operation->dispatch_error = _party_error_result(err, PARTY_PEER_NOT_CONNECTED, "PartyLocalEndpoint::SendMessage (handshake request)");
         return E_FAIL;
     }
     return S_OK;
 }
 
-void PlayFabParty::_send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id) {
+Ref<PlayFabResult> PlayFabParty::_send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id) {
     if (m_shutting_down) {
-        return;
+        return PlayFabResult::cancelled("PlayFab Party is shutting down.");
     }
     if (p_peer == nullptr || p_target_endpoint == nullptr) {
-        return;
+        return PlayFabResult::error_result(E_INVALIDARG, PARTY_PEER_NOT_CONNECTED, "Invalid handshake target.");
     }
     Ref<PlayFabPartyNetwork> network = p_peer->get_network();
     if (!network.is_valid() || network->get_native_local_endpoint() == nullptr) {
-        return;
+        return PlayFabResult::error_result(E_NOT_VALID_STATE, PARTY_PEER_NOT_CONNECTED, "Handshake network is no longer available.");
     }
     PackedByteArray reply = build_handshake_reply(p_nonce, p_assigned_id);
     Party::PartyDataBuffer buffer = {};
     buffer.buffer = reply.ptr();
     buffer.bufferByteCount = static_cast<uint32_t>(reply.size());
     Party::PartyEndpoint *targets[1] = {p_target_endpoint};
-    network->get_native_local_endpoint()->SendMessage(
+    PartyError err = _invoke_native("handshake_reply", [&]() { return network->get_native_local_endpoint()->SendMessage(
             1,
             targets,
             static_cast<Party::PartySendMessageOptions>(
@@ -4552,7 +4751,8 @@ void PlayFabParty::_send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::P
             nullptr,
             1,
             &buffer,
-            nullptr);
+            nullptr); });
+    return PARTY_FAILED(err) ? _party_error_result(err, PARTY_PEER_NOT_CONNECTED, "PartyLocalEndpoint::SendMessage (handshake reply)") : Ref<PlayFabResult>();
 }
 
 void PlayFabParty::_resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_sender_endpoint, int32_t p_assigned_id, PendingOperation *p_operation) {
@@ -4588,8 +4788,10 @@ void PlayFabParty::_resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party
     // — it has to land after multiplayer.multiplayer_peer is assigned so
     // Godot's MultiplayerAPI captures it and adds the peer to its connected
     // set. _complete_pending invalidates p_operation, so network was captured.
+    network->m_established = true;
     _complete_pending(p_operation, PlayFabResult::ok_result(network));
-    if (inserted) {
+    if (inserted && !m_shutting_down && network->get_native_handle() != nullptr &&
+            network->get_state() == NETWORK_STATE_CONNECTED) {
         // _attach_network has assigned multiplayer.multiplayer_peer; now safe
         // to emit peer_connected (MultiplayerAPI picks it up so subsequent
         // rpc(...) calls to peer 1 are routed). Chat controls are meshed and
@@ -4678,15 +4880,22 @@ Ref<PlayFabResult> PlayFabParty::_party_error_result(uint32_t p_party_error, con
     if (!detail.is_empty()) {
         message += String(": ") + detail;
     }
-    return PlayFabResult::error_result(E_FAIL, p_code, message);
+    Dictionary data;
+    data["party_error"] = static_cast<int64_t>(p_party_error);
+    data["stage"] = p_action;
+    return PlayFabResult::error_result(E_FAIL, p_code, message, data);
 }
 
 Ref<PlayFabResult> PlayFabParty::_party_state_change_error_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error, const String &p_code, const String &p_action) const {
+    Dictionary data;
+    data["party_error"] = static_cast<int64_t>(p_party_error);
+    data["stage"] = p_action;
+    data["state_change_result"] = static_cast<int64_t>(p_result);
+    String message = vformat("%s failed with PartyStateChangeResult::%s.", p_action, _party_state_change_result_name(p_result));
     if (p_party_error != c_partyErrorSuccess) {
-        return _party_error_result(p_party_error, p_code, p_action);
+        message += " " + _party_error_message(p_party_error);
     }
-    return PlayFabResult::error_result(E_FAIL, p_code,
-            vformat("%s failed with PartyStateChangeResult::%s.", p_action, _party_state_change_result_name(p_result)));
+    return PlayFabResult::error_result(E_FAIL, p_code, message, data);
 }
 
 Ref<PlayFabResult> PlayFabParty::_party_leave_network_completed_result(Party::PartyStateChangeResult p_result, uint32_t p_party_error) const {
@@ -4778,6 +4987,11 @@ void PlayFabParty::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "chat", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabPartyChat", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_chat");
     ClassDB::bind_method(D_METHOD("get_networks"), &PlayFabParty::get_networks);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(D_METHOD("_test_begin_establishment", "host", "chat", "dispatch_errors", "append"), &PlayFabParty::_test_begin_establishment, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("_test_party_batch", "changes"), &PlayFabParty::_test_party_batch);
+    ClassDB::bind_method(D_METHOD("_test_party_snapshot"), &PlayFabParty::_test_party_snapshot);
+    ClassDB::bind_method(D_METHOD("_test_native_handles", "network", "peer"), &PlayFabParty::_test_native_handles);
+    ClassDB::bind_method(D_METHOD("_test_set_dispatch_errors", "errors"), &PlayFabParty::_test_set_dispatch_errors);
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabParty::_test_enqueue_shutdown_pending);
     ClassDB::bind_method(D_METHOD("_test_enqueue_destroy_chat_control_pending"), &PlayFabParty::_test_enqueue_destroy_chat_control_pending);
     ClassDB::bind_method(D_METHOD("_test_dispatch_destroy_chat_control_completed", "state_change_result", "error_detail", "shutdown_before_completion", "finish_failure"),
