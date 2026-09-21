@@ -2807,7 +2807,7 @@ void PlayFabParty::_fail_join(PendingOperation *p_operation, const Ref<PlayFabRe
             }
         }
     }
-    if (network.is_valid()) {
+    if (network.is_valid() && !m_shutting_down) {
         _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, failure, "Network establishment failed; rolling back.");
     }
 }
@@ -4798,10 +4798,14 @@ void PlayFabParty::_resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party
         // surfaced independently, so no chat bookkeeping happens here.
         p_peer->emit_peer_connected(HOST_PEER_ID);
     }
-    if (network.is_valid()) {
+    if (!m_shutting_down && network->get_native_handle() != nullptr &&
+            network->get_state() == NETWORK_STATE_CONNECTED) {
         // Mirror the host's NETWORK_CHANGE_PEER_JOINED emit (see line 2205)
         // so client-side listeners see the host as a joined peer.
         _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, HOST_PEER_ID, Ref<PlayFabResult>(), "handshake reply");
+    }
+    if (!m_shutting_down && network->get_native_handle() != nullptr &&
+            network->get_state() == NETWORK_STATE_CONNECTED) {
         _emit_network_state(network, NETWORK_CHANGE_STATE, p_assigned_id, Ref<PlayFabResult>(), "connected");
     }
 }

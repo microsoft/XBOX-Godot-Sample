@@ -209,10 +209,14 @@ func test_shutdown_inside_successful_completion_does_not_continue_old_callbacks(
 	var completion: Signal = _begin(false)
 	var network: Object = _party._test_party_snapshot().network
 	var shutdown_results: Array = []
+	var events: Array = []
+	network.state_changed.connect(func(change): events.append(change.kind))
 	completion.connect(func(_result):
 		_party.shutdown_async().connect(func(result): shutdown_results.append(result))
 	)
-	_batch([_done("connect"), _done("authenticate"), _done("endpoint"), {"stage": "reply"}])
+	_batch([_done("connect"), _done("authenticate"), _done("endpoint")])
+	events.clear()
+	_batch([{"stage": "reply"}])
 	await get_tree().process_frame
 	assert_eq(_results.size(), 1)
 	assert_true(_results[0].ok)
@@ -221,6 +225,36 @@ func test_shutdown_inside_successful_completion_does_not_continue_old_callbacks(
 	assert_eq(_party._test_party_snapshot().pending, 0)
 	assert_eq(_party._test_party_snapshot().networks, 0)
 	assert_eq(network.get_state(), 5)
+	assert_eq(events, [5], "Shutdown from completion suppresses old joined/connected notifications")
+
+
+func test_shutdown_inside_failed_completion_suppresses_late_error() -> void:
+	var completion: Signal = _begin(true, false, {"connect": DETAIL})
+	var network: Object = _party._test_party_snapshot().network
+	var events: Array = []
+	network.state_changed.connect(func(change): events.append(change.kind))
+	completion.connect(func(_result): _party.shutdown_async())
+	_batch([_done("create")])
+	await get_tree().process_frame
+	_assert_drained("party_network_connect_failed")
+	assert_eq(events, [], "No late error follows shutdown when connect never created a native network")
+
+
+func test_shutdown_inside_peer_joined_suppresses_connected_notification() -> void:
+	_begin(false)
+	_batch([_done("connect"), _done("authenticate"), _done("endpoint")])
+	var network: Object = _party._test_party_snapshot().network
+	var events: Array = []
+	network.state_changed.connect(func(change):
+		events.append(change.kind)
+		if change.kind == 2:
+			_party.shutdown_async()
+	)
+	_batch([{"stage": "reply"}])
+	await get_tree().process_frame
+	assert_eq(events, [2, 5], "Recheck shutdown after each synchronous notification")
+	assert_eq(_results.size(), 1)
+	assert_true(_results[0].ok)
 
 
 func test_state_pump_start_and_finish_failures_reset_terminally() -> void:
