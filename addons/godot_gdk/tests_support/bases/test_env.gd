@@ -88,7 +88,10 @@ static func poll_until(pollable: Callable, total_msec: int = -1, interval_msec: 
 	var started_msec := Time.get_ticks_msec()
 
 	while true:
-		var value: Variant = pollable.call()
+		# `pollable` may be a coroutine (the live leaderboard pollable awaits a
+		# completion signal), so it must be awaited. Awaiting a non-coroutine
+		# Callable result simply yields the value.
+		var value: Variant = await pollable.call()
 		if _poll_value_is_present(value):
 			return value
 		if Time.get_ticks_msec() - started_msec >= budget_msec:

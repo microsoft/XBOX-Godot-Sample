@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document gives step-by-step API sequences for 32 P0/P1 scenarios from `1-test-matrix.md`. Each entry is detailed enough that an author can mechanically translate it into a scenario `.gd` file as described in `4-scenario-authoring.md`.
+This document gives step-by-step API sequences for 30 P0/P1 scenarios from `1-test-matrix.md`. Each entry is detailed enough that an author can mechanically translate it into a scenario `.gd` file as described in `4-scenario-authoring.md`.
 
 The remaining P0/P1 entries from the matrix (not detailed here) are intentionally left to authors during C5 mass production. They follow the same patterns as the detailed entries, and the matrix already names them, their roles, and their capability gates.
 
@@ -323,16 +323,16 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 
 - **Roles**: host, guest
 - **Capabilities**: `matchmaking_queue_configured`
-- **Goal**: After match, both players join the arranged lobby and observe each other as members.
+- **Goal**: After match, the host omits the join config, the guest supplies a fresh config with unset scalars, and both observe the default arranged lobby.
 - **Steps**:
   1. Drive both clients to `matched`; capture `host_connection_string = host_matched.event.payload.match.arranged_lobby_connection_string` and `guest_connection_string = guest_matched.event.payload.match.arranged_lobby_connection_string`.
   2. `host_added = expect_event(host, lobby.member_added, { handle: "arranged" })`.
   3. `guest_added = expect_event(guest, lobby.member_added, { handle: "arranged" })`.
-  4. `send(host, join_arranged_lobby, { as: "arranged", connection_string: host_connection_string })`.
-  5. `send(guest, join_arranged_lobby, { as: "arranged", connection_string: guest_connection_string })`.
-  6. `await host_added`; `await guest_added`.
-  7. `send(host, get_lobby_snapshot, { handle: "arranged" })`; assert `member_count == 2`.
-- **Notes**: Port of legacy `explicit arranged-lobby join`. PlayFab packs an arrangement string per matched entity; reusing the host's string for the guest fails entity-key lookup.
+  4. `send(host, join_arranged_lobby, { as: "arranged", connection_string: host_connection_string, omit_config: true })`.
+  5. `send(guest, join_arranged_lobby, { as: "arranged", connection_string: guest_connection_string, member_properties: { role: "guest" } })`.
+  6. Assert both first snapshots report 8 / Private / Automatic and the same non-empty lobby id; assert the guest snapshot includes its member properties.
+  7. `await host_added`; `await guest_added`; poll both snapshots to `member_count == 2` and the host until it observes the guest role property.
+- **Notes**: Covers both the null config argument and a fresh config with unset scalars. PlayFab packs an arrangement string per matched entity; reusing the host's string for the guest fails entity-key lookup.
 
 ### `match.integration.arranged_lobby_configuration`
 
@@ -351,40 +351,14 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 
 - **Roles**: host, guest
 - **Capabilities**: `matchmaking_queue_configured`
-- **Goal**: Both first join snapshots preserve explicit 2 / Public / Manual arranged-lobby initialization, including zero-valued Public presence.
+- **Goal**: Both first join snapshots preserve explicit 16 / Public / Manual arranged-lobby initialization, including zero-valued Public presence and capacity above the legacy default.
 - **Steps**:
   1. Create a fresh two-player match with the same unique `run_id` attribute on both tickets; assert both tickets report the same non-empty match id.
-  2. Have each client call `join_arranged_lobby` with its own ticket's arrangement string, `max_member_count: 2`, Public access, Manual migration, and role member properties.
-  3. On each join result's first snapshot, assert 2 / Public / Manual and that joiner's own member-property bag.
+  2. Have each client call `join_arranged_lobby` with its own ticket's arrangement string, `max_member_count: 16`, Public access, Manual migration, and role member properties.
+  3. On each join result's first snapshot, assert 16 / Public / Manual and that joiner's own member-property bag.
   4. Assert both first snapshots report the same non-empty lobby id.
   5. Poll both snapshots to `member_count == 2` and until each participant observes the other's member properties.
-- **Notes**: Uses the existing provisioned two-player queue and host/guest fixture; access policy zero must be forwarded by presence.
-
-### `match.integration.arranged_lobby_capacity_above_eight`
-
-- **Roles**: host, guest
-- **Capabilities**: `matchmaking_queue_configured`
-- **Goal**: A valid capacity above the legacy default is preserved independently of the two-player match size.
-- **Steps**:
-  1. Create a fresh two-player match with the same unique `run_id` attribute on both tickets; assert both tickets report the same non-empty match id.
-  2. Have each client call `join_arranged_lobby` with its own ticket's arrangement string, `max_member_count: 16`, Private access, Automatic migration, and role member properties.
-  3. On each join result's first snapshot, assert `max_member_count == 16`, Private access, Automatic migration, and that joiner's own member-property bag.
-  4. Assert both first snapshots report the same non-empty lobby id.
-  5. Poll both snapshots to `member_count == 2`, not 16, and until each participant observes the other's member properties.
-- **Notes**: Uses the existing provisioned two-player queue and host/guest fixture; lobby capacity is a ceiling, not match membership.
-
-### `match.integration.arranged_lobby_null_config`
-
-- **Roles**: host, guest
-- **Capabilities**: `matchmaking_queue_configured`
-- **Goal**: Omitting the arranged-join config argument entirely still initializes 8 / Private / Automatic.
-- **Steps**:
-  1. Create a fresh two-player match with the same unique `run_id` attribute on both tickets; assert both tickets report the same non-empty match id.
-  2. Have each client call `join_arranged_lobby` with its own ticket's arrangement string and `omit_config: true`, causing the adapter to invoke the native binding with only user and that role-specific connection string.
-  3. On each join result's first snapshot, assert 8 / Private / Automatic.
-  4. Assert both first snapshots report the same non-empty lobby id.
-  5. Poll both snapshots to `member_count == 2`.
-- **Notes**: Uses the existing provisioned two-player queue and host/guest fixture because offline GUT cannot pass the initialization/user guards and observe the native arranged-lobby snapshot.
+- **Notes**: Uses the existing provisioned two-player queue and host/guest fixture; access policy zero must be forwarded by presence, and capacity 16 proves the native assignment is not capped at the legacy value 8.
 
 ### `match.integration.arranged_lobby_cleanup`
 

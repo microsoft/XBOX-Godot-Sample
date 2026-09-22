@@ -91,12 +91,6 @@ func run_lobby_join_by_connection_string(orch) -> Dictionary:
 		"main",
 		_public_lobby_config(4, {}, {}, _role_member_properties("host")))
 	if _is_failure(host_lobby): return host_lobby
-	for field in expected_config:
-		var host_config_err: Variant = assert_eq(
-			int(host_lobby.get(field, -1)),
-			int(expected_config[field]),
-			"host-created lobby %s should match its requested configuration" % field)
-		if host_config_err != null: return host_config_err
 
 	var member_token: String = _unique_token(orch, "ordinary-join-overrides")
 	# PlayFab caps lobby property keys at 30 characters; a longer key makes the

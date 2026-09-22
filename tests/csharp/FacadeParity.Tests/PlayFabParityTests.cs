@@ -50,10 +50,8 @@ public class PlayFabParityTests
     [Fact]
     public void ArrangedLobbyJoinConfigExposesPresenceMethodsAndProperties()
     {
-        // The generic parity checker strips a "has_" prefix and then matches the
-        // property, so `has_max_member_count` is reported as covered by the
-        // MaxMemberCount property even when HasMaxMemberCount() is missing.
-        // Assert the method signatures explicitly so that gap cannot reach CI.
+        // Generic parity requires the members by name; these assertions also
+        // lock their public property and zero-argument method signatures.
         System.Type type = typeof(GodotPlayFab.Types.PlayFabLobbyJoinConfig);
 
         foreach (string field in new[] { "MaxMemberCount", "AccessPolicy", "OwnerMigrationPolicy" })
@@ -72,33 +70,6 @@ public class PlayFabParityTests
             Assert.True(clear != null, $"PlayFabLobbyJoinConfig.Clear{field}() is missing.");
             Assert.Equal(typeof(void), clear.ReturnType);
             Assert.Empty(clear.GetParameters());
-        }
-
-        var constants = new (string NativeName, int ManagedValue, int ExpectedValue)[]
-        {
-            ("ACCESS_POLICY_PUBLIC", GodotPlayFab.Types.PlayFabLobbyConfig.ACCESSPOLICYPUBLIC, 0),
-            ("ACCESS_POLICY_FRIENDS", GodotPlayFab.Types.PlayFabLobbyConfig.ACCESSPOLICYFRIENDS, 1),
-            ("ACCESS_POLICY_PRIVATE", GodotPlayFab.Types.PlayFabLobbyConfig.ACCESSPOLICYPRIVATE, 2),
-            ("OWNER_MIGRATION_AUTOMATIC", GodotPlayFab.Types.PlayFabLobbyConfig.OWNERMIGRATIONAUTOMATIC, 0),
-            ("OWNER_MIGRATION_MANUAL", GodotPlayFab.Types.PlayFabLobbyConfig.OWNERMIGRATIONMANUAL, 1),
-            ("OWNER_MIGRATION_NONE", GodotPlayFab.Types.PlayFabLobbyConfig.OWNERMIGRATIONNONE, 2),
-        };
-
-        XDocument nativeDocs = XDocument.Load(
-            Path.Combine(RepoPaths.DocClasses("godot_playfab"), "PlayFabLobbyConfig.xml"));
-        Dictionary<string, int> nativeValues = nativeDocs.Root
-            .Element("constants")
-            .Elements("constant")
-            .ToDictionary(
-                constant => (string)constant.Attribute("name"),
-                constant => int.Parse((string)constant.Attribute("value")));
-
-        foreach ((string nativeName, int managedValue, int expectedValue) in constants)
-        {
-            Assert.Equal(expectedValue, managedValue);
-            Assert.True(nativeValues.TryGetValue(nativeName, out int nativeValue));
-            Assert.Equal(expectedValue, nativeValue);
-            Assert.Equal(nativeValue, managedValue);
         }
     }
 

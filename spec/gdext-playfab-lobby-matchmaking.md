@@ -759,9 +759,11 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 Live PlayFab Multiplayer tests must stay opt-in behind the repository's
 `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner
 covers multi-client lobby flows and, when a configured matchmaking queue is
-supplied, match ticket create/cancel, two-player match completion, arranged
-joins with omitted/default, null, 4 / Private / Automatic, 2 / Public / Manual,
-and capacity-above-eight initialization asserted in each role's first snapshot,
-plus arranged-lobby cleanup. The ordinary connection-string join scenario sends
-invalid arranged-only overrides and must still succeed while preserving the
-host-created configuration and guest member properties.
+supplied, match ticket create/cancel, two-player match completion, and three
+arranged-lobby scenarios: combined omitted/unset defaults, explicit
+4 / Private / Automatic initialization, and explicit 16 / Public / Manual
+initialization. Each scenario asserts the first snapshots before convergence,
+and the runner also covers arranged-lobby cleanup. The ordinary
+connection-string join scenario sends invalid arranged-only overrides and must
+still succeed while preserving the host-created configuration and guest member
+properties.

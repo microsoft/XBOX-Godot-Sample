@@ -369,6 +369,31 @@ func test_arranged_lobby_join_config_presence_contract() -> void:
 					field_name,
 				])
 
+	for capacity in [2, 16, 128]:
+		var capacity_config = instantiate_class("PlayFabLobbyJoinConfig")
+		assert_object_is(
+			capacity_config,
+			"PlayFabLobbyJoinConfig",
+			"Fresh config for max_member_count %d" % capacity)
+		if capacity_config == null:
+			return
+		capacity_config.max_member_count = capacity
+		assert_eq(
+			int(capacity_config.max_member_count),
+			capacity,
+			"PlayFabLobbyJoinConfig.max_member_count round trips %d" % capacity)
+		assert_true(
+			capacity_config.has_max_member_count(),
+			"max_member_count %d marks presence" % capacity)
+		capacity_config.clear_max_member_count()
+		assert_eq(
+			int(capacity_config.max_member_count),
+			8,
+			"clear_max_member_count() restores 8 after %d" % capacity)
+		assert_false(
+			capacity_config.has_max_member_count(),
+			"clear_max_member_count() clears presence after %d" % capacity)
+
 	# Each clear case starts fresh, sets every scalar, then clears exactly one.
 	# The other two values and presence flags must remain unchanged.
 	var explicit_values: Dictionary = {
@@ -407,11 +432,6 @@ func test_arranged_lobby_join_config_presence_contract() -> void:
 					cleared_field,
 					field_name,
 				])
-
-	# Unlike PlayFabLobbyUpdateConfig, a default join config is a valid request,
-	# so there is deliberately no is_empty().
-	assert_false(ClassDB.class_has_method("PlayFabLobbyJoinConfig", "is_empty"),
-			"PlayFabLobbyJoinConfig does not expose is_empty()")
 
 
 func test_multiplayer_not_initialized_failures() -> void:

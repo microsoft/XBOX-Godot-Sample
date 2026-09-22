@@ -220,9 +220,7 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | `match.integration.arranged_lobby_cleanup` | Leaving the arranged lobby releases handles cleanly | P0 | host, guest | `matchmaking_queue_configured` | P |
 | `match.integration.arranged_lobby_property_round_trip` | Arranged-lobby members can set + read lobby properties | P1 | host, guest | `matchmaking_queue_configured` | N |
 | `match.integration.arranged_lobby_configuration` | First snapshots preserve explicit 4 / Private / Automatic initialization | P1 | host, guest | `matchmaking_queue_configured` | N |
-| `match.integration.arranged_lobby_policy_overrides` | First snapshots preserve explicit 2 / Public / Manual initialization | P1 | host, guest | `matchmaking_queue_configured` | N |
-| `match.integration.arranged_lobby_capacity_above_eight` | First snapshots preserve capacity 16 while the two-player match still has 2 members | P1 | host, guest | `matchmaking_queue_configured` | N |
-| `match.integration.arranged_lobby_null_config` | Omitting the config argument preserves 8 / Private / Automatic | P1 | host, guest | `matchmaking_queue_configured` | N |
+| `match.integration.arranged_lobby_policy_overrides` | First snapshots preserve explicit 16 / Public / Manual initialization | P1 | host, guest | `matchmaking_queue_configured` | N |
 
 ### Party — functional
 
@@ -313,12 +311,12 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | Service | P0 | P1 | P2 | P3 | Total |
 | --- | --- | --- | --- | --- | --- |
 | Lobby | 12 | 17 | 11 | 1 | 41 |
-| Match | 5 | 8 | 6 | 0 | 19 |
+| Match | 5 | 6 | 6 | 0 | 17 |
 | Party | 7 | 12 | 7 | 1 | 27 |
 | Cross-service | 0 | 3 | 3 | 0 | 6 |
-| **Total** | **24** | **40** | **27** | **2** | **93** |
+| **Total** | **24** | **38** | **27** | **2** | **91** |
 
-C5 ships P0 + P1 (64 scenarios). C2 details 32 P0/P1 scenarios with API sequences. P2 and P3 are queued for follow-up after the harness has shipped its first green run.
+C5 ships P0 + P1 (62 scenarios). C2 details 30 P0/P1 scenarios with API sequences. P2 and P3 are queued for follow-up after the harness has shipped its first green run.
 
 ## Coverage vs legacy PS runner
 
