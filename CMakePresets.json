@@ -25,7 +25,8 @@
             "inherits": "_base",
             "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "ON"
             }
         },
         {
@@ -34,7 +35,8 @@
             "inherits": "default",
             "binaryDir": "${sourceDir}/build/release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -56,7 +58,8 @@
             "inherits": "gdk-only",
             "binaryDir": "${sourceDir}/build/gdk-only-release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -78,7 +81,8 @@
             "inherits": "gameinput-only",
             "binaryDir": "${sourceDir}/build/gameinput-only-release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -91,7 +95,8 @@
                 "BUILD_GODOT_GAMEINPUT": "OFF",
                 "BUILD_GODOT_PLAYFAB": "ON",
                 "VCPKG_MANIFEST_FEATURES": "godot-gdk",
-                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON"
+                "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "ON"
             }
         },
         {
@@ -100,7 +105,8 @@
             "inherits": "playfab-only",
             "binaryDir": "${sourceDir}/build/playfab-only-release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -113,7 +119,8 @@
                 "BUILD_GODOT_GAMEINPUT": "ON",
                 "BUILD_GODOT_PLAYFAB": "ON",
                 "BUILD_GODOT_GDK_EDITORTOOLS": "ON",
-                "GDK_BUILD_TESTS": "OFF"
+                "GDK_BUILD_TESTS": "OFF",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -122,7 +129,8 @@
             "inherits": "addon-package",
             "binaryDir": "${sourceDir}/build/addon-package-release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {
@@ -132,7 +140,8 @@
             "binaryDir": "${sourceDir}/build/installed-gdk",
             "cacheVariables": {
                 "GDK_DEPENDENCY_SOURCE": "installed",
-                "GAMEINPUT_SOURCE": "nuget"
+                "GAMEINPUT_SOURCE": "nuget",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "ON"
             }
         },
         {
@@ -141,7 +150,8 @@
             "inherits": "installed-gdk",
             "binaryDir": "${sourceDir}/build/installed-gdk-release",
             "cacheVariables": {
-                "GODOTCPP_TARGET": "template_release"
+                "GODOTCPP_TARGET": "template_release",
+                "GODOT_PLAYFAB_TEST_HOOKS_ENABLED": "OFF"
             }
         },
         {

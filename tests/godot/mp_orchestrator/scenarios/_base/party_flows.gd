@@ -375,6 +375,226 @@ func run_party_leave_rejoin_chat_round_trip(orch) -> Dictionary:
 	return ok({ "guest_to_host": text_g_to_h, "host_to_guest": text_h_to_g })
 
 
+func run_party_destroy_local_chat_control_rejoin(orch) -> Dictionary:
+	var gate: Variant = requires_live_write(orch)
+	if gate != null: return gate
+	var signed: Variant = await _sign_in_roles(orch, ["host", "guest"], {
+		"host": { "create_account": false, "initialize_multiplayer": false },
+		"guest": { "create_account": false, "initialize_multiplayer": false },
+	})
+	if _is_failure(signed): return signed
+
+	const CHAT_PERMISSION_RECEIVE_TEXT: int = 4
+	const DESTROY_COMMAND_TIMEOUT_MS: int = 120_000
+	const CYCLE_COUNT: int = 3
+	var invitation_id: String = _unique_token(orch, "destroy-chat-control")
+	var host_created: Variant = await _command_ok(orch, "host", "party_create_network", {
+		"as": "party",
+		"invitation_id": invitation_id,
+		"enable_text_chat": true,
+		"max_players": 4,
+	}, PARTY_WAIT_MS)
+	if _is_failure(host_created): return host_created
+	var host_network: Dictionary = host_created.get("network", {})
+	var descriptor: String = String(host_network.get("descriptor", ""))
+	var network_id: String = String(host_network.get("network_id", ""))
+	var err: Variant = assert_true(not descriptor.is_empty(), "host Party descriptor should be populated", { "network": host_network })
+	if err != null: return err
+	err = assert_true(not network_id.is_empty(), "host Party network id should be populated", { "network": host_network })
+	if err != null: return err
+	err = assert_true(int(host_network.get("local_chat_control_instance_id", 0)) != 0, "host should create a local chat control before joining", { "network": host_network })
+	if err != null: return err
+
+	var guest_control_instance_id: int = 0
+	var guest_peer_id: int = 0
+	var cycles_completed: int = 0
+	for round_index in range(CYCLE_COUNT + 1):
+		var wait_host_disconnect: Variant = null
+		if round_index > 0:
+			var cycle_number: int = round_index
+			_client(orch, "host").event_log.clear()
+			wait_host_disconnect = _client(orch, "host").expect_event("party.peer_disconnected", {
+				"handle": "party",
+				"peer_id": guest_peer_id,
+			})
+			var left: Variant = await _command_ok(
+				orch, "guest", "party_leave_network", { "handle": "party" }, COMMAND_TIMEOUT_MS)
+			if _is_failure(left): return left
+			err = assert_eq(String(left.get("left_network_id", "")), network_id, "guest leave should report the hosted network id")
+			if err != null: return err
+
+			var destroyed: Variant = await _command_ok(orch, "guest", "party_destroy_local_chat_control", {
+				"require_existing": true,
+			}, DESTROY_COMMAND_TIMEOUT_MS)
+			if _is_failure(destroyed): return destroyed
+			err = assert_true(bool(destroyed.get("had_control", false)), "destroy cycle %d should start with a local chat control" % cycle_number, { "destroyed": destroyed })
+			if err != null: return err
+			err = assert_eq(int(destroyed.get("control_instance_id", 0)), guest_control_instance_id, "destroy cycle %d should target the expected wrapper" % cycle_number)
+			if err != null: return err
+			err = assert_eq(int(destroyed.get("completion_count", 0)), 1, "destroy cycle %d should complete exactly once" % cycle_number)
+			if err != null: return err
+			err = assert_true(bool(destroyed.get("local_control_absent_at_completion", false)), "destroy cycle %d should remove the local control before completion" % cycle_number, { "destroyed": destroyed })
+			if err != null: return err
+			err = assert_true(bool(destroyed.get("local_control_absent", false)), "destroy cycle %d should leave no cached local control" % cycle_number, { "destroyed": destroyed })
+			if err != null: return err
+			err = assert_eq(int(destroyed.get("pending_operation_count", -1)), 0, "destroy cycle %d should release pending storage" % cycle_number)
+			if err != null: return err
+			err = assert_true(bool(destroyed.get("result_data_is_null", false)), "destroy cycle %d success should carry null data" % cycle_number, { "destroyed": destroyed })
+			if err != null: return err
+			err = assert_true(bool(destroyed.get("old_wrapper_destroy_ok", false)), "destroy cycle %d old wrapper should be detached and idempotent" % cycle_number, { "destroyed": destroyed })
+			if err != null: return err
+
+			var repeated_destroy: Variant = await _command_ok(orch, "guest", "party_destroy_local_chat_control", {
+				"require_existing": false,
+			}, DESTROY_COMMAND_TIMEOUT_MS)
+			if _is_failure(repeated_destroy): return repeated_destroy
+			err = assert_false(bool(repeated_destroy.get("had_control", true)), "destroy cycle %d repeated call should be an idempotent no-op" % cycle_number)
+			if err != null: return err
+			err = assert_eq(int(repeated_destroy.get("completion_count", 0)), 1, "destroy cycle %d repeated call should still complete once" % cycle_number)
+			if err != null: return err
+			err = assert_eq(int(repeated_destroy.get("pending_operation_count", -1)), 0, "destroy cycle %d repeated call should allocate no pending operation" % cycle_number)
+			if err != null: return err
+
+		var joined: Variant = await _command_ok(orch, "guest", "party_join_network", {
+			"as": "party",
+			"descriptor": descriptor,
+			"invitation_id": invitation_id,
+			"enable_text_chat": true,
+			"retry_attempts": 1,
+		}, PARTY_WAIT_MS)
+		if _is_failure(joined): return joined
+		var guest_network: Dictionary = joined.get("network", {})
+		var current_control_instance_id: int = int(guest_network.get("local_chat_control_instance_id", 0))
+		err = assert_true(current_control_instance_id != 0, "guest should create a local chat control before joining", { "network": guest_network })
+		if err != null: return err
+		err = assert_eq(String(guest_network.get("network_id", "")), network_id, "guest should join the host network")
+		if err != null: return err
+		if round_index > 0:
+			err = assert_true(current_control_instance_id != guest_control_instance_id, "rejoin cycle %d should use a new local chat-control wrapper" % round_index, { "old": guest_control_instance_id, "new": current_control_instance_id })
+			if err != null: return err
+
+		if wait_host_disconnect != null:
+			var disconnect_event: Dictionary = await wait_host_disconnect.wait(PARTY_WAIT_MS)
+			if not bool(disconnect_event.get("ok", false)):
+				return fail("host did not observe guest disconnect in destroy/rejoin cycle %d" % round_index, {
+					"expected_peer_id": guest_peer_id,
+					"event": disconnect_event,
+				})
+		host_network = await _wait_party_peer_count(orch, "host", "party", 1)
+		if _is_failure(host_network): return host_network
+		guest_network = await _wait_party_peer_count(orch, "guest", "party", 1)
+		if _is_failure(guest_network): return guest_network
+		var host_mesh: Variant = await _wait_party_chat_mesh(orch, "host", "party", 1)
+		if _is_failure(host_mesh): return host_mesh
+		var guest_mesh: Variant = await _wait_party_chat_mesh(orch, "guest", "party", 1)
+		if _is_failure(guest_mesh): return guest_mesh
+
+		var current_guest_peer_id: int = int(guest_network.get("local_peer_unique_id", 0))
+		err = assert_true(current_guest_peer_id > 1, "guest should receive a positive non-host peer id", { "network": guest_network })
+		if err != null: return err
+		var host_ready: Variant = await _retry_party_set_peer_chat_permissions(
+			orch, "host", "party", current_guest_peer_id, CHAT_PERMISSION_RECEIVE_TEXT, PARTY_WAIT_MS)
+		if _is_failure(host_ready): return host_ready
+		var guest_ready: Variant = await _retry_party_set_peer_chat_permissions(
+			orch, "guest", "party", 1, CHAT_PERMISSION_RECEIVE_TEXT, PARTY_WAIT_MS)
+		if _is_failure(guest_ready): return guest_ready
+		var round_label: String = "destroy-baseline" if round_index == 0 else "destroy-cycle-%d" % round_index
+		var round_trip: Variant = await _party_bidirectional_chat_round_trip(orch, round_label)
+		if _is_failure(round_trip): return round_trip
+
+		guest_control_instance_id = current_control_instance_id
+		guest_peer_id = current_guest_peer_id
+		if round_index > 0:
+			cycles_completed += 1
+
+	err = assert_eq(cycles_completed, CYCLE_COUNT, "all destroy/recreate/rejoin cycles should complete")
+	if err != null: return err
+
+	for role in ["guest", "host"]:
+		var final_leave: Variant = await _command_ok(
+			orch, role, "party_leave_network", { "handle": "party" }, COMMAND_TIMEOUT_MS)
+		if _is_failure(final_leave): return final_leave
+
+		var require_existing: bool = true
+		if role == "guest":
+			var released: Variant = await _command_ok(orch, role, "party_release_local_user", {
+				"require_existing": true,
+			}, DESTROY_COMMAND_TIMEOUT_MS)
+			if _is_failure(released): return released
+			err = assert_true(bool(released.get("had_control", false)), "guest release should retain and detach an existing local chat-control wrapper", { "released": released })
+			if err != null: return err
+			err = assert_eq(int(released.get("control_instance_id", 0)), guest_control_instance_id, "guest release should target the current wrapper")
+			if err != null: return err
+			err = assert_true(bool(released.get("local_control_absent", false)), "guest release should remove the cached local chat control", { "released": released })
+			if err != null: return err
+			err = assert_eq(int(released.get("pending_operation_count", -1)), 0, "guest release should drain chat-control destruction")
+			if err != null: return err
+			err = assert_true(bool(released.get("result_data_is_null", false)), "guest release success should carry null data", { "released": released })
+			if err != null: return err
+			err = assert_true(bool(released.get("old_wrapper_indicator_detached", false)), "retained guest wrapper should report the detached local indicator safely", { "released": released })
+			if err != null: return err
+			err = assert_true(bool(released.get("old_wrapper_send_failed_safely", false)), "retained guest wrapper should reject chat after release without touching freed native state", { "released": released })
+			if err != null: return err
+			err = assert_true(bool(released.get("old_wrapper_destroy_ok", false)), "retained guest wrapper destroy should be an idempotent detached no-op", { "released": released })
+			if err != null: return err
+			require_existing = false
+
+		var final_destroy: Variant = await _command_ok(orch, role, "party_destroy_local_chat_control", {
+			"require_existing": require_existing,
+		}, DESTROY_COMMAND_TIMEOUT_MS)
+		if _is_failure(final_destroy): return final_destroy
+		err = assert_eq(int(final_destroy.get("pending_operation_count", -1)), 0, "final %s destroy should release pending storage" % role)
+		if err != null: return err
+
+	var shutdowns: Dictionary = {}
+	for role in ["guest", "host"]:
+		var shutdown: Variant = await _command_ok(
+			orch, role, "party_shutdown", {}, COMMAND_TIMEOUT_MS)
+		if _is_failure(shutdown): return shutdown
+		shutdowns[role] = shutdown
+		err = assert_eq(int(shutdown.get("pending_operation_count_before", -1)), 0, "%s shutdown should start with no pending operations" % role)
+		if err != null: return err
+		err = assert_eq(int(shutdown.get("pending_operation_count_after", -1)), 0, "%s shutdown should end with no pending operations" % role)
+		if err != null: return err
+		err = assert_false(bool(shutdown.get("initialized_after", true)), "%s Party service should be uninitialized after shutdown" % role)
+		if err != null: return err
+		err = assert_eq(int(shutdown.get("network_count_after", -1)), 0, "%s shutdown should leave no tracked networks" % role)
+		if err != null: return err
+		err = assert_eq(int(shutdown.get("chat_control_count_after", -1)), 0, "%s shutdown should leave no tracked chat controls" % role)
+		if err != null: return err
+
+	return ok({
+		"cycles_completed": cycles_completed,
+		"bidirectional_round_trips": cycles_completed + 1,
+		"guest_shutdown": shutdowns.get("guest", {}),
+		"host_shutdown": shutdowns.get("host", {}),
+	})
+
+
+func _party_bidirectional_chat_round_trip(orch, label: String) -> Variant:
+	var exchanged: Dictionary = {}
+	for direction in [
+		{ "sender": "guest", "receiver": "host", "tag": "g2h", "result_key": "guest_to_host" },
+		{ "sender": "host", "receiver": "guest", "tag": "h2g", "result_key": "host_to_guest" },
+	]:
+		var sender: String = String(direction.sender)
+		var receiver: String = String(direction.receiver)
+		var text: String = _unique_token(orch, "%s-%s" % [label, direction.tag])
+		var waiter = _client(orch, receiver).expect_event("party.chat.text_received", {
+			"text": text,
+		})
+		var sent: Variant = await _party_send_chat(orch, sender, text)
+		if _is_failure(sent): return sent
+		var received: Dictionary = await waiter.wait(PARTY_WAIT_MS)
+		if not bool(received.get("ok", false)):
+			return fail("%s did not receive %s chat during %s" % [receiver, sender, label], {
+				"event": received,
+				"text": text,
+			})
+		exchanged[String(direction.result_key)] = text
+	return ok(exchanged)
+
+
 # Retry party_set_peer_chat_permissions until the target peer's chat
 # control is attached to the local peer record (or the deadline expires).
 # Used as a "chat ready" gate after a rejoin: the only retryable error

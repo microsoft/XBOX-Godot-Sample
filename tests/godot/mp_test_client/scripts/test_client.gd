@@ -260,6 +260,12 @@ func _register_commands() -> void:
 	_dispatcher.register("party_snapshot", func(params): return _party_ops.get_snapshot(params))
 	_dispatcher.register("party_get_network_snapshot", func(params): return _party_ops.get_snapshot(params))
 	_dispatcher.register("party_leave_network", func(params): return await _party_ops.leave_network(params))
+	_dispatcher.register("party_destroy_local_chat_control",
+		func(params): return await _party_ops.destroy_local_chat_control(params))
+	_dispatcher.register("party_release_local_user",
+		func(params): return await _party_ops.release_local_user(params))
+	_dispatcher.register("party_shutdown",
+		func(params): return await _party_ops.shutdown_party(params))
 	_dispatcher.register("party_send_rpc_ping", func(params): return _party_ops.send_rpc_ping(params))
 	_dispatcher.register("party_send_chat_text", func(params): return await _party_ops.send_chat_text(params))
 	_dispatcher.register("party_set_peer_muted", func(params): return await _party_ops.set_peer_muted(params))

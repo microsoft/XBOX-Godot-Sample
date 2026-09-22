@@ -43,7 +43,7 @@ godot_cpp_config_guard(godot_playfab)
 
 option(GODOT_PLAYFAB_TEST_HOOKS_ENABLED
     "Expose internal test-only methods on PlayFab classes (used by the GUT test host)."
-    ON)
+    OFF)
 
 target_compile_definitions(godot_playfab PRIVATE
     _GAMING_DESKTOP

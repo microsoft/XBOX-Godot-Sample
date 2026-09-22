@@ -9,6 +9,19 @@
 		[codeblock]
 		# Create the local chat control once (before joining a network):
 		var result = await PlayFab.party.chat.create_local_chat_control_async(user, config)
+		if not result.ok:
+		    push_warning(result.message)
+		    return
+
+		# For a full chat reset, await destruction before recreating:
+		var destroy_result = await PlayFab.party.chat.destroy_local_chat_control_async(user)
+		if not destroy_result.ok:
+		    push_warning(destroy_result.message)
+		    return
+		var recreate_result = await PlayFab.party.chat.create_local_chat_control_async(user, config)
+		if not recreate_result.ok:
+		    push_warning(recreate_result.message)
+		    return
 
 		# Send to the whole mesh (empty target == broadcast):
 		PlayFab.party.chat.send_text_async("hello everyone")
@@ -31,7 +44,7 @@
 	<tutorials></tutorials>
 	<methods>
 		<method name="create_local_chat_control_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><param index="1" name="config" type="PlayFabPartyConfig" default="null" /><description>Explicitly creates the local chat control for [param user], decoupled from any network join. The audio input/output devices and the voice/text/transcription flags from [param config] are applied to the control here, where it is owned. A local user keeps a single chat control reused across networks; subsequent network joins for [param user] connect this control automatically. Idempotent — a second call for an existing control resolves with that control. The completed [PlayFabResult] carries the [PlayFabPartyChatControl] on success.</description></method>
-		<method name="destroy_local_chat_control_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><description>Explicitly destroys the local chat control for [param user]. Idempotent — a no-op success when [param user] has no chat control.</description></method>
+		<method name="destroy_local_chat_control_async"><return type="Signal" /><param index="0" name="user" type="PlayFabUser" /><description>Explicitly destroys the local chat control for [param user]. When a control exists, the signal resolves from the native destruction completion; a successful [PlayFabResult] carries null data and the control has already been removed from this service. No control is an idempotent success. Native SDK failures return a failed result with code [code]party_resource_not_ready[/code], while Party shutdown cancels an in-flight destruction with code [code]cancelled[/code]. Await successful destruction before explicitly recreating the control with [method create_local_chat_control_async].</description></method>
 		<method name="get_local_chat_control" qualifiers="const"><return type="PlayFabPartyChatControl" /><param index="0" name="user" type="PlayFabUser" /><description>Returns the local [PlayFabPartyChatControl] bound to [param user], if any.</description></method>
 		<method name="get_chat_controls" qualifiers="const"><return type="Array" /><description>Returns all known [PlayFabPartyChatControl] instances, local and remote.</description></method>
 		<method name="get_remote_entity_keys" qualifiers="const"><return type="Array" /><description>Returns the PlayFab entity-key dictionaries ([code]{ "id", "type" }[/code]) of every remote chat control currently in the mesh.</description></method>

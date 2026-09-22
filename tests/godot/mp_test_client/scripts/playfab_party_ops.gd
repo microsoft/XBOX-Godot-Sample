@@ -13,6 +13,7 @@ const PlayFabRuntime := preload("res://scripts/playfab_runtime.gd")
 const DEFAULT_HANDLE := "main"
 const DEFAULT_AWAIT_TIMEOUT_MS := 60_000
 const LEAVE_TIMEOUT_MS := 30_000
+const DESTROY_CHAT_CONTROL_TIMEOUT_MS := 30_000
 const SEND_TEXT_TIMEOUT_MS := 10_000
 const JOIN_RETRY_ATTEMPTS := 3
 const JOIN_RETRY_BACKOFF_MS := 1_500
@@ -207,6 +208,179 @@ func leave_network(params: Dictionary) -> Dictionary:
 	return _ok({ "handle": handle, "left_network_id": network_id })
 
 
+func destroy_local_chat_control(params: Dictionary) -> Dictionary:
+	var session_err: Dictionary = _require_session("party_destroy_local_chat_control")
+	if not session_err.is_empty():
+		return session_err
+	var party: Object = _runtime.get_playfab().get_party()
+	if party == null:
+		return _err("party_unavailable", "PlayFab.get_party() returned null")
+	if not party.has_method("_test_pending_operation_count"):
+		return _err(
+			"test_hooks_unavailable",
+			"Party chat-control regression requires GODOT_PLAYFAB_TEST_HOOKS_ENABLED=ON.",
+		)
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	var user: Object = _runtime.get_user()
+	var old_control: Object = chat.get_local_chat_control(user)
+	var had_control: bool = old_control != null
+	if bool(params.get("require_existing", true)) and not had_control:
+		return _err(
+			"chat_control_missing",
+			"Expected an existing local chat control before destruction.",
+		)
+
+	var control_instance_id: int = old_control.get_instance_id() if had_control else 0
+	var observation := {
+		"completion_count": 0,
+		"local_control_absent_at_completion": false,
+	}
+	var completion_signal = chat.destroy_local_chat_control_async(user)
+	completion_signal.connect(func(_result):
+		observation["completion_count"] = int(observation["completion_count"]) + 1
+		observation["local_control_absent_at_completion"] = chat.get_local_chat_control(user) == null
+	)
+	var result: Variant = await _runtime.await_completion(completion_signal, DESTROY_CHAT_CONTROL_TIMEOUT_MS)
+	if result == null or not bool(result.ok):
+		var failure: Dictionary = _err_from_result(result, "PlayFabPartyChat.destroy_local_chat_control_async")
+		failure["error"]["cleanup"] = await shutdown_party({})
+		return failure
+
+	var response := {
+		"had_control": had_control,
+		"control_instance_id": control_instance_id,
+		"completion_count": int(observation["completion_count"]),
+		"local_control_absent_at_completion": bool(observation["local_control_absent_at_completion"]),
+		"local_control_absent": chat.get_local_chat_control(user) == null,
+		"pending_operation_count": int(party._test_pending_operation_count()),
+		"result_data_is_null": result.data == null,
+	}
+	if had_control:
+		var repeated_result: Variant = await _runtime.await_completion(
+			old_control.destroy_async(),
+			DESTROY_CHAT_CONTROL_TIMEOUT_MS,
+		)
+		response["old_wrapper_destroy_ok"] = repeated_result != null and bool(repeated_result.ok)
+	return _ok(response)
+
+
+func release_local_user(params: Dictionary) -> Dictionary:
+	var session_err: Dictionary = _require_session("party_release_local_user")
+	if not session_err.is_empty():
+		return session_err
+	var party: Object = _runtime.get_playfab().get_party()
+	if party == null:
+		return _err("party_unavailable", "PlayFab.get_party() returned null")
+	if not party.has_method("_test_pending_operation_count"):
+		return _err(
+			"test_hooks_unavailable",
+			"Party local-user release regression requires GODOT_PLAYFAB_TEST_HOOKS_ENABLED=ON.",
+		)
+	var chat: Object = _get_chat()
+	if chat == null:
+		return _err("chat_unavailable", "PlayFab.party.get_chat() returned null")
+	var user: Object = _runtime.get_user()
+	var old_control: Object = chat.get_local_chat_control(user)
+	var had_control: bool = old_control != null
+	if bool(params.get("require_existing", true)) and not had_control:
+		return _err(
+			"chat_control_missing",
+			"Expected an existing local chat control before releasing the Party local user.",
+		)
+
+	var control_instance_id: int = old_control.get_instance_id() if had_control else 0
+	var result: Variant = await _runtime.await_completion(
+		party.release_local_user_async(user),
+		DEFAULT_AWAIT_TIMEOUT_MS,
+	)
+	if result == null or not bool(result.ok):
+		var failure: Dictionary = _err_from_result(result, "PlayFabParty.release_local_user_async")
+		failure["error"]["cleanup"] = await shutdown_party({})
+		return failure
+
+	var cleanup_completed: bool = await _runtime.wait_until(
+		func(): return int(party._test_pending_operation_count()) == 0,
+		DESTROY_CHAT_CONTROL_TIMEOUT_MS,
+	)
+	if not cleanup_completed:
+		var timeout_failure := _err(
+			"release_cleanup_timeout",
+			"release_local_user_async completed but its chat-control destruction did not drain.",
+			{ "pending_operation_count": int(party._test_pending_operation_count()) },
+		)
+		timeout_failure["error"]["cleanup"] = await shutdown_party({})
+		return timeout_failure
+
+	var response := {
+		"had_control": had_control,
+		"control_instance_id": control_instance_id,
+		"local_control_absent": chat.get_local_chat_control(user) == null,
+		"pending_operation_count": int(party._test_pending_operation_count()),
+		"result_data_is_null": result.data == null,
+	}
+	if had_control:
+		var no_audio_input: int = ClassDB.class_get_integer_constant(
+			"PlayFabParty",
+			"LOCAL_CHAT_INDICATOR_NO_AUDIO_INPUT",
+		)
+		response["old_wrapper_indicator_detached"] = \
+			int(old_control.get_local_chat_indicator()) == no_audio_input
+		var send_result: Variant = await _runtime.await_completion(
+			old_control.send_text_async([], "post-release-detach-probe"),
+			DESTROY_CHAT_CONTROL_TIMEOUT_MS,
+		)
+		response["old_wrapper_send_failed_safely"] = \
+			send_result != null \
+			and not bool(send_result.ok) \
+			and String(send_result.code) == "party_resource_not_ready"
+		var repeated_result: Variant = await _runtime.await_completion(
+			old_control.destroy_async(),
+			DESTROY_CHAT_CONTROL_TIMEOUT_MS,
+		)
+		response["old_wrapper_destroy_ok"] = repeated_result != null and bool(repeated_result.ok)
+	return _ok(response)
+
+
+func shutdown_party(_params: Dictionary) -> Dictionary:
+	var pf_err: Dictionary = _require_playfab("party_shutdown")
+	if not pf_err.is_empty():
+		return pf_err
+	var party: Object = _runtime.get_playfab().get_party()
+	if party == null:
+		return _err("party_unavailable", "PlayFab.get_party() returned null")
+	if not party.has_method("_test_pending_operation_count"):
+		return _err(
+			"test_hooks_unavailable",
+			"Party chat-control regression requires GODOT_PLAYFAB_TEST_HOOKS_ENABLED=ON.",
+		)
+
+	var pending_before: int = int(party._test_pending_operation_count())
+	var result: Variant = await _runtime.await_completion(party.shutdown_async(), DEFAULT_AWAIT_TIMEOUT_MS)
+	for handle in _networks.keys():
+		var network: Object = _networks[handle]
+		if network != null:
+			_detach_network(String(handle), network)
+	_networks.clear()
+	_peer_sets.clear()
+	_party_initialized = false
+
+	var chat: Object = party.get_chat()
+	var observations := {
+		"pending_operation_count_before": pending_before,
+		"pending_operation_count_after": int(party._test_pending_operation_count()),
+		"initialized_after": bool(party.is_initialized()),
+		"network_count_after": party.get_networks().size(),
+		"chat_control_count_after": chat.get_chat_controls().size() if chat != null else 0,
+	}
+	if result == null or not bool(result.ok):
+		var failure: Dictionary = _err_from_result(result, "PlayFabParty.shutdown_async")
+		failure["error"]["observations"] = observations
+		return failure
+	return _ok(observations)
+
+
 func send_rpc_ping(params: Dictionary) -> Dictionary:
 	var lookup: Dictionary = _lookup_network(params, "party_send_rpc_ping")
 	if not lookup.has("network"):
@@ -356,8 +530,8 @@ func reset(_params: Dictionary) -> Dictionary:
 
 # Best-effort teardown of this process's Party local user between scenarios.
 # release_local_user_async is idempotent, so an already-released or never-created
-# user resolves cleanly; a fresh create/join afterward re-creates the user and
-# its chat control.
+# user resolves cleanly. The harness explicitly creates a new chat control before
+# a later create/join instead of relying on join to recreate it.
 func _release_local_party_user() -> void:
 	if _runtime == null or _runtime.get_playfab() == null:
 		return
@@ -747,6 +921,11 @@ func _network_snapshot(network: Object) -> Dictionary:
 		snap["connection_status"] = 0
 		snap["peer_ids"] = []
 		snap["peer_count"] = 0
+	var local_chat_control: Object = network.local_chat_control if "local_chat_control" in network else null
+	if local_chat_control != null:
+		snap["local_chat_control_instance_id"] = int(local_chat_control.get_instance_id())
+	else:
+		snap["local_chat_control_instance_id"] = 0
 	# Chat is meshed onto the single global PlayFab.party.chat surface, independent
 	# of the host-star transport peers. Surface the count of remote (non-local)
 	# chat controls so scenarios can wait for the chat mesh to converge before they

@@ -340,6 +340,9 @@ func _join_party_network(descriptor: String) -> bool:
 	return true
 
 # Tutorial 7 Step 8 — leave the network voluntarily.
+# This sample intentionally retains the reusable local chat control for later
+# joins. A full chat reset separately awaits and checks its destruction before
+# explicitly creating a replacement.
 func leave_party() -> bool:
 	if _state != State.IN_NETWORK:
 		push_warning("[Party] leave_party rejected — not in a network (state=%d)" % _state)
