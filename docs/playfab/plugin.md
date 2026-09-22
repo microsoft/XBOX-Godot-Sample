@@ -235,6 +235,26 @@ partial result.
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
 
+### Arranged-lobby initialization
+
+`join_arranged_lobby_async` also initializes the lobby it creates. `PlayFabLobbyJoinConfig.max_member_count`, `access_policy` and `owner_migration_policy` are always sent to the native arranged-join structure, falling back to `8` / `ACCESS_POLICY_PRIVATE` / `OWNER_MIGRATION_AUTOMATIC` when unset or cleared. Set capacity here rather than shrinking the lobby after joining, which reopens a join race. Invalid values are rejected with `invalid_arranged_lobby_config` instead of being clamped. An ordinary `join_lobby_async` ignores all three.
+
+```gdscript
+var config := PlayFabLobbyJoinConfig.new()
+config.max_member_count = 4                                          # this game mode holds 4
+config.access_policy = PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE
+config.owner_migration_policy = PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC
+
+var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(user, connection_string, config)
+if not join_result.ok:
+	push_warning(join_result.message)
+	return
+```
+
+Leave a field unset to keep its default, and use `clear_max_member_count()` / `clear_access_policy()` / `clear_owner_migration_policy()` to return an assigned field to that default. `has_max_member_count()` and friends report whether a field was explicitly assigned; assigning `0` counts as assigned.
+
+Only the first successful joiner's values initialize a newly created arranged lobby. A later joiner's scalar values do not update an existing lobby. All participants in an arrangement should supply identical settings; the addon forwards each local call and does not reconcile conflicts or reconfigure an existing arranged lobby.
+
 Lobby and member property update dictionaries use [String] or [StringName] values; on `PlayFabLobby.set_properties_async()` / `set_search_properties_async()` / `set_member_properties_async()`, a `null` value deletes that key through the SDK's native delete representation while omitted keys stay unchanged. Initial create/join property dictionaries accept [String]/[StringName] values only (null is rejected).
 
 Lobby settings other than properties are changed through `PlayFabLobby.post_update_async(PlayFabLobbyUpdateConfig)`, which batches membership lock, access policy, member capacity, owner-only invites, ownership transfer, and both property buckets into a single service round trip. Fields on `PlayFabLobbyUpdateConfig` are presence-tracked, so assigning `false` or an enum value of `0` is still sent; `clear_<field>()` reverts a field to "unchanged". Unlike `create_lobby_async`, which clamps capacity, `post_update_async` rejects out-of-range or below-occupancy `max_member_count` with `invalid_update` rather than applying a different capacity than requested.

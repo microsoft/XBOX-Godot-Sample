@@ -449,9 +449,14 @@ func run_party_match_descriptor_via_arranged_lobby_property(orch) -> Dictionary:
 	if gate != null: return gate
 	var match: Variant = await _create_two_player_match(orch)
 	if _is_failure(match) or _is_skip(match): return match
-	var connection_string: String = String(match.get("connection_string", ""))
+	var connection_string_by_role: Dictionary = match.get("connection_string_by_role", {})
 	for role in ["host", "guest"]:
-		var lobby: Variant = await _join_arranged_lobby(orch, role, "arranged", connection_string, _role_member_properties(role))
+		var lobby: Variant = await _join_arranged_lobby(
+			orch,
+			role,
+			"arranged",
+			String(connection_string_by_role.get(role, "")),
+			_role_member_properties(role))
 		if _is_failure(lobby): return lobby
 	var invitation_id: String = _unique_token(orch, "party-match")
 	var network: Variant = await _party_create_network(orch, "host", "party", invitation_id, false, 4)
@@ -473,9 +478,14 @@ func run_e2e_full_session_match_then_party_play(orch) -> Dictionary:
 	if gate != null: return gate
 	var match: Variant = await _create_two_player_match(orch)
 	if _is_failure(match) or _is_skip(match): return match
-	var connection_string: String = String(match.get("connection_string", ""))
+	var connection_string_by_role: Dictionary = match.get("connection_string_by_role", {})
 	for role in ["host", "guest"]:
-		var lobby: Variant = await _join_arranged_lobby(orch, role, "arranged", connection_string, _role_member_properties(role))
+		var lobby: Variant = await _join_arranged_lobby(
+			orch,
+			role,
+			"arranged",
+			String(connection_string_by_role.get(role, "")),
+			_role_member_properties(role))
 		if _is_failure(lobby): return lobby
 	var invitation_id: String = _unique_token(orch, "e2e-party")
 	var network: Variant = await _party_create_network(orch, "host", "party", invitation_id, true, 4)

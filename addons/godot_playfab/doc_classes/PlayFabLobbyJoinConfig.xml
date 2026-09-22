@@ -5,11 +5,25 @@
 	</brief_description>
 	<description>
 		Passed to [method PlayFabMultiplayer.join_lobby_async] and [method PlayFabMultiplayer.join_arranged_lobby_async].
+		[member member_properties] applies to both. [member max_member_count], [member access_policy] and [member owner_migration_policy] initialize the lobby that an arranged join creates and are read only by [method PlayFabMultiplayer.join_arranged_lobby_async]; an ordinary [method PlayFabMultiplayer.join_lobby_async] neither applies nor validates them.
+		Presence works differently here than on [PlayFabLobbyUpdateConfig]. The native arranged-join structure has no optional fields, so all three are always sent. A field that was never assigned — or that was reset with its [code]clear_*[/code] method — is sent as its default ([code]8[/code], [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE], [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC]) rather than being omitted. Assigning a value marks the field present even when that value is zero.
+		Only the first successful joiner's values initialize a newly created arranged lobby. Values supplied by later joiners do not update an existing lobby. All participants in an arrangement should supply identical settings; the addon forwards each local call and does not reconcile conflicts or reconfigure the lobby.
+		Invalid values are rejected rather than clamped: the returned [PlayFabResult] fails with code [code]invalid_arranged_lobby_config[/code].
 	</description>
 	<tutorials></tutorials>
-	<methods></methods>
+	<methods>
+		<method name="has_max_member_count" qualifiers="const"><return type="bool" /><description>Returns whether [member max_member_count] was explicitly assigned. When [code]false[/code], an arranged join sends [code]8[/code].</description></method>
+		<method name="clear_max_member_count"><description>Resets [member max_member_count] to the default [code]8[/code] and marks it unassigned.</description></method>
+		<method name="has_access_policy" qualifiers="const"><return type="bool" /><description>Returns whether [member access_policy] was explicitly assigned. When [code]false[/code], an arranged join sends [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE].</description></method>
+		<method name="clear_access_policy"><description>Resets [member access_policy] to [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE] and marks it unassigned.</description></method>
+		<method name="has_owner_migration_policy" qualifiers="const"><return type="bool" /><description>Returns whether [member owner_migration_policy] was explicitly assigned. When [code]false[/code], an arranged join sends [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC].</description></method>
+		<method name="clear_owner_migration_policy"><description>Resets [member owner_migration_policy] to [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC] and marks it unassigned.</description></method>
+	</methods>
 	<members>
 		<member name="member_properties" type="Dictionary" setter="set_member_properties" getter="get_member_properties">Initial string properties for the joining member.</member>
+		<member name="max_member_count" type="int" setter="set_max_member_count" getter="get_max_member_count" default="8">Capacity of the lobby created by an arranged join. Must be between [code]2[/code] and [code]128[/code] inclusive; values outside that range are rejected. Set this to the game mode's capacity at join time rather than shrinking the lobby afterwards, which reopens a join race.</member>
+		<member name="access_policy" type="int" setter="set_access_policy" getter="get_access_policy" default="2">Access policy for the lobby created by an arranged join. Accepts [constant PlayFabLobbyConfig.ACCESS_POLICY_PUBLIC], [constant PlayFabLobbyConfig.ACCESS_POLICY_FRIENDS] or [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE].</member>
+		<member name="owner_migration_policy" type="int" setter="set_owner_migration_policy" getter="get_owner_migration_policy" default="0">Owner migration policy for the lobby created by an arranged join. Accepts [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC], [constant PlayFabLobbyConfig.OWNER_MIGRATION_MANUAL] or [constant PlayFabLobbyConfig.OWNER_MIGRATION_NONE]. The native server-owned policy is not a valid client-arranged value and is not exposed.</member>
 	</members>
 	<signals></signals>
 	<constants></constants>

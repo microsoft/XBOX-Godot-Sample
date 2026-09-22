@@ -57,6 +57,7 @@ The sample includes a committed `export_presets.cfg` so a clean clone has editab
 - [Tutorials index](../../docs/tutorials/README.md)
 - [Getting started](../../docs/getting-started.md)
 - [Async patterns](../../docs/async-patterns.md)
+- [Configured arranged-lobby join (GDScript)](../../docs/playfab/plugin.md#arranged-lobby-initialization)
 - [Troubleshooting](../../docs/troubleshooting.md)
 - GDK-only sample: [`sample/tutorial_gdk/`](../tutorial_gdk/README.md)
 - PlayFab-only sample: [`sample/tutorial_playfab/`](../tutorial_playfab/README.md)

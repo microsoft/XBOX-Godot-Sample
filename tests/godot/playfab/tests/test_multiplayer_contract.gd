@@ -232,6 +232,188 @@ func test_multiplayer_config_and_wrapper_contract() -> void:
 		assert_object_is(instantiate_class(wrapper_class), wrapper_class, "%s can be instantiated" % wrapper_class)
 
 
+func test_arranged_lobby_join_config_presence_contract() -> void:
+	if pending_unless_playfab_available():
+		return
+
+	var join_config = instantiate_class("PlayFabLobbyJoinConfig")
+	assert_object_is(join_config, "PlayFabLobbyJoinConfig", "PlayFabLobbyJoinConfig can be instantiated")
+	if join_config == null:
+		return
+
+	var scalar_fields: Array[String] = [
+		"max_member_count",
+		"access_policy",
+		"owner_migration_policy",
+	]
+	var defaults: Dictionary = {
+		"max_member_count": 8,
+		"access_policy": PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE,
+		"owner_migration_policy": PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC,
+	}
+
+	# Consumers detect this feature by reading property metadata, so a missing
+	# property or a setter-only binding would leave them permanently disabled.
+	var expected_property_types: Dictionary = {
+		"member_properties": TYPE_DICTIONARY,
+		"max_member_count": TYPE_INT,
+		"access_policy": TYPE_INT,
+		"owner_migration_policy": TYPE_INT,
+	}
+	var property_types: Dictionary = {}
+	for property in ClassDB.class_get_property_list("PlayFabLobbyJoinConfig"):
+		var property_name: String = String(property.get("name", ""))
+		if expected_property_types.has(property_name):
+			property_types[property_name] = int(property.get("type", TYPE_NIL))
+	for property_name in expected_property_types:
+		assert_true(
+			property_types.has(property_name),
+			"PlayFabLobbyJoinConfig exposes %s in its property list" % property_name)
+		assert_eq(
+			int(property_types.get(property_name, TYPE_NIL)),
+			int(expected_property_types[property_name]),
+			"PlayFabLobbyJoinConfig.%s has the exact property type" % property_name)
+
+	for field_name in scalar_fields:
+		for operation in ["get", "set", "has", "clear"]:
+			var method_name: String = "%s_%s" % [operation, field_name]
+			assert_true(
+				ClassDB.class_has_method("PlayFabLobbyJoinConfig", method_name),
+				"PlayFabLobbyJoinConfig exposes %s()" % method_name)
+
+	var expected_constants: Dictionary = {
+		"ACCESS_POLICY_PUBLIC": 0,
+		"ACCESS_POLICY_FRIENDS": 1,
+		"ACCESS_POLICY_PRIVATE": 2,
+		"OWNER_MIGRATION_AUTOMATIC": 0,
+		"OWNER_MIGRATION_MANUAL": 1,
+		"OWNER_MIGRATION_NONE": 2,
+	}
+	for constant_name in expected_constants:
+		assert_eq(
+			int(get_class_constant("PlayFabLobbyConfig", constant_name)),
+			int(expected_constants[constant_name]),
+			"PlayFabLobbyConfig.%s has the native value" % constant_name)
+
+	# Unset means "send the documented default", not "omit the field".
+	for field_name in scalar_fields:
+		assert_eq(
+			int(join_config.get(field_name)),
+			int(defaults[field_name]),
+			"PlayFabLobbyJoinConfig.%s has its documented default" % field_name)
+		assert_false(
+			bool(join_config.call("has_%s" % field_name)),
+			"PlayFabLobbyJoinConfig.has_%s() is false on a fresh config" % field_name)
+
+	var member_properties: Dictionary = {
+		"display_name": "joiner",
+		"role": "guest",
+	}
+	join_config.member_properties = member_properties
+	assert_eq(
+		join_config.member_properties,
+		member_properties,
+		"PlayFabLobbyJoinConfig.member_properties round trips")
+	for field_name in scalar_fields:
+		assert_false(
+			bool(join_config.call("has_%s" % field_name)),
+			"member_properties assignment leaves has_%s() false" % field_name)
+
+	# Each case starts fresh and assigns exactly one scalar. The two policy
+	# cases deliberately assign enum value zero and must still mark presence.
+	var assignment_cases: Array[Dictionary] = [
+		{
+			"field": "max_member_count",
+			"value": 4,
+			"label": "max_member_count",
+		},
+		{
+			"field": "access_policy",
+			"value": PlayFabLobbyConfig.ACCESS_POLICY_PUBLIC,
+			"label": "ACCESS_POLICY_PUBLIC (zero)",
+		},
+		{
+			"field": "owner_migration_policy",
+			"value": PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC,
+			"label": "OWNER_MIGRATION_AUTOMATIC (zero)",
+		},
+	]
+	for assignment_case in assignment_cases:
+		var assigned_config = instantiate_class("PlayFabLobbyJoinConfig")
+		assert_object_is(
+			assigned_config,
+			"PlayFabLobbyJoinConfig",
+			"Fresh config for %s assignment" % assignment_case["label"])
+		if assigned_config == null:
+			return
+		var assigned_field: String = String(assignment_case["field"])
+		assigned_config.set(assigned_field, assignment_case["value"])
+		for field_name in scalar_fields:
+			var is_assigned_field: bool = field_name == assigned_field
+			var expected_value: int = (
+				int(assignment_case["value"])
+				if is_assigned_field
+				else int(defaults[field_name]))
+			assert_eq(
+				int(assigned_config.get(field_name)),
+				expected_value,
+				"%s assignment leaves %s value correct" % [
+					assignment_case["label"],
+					field_name,
+				])
+			assert_eq(
+				bool(assigned_config.call("has_%s" % field_name)),
+				is_assigned_field,
+				"%s assignment leaves has_%s() independent" % [
+					assignment_case["label"],
+					field_name,
+				])
+
+	# Each clear case starts fresh, sets every scalar, then clears exactly one.
+	# The other two values and presence flags must remain unchanged.
+	var explicit_values: Dictionary = {
+		"max_member_count": 4,
+		"access_policy": PlayFabLobbyConfig.ACCESS_POLICY_FRIENDS,
+		"owner_migration_policy": PlayFabLobbyConfig.OWNER_MIGRATION_MANUAL,
+	}
+	for cleared_field in scalar_fields:
+		var cleared_config = instantiate_class("PlayFabLobbyJoinConfig")
+		assert_object_is(
+			cleared_config,
+			"PlayFabLobbyJoinConfig",
+			"Fresh config for clear_%s()" % cleared_field)
+		if cleared_config == null:
+			return
+		for field_name in scalar_fields:
+			cleared_config.set(field_name, explicit_values[field_name])
+		cleared_config.call("clear_%s" % cleared_field)
+		for field_name in scalar_fields:
+			var is_cleared_field: bool = field_name == cleared_field
+			var expected_value: int = (
+				int(defaults[field_name])
+				if is_cleared_field
+				else int(explicit_values[field_name]))
+			assert_eq(
+				int(cleared_config.get(field_name)),
+				expected_value,
+				"clear_%s() leaves %s value correct" % [
+					cleared_field,
+					field_name,
+				])
+			assert_eq(
+				bool(cleared_config.call("has_%s" % field_name)),
+				not is_cleared_field,
+				"clear_%s() leaves has_%s() independent" % [
+					cleared_field,
+					field_name,
+				])
+
+	# Unlike PlayFabLobbyUpdateConfig, a default join config is a valid request,
+	# so there is deliberately no is_empty().
+	assert_false(ClassDB.class_has_method("PlayFabLobbyJoinConfig", "is_empty"),
+			"PlayFabLobbyJoinConfig does not expose is_empty()")
+
+
 func test_multiplayer_not_initialized_failures() -> void:
 	if pending_unless_playfab_available():
 		return

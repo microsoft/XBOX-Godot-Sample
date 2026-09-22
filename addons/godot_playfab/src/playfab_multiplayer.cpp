@@ -593,11 +593,63 @@ bool PlayFabLobbyUpdateConfig::is_empty() const {
 void PlayFabLobbyJoinConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_member_properties"), &PlayFabLobbyJoinConfig::get_member_properties);
     ClassDB::bind_method(D_METHOD("set_member_properties", "member_properties"), &PlayFabLobbyJoinConfig::set_member_properties);
+
+    ClassDB::bind_method(D_METHOD("get_max_member_count"), &PlayFabLobbyJoinConfig::get_max_member_count);
+    ClassDB::bind_method(D_METHOD("set_max_member_count", "max_member_count"), &PlayFabLobbyJoinConfig::set_max_member_count);
+    ClassDB::bind_method(D_METHOD("has_max_member_count"), &PlayFabLobbyJoinConfig::has_max_member_count);
+    ClassDB::bind_method(D_METHOD("clear_max_member_count"), &PlayFabLobbyJoinConfig::clear_max_member_count);
+
+    ClassDB::bind_method(D_METHOD("get_access_policy"), &PlayFabLobbyJoinConfig::get_access_policy);
+    ClassDB::bind_method(D_METHOD("set_access_policy", "access_policy"), &PlayFabLobbyJoinConfig::set_access_policy);
+    ClassDB::bind_method(D_METHOD("has_access_policy"), &PlayFabLobbyJoinConfig::has_access_policy);
+    ClassDB::bind_method(D_METHOD("clear_access_policy"), &PlayFabLobbyJoinConfig::clear_access_policy);
+
+    ClassDB::bind_method(D_METHOD("get_owner_migration_policy"), &PlayFabLobbyJoinConfig::get_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("set_owner_migration_policy", "owner_migration_policy"), &PlayFabLobbyJoinConfig::set_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("has_owner_migration_policy"), &PlayFabLobbyJoinConfig::has_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("clear_owner_migration_policy"), &PlayFabLobbyJoinConfig::clear_owner_migration_policy);
+
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "member_properties"), "set_member_properties", "get_member_properties");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "max_member_count"), "set_max_member_count", "get_max_member_count");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "access_policy"), "set_access_policy", "get_access_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "owner_migration_policy"), "set_owner_migration_policy", "get_owner_migration_policy");
 }
 
 Dictionary PlayFabLobbyJoinConfig::get_member_properties() const { return m_member_properties; }
 void PlayFabLobbyJoinConfig::set_member_properties(const Dictionary &p_properties) { m_member_properties = p_properties; }
+
+int64_t PlayFabLobbyJoinConfig::get_max_member_count() const { return m_max_member_count; }
+void PlayFabLobbyJoinConfig::set_max_member_count(int64_t p_max_member_count) {
+    m_max_member_count = p_max_member_count;
+    m_has_max_member_count = true;
+}
+bool PlayFabLobbyJoinConfig::has_max_member_count() const { return m_has_max_member_count; }
+void PlayFabLobbyJoinConfig::clear_max_member_count() {
+    m_max_member_count = DEFAULT_MAX_MEMBER_COUNT;
+    m_has_max_member_count = false;
+}
+
+int64_t PlayFabLobbyJoinConfig::get_access_policy() const { return m_access_policy; }
+void PlayFabLobbyJoinConfig::set_access_policy(int64_t p_access_policy) {
+    m_access_policy = p_access_policy;
+    m_has_access_policy = true;
+}
+bool PlayFabLobbyJoinConfig::has_access_policy() const { return m_has_access_policy; }
+void PlayFabLobbyJoinConfig::clear_access_policy() {
+    m_access_policy = DEFAULT_ACCESS_POLICY;
+    m_has_access_policy = false;
+}
+
+int64_t PlayFabLobbyJoinConfig::get_owner_migration_policy() const { return m_owner_migration_policy; }
+void PlayFabLobbyJoinConfig::set_owner_migration_policy(int64_t p_owner_migration_policy) {
+    m_owner_migration_policy = p_owner_migration_policy;
+    m_has_owner_migration_policy = true;
+}
+bool PlayFabLobbyJoinConfig::has_owner_migration_policy() const { return m_has_owner_migration_policy; }
+void PlayFabLobbyJoinConfig::clear_owner_migration_policy() {
+    m_owner_migration_policy = DEFAULT_OWNER_MIGRATION_POLICY;
+    m_has_owner_migration_policy = false;
+}
 
 void PlayFabLobbySearchConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_filter"), &PlayFabLobbySearchConfig::get_filter);
@@ -1987,10 +2039,49 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
+    // An arranged join must always populate these three native fields, so an
+    // unset or cleared config resolves to the legacy default rather than
+    // omitting anything. Validate the signed values here, before narrowing to
+    // uint32_t and before to_lobby_access_policy / to_lobby_owner_migration_policy,
+    // because those converters map anything unrecognised onto a default instead
+    // of reporting it. Reject out-of-range input; never clamp it.
+    const int64_t requested_max_member_count = config->has_max_member_count()
+            ? config->get_max_member_count()
+            : PlayFabLobbyJoinConfig::DEFAULT_MAX_MEMBER_COUNT;
+    if (requested_max_member_count < static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit) ||
+            requested_max_member_count > static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                vformat("PlayFabLobbyJoinConfig.max_member_count must be between %d and %d.",
+                        static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit),
+                        static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)));
+    }
+
+    const int64_t requested_access_policy = config->has_access_policy()
+            ? config->get_access_policy()
+            : PlayFabLobbyJoinConfig::DEFAULT_ACCESS_POLICY;
+    if (requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PUBLIC &&
+            requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_FRIENDS &&
+            requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                "PlayFabLobbyJoinConfig.access_policy must be ACCESS_POLICY_PUBLIC, ACCESS_POLICY_FRIENDS, or ACCESS_POLICY_PRIVATE.");
+    }
+
+    // PFLobbyOwnerMigrationPolicy::Server is rejected here: it is not a legal
+    // client-arranged policy and is deliberately not bound as a constant.
+    const int64_t requested_owner_migration_policy = config->has_owner_migration_policy()
+            ? config->get_owner_migration_policy()
+            : PlayFabLobbyJoinConfig::DEFAULT_OWNER_MIGRATION_POLICY;
+    if (requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC &&
+            requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_MANUAL &&
+            requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_NONE) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                "PlayFabLobbyJoinConfig.owner_migration_policy must be OWNER_MIGRATION_AUTOMATIC, OWNER_MIGRATION_MANUAL, or OWNER_MIGRATION_NONE.");
+    }
+
     PFLobbyArrangedJoinConfiguration join_config = {};
-    join_config.maxMemberCount = 8;
-    join_config.ownerMigrationPolicy = PFLobbyOwnerMigrationPolicy::Automatic;
-    join_config.accessPolicy = PFLobbyAccessPolicy::Private;
+    join_config.maxMemberCount = static_cast<uint32_t>(requested_max_member_count);
+    join_config.ownerMigrationPolicy = to_lobby_owner_migration_policy(requested_owner_migration_policy);
+    join_config.accessPolicy = to_lobby_access_policy(requested_access_policy);
     join_config.memberPropertyCount = member_properties.count();
     join_config.memberPropertyKeys = member_properties.keys();
     join_config.memberPropertyValues = member_properties.values();

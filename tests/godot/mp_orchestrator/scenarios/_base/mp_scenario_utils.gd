@@ -152,15 +152,25 @@ func _create_lobby(orch, role: String, handle: String, config: Dictionary, timeo
 	return result.get("lobby", {})
 
 
-func _join_lobby(orch, role: String, handle: String, connection_string: String, member_props: Dictionary = {}) -> Variant:
-	var result: Variant = await _command_ok(orch, role, "join_lobby", { "as": handle, "connection_string": connection_string, "member_properties": member_props }, COMMAND_TIMEOUT_MS)
+func _join_lobby(orch, role: String, handle: String, connection_string: String, member_props: Dictionary = {}, join_overrides: Dictionary = {}) -> Variant:
+	var params: Dictionary = { "as": handle, "connection_string": connection_string, "member_properties": member_props }
+	for key in join_overrides:
+		params[key] = join_overrides[key]
+	var result: Variant = await _command_ok(orch, role, "join_lobby", params, COMMAND_TIMEOUT_MS)
 	if _is_failure(result):
 		return result
 	return result.get("lobby", {})
 
 
-func _join_arranged_lobby(orch, role: String, handle: String, connection_string: String, member_props: Dictionary = {}) -> Variant:
-	var result: Variant = await _command_ok(orch, role, "join_arranged_lobby", { "as": handle, "connection_string": connection_string, "member_properties": member_props }, COMMAND_TIMEOUT_MS)
+func _join_arranged_lobby(orch, role: String, handle: String, connection_string: String, member_props: Dictionary = {}, join_overrides: Dictionary = {}, omit_config: bool = false) -> Variant:
+	var params: Dictionary = { "as": handle, "connection_string": connection_string }
+	if omit_config:
+		params["omit_config"] = true
+	else:
+		params["member_properties"] = member_props
+	for key in join_overrides:
+		params[key] = join_overrides[key]
+	var result: Variant = await _command_ok(orch, role, "join_arranged_lobby", params, COMMAND_TIMEOUT_MS)
 	if _is_failure(result):
 		return result
 	return result.get("lobby", {})
@@ -361,6 +371,7 @@ func _create_two_player_match(orch, attributes: Dictionary = {}) -> Variant:
 	var token: String = _unique_token(orch, "match")
 	var attrs: Dictionary = attributes.duplicate()
 	attrs["scenario_token"] = token
+	attrs["run_id"] = token
 	var host_ticket: Variant = await _create_match_ticket(orch, "host", "match", String(queue_v), attrs)
 	if _is_failure(host_ticket):
 		return host_ticket
@@ -373,7 +384,32 @@ func _create_two_player_match(orch, attributes: Dictionary = {}) -> Variant:
 	guest_ticket = await _wait_match_ticket(orch, "guest", "match", "matched")
 	if _is_failure(guest_ticket):
 		return guest_ticket
-	return { "host_ticket": host_ticket, "guest_ticket": guest_ticket, "connection_string": String(host_ticket.get("arranged_lobby_connection_string", "")), "queue_name": String(queue_v), "token": token }
+	var host_match_id: String = String(host_ticket.get("match_id", ""))
+	var guest_match_id: String = String(guest_ticket.get("match_id", ""))
+	var err: Variant = assert_true(not host_match_id.is_empty(), "host ticket should report a match id", { "host_ticket": host_ticket })
+	if err != null:
+		return err
+	err = assert_eq(guest_match_id, host_match_id, "both tickets should report the same match id")
+	if err != null:
+		return err
+	var connection_string_by_role: Dictionary = {
+		"host": String(host_ticket.get("arranged_lobby_connection_string", "")),
+		"guest": String(guest_ticket.get("arranged_lobby_connection_string", "")),
+	}
+	for role in ["host", "guest"]:
+		err = assert_true(
+			not String(connection_string_by_role[role]).is_empty(),
+			"%s ticket should report its arranged lobby connection string" % role,
+			{ "ticket": host_ticket if role == "host" else guest_ticket })
+		if err != null:
+			return err
+	return {
+		"host_ticket": host_ticket,
+		"guest_ticket": guest_ticket,
+		"connection_string_by_role": connection_string_by_role,
+		"queue_name": String(queue_v),
+		"token": token,
+	}
 
 
 func _party_create_network(orch, role: String, handle: String, invitation_id: String, enable_text: bool = true, max_players: int = 4) -> Variant:

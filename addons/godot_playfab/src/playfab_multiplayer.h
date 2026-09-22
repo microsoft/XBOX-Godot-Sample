@@ -159,17 +159,59 @@ public:
     bool is_empty() const;
 };
 
+// Join configuration shared by ordinary and arranged lobby joins.
+//
+// member_properties applies to every join. The three scalars below are
+// consumed only by join_arranged_lobby_async().
+//
+// Presence here does NOT mean what it means on PlayFabLobbyUpdateConfig. The
+// native PFLobbyArrangedJoinConfiguration has no optional pointers: all three
+// fields are mandatory and must always be populated. Presence therefore
+// selects between an explicit value and the documented legacy default
+// (8 / Private / Automatic); it never omits a field. clear_*() restores the
+// default rather than suppressing the value.
 class PlayFabLobbyJoinConfig : public RefCounted {
     GDCLASS(PlayFabLobbyJoinConfig, RefCounted);
 
     Dictionary m_member_properties;
+    int64_t m_max_member_count = DEFAULT_MAX_MEMBER_COUNT;
+    bool m_has_max_member_count = false;
+    int64_t m_access_policy = PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    bool m_has_access_policy = false;
+    int64_t m_owner_migration_policy = PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+    bool m_has_owner_migration_policy = false;
 
 protected:
     static void _bind_methods();
 
 public:
+    // Arranged-lobby defaults applied when a field is unset or cleared. These
+    // reproduce the values this addon hardcoded before the fields existed.
+    static constexpr int64_t DEFAULT_MAX_MEMBER_COUNT = 8;
+    static constexpr int64_t DEFAULT_ACCESS_POLICY = PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    static constexpr int64_t DEFAULT_OWNER_MIGRATION_POLICY = PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+
     Dictionary get_member_properties() const;
     void set_member_properties(const Dictionary &p_properties);
+
+    // Accepts PFLobbyMaxMemberCountLowerLimit..PFLobbyMaxMemberCountUpperLimit.
+    int64_t get_max_member_count() const;
+    void set_max_member_count(int64_t p_max_member_count);
+    bool has_max_member_count() const;
+    void clear_max_member_count();
+
+    // Accepts PlayFabLobbyConfig.ACCESS_POLICY_*.
+    int64_t get_access_policy() const;
+    void set_access_policy(int64_t p_access_policy);
+    bool has_access_policy() const;
+    void clear_access_policy();
+
+    // Accepts PlayFabLobbyConfig.OWNER_MIGRATION_*. The native Server policy is
+    // not reachable from a client-arranged join and is intentionally unbound.
+    int64_t get_owner_migration_policy() const;
+    void set_owner_migration_policy(int64_t p_owner_migration_policy);
+    bool has_owner_migration_policy() const;
+    void clear_owner_migration_policy();
 };
 
 class PlayFabLobbySearchConfig : public RefCounted {

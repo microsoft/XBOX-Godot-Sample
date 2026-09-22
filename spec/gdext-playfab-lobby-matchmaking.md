@@ -83,7 +83,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `shutdown_async()` | Cancel tracked tickets, leave tracked lobbies, reject new Multiplayer work, release handles, `PFMultiplayerUninitialize(...)`, then free deferred async contexts | Tracked resources settle or shutdown generation closes |
 | `create_lobby_async(user, config)` | `PFMultiplayerCreateAndJoinLobby(...)` entity-handle overload | create/join completed state; `PlayFabLobby` snapshot populated |
 | `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
-| `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
+| `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string; `config` initializes `maxMemberCount`, `accessPolicy` and `ownerMigrationPolicy` on the native `PFLobbyArrangedJoinConfiguration` | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
 | `find_lobbies_async(user, search)` | `PFMultiplayerFindLobbies(...)` entity-handle overload | find completed state; stable search summaries populated |
 | `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | `PROPERTIES_UPDATED` completion state; cached lobby snapshot refreshed |
 | `PlayFabLobby.post_update_async(update)` | `PFLobbyPostUpdateWithEntityHandle(...)` with a `PFLobbyDataUpdate` carrying only the assigned fields | `UPDATE_COMPLETED` completion state; cached lobby snapshot refreshed |
@@ -190,7 +190,49 @@ class_name PlayFabLobbyJoinConfig
 extends RefCounted
 
 var member_properties: Dictionary = {}
+
+# Arranged joins only. join_lobby_async() ignores these three.
+var max_member_count: int = 8                                          # 2..128
+var access_policy: int = PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE
+var owner_migration_policy: int = PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC
+
+func has_max_member_count() -> bool
+func clear_max_member_count() -> void
+func has_access_policy() -> bool
+func clear_access_policy() -> void
+func has_owner_migration_policy() -> bool
+func clear_owner_migration_policy() -> void
 ```
+
+`join_arranged_lobby_async()` initializes the lobby it creates from these three
+fields. Presence here is **not** the `PlayFabLobbyUpdateConfig` contract: the
+native `PFLobbyArrangedJoinConfiguration` has no optional fields, so all three
+are always sent. Presence selects between an explicit value and the legacy
+default (`8` / `Private` / `Automatic`); it never omits a field, and `clear_*()`
+restores the default rather than suppressing it. Assigning a value marks the
+field present even when that value is `0`.
+
+Titles should set capacity at join time instead of shrinking the lobby after
+joining, which reopens a join race. Invalid input is rejected, never clamped:
+out-of-range `max_member_count`, or a policy value outside the bound constants,
+fails with `E_INVALIDARG` and `PlayFabResult.code = "invalid_arranged_lobby_config"`.
+Validation runs before the values are narrowed or converted, because the
+`to_lobby_*` converters map unrecognized input onto a default instead of
+reporting it. The native server-owned migration policy is not a legal
+client-arranged value and is intentionally not bound.
+
+Only the first successful joiner's values initialize a newly created arranged
+lobby. Later joiners' scalar values do not update an existing lobby. All
+participants in an arrangement should supply identical settings; the addon
+forwards each local call and does not reconcile conflicts or reconfigure an
+existing arranged lobby.
+
+`join_lobby_async()` neither applies nor validates these three fields.
+
+Owner-only invitation configuration for arranged joins is deferred because two
+supported GDK editions cannot carry `restrictInvitesToLobbyOwner`; the native
+conditional continues to send `false` where the field exists. This change
+therefore only partially addresses #177.
 
 ```gdscript
 class_name PlayFabLobbySearchConfig
@@ -640,7 +682,12 @@ func join_arranged_match_when_title_decides(playfab_user: PlayFabUser, ticket: P
         push_warning("Match completed without an arranged lobby connection string.")
         return
 
-    var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(playfab_user, connection_string)
+    # Initialize the arranged lobby for this game mode at join time. Shrinking
+    # capacity after joining would reopen a join race.
+    var config := PlayFabLobbyJoinConfig.new()
+    config.max_member_count = 4
+
+    var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(playfab_user, connection_string, config)
     if not join_result.ok:
         push_warning(join_result.message)
         return
@@ -663,6 +710,7 @@ Use stable error codes so GDScript callers can branch:
 "invalid_user"
 "invalid_connection_string"
 "invalid_arranged_lobby_connection_string"
+"invalid_arranged_lobby_config"
 "invalid_properties"
 "invalid_search"
 "invalid_lobby"
@@ -682,6 +730,10 @@ Use stable error codes so GDScript callers can branch:
 "match_ticket_completed_failed"
 ```
 
+`invalid_arranged_lobby_config` means the arranged join's capacity, access
+policy, or owner migration policy failed local validation before native
+allocation or narrowing; the result carries `E_INVALIDARG`.
+
 All validation failures must return an already-completed `Signal` with a failed `PlayFabResult`.
 
 ## Testing expectations
@@ -690,6 +742,12 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 
 - public class and service registration;
 - invalid or missing `PlayFabUser` entity handles;
+- exact `PlayFabLobbyJoinConfig` property names/types, method exposure, defaults,
+  independent assignment/clear presence, zero-valued policy presence, reused
+  `PlayFabLobbyConfig` constants, and member-property round trips;
+- initialized-user arranged-join validation for capacity boundaries,
+  overflow-before-narrowing, access/migration values, exact messages,
+  `E_INVALIDARG`, and member-property validation precedence;
 - invalid lobby configs, join identifiers, arranged-lobby connection strings, searches, and ticket configs;
 - result shapes for immediate failures and completed async operations;
 - lobby snapshot update ordering before `PlayFabLobby.state_changed`;
@@ -698,4 +756,12 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - completed tickets reporting `arranged_lobby_connection_string` without automatically joining an arranged lobby;
 - shutdown cleanup for tracked lobbies and tickets.
 
-Live PlayFab Multiplayer tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner covers multi-client lobby flows and, when a configured matchmaking queue is supplied, match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
+Live PlayFab Multiplayer tests must stay opt-in behind the repository's
+`LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner
+covers multi-client lobby flows and, when a configured matchmaking queue is
+supplied, match ticket create/cancel, two-player match completion, arranged
+joins with omitted/default, null, 4 / Private / Automatic, 2 / Public / Manual,
+and capacity-above-eight initialization asserted in each role's first snapshot,
+plus arranged-lobby cleanup. The ordinary connection-string join scenario sends
+invalid arranged-only overrides and must still succeed while preserving the
+host-created configuration and guest member properties.

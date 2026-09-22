@@ -152,6 +152,42 @@ signals) are exposed as C# `event Action<...>` members on those services. Party'
 Godot-RPC-over-network path returns a `MultiplayerPeer` you can assign to
 `SceneTree.GetMultiplayer().MultiplayerPeer`.
 
+#### Arranged-lobby initialization
+
+`JoinArrangedLobbyAsync` initializes the lobby it creates from
+`PlayFabLobbyJoinConfig`. Following the read-only facade convention, the managed
+type exposes `MaxMemberCount`, `AccessPolicy` and `OwnerMigrationPolicy` for
+reading and callers assign through `Raw.Set`:
+
+```csharp
+GodotObject raw = ClassDB.Instantiate("PlayFabLobbyJoinConfig").AsGodotObject();
+raw.Set("max_member_count", 4);   // this game mode holds 4
+PlayFabLobbyJoinConfig config = PlayFabLobbyJoinConfig.From(raw);
+
+PlayFabResult joined =
+    await PlayFab.Multiplayer.JoinArrangedLobbyAsync(user, connectionString, config);
+```
+
+The C# tutorial samples wrap this as
+`TutorialSupport.LobbyJoinConfig(memberProps, maxMemberCount: 4)`; the optional
+arguments are only applied when supplied.
+
+All three fields are always sent to the native arranged-join structure, so
+leaving one unset means the default (`8` / Private / Automatic) rather than an
+omitted field. `HasMaxMemberCount()`, `HasAccessPolicy()` and
+`HasOwnerMigrationPolicy()` report whether a field was explicitly assigned —
+assigning `0` counts as assigned — and the matching `ClearX()` methods return a
+field to its default. Set capacity at join time rather than shrinking the lobby
+afterwards, which reopens a join race. Invalid values surface through the
+returned `PlayFabResult` as `invalid_arranged_lobby_config`; they are never
+clamped. An ordinary `JoinLobbyAsync` ignores all three.
+
+Only the first successful joiner's values initialize a newly created arranged
+lobby. A later joiner's scalar values do not update an existing lobby. All
+participants in an arrangement should supply identical settings; the addon
+forwards each local call and does not reconcile conflicts or reconfigure an
+existing arranged lobby.
+
 ## Parity guarantee
 
 Covered by `tests/csharp/FacadeParity.Tests` (run via

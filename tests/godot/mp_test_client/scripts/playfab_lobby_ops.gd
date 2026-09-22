@@ -99,6 +99,12 @@ func join_lobby(params: Dictionary) -> Dictionary:
 	if join_config == null:
 		return _err("class_unavailable", "PlayFabLobbyJoinConfig not registered in ClassDB")
 	join_config.member_properties = params.get("member_properties", {})
+	if params.has("max_member_count"):
+		join_config.max_member_count = int(params["max_member_count"])
+	if params.has("access_policy"):
+		join_config.access_policy = int(params["access_policy"])
+	if params.has("owner_migration_policy"):
+		join_config.owner_migration_policy = int(params["owner_migration_policy"])
 
 	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
 		func(): return _runtime.get_multiplayer().join_lobby_async(_runtime.get_user(), connection_string, join_config),
@@ -123,13 +129,28 @@ func join_arranged_lobby(params: Dictionary) -> Dictionary:
 	if connection_string.is_empty():
 		return _err("invalid_connection_string", "join_arranged_lobby requires a non-empty connection_string")
 
-	var join_config: Object = _instantiate("PlayFabLobbyJoinConfig")
-	if join_config == null:
-		return _err("class_unavailable", "PlayFabLobbyJoinConfig not registered in ClassDB")
-	join_config.member_properties = params.get("member_properties", {})
+	var join_config: Object = null
+	var signal_factory: Callable
+	if bool(params.get("omit_config", false)):
+		signal_factory = func(): return _runtime.get_multiplayer().join_arranged_lobby_async(_runtime.get_user(), connection_string)
+	else:
+		join_config = _instantiate("PlayFabLobbyJoinConfig")
+		if join_config == null:
+			return _err("class_unavailable", "PlayFabLobbyJoinConfig not registered in ClassDB")
+		join_config.member_properties = params.get("member_properties", {})
+		# Assign only what the scenario supplied, so a scenario that omits a field
+		# still exercises the unset path (8 / Private / Automatic) rather than
+		# re-sending the default explicitly.
+		if params.has("max_member_count"):
+			join_config.max_member_count = int(params["max_member_count"])
+		if params.has("access_policy"):
+			join_config.access_policy = int(params["access_policy"])
+		if params.has("owner_migration_policy"):
+			join_config.owner_migration_policy = int(params["owner_migration_policy"])
+		signal_factory = func(): return _runtime.get_multiplayer().join_arranged_lobby_async(_runtime.get_user(), connection_string, join_config)
 
 	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
-		func(): return _runtime.get_multiplayer().join_arranged_lobby_async(_runtime.get_user(), connection_string, join_config),
+		signal_factory,
 		"join_arranged_lobby_async",
 		int(params.get("timeout_ms", DEFAULT_TIMEOUT_MS)),
 	)
