@@ -36,6 +36,7 @@ class PartyLocalUser;
 class PartyNetwork;
 enum class PartyStateChangeResult;
 struct PartyStateChange;
+struct PartyNetworkDescriptor;
 }
 
 namespace godot {
@@ -275,6 +276,7 @@ public:
             bool p_transcription_enabled,
             bool p_local);
     Party::PartyChatControl *get_native_handle() const;
+    void detach_native();
 
     String get_id() const;
     Ref<PlayFabUser> get_user() const;
@@ -519,6 +521,7 @@ class PlayFabPartyNetwork : public RefCounted {
     Ref<PlayFabPartyPeer> m_local_peer;
     Ref<PlayFabPartyChatControl> m_local_chat_control;
     bool m_host = false;
+    bool m_established = false;
     // Remembered failure result from PartyNetworkDestroyed so that any
     // in-flight join-chain *Completed handler can surface the real reason
     // the network died instead of a generic "Network destroyed during join."
@@ -884,6 +887,10 @@ public:
         Party::PartyLocalChatControl *native_chat_control = nullptr;
         String invitation_id;
         uint32_t handshake_nonce = 0;
+        // Only one SDK call owns this context at a time, including rollback.
+        bool sdk_pending = false;
+        Ref<PlayFabResult> failure;
+        Ref<PlayFabResult> dispatch_error;
     };
 
 private:
@@ -892,6 +899,7 @@ private:
     bool m_processing_state_changes = false;
     bool m_shutting_down = false;
     bool m_shutdown_deferred_until_dispatch_complete = false;
+    bool m_shutdown_running = false;
     XTaskQueueHandle m_task_queue = nullptr;
     Ref<PlayFabPartyChat> m_chat;
     std::vector<Ref<PlayFabPartyNetwork>> m_networks;
@@ -904,7 +912,6 @@ private:
     // destroy_local_chat_control_async / user release / shutdown.
     std::map<PFEntityHandle, Ref<PlayFabPartyChatControl>> m_local_chat_controls;
     std::vector<PendingOperation *> m_pending_operations;
-    std::vector<PendingOperation *> m_pending_operations_deferred_delete;
     std::vector<Ref<PlayFabPendingSignal>> m_shutdown_pending_signals;
 
     PlayFabRuntime *_get_runtime() const;
@@ -924,18 +931,17 @@ private:
 
     PendingOperation *_create_pending(int32_t p_kind);
     void _cancel_active_pending_operations(const String &p_cancel_message);
-    void _defer_pending_delete(PendingOperation *p_operation);
-    void _delete_deferred_pending_operations();
-    void _complete_shutdown_pending_signals();
-    void _release_pending(PendingOperation *p_operation);
+    void _complete_shutdown_pending_signals(const Ref<PlayFabResult> &p_result);
     void _complete_pending(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
+    void _fail_join(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
+    void _detach_network(const Ref<PlayFabPartyNetwork> &p_network);
+    uint32_t _invoke_native(const String &p_stage, const std::function<uint32_t()> &p_invoke);
+    Ref<PlayFabResult> _start_create_network_step(PendingOperation *p_operation);
+    Ref<PlayFabResult> _start_connect_network_step(PendingOperation *p_operation, const Party::PartyNetworkDescriptor &p_descriptor);
     PendingOperation *_find_pending(int32_t p_kind, Party::PartyNetwork *p_native_network);
     PendingOperation *_find_pending_join(Party::PartyNetwork *p_native_network);
-    // Returns true and completes p_operation with a NETWORK_DESTROYED failure
-    // when the operation's target network has already been detached
-    // (e.g. because PartyNetworkDestroyed was processed earlier in the same
-    // batch). Callers should bail out when this returns true to avoid touching
-    // the dead native network handle.
+    // Completion handlers consume their SDK ownership before calling this.
+    // Aborted joins roll back (or wait for cleanup); they must not continue.
     bool _abort_join_op_if_network_dead(PendingOperation *p_operation);
     void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
 
@@ -972,6 +978,19 @@ private:
     void _process_synthesize_text_to_speech_completed(const Party::PartyStateChange *p_change);
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
+    bool m_test_native = false;
+    Dictionary m_test_dispatch_errors;
+    Array m_test_dispatches;
+    Ref<PlayFabPartyNetwork> m_test_network;
+    Ref<PlayFabPartyChatControl> m_test_chat_control;
+    uintptr_t m_test_handles[4] = {};
+    std::deque<uintptr_t> m_test_network_handles;
+    Party::PartyNetwork *m_test_network_handle = nullptr;
+    Signal _test_begin_establishment(bool p_host, bool p_chat, const Dictionary &p_dispatch_errors, bool p_append);
+    void _test_party_batch(const Array &p_changes);
+    Dictionary _test_party_snapshot() const;
+    Dictionary _test_native_handles(const Ref<PlayFabPartyNetwork> &p_network, const Ref<PlayFabPartyPeer> &p_peer) const;
+    void _test_set_dispatch_errors(const Dictionary &p_errors);
     Signal _test_enqueue_shutdown_pending();
     Signal _test_enqueue_destroy_chat_control_pending();
     void _test_dispatch_destroy_chat_control_completed(
@@ -1044,7 +1063,7 @@ private:
     HRESULT _start_connect_chat_control_step(PendingOperation *p_operation, const Ref<PlayFabPartyChatControl> &p_chat_control);
     HRESULT _start_handshake_step(PendingOperation *p_operation);
     HRESULT _send_handshake_request_to(PendingOperation *p_operation, Party::PartyEndpoint *p_target);
-    void _send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id);
+    Ref<PlayFabResult> _send_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_target_endpoint, uint32_t p_nonce, int32_t p_assigned_id);
     void _resolve_handshake_assignment(PlayFabPartyPeer *p_peer, Party::PartyEndpoint *p_sender_endpoint, int32_t p_assigned_id, PendingOperation *p_operation);
     PendingOperation *_find_handshake_pending(const Ref<PlayFabPartyNetwork> &p_network);
 

@@ -142,6 +142,9 @@ func test_party_root_accessor() -> void:
 
 
 func test_party_stable_constants() -> void:
+	for index in range(6):
+		var name: String = ["STATE", "PEER_JOINED", "PEER_LEFT", "DESCRIPTOR_UPDATED", "DESTROYED", "ERROR"][index]
+		assert_eq(get_class_constant("PlayFabParty", "NETWORK_CHANGE_" + name), index + 1, "Stable Party event contract")
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_NONE"), 0, "DIRECT_PEER_CONNECTIVITY_NONE == 0")
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE"), 1, "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE == 1")
 	assert_eq(get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE"), 2, "DIRECT_PEER_CONNECTIVITY_DIFFERENT_PLATFORM_TYPE == 2")
@@ -681,6 +684,7 @@ func test_party_destroy_chat_control_completion_can_reenter_shutdown() -> void:
 	)
 
 	party._test_dispatch_destroy_chat_control_completed(0, 0)
+	await get_tree().process_frame
 
 	assert_eq(completion["count"], 1, "Destroy completion emits exactly once before reentrant shutdown")
 	assert_playfab_result_ok(completion["result"], "Destroy completion before reentrant shutdown")
@@ -710,7 +714,7 @@ func test_party_destroy_chat_control_shutdown_drains_on_finish_failure() -> void
 	var party_error_state := track_signal(party.party_error)
 
 	party._test_dispatch_destroy_chat_control_completed(0, 0, true, true)
-	assert_engine_error("FinishProcessingStateChanges failed; Party was reset.")
+	await get_tree().process_frame
 
 	assert_eq(destroy_completion["count"], 1, "Finish-failure recovery preserves exactly-once destroy cancellation")
 	var destroy_result = destroy_completion["result"]

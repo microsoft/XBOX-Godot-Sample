@@ -37,7 +37,11 @@ Do not run `dispatch()` from a worker thread. If dispatch is not pumped, async s
 
 ## Shutdown and cancellation
 
-`PlayFab.shutdown()` cancels outstanding Party and Multiplayer pending signals before native teardown and rejects new Party/Multiplayer work while shutdown is in progress. Existing callers should still await or connect their signals and handle a cancellation-style `PlayFabResult` instead of assuming the signal disappears.
+Party and Multiplayer scoped shutdown reject new work immediately but settle outstanding completion signals only after their SDK cleanup succeeds. Native contexts remain alive until their own completion or `PartyManager::Cleanup()` / `PFMultiplayerUninitialize()`; finishing one dispatch batch is not a lifetime fence. Reentrant shutdown defers cleanup until the current batch unwinds. Cleanup failures return explicit errors and retain contexts for a subsequent scoped shutdown retry. These scoped calls leave the PlayFab root runtime, accounts, and saves initialized.
+
+Party shutdown uses two phases after successful Cleanup: silently invalidate all retained network/endpoint/chat handles and Party user registries, then emit peer/network notifications and pending results. This includes private partial networks and operations still awaiting create completion. The first callback already sees every retained peer disconnected and Party uninitialized; it cannot access a different network's old SDK handles. `release_local_user_async()` rejects with `party_shutting_down` throughout shutdown, including notifications and failed-cleanup retry. Failed Cleanup preserves initialized ownership and emits no shutdown terminal notifications.
+
+Party host/join failures retain their original diagnostic result while rolling back any partial network. A failed/stalled rollback stays pending until native destruction or scoped cleanup establishes safe ownership. Title-level deadlines should invoke `PlayFab.party.shutdown_async()` rather than assuming a cancelled await stopped the SDK call. Existing callers must continue to handle the eventual one-shot result.
 
 ### Finalizer contract
 

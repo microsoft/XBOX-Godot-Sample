@@ -19,6 +19,8 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_playf
 - One-shot public APIs return completion `Signal` values awaited directly.
 - Completion payloads are always delivered through `PlayFabResult`.
 - Immediate failures should still return an already-completed completion signal instead of failing silently or returning inconsistent shapes.
+- Party hosting must serialize CreateNewNetwork completion before ConnectToNetwork; never overlap those calls on one async context. Failed host/guest chains retain private partial-network ownership through rollback. Scoped Party/Multiplayer shutdown settles cancellation only after successful SDK cleanup; never free contexts merely because a dispatch batch ended. Keep the offline native failure suite mandatory when test hooks are enabled, and keep NETWORK_CHANGE_* values 1 through 6 stable.
+- Party shutdown must invalidate all retained native handles and Party user registries before any synchronous callback, including peer status setters. Preserve ownership on failed Cleanup and reject local-user release while shutdown owns the service.
 
 ## User and Service Model
 
