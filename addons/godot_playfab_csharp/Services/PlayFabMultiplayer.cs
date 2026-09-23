@@ -46,6 +46,18 @@ public sealed class PlayFabMultiplayer : PlayFabServiceBase
     public Task<PlayFabResult> CreateMatchTicketAsync(PlayFabUser user, PlayFabMatchmakingTicketConfig config) =>
         CallResultAsync("create_match_ticket_async", user?.Raw, config?.Raw);
 
+    public Task<PlayFabResult> JoinMatchTicketAsync(
+        PlayFabUser user,
+        string ticket_id,
+        string queue_name,
+        Godot.Collections.Array local_members = null) =>
+        CallResultAsync(
+            "join_match_ticket_async",
+            user?.Raw,
+            ticket_id,
+            queue_name,
+            local_members ?? new Godot.Collections.Array());
+
     public Godot.Collections.Array GetLobbies() =>
         Call("get_lobbies").AsGodotArray();
 

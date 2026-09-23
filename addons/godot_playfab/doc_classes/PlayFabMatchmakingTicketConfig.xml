@@ -4,14 +4,16 @@
 		Configuration for creating a matchmaking ticket.
 	</brief_description>
 	<description>
-		Passed to [method PlayFabMultiplayer.create_match_ticket_async]. Immediate validation failures use [code]invalid_match_ticket_config[/code] when the config is missing, [member queue_name] is blank, or [member timeout_seconds] is less than or equal to zero. If [member members] is empty, the requesting [PlayFabUser] is used as the single member.
+		Passed to [method PlayFabMultiplayer.create_match_ticket_async]. [member members] contains local signed-in users whose entity handles and optional attributes are submitted from this device. [member members_to_match_with] contains remote premade-group entity keys that PlayFab must place on the same match ticket; those remote members are not added to [member PlayFabMatchTicket.members].
+		Immediate validation failures use [code]invalid_match_ticket_config[/code] when the config is missing, [member queue_name] is blank, [member timeout_seconds] is less than or equal to zero, or [member members_to_match_with] contains malformed, duplicate, or local entity keys. If [member members] is empty, the requesting [PlayFabUser] is used as the single local member.
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
 		<member name="queue_name" type="String" setter="set_queue_name" getter="get_queue_name">PlayFab matchmaking queue name. This must be non-empty and must match a queue configured for the title.</member>
 		<member name="timeout_seconds" type="int" setter="set_timeout_seconds" getter="get_timeout_seconds">Ticket timeout in seconds. Must be greater than zero.</member>
-		<member name="members" type="Array" setter="set_members" getter="get_members">Array of [PlayFabMatchmakingMember] or [PlayFabUser] entries.</member>
+		<member name="members" type="Array" setter="set_members" getter="get_members">Local signed-in ticket participants on this device, as [PlayFabMatchmakingMember] or [PlayFabUser] entries. These are converted to entity handles and remain the meaning of [member PlayFabMatchTicket.members]; this is not the remote premade group or the completed match roster.</member>
+		<member name="members_to_match_with" type="Array" setter="set_members_to_match_with" getter="get_members_to_match_with" default="[]">Remote premade-group entity keys, each shaped as [code]{"id": String, "type": String}[/code]. The values accept String or StringName, must be non-empty, and are copied as strings. Entries must be Dictionaries, must be unique, and must not overlap any local user in [member members]. An empty array preserves ordinary matchmaking by sending a zero count and null native pointer. Size the queue accordingly: PlayFab rejects a ticket whose members already fill the queue's [code]MaxMatchSize[/code], so a premade group of N players requires a queue whose [code]MaxMatchSize[/code] is greater than N.</member>
 	</members>
 	<signals></signals>
 	<constants></constants>

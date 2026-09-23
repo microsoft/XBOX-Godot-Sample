@@ -4,7 +4,21 @@
 		Tracked PlayFab matchmaking ticket wrapper.
 	</brief_description>
 	<description>
-		Returned by [method PlayFabMultiplayer.create_match_ticket_async]. That async method resolves only after [member ticket_id] is assigned, so a surfaced ticket can be cancelled by id immediately. Ticket progress is pushed through [signal state_changed].
+		Returned by [method PlayFabMultiplayer.create_match_ticket_async] and [method PlayFabMultiplayer.join_match_ticket_async]. Those async methods resolve only after [member ticket_id] is assigned, so a surfaced ticket can be cancelled by id immediately. Ticket progress is pushed through [signal state_changed].
+		This class contains two distinct numeric spaces. [constant CREATED], [constant STATUS_CHANGED], [constant COMPLETED], [constant CANCELLED], and [constant FAILED] are [b]event kinds[/b] used by [member PlayFabMatchTicketStateChange.kind]. Despite its name, [constant STATUS_CHANGED] is never a ticket status. Compare [member status] and [member PlayFabMatchTicketStateChange.status] against the [code]STATUS_*[/code] constants instead.
+		The ticket snapshot is refreshed before each emitted change, but the signal stream is not lossless. Creating-state edges may be suppressed while the ticket id is unavailable, and create/join can return a snapshot that already reached a later status before the caller can connect. Treat the API as level-triggered. Connect the signal, reconcile the current snapshot immediately, and reconcile again on every change regardless of [member PlayFabMatchTicketStateChange.kind]. Handlers must be idempotent.
+		[codeblock]
+		ticket.state_changed.connect(_on_ticket_changed)
+		_handle_ticket_status(ticket, ticket.status) # reconcile now
+
+		func _on_ticket_changed(change: PlayFabMatchTicketStateChange) -> void:
+		    _handle_ticket_status(change.ticket, change.ticket.status)
+
+		func _handle_ticket_status(ticket: PlayFabMatchTicket, status: int) -> void:
+		    if status == PlayFabMatchTicket.STATUS_WAITING_FOR_PLAYERS:
+		        _publish_ticket_id_once(ticket.ticket_id)
+		[/codeblock]
+		[member members] contains only the local users supplied when this client created or joined the ticket. It is not the completed match roster.
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -16,8 +30,8 @@
 	<members>
 		<member name="ticket_id" type="String" setter="" getter="get_ticket_id">PlayFab ticket id.</member>
 		<member name="queue_name" type="String" setter="" getter="get_queue_name">Queue used by this ticket.</member>
-		<member name="status" type="int" setter="" getter="get_status">Native ticket status value.</member>
-		<member name="members" type="Array" setter="" getter="get_members">Ticket member users.</member>
+		<member name="status" type="int" setter="" getter="get_status">Raw native ticket status. Compare against [constant STATUS_CREATING] through [constant STATUS_FAILED]; the integer shape is preserved for compatibility.</member>
+		<member name="members" type="Array" setter="" getter="get_members">Local signed-in users supplied by this client when creating or joining the ticket. Remote [member PlayFabMatchmakingTicketConfig.members_to_match_with] entries and the completed match roster are not stored here.</member>
 		<member name="match_id" type="String" setter="" getter="get_match_id">Matched PlayFab match id.</member>
 		<member name="arranged_lobby_connection_string" type="String" setter="" getter="get_arranged_lobby_connection_string">Arranged lobby connection string reported to title code.</member>
 		<member name="properties" type="Dictionary" setter="" getter="get_properties">Diagnostic ticket properties.</member>
@@ -26,10 +40,17 @@
 		<signal name="state_changed"><param index="0" name="change" type="PlayFabMatchTicketStateChange" /><description>Emitted when ticket status or completion state changes.</description></signal>
 	</signals>
 	<constants>
-		<constant name="CREATED" value="100">A matchmaking ticket wrapper was created.</constant>
-		<constant name="STATUS_CHANGED" value="101">A ticket status changed.</constant>
-		<constant name="COMPLETED" value="102">A ticket matched and completed.</constant>
-		<constant name="CANCELLED" value="103">A ticket was cancelled.</constant>
-		<constant name="FAILED" value="104">A ticket failed.</constant>
+		<constant name="CREATED" value="100">Event kind: a matchmaking ticket wrapper received a non-empty ticket id and became publicly usable.</constant>
+		<constant name="STATUS_CHANGED" value="101">Event kind: a native ticket status edge was reported. This value is [b]not[/b] a ticket status; compare [member status] against [code]STATUS_*[/code].</constant>
+		<constant name="COMPLETED" value="102">Event kind: a ticket matched and completed.</constant>
+		<constant name="CANCELLED" value="103">Event kind: a ticket was cancelled.</constant>
+		<constant name="FAILED" value="104">Event kind: a ticket failed.</constant>
+		<constant name="STATUS_CREATING" value="0">Ticket status: the native ticket is being created.</constant>
+		<constant name="STATUS_JOINING" value="1">Ticket status: this client is joining an existing ticket.</constant>
+		<constant name="STATUS_WAITING_FOR_PLAYERS" value="2">Ticket status: the ticket is waiting for required premade members. Publish or share [member ticket_id] idempotently from this level.</constant>
+		<constant name="STATUS_WAITING_FOR_MATCH" value="3">Ticket status: all required players are present and PlayFab is searching for a match.</constant>
+		<constant name="STATUS_MATCHED" value="4">Ticket status: a match was found.</constant>
+		<constant name="STATUS_CANCELLED" value="5">Ticket status: the ticket was cancelled. The double-L spelling matches the existing public [constant CANCELLED] and [method is_cancelled].</constant>
+		<constant name="STATUS_FAILED" value="6">Ticket status: matchmaking failed. This is the raw native value and is not remapped to a no-match status.</constant>
 	</constants>
 </class>

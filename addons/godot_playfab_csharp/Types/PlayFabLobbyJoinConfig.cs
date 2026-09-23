@@ -17,14 +17,15 @@ public sealed class PlayFabLobbyJoinConfig : PlayFabObject
 
     // Arranged-lobby initialization. These are read only by
     // join_arranged_lobby_async; ordinary joins ignore them. Unset or cleared
-    // fields fall back to 8 / Private / Automatic rather than being omitted,
-    // because the native PFLobbyArrangedJoinConfiguration has no optional
-    // fields. Assign through Raw.Set, per the read-only facade convention.
+    // fields fall back to 8 / Private / Automatic / false rather than being
+    // omitted. Assign through Raw.Set, per the read-only facade convention.
     public int MaxMemberCount => GetInt32("max_member_count");
 
     public int AccessPolicy => GetInt32("access_policy");
 
     public int OwnerMigrationPolicy => GetInt32("owner_migration_policy");
+
+    public bool RestrictInvitesToLobbyOwner => GetBool("restrict_invites_to_lobby_owner");
 
     public bool HasMaxMemberCount() => Call("has_max_member_count").AsBool();
 
@@ -37,4 +38,8 @@ public sealed class PlayFabLobbyJoinConfig : PlayFabObject
     public bool HasOwnerMigrationPolicy() => Call("has_owner_migration_policy").AsBool();
 
     public void ClearOwnerMigrationPolicy() => Call("clear_owner_migration_policy");
+
+    public bool HasRestrictInvitesToLobbyOwner() => Call("has_restrict_invites_to_lobby_owner").AsBool();
+
+    public void ClearRestrictInvitesToLobbyOwner() => Call("clear_restrict_invites_to_lobby_owner");
 }

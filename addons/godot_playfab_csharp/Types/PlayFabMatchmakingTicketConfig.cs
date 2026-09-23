@@ -18,4 +18,6 @@ public sealed class PlayFabMatchmakingTicketConfig : PlayFabObject
     public int TimeoutSeconds => GetInt32("timeout_seconds");
 
     public Godot.Collections.Array Members => GetArray("members");
+
+    public Godot.Collections.Array MembersToMatchWith => GetArray("members_to_match_with");
 }

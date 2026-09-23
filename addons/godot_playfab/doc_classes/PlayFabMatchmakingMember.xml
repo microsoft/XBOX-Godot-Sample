@@ -4,12 +4,12 @@
 		One local member in a matchmaking ticket.
 	</brief_description>
 	<description>
-		Wraps the [PlayFabUser] and optional JSON-serializable attributes used by [method PlayFabMultiplayer.create_match_ticket_async].
+		Wraps one local signed-in [PlayFabUser] and optional JSON-serializable attributes used by [method PlayFabMultiplayer.create_match_ticket_async] or [method PlayFabMultiplayer.join_match_ticket_async]. This class never represents a remote premade member; use [member PlayFabMatchmakingTicketConfig.members_to_match_with] for remote entity keys.
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
-		<member name="user" type="PlayFabUser" setter="set_user" getter="get_user">Signed-in PlayFab user whose entity handle is added to the ticket.</member>
+		<member name="user" type="PlayFabUser" setter="set_user" getter="get_user">Local signed-in PlayFab user whose entity handle is added to the ticket.</member>
 		<member name="attributes" type="Dictionary" setter="set_attributes" getter="get_attributes">Per-member matchmaking attributes serialized to JSON.</member>
 	</members>
 	<signals></signals>
