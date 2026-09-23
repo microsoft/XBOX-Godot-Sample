@@ -47,4 +47,10 @@ public sealed class XboxGameUi : XboxServiceBase
     public Task<XboxResult> ShowTextEntryAsync(
         string titleText, string descriptionText, string defaultText, string inputScope, int maxTextLength) =>
         CallResultAsync("show_text_entry_async", titleText, descriptionText, defaultText, inputScope, maxTextLength);
+
+    public XboxResult ShowVirtualKeyboard() =>
+        XboxResult.From(Call("show_virtual_keyboard").AsGodotObject());
+
+    public XboxResult HideVirtualKeyboard() =>
+        XboxResult.From(Call("hide_virtual_keyboard").AsGodotObject());
 }

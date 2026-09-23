@@ -16,4 +16,6 @@ public sealed class XboxSystem : XboxServiceBase
 
     public bool IsFeatureAvailable(string featureName) =>
         Call("is_feature_available", featureName).AsBool();
+
+    public bool IsHandheld() => Call("is_handheld").AsBool();
 }
