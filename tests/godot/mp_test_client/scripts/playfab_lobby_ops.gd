@@ -105,6 +105,8 @@ func join_lobby(params: Dictionary) -> Dictionary:
 		join_config.access_policy = int(params["access_policy"])
 	if params.has("owner_migration_policy"):
 		join_config.owner_migration_policy = int(params["owner_migration_policy"])
+	if params.has("restrict_invites_to_lobby_owner"):
+		join_config.restrict_invites_to_lobby_owner = bool(params["restrict_invites_to_lobby_owner"])
 
 	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(
 		func(): return _runtime.get_multiplayer().join_lobby_async(_runtime.get_user(), connection_string, join_config),

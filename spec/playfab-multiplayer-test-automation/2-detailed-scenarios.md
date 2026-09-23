@@ -63,8 +63,8 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 | Command | Params | Returns |
 | --- | --- | --- |
 | `create_lobby` | `{ as: String, max_players?: int, access_policy?: String, owner_migration_policy?: String, lobby_properties?: Dictionary, member_properties?: Dictionary, search_properties?: Dictionary }` | `{ handle, lobby_id, connection_string }` |
-| `join_lobby` | `{ as: String, connection_string: String, member_properties?: Dictionary, max_member_count?: int, access_policy?: int, owner_migration_policy?: int }` | `{ handle, lobby_id }` |
-| `join_arranged_lobby` | `{ as: String, connection_string: String, member_properties?: Dictionary, max_member_count?: int, access_policy?: int, owner_migration_policy?: int, omit_config?: bool }` | `{ handle, lobby_id }` |
+| `join_lobby` | `{ as: String, connection_string: String, member_properties?: Dictionary, max_member_count?: int, access_policy?: int, owner_migration_policy?: int, restrict_invites_to_lobby_owner?: bool }` | `{ handle, lobby_id }` |
+| `join_arranged_lobby` | `{ as: String, connection_string: String, member_properties?: Dictionary, max_member_count?: int, access_policy?: int, owner_migration_policy?: int, restrict_invites_to_lobby_owner?: bool, omit_config?: bool }` | `{ handle, lobby_id }` |
 | `set_lobby_properties` | `{ handle: String, properties: Dictionary }` | `{}` |
 | `set_member_properties` | `{ handle: String, properties: Dictionary }` | `{}` |
 | `get_lobby_snapshot` | `{ handle: String }` | `{ lobby_id, owner_entity_key, member_count, members, properties, search_properties }` |
@@ -133,10 +133,10 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
   1. `send(host, create_lobby, { as: "shared_lobby", max_players: 4, access_policy: "public", member_properties: { role: "host" } })`.
   2. `host_added = expect_event(host, lobby.member_added, { handle: "shared_lobby" })` — subscribe before guest join.
   3. `guest_added = expect_event(guest, lobby.member_added, { handle: "shared_lobby" })`.
-  4. `send(guest, join_lobby, { as: "shared_lobby", connection_string: create.result.connection_string, member_properties: { role: "guest", ordinary_override: token }, max_member_count: 0, access_policy: -1, owner_migration_policy: -1 })`.
+  4. `send(guest, join_lobby, { as: "shared_lobby", connection_string: create.result.connection_string, member_properties: { role: "guest", ordinary_override: token }, max_member_count: 0, access_policy: -1, owner_migration_policy: -1, restrict_invites_to_lobby_owner: true })`.
   5. `await host_added.wait(10000)`; assert not timed out.
   6. `await guest_added.wait(10000)`; assert not timed out.
-  7. Assert the guest join succeeds and its first snapshot reports `max_member_count == 4`, Public access, Automatic migration, and the complete guest member-property bag.
+  7. Assert the guest join succeeds and its first snapshot reports `max_member_count == 4`, Public access, Automatic migration, unrestricted invitations, and the complete guest member-property bag.
   8. `send(host, get_lobby_snapshot, { handle: "shared_lobby" })`; assert `member_count == 2`, the host-created configuration remains unchanged, and the guest property token converges.
 - **Notes**: Port of legacy `client join by connection string`, extended to prove arranged-only validation is not shared by ordinary joins.
 

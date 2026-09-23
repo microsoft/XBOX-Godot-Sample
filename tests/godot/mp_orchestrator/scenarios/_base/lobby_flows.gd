@@ -84,6 +84,7 @@ func run_lobby_join_by_connection_string(orch) -> Dictionary:
 		"max_member_count": 4,
 		"access_policy": 0,
 		"owner_migration_policy": 0,
+		"restrict_invites_to_lobby_owner": false,
 	}
 	var host_lobby: Variant = await _create_lobby(
 		orch,
@@ -108,6 +109,9 @@ func run_lobby_join_by_connection_string(orch) -> Dictionary:
 			"max_member_count": 0,
 			"access_policy": -1,
 			"owner_migration_policy": -1,
+			# An arranged join rejects `true` on builds without the April 2026 GDK
+			# fields; an ordinary join must neither validate nor apply it.
+			"restrict_invites_to_lobby_owner": true,
 		})
 	if _is_failure(guest_lobby): return guest_lobby
 
