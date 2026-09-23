@@ -408,6 +408,7 @@ struct PlayFabMultiplayer::PendingOperation {
     Dictionary local_member_property_update;
     bool has_local_member_property_update = false;
     bool replace_local_member_properties = false;
+    Ref<PlayFabResult> shutdown_result;
 };
 
 void PlayFabMultiplayerConfig::_bind_methods() {}
@@ -1348,6 +1349,7 @@ void PlayFabMultiplayer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_match_tickets"), &PlayFabMultiplayer::get_match_tickets);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabMultiplayer::_test_enqueue_shutdown_pending);
+    ClassDB::bind_method(D_METHOD("_test_set_cleanup_failure", "fail"), &PlayFabMultiplayer::_test_set_cleanup_failure);
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabMultiplayer::_test_pending_operation_count);
 #endif
 
@@ -1358,7 +1360,7 @@ void PlayFabMultiplayer::_bind_methods() {
 
 void PlayFabMultiplayer::set_owner(PlayFab *p_owner) { m_owner = p_owner; }
 bool PlayFabMultiplayer::is_initialized() const { return m_initialized; }
-bool PlayFabMultiplayer::has_deferred_shutdown() const { return m_shutdown_deferred_until_dispatch_complete; }
+bool PlayFabMultiplayer::has_deferred_shutdown() const { return m_shutdown_deferred_until_dispatch_complete || m_shutting_down; }
 
 PlayFabRuntime *PlayFabMultiplayer::_get_runtime() const {
     return m_owner != nullptr ? m_owner->get_runtime() : nullptr;
@@ -1399,12 +1401,10 @@ void PlayFabMultiplayer::_cancel_active_pending_operations(const String &p_cance
         std::vector<PendingOperation *> pending_operations;
         pending_operations.swap(m_pending_operations);
         for (PendingOperation *operation : pending_operations) {
-            _defer_pending_delete(operation);
-        }
-        for (PendingOperation *operation : pending_operations) {
-            if (operation != nullptr && operation->pending_signal.is_valid()) {
-                operation->pending_signal->complete(PlayFabResult::cancelled(p_cancel_message));
+            if (operation->shutdown_result.is_null()) {
+                operation->shutdown_result = PlayFabResult::cancelled(p_cancel_message);
             }
+            _defer_pending_delete(operation);
         }
     }
 }
@@ -1420,24 +1420,25 @@ void PlayFabMultiplayer::_defer_pending_delete(PendingOperation *p_operation) {
 }
 
 void PlayFabMultiplayer::_delete_deferred_pending_operations() {
-    std::vector<PendingOperation *> active_operations;
-    active_operations.swap(m_pending_operations);
-    for (PendingOperation *operation : active_operations) {
-        _defer_pending_delete(operation);
-    }
-
-    for (PendingOperation *operation : m_pending_operations_deferred_delete) {
+    while (!m_pending_operations.empty() || !m_pending_operations_deferred_delete.empty()) {
+        _cancel_active_pending_operations("PlayFab Multiplayer is shutting down.");
+        PendingOperation *operation = m_pending_operations_deferred_delete.back();
+        m_pending_operations_deferred_delete.pop_back();
+        Ref<PlayFabPendingSignal> signal = operation->pending_signal;
+        Ref<PlayFabResult> result = operation->shutdown_result;
         delete operation;
+        if (signal.is_valid()) {
+            signal->complete(result.is_valid() ? result : PlayFabResult::cancelled("PlayFab Multiplayer is shutting down."));
+        }
     }
-    m_pending_operations_deferred_delete.clear();
 }
 
-void PlayFabMultiplayer::_complete_shutdown_pending_signals() {
+void PlayFabMultiplayer::_complete_shutdown_pending_signals(const Ref<PlayFabResult> &p_result) {
     std::vector<Ref<PlayFabPendingSignal>> pending_signals;
     pending_signals.swap(m_shutdown_pending_signals);
     for (const Ref<PlayFabPendingSignal> &pending_signal : pending_signals) {
         if (pending_signal.is_valid()) {
-            pending_signal->complete(PlayFabResult::ok_result());
+            pending_signal->complete_deferred(p_result);
         }
     }
 }
@@ -1446,25 +1447,16 @@ void PlayFabMultiplayer::_complete_pending_operation(PendingOperation *p_operati
     if (p_operation == nullptr) {
         return;
     }
-
-    m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
-
-    if (p_operation->pending_signal.is_valid()) {
-        Ref<PlayFabResult> final_result = p_result;
-        if (p_operation->pending_signal->was_cancel_requested()) {
-            final_result = PlayFabResult::cancelled("PlayFab Multiplayer operation cancelled.");
-        }
-        p_operation->pending_signal->complete(final_result);
-    }
-
-    // Deferring after complete() (rather than both before and after) keeps the
-    // operation alive across the complete() call without double-tracking it.
-    // The check is re-read here in case complete() re-entrantly flipped
-    // m_shutting_down (e.g. an awaiter calling PlayFab.shutdown()).
     if (m_shutting_down) {
         _defer_pending_delete(p_operation);
-    } else {
-        delete p_operation;
+        return;
+    }
+    m_pending_operations.erase(std::remove(m_pending_operations.begin(), m_pending_operations.end(), p_operation), m_pending_operations.end());
+    Ref<PlayFabPendingSignal> signal = p_operation->pending_signal;
+    Ref<PlayFabResult> result = p_result;
+    delete p_operation;
+    if (signal.is_valid()) {
+        signal->complete(result);
     }
 }
 
@@ -1590,13 +1582,20 @@ void PlayFabMultiplayer::_reset_after_state_change_finish_failure(const Ref<Play
         result = PlayFabResult::error_result(E_FAIL, "state_changes_finish_failed", "PlayFab Multiplayer failed to finish state change processing.");
     }
 
-    m_initialized = false;
+    m_shutting_down = true;
     ++m_dispatch_generation;
-
-    if (m_handle != nullptr) {
-        PFMultiplayerUninitialize(m_handle);
-        m_handle = nullptr;
+    for (PendingOperation *operation : m_pending_operations) {
+        operation->shutdown_result = result;
     }
+    _cancel_active_pending_operations("PlayFab Multiplayer state processing failed.");
+    HRESULT cleanup_hr = _uninitialize_native();
+    if (FAILED(cleanup_hr)) {
+        Ref<PlayFabResult> cleanup_result = multiplayer_hresult_error(cleanup_hr, "Failed to reset PlayFab Multiplayer.", "multiplayer_cleanup_failed");
+        emit_signal("multiplayer_error", cleanup_result);
+        _complete_shutdown_pending_signals(cleanup_result);
+        return;
+    }
+    m_initialized = false;
     _terminate_multiplayer_queue();
 
     for (const Ref<PlayFabLobby> &lobby : m_lobbies) {
@@ -1613,20 +1612,34 @@ void PlayFabMultiplayer::_reset_after_state_change_finish_failure(const Ref<Play
     }
     m_tickets.clear();
 
-    std::vector<PendingOperation *> pending_operations;
-    pending_operations.swap(m_pending_operations);
-
     ERR_PRINT(vformat(
             "PlayFabMultiplayer: FinishStateChanges failed with %s; Multiplayer was reset. Call PlayFab.multiplayer.initialize_async() before using it again.",
             PlayFabResult::format_hresult(static_cast<HRESULT>(result->get_hresult()))));
     emit_signal("multiplayer_error", result);
 
-    for (PendingOperation *operation : pending_operations) {
-        if (operation != nullptr && operation->pending_signal.is_valid()) {
-            operation->pending_signal->complete(result);
-        }
-        delete operation;
+    _delete_deferred_pending_operations();
+    m_shutting_down = false;
+    m_shutdown_deferred_until_dispatch_complete = false;
+    _complete_shutdown_pending_signals(PlayFabResult::ok_result());
+    if (m_owner != nullptr) {
+        m_owner->finish_deferred_shutdown_if_ready();
     }
+}
+
+HRESULT PlayFabMultiplayer::_uninitialize_native() {
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_cleanup_failure) {
+        return E_FAIL;
+    }
+#endif
+    if (m_handle == nullptr) {
+        return S_OK;
+    }
+    const HRESULT hr = PFMultiplayerUninitialize(m_handle);
+    if (SUCCEEDED(hr)) {
+        m_handle = nullptr;
+    }
+    return hr;
 }
 
 Signal PlayFabMultiplayer::initialize_async(const Ref<PlayFabMultiplayerConfig> &p_config) {
@@ -1674,12 +1687,8 @@ Signal PlayFabMultiplayer::initialize_async(const Ref<PlayFabMultiplayerConfig> 
 
 Signal PlayFabMultiplayer::shutdown_async() {
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+    m_shutdown_pending_signals.push_back(pending_signal);
     shutdown();
-    if (m_shutdown_deferred_until_dispatch_complete) {
-        m_shutdown_pending_signals.push_back(pending_signal);
-    } else {
-        pending_signal->complete_deferred(PlayFabResult::ok_result());
-    }
     return pending_signal->get_completed_signal();
 }
 
@@ -1692,13 +1701,15 @@ void PlayFabMultiplayer::shutdown() {
         }
         return;
     }
-    if (m_shutting_down && !m_shutdown_deferred_until_dispatch_complete) {
+    if (m_shutdown_running) {
         return;
     }
     if (!m_initialized && m_handle == nullptr && m_pending_operations.empty() && m_pending_operations_deferred_delete.empty() && m_lobbies.empty() && m_tickets.empty()) {
+        _complete_shutdown_pending_signals(PlayFabResult::ok_result());
         return;
     }
 
+    m_shutdown_running = true;
     m_shutdown_deferred_until_dispatch_complete = false;
     m_shutting_down = true;
 
@@ -1753,9 +1764,15 @@ void PlayFabMultiplayer::shutdown() {
 
     _cancel_active_pending_operations("PlayFab Multiplayer is shutting down.");
 
-    if (m_handle != nullptr) {
-        PFMultiplayerUninitialize(m_handle);
-        m_handle = nullptr;
+    {
+        const HRESULT hr = _uninitialize_native();
+        if (FAILED(hr)) {
+            Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to shut down PlayFab Multiplayer.", "multiplayer_cleanup_failed");
+            emit_signal("multiplayer_error", result);
+            _complete_shutdown_pending_signals(result);
+            m_shutdown_running = false;
+            return;
+        }
     }
 
     _terminate_multiplayer_queue();
@@ -1774,15 +1791,16 @@ void PlayFabMultiplayer::shutdown() {
     m_initialized = false;
     m_processing_state_changes = false;
     m_shutting_down = false;
+    m_shutdown_running = false;
     ++m_dispatch_generation;
-    _complete_shutdown_pending_signals();
+    _complete_shutdown_pending_signals(PlayFabResult::ok_result());
     if (m_owner != nullptr) {
         m_owner->finish_deferred_shutdown_if_ready();
     }
 }
 
 int PlayFabMultiplayer::dispatch() {
-    if (!m_initialized || m_handle == nullptr || m_processing_state_changes) {
+    if (!m_initialized || m_handle == nullptr || m_processing_state_changes || (m_shutting_down && !m_shutdown_running)) {
         return 0;
     }
 
@@ -2479,6 +2497,11 @@ Array PlayFabMultiplayer::get_match_tickets() const {
 }
 
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
+void PlayFabMultiplayer::_test_set_cleanup_failure(bool p_fail) {
+    ERR_FAIL_COND(m_owner != nullptr || m_handle != nullptr);
+    m_test_cleanup_failure = p_fail;
+}
+
 Signal PlayFabMultiplayer::_test_enqueue_shutdown_pending() {
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     _create_pending_operation(0, pending_signal);
