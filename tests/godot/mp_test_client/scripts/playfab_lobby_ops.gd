@@ -139,14 +139,16 @@ func join_arranged_lobby(params: Dictionary) -> Dictionary:
 			return _err("class_unavailable", "PlayFabLobbyJoinConfig not registered in ClassDB")
 		join_config.member_properties = params.get("member_properties", {})
 		# Assign only what the scenario supplied, so a scenario that omits a field
-		# still exercises the unset path (8 / Private / Automatic) rather than
-		# re-sending the default explicitly.
+		# still exercises the unset path (8 / Private / Automatic / unrestricted)
+		# rather than re-sending the default explicitly.
 		if params.has("max_member_count"):
 			join_config.max_member_count = int(params["max_member_count"])
 		if params.has("access_policy"):
 			join_config.access_policy = int(params["access_policy"])
 		if params.has("owner_migration_policy"):
 			join_config.owner_migration_policy = int(params["owner_migration_policy"])
+		if params.has("restrict_invites_to_lobby_owner"):
+			join_config.restrict_invites_to_lobby_owner = bool(params["restrict_invites_to_lobby_owner"])
 		signal_factory = func(): return _runtime.get_multiplayer().join_arranged_lobby_async(_runtime.get_user(), connection_string, join_config)
 
 	var result: Variant = await _runtime.await_completion_with_rate_limit_retry(

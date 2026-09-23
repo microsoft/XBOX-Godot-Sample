@@ -15,13 +15,13 @@
 	<tutorials></tutorials>
 	<methods>
 		<method name="has_max_member_count" qualifiers="const"><return type="bool" /><description>Returns whether [member max_member_count] was explicitly assigned. When [code]false[/code], an arranged join sends [code]8[/code].</description></method>
-		<method name="clear_max_member_count"><description>Resets [member max_member_count] to the default [code]8[/code] and marks it unassigned.</description></method>
+		<method name="clear_max_member_count"><return type="void" /><description>Resets [member max_member_count] to the default [code]8[/code] and marks it unassigned.</description></method>
 		<method name="has_access_policy" qualifiers="const"><return type="bool" /><description>Returns whether [member access_policy] was explicitly assigned. When [code]false[/code], an arranged join sends [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE].</description></method>
-		<method name="clear_access_policy"><description>Resets [member access_policy] to [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE] and marks it unassigned.</description></method>
+		<method name="clear_access_policy"><return type="void" /><description>Resets [member access_policy] to [constant PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE] and marks it unassigned.</description></method>
 		<method name="has_owner_migration_policy" qualifiers="const"><return type="bool" /><description>Returns whether [member owner_migration_policy] was explicitly assigned. When [code]false[/code], an arranged join sends [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC].</description></method>
-		<method name="clear_owner_migration_policy"><description>Resets [member owner_migration_policy] to [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC] and marks it unassigned.</description></method>
+		<method name="clear_owner_migration_policy"><return type="void" /><description>Resets [member owner_migration_policy] to [constant PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC] and marks it unassigned.</description></method>
 		<method name="has_restrict_invites_to_lobby_owner" qualifiers="const"><return type="bool" /><description>Returns whether [member restrict_invites_to_lobby_owner] was explicitly assigned, including an explicit [code]false[/code]. This reports assignment, not compiled GDK support.</description></method>
-		<method name="clear_restrict_invites_to_lobby_owner"><description>Resets [member restrict_invites_to_lobby_owner] to [code]false[/code] and marks it unassigned.</description></method>
+		<method name="clear_restrict_invites_to_lobby_owner"><return type="void" /><description>Resets [member restrict_invites_to_lobby_owner] to [code]false[/code] and marks it unassigned.</description></method>
 	</methods>
 	<members>
 		<member name="member_properties" type="Dictionary" setter="set_member_properties" getter="get_member_properties">Initial string properties for the joining member.</member>
