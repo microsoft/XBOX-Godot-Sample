@@ -5,6 +5,7 @@
 	</brief_description>
 	<description>
 		Surfaced by [signal PlayFabPartyNetwork.state_changed]. Wraps the change kind, the affected network, an optional [PlayFabResult], the participating [PlayFabUser], the related Godot peer id, the new network state (see [enum PlayFabParty.NetworkState]), and a human-readable reason.
+		Kind values are the stable [PlayFabParty] [code]NETWORK_CHANGE_*[/code] constants 1 through 6, not the separate state enum. [code]NETWORK_CHANGE_DESTROYED[/code] is terminal and also reports a successful scoped service reset. [code]NETWORK_CHANGE_ERROR[/code] alone is not terminal; inspect [member state] and [member result]. Native ownership is detached before destruction notifications.
 	</description>
 	<tutorials></tutorials>
 	<methods>

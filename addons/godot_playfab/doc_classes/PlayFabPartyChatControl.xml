@@ -5,6 +5,7 @@
 	</brief_description>
 	<description>
 		Provides advanced access to a PlayFab Party chat control. Most title code should prefer the entity-key helpers on [PlayFabPartyChat] (such as [method PlayFabPartyChat.send_text_async] and [method PlayFabPartyChat.set_chat_permissions_async]) which do not require maintaining chat-control identity.
+		Native destruction and successful Party reset invalidate retained wrappers before terminal notifications. Polling then reports no active audio and mutations return resource-not-ready errors rather than using released SDK handles. Discard retained controls and explicitly recreate them after Party is initialized again.
 	</description>
 	<tutorials></tutorials>
 	<methods>

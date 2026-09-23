@@ -371,6 +371,27 @@ func _find_local_lobby_member(lobby: Object) -> Object:
 	return null
 
 
+func test_scoped_shutdown_failure_retains_contexts_until_uninitialize_succeeds() -> void:
+	get_playfab()
+	var service = ClassDB.instantiate("PlayFabMultiplayer")
+	assert_not_null(service)
+	assert_true(service.has_method("_test_set_cleanup_failure"), "Native cleanup hooks are required")
+	var completions: Array = []
+	service._test_enqueue_shutdown_pending().connect(func(result): completions.append(result))
+	service._test_set_cleanup_failure(true)
+	var result = await await_completion(service.shutdown_async())
+	assert_false(result.ok)
+	assert_eq(result.code, "multiplayer_cleanup_failed")
+	assert_eq(service._test_pending_operation_count(), 1)
+	assert_eq(completions.size(), 0)
+	result = await await_completion(service.initialize_async())
+	assert_eq(result.code, "shutting_down")
+	service._test_set_cleanup_failure(false)
+	assert_true((await await_completion(service.shutdown_async())).ok)
+	assert_eq(completions.size(), 1)
+	assert_eq(service._test_pending_operation_count(), 0)
+
+
 func _assert_signal_error(async_signal, expected_code: String, name: String) -> void:
 	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
 	if typeof(async_signal) != TYPE_SIGNAL:
