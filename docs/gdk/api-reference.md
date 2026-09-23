@@ -118,6 +118,7 @@ peer test-account XUIDs from the checklist in
 | `get_service_configuration_id()` | `XboxResult` | Read the current SCID from the shared XBOX services scaffold (`data` is `String`) |
 | `is_xbox_services_initialized()` | `bool` | Check whether the shared XBOX services scaffold is initialized |
 | `is_feature_available(name)` | `bool` | Check whether an optional GDK runtime feature is available (`XGameRuntimeIsFeatureAvailable`). `name` is a case-insensitive feature id such as `"XAccessibility"`, `"XGameUI"`, `"XGameSave"`, or `"XGameStreaming"`. Unknown names push a warning and return `false`. |
+| `is_handheld()` | `bool` | Whether Windows identifies the device as a gaming handheld. Does not require `GDK.initialize()`. |
 
 ### Usage
 
@@ -267,6 +268,15 @@ func _on_user_changed(user: XboxUser, change_kind: String):
 | `show_error_dialog_async(error_code, context)` | `Signal` | Show the system error dialog for an HRESULT `error_code` with optional `context` text |
 | `show_send_game_invite_async(requesting_user, session_configuration_id, session_template_name, session_id, invitation_text, custom_activation_context)` | `Signal` | Show the system send-game-invite UI for a multiplayer session |
 | `show_text_entry_async(title_text, description_text, default_text, input_scope, max_text_length)` | `Signal` | Show the virtual-keyboard text entry UI; success data includes `text` |
+| `show_virtual_keyboard()` | `XboxResult` | Best-effort request to show the Windows gamepad keyboard for the focused Godot text control; success `data` is whether Windows accepted the request. Does not require `GDK.initialize()`. |
+| `hide_virtual_keyboard()` | `XboxResult` | Best-effort request to dismiss the Windows virtual keyboard; success `data` is whether Windows accepted the request. Does not require `GDK.initialize()`. |
+
+`show_text_entry_async()` and `show_virtual_keyboard()` serve different input
+models. The former opens the GDK system text-entry UI and returns a complete
+string. The latter leaves the focused `LineEdit` or `TextEdit` in place and
+asks Windows to route virtual-keyboard input to it. Windows can validly decline
+the best-effort request when the game is not foreground or a hardware keyboard
+is available.
 
 ### Validation
 

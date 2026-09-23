@@ -9,6 +9,41 @@ func after_each() -> void:
 	reset_runtime()
 
 
+func _assert_virtual_keyboard_result(result, method_name: String) -> void:
+	assert_object_is(result, "XboxResult", "%s returns XboxResult" % method_name)
+	if not is_class_instance(result, "XboxResult"):
+		return
+
+	if result.ok:
+		assert_typeof(result.data, TYPE_BOOL, "%s success data is a bool" % method_name)
+	else:
+		assert_true(result.code.length() > 0, "%s failure exposes an error code" % method_name)
+		assert_true(result.message.length() > 0, "%s failure exposes an error message" % method_name)
+
+
+func test_virtual_keyboard_contract_before_initialization() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	assert_false(gdk.is_initialized(), "GDK runtime starts uninitialized")
+
+	var game_ui = gdk.get_game_ui()
+	assert_not_null(game_ui, "GDK.game_ui returns service object")
+	if game_ui == null:
+		return
+
+	var show_result = game_ui.show_virtual_keyboard()
+	_assert_virtual_keyboard_result(show_result, "show_virtual_keyboard()")
+	assert_false(gdk.is_initialized(), "show_virtual_keyboard() does not initialize the GDK runtime")
+
+	# Always issue the matching hide request so a host that accepted the show
+	# request does not leave its virtual keyboard visible after the test.
+	var hide_result = game_ui.hide_virtual_keyboard()
+	_assert_virtual_keyboard_result(hide_result, "hide_virtual_keyboard()")
+	assert_false(gdk.is_initialized(), "hide_virtual_keyboard() does not initialize the GDK runtime")
+
+
 func test_game_ui_surface_and_validation() -> void:
 	if pending_unless_runtime_available():
 		return
@@ -29,6 +64,8 @@ func test_game_ui_surface_and_validation() -> void:
 		"show_error_dialog_async",
 		"show_send_game_invite_async",
 		"show_text_entry_async",
+		"show_virtual_keyboard",
+		"hide_virtual_keyboard",
 	]:
 		assert_has_method_named(game_ui, method_name)
 

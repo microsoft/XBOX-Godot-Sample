@@ -42,6 +42,7 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 | Events | Implemented | `GDK.events` wraps the per-title `XGameEvent.h` writer (`XGameEventWrite`) for GDK-native in-game telemetry. Complementary to PlayFab analytics. The `events_c.h` Xbox Services configuration/tuning APIs (`XblEventsSet*`) remain internal-gated and unwrapped |
 | Game Save (files) | Implemented | `GDK.game_save` wraps `XGameSaveFiles.h` (`XGameSaveFilesGetFolderWithUiAsync`, `XGameSaveFilesGetRemainingQuota`) for GDK-native file-style saves backed by Connected Storage. Requires the title's Partner Center Xbox services configuration (`TitleId`/`MSAAppId`, matching SCID, Connected Storage enabled) and registered package identity. Unrelated to Xbox Services Title Storage (`GDK.title_storage`). The richer `XGameSave.h` connected-storage container API is intentionally left unwrapped (overlaps PlayFab Game Saves) |
 | Runtime feature probe | Implemented | `GDK.system.is_feature_available(name)` wraps `XGameRuntimeIsFeatureAvailable` (`XGameRuntimeFeature.h`) so titles can gate optional GDK features (e.g. Events, GameChat) at runtime |
+| Windows handheld input | Implemented | `GDK.system.is_handheld()` exposes the Windows gaming-handheld device form; `GDK.game_ui.show_virtual_keyboard()` / `hide_virtual_keyboard()` wrap the baseline Windows `CoreInputView` gamepad keyboard for focused Godot text controls |
 | Voice and text chat | Implemented | `GDK.game_chat` wraps the Game Chat 2 (`GameChat2.h`) `chat_manager` for GDK-native voice + text chat: user management, communication relationships, mute/volume controls, text, and text-to-speech. The wrapper exposes Game Chat's opaque data-frame surface (`outgoing_data_frame` signal + `process_incoming_data_frame`) and builds **no** network transport — titles ferry frames over their own transport (sample/tests use single-process loopback). This is the GDK-native alternative to PlayFab Party (`godot_playfab`) |
 | Networking | Implemented | `GDK.networking` wraps `XNetworking.h`: the preferred local UDP multiplayer port (sync + async + change signal), connectivity hints (query + change signal), NSAL security information for title endpoints, and the TCP queued-receive-buffer configuration/statistics surfaces. `XNetworkingVerifyServerCertificate` is excluded (it needs a WinHTTP `HINTERNET` handle Godot cannot produce) and the `Utf16` security-information variant is excluded as redundant for Godot's single `String` type. This is a diagnostics/configuration surface only — it builds no transport |
 | Multiplayer/session/matchmaking | Excluded | Do not wrap matchmaking, MPSD, multiplayer sessions, lobby/session transport, or legacy invite APIs |
@@ -789,6 +790,8 @@ show_achievements_async(requesting_user: XboxUser) -> Signal
 show_error_dialog_async(error_code: int, context := "") -> Signal
 show_send_game_invite_async(requesting_user: XboxUser, session_configuration_id: String, session_template_name: String, session_id: String, invitation_text := "", custom_activation_context := "") -> Signal
 show_text_entry_async(title_text := "", description_text := "", default_text := "", input_scope := "default", max_text_length := 0) -> Signal
+show_virtual_keyboard() -> XboxResult
+hide_virtual_keyboard() -> XboxResult
 ```
 
 ##### Notes
@@ -811,6 +814,7 @@ show_text_entry_async(title_text := "", description_text := "", default_text := 
 | `show_error_dialog_async()` | `XGameUiShowErrorDialogAsync`, `XGameUiShowErrorDialogResult` | Takes an HRESULT `error_code` plus optional `context` text. |
 | `show_send_game_invite_async()` | `XGameUiShowSendGameInviteAsync`, `XGameUiShowSendGameInviteResult` | Requires session configuration/template/id; optional invitation text and custom activation context. Title owns the MPSD session identifiers. |
 | `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `XboxResult.data.text`. |
+| `show_virtual_keyboard()` / `hide_virtual_keyboard()` | Windows `CoreInputView::TryShow(Gamepad)` / `TryHide()` | Best-effort in-place keyboard control for a focused Godot `LineEdit` or `TextEdit`; the synchronous `XboxResult.data` bool reports whether Windows accepted the request and does not require GDK runtime initialization. |
 
 > Excluded from `GDK.game_ui` (engine/host overlap): `XGameUiShowStateShareAsync` and `XGameUiShowWebAuthenticationAsync`/`WithOptions` — Godot already provides web-auth/state-share equivalents.
 

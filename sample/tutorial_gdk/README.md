@@ -27,6 +27,8 @@ This Godot 4.x project is the reference implementation for the [GDK tutorial tra
 | 2 | `g02_achievement.tscn` | [GDK 2 — Unlock achievement](../../docs/tutorials/gdk/02-achievement.md) |
 | 3 | `g03_storage_stats.tscn` | [GDK 3 — Title Storage and stats](../../docs/tutorials/gdk/03-storage-stats.md) |
 | 4 | `g04_mpa.tscn` | [GDK 4 — Multiplayer Activity](../../docs/tutorials/gdk/04-mpa.md) |
+| 5 | `g05_speech.tscn` | GDK 5 — Text-to-Speech |
+| 6 | `g06_handheld_input.tscn` | [GDK 6 — Windows handheld text input](../../docs/tutorials/gdk/06-handheld-input.md) |
 
 `shared/tutorial_picker.tscn` is the default scene.
 

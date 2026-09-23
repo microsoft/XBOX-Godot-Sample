@@ -36,6 +36,7 @@ public:
     Ref<XboxResult> get_service_configuration_id() const;
     bool is_xbox_services_initialized() const;
     bool is_feature_available(const String &p_feature_name) const;
+    bool is_handheld() const;
 };
 
 } // namespace godot

@@ -67,6 +67,10 @@ bool _resolve_feature(const String &p_feature_name, XGameRuntimeFeature *r_featu
     return false;
 }
 
+using RtlGetDeviceFamilyInfoEnumFn = void(WINAPI *)(ULONGLONG *, DWORD *, DWORD *);
+
+constexpr DWORD kDeviceFamilyDeviceFormGamingHandheld = 0x0000002E;
+
 } // namespace
 
 void XboxSystem::_bind_methods() {
@@ -76,6 +80,7 @@ void XboxSystem::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_service_configuration_id"), &XboxSystem::get_service_configuration_id);
     ClassDB::bind_method(D_METHOD("is_xbox_services_initialized"), &XboxSystem::is_xbox_services_initialized);
     ClassDB::bind_method(D_METHOD("is_feature_available", "feature_name"), &XboxSystem::is_feature_available);
+    ClassDB::bind_method(D_METHOD("is_handheld"), &XboxSystem::is_handheld);
 }
 
 void XboxSystem::set_owner(Xbox *p_owner) {
@@ -173,6 +178,26 @@ bool XboxSystem::is_feature_available(const String &p_feature_name) const {
     }
 
     return XGameRuntimeIsFeatureAvailable(feature);
+}
+
+bool XboxSystem::is_handheld() const {
+    HMODULE ntdll_module = GetModuleHandleW(L"ntdll.dll");
+    if (ntdll_module == nullptr) {
+        return false;
+    }
+
+#pragma warning(push)
+#pragma warning(disable : 4191)
+    const auto get_device_family_info = reinterpret_cast<RtlGetDeviceFamilyInfoEnumFn>(
+            GetProcAddress(ntdll_module, "RtlGetDeviceFamilyInfoEnum"));
+#pragma warning(pop)
+    if (get_device_family_info == nullptr) {
+        return false;
+    }
+
+    DWORD device_form = 0;
+    get_device_family_info(nullptr, nullptr, &device_form);
+    return device_form == kDeviceFamilyDeviceFormGamingHandheld;
 }
 
 } // namespace godot
