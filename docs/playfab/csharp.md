@@ -152,10 +152,69 @@ signals) are exposed as C# `event Action<...>` members on those services. Party'
 Godot-RPC-over-network path returns a `MultiplayerPeer` you can assign to
 `SceneTree.GetMultiplayer().MultiplayerPeer`.
 
+#### Premade-group matchmaking
+
+`PlayFabMatchmakingTicketConfig.Members` contains local signed-in users.
+`MembersToMatchWith` contains remote entity-key dictionaries. Following the
+read-only facade convention, assign the latter through `Raw.Set`:
+
+PlayFab rejects a ticket whose members already fill the queue's `MaxMatchSize`,
+so a premade group of N players needs a queue whose `MaxMatchSize` exceeds N.
+
+```csharp
+GodotObject raw = ClassDB.Instantiate("PlayFabMatchmakingTicketConfig").AsGodotObject();
+raw.Set("queue_name", "squads"); // MaxMatchSize > the premade group's size
+raw.Set("timeout_seconds", 120);
+raw.Set("members_to_match_with", new Godot.Collections.Array
+{
+    new Godot.Collections.Dictionary
+    {
+        ["id"] = friendEntityId,
+        ["type"] = "title_player_account",
+    },
+});
+PlayFabMatchmakingTicketConfig config = PlayFabMatchmakingTicketConfig.From(raw);
+
+PlayFabResult created = await PlayFab.Multiplayer.CreateMatchTicketAsync(user, config);
+```
+
+The remote member joins with
+`JoinMatchTicketAsync(user, ticketId, queueName, localMembers)`;
+`localMembers: null` sends an empty Array and therefore auto-includes `user`
+with empty attributes. The Task succeeds only after the ticket leaves
+`STATUSJOINING` for an accepted status; that acceptance is not a matched result.
+
+The canonical status/event contract is documented on the native
+`PlayFabMatchTicket` class. In C#, subscribe to `StateChanged`, inspect
+`ticket.Status` immediately, and reconcile it on every event kind.
+
+#### Arranged-lobby initialization
+
+`JoinArrangedLobbyAsync` initializes the lobby it creates from
+`PlayFabLobbyJoinConfig`. Following the read-only facade convention, the managed
+type exposes `MaxMemberCount`, `AccessPolicy`, `OwnerMigrationPolicy`, and
+`RestrictInvitesToLobbyOwner` for reading; callers assign through `Raw.Set`:
+
+```csharp
+GodotObject raw = ClassDB.Instantiate("PlayFabLobbyJoinConfig").AsGodotObject();
+raw.Set("max_member_count", 4);   // this game mode holds 4
+raw.Set("restrict_invites_to_lobby_owner", false);
+PlayFabLobbyJoinConfig config = PlayFabLobbyJoinConfig.From(raw);
+
+PlayFabResult joined =
+    await PlayFab.Multiplayer.JoinArrangedLobbyAsync(user, connectionString, config);
+```
+
+The C# tutorial samples wrap these through optional
+`TutorialSupport.LobbyJoinConfig(...)` arguments. The canonical defaults,
+presence behavior, compile-time GDK edition gate, and Xbox-activity distinction
+are documented on the native `PlayFabLobbyJoinConfig` class.
+
 ## Parity guarantee
 
 Covered by `tests/csharp/FacadeParity.Tests` (run via
 `tools/run_csharp_tests.ps1`) — every native `doc_classes` member is asserted to
-have a managed wrapper. Targeted reflection assertions also lock the legacy and
+have a managed wrapper. Targeted reflection assertions also lock matchmaking
+method/property shapes, both matchmaking value spaces, the legacy and
 source-selecting friend method signatures/defaults, the `[Flags]`/`long` enum
-shape, and all six values against the native XML.
+shape, and all six friend-source values against the native XML.

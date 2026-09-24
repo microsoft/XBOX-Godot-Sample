@@ -48,6 +48,93 @@ public class PlayFabParityTests
     }
 
     [Fact]
+    public void ArrangedLobbyJoinConfigExposesPresenceMethodsAndProperties()
+    {
+        // Generic parity requires the members by name; these assertions also
+        // lock their public property and zero-argument method signatures.
+        System.Type type = typeof(GodotPlayFab.Types.PlayFabLobbyJoinConfig);
+
+        var fields = new (string Name, Type Type)[]
+        {
+            ("MaxMemberCount", typeof(int)),
+            ("AccessPolicy", typeof(int)),
+            ("OwnerMigrationPolicy", typeof(int)),
+            ("RestrictInvitesToLobbyOwner", typeof(bool)),
+        };
+        foreach ((string field, Type fieldType) in fields)
+        {
+            PropertyInfo property = type.GetProperty(field);
+            Assert.True(property != null, $"PlayFabLobbyJoinConfig.{field} property is missing.");
+            Assert.Equal(fieldType, property.PropertyType);
+            Assert.True(property.CanRead, $"PlayFabLobbyJoinConfig.{field} must be readable.");
+
+            MethodInfo has = type.GetMethod("Has" + field);
+            Assert.True(has != null, $"PlayFabLobbyJoinConfig.Has{field}() is missing.");
+            Assert.Equal(typeof(bool), has.ReturnType);
+            Assert.Empty(has.GetParameters());
+
+            MethodInfo clear = type.GetMethod("Clear" + field);
+            Assert.True(clear != null, $"PlayFabLobbyJoinConfig.Clear{field}() is missing.");
+            Assert.Equal(typeof(void), clear.ReturnType);
+            Assert.Empty(clear.GetParameters());
+        }
+    }
+
+    [Fact]
+    public void MatchmakingTicketSurfaceKeepsSignaturesAndConstants()
+    {
+        Type ticketType = typeof(GodotPlayFab.Types.PlayFabMatchTicket);
+        PropertyInfo status = ticketType.GetProperty(nameof(GodotPlayFab.Types.PlayFabMatchTicket.Status));
+        Assert.NotNull(status);
+        Assert.Equal(typeof(int), status.PropertyType);
+
+        var eventKinds = new (int ManagedValue, int ExpectedValue)[]
+        {
+            (GodotPlayFab.Types.PlayFabMatchTicket.CREATED, 100),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSCHANGED, 101),
+            (GodotPlayFab.Types.PlayFabMatchTicket.COMPLETED, 102),
+            (GodotPlayFab.Types.PlayFabMatchTicket.CANCELLED, 103),
+            (GodotPlayFab.Types.PlayFabMatchTicket.FAILED, 104),
+        };
+        foreach ((int managedValue, int expectedValue) in eventKinds)
+        {
+            Assert.Equal(expectedValue, managedValue);
+        }
+
+        var statuses = new (int ManagedValue, int ExpectedValue)[]
+        {
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSCREATING, 0),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSJOINING, 1),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSWAITINGFORPLAYERS, 2),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSWAITINGFORMATCH, 3),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSMATCHED, 4),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSCANCELLED, 5),
+            (GodotPlayFab.Types.PlayFabMatchTicket.STATUSFAILED, 6),
+        };
+        foreach ((int managedValue, int expectedValue) in statuses)
+        {
+            Assert.Equal(expectedValue, managedValue);
+        }
+
+        PropertyInfo membersToMatchWith =
+            typeof(GodotPlayFab.Types.PlayFabMatchmakingTicketConfig)
+                .GetProperty(nameof(GodotPlayFab.Types.PlayFabMatchmakingTicketConfig.MembersToMatchWith));
+        Assert.NotNull(membersToMatchWith);
+        Assert.Equal(typeof(Godot.Collections.Array), membersToMatchWith.PropertyType);
+
+        MethodInfo join = typeof(GodotPlayFab.Services.PlayFabMultiplayer)
+            .GetMethod(nameof(GodotPlayFab.Services.PlayFabMultiplayer.JoinMatchTicketAsync));
+        Assert.NotNull(join);
+        Assert.Equal(typeof(Task<GodotPlayFab.PlayFabResult>), join.ReturnType);
+        Assert.Collection(
+            join.GetParameters(),
+            parameter => AssertParameter(parameter, "user", typeof(GodotPlayFab.Types.PlayFabUser), false),
+            parameter => AssertParameter(parameter, "ticket_id", typeof(string), false),
+            parameter => AssertParameter(parameter, "queue_name", typeof(string), false),
+            parameter => AssertParameter(parameter, "local_members", typeof(Godot.Collections.Array), true, null));
+    }
+
+    [Fact]
     public void FriendLeaderboardCompatibilityMethodKeepsItsSignature()
     {
         MethodInfo method = typeof(GodotPlayFab.Services.PlayFabLeaderboards)

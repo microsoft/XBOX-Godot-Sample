@@ -159,17 +159,68 @@ public:
     bool is_empty() const;
 };
 
+// Join configuration shared by ordinary and arranged lobby joins.
+//
+// member_properties applies to every join. The four fields below are consumed
+// only by join_arranged_lobby_async().
+//
+// Presence here does NOT mean what it means on PlayFabLobbyUpdateConfig. The
+// three scalar native fields are mandatory, so presence selects between an
+// explicit value and 8 / Private / Automatic. The edition-gated invitation
+// bool defaults to false; older builds reject only an explicit true request.
+// clear_*() restores the field's default and marks it unassigned.
 class PlayFabLobbyJoinConfig : public RefCounted {
     GDCLASS(PlayFabLobbyJoinConfig, RefCounted);
 
     Dictionary m_member_properties;
+    int64_t m_max_member_count = DEFAULT_MAX_MEMBER_COUNT;
+    bool m_has_max_member_count = false;
+    int64_t m_access_policy = PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    bool m_has_access_policy = false;
+    int64_t m_owner_migration_policy = PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+    bool m_has_owner_migration_policy = false;
+    bool m_restrict_invites_to_lobby_owner = false;
+    bool m_has_restrict_invites_to_lobby_owner = false;
 
 protected:
     static void _bind_methods();
 
 public:
+    // Arranged-lobby defaults applied when a field is unset or cleared. These
+    // reproduce the values this addon hardcoded before the fields existed.
+    static constexpr int64_t DEFAULT_MAX_MEMBER_COUNT = 8;
+    static constexpr int64_t DEFAULT_ACCESS_POLICY = PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE;
+    static constexpr int64_t DEFAULT_OWNER_MIGRATION_POLICY = PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC;
+
     Dictionary get_member_properties() const;
     void set_member_properties(const Dictionary &p_properties);
+
+    // Accepts PFLobbyMaxMemberCountLowerLimit..PFLobbyMaxMemberCountUpperLimit.
+    int64_t get_max_member_count() const;
+    void set_max_member_count(int64_t p_max_member_count);
+    bool has_max_member_count() const;
+    void clear_max_member_count();
+
+    // Accepts PlayFabLobbyConfig.ACCESS_POLICY_*.
+    int64_t get_access_policy() const;
+    void set_access_policy(int64_t p_access_policy);
+    bool has_access_policy() const;
+    void clear_access_policy();
+
+    // Accepts PlayFabLobbyConfig.OWNER_MIGRATION_*. The native Server policy is
+    // not reachable from a client-arranged join and is intentionally unbound.
+    int64_t get_owner_migration_policy() const;
+    void set_owner_migration_policy(int64_t p_owner_migration_policy);
+    bool has_owner_migration_policy() const;
+    void clear_owner_migration_policy();
+
+    bool get_restrict_invites_to_lobby_owner() const;
+    void set_restrict_invites_to_lobby_owner(bool p_restrict);
+    bool has_restrict_invites_to_lobby_owner() const;
+    void clear_restrict_invites_to_lobby_owner();
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    bool _test_supports_restrict_invites_to_lobby_owner() const;
+#endif
 };
 
 class PlayFabLobbySearchConfig : public RefCounted {
@@ -213,6 +264,7 @@ class PlayFabMatchmakingTicketConfig : public RefCounted {
     String m_queue_name;
     int64_t m_timeout_seconds = 120;
     Array m_members;
+    Array m_members_to_match_with;
 
 protected:
     static void _bind_methods();
@@ -224,6 +276,12 @@ public:
     void set_timeout_seconds(int64_t p_timeout_seconds);
     Array get_members() const;
     void set_members(const Array &p_members);
+    Array get_members_to_match_with() const;
+    void set_members_to_match_with(const Array &p_members_to_match_with);
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    Ref<PlayFabResult> _test_validate_members_to_match_with(const Array &p_local_entity_keys) const;
+    Ref<PlayFabResult> _test_prepare_local_members(const Ref<PlayFabUser> &p_requester, const Array &p_members) const;
+#endif
 };
 
 class PlayFabLobbyMember : public RefCounted {
@@ -547,6 +605,16 @@ public:
         FAILED = 104,
     };
 
+    enum Status : int64_t {
+        STATUS_CREATING = 0,
+        STATUS_JOINING = 1,
+        STATUS_WAITING_FOR_PLAYERS = 2,
+        STATUS_WAITING_FOR_MATCH = 3,
+        STATUS_MATCHED = 4,
+        STATUS_CANCELLED = 5,
+        STATUS_FAILED = 6,
+    };
+
     void set_owner(PlayFabMultiplayer *p_owner);
     void adopt_handle(PFMatchmakingTicketHandle p_ticket_handle, const String &p_queue_name, const Array &p_members);
     PFMatchmakingTicketHandle get_native_handle() const;
@@ -576,6 +644,7 @@ private:
     friend class PlayFabMatchTicket;
 
     struct PendingOperation;
+    static constexpr int64_t PENDING_MATCH_TICKET_JOIN = -1000;
 
     PlayFab *m_owner = nullptr;
     PFMultiplayerHandle m_handle = nullptr;
@@ -609,6 +678,9 @@ private:
     void _untrack_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
     void _complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket);
+    void _complete_match_ticket_join_if_ready(
+            const Ref<PlayFabMatchTicket> &p_ticket,
+            const Ref<PlayFabResult> &p_terminal_result = Ref<PlayFabResult>());
     void _terminate_multiplayer_queue();
     HRESULT _uninitialize_native();
     void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
@@ -626,6 +698,7 @@ private:
     void _test_set_cleanup_failure(bool p_fail);
     Signal _test_enqueue_shutdown_pending();
     int64_t _test_pending_operation_count() const;
+    int64_t _test_join_match_ticket_readiness(int64_t p_status) const;
 #endif
 
     void _emit_ticket_change(
@@ -663,6 +736,11 @@ public:
     Signal find_lobbies_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabLobbySearchConfig> &p_search = Ref<PlayFabLobbySearchConfig>());
 
     Signal create_match_ticket_async(const Ref<PlayFabUser> &p_user, const Ref<PlayFabMatchmakingTicketConfig> &p_config);
+    Signal join_match_ticket_async(
+            const Ref<PlayFabUser> &p_user,
+            const String &p_ticket_id,
+            const String &p_queue_name,
+            const Array &p_local_members = Array());
 
     Array get_lobbies() const;
     Ref<PlayFabLobby> get_lobby(const String &p_lobby_id) const;

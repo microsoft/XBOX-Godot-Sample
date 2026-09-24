@@ -21,7 +21,7 @@ This is the landing page for the `godot_playfab` docs set.
 - leaderboard submit, global query, around-user query, and source-selecting friends/social leaderboard query
 - client-safe PlayFab service wrappers under `PlayFab.accounts`, `PlayFab.catalog`, `PlayFab.cloud_script`, `PlayFab.entity_data`, `PlayFab.experimentation`, `PlayFab.friends`, `PlayFab.groups`, `PlayFab.inventory`, `PlayFab.localization`, `PlayFab.player_data`, `PlayFab.statistics`, and `PlayFab.title_data`
 - `PlayFab.events` as a reserved service namespace; the current Microsoft GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
-- PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
+- PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, matchmaking ticket create/join for premade groups, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
 - PlayFab Party network host (`create_and_join_network_async`) and join (`join_network_async`) flows over the PartyManager runtime, with peer-id handshake (the host marks its endpoint with an immutable `pf.role=host` shared property so clients identify and target the host deterministically; host is peer id `1`), descriptor publishing, chat controls (voice/text/transcription) created explicitly per local user via `chat.create_local_chat_control_async` and reused across networks, mute, and permission management; the per-network peer object is a Godot `MultiplayerPeerExtension`
 - PlayFab Party voice surface: polled chat indicators (`chat.get_local_chat_indicator()`, `chat.get_chat_indicator(entity_key)`, `chat.get_chat_indicators()` — Party raises no state change for indicators, so titles poll them), local mic mute for push-to-talk (`chat.set_audio_input_muted_async`), per-peer render volume, encoder bitrate, voice audio options, chat language, transcription/translation options, text-to-speech, and polled audio device state
 - PlayFab Party diagnostics: `PlayFabPartyNetwork.get_statistics()` (the 16 native `NETWORK_STATISTIC_*` counters) and `get_device_connection_type(peer_id)` (relay vs. direct peer connection)
@@ -246,6 +246,77 @@ partial result.
 ## Multiplayer and Party notes
 
 Lobby and matchmaking calls use the signed-in user's native PlayFab entity handle. Match tickets do not auto-join arranged lobbies; title code decides whether to pass the reported connection string to `join_arranged_lobby_async`. Failed lobby create/join completions are removed from `PlayFab.multiplayer.get_lobbies()` before their failure result is surfaced. If the native Multiplayer or Party state-change finish call fails, the addon emits `multiplayer_error` or `party_error`, resets that service to an uninitialized state, and requires a fresh `initialize_async()` before more calls.
+
+### Premade-group matchmaking tickets
+
+`PlayFabMatchmakingTicketConfig.members` contains local signed-in users on this
+device. `members_to_match_with` is separate: it contains remote premade-group
+entity keys shaped as `{"id": ..., "type": ...}`. Remote keys must be complete,
+unique, and disjoint from the local users. Leaving the array empty preserves
+ordinary matchmaking.
+
+Size the queue accordingly: PlayFab rejects a ticket whose members already fill
+the queue's `MaxMatchSize`, because there would be nobody left to match against.
+A premade group of N players therefore needs a queue whose `MaxMatchSize` is
+greater than N — a pair needs a 3+ player queue, not a 2-player one.
+
+```gdscript
+var config := PlayFabMatchmakingTicketConfig.new()
+config.queue_name = "squads"  # MaxMatchSize > the premade group's size
+config.timeout_seconds = 120
+config.members_to_match_with = [friend_entity_key]
+
+var created = await PlayFab.multiplayer.create_match_ticket_async(user, config)
+if not created.ok:
+	push_warning(created.message)
+	return
+
+var ticket: PlayFabMatchTicket = created.data
+ticket.state_changed.connect(_on_ticket_changed)
+_handle_ticket_status(ticket, ticket.status) # reconcile immediately
+```
+
+The remote player joins that same ticket with
+`join_match_ticket_async(user, ticket_id, queue_name, local_members)`. The
+native request begins in `STATUS_JOINING`; the completion succeeds only after
+the service accepts the local users into the ticket. Acceptance is not a match:
+the returned ticket continues through the ordinary matchmaking statuses.
+
+The canonical status/event and level-triggered contract is documented on
+`PlayFabMatchTicket`. In title code, connect `state_changed`, then reconcile
+`ticket.status` immediately and on every event kind; do not wait for a replayed
+edge. `ticket.members` remains local users only.
+
+### Arranged-lobby initialization
+
+`join_arranged_lobby_async` initializes a newly created arranged lobby from
+`PlayFabLobbyJoinConfig`: capacity, access policy, owner migration, and the
+PlayFab Lobby owner-only invitation restriction. The invitation field is
+compile-time edition-gated; see the canonical `PlayFabLobbyJoinConfig` class
+documentation for its older-GDK `false`/`true` behavior. Ordinary
+`join_lobby_async` ignores all four arranged-only fields.
+
+```gdscript
+var config := PlayFabLobbyJoinConfig.new()
+config.max_member_count = 4                                          # this game mode holds 4
+config.access_policy = PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE
+config.owner_migration_policy = PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC
+config.restrict_invites_to_lobby_owner = false
+
+var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(user, connection_string, config)
+if not join_result.ok:
+	push_warning(join_result.message)
+	return
+```
+
+Leave a field unset to keep its default and use its `clear_*()` method to return
+to that default. `has_*()` reports assignment, including explicit zero or
+`false`; it does not report whether the compiled GDK supports `true`.
+
+Only the first successful joiner's values initialize a newly created arranged
+lobby. Later joiners do not reconfigure it.
+
+### Party chat-control reset
 
 Leaving a Party network retains its reusable local chat control. A full reset uses one checked, awaited sequence: leave the network, destroy the local control, explicitly recreate it, then join the existing still-hosted network. Native destruction failures report `party_resource_not_ready`; shutdown cancellation reports `cancelled`. A timeout is not success.
 

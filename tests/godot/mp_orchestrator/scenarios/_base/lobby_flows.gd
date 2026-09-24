@@ -77,9 +77,82 @@ func run_lobby_create_with_initial_search_properties(orch) -> Dictionary:
 func run_lobby_join_by_connection_string(orch) -> Dictionary:
 	var gate: Variant = requires_live_write(orch)
 	if gate != null: return gate
-	var setup: Variant = await _create_join_lobby(orch, ["host", "guest"])
-	if _is_failure(setup): return setup
-	return ok({ "connection_string": setup.get("connection_string", "") })
+	var signed: Variant = await _sign_in_roles(orch, ["host", "guest"])
+	if _is_failure(signed): return signed
+
+	var expected_config: Dictionary = {
+		"max_member_count": 4,
+		"access_policy": 0,
+		"owner_migration_policy": 0,
+		"restrict_invites_to_lobby_owner": false,
+	}
+	var host_lobby: Variant = await _create_lobby(
+		orch,
+		"host",
+		"main",
+		_public_lobby_config(4, {}, {}, _role_member_properties("host")))
+	if _is_failure(host_lobby): return host_lobby
+
+	var member_token: String = _unique_token(orch, "ordinary-join-overrides")
+	# PlayFab caps lobby property keys at 30 characters; a longer key makes the
+	# service reject the join with a bad-request error.
+	var guest_member_properties: Dictionary = _role_member_properties("guest", {
+		"ordinary_override": member_token,
+	})
+	var guest_lobby: Variant = await _join_lobby(
+		orch,
+		"guest",
+		"main",
+		String(host_lobby.get("connection_string", "")),
+		guest_member_properties,
+		{
+			"max_member_count": 0,
+			"access_policy": -1,
+			"owner_migration_policy": -1,
+			# An arranged join rejects `true` on builds without the April 2026 GDK
+			# fields; an ordinary join must neither validate nor apply it.
+			"restrict_invites_to_lobby_owner": true,
+		})
+	if _is_failure(guest_lobby): return guest_lobby
+
+	var err: Variant = assert_eq(
+		String(guest_lobby.get("lobby_id", "")),
+		String(host_lobby.get("lobby_id", "")),
+		"ordinary join should attach the guest to the host-created lobby")
+	if err != null: return err
+	for field in expected_config:
+		err = assert_eq(
+			int(guest_lobby.get(field, -1)),
+			int(expected_config[field]),
+			"ordinary join should preserve host-created %s" % field)
+		if err != null: return err
+	var guest_member: Dictionary = _member_for_role(guest_lobby, "guest")
+	for key in guest_member_properties:
+		err = assert_eq(
+			String(guest_member.get("properties", {}).get(key, "")),
+			String(guest_member_properties[key]),
+			"ordinary join should carry guest member property %s" % key)
+		if err != null: return err
+
+	var converged_host: Variant = await _wait_lobby_member_count(orch, "host", "main", 2)
+	if _is_failure(converged_host): return converged_host
+	var converged_guest: Variant = await _wait_lobby_member_count(orch, "guest", "main", 2)
+	if _is_failure(converged_guest): return converged_guest
+	for field in expected_config:
+		err = assert_eq(
+			int(converged_host.get(field, -1)),
+			int(expected_config[field]),
+			"guest overrides must not change host %s" % field)
+		if err != null: return err
+	var member_converged: Variant = await _wait_member_property(
+		orch,
+		"host",
+		"main",
+		"guest",
+		"ordinary_override",
+		member_token)
+	if _is_failure(member_converged): return member_converged
+	return ok({ "connection_string": host_lobby.get("connection_string", "") })
 
 
 func run_lobby_join_three_clients(orch) -> Dictionary:

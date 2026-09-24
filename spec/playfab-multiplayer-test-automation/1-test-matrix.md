@@ -92,7 +92,7 @@ These tables anchor the `state_transitions` scenarios. Each cell is a transition
 | `matched` | host calls `cancel_match_ticket_async` | `cancelled` (idempotent if already terminal) | `match.status_changed = cancelled` on host |
 | `waiting_for_players` | host calls `cancel_match_ticket_async` | `cancelled` | `match.status_changed = cancelled` on host |
 | `waiting_for_players` | ticket `timeout_seconds` elapses | `failed` w/ timeout cause | `match.status_changed = failed` on host |
-| `matched` | host calls `join_arranged_lobby_async` w/ match conn_str | `joined(arranged_lobby)` | `lobby.created` on host |
+| `matched` | each participant calls `join_arranged_lobby_async` with its own ticket's arrangement string | `joined(arranged_lobby)` | `lobby.created` on each participant |
 
 ### Party network state transitions
 
@@ -118,7 +118,7 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | `lobby.create.with_initial_lobby_properties` | Create with non-empty initial lobby properties | P1 | host | — | N |
 | `lobby.create.with_initial_member_properties` | Create with non-empty initial member properties | P1 | host | — | N |
 | `lobby.create.with_initial_search_properties` | Create with non-empty initial search properties | P1 | host | — | N |
-| `lobby.join.by_connection_string` | Client joins by connection string | P0 | host, guest | — | P |
+| `lobby.join.by_connection_string` | Ordinary join ignores arranged-only overrides, preserves host config, and carries member properties | P0 | host, guest | — | P |
 | `lobby.join.three_clients` | Three-client membership snapshots | P0 | host, guest, guest2 | — | P |
 | `lobby.search.public.by_string_key` | Public lobby search by string key | P0 | host, observer | — | P |
 | `lobby.search.no_results.isolation` | Search returns 0 results when filter excludes all created lobbies | P1 | host, observer | — | P |
@@ -219,6 +219,8 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | `match.integration.arranged_lobby_join` | After match, both clients join the arranged lobby | P0 | host, guest | `matchmaking_queue_configured` | P |
 | `match.integration.arranged_lobby_cleanup` | Leaving the arranged lobby releases handles cleanly | P0 | host, guest | `matchmaking_queue_configured` | P |
 | `match.integration.arranged_lobby_property_round_trip` | Arranged-lobby members can set + read lobby properties | P1 | host, guest | `matchmaking_queue_configured` | N |
+| `match.integration.arranged_lobby_configuration` | First snapshots preserve explicit 4 / Private / Automatic initialization | P1 | host, guest | `matchmaking_queue_configured` | N |
+| `match.integration.arranged_lobby_policy_overrides` | First snapshots preserve explicit 16 / Public / Manual initialization | P1 | host, guest | `matchmaking_queue_configured` | N |
 
 ### Party — functional
 
@@ -309,12 +311,12 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | Service | P0 | P1 | P2 | P3 | Total |
 | --- | --- | --- | --- | --- | --- |
 | Lobby | 12 | 17 | 11 | 1 | 41 |
-| Match | 5 | 4 | 6 | 0 | 15 |
+| Match | 5 | 6 | 6 | 0 | 17 |
 | Party | 7 | 12 | 7 | 1 | 27 |
 | Cross-service | 0 | 3 | 3 | 0 | 6 |
-| **Total** | **24** | **36** | **27** | **2** | **89** |
+| **Total** | **24** | **38** | **27** | **2** | **91** |
 
-C5 ships P0 + P1 (60 scenarios). C2 details the top 25-30 P0/P1 with API sequences. P2 and P3 are queued for follow-up after the harness has shipped its first green run.
+C5 ships P0 + P1 (62 scenarios). C2 details 30 P0/P1 scenarios with API sequences. P2 and P3 are queued for follow-up after the harness has shipped its first green run.
 
 ## Coverage vs legacy PS runner
 

@@ -47,10 +47,33 @@ public static class TutorialSupport
         return PlayFabLobbyConfig.From(obj);
     }
 
-    public static PlayFabLobbyJoinConfig LobbyJoinConfig(Godot.Collections.Dictionary memberProps)
+    public static PlayFabLobbyJoinConfig LobbyJoinConfig(
+        Godot.Collections.Dictionary memberProps,
+        int? maxMemberCount = null,
+        int? accessPolicy = null,
+        int? ownerMigrationPolicy = null,
+        bool? restrictInvitesToLobbyOwner = null)
     {
         GodotObject obj = ClassDB.Instantiate("PlayFabLobbyJoinConfig").AsGodotObject();
         obj.Set("member_properties", memberProps ?? new Godot.Collections.Dictionary());
+        // Arranged joins only. Leave a field unset to keep the default
+        // (8 / Private / Automatic); assigning marks it explicitly present.
+        if (maxMemberCount.HasValue)
+        {
+            obj.Set("max_member_count", maxMemberCount.Value);
+        }
+        if (accessPolicy.HasValue)
+        {
+            obj.Set("access_policy", accessPolicy.Value);
+        }
+        if (ownerMigrationPolicy.HasValue)
+        {
+            obj.Set("owner_migration_policy", ownerMigrationPolicy.Value);
+        }
+        if (restrictInvitesToLobbyOwner.HasValue)
+        {
+            obj.Set("restrict_invites_to_lobby_owner", restrictInvitesToLobbyOwner.Value);
+        }
         return PlayFabLobbyJoinConfig.From(obj);
     }
 
@@ -74,4 +97,3 @@ public static class TutorialSupport
         return PlayFabPartyConfig.From(obj);
     }
 }
-

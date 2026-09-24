@@ -21,6 +21,12 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 
 const _DEFAULT_OP_TIMEOUT_MSEC := 60000
 const _STATE_PUMP_FRAMES := 30
+const _E_INVALIDARG_HRESULT := 0x80070057
+const _E_NOTIMPL_HRESULT := 0x80004001
+const _ARRANGED_CAPACITY_ERROR_MESSAGE := "PlayFabLobbyJoinConfig.max_member_count must be between 2 and 128."
+const _ARRANGED_ACCESS_ERROR_MESSAGE := "PlayFabLobbyJoinConfig.access_policy must be ACCESS_POLICY_PUBLIC, ACCESS_POLICY_FRIENDS, or ACCESS_POLICY_PRIVATE."
+const _ARRANGED_MIGRATION_ERROR_MESSAGE := "PlayFabLobbyJoinConfig.owner_migration_policy must be OWNER_MIGRATION_AUTOMATIC, OWNER_MIGRATION_MANUAL, or OWNER_MIGRATION_NONE."
+const _ARRANGED_RESTRICT_INVITES_ERROR_MESSAGE := "PlayFabLobbyJoinConfig.restrict_invites_to_lobby_owner requires an addon compiled against the April 2026 GDK (edition 260400) or later when set to true."
 
 
 func after_each() -> void:
@@ -311,6 +317,117 @@ func test_multiplayer_live_validation_error_branches() -> void:
 			"invalid_properties",
 			"PlayFab.multiplayer.create_lobby_async() rejects non-string lobby property values")
 
+	# Arranged-lobby initialization is rejected, never clamped. Each case uses a
+	# fresh config so a rejected field cannot mask the next one.
+	var rejected_lobby_count: int = multiplayer.get_lobbies().size()
+	var rejection_cases: Array[Dictionary] = [
+		{
+			"field": "max_member_count",
+			"value": 0,
+			"name": "capacity below PFLobbyMaxMemberCountLowerLimit",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": 1,
+			"name": "capacity just below PFLobbyMaxMemberCountLowerLimit",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": -1,
+			"name": "negative capacity",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": 129,
+			"name": "capacity above PFLobbyMaxMemberCountUpperLimit",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": 2147483648,
+			"name": "capacity above the signed 32-bit range",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": 4294967304,
+			"name": "capacity that narrows to valid uint32 value 8",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "max_member_count",
+			"value": 9223372036854775807,
+			"name": "capacity at the signed 64-bit ceiling",
+			"message": _ARRANGED_CAPACITY_ERROR_MESSAGE,
+		},
+		{
+			"field": "access_policy",
+			"value": 99,
+			"name": "unrecognized access policy",
+			"message": _ARRANGED_ACCESS_ERROR_MESSAGE,
+		},
+		{
+			"field": "owner_migration_policy",
+			"value": 3,
+			"name": "server owner-migration policy",
+			"message": _ARRANGED_MIGRATION_ERROR_MESSAGE,
+		},
+	]
+	var edition_probe = instantiate_class("PlayFabLobbyJoinConfig")
+	if edition_probe == null:
+		return
+	if not edition_probe.has_method("_test_supports_restrict_invites_to_lobby_owner"):
+		if OS.is_debug_build():
+			fail_test("_test_supports_restrict_invites_to_lobby_owner is required in debug coverage builds")
+		else:
+			pending("Arranged invite-restriction edition coverage requires GODOT_PLAYFAB_TEST_HOOKS")
+		return
+	if not bool(edition_probe._test_supports_restrict_invites_to_lobby_owner()):
+		rejection_cases.append({
+			"field": "restrict_invites_to_lobby_owner",
+			"value": true,
+			"name": "owner-only invites on a pre-April-2026 GDK build",
+			"message": _ARRANGED_RESTRICT_INVITES_ERROR_MESSAGE,
+			"code": "unsupported_on_gdk_edition",
+			"hresult": _E_NOTIMPL_HRESULT,
+		})
+
+	for case in rejection_cases:
+		var invalid_config = instantiate_class("PlayFabLobbyJoinConfig")
+		if invalid_config == null:
+			return
+		invalid_config.set(case["field"], case["value"])
+		await _assert_signal_error_exact(
+			multiplayer.join_arranged_lobby_async(playfab_user, "arranged-connection-string", invalid_config),
+			String(case.get("code", "invalid_arranged_lobby_config")),
+			String(case["message"]),
+			"PlayFab.multiplayer.join_arranged_lobby_async() rejects %s" % case["name"],
+			int(case.get("hresult", _E_INVALIDARG_HRESULT)))
+		assert_eq(
+			multiplayer.get_lobbies().size(),
+			rejected_lobby_count,
+			"rejected arranged join does not add a tracked lobby for %s" % case["name"])
+
+	# Member-property validation remains earlier than arranged scalar validation.
+	var invalid_properties_config = instantiate_class("PlayFabLobbyJoinConfig")
+	if invalid_properties_config == null:
+		return
+	invalid_properties_config.member_properties = {"bad_value": 12}
+	invalid_properties_config.max_member_count = 0
+	invalid_properties_config.access_policy = 99
+	invalid_properties_config.owner_migration_policy = 3
+	await _assert_signal_error(
+		multiplayer.join_arranged_lobby_async(playfab_user, "arranged-connection-string", invalid_properties_config),
+		"invalid_properties",
+		"PlayFab.multiplayer.join_arranged_lobby_async() preserves member-property validation precedence")
+	assert_eq(
+		multiplayer.get_lobbies().size(),
+		rejected_lobby_count,
+		"bad arranged member properties do not add a tracked lobby")
+
 
 # ── Live setup helpers ────────────────────────────────────────────────────
 
@@ -410,6 +527,26 @@ func _assert_signal_error(async_signal, expected_code: String, name: String) -> 
 	if typeof(async_signal) != TYPE_SIGNAL:
 		return
 	assert_playfab_result_error(await await_completion(async_signal, _DEFAULT_OP_TIMEOUT_MSEC), expected_code, name)
+
+
+func _assert_signal_error_exact(
+		async_signal,
+		expected_code: String,
+		expected_message: String,
+		name: String,
+		expected_hresult: int = _E_INVALIDARG_HRESULT) -> void:
+	assert_eq(typeof(async_signal), TYPE_SIGNAL, "%s returns completion Signal" % name)
+	if typeof(async_signal) != TYPE_SIGNAL:
+		return
+	var result = await await_completion(async_signal, _DEFAULT_OP_TIMEOUT_MSEC)
+	assert_playfab_result_error(result, expected_code, name)
+	if result == null:
+		return
+	assert_eq(String(result.message), expected_message, "%s exact error message" % name)
+	assert_eq(
+		int(result.hresult) & 0xFFFFFFFF,
+		expected_hresult,
+		"%s HRESULT matches expected failure" % name)
 
 
 func _assert_member_removed_count_at_most_one(changes: Array, playfab_user, op_label: String) -> void:

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <set>
 #include <string>
 
 #include <godot_cpp/classes/json.hpp>
@@ -255,6 +256,207 @@ bool validate_user_entity_handle(const Ref<PlayFabUser> &p_user, String *r_error
     return true;
 }
 
+class MatchmakingLocalMemberStorage {
+    std::vector<PFEntityHandle> m_local_users;
+    std::vector<std::string> m_attribute_strings;
+    std::vector<const char *> m_attribute_ptrs;
+    Array m_user_members;
+
+public:
+    bool assign(
+            const Ref<PlayFabUser> &p_requester,
+            const Array &p_members,
+            String *r_error_message,
+            bool p_validate_handles = true) {
+        m_local_users.clear();
+        m_attribute_strings.clear();
+        m_attribute_ptrs.clear();
+        m_user_members.clear();
+
+        bool requester_in_members = false;
+        m_local_users.reserve(static_cast<size_t>(p_members.size() + 1));
+        m_attribute_strings.reserve(static_cast<size_t>(p_members.size() + 1));
+        for (int64_t i = 0; i < p_members.size(); ++i) {
+            Ref<PlayFabUser> member_user;
+            Dictionary attributes;
+
+            if (p_members[i].get_type() == Variant::OBJECT) {
+                Object *object = p_members[i].operator Object *();
+                if (auto *matchmaking_member = Object::cast_to<PlayFabMatchmakingMember>(object)) {
+                    member_user = matchmaking_member->get_user();
+                    attributes = matchmaking_member->get_attributes();
+                } else if (auto *playfab_user = Object::cast_to<PlayFabUser>(object)) {
+                    member_user = Ref<PlayFabUser>(playfab_user);
+                }
+            }
+
+            if (!member_user.is_valid() || (p_validate_handles && !validate_user_entity_handle(member_user, r_error_message))) {
+                if (!member_user.is_valid() && r_error_message != nullptr) {
+                    *r_error_message = "PlayFab Multiplayer operations require a signed-in PlayFabUser with a valid entity handle.";
+                }
+                return false;
+            }
+
+            if (member_user == p_requester) {
+                requester_in_members = true;
+            }
+            m_local_users.push_back(member_user->get_entity_handle());
+            m_attribute_strings.push_back(attributes.is_empty() ? std::string() : std::string(JSON::stringify(attributes).utf8().get_data()));
+            m_user_members.push_back(member_user);
+        }
+
+        if (!requester_in_members) {
+            if (!p_requester.is_valid() || (p_validate_handles && !validate_user_entity_handle(p_requester, r_error_message))) {
+                if (!p_requester.is_valid() && r_error_message != nullptr) {
+                    *r_error_message = "PlayFab Multiplayer operations require a signed-in PlayFabUser with a valid entity handle.";
+                }
+                return false;
+            }
+            m_local_users.push_back(p_requester->get_entity_handle());
+            m_attribute_strings.push_back(std::string());
+            m_user_members.push_back(p_requester);
+        }
+
+        m_attribute_ptrs.reserve(m_attribute_strings.size());
+        for (const std::string &attributes : m_attribute_strings) {
+            m_attribute_ptrs.push_back(attributes.c_str());
+        }
+        return true;
+    }
+
+    uint32_t count() const {
+        return static_cast<uint32_t>(m_local_users.size());
+    }
+
+    const PFEntityHandle *users() const {
+        return m_local_users.empty() ? nullptr : m_local_users.data();
+    }
+
+    const char *const *attributes() const {
+        return m_attribute_ptrs.empty() ? nullptr : m_attribute_ptrs.data();
+    }
+
+    Array user_members() const {
+        return m_user_members;
+    }
+
+    Array entity_keys() const {
+        Array keys;
+        for (int64_t i = 0; i < m_user_members.size(); ++i) {
+            Object *object = m_user_members[i].operator Object *();
+            if (auto *user = Object::cast_to<PlayFabUser>(object)) {
+                keys.push_back(user->get_entity_key());
+            }
+        }
+        return keys;
+    }
+};
+
+class MatchmakingEntityKeyStorage {
+    std::vector<std::string> m_ids;
+    std::vector<std::string> m_types;
+    std::vector<PFEntityKey> m_entity_keys;
+
+public:
+    bool assign(const Array &p_members_to_match_with, const Array &p_local_entity_keys, String *r_error_message) {
+        m_ids.clear();
+        m_types.clear();
+        m_entity_keys.clear();
+
+        std::set<std::pair<std::string, std::string>> local_keys;
+        for (int64_t i = 0; i < p_local_entity_keys.size(); ++i) {
+            if (p_local_entity_keys[i].get_type() != Variant::DICTIONARY) {
+                continue;
+            }
+            const Dictionary key = p_local_entity_keys[i];
+            const String id = String(key.get("id", String())).strip_edges();
+            const String type = String(key.get("type", String())).strip_edges();
+            if (!id.is_empty() && !type.is_empty()) {
+                local_keys.emplace(std::string(id.utf8().get_data()), std::string(type.utf8().get_data()));
+            }
+        }
+
+        std::set<std::pair<std::string, std::string>> remote_keys;
+        m_ids.reserve(static_cast<size_t>(p_members_to_match_with.size()));
+        m_types.reserve(static_cast<size_t>(p_members_to_match_with.size()));
+        for (int64_t i = 0; i < p_members_to_match_with.size(); ++i) {
+            if (p_members_to_match_with[i].get_type() != Variant::DICTIONARY) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFabMatchmakingTicketConfig.members_to_match_with entries must be Dictionaries.";
+                }
+                return false;
+            }
+
+            const Dictionary key = p_members_to_match_with[i];
+            const Variant id_variant = key.get("id", Variant());
+            const Variant type_variant = key.get("type", Variant());
+            if ((id_variant.get_type() != Variant::STRING && id_variant.get_type() != Variant::STRING_NAME) ||
+                    (type_variant.get_type() != Variant::STRING && type_variant.get_type() != Variant::STRING_NAME)) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFabMatchmakingTicketConfig.members_to_match_with id and type values must be String or StringName.";
+                }
+                return false;
+            }
+
+            const String id = String(id_variant).strip_edges();
+            const String type = String(type_variant).strip_edges();
+            if (id.is_empty() || type.is_empty()) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFabMatchmakingTicketConfig.members_to_match_with entries require non-empty id and type values.";
+                }
+                return false;
+            }
+
+            const std::pair<std::string, std::string> value(
+                    std::string(id.utf8().get_data()),
+                    std::string(type.utf8().get_data()));
+            if (!remote_keys.insert(value).second) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFabMatchmakingTicketConfig.members_to_match_with cannot contain duplicate entity keys.";
+                }
+                return false;
+            }
+            if (local_keys.find(value) != local_keys.end()) {
+                if (r_error_message != nullptr) {
+                    *r_error_message = "PlayFabMatchmakingTicketConfig.members_to_match_with cannot contain a local ticket member.";
+                }
+                return false;
+            }
+
+            m_ids.push_back(value.first);
+            m_types.push_back(value.second);
+        }
+
+        m_entity_keys.reserve(m_ids.size());
+        for (size_t i = 0; i < m_ids.size(); ++i) {
+            PFEntityKey key = {};
+            key.id = m_ids[i].c_str();
+            key.type = m_types[i].c_str();
+            m_entity_keys.push_back(key);
+        }
+        return true;
+    }
+
+    uint32_t count() const {
+        return static_cast<uint32_t>(m_entity_keys.size());
+    }
+
+    const PFEntityKey *values() const {
+        return m_entity_keys.empty() ? nullptr : m_entity_keys.data();
+    }
+
+    Array copied_values() const {
+        Array values;
+        for (size_t i = 0; i < m_entity_keys.size(); ++i) {
+            Dictionary key;
+            key["id"] = m_entity_keys[i].id != nullptr ? String::utf8(m_entity_keys[i].id) : String();
+            key["type"] = m_entity_keys[i].type != nullptr ? String::utf8(m_entity_keys[i].type) : String();
+            values.push_back(key);
+        }
+        return values;
+    }
+};
+
 PFLobbyAccessPolicy to_lobby_access_policy(int64_t p_value) {
     switch (p_value) {
         case PlayFabLobbyConfig::ACCESS_POLICY_PUBLIC:
@@ -395,6 +597,63 @@ String ticket_status_to_string(PFMatchmakingTicketStatus p_status) {
             return "failed";
     }
     return "unknown";
+}
+
+enum MatchTicketJoinReadiness : int64_t {
+    MATCH_TICKET_JOIN_PENDING = 0,
+    MATCH_TICKET_JOIN_ACCEPTED = 1,
+    MATCH_TICKET_JOIN_CANCELLED = 2,
+    MATCH_TICKET_JOIN_FAILED = 3,
+};
+
+MatchTicketJoinReadiness match_ticket_join_readiness(int64_t p_status) {
+    switch (p_status) {
+        case PlayFabMatchTicket::STATUS_WAITING_FOR_PLAYERS:
+        case PlayFabMatchTicket::STATUS_WAITING_FOR_MATCH:
+        case PlayFabMatchTicket::STATUS_MATCHED:
+            return MATCH_TICKET_JOIN_ACCEPTED;
+        case PlayFabMatchTicket::STATUS_CANCELLED:
+            return MATCH_TICKET_JOIN_CANCELLED;
+        case PlayFabMatchTicket::STATUS_FAILED:
+            return MATCH_TICKET_JOIN_FAILED;
+        case PlayFabMatchTicket::STATUS_CREATING:
+        case PlayFabMatchTicket::STATUS_JOINING:
+        default:
+            return MATCH_TICKET_JOIN_PENDING;
+    }
+}
+
+Ref<PlayFabResult> match_ticket_join_completion_result(
+        const Ref<PlayFabMatchTicket> &p_ticket,
+        const Ref<PlayFabResult> &p_terminal_result = Ref<PlayFabResult>()) {
+    if (p_terminal_result.is_valid() && !p_terminal_result->is_ok()) {
+        const HRESULT hresult = static_cast<HRESULT>(p_terminal_result->get_hresult());
+        return PlayFabResult::error_result(
+                FAILED(hresult) ? hresult : E_FAIL,
+                "match_ticket_join_failed",
+                "The PlayFab matchmaking ticket rejected the join. " + p_terminal_result->get_message(),
+                p_ticket);
+    }
+
+    switch (match_ticket_join_readiness(p_ticket->get_status())) {
+        case MATCH_TICKET_JOIN_ACCEPTED:
+            return PlayFabResult::ok_result(p_ticket);
+        case MATCH_TICKET_JOIN_CANCELLED:
+            return PlayFabResult::error_result(
+                    E_ABORT,
+                    "match_ticket_join_cancelled",
+                    "The PlayFab matchmaking ticket join was cancelled before the service accepted it.",
+                    p_ticket);
+        case MATCH_TICKET_JOIN_FAILED:
+            return PlayFabResult::error_result(
+                    E_FAIL,
+                    "match_ticket_join_failed",
+                    "The PlayFab matchmaking ticket join failed before the service accepted it.",
+                    p_ticket);
+        case MATCH_TICKET_JOIN_PENDING:
+        default:
+            return Ref<PlayFabResult>();
+    }
 }
 
 } // namespace
@@ -594,11 +853,88 @@ bool PlayFabLobbyUpdateConfig::is_empty() const {
 void PlayFabLobbyJoinConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_member_properties"), &PlayFabLobbyJoinConfig::get_member_properties);
     ClassDB::bind_method(D_METHOD("set_member_properties", "member_properties"), &PlayFabLobbyJoinConfig::set_member_properties);
+
+    ClassDB::bind_method(D_METHOD("get_max_member_count"), &PlayFabLobbyJoinConfig::get_max_member_count);
+    ClassDB::bind_method(D_METHOD("set_max_member_count", "max_member_count"), &PlayFabLobbyJoinConfig::set_max_member_count);
+    ClassDB::bind_method(D_METHOD("has_max_member_count"), &PlayFabLobbyJoinConfig::has_max_member_count);
+    ClassDB::bind_method(D_METHOD("clear_max_member_count"), &PlayFabLobbyJoinConfig::clear_max_member_count);
+
+    ClassDB::bind_method(D_METHOD("get_access_policy"), &PlayFabLobbyJoinConfig::get_access_policy);
+    ClassDB::bind_method(D_METHOD("set_access_policy", "access_policy"), &PlayFabLobbyJoinConfig::set_access_policy);
+    ClassDB::bind_method(D_METHOD("has_access_policy"), &PlayFabLobbyJoinConfig::has_access_policy);
+    ClassDB::bind_method(D_METHOD("clear_access_policy"), &PlayFabLobbyJoinConfig::clear_access_policy);
+
+    ClassDB::bind_method(D_METHOD("get_owner_migration_policy"), &PlayFabLobbyJoinConfig::get_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("set_owner_migration_policy", "owner_migration_policy"), &PlayFabLobbyJoinConfig::set_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("has_owner_migration_policy"), &PlayFabLobbyJoinConfig::has_owner_migration_policy);
+    ClassDB::bind_method(D_METHOD("clear_owner_migration_policy"), &PlayFabLobbyJoinConfig::clear_owner_migration_policy);
+
+    ClassDB::bind_method(D_METHOD("get_restrict_invites_to_lobby_owner"), &PlayFabLobbyJoinConfig::get_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("set_restrict_invites_to_lobby_owner", "restrict"), &PlayFabLobbyJoinConfig::set_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("has_restrict_invites_to_lobby_owner"), &PlayFabLobbyJoinConfig::has_restrict_invites_to_lobby_owner);
+    ClassDB::bind_method(D_METHOD("clear_restrict_invites_to_lobby_owner"), &PlayFabLobbyJoinConfig::clear_restrict_invites_to_lobby_owner);
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(D_METHOD("_test_supports_restrict_invites_to_lobby_owner"), &PlayFabLobbyJoinConfig::_test_supports_restrict_invites_to_lobby_owner);
+#endif
+
     ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "member_properties"), "set_member_properties", "get_member_properties");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "max_member_count"), "set_max_member_count", "get_max_member_count");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "access_policy"), "set_access_policy", "get_access_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "owner_migration_policy"), "set_owner_migration_policy", "get_owner_migration_policy");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "restrict_invites_to_lobby_owner"), "set_restrict_invites_to_lobby_owner", "get_restrict_invites_to_lobby_owner");
 }
 
 Dictionary PlayFabLobbyJoinConfig::get_member_properties() const { return m_member_properties; }
 void PlayFabLobbyJoinConfig::set_member_properties(const Dictionary &p_properties) { m_member_properties = p_properties; }
+
+int64_t PlayFabLobbyJoinConfig::get_max_member_count() const { return m_max_member_count; }
+void PlayFabLobbyJoinConfig::set_max_member_count(int64_t p_max_member_count) {
+    m_max_member_count = p_max_member_count;
+    m_has_max_member_count = true;
+}
+bool PlayFabLobbyJoinConfig::has_max_member_count() const { return m_has_max_member_count; }
+void PlayFabLobbyJoinConfig::clear_max_member_count() {
+    m_max_member_count = DEFAULT_MAX_MEMBER_COUNT;
+    m_has_max_member_count = false;
+}
+
+int64_t PlayFabLobbyJoinConfig::get_access_policy() const { return m_access_policy; }
+void PlayFabLobbyJoinConfig::set_access_policy(int64_t p_access_policy) {
+    m_access_policy = p_access_policy;
+    m_has_access_policy = true;
+}
+bool PlayFabLobbyJoinConfig::has_access_policy() const { return m_has_access_policy; }
+void PlayFabLobbyJoinConfig::clear_access_policy() {
+    m_access_policy = DEFAULT_ACCESS_POLICY;
+    m_has_access_policy = false;
+}
+
+int64_t PlayFabLobbyJoinConfig::get_owner_migration_policy() const { return m_owner_migration_policy; }
+void PlayFabLobbyJoinConfig::set_owner_migration_policy(int64_t p_owner_migration_policy) {
+    m_owner_migration_policy = p_owner_migration_policy;
+    m_has_owner_migration_policy = true;
+}
+bool PlayFabLobbyJoinConfig::has_owner_migration_policy() const { return m_has_owner_migration_policy; }
+void PlayFabLobbyJoinConfig::clear_owner_migration_policy() {
+    m_owner_migration_policy = DEFAULT_OWNER_MIGRATION_POLICY;
+    m_has_owner_migration_policy = false;
+}
+
+bool PlayFabLobbyJoinConfig::get_restrict_invites_to_lobby_owner() const { return m_restrict_invites_to_lobby_owner; }
+void PlayFabLobbyJoinConfig::set_restrict_invites_to_lobby_owner(bool p_restrict) {
+    m_restrict_invites_to_lobby_owner = p_restrict;
+    m_has_restrict_invites_to_lobby_owner = true;
+}
+bool PlayFabLobbyJoinConfig::has_restrict_invites_to_lobby_owner() const { return m_has_restrict_invites_to_lobby_owner; }
+void PlayFabLobbyJoinConfig::clear_restrict_invites_to_lobby_owner() {
+    m_restrict_invites_to_lobby_owner = false;
+    m_has_restrict_invites_to_lobby_owner = false;
+}
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+bool PlayFabLobbyJoinConfig::_test_supports_restrict_invites_to_lobby_owner() const {
+    return PLAYFAB_GDK_HAS_APRIL_2026_FIELDS;
+}
+#endif
 
 void PlayFabLobbySearchConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_filter"), &PlayFabLobbySearchConfig::get_filter);
@@ -640,9 +976,16 @@ void PlayFabMatchmakingTicketConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_timeout_seconds", "timeout_seconds"), &PlayFabMatchmakingTicketConfig::set_timeout_seconds);
     ClassDB::bind_method(D_METHOD("get_members"), &PlayFabMatchmakingTicketConfig::get_members);
     ClassDB::bind_method(D_METHOD("set_members", "members"), &PlayFabMatchmakingTicketConfig::set_members);
+    ClassDB::bind_method(D_METHOD("get_members_to_match_with"), &PlayFabMatchmakingTicketConfig::get_members_to_match_with);
+    ClassDB::bind_method(D_METHOD("set_members_to_match_with", "members_to_match_with"), &PlayFabMatchmakingTicketConfig::set_members_to_match_with);
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    ClassDB::bind_method(D_METHOD("_test_validate_members_to_match_with", "local_entity_keys"), &PlayFabMatchmakingTicketConfig::_test_validate_members_to_match_with);
+    ClassDB::bind_method(D_METHOD("_test_prepare_local_members", "requester", "members"), &PlayFabMatchmakingTicketConfig::_test_prepare_local_members);
+#endif
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "queue_name"), "set_queue_name", "get_queue_name");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "timeout_seconds"), "set_timeout_seconds", "get_timeout_seconds");
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "members"), "set_members", "get_members");
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "members_to_match_with"), "set_members_to_match_with", "get_members_to_match_with");
 }
 
 String PlayFabMatchmakingTicketConfig::get_queue_name() const { return m_queue_name; }
@@ -651,6 +994,37 @@ int64_t PlayFabMatchmakingTicketConfig::get_timeout_seconds() const { return m_t
 void PlayFabMatchmakingTicketConfig::set_timeout_seconds(int64_t p_timeout_seconds) { m_timeout_seconds = p_timeout_seconds; }
 Array PlayFabMatchmakingTicketConfig::get_members() const { return m_members; }
 void PlayFabMatchmakingTicketConfig::set_members(const Array &p_members) { m_members = p_members; }
+Array PlayFabMatchmakingTicketConfig::get_members_to_match_with() const { return m_members_to_match_with; }
+void PlayFabMatchmakingTicketConfig::set_members_to_match_with(const Array &p_members_to_match_with) { m_members_to_match_with = p_members_to_match_with; }
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+Ref<PlayFabResult> PlayFabMatchmakingTicketConfig::_test_validate_members_to_match_with(const Array &p_local_entity_keys) const {
+    String error_message;
+    MatchmakingEntityKeyStorage storage;
+    if (!storage.assign(m_members_to_match_with, p_local_entity_keys, &error_message)) {
+        return PlayFabResult::error_result(E_INVALIDARG, "invalid_match_ticket_config", error_message);
+    }
+    Dictionary data;
+    data["count"] = static_cast<int64_t>(storage.count());
+    data["values"] = storage.copied_values();
+    data["pointer_is_null"] = storage.values() == nullptr;
+    return PlayFabResult::ok_result(data);
+}
+
+Ref<PlayFabResult> PlayFabMatchmakingTicketConfig::_test_prepare_local_members(
+        const Ref<PlayFabUser> &p_requester,
+        const Array &p_members) const {
+    String error_message;
+    MatchmakingLocalMemberStorage storage;
+    if (!storage.assign(p_requester, p_members, &error_message, false)) {
+        return PlayFabResult::error_result(E_INVALIDARG, "invalid_match_ticket_member", error_message);
+    }
+    Dictionary data;
+    data["input_count"] = p_members.size();
+    data["output_count"] = static_cast<int64_t>(storage.count());
+    data["members"] = storage.user_members();
+    return PlayFabResult::ok_result(data);
+}
+#endif
 
 void PlayFabLobbyMember::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_user_id"), &PlayFabLobbyMember::get_user_id);
@@ -1259,6 +1633,13 @@ void PlayFabMatchTicket::_bind_methods() {
     BIND_CONSTANT(COMPLETED);
     BIND_CONSTANT(CANCELLED);
     BIND_CONSTANT(FAILED);
+    BIND_CONSTANT(STATUS_CREATING);
+    BIND_CONSTANT(STATUS_JOINING);
+    BIND_CONSTANT(STATUS_WAITING_FOR_PLAYERS);
+    BIND_CONSTANT(STATUS_WAITING_FOR_MATCH);
+    BIND_CONSTANT(STATUS_MATCHED);
+    BIND_CONSTANT(STATUS_CANCELLED);
+    BIND_CONSTANT(STATUS_FAILED);
 }
 
 void PlayFabMatchTicket::set_owner(PlayFabMultiplayer *p_owner) { m_owner = p_owner; }
@@ -1344,6 +1725,10 @@ void PlayFabMultiplayer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("join_arranged_lobby_async", "user", "connection_string", "config"), &PlayFabMultiplayer::join_arranged_lobby_async, DEFVAL(Ref<PlayFabLobbyJoinConfig>()));
     ClassDB::bind_method(D_METHOD("find_lobbies_async", "user", "search"), &PlayFabMultiplayer::find_lobbies_async, DEFVAL(Ref<PlayFabLobbySearchConfig>()));
     ClassDB::bind_method(D_METHOD("create_match_ticket_async", "user", "config"), &PlayFabMultiplayer::create_match_ticket_async);
+    ClassDB::bind_method(
+            D_METHOD("join_match_ticket_async", "user", "ticket_id", "queue_name", "local_members"),
+            &PlayFabMultiplayer::join_match_ticket_async,
+            DEFVAL(Array()));
     ClassDB::bind_method(D_METHOD("get_lobbies"), &PlayFabMultiplayer::get_lobbies);
     ClassDB::bind_method(D_METHOD("get_lobby", "lobby_id"), &PlayFabMultiplayer::get_lobby);
     ClassDB::bind_method(D_METHOD("get_match_tickets"), &PlayFabMultiplayer::get_match_tickets);
@@ -1351,6 +1736,7 @@ void PlayFabMultiplayer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("_test_enqueue_shutdown_pending"), &PlayFabMultiplayer::_test_enqueue_shutdown_pending);
     ClassDB::bind_method(D_METHOD("_test_set_cleanup_failure", "fail"), &PlayFabMultiplayer::_test_set_cleanup_failure);
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabMultiplayer::_test_pending_operation_count);
+    ClassDB::bind_method(D_METHOD("_test_join_match_ticket_readiness", "status"), &PlayFabMultiplayer::_test_join_match_ticket_readiness);
 #endif
 
     ADD_SIGNAL(MethodInfo("state_changed", PropertyInfo(Variant::OBJECT, "change", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabMultiplayerStateChange")));
@@ -1540,6 +1926,31 @@ void PlayFabMultiplayer::_complete_match_ticket_create_if_ready(const Ref<PlayFa
     if (p_ticket->is_complete()) {
         Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "match_ticket_create_failed", "The PlayFab matchmaking ticket completed before a ticket_id was assigned.", p_ticket->get_properties());
         _complete_pending_operation(operation, result);
+    }
+}
+
+void PlayFabMultiplayer::_complete_match_ticket_join_if_ready(
+        const Ref<PlayFabMatchTicket> &p_ticket,
+        const Ref<PlayFabResult> &p_terminal_result) {
+    PendingOperation *operation = _find_pending_ticket_operation(p_ticket, PENDING_MATCH_TICKET_JOIN);
+    if (operation == nullptr || p_ticket.is_null()) {
+        return;
+    }
+
+    Ref<PlayFabResult> result = match_ticket_join_completion_result(p_ticket, p_terminal_result);
+    if (result.is_null()) {
+        return;
+    }
+
+    _complete_pending_operation(operation, result);
+    if (result->is_ok()) {
+        _emit_ticket_change(
+                PlayFabMatchTicket::CREATED,
+                p_ticket,
+                result,
+                p_ticket->get_status(),
+                p_ticket->get_match_id(),
+                p_ticket->get_arranged_lobby_connection_string());
     }
 }
 
@@ -2005,15 +2416,67 @@ Signal PlayFabMultiplayer::join_arranged_lobby_async(const Ref<PlayFabUser> &p_u
         return _make_error_signal(E_INVALIDARG, "invalid_properties", error_message);
     }
 
+    // An arranged join must always populate these three scalar native fields, so an
+    // unset or cleared config resolves to the legacy default rather than
+    // omitting anything. Validate the signed values here, before narrowing to
+    // uint32_t and before to_lobby_access_policy / to_lobby_owner_migration_policy,
+    // because those converters map anything unrecognised onto a default instead
+    // of reporting it. Reject out-of-range input; never clamp it.
+    const int64_t requested_max_member_count = config->has_max_member_count()
+            ? config->get_max_member_count()
+            : PlayFabLobbyJoinConfig::DEFAULT_MAX_MEMBER_COUNT;
+    if (requested_max_member_count < static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit) ||
+            requested_max_member_count > static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                vformat("PlayFabLobbyJoinConfig.max_member_count must be between %d and %d.",
+                        static_cast<int64_t>(PFLobbyMaxMemberCountLowerLimit),
+                        static_cast<int64_t>(PFLobbyMaxMemberCountUpperLimit)));
+    }
+
+    const int64_t requested_access_policy = config->has_access_policy()
+            ? config->get_access_policy()
+            : PlayFabLobbyJoinConfig::DEFAULT_ACCESS_POLICY;
+    if (requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PUBLIC &&
+            requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_FRIENDS &&
+            requested_access_policy != PlayFabLobbyConfig::ACCESS_POLICY_PRIVATE) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                "PlayFabLobbyJoinConfig.access_policy must be ACCESS_POLICY_PUBLIC, ACCESS_POLICY_FRIENDS, or ACCESS_POLICY_PRIVATE.");
+    }
+
+    // PFLobbyOwnerMigrationPolicy::Server is rejected here: it is not a legal
+    // client-arranged policy and is deliberately not bound as a constant.
+    const int64_t requested_owner_migration_policy = config->has_owner_migration_policy()
+            ? config->get_owner_migration_policy()
+            : PlayFabLobbyJoinConfig::DEFAULT_OWNER_MIGRATION_POLICY;
+    if (requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_AUTOMATIC &&
+            requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_MANUAL &&
+            requested_owner_migration_policy != PlayFabLobbyConfig::OWNER_MIGRATION_NONE) {
+        return _make_error_signal(E_INVALIDARG, "invalid_arranged_lobby_config",
+                "PlayFabLobbyJoinConfig.owner_migration_policy must be OWNER_MIGRATION_AUTOMATIC, OWNER_MIGRATION_MANUAL, or OWNER_MIGRATION_NONE.");
+    }
+
+    const bool requested_restrict_invites_to_lobby_owner =
+            config->has_restrict_invites_to_lobby_owner() ?
+            config->get_restrict_invites_to_lobby_owner() :
+            false;
+#if !PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
+    if (requested_restrict_invites_to_lobby_owner) {
+        return _make_error_signal(
+                E_NOTIMPL,
+                "unsupported_on_gdk_edition",
+                "PlayFabLobbyJoinConfig.restrict_invites_to_lobby_owner requires an addon compiled against the April 2026 GDK (edition 260400) or later when set to true.");
+    }
+#endif
+
     PFLobbyArrangedJoinConfiguration join_config = {};
-    join_config.maxMemberCount = 8;
-    join_config.ownerMigrationPolicy = PFLobbyOwnerMigrationPolicy::Automatic;
-    join_config.accessPolicy = PFLobbyAccessPolicy::Private;
+    join_config.maxMemberCount = static_cast<uint32_t>(requested_max_member_count);
+    join_config.ownerMigrationPolicy = to_lobby_owner_migration_policy(requested_owner_migration_policy);
+    join_config.accessPolicy = to_lobby_access_policy(requested_access_policy);
     join_config.memberPropertyCount = member_properties.count();
     join_config.memberPropertyKeys = member_properties.keys();
     join_config.memberPropertyValues = member_properties.values();
 #if PLAYFAB_GDK_HAS_APRIL_2026_FIELDS
-    join_config.restrictInvitesToLobbyOwner = false;
+    join_config.restrictInvitesToLobbyOwner = requested_restrict_invites_to_lobby_owner;
 #endif
 
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
@@ -2328,71 +2791,29 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
         return _make_error_signal(E_INVALIDARG, "invalid_user", error_message);
     }
 
-    Array members = p_config->get_members();
-    bool requester_in_members = false;
-    for (int64_t i = 0; i < members.size(); ++i) {
-        if (members[i].get_type() != Variant::OBJECT) {
-            continue;
-        }
-
-        Object *object = members[i].operator Object *();
-        if (auto *matchmaking_member = Object::cast_to<PlayFabMatchmakingMember>(object)) {
-            if (matchmaking_member->get_user() == p_user) {
-                requester_in_members = true;
-                break;
-            }
-        } else if (auto *playfab_user = Object::cast_to<PlayFabUser>(object)) {
-            if (p_user.ptr() == playfab_user) {
-                requester_in_members = true;
-                break;
-            }
-        }
-    }
-    if (!requester_in_members) {
-        members.push_back(p_user);
+    MatchmakingLocalMemberStorage local_members;
+    if (!local_members.assign(p_user, p_config->get_members(), &error_message)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_match_ticket_member", error_message);
     }
 
-    std::vector<PFEntityHandle> local_users;
-    std::vector<std::string> attribute_strings;
-    std::vector<const char *> attribute_ptrs;
-    Array user_members;
-    for (int64_t i = 0; i < members.size(); ++i) {
-        Ref<PlayFabUser> member_user;
-        Dictionary attributes;
-
-        if (members[i].get_type() == Variant::OBJECT) {
-            Object *object = members[i].operator Object *();
-            if (auto *matchmaking_member = Object::cast_to<PlayFabMatchmakingMember>(object)) {
-                member_user = matchmaking_member->get_user();
-                attributes = matchmaking_member->get_attributes();
-            } else if (auto *playfab_user = Object::cast_to<PlayFabUser>(object)) {
-                member_user = Ref<PlayFabUser>(playfab_user);
-            }
-        }
-
-        if (!validate_user_entity_handle(member_user, &error_message)) {
-            return _make_error_signal(E_INVALIDARG, "invalid_match_ticket_member", error_message);
-        }
-
-        local_users.push_back(member_user->get_entity_handle());
-        attribute_strings.push_back(attributes.is_empty() ? std::string() : std::string(JSON::stringify(attributes).utf8().get_data()));
-        user_members.push_back(member_user);
-    }
-    for (const std::string &attributes : attribute_strings) {
-        attribute_ptrs.push_back(attributes.c_str());
+    MatchmakingEntityKeyStorage members_to_match_with;
+    if (!members_to_match_with.assign(p_config->get_members_to_match_with(), local_members.entity_keys(), &error_message)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_match_ticket_config", error_message);
     }
 
     const CharString queue_name_utf8 = p_config->get_queue_name().strip_edges().utf8();
     PFMatchmakingTicketConfiguration ticket_config = {};
     ticket_config.queueName = queue_name_utf8.get_data();
     ticket_config.timeoutInSeconds = static_cast<uint32_t>(p_config->get_timeout_seconds());
+    ticket_config.membersToMatchWithCount = members_to_match_with.count();
+    ticket_config.membersToMatchWith = members_to_match_with.values();
 
     PFMatchmakingTicketHandle ticket_handle = nullptr;
     HRESULT hr = PFMultiplayerCreateMatchmakingTicketWithEntityHandles(
             m_handle,
-            static_cast<uint32_t>(local_users.size()),
-            local_users.data(),
-            attribute_ptrs.data(),
+            local_members.count(),
+            local_members.users(),
+            local_members.attributes(),
             &ticket_config,
             nullptr,
             &ticket_handle);
@@ -2406,7 +2827,7 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
     Ref<PlayFabMatchTicket> ticket;
     ticket.instantiate();
     ticket->set_owner(this);
-    ticket->adopt_handle(ticket_handle, p_config->get_queue_name().strip_edges(), user_members);
+    ticket->adopt_handle(ticket_handle, p_config->get_queue_name().strip_edges(), local_members.user_members());
     ticket->refresh_snapshot();
     _track_ticket(ticket);
 
@@ -2418,6 +2839,81 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
         Ref<PlayFabResult> result = PlayFabResult::ok_result(ticket);
         pending_signal->complete_deferred(result);
         _emit_ticket_change(PlayFabMatchTicket::CREATED, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
+    }
+    return pending_signal->get_completed_signal();
+}
+
+Signal PlayFabMultiplayer::join_match_ticket_async(
+        const Ref<PlayFabUser> &p_user,
+        const String &p_ticket_id,
+        const String &p_queue_name,
+        const Array &p_local_members) {
+    if (m_shutting_down) {
+        return _make_error_signal(E_ABORT, "shutting_down", "PlayFab Multiplayer operations cannot start while shutdown is in progress.");
+    }
+    if (!m_initialized || m_handle == nullptr) {
+        return _make_error_signal(E_FAIL, "not_initialized", "PlayFab Multiplayer is not initialized. Call PlayFab.multiplayer.initialize_async() first.");
+    }
+    if (p_ticket_id.strip_edges().is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_join_match_ticket", "join_match_ticket_async requires a non-empty ticket_id.");
+    }
+    if (p_queue_name.strip_edges().is_empty()) {
+        return _make_error_signal(E_INVALIDARG, "invalid_join_match_ticket", "join_match_ticket_async requires a non-empty queue_name.");
+    }
+
+    String error_message;
+    if (!validate_user_entity_handle(p_user, &error_message)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_user", error_message);
+    }
+
+    MatchmakingLocalMemberStorage local_members;
+    if (!local_members.assign(p_user, p_local_members, &error_message)) {
+        return _make_error_signal(E_INVALIDARG, "invalid_match_ticket_member", error_message);
+    }
+
+    const CharString ticket_id_utf8 = p_ticket_id.strip_edges().utf8();
+    const CharString queue_name_utf8 = p_queue_name.strip_edges().utf8();
+    PFMatchmakingTicketHandle ticket_handle = nullptr;
+    HRESULT hr = PFMultiplayerJoinMatchmakingTicketFromIdWithEntityHandles(
+            m_handle,
+            local_members.count(),
+            local_members.users(),
+            local_members.attributes(),
+            ticket_id_utf8.get_data(),
+            queue_name_utf8.get_data(),
+            nullptr,
+            &ticket_handle);
+    if (FAILED(hr)) {
+        Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start joining the PlayFab matchmaking ticket.", "match_ticket_join_start_failed");
+        Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+        pending_signal->complete_deferred(result);
+        return pending_signal->get_completed_signal();
+    }
+
+    Ref<PlayFabMatchTicket> ticket;
+    ticket.instantiate();
+    ticket->set_owner(this);
+    ticket->adopt_handle(ticket_handle, p_queue_name.strip_edges(), local_members.user_members());
+    ticket->refresh_snapshot();
+    _track_ticket(ticket);
+
+    Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+    PendingOperation *operation = _create_pending_operation(PENDING_MATCH_TICKET_JOIN, pending_signal);
+    operation->ticket = ticket;
+
+    Ref<PlayFabResult> immediate_result = match_ticket_join_completion_result(ticket);
+    if (immediate_result.is_valid()) {
+        _release_pending_operation(operation);
+        pending_signal->complete_deferred(immediate_result);
+        if (immediate_result->is_ok()) {
+            _emit_ticket_change(
+                    PlayFabMatchTicket::CREATED,
+                    ticket,
+                    immediate_result,
+                    ticket->get_status(),
+                    ticket->get_match_id(),
+                    ticket->get_arranged_lobby_connection_string());
+        }
     }
     return pending_signal->get_completed_signal();
 }
@@ -2511,6 +3007,10 @@ Signal PlayFabMultiplayer::_test_enqueue_shutdown_pending() {
 int64_t PlayFabMultiplayer::_test_pending_operation_count() const {
     return static_cast<int64_t>(m_pending_operations.size() + m_pending_operations_deferred_delete.size());
 }
+
+int64_t PlayFabMultiplayer::_test_join_match_ticket_readiness(int64_t p_status) const {
+    return static_cast<int64_t>(match_ticket_join_readiness(p_status));
+}
 #endif
 
 void PlayFabMultiplayer::_emit_lobby_change(
@@ -2584,8 +3084,6 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
     HRESULT hr = PFMultiplayerStartProcessingLobbyStateChanges(m_handle, &state_change_count, &state_changes);
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to process PlayFab lobby state changes.", "lobby_state_processing_failed");
-        if (_get_runtime() != nullptr) {
-        }
         emit_signal("multiplayer_error", result);
         return 0;
     }
@@ -2947,8 +3445,6 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
     HRESULT hr = PFMultiplayerStartProcessingMatchmakingStateChanges(m_handle, &state_change_count, &state_changes);
     if (FAILED(hr)) {
         Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to process PlayFab matchmaking state changes.", "matchmaking_state_processing_failed");
-        if (_get_runtime() != nullptr) {
-        }
         emit_signal("multiplayer_error", result);
         return 0;
     }
@@ -2967,9 +3463,6 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                 if (ticket.is_valid()) {
                     ticket->refresh_snapshot();
                     _complete_match_ticket_create_if_ready(ticket);
-                    if (_find_pending_ticket_operation(ticket, PlayFabMatchTicket::CREATED) != nullptr && ticket->get_ticket_id().is_empty()) {
-                        break;
-                    }
                     int64_t kind = PlayFabMatchTicket::STATUS_CHANGED;
                     if (ticket->is_cancelled()) {
                         kind = PlayFabMatchTicket::CANCELLED;
@@ -2979,8 +3472,7 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                     Ref<PlayFabResult> result = kind == PlayFabMatchTicket::FAILED ?
                             PlayFabResult::error_result(E_FAIL, "match_ticket_failed", "PlayFab matchmaking ticket failed.", ticket) :
                             PlayFabResult::ok_result(ticket);
-                    if (kind == PlayFabMatchTicket::FAILED && _get_runtime() != nullptr) {
-                    }
+                    _complete_match_ticket_join_if_ready(ticket, result);
                     if (kind == PlayFabMatchTicket::CANCELLED || kind == PlayFabMatchTicket::FAILED) {
                         PendingOperation *cancel_operation = _find_pending_ticket_operation(ticket, PlayFabMatchTicket::CANCELLED);
                         if (cancel_operation != nullptr) {
@@ -2988,7 +3480,19 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                         }
                         terminal_tickets.push_back(ticket);
                     }
-                    _emit_ticket_change(kind, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
+                    // Keep the cached status level, cancellation completion,
+                    // and terminal cleanup even when the ticket id is not
+                    // ready. Once the id arrives, the CREATED notification
+                    // emitted by _complete_match_ticket_create_if_ready carries
+                    // the current level, so no edge replay queue is needed.
+                    const bool suppress_premature_status_change =
+                            kind == PlayFabMatchTicket::STATUS_CHANGED &&
+                            ((_find_pending_ticket_operation(ticket, PlayFabMatchTicket::CREATED) != nullptr &&
+                                     ticket->get_ticket_id().is_empty()) ||
+                                    _find_pending_ticket_operation(ticket, PENDING_MATCH_TICKET_JOIN) != nullptr);
+                    if (!suppress_premature_status_change) {
+                        _emit_ticket_change(kind, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
+                    }
                 }
             } break;
             case PFMatchmakingStateChangeType::TicketCompleted: {
@@ -3004,6 +3508,7 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
                     } else if (!result->is_ok() || ticket->get_status() == static_cast<int64_t>(PFMatchmakingTicketStatus::Failed)) {
                         kind = PlayFabMatchTicket::FAILED;
                     }
+                    _complete_match_ticket_join_if_ready(ticket, result);
                     PendingOperation *cancel_operation = _find_pending_ticket_operation(ticket, PlayFabMatchTicket::CANCELLED);
                     if (cancel_operation != nullptr && (kind == PlayFabMatchTicket::CANCELLED || kind == PlayFabMatchTicket::FAILED)) {
                         _complete_pending_operation(cancel_operation, kind == PlayFabMatchTicket::CANCELLED ? PlayFabResult::ok_result() : result);

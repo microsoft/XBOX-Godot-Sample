@@ -75,7 +75,10 @@ internal static class ParityChecker
         }
 
         // Native getters/setters map to C# properties without the prefix.
-        foreach (string prefix in new[] { "get_", "set_", "is_", "has_" })
+        // "has_" is deliberately excluded: a native has_x presence probe must be
+        // covered by an explicit HasX() method, not by an X property, which would
+        // otherwise let a missing presence accessor pass parity silently.
+        foreach (string prefix in new[] { "get_", "set_", "is_" })
         {
             if (nativeName.StartsWith(prefix, StringComparison.Ordinal) &&
                 managed.Contains(Normalize(nativeName.Substring(prefix.Length))))

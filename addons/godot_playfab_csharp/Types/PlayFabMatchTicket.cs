@@ -34,6 +34,20 @@ public sealed class PlayFabMatchTicket : PlayFabObject
 
     public const int FAILED = 104;
 
+    public const int STATUSCREATING = 0;
+
+    public const int STATUSJOINING = 1;
+
+    public const int STATUSWAITINGFORPLAYERS = 2;
+
+    public const int STATUSWAITINGFORMATCH = 3;
+
+    public const int STATUSMATCHED = 4;
+
+    public const int STATUSCANCELLED = 5;
+
+    public const int STATUSFAILED = 6;
+
     public string TicketId => GetString("ticket_id");
 
     public string QueueName => GetString("queue_name");

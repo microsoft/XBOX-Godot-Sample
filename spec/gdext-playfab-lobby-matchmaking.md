@@ -53,6 +53,7 @@ func join_arranged_lobby_async(user: PlayFabUser, connection_string: String, con
 func find_lobbies_async(user: PlayFabUser, search: PlayFabLobbySearchConfig = null) -> Signal
 
 func create_match_ticket_async(user: PlayFabUser, config: PlayFabMatchmakingTicketConfig) -> Signal
+func join_match_ticket_async(user: PlayFabUser, ticket_id: String, queue_name: String, local_members: Array = []) -> Signal
 
 func get_lobbies() -> Array[PlayFabLobby]
 func get_lobby(lobby_id: String) -> PlayFabLobby
@@ -68,7 +69,7 @@ func get_match_tickets() -> Array[PlayFabMatchTicket]
 | `find_lobbies_async()` | `PlayFabLobbySearchResult` |
 | `PlayFabLobby.set_properties_async()` / `PlayFabLobby.set_member_properties_async()` | `null`, unless implementation chooses to return a refreshed `PlayFabLobby` |
 | `PlayFabLobby.post_update_async()` / `PlayFabLobby.set_search_properties_async()` / `PlayFabLobby.set_membership_lock_async()` | `null` |
-| `create_match_ticket_async()` / `PlayFabMatchTicket.refresh_async()` | `PlayFabMatchTicket` |
+| `create_match_ticket_async()` / `join_match_ticket_async()` / `PlayFabMatchTicket.refresh_async()` | `PlayFabMatchTicket` |
 | `PlayFabMatchTicket.cancel_async()` | `null` |
 
 Immediate validation failures still return an already-completed `Signal` containing a failed `PlayFabResult`.
@@ -83,7 +84,7 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `shutdown_async()` | Cancel tracked tickets, leave tracked lobbies, reject new Multiplayer work, release handles, `PFMultiplayerUninitialize(...)`, then free deferred async contexts | Tracked resources settle or shutdown generation closes |
 | `create_lobby_async(user, config)` | `PFMultiplayerCreateAndJoinLobby(...)` entity-handle overload | create/join completed state; `PlayFabLobby` snapshot populated |
 | `join_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinLobbyWithEntityHandle(...)` using a lobby connection string | join completed state; `PlayFabLobby` snapshot populated |
-| `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
+| `join_arranged_lobby_async(user, connection_string, config)` | `PFMultiplayerJoinArrangedLobby(...)` entity-handle overload using caller-provided arranged-lobby connection string; `config` initializes `maxMemberCount`, `accessPolicy`, `ownerMigrationPolicy`, and edition-supported `restrictInvitesToLobbyOwner` | arranged-lobby join completed state; `PlayFabLobby` snapshot populated |
 | `find_lobbies_async(user, search)` | `PFMultiplayerFindLobbies(...)` entity-handle overload | find completed state; stable search summaries populated |
 | `PlayFabLobby.set_properties_async(properties)` | PFLobby update/post-update API for lobby properties | `PROPERTIES_UPDATED` completion state; cached lobby snapshot refreshed |
 | `PlayFabLobby.post_update_async(update)` | `PFLobbyPostUpdateWithEntityHandle(...)` with a `PFLobbyDataUpdate` carrying only the assigned fields | `UPDATE_COMPLETED` completion state; cached lobby snapshot refreshed |
@@ -91,7 +92,8 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `PlayFabLobby.get_membership_lock()` / `get_access_policy()` / `get_owner_migration_policy()` / `get_restrict_invites_to_lobby_owner()` | `PFLobbyGetMembershipLock` / `PFLobbyGetAccessPolicy` / `PFLobbyGetOwnerMigrationPolicy` / `PFLobbyGetRestrictInvitesToLobbyOwner` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobbyMember.get_connection_status()` | `PFLobbyGetMemberConnectionStatus(...)` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobby.set_member_properties_async(properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
-| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester and configured members | native handle returned and tracked; subsequent progress is pushed by matchmaking state changes |
+| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester/configured entity handles plus `membersToMatchWith` remote entity keys | native handle returned and tracked; completion waits for a non-empty ticket id |
+| `join_match_ticket_async(user, ticket_id, queue_name, local_members)` | `PFMultiplayerJoinMatchmakingTicketFromIdWithEntityHandles(...)` using the same local-member/attribute rules as create | completes successfully only after status leaves `Joining` for an accepted waiting/matched status; terminal rejection remains an error |
 | `PlayFabMatchTicket.refresh_async()` | `PFMatchmakingTicketGetStatus(...)` / `PFMatchmakingTicketGetMatch(...)` snapshot refresh | diagnostic refresh only; normal progress is push-driven |
 | `PlayFabMatchTicket.cancel_async()` | `PFMatchmakingTicketCancel(...)` | completion signal settles when the ticket reaches a cancelled or failed terminal state |
 
@@ -190,7 +192,46 @@ class_name PlayFabLobbyJoinConfig
 extends RefCounted
 
 var member_properties: Dictionary = {}
+
+# Arranged joins only. join_lobby_async() ignores these four.
+var max_member_count: int = 8                                          # 2..128
+var access_policy: int = PlayFabLobbyConfig.ACCESS_POLICY_PRIVATE
+var owner_migration_policy: int = PlayFabLobbyConfig.OWNER_MIGRATION_AUTOMATIC
+var restrict_invites_to_lobby_owner: bool = false
+
+func has_max_member_count() -> bool
+func clear_max_member_count() -> void
+func has_access_policy() -> bool
+func clear_access_policy() -> void
+func has_owner_migration_policy() -> bool
+func clear_owner_migration_policy() -> void
+func has_restrict_invites_to_lobby_owner() -> bool
+func clear_restrict_invites_to_lobby_owner() -> void
 ```
+
+`join_arranged_lobby_async()` initializes a newly created lobby from these four
+fields; later joiners do not reconfigure it. The three scalar fields always
+resolve to a native value. The invitation bool defaults to `false`, and older
+GDK builds reject only an explicit `true`. The canonical defaults, presence
+contract, compile-time edition gate, and invitation-surface distinction live in
+`addons/godot_playfab/doc_classes/PlayFabLobbyJoinConfig.xml`.
+
+Titles should set capacity at join time instead of shrinking the lobby after
+joining, which reopens a join race. Invalid input is rejected, never clamped:
+out-of-range `max_member_count`, or a policy value outside the bound constants,
+fails with `E_INVALIDARG` and `PlayFabResult.code = "invalid_arranged_lobby_config"`.
+Validation runs before the values are narrowed or converted, because the
+`to_lobby_*` converters map unrecognized input onto a default instead of
+reporting it. The native server-owned migration policy is not a legal
+client-arranged value and is intentionally not bound.
+
+Only the first successful joiner's values initialize a newly created arranged
+lobby. Later joiners' values do not update an existing lobby. All
+participants in an arrangement should supply identical settings; the addon
+forwards each local call and does not reconcile conflicts or reconfigure an
+existing arranged lobby.
+
+`join_lobby_async()` neither applies nor validates these four fields.
 
 ```gdscript
 class_name PlayFabLobbySearchConfig
@@ -343,7 +384,7 @@ signal state_changed(change: PlayFabMatchTicketStateChange)
 var ticket_id: String
 var queue_name: String
 var status: int
-var members: Array[PlayFabUser]
+var members: Array[PlayFabUser] # local users only
 var match_id: String
 var arranged_lobby_connection_string: String
 var properties: Dictionary
@@ -363,6 +404,24 @@ func cancel_async() -> Signal
 
 The `arranged_lobby_connection_string` is copied from native `PFMatchmakingMatchDetails.lobbyArrangementString`. It is reported to title code as optional follow-up data. The addon must not call `join_arranged_lobby_async(...)` from ticket-completion handling.
 
+`status` is the raw native value and remains an `int`. Use the prefix-separated
+status constants:
+
+```gdscript
+PlayFabMatchTicket.STATUS_CREATING            # 0
+PlayFabMatchTicket.STATUS_JOINING             # 1
+PlayFabMatchTicket.STATUS_WAITING_FOR_PLAYERS # 2
+PlayFabMatchTicket.STATUS_WAITING_FOR_MATCH   # 3
+PlayFabMatchTicket.STATUS_MATCHED             # 4
+PlayFabMatchTicket.STATUS_CANCELLED           # 5
+PlayFabMatchTicket.STATUS_FAILED              # 6
+```
+
+These are distinct from the event kinds `CREATED=100`,
+`STATUS_CHANGED=101`, `COMPLETED=102`, `CANCELLED=103`, and `FAILED=104`.
+Despite its name, `STATUS_CHANGED` is an event kind and must never be compared
+to `ticket.status`.
+
 ### Matchmaking configs
 
 ```gdscript
@@ -372,6 +431,7 @@ extends RefCounted
 var queue_name: String = ""
 var timeout_seconds: int = 120
 var members: Array[PlayFabMatchmakingMember] = []
+var members_to_match_with: Array[Dictionary] = []
 ```
 
 ```gdscript
@@ -382,7 +442,20 @@ var user: PlayFabUser
 var attributes: Dictionary = {}
 ```
 
-`create_match_ticket_async(user, config)` uses the `user` argument as the local ticket owner/requester. If `config.members` is empty, the implementation creates a single matchmaking member from that user's `PFEntityHandle` with empty attributes. If members are supplied, each configured member supplies its own `PlayFabUser`, which is converted to its internal `PFEntityHandle`, plus per-member attributes. The returned completion signal resolves only after the SDK assigns a non-empty `ticket_id`; until then, the half-created native handle remains internal and is not returned by `get_match_tickets()`.
+`create_match_ticket_async(user, config)` uses the `user` argument as the local ticket owner/requester. If `config.members` is empty, the implementation creates a single local matchmaking member from that user's `PFEntityHandle` with empty attributes. If members are supplied, each local member supplies its own `PlayFabUser`, which is converted to its internal `PFEntityHandle`, plus per-member attributes. `members_to_match_with` is the remote premade group: each entry is an owned `{id, type}` entity-key Dictionary copied into `PFMatchmakingTicketConfiguration.membersToMatchWith`. Malformed, duplicate, or local-overlapping keys fail with `invalid_match_ticket_config`; empty sends count zero and a null pointer.
+
+`join_match_ticket_async(user, ticket_id, queue_name, local_members)` uses the
+same local-member conversion and requester auto-inclusion, but joins the
+existing ticket through the entity-handle API. Blank identifiers fail with
+`invalid_join_match_ticket`. The native call being queued is not acceptance:
+the completion remains pending through `STATUS_JOINING` and succeeds only at
+`STATUS_WAITING_FOR_PLAYERS`, `STATUS_WAITING_FOR_MATCH`, or `STATUS_MATCHED`.
+Cancellation and failure complete with join-specific errors.
+
+Both create and join completion signals resolve only after the SDK reports a
+non-empty `ticket_id`; until then, the provisional native handle stays internal.
+`PlayFabMatchTicket.members` always means this client's local users, not
+`members_to_match_with` and not the completed match roster.
 
 ### Match ticket state changes
 
@@ -407,6 +480,11 @@ PlayFabMatchTicket.COMPLETED
 PlayFabMatchTicket.CANCELLED
 PlayFabMatchTicket.FAILED
 ```
+
+`addons/godot_playfab/doc_classes/PlayFabMatchTicket.xml` is the canonical
+status/event and level-triggered contract. The implementation refreshes the
+cached snapshot before emission and does not add an edge replay queue; examples
+therefore reconcile the current status immediately and on every event kind.
 
 ## Example usage and Party composition
 
@@ -543,6 +621,9 @@ func start_matchmaking(playfab_user: PlayFabUser) -> PlayFabMatchTicket:
         "region": "westus"
     }
     config.members = [member]
+    config.members_to_match_with = [
+        {"id": friend_entity_id, "type": "title_player_account"},
+    ]
 
     var result = await PlayFab.multiplayer.create_match_ticket_async(playfab_user, config)
     if not result.ok:
@@ -551,6 +632,26 @@ func start_matchmaking(playfab_user: PlayFabUser) -> PlayFabMatchTicket:
 
     var ticket: PlayFabMatchTicket = result.data
     ticket.state_changed.connect(_on_match_ticket_state_changed)
+    _handle_ticket_status(ticket, ticket.status)
+    return ticket
+```
+
+```gdscript
+func join_premade_ticket(
+        playfab_user: PlayFabUser,
+        ticket_id: String,
+        queue_name: String) -> PlayFabMatchTicket:
+    var result = await PlayFab.multiplayer.join_match_ticket_async(
+        playfab_user,
+        ticket_id,
+        queue_name)
+    if not result.ok:
+        push_warning(result.message)
+        return null
+
+    var ticket: PlayFabMatchTicket = result.data
+    ticket.state_changed.connect(_on_match_ticket_state_changed)
+    _handle_ticket_status(ticket, ticket.status)
     return ticket
 ```
 
@@ -622,6 +723,7 @@ func join_lobby_party(playfab_user: PlayFabUser, connection_string: String) -> v
 
 ```gdscript
 func _on_match_ticket_state_changed(change: PlayFabMatchTicketStateChange) -> void:
+    _handle_ticket_status(change.ticket, change.ticket.status)
     match change.kind:
         PlayFabMatchTicket.COMPLETED:
             print("Matched: ", change.match_id)
@@ -633,6 +735,9 @@ func _on_match_ticket_state_changed(change: PlayFabMatchTicketStateChange) -> vo
             push_warning(change.result.message)
 ```
 
+The handler reconciles the cached level on every event; see the canonical
+`PlayFabMatchTicket` class documentation for why.
+
 ```gdscript
 func join_arranged_match_when_title_decides(playfab_user: PlayFabUser, ticket: PlayFabMatchTicket) -> void:
     var connection_string := ticket.get_arranged_lobby_connection_string()
@@ -640,7 +745,12 @@ func join_arranged_match_when_title_decides(playfab_user: PlayFabUser, ticket: P
         push_warning("Match completed without an arranged lobby connection string.")
         return
 
-    var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(playfab_user, connection_string)
+    # Initialize the arranged lobby for this game mode at join time. Shrinking
+    # capacity after joining would reopen a join race.
+    var config := PlayFabLobbyJoinConfig.new()
+    config.max_member_count = 4
+
+    var join_result = await PlayFab.multiplayer.join_arranged_lobby_async(playfab_user, connection_string, config)
     if not join_result.ok:
         push_warning(join_result.message)
         return
@@ -663,12 +773,14 @@ Use stable error codes so GDScript callers can branch:
 "invalid_user"
 "invalid_connection_string"
 "invalid_arranged_lobby_connection_string"
+"invalid_arranged_lobby_config"
 "invalid_properties"
 "invalid_search"
 "invalid_lobby"
 "invalid_update"
 "invalid_match_ticket_config"
 "invalid_match_ticket_member"
+"invalid_join_match_ticket"
 "invalid_match_ticket"
 "lobby_create_failed"
 "lobby_join_failed"
@@ -680,7 +792,18 @@ Use stable error codes so GDScript callers can branch:
 "unsupported_on_gdk_edition"
 "match_ticket_failed"
 "match_ticket_completed_failed"
+"match_ticket_join_start_failed"
+"match_ticket_join_cancelled"
+"match_ticket_join_failed"
 ```
+
+`invalid_arranged_lobby_config` means the arranged join's capacity, access
+policy, or owner migration policy failed local validation before native
+allocation or narrowing; the result carries `E_INVALIDARG`.
+
+`unsupported_on_gdk_edition` with `E_NOTIMPL` means an arranged join requested
+owner-only PlayFab Lobby invitations from an addon compiled against a
+pre-April-2026 GDK.
 
 All validation failures must return an already-completed `Signal` with a failed `PlayFabResult`.
 
@@ -690,7 +813,16 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 
 - public class and service registration;
 - invalid or missing `PlayFabUser` entity handles;
+- exact `PlayFabLobbyJoinConfig` property names/types, method exposure, defaults,
+  independent assignment/clear presence, zero-valued policy presence, reused
+  `PlayFabLobbyConfig` constants, and member-property round trips;
+- initialized-user arranged-join validation for capacity boundaries,
+  overflow-before-narrowing, access/migration values, exact messages,
+  `E_INVALIDARG`, edition-gated owner-only invitations, and member-property
+  validation precedence;
 - invalid lobby configs, join identifiers, arranged-lobby connection strings, searches, and ticket configs;
+- local/remote matchmaking-member separation, remote premade validation, and join-ticket argument ordering;
+- raw `STATUS_*` values, stable event kinds, and level-triggered ticket reconciliation;
 - result shapes for immediate failures and completed async operations;
 - lobby snapshot update ordering before `PlayFabLobby.state_changed`;
 - lobby/member property update validation;
@@ -698,4 +830,14 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - completed tickets reporting `arranged_lobby_connection_string` without automatically joining an arranged lobby;
 - shutdown cleanup for tracked lobbies and tickets.
 
-Live PlayFab Multiplayer tests must stay opt-in behind the repository's `LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner covers multi-client lobby flows and, when a configured matchmaking queue is supplied, match ticket create/cancel, two-player match completion, explicit arranged-lobby joins, and arranged-lobby cleanup.
+Live PlayFab Multiplayer tests must stay opt-in behind the repository's
+`LIVE_TESTS=1` / `-Live` path and use a sandbox PlayFab title. The live runner
+covers multi-client lobby flows and, when a configured matchmaking queue is
+supplied, match ticket create/cancel, two-player match completion, and three
+arranged-lobby scenarios: combined omitted/unset defaults, explicit
+4 / Private / Automatic initialization, and explicit 16 / Public / Manual
+initialization. Each scenario asserts the first snapshots before convergence,
+and the runner also covers arranged-lobby cleanup. The ordinary
+connection-string join scenario sends invalid arranged-only overrides and must
+still succeed while preserving the host-created configuration and guest member
+properties.
