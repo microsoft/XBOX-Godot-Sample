@@ -320,9 +320,9 @@ Peer-id handshake:
 1. Host always starts as Godot peer id `1`.
 2. The host marks its own endpoint at `CreateEndpoint` time with an immutable shared property (`pf.role` = `host`). Party endpoint shared properties cannot be changed after creation and are owned by the creating endpoint, so exactly one endpoint in the network carries the marker. Every device reads it off the remote endpoint (`PartyEndpoint::GetSharedProperty`) to identify the host deterministically.
 3. After a client authenticates and its endpoint is ready, it sends a reserved transport-control packet with its entity-key `Dictionary` and a random join nonce to the host endpoint — the endpoint identified by the `pf.role=host` marker. A remote endpoint whose role cannot be read is contacted defensively (so a transient property-read failure cannot strand the join); client endpoints (marker absent) are skipped.
-4. Host allocates the next positive peer id, records `{peer_id, entity-key Dictionary, Party endpoint}`, and replies with a reserved assignment packet.
+4. The host checks the payload identity against the sender endpoint's entity. Rejection emits a host-local error without replying or changing mappings. Otherwise, the host assigns/reuses the endpoint entity's peer ID and records the endpoint after a successful reply.
 5. Client stores the assigned peer id, transitions to connected, and includes the assigned source peer id in future gameplay packet envelopes.
-6. If assignment does not complete before timeout, join fails with `party_peer_not_connected` and the network closes.
+6. The title owns the handshake deadline and cancels unreturned joins through scoped Party shutdown.
 
 Reserved handshake/control packets are filtered out of `_get_packet()` so Godot RPC code only sees gameplay packets.
 
@@ -705,6 +705,8 @@ Use stable error codes so GDScript callers can branch:
 "party_descriptor_invalid"
 "party_transport_create_failed"
 "party_peer_not_connected"
+"party_handshake_entity_mismatch"
+"party_handshake_endpoint_entity_unavailable"
 "party_resource_not_ready"
 "party_chat_control_create_failed"
 "party_chat_permission_failed"

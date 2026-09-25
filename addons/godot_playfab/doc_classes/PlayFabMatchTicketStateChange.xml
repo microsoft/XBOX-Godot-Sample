@@ -5,14 +5,14 @@
 	</brief_description>
 	<description>
 		Completed tickets expose [member match_id] and [member arranged_lobby_connection_string]. The addon does not auto-join arranged lobbies.
-		The associated [PlayFabMatchTicket] snapshot is refreshed before this payload is emitted, but the signal stream is not lossless. Reconcile the [member PlayFabMatchTicket.status] of [member ticket] on every [signal PlayFabMatchTicket.state_changed] regardless of [member kind], and reconcile once immediately after connecting. Handlers must be idempotent.
+		See [PlayFabMatchTicket] for the canonical terminal lifecycle and level-triggered signal contract. Terminal payloads are emitted only from the native completion record; when completion fails, [member result] carries the native failure HRESULT in [member PlayFabResult.hresult]. Event [member kind] and ticket [member status] remain separate numeric spaces.
 	</description>
 	<tutorials></tutorials>
 	<methods></methods>
 	<members>
 		<member name="kind" type="int" setter="" getter="get_kind">One of [PlayFabMatchTicket]'s event-kind constants: [constant PlayFabMatchTicket.CREATED], [constant PlayFabMatchTicket.STATUS_CHANGED], [constant PlayFabMatchTicket.COMPLETED], [constant PlayFabMatchTicket.CANCELLED], or [constant PlayFabMatchTicket.FAILED]. These are not status values.</member>
 		<member name="ticket" type="PlayFabMatchTicket" setter="" getter="get_ticket">Ticket that changed.</member>
-		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for terminal ticket changes.</member>
+		<member name="result" type="PlayFabResult" setter="" getter="get_result">Result for this ticket change. Terminal failures preserve the HRESULT supplied by the native completion record.</member>
 		<member name="status" type="int" setter="" getter="get_status">Raw native ticket status snapshot; compare against [constant PlayFabMatchTicket.STATUS_CREATING] through [constant PlayFabMatchTicket.STATUS_FAILED].</member>
 		<member name="match_id" type="String" setter="" getter="get_match_id">Matched PlayFab match id when available.</member>
 		<member name="arranged_lobby_connection_string" type="String" setter="" getter="get_arranged_lobby_connection_string">Connection string title code may pass to [method PlayFabMultiplayer.join_arranged_lobby_async].</member>
