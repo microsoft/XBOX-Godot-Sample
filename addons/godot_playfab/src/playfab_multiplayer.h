@@ -582,6 +582,8 @@ public:
 class PlayFabMatchTicket : public RefCounted {
     GDCLASS(PlayFabMatchTicket, RefCounted);
 
+    friend class PlayFabMultiplayer;
+
     PlayFabMultiplayer *m_owner = nullptr;
     PFMatchmakingTicketHandle m_ticket_handle = nullptr;
     String m_ticket_id;
@@ -592,6 +594,12 @@ class PlayFabMatchTicket : public RefCounted {
     String m_arranged_lobby_connection_string;
     Dictionary m_properties;
     bool m_destroyed = false;
+    bool m_completion_received = false;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    bool m_test_match_ticket = false;
+    uint8_t m_test_handle_storage = 0;
+    Dictionary m_test_next_native_snapshot;
+#endif
 
 protected:
     static void _bind_methods();
@@ -677,10 +685,23 @@ private:
     void _track_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _untrack_lobby(const Ref<PlayFabLobby> &p_lobby);
     void _track_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
-    void _complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket);
+    void _complete_match_ticket_create_if_ready(
+            const Ref<PlayFabMatchTicket> &p_ticket,
+            bool p_defer_completion = false);
     void _complete_match_ticket_join_if_ready(
             const Ref<PlayFabMatchTicket> &p_ticket,
-            const Ref<PlayFabResult> &p_terminal_result = Ref<PlayFabResult>());
+            bool p_defer_completion = false);
+    void _process_matchmaking_state_change(
+            const PFMatchmakingStateChange *p_change,
+            std::vector<Ref<PlayFabMatchTicket>> &r_terminal_tickets);
+    void _finish_matchmaking_batch(
+            HRESULT p_finish_hresult,
+            const std::vector<Ref<PlayFabMatchTicket>> &p_terminal_tickets);
+    void _complete_terminal_match_ticket_operations(
+            const Ref<PlayFabMatchTicket> &p_ticket,
+            const Ref<PlayFabResult> &p_terminal_result);
+    HRESULT _start_match_ticket_cancel(const Ref<PlayFabMatchTicket> &p_ticket);
+    void _destroy_match_ticket(const Ref<PlayFabMatchTicket> &p_ticket);
     void _terminate_multiplayer_queue();
     HRESULT _uninitialize_native();
     void _reset_after_state_change_finish_failure(const Ref<PlayFabResult> &p_result);
@@ -695,10 +716,18 @@ private:
             int64_t p_reason = PlayFabLobbyStateChange::REASON_NONE);
 #ifdef GODOT_PLAYFAB_TEST_HOOKS
     bool m_test_cleanup_failure = false;
+    bool m_test_matchmaking_fixture = false;
+    HRESULT m_test_match_ticket_cancel_result = S_OK;
+    int64_t m_test_match_ticket_cancel_starts = 0;
+    int64_t m_test_match_ticket_destroys = 0;
     void _test_set_cleanup_failure(bool p_fail);
     Signal _test_enqueue_shutdown_pending();
     int64_t _test_pending_operation_count() const;
     int64_t _test_join_match_ticket_readiness(int64_t p_status) const;
+    Dictionary _test_begin_match_ticket(const String &p_operation, const Dictionary &p_snapshot);
+    void _test_matchmaking_batch(const Array &p_changes, int64_t p_finish_hresult = 0);
+    void _test_set_match_ticket_cancel_result(int64_t p_hresult);
+    Dictionary _test_matchmaking_snapshot(const Ref<PlayFabMatchTicket> &p_ticket) const;
 #endif
 
     void _emit_ticket_change(

@@ -70,7 +70,7 @@ func get_match_tickets() -> Array[PlayFabMatchTicket]
 | `PlayFabLobby.set_properties_async()` / `PlayFabLobby.set_member_properties_async()` | `null`, unless implementation chooses to return a refreshed `PlayFabLobby` |
 | `PlayFabLobby.post_update_async()` / `PlayFabLobby.set_search_properties_async()` / `PlayFabLobby.set_membership_lock_async()` | `null` |
 | `create_match_ticket_async()` / `join_match_ticket_async()` / `PlayFabMatchTicket.refresh_async()` | `PlayFabMatchTicket` |
-| `PlayFabMatchTicket.cancel_async()` | `null` |
+| `PlayFabMatchTicket.cancel_async()` | `null` on successful cancellation; the matched `PlayFabMatchTicket` for `match_ticket_cancel_lost_race`; the terminal ticket on forwarded native failure |
 
 Immediate validation failures still return an already-completed `Signal` containing a failed `PlayFabResult`.
 
@@ -92,10 +92,10 @@ All user-owned calls validate `PlayFabUser::get_entity_handle()` and use the new
 | `PlayFabLobby.get_membership_lock()` / `get_access_policy()` / `get_owner_migration_policy()` / `get_restrict_invites_to_lobby_owner()` | `PFLobbyGetMembershipLock` / `PFLobbyGetAccessPolicy` / `PFLobbyGetOwnerMigrationPolicy` / `PFLobbyGetRestrictInvitesToLobbyOwner` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobbyMember.get_connection_status()` | `PFLobbyGetMemberConnectionStatus(...)` during snapshot refresh | cached at every snapshot refresh; no async call |
 | `PlayFabLobby.set_member_properties_async(properties)` | PFLobby update/post-update API for the local member associated with the lobby's entity handle | member update completed state; cached member snapshot refreshed |
-| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester/configured entity handles plus `membersToMatchWith` remote entity keys | native handle returned and tracked; completion waits for a non-empty ticket id |
-| `join_match_ticket_async(user, ticket_id, queue_name, local_members)` | `PFMultiplayerJoinMatchmakingTicketFromIdWithEntityHandles(...)` using the same local-member/attribute rules as create | completes successfully only after status leaves `Joining` for an accepted waiting/matched status; terminal rejection remains an error |
+| `create_match_ticket_async(user, config)` | `PFMultiplayerCreateMatchmakingTicketWithEntityHandles(...)` using local requester/configured entity handles plus `membersToMatchWith` remote entity keys | ordinary readiness requires a non-empty ticket id; terminal snapshots wait for `TicketCompleted`, which preserves native failure HRESULTs |
+| `join_match_ticket_async(user, ticket_id, queue_name, local_members)` | `PFMultiplayerJoinMatchmakingTicketFromIdWithEntityHandles(...)` using the same local-member/attribute rules as create | ordinary readiness requires a non-empty id and an accepted waiting status; terminal snapshots wait for `TicketCompleted` |
 | `PlayFabMatchTicket.refresh_async()` | `PFMatchmakingTicketGetStatus(...)` / `PFMatchmakingTicketGetMatch(...)` snapshot refresh | diagnostic refresh only; normal progress is push-driven |
-| `PlayFabMatchTicket.cancel_async()` | `PFMatchmakingTicketCancel(...)` | completion signal settles when the ticket reaches a cancelled or failed terminal state |
+| `PlayFabMatchTicket.cancel_async()` | `PFMatchmakingTicketCancel(...)` | coalesced cancellation settles from `TicketCompleted`; a terminal status/completion gap attaches without another native cancel |
 
 Native handles returned synchronously by create/join/find/ticket calls are provisional implementation details. Public wrappers may be allocated for bookkeeping, but externally visible state remains creating, joining, searching, matching, or equivalent until the corresponding completed state change succeeds.
 
@@ -447,15 +447,21 @@ var attributes: Dictionary = {}
 `join_match_ticket_async(user, ticket_id, queue_name, local_members)` uses the
 same local-member conversion and requester auto-inclusion, but joins the
 existing ticket through the entity-handle API. Blank identifiers fail with
-`invalid_join_match_ticket`. The native call being queued is not acceptance:
-the completion remains pending through `STATUS_JOINING` and succeeds only at
-`STATUS_WAITING_FOR_PLAYERS`, `STATUS_WAITING_FOR_MATCH`, or `STATUS_MATCHED`.
+`invalid_join_match_ticket`. The native call being queued is not acceptance.
+The operation remains pending in `STATUS_JOINING`. Nonterminal readiness
+succeeds at `STATUS_WAITING_FOR_PLAYERS` or `STATUS_WAITING_FOR_MATCH`.
+Terminal snapshots wait for authoritative native completion; a successful
+matched completion succeeds when `ticket_id` is non-empty.
 Cancellation and failure complete with join-specific errors.
 
-Both create and join completion signals resolve only after the SDK reports a
-non-empty `ticket_id`; until then, the provisional native handle stays internal.
-`PlayFabMatchTicket.members` always means this client's local users, not
-`members_to_match_with` and not the completed match roster.
+For ordinary nonterminal readiness, both create and join require a non-empty
+`ticket_id`; until then, the provisional native handle stays internal. A
+terminal native failure takes precedence over id/readiness checks and preserves
+its HRESULT. Successful native cancellation returns `E_ABORT` with
+`match_ticket_create_cancelled` or `match_ticket_join_cancelled`. Successful
+matched completion can satisfy a still-pending factory only when the id is
+non-empty. `PlayFabMatchTicket.members` always means this client's local users,
+not `members_to_match_with` and not the completed match roster.
 
 ### Match ticket state changes
 
@@ -482,9 +488,14 @@ PlayFabMatchTicket.FAILED
 ```
 
 `addons/godot_playfab/doc_classes/PlayFabMatchTicket.xml` is the canonical
-status/event and level-triggered contract. The implementation refreshes the
-cached snapshot before emission and does not add an edge replay queue; examples
-therefore reconcile the current status immediately and on every event kind.
+status/event, terminal lifecycle, cancellation, and level-triggered contract.
+`TicketCompleted` settles create, then join, then cancel, emits the single
+terminal notification, and permits destruction after the batch. A terminal
+`TicketStatusChanged` only refreshes the cached level. A Canceled status wins
+over the completion HRESULT because the SDK may complete requested cancellations
+with `0x89236304`. The completion latch is checked before snapshot refresh, and
+there is no watchdog; `PlayFabMultiplayer.shutdown_async()` (or a finish-failure
+reset) is the fallback if the SDK never delivers completion.
 
 ## Example usage and Party composition
 
@@ -790,8 +801,10 @@ Use stable error codes so GDScript callers can branch:
 "lobby_update_start_failed"
 "lobby_disconnected"
 "unsupported_on_gdk_edition"
-"match_ticket_failed"
 "match_ticket_completed_failed"
+"match_ticket_cancel_lost_race"
+"match_ticket_create_failed"
+"match_ticket_create_cancelled"
 "match_ticket_join_start_failed"
 "match_ticket_join_cancelled"
 "match_ticket_join_failed"
@@ -827,6 +840,11 @@ Add GUT coverage under `tests\godot\playfab\tests\` for:
 - lobby snapshot update ordering before `PlayFabLobby.state_changed`;
 - lobby/member property update validation;
 - ticket status, completed, cancelled, and failed state-change wrappers;
+- the offline production-dispatch regression suite in
+  `test_matchmaking_completion.gd`: status/completion ordering, exact native
+  HRESULT forwarding, cancellation lost races and coalescing, duplicate
+  completion suppression, terminal-gap cancellation, shutdown/reset fallback,
+  and unchanged nonterminal factory readiness;
 - completed tickets reporting `arranged_lobby_connection_string` without automatically joining an arranged lobby;
 - shutdown cleanup for tracked lobbies and tickets.
 
