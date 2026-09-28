@@ -278,6 +278,18 @@ asks Windows to route virtual-keyboard input to it. Windows can validly decline
 the best-effort request when the game is not foreground or a hardware keyboard
 is available.
 
+### Signals
+
+| Signal | Description |
+|--------|-------------|
+| `virtual_keyboard_showing` | Fires before Windows shows the current view's primary input pane. Does not require `GDK.initialize()`. |
+| `virtual_keyboard_hiding` | Fires before Windows hides the current view's primary input pane. Does not require `GDK.initialize()`. |
+
+These signals map to `CoreInputView.PrimaryViewShowing` and
+`PrimaryViewHiding`, available on Windows 10 version 2004 and later. They
+describe the start of a pane transition; they do not guarantee that Windows
+will complete it or that a prior best-effort show/hide request was accepted.
+
 ### Validation
 
 `default_button` and `cancel_button` accept `first`/`0`, `second`/`1`, or

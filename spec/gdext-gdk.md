@@ -794,6 +794,13 @@ show_virtual_keyboard() -> XboxResult
 hide_virtual_keyboard() -> XboxResult
 ```
 
+##### Signals
+
+```gdscript
+virtual_keyboard_showing()  # before the Windows primary input pane is shown
+virtual_keyboard_hiding()   # before the Windows primary input pane is hidden
+```
+
 ##### Notes
 
 - This service should expose only APIs verified as available in the public PC GDK (`_GAMING_DESKTOP`) headers/libs used by this repo.
@@ -815,6 +822,7 @@ hide_virtual_keyboard() -> XboxResult
 | `show_send_game_invite_async()` | `XGameUiShowSendGameInviteAsync`, `XGameUiShowSendGameInviteResult` | Requires session configuration/template/id; optional invitation text and custom activation context. Title owns the MPSD session identifiers. |
 | `show_text_entry_async()` | `XGameUiShowTextEntryAsync`, `XGameUiShowTextEntryResultSize`, `XGameUiShowTextEntryResult` | Gamepad/virtual-keyboard text entry. `input_scope` maps to `XGameUiTextEntryInputScope`; returns the entered text in `XboxResult.data.text`. |
 | `show_virtual_keyboard()` / `hide_virtual_keyboard()` | Windows `CoreInputView::TryShow(Gamepad)` / `TryHide()` | Best-effort in-place keyboard control for a focused Godot `LineEdit` or `TextEdit`; the synchronous `XboxResult.data` bool reports whether Windows accepted the request and does not require GDK runtime initialization. |
+| `virtual_keyboard_showing` / `virtual_keyboard_hiding` | Windows `CoreInputView::PrimaryViewShowing` / `PrimaryViewHiding` | Zero-argument signals emitted before the current view's primary input pane transitions. Available on Windows 10 version 2004+ and independent of GDK runtime initialization. |
 
 > Excluded from `GDK.game_ui` (engine/host overlap): `XGameUiShowStateShareAsync` and `XGameUiShowWebAuthenticationAsync`/`WithOptions` — Godot already provides web-auth/state-share equivalents.
 

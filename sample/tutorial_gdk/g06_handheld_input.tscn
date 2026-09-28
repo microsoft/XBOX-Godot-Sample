@@ -63,3 +63,8 @@ text = "← Back"
 layout_mode = 2
 text = "No keyboard request made yet."
 autowrap_mode = 3
+
+[node name="EventStatus" type="Label" parent="Root"]
+layout_mode = 2
+text = "No virtual-keyboard event received yet."
+autowrap_mode = 3

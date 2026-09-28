@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Godot;
 using GodotXbox.Internal;
@@ -8,7 +9,23 @@ namespace GodotXbox.Services;
 /// <summary><c>GDK.game_ui</c> — system dialogs, profile cards, and player pickers.</summary>
 public sealed class XboxGameUi : XboxServiceBase
 {
-    internal XboxGameUi(GodotObject o) : base(o) { }
+    internal XboxGameUi(GodotObject o) : base(o)
+    {
+        _o.Connect("virtual_keyboard_showing", Callable.From(() => VirtualKeyboardShowing?.Invoke()));
+        _o.Connect("virtual_keyboard_hiding", Callable.From(() => VirtualKeyboardHiding?.Invoke()));
+    }
+
+    /// <summary>
+    /// Raised before Windows shows the primary virtual keyboard input pane for
+    /// this application's current view.
+    /// </summary>
+    public event Action VirtualKeyboardShowing;
+
+    /// <summary>
+    /// Raised before Windows hides the primary virtual keyboard input pane for
+    /// this application's current view.
+    /// </summary>
+    public event Action VirtualKeyboardHiding;
 
     public Task<XboxResult> ShowMessageDialogAsync(
         string title, string message, string firstButton,

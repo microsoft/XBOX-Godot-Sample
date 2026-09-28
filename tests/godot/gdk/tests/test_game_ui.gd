@@ -21,6 +21,10 @@ func _assert_virtual_keyboard_result(result, method_name: String) -> void:
 		assert_true(result.message.length() > 0, "%s failure exposes an error message" % method_name)
 
 
+func _on_virtual_keyboard_contract_signal() -> void:
+	pass
+
+
 func test_virtual_keyboard_contract_before_initialization() -> void:
 	if pending_unless_runtime_available():
 		return
@@ -42,6 +46,38 @@ func test_virtual_keyboard_contract_before_initialization() -> void:
 	var hide_result = game_ui.hide_virtual_keyboard()
 	_assert_virtual_keyboard_result(hide_result, "hide_virtual_keyboard()")
 	assert_false(gdk.is_initialized(), "hide_virtual_keyboard() does not initialize the GDK runtime")
+
+
+func test_virtual_keyboard_event_contract_before_initialization() -> void:
+	if pending_unless_runtime_available():
+		return
+
+	var gdk = get_gdk()
+	assert_false(gdk.is_initialized(), "GDK runtime starts uninitialized for virtual-keyboard event coverage")
+
+	var game_ui = gdk.get_game_ui()
+	assert_not_null(game_ui, "GDK.game_ui returns service object for virtual-keyboard events")
+	if game_ui == null:
+		return
+
+	var callback = Callable(self, "_on_virtual_keyboard_contract_signal")
+	for signal_name in ["virtual_keyboard_showing", "virtual_keyboard_hiding"]:
+		assert_has_signal_named(game_ui, signal_name)
+		var signal_info = {}
+		for info in game_ui.get_signal_list():
+			if info.name == signal_name:
+				signal_info = info
+				break
+		assert_false(signal_info.is_empty(), "%s is listed" % signal_name)
+		if not signal_info.is_empty():
+			assert_eq(signal_info.args.size(), 0, "%s has no payload" % signal_name)
+
+		var connect_error = game_ui.connect(signal_name, callback)
+		assert_eq(connect_error, OK, "%s is connectable before GDK.initialize()" % signal_name)
+		assert_true(game_ui.is_connected(signal_name, callback), "%s connection is retained" % signal_name)
+		game_ui.disconnect(signal_name, callback)
+
+	assert_false(gdk.is_initialized(), "virtual-keyboard event subscriptions do not initialize the GDK runtime")
 
 
 func test_game_ui_surface_and_validation() -> void:

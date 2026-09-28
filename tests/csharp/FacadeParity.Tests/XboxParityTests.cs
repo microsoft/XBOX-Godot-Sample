@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,5 +27,14 @@ public class XboxParityTests
 
         Assert.True(missing.Count == 0,
             $"{csharpType.FullName} is missing wrappers for native members: {string.Join(", ", missing)}");
+    }
+
+    [Fact]
+    public void GameUiVirtualKeyboardEventsHaveNoPayload()
+    {
+        Type gameUi = typeof(GodotXbox.Services.XboxGameUi);
+
+        Assert.Equal(typeof(Action), gameUi.GetEvent("VirtualKeyboardShowing")?.EventHandlerType);
+        Assert.Equal(typeof(Action), gameUi.GetEvent("VirtualKeyboardHiding")?.EventHandlerType);
     }
 }

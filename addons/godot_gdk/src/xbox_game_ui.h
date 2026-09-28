@@ -6,6 +6,7 @@
 #endif
 #include <windows.h>
 
+#include <memory>
 #include <vector>
 
 #include <godot_cpp/classes/ref.hpp>
@@ -25,13 +26,26 @@ class XboxUsers;
 class XboxGameUI : public RefCounted {
     GDCLASS(XboxGameUI, RefCounted);
 
+    struct VirtualKeyboardEventState;
+
     Xbox *m_owner = nullptr;
     bool m_runtime_ready = false;
+    std::unique_ptr<VirtualKeyboardEventState> m_virtual_keyboard_events;
+    bool m_virtual_keyboard_events_unsupported = false;
+    bool m_virtual_keyboard_events_warning_emitted = false;
+
+    void ensure_virtual_keyboard_events_registered();
+    void unregister_virtual_keyboard_events();
+    void emit_virtual_keyboard_showing();
+    void emit_virtual_keyboard_hiding();
 
 protected:
     static void _bind_methods();
 
 public:
+    XboxGameUI();
+    ~XboxGameUI();
+
     void set_owner(Xbox *p_owner);
 
     Ref<XboxResult> on_runtime_initialized();

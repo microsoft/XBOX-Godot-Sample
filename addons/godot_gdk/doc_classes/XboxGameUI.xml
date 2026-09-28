@@ -110,6 +110,16 @@
 	<members>
 	</members>
 	<signals>
+		<signal name="virtual_keyboard_showing">
+			<description>
+				Emitted before Windows shows the primary input pane for the current view. This maps to [code]CoreInputView.PrimaryViewShowing[/code], which is available on Windows 10 version 2004 and later. The signal does not require [method GDK.initialize] or a signed-in Xbox user. It reports the beginning of the transition, not a guarantee that Windows will finish showing the keyboard.
+			</description>
+		</signal>
+		<signal name="virtual_keyboard_hiding">
+			<description>
+				Emitted before Windows hides the primary input pane for the current view. This maps to [code]CoreInputView.PrimaryViewHiding[/code], which is available on Windows 10 version 2004 and later. The signal does not require [method GDK.initialize] or a signed-in Xbox user. It reports the beginning of the transition, not a guarantee that Windows will finish hiding the keyboard.
+			</description>
+		</signal>
 	</signals>
 	<constants>
 	</constants>

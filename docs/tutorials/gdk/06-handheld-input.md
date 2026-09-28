@@ -21,5 +21,10 @@ accepted. A `false` value is not a native failure; the Windows API is
 best-effort and can decline when the title is not foreground or Windows prefers
 an attached hardware keyboard.
 
+The scene also reports `GDK.game_ui.virtual_keyboard_showing` and
+`virtual_keyboard_hiding`. These signals fire before Windows begins the
+corresponding input-pane transition; they do not require `GDK.initialize()` or
+a signed-in Xbox user. They are available on Windows 10 version 2004 and later.
+
 Use `show_text_entry_async()` instead when the game wants a separate modal GDK
 text-entry UI that returns the complete submitted string.

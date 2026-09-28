@@ -9,6 +9,7 @@ const AddonApi = preload("res://shared/addon_api.gd")
 @onready var _device_status: Label = $Root/DeviceStatus
 @onready var _text_input: LineEdit = $Root/TextInput
 @onready var _result: Label = $Root/Result
+@onready var _event_status: Label = $Root/EventStatus
 @onready var _show_btn: Button = $Root/Buttons/ShowBtn
 @onready var _hide_btn: Button = $Root/Buttons/HideBtn
 @onready var _back_btn: Button = $Root/Buttons/BackBtn
@@ -29,6 +30,8 @@ func _ready() -> void:
 
 	var handheld: bool = _gdk.system.is_handheld()
 	_device_status.text = "Windows gaming handheld: %s" % ("yes" if handheld else "no")
+	_gdk.game_ui.virtual_keyboard_showing.connect(_on_virtual_keyboard_showing)
+	_gdk.game_ui.virtual_keyboard_hiding.connect(_on_virtual_keyboard_hiding)
 	_text_input.grab_focus()
 
 func _on_show_pressed() -> void:
@@ -48,6 +51,12 @@ func _report_result(action: String, result) -> void:
 		_result.text = "%s request accepted by Windows: %s" % [action, result.data]
 	else:
 		_result.text = "%s failed: %s (%s)" % [action, result.message, result.code]
+
+func _on_virtual_keyboard_showing() -> void:
+	_event_status.text = "Windows event: virtual keyboard is showing."
+
+func _on_virtual_keyboard_hiding() -> void:
+	_event_status.text = "Windows event: virtual keyboard is hiding."
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://shared/tutorial_picker.tscn")

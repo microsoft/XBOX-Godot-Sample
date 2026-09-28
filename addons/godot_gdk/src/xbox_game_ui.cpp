@@ -9,7 +9,10 @@
 #include <XGame.h>
 #include <XGameUI.h>
 #include <roapi.h>
+#include <winrt/Windows.Foundation.Metadata.h>
 #include <winrt/Windows.UI.ViewManagement.Core.h>
+
+#include <godot_cpp/variant/utility_functions.hpp>
 
 #include "xbox.h"
 #include "xbox_pending_signal.h"
@@ -487,6 +490,15 @@ XGameUiTextEntryInputScope _parse_text_entry_input_scope(const String &p_input_s
 
 } // namespace
 
+struct XboxGameUI::VirtualKeyboardEventState {
+    ScopedRoInitialize ro_initialize;
+    winrt::Windows::UI::ViewManagement::Core::CoreInputView input_view{ nullptr };
+    winrt::event_token showing_token{};
+    winrt::event_token hiding_token{};
+    bool showing_registered = false;
+    bool hiding_registered = false;
+};
+
 void XboxGameUI::_bind_methods() {
     ClassDB::bind_method(
             D_METHOD("show_message_dialog_async", "title", "message", "first_button", "second_button", "third_button", "default_button", "cancel_button"),
@@ -522,10 +534,115 @@ void XboxGameUI::_bind_methods() {
             DEFVAL(static_cast<int64_t>(0)));
     ClassDB::bind_method(D_METHOD("show_virtual_keyboard"), &XboxGameUI::show_virtual_keyboard);
     ClassDB::bind_method(D_METHOD("hide_virtual_keyboard"), &XboxGameUI::hide_virtual_keyboard);
+
+    ADD_SIGNAL(MethodInfo("virtual_keyboard_showing"));
+    ADD_SIGNAL(MethodInfo("virtual_keyboard_hiding"));
+}
+
+XboxGameUI::XboxGameUI() = default;
+
+XboxGameUI::~XboxGameUI() {
+    unregister_virtual_keyboard_events();
 }
 
 void XboxGameUI::set_owner(Xbox *p_owner) {
     m_owner = p_owner;
+    ensure_virtual_keyboard_events_registered();
+}
+
+void XboxGameUI::ensure_virtual_keyboard_events_registered() {
+    if (m_virtual_keyboard_events != nullptr || m_virtual_keyboard_events_unsupported) {
+        return;
+    }
+
+    auto state = std::make_unique<VirtualKeyboardEventState>();
+    if (FAILED(state->ro_initialize.get_result())) {
+        if (!m_virtual_keyboard_events_warning_emitted) {
+            UtilityFunctions::push_warning(
+                    "[GDK] Windows virtual-keyboard visibility events are unavailable because the Windows Runtime apartment could not be initialized.");
+            m_virtual_keyboard_events_warning_emitted = true;
+        }
+        return;
+    }
+
+    try {
+        using namespace winrt::Windows::Foundation::Metadata;
+        using namespace winrt::Windows::UI::ViewManagement::Core;
+
+        constexpr wchar_t core_input_view_type[] = L"Windows.UI.ViewManagement.Core.CoreInputView";
+        if (!ApiInformation::IsEventPresent(core_input_view_type, L"PrimaryViewShowing") ||
+                !ApiInformation::IsEventPresent(core_input_view_type, L"PrimaryViewHiding")) {
+            m_virtual_keyboard_events_unsupported = true;
+            if (!m_virtual_keyboard_events_warning_emitted) {
+                UtilityFunctions::push_warning(
+                        "[GDK] Windows virtual-keyboard visibility events require Windows 10 version 2004 or later.");
+                m_virtual_keyboard_events_warning_emitted = true;
+            }
+            return;
+        }
+
+        state->input_view = CoreInputView::GetForCurrentView();
+        state->showing_token = state->input_view.PrimaryViewShowing(
+                [this](const CoreInputView &, const CoreInputViewShowingEventArgs &) {
+                    // CoreInputView delivers this callback for the UI view used to
+                    // register it. Emit immediately so the signal keeps Windows'
+                    // before-transition semantics.
+                    emit_virtual_keyboard_showing();
+                });
+        state->showing_registered = true;
+        state->hiding_token = state->input_view.PrimaryViewHiding(
+                [this](const CoreInputView &, const CoreInputViewHidingEventArgs &) {
+                    emit_virtual_keyboard_hiding();
+                });
+        state->hiding_registered = true;
+        m_virtual_keyboard_events = std::move(state);
+    } catch (const winrt::hresult_error &) {
+        if (state->showing_registered) {
+            try {
+                state->input_view.PrimaryViewShowing(state->showing_token);
+            } catch (const winrt::hresult_error &) {
+            }
+        }
+        if (!m_virtual_keyboard_events_warning_emitted) {
+            UtilityFunctions::push_warning(
+                    "[GDK] Windows virtual-keyboard visibility events could not be registered for the current view; registration will be retried when the keyboard is requested.");
+            m_virtual_keyboard_events_warning_emitted = true;
+        }
+    }
+}
+
+void XboxGameUI::unregister_virtual_keyboard_events() {
+    if (m_virtual_keyboard_events == nullptr) {
+        return;
+    }
+
+    VirtualKeyboardEventState &state = *m_virtual_keyboard_events;
+    if (state.hiding_registered) {
+        try {
+            state.input_view.PrimaryViewHiding(state.hiding_token);
+            state.hiding_registered = false;
+        } catch (const winrt::hresult_error &) {
+            // The view may already be tearing down. Still attempt to revoke
+            // the independent showing subscription below.
+        }
+    }
+    if (state.showing_registered) {
+        try {
+            state.input_view.PrimaryViewShowing(state.showing_token);
+            state.showing_registered = false;
+        } catch (const winrt::hresult_error &) {
+            // The view may already be tearing down during engine shutdown.
+        }
+    }
+    m_virtual_keyboard_events.reset();
+}
+
+void XboxGameUI::emit_virtual_keyboard_showing() {
+    emit_signal("virtual_keyboard_showing");
+}
+
+void XboxGameUI::emit_virtual_keyboard_hiding() {
+    emit_signal("virtual_keyboard_hiding");
 }
 
 Ref<XboxResult> XboxGameUI::on_runtime_initialized() {
@@ -982,6 +1099,8 @@ Signal XboxGameUI::show_text_entry_async(
 }
 
 Ref<XboxResult> XboxGameUI::show_virtual_keyboard() {
+    ensure_virtual_keyboard_events_registered();
+
     ScopedRoInitialize ro_initialize;
     if (FAILED(ro_initialize.get_result())) {
         return XboxResult::hresult_error(
@@ -1008,6 +1127,8 @@ Ref<XboxResult> XboxGameUI::show_virtual_keyboard() {
 }
 
 Ref<XboxResult> XboxGameUI::hide_virtual_keyboard() {
+    ensure_virtual_keyboard_events_registered();
+
     ScopedRoInitialize ro_initialize;
     if (FAILED(ro_initialize.get_result())) {
         return XboxResult::hresult_error(
