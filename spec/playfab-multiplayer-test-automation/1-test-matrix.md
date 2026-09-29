@@ -88,10 +88,10 @@ These tables anchor the `state_transitions` scenarios. Each cell is a transition
 | From | Trigger | To | Observable event |
 | --- | --- | --- | --- |
 | `none` | `create_match_ticket_async(host, queue)` | `waiting_for_players` | `match.status_changed = waiting_for_players` on host |
-| `waiting_for_players` | second player ticket created in same queue | `waiting_for_match` → `matched` | `match.status_changed = matched` on both |
-| `matched` | host calls `cancel_match_ticket_async` | `cancelled` (idempotent if already terminal) | `match.status_changed = cancelled` on host |
-| `waiting_for_players` | host calls `cancel_match_ticket_async` | `cancelled` | `match.status_changed = cancelled` on host |
-| `waiting_for_players` | ticket `timeout_seconds` elapses | `failed` w/ timeout cause | `match.status_changed = failed` on host |
+| `waiting_for_players` | second player ticket created in same queue | `waiting_for_match` → `matched` | `match.ticket_completed` on both |
+| `matched` | host calls `cancel_match_ticket_async` | stays `matched` | no `match.ticket_cancelled`; a cancel pending when the ticket completes returns `match_ticket_cancel_lost_race`, a later cancel returns `invalid_match_ticket` |
+| `waiting_for_players` | host calls `cancel_match_ticket_async` | `cancelled` | `match.ticket_cancelled` on host |
+| `waiting_for_players` | ticket `timeout_seconds` elapses | `cancelled` (timeout) | `match.ticket_cancelled` on host (OK result; no timeout cause is surfaced) |
 | `matched` | each participant calls `join_arranged_lobby_async` with its own ticket's arrangement string | `joined(arranged_lobby)` | `lobby.created` on each participant |
 
 ### Party network state transitions
@@ -202,7 +202,7 @@ The `ID` column maps directly to `SCENARIO_ID` in the scenario file (`4-scenario
 | ID | Name | Priority | Roles | Caps | Source |
 | --- | --- | --- | --- | --- | --- |
 | `match.ticket.timeout.min_seconds` | Ticket with minimum allowed `timeout_seconds` works | P2 | host | `matchmaking_queue_configured` | N |
-| `match.ticket.timeout.elapses` | Ticket with short timeout elapses and reports `failed` | P2 | host | `matchmaking_queue_configured` | N |
+| `match.ticket.timeout.elapses` | Ticket with short timeout elapses and reports `cancelled` | P2 | host | `matchmaking_queue_configured` | N |
 | `match.ticket.attributes.empty` | Empty attributes is accepted (queue allowing) | P2 | host | `matchmaking_queue_configured` | N |
 | `match.ticket.attributes.complex` | Nested/complex attribute Dictionary survives roundtrip | P2 | host | `matchmaking_queue_configured` | N |
 

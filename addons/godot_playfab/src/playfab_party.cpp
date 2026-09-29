@@ -39,6 +39,8 @@ constexpr const char *PARTY_CHAT_PERMISSION_FAILED = "party_chat_permission_fail
 constexpr const char *PARTY_STATE_FINISH_FAILED = "party_state_finish_failed";
 constexpr const char *PARTY_STATE_START_FAILED = "party_state_start_failed";
 constexpr const char *PARTY_CLEANUP_FAILED = "party_cleanup_failed";
+constexpr const char *PARTY_HANDSHAKE_ENTITY_MISMATCH = "party_handshake_entity_mismatch";
+constexpr const char *PARTY_HANDSHAKE_ENDPOINT_ENTITY_UNAVAILABLE = "party_handshake_endpoint_entity_unavailable";
 
 // The wire packet kind markers and the transport codec (build/parse handshake,
 // wrap/unwrap gameplay) live in the engine-free playfab_party_codec seam so
@@ -2308,6 +2310,7 @@ Signal PlayFabParty::_test_begin_establishment(bool p_host, bool p_chat, const D
     m_test_dispatch_errors = p_dispatch_errors.duplicate();
     if (!p_append) {
         m_test_dispatches.clear();
+        m_test_endpoint_entities.clear();
         m_chat->clear();
         m_test_chat_control.unref();
     }
@@ -2381,11 +2384,41 @@ void PlayFabParty::_test_party_batch(const Array &p_changes) {
             continue;
         }
         if (stage == "request") {
-            PackedByteArray packet = build_handshake_request(1, "offline-fixture", "title_player_account");
+            const int64_t endpoint_slot = int64_t(input.get("endpoint", 0));
+            ERR_CONTINUE(endpoint_slot < 0 || endpoint_slot > 1);
+            Party::PartyEndpoint *sender_endpoint = reinterpret_cast<Party::PartyEndpoint *>(
+                    endpoint_slot == 0 ? &m_test_handles[2] : &m_test_handles[4]);
+
+            Dictionary default_entity;
+            default_entity["id"] = "offline-fixture";
+            default_entity["type"] = "title_player_account";
+
+            Dictionary payload = default_entity;
+            if (input.has("payload")) {
+                ERR_CONTINUE(input["payload"].get_type() != Variant::DICTIONARY);
+                payload = input["payload"];
+            }
+
+            if (input.has("endpoint_entity")) {
+                Variant endpoint_entity_value = input["endpoint_entity"];
+                if (endpoint_entity_value.get_type() == Variant::NIL) {
+                    m_test_endpoint_entities.erase(sender_endpoint);
+                } else {
+                    ERR_CONTINUE(endpoint_entity_value.get_type() != Variant::DICTIONARY);
+                    m_test_endpoint_entities[sender_endpoint] = Dictionary(endpoint_entity_value);
+                }
+            } else {
+                m_test_endpoint_entities[sender_endpoint] = default_entity;
+            }
+
+            PackedByteArray packet = build_handshake_request(
+                    1,
+                    String(payload.get("id", String())),
+                    String(payload.get("type", String())));
             Party::PartyEndpointMessageReceivedStateChange change = {};
             change.stateChangeType = Party::PartyStateChangeType::EndpointMessageReceived;
             change.network = network;
-            change.senderEndpoint = reinterpret_cast<Party::PartyEndpoint *>(&m_test_handles[2]);
+            change.senderEndpoint = sender_endpoint;
             change.messageBuffer = packet.ptr();
             change.messageSize = static_cast<uint32_t>(packet.size());
             _process_state_change(&change);
@@ -2502,6 +2535,21 @@ Dictionary PlayFabParty::_test_native_handles(const Ref<PlayFabPartyNetwork> &p_
         }
     }
     result["remote_endpoints"] = remote_endpoints;
+    Dictionary endpoint_slots;
+    if (p_peer.is_valid()) {
+        const auto *slot_0_endpoint = reinterpret_cast<const Party::PartyEndpoint *>(&m_test_handles[2]);
+        const auto *slot_1_endpoint = reinterpret_cast<const Party::PartyEndpoint *>(&m_test_handles[4]);
+        for (const auto &entry : p_peer->m_peer_records) {
+            int64_t slot = -1;
+            if (entry.second.endpoint == slot_0_endpoint) {
+                slot = 0;
+            } else if (entry.second.endpoint == slot_1_endpoint) {
+                slot = 1;
+            }
+            endpoint_slots[static_cast<int64_t>(entry.first)] = slot;
+        }
+    }
+    result["endpoint_slots"] = endpoint_slots;
     return result;
 }
 
@@ -2761,6 +2809,67 @@ uint32_t PlayFabParty::_invoke_native(const String &p_stage, const std::function
     }
 #endif
     return p_invoke();
+}
+
+bool PlayFabParty::_read_handshake_endpoint_entity_key(Party::PartyEndpoint *p_endpoint, Dictionary *r_entity_key) {
+    if (p_endpoint == nullptr || r_entity_key == nullptr) {
+        return false;
+    }
+
+    String entity_id;
+    String entity_type;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_native) {
+        PartyError id_error = _invoke_native("endpoint_entity_id", []() -> uint32_t { return 0; });
+        if (PARTY_FAILED(id_error)) {
+            return false;
+        }
+        auto entity_it = m_test_endpoint_entities.find(p_endpoint);
+        if (entity_it == m_test_endpoint_entities.end()) {
+            return false;
+        }
+        entity_id = String(entity_it->second.get("id", String()));
+        if (entity_id.is_empty()) {
+            return false;
+        }
+
+        PartyError type_error = _invoke_native("endpoint_entity_type", []() -> uint32_t { return 0; });
+        if (PARTY_FAILED(type_error)) {
+            return false;
+        }
+        entity_type = String(entity_it->second.get("type", String()));
+        if (entity_type.is_empty()) {
+            return false;
+        }
+    } else
+#endif
+    {
+        PartyString native_entity_id = nullptr;
+        PartyError id_error = _invoke_native("endpoint_entity_id", [&]() { return p_endpoint->GetEntityId(&native_entity_id); });
+        if (PARTY_FAILED(id_error) || native_entity_id == nullptr) {
+            return false;
+        }
+        entity_id = party_string(native_entity_id);
+        if (entity_id.is_empty()) {
+            return false;
+        }
+
+        PartyString native_entity_type = nullptr;
+        PartyError type_error = _invoke_native("endpoint_entity_type", [&]() { return p_endpoint->GetEntityType(&native_entity_type); });
+        if (PARTY_FAILED(type_error) || native_entity_type == nullptr) {
+            return false;
+        }
+        entity_type = party_string(native_entity_type);
+        if (entity_type.is_empty()) {
+            return false;
+        }
+    }
+
+    Dictionary entity_key;
+    entity_key["id"] = entity_id;
+    entity_key["type"] = entity_type;
+    *r_entity_key = entity_key;
+    return true;
 }
 
 void PlayFabParty::_detach_network(const Ref<PlayFabPartyNetwork> &p_network) {
@@ -3522,10 +3631,29 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
             if (!parse_handshake_request(buffer, size, &nonce, &entity_id, &entity_type)) {
                 return;
             }
-            Dictionary entity_key;
-            entity_key["id"] = entity_id;
-            entity_key["type"] = entity_type;
-            int32_t assigned_id = peer->find_peer_by_entity_key(entity_key);
+            Dictionary payload_entity_key;
+            payload_entity_key["id"] = entity_id;
+            payload_entity_key["type"] = entity_type;
+
+            Dictionary endpoint_entity_key;
+            if (!_read_handshake_endpoint_entity_key(change->senderEndpoint, &endpoint_entity_key)) {
+                Ref<PlayFabResult> error = PlayFabResult::error_result(
+                        E_FAIL,
+                        PARTY_HANDSHAKE_ENDPOINT_ENTITY_UNAVAILABLE,
+                        "Sender endpoint entity is unavailable.");
+                _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, error, "Sender endpoint entity is unavailable.");
+                return;
+            }
+            if (!dictionary_entity_key_equals(payload_entity_key, endpoint_entity_key)) {
+                Ref<PlayFabResult> error = PlayFabResult::error_result(
+                        E_INVALIDARG,
+                        PARTY_HANDSHAKE_ENTITY_MISMATCH,
+                        "Handshake entity does not match the sender endpoint.");
+                _emit_network_state(network, NETWORK_CHANGE_ERROR, 0, error, "Handshake entity does not match the sender endpoint.");
+                return;
+            }
+
+            int32_t assigned_id = peer->find_peer_by_entity_key(endpoint_entity_key);
             bool newly_joined = false;
             if (assigned_id == 0) {
                 assigned_id = peer->allocate_peer_id();
@@ -3539,7 +3667,7 @@ void PlayFabParty::_process_endpoint_message_received(const Party::PartyStateCha
                 return;
             }
             if (newly_joined) {
-                peer->register_peer(assigned_id, change->senderEndpoint, entity_key);
+                peer->register_peer(assigned_id, change->senderEndpoint, endpoint_entity_key);
                 _emit_network_state(network, NETWORK_CHANGE_PEER_JOINED, assigned_id, Ref<PlayFabResult>(), "handshake");
             } else {
                 peer->update_peer_endpoint(assigned_id, change->senderEndpoint);

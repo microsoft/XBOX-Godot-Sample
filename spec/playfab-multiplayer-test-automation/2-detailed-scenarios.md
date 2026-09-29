@@ -101,7 +101,10 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 | `lobby.properties_updated` | `handle, lobby_id, properties` | every member |
 | `lobby.owner_changed` | `handle, lobby_id, old_owner, new_owner` | every surviving member |
 | `lobby.disconnected` | `handle, lobby_id, reason` | every member |
-| `match.status_changed` | `handle, ticket_id, status, match?` | the ticket owner |
+| `match.status_changed` | `handle, kind, status, match_id, arranged_lobby_connection_string, ticket, result` | the ticket owner, for non-terminal statuses |
+| `match.ticket_completed` | `handle, kind, status, match_id, arranged_lobby_connection_string, ticket, result` | the ticket owner, once, when the ticket matches |
+| `match.ticket_failed` | `handle, kind, status, match_id, arranged_lobby_connection_string, ticket, result` | the ticket owner, once, when the ticket fails |
+| `match.ticket_cancelled` | `handle, ticket, kind?, status?, match_id?, arranged_lobby_connection_string?, result?` | the ticket owner, when the ticket is cancelled |
 | `party.network_ready` | `handle, network_descriptor, local_peer_id` | every connecting client |
 | `party.peer_connected` | `handle, peer_id, entity_key` | every existing peer |
 | `party.peer_disconnected` | `handle, peer_id, entity_key, reason` | every surviving peer |
@@ -109,6 +112,8 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 | `party.rpc.ping_received` | `handle, sender_peer_id, payload, correlation_id` | receiver of `party_send_rpc_ping` |
 | `party.rpc.pong_received` | `handle, sender_peer_id, payload, correlation_id` | original ping sender, after receiver returns pong |
 | `party.chat.text_message_received` | `handle, sender_peer_id, text` | every recipient |
+
+Ticket IDs are available as `ticket.ticket_id`. Successful cancellation commands also emit `match.ticket_cancelled` with only `handle` and `ticket`.
 
 ## Lobby — P0 detailed scenarios
 
@@ -291,7 +296,7 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 - **Steps**:
   1. `send(host, create_match_ticket, { as: "ticket", queue_name: orch.env("PLAYFAB_MULTIPLAYER_MATCH_QUEUE"), timeout_seconds: 60, attributes: { skill: 1 } })`.
   2. Assert `response.result.ticket.ticket_id != ""`.
-  3. Subscribe `cancelled = expect_event(host, match.status_changed, { handle: "ticket", status: "cancelled" })`.
+  3. Subscribe `cancelled = expect_event(host, match.ticket_cancelled, { handle: "ticket" })`.
   4. `send(host, cancel_match_ticket, { ticket_id: response.result.ticket.ticket_id })`.
   5. `await cancelled.wait(15000)`; assert not timed out.
 - **Notes**: Port of legacy `match ticket create and cancel`.
@@ -301,12 +306,12 @@ Scenarios normally call `await client.send("sign_in", {}, 60_000)` with empty pa
 - **Roles**: host, guest
 - **Goal**: Both clients in the same queue both reach `matched`.
 - **Steps**:
-  1. `host_matched = expect_event(host, match.status_changed, { handle: "host_ticket", status: "matched" })`.
-  2. `guest_matched = expect_event(guest, match.status_changed, { handle: "guest_ticket", status: "matched" })`.
+  1. `host_matched = expect_event(host, match.ticket_completed, { handle: "host_ticket" })`.
+  2. `guest_matched = expect_event(guest, match.ticket_completed, { handle: "guest_ticket" })`.
   3. `send(host, create_match_ticket, { as: "host_ticket", queue_name: ..., timeout_seconds: 60 })`.
   4. `send(guest, create_match_ticket, { as: "guest_ticket", queue_name: ..., timeout_seconds: 60 })`.
   5. `await host_matched.wait(60000)`; `await guest_matched.wait(60000)`.
-  6. Assert both events have a `match.id` matching each other.
+  6. Assert both events' payloads contain equal, non-empty `match_id` values.
 - **Notes**: Port of legacy `two-player match completion`. Subscribe before create — once a queue has enough players, status can transition to matched before the second `create_match_ticket` returns.
 
 ### `match.ticket.completion.metadata_present`
@@ -499,7 +504,7 @@ The following P0/P1 entries from `1-test-matrix.md` are deliberately not detaile
 - **`lobby.search.no_results.isolation` / `multiple_lobbies`**: same as `search.public.by_string_key` with different filter shapes.
 - **`lobby.properties.set.unjoined_lobby` / `unjoined_member` / `lobby.create.unsigned_in_user` / `lobby.search.invalid_filter_string`**: negative variants of detailed scenarios; assert `response.ok == false` with a documented error code per the addon's binding.
 - **`match.ticket.invalid_queue_name` / `cancel_already_cancelled` / `create_without_init` / `cancel_unknown_handle`**: follow the same negative pattern as `lobby.join.invalid_connection_string`.
-- **`match.state.full_match_event_sequence`**: same shape as `lobby.state.owner_migration_event_ordering` but with `match.status_changed` events.
+- **`match.state.full_match_event_sequence`**: same shape as `lobby.state.owner_migration_event_ordering` but with `match.status_changed` events, ending in one `match.ticket_completed` per player.
 - **`match.integration.arranged_lobby_property_round_trip`**: combination of `arranged_lobby_join` and `lobby.properties.lobby.propagation`.
 - **All Party state_transitions / chaos / lifecycle entries**: same pattern as `party.network.{create,join,leave}.smoke` plus a kill or sequence assertion.
 - **`party.transport.peer_id_assignment`**: a 3-line scenario asserting `host.local_peer_id == 1` and `guest.local_peer_id > 1` after join — covered implicitly by `party.network.join.smoke` already.

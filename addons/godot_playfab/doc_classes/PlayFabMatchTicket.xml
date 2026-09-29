@@ -4,9 +4,10 @@
 		Tracked PlayFab matchmaking ticket wrapper.
 	</brief_description>
 	<description>
-		Returned by [method PlayFabMultiplayer.create_match_ticket_async] and [method PlayFabMultiplayer.join_match_ticket_async]. Those async methods resolve only after [member ticket_id] is assigned, so a surfaced ticket can be cancelled by id immediately. Ticket progress is pushed through [signal state_changed].
+		Returned by [method PlayFabMultiplayer.create_match_ticket_async] and [method PlayFabMultiplayer.join_match_ticket_async]. Successful factory results have a non-empty [member ticket_id], so a surfaced successful ticket can be cancelled by id immediately. Ticket progress is pushed through [signal state_changed].
 		This class contains two distinct numeric spaces. [constant CREATED], [constant STATUS_CHANGED], [constant COMPLETED], [constant CANCELLED], and [constant FAILED] are [b]event kinds[/b] used by [member PlayFabMatchTicketStateChange.kind]. Despite its name, [constant STATUS_CHANGED] is never a ticket status. Compare [member status] and [member PlayFabMatchTicketStateChange.status] against the [code]STATUS_*[/code] constants instead.
-		The ticket snapshot is refreshed before each emitted change, but the signal stream is not lossless. Creating-state edges may be suppressed while the ticket id is unavailable, and create/join can return a snapshot that already reached a later status before the caller can connect. Treat the API as level-triggered. Connect the signal, reconcile the current snapshot immediately, and reconcile again on every change regardless of [member PlayFabMatchTicketStateChange.kind]. Handlers must be idempotent.
+		The native [code]TicketCompleted[/code] record is the sole terminal authority. A terminal [code]TicketStatusChanged[/code] record refreshes the cached [member status] but does not settle create, join, or cancellation operations, emit any event, or destroy the native ticket. Terminal settlement, notification, and destruction wait for [code]TicketCompleted[/code]. A failed completion preserves its native HRESULT in [member PlayFabMatchTicketStateChange.result]. A cancelled status is authoritative: the SDK may complete cancellation with a failure HRESULT, which is reported as a successful [constant CANCELLED] notification. The addon intentionally has no timeout that guesses a missing completion HRESULT; [method PlayFabMultiplayer.shutdown_async] (or a finish-failure reset) remains the escape path if the SDK never delivers completion.
+		The ticket snapshot is refreshed before each accepted change, but the signal stream is not lossless or replayed. Creating-state edges may be suppressed while the ticket id is unavailable, and create/join can return a snapshot that already reached a later status before the caller can connect. Treat the API as level-triggered. Connect the signal, reconcile the current snapshot immediately, and reconcile again on every change regardless of [member PlayFabMatchTicketStateChange.kind]. Handlers must be idempotent. Final status, match id, arrangement string, and properties remain readable after native destruction.
 		[codeblock]
 		ticket.state_changed.connect(_on_ticket_changed)
 		_handle_ticket_status(ticket, ticket.status) # reconcile now
@@ -23,8 +24,8 @@
 	<tutorials></tutorials>
 	<methods>
 		<method name="refresh_async"><return type="Signal" /><description>Refreshes this tracked ticket snapshot and returns a completion [Signal]. Normal ticket progress is also pushed through [signal state_changed].</description></method>
-		<method name="cancel_async"><return type="Signal" /><description>Requests cancellation and completes when the ticket reaches a cancelled or failed terminal state.</description></method>
-		<method name="is_complete" qualifiers="const"><return type="bool" /><description>Returns whether the ticket is matched, cancelled, or failed.</description></method>
+		<method name="cancel_async"><return type="Signal" /><description>Requests cancellation and settles from the authoritative native completion. Concurrent calls share one pending signal and one native cancellation request. If a terminal status is already cached but completion has not arrived, the call waits without issuing another native cancel. Successful cancellation returns an OK [PlayFabResult] with null data. If matching wins the race, the result uses [code]E_ABORT[/code], code [code]match_ticket_cancel_lost_race[/code], and this ticket in [member PlayFabResult.data]. Native terminal failures are forwarded unchanged. Calls after completion processing starts or after completion-driven destruction, while Multiplayer remains active, return a deferred [code]invalid_match_ticket[/code] error.</description></method>
+		<method name="is_complete" qualifiers="const"><return type="bool" /><description>Returns whether the cached status is matched, cancelled, or failed. This describes the current snapshot; it does not mean the native completion record has already been processed.</description></method>
 		<method name="is_cancelled" qualifiers="const"><return type="bool" /><description>Returns whether the ticket is cancelled.</description></method>
 	</methods>
 	<members>
@@ -41,7 +42,7 @@
 	</signals>
 	<constants>
 		<constant name="CREATED" value="100">Event kind: a matchmaking ticket wrapper received a non-empty ticket id and became publicly usable.</constant>
-		<constant name="STATUS_CHANGED" value="101">Event kind: a native ticket status edge was reported. This value is [b]not[/b] a ticket status; compare [member status] against [code]STATUS_*[/code].</constant>
+		<constant name="STATUS_CHANGED" value="101">Event kind: a nonterminal native ticket status edge was reported. This value is [b]not[/b] a ticket status; compare [member status] against [code]STATUS_*[/code].</constant>
 		<constant name="COMPLETED" value="102">Event kind: a ticket matched and completed.</constant>
 		<constant name="CANCELLED" value="103">Event kind: a ticket was cancelled.</constant>
 		<constant name="FAILED" value="104">Event kind: a ticket failed.</constant>

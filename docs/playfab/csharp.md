@@ -188,6 +188,19 @@ The canonical status/event contract is documented on the native
 `PlayFabMatchTicket` class. In C#, subscribe to `StateChanged`, inspect
 `ticket.Status` immediately, and reconcile it on every event kind.
 
+`PlayFabMatchTicket.CancelAsync()` follows that native completion contract: a
+successful cancel has null data, while
+`match_ticket_cancel_lost_race` carries the matched ticket. `PlayFabResult.HResult`
+is a sign-extended `long`, so compare native hexadecimal HRESULT bits with a
+mask:
+
+```csharp
+if ((result.HResult & 0xFFFFFFFFL) == 0x89235652L)
+{
+    GD.PushWarning("The matchmaking ticket group is too large.");
+}
+```
+
 #### Arranged-lobby initialization
 
 `JoinArrangedLobbyAsync` initializes the lobby it creates from

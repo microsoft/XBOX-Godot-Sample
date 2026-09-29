@@ -936,6 +936,7 @@ private:
     void _fail_join(PendingOperation *p_operation, const Ref<PlayFabResult> &p_result);
     void _detach_network(const Ref<PlayFabPartyNetwork> &p_network);
     uint32_t _invoke_native(const String &p_stage, const std::function<uint32_t()> &p_invoke);
+    bool _read_handshake_endpoint_entity_key(Party::PartyEndpoint *p_endpoint, Dictionary *r_entity_key);
     Ref<PlayFabResult> _start_create_network_step(PendingOperation *p_operation);
     Ref<PlayFabResult> _start_connect_network_step(PendingOperation *p_operation, const Party::PartyNetworkDescriptor &p_descriptor);
     PendingOperation *_find_pending(int32_t p_kind, Party::PartyNetwork *p_native_network);
@@ -983,7 +984,8 @@ private:
     Array m_test_dispatches;
     Ref<PlayFabPartyNetwork> m_test_network;
     Ref<PlayFabPartyChatControl> m_test_chat_control;
-    uintptr_t m_test_handles[4] = {};
+    std::map<Party::PartyEndpoint *, Dictionary> m_test_endpoint_entities;
+    uintptr_t m_test_handles[5] = {};
     std::deque<uintptr_t> m_test_network_handles;
     Party::PartyNetwork *m_test_network_handle = nullptr;
     Signal _test_begin_establishment(bool p_host, bool p_chat, const Dictionary &p_dispatch_errors, bool p_append);

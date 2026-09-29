@@ -626,7 +626,16 @@ MatchTicketJoinReadiness match_ticket_join_readiness(int64_t p_status) {
 Ref<PlayFabResult> match_ticket_join_completion_result(
         const Ref<PlayFabMatchTicket> &p_ticket,
         const Ref<PlayFabResult> &p_terminal_result = Ref<PlayFabResult>()) {
-    if (p_terminal_result.is_valid() && !p_terminal_result->is_ok()) {
+    if (p_terminal_result.is_null()) {
+        if (p_ticket->is_complete() || p_ticket->get_ticket_id().is_empty()) {
+            return Ref<PlayFabResult>();
+        }
+        return match_ticket_join_readiness(p_ticket->get_status()) == MATCH_TICKET_JOIN_ACCEPTED ?
+                PlayFabResult::ok_result(p_ticket) :
+                Ref<PlayFabResult>();
+    }
+
+    if (!p_terminal_result->is_ok()) {
         const HRESULT hresult = static_cast<HRESULT>(p_terminal_result->get_hresult());
         return PlayFabResult::error_result(
                 FAILED(hresult) ? hresult : E_FAIL,
@@ -635,25 +644,61 @@ Ref<PlayFabResult> match_ticket_join_completion_result(
                 p_ticket);
     }
 
-    switch (match_ticket_join_readiness(p_ticket->get_status())) {
-        case MATCH_TICKET_JOIN_ACCEPTED:
-            return PlayFabResult::ok_result(p_ticket);
-        case MATCH_TICKET_JOIN_CANCELLED:
-            return PlayFabResult::error_result(
-                    E_ABORT,
-                    "match_ticket_join_cancelled",
-                    "The PlayFab matchmaking ticket join was cancelled before the service accepted it.",
-                    p_ticket);
-        case MATCH_TICKET_JOIN_FAILED:
-            return PlayFabResult::error_result(
-                    E_FAIL,
-                    "match_ticket_join_failed",
-                    "The PlayFab matchmaking ticket join failed before the service accepted it.",
-                    p_ticket);
-        case MATCH_TICKET_JOIN_PENDING:
-        default:
-            return Ref<PlayFabResult>();
+    if (p_ticket->is_cancelled()) {
+        return PlayFabResult::error_result(
+                E_ABORT,
+                "match_ticket_join_cancelled",
+                "The PlayFab matchmaking ticket join was cancelled before the service accepted it.",
+                p_ticket);
     }
+
+    if (p_ticket->get_ticket_id().is_empty()) {
+        return PlayFabResult::error_result(
+                E_FAIL,
+                "match_ticket_join_failed",
+                "The PlayFab matchmaking ticket completed before a ticket_id was assigned.",
+                p_ticket);
+    }
+
+    return PlayFabResult::ok_result(p_ticket);
+}
+
+Ref<PlayFabResult> match_ticket_create_completion_result(
+        const Ref<PlayFabMatchTicket> &p_ticket,
+        const Ref<PlayFabResult> &p_terminal_result = Ref<PlayFabResult>()) {
+    if (p_terminal_result.is_null()) {
+        if (p_ticket->is_complete() || p_ticket->get_ticket_id().is_empty()) {
+            return Ref<PlayFabResult>();
+        }
+        return PlayFabResult::ok_result(p_ticket);
+    }
+
+    if (!p_terminal_result->is_ok()) {
+        const HRESULT hresult = static_cast<HRESULT>(p_terminal_result->get_hresult());
+        return PlayFabResult::error_result(
+                FAILED(hresult) ? hresult : E_FAIL,
+                "match_ticket_create_failed",
+                "The PlayFab matchmaking ticket failed before creation completed. " + p_terminal_result->get_message(),
+                p_ticket->get_properties());
+    }
+
+    if (p_ticket->is_cancelled()) {
+        return PlayFabResult::error_result(
+                E_ABORT,
+                "match_ticket_create_cancelled",
+                "The PlayFab matchmaking ticket was cancelled before creation completed.",
+                p_ticket->get_properties());
+    }
+
+    if (p_ticket->get_ticket_id().is_empty()) {
+        return PlayFabResult::error_result(
+                E_FAIL,
+                "match_ticket_create_failed",
+                "The PlayFab matchmaking ticket completed before a ticket_id was assigned.",
+                p_ticket->get_properties());
+    }
+
+    return PlayFabResult::ok_result(p_ticket);
 }
 
 } // namespace
@@ -1656,6 +1701,24 @@ void PlayFabMatchTicket::mark_destroyed() {
 bool PlayFabMatchTicket::is_destroyed() const { return m_destroyed; }
 
 HRESULT PlayFabMatchTicket::refresh_snapshot() {
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (m_test_match_ticket) {
+        if (!m_test_next_native_snapshot.has("status") || !m_test_next_native_snapshot.has("ticket_id")) {
+            return E_INVALIDARG;
+        }
+
+        m_ticket_id = String(m_test_next_native_snapshot.get("ticket_id", String()));
+        const auto status = static_cast<PFMatchmakingTicketStatus>(
+                int64_t(m_test_next_native_snapshot.get("status", 0)));
+        m_status = static_cast<int64_t>(status);
+        m_properties["status_name"] = ticket_status_to_string(status);
+        set_match_details(
+                String(m_test_next_native_snapshot.get("match_id", String())),
+                String(m_test_next_native_snapshot.get("arranged_lobby_connection_string", String())));
+        return S_OK;
+    }
+#endif
+
     if (m_ticket_handle == nullptr) {
         return E_HANDLE;
     }
@@ -1737,6 +1800,10 @@ void PlayFabMultiplayer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("_test_set_cleanup_failure", "fail"), &PlayFabMultiplayer::_test_set_cleanup_failure);
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabMultiplayer::_test_pending_operation_count);
     ClassDB::bind_method(D_METHOD("_test_join_match_ticket_readiness", "status"), &PlayFabMultiplayer::_test_join_match_ticket_readiness);
+    ClassDB::bind_method(D_METHOD("_test_begin_match_ticket", "operation", "snapshot"), &PlayFabMultiplayer::_test_begin_match_ticket);
+    ClassDB::bind_method(D_METHOD("_test_matchmaking_batch", "changes", "finish_hresult"), &PlayFabMultiplayer::_test_matchmaking_batch, DEFVAL(0));
+    ClassDB::bind_method(D_METHOD("_test_set_match_ticket_cancel_result", "hresult"), &PlayFabMultiplayer::_test_set_match_ticket_cancel_result);
+    ClassDB::bind_method(D_METHOD("_test_matchmaking_snapshot", "ticket"), &PlayFabMultiplayer::_test_matchmaking_snapshot);
 #endif
 
     ADD_SIGNAL(MethodInfo("state_changed", PropertyInfo(Variant::OBJECT, "change", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "PlayFabMultiplayerStateChange")));
@@ -1910,39 +1977,57 @@ void PlayFabMultiplayer::_track_ticket(const Ref<PlayFabMatchTicket> &p_ticket) 
     }
 }
 
-void PlayFabMultiplayer::_complete_match_ticket_create_if_ready(const Ref<PlayFabMatchTicket> &p_ticket) {
+void PlayFabMultiplayer::_complete_match_ticket_create_if_ready(
+        const Ref<PlayFabMatchTicket> &p_ticket,
+        bool p_defer_completion) {
     PendingOperation *operation = _find_pending_ticket_operation(p_ticket, PlayFabMatchTicket::CREATED);
     if (operation == nullptr || p_ticket.is_null()) {
         return;
     }
 
-    if (!p_ticket->get_ticket_id().is_empty()) {
-        Ref<PlayFabResult> result = PlayFabResult::ok_result(p_ticket);
-        _complete_pending_operation(operation, result);
-        _emit_ticket_change(PlayFabMatchTicket::CREATED, p_ticket, result, p_ticket->get_status(), p_ticket->get_match_id(), p_ticket->get_arranged_lobby_connection_string());
+    Ref<PlayFabResult> result = match_ticket_create_completion_result(p_ticket);
+    if (result.is_null()) {
         return;
     }
 
-    if (p_ticket->is_complete()) {
-        Ref<PlayFabResult> result = PlayFabResult::error_result(E_FAIL, "match_ticket_create_failed", "The PlayFab matchmaking ticket completed before a ticket_id was assigned.", p_ticket->get_properties());
+    if (p_defer_completion) {
+        Ref<PlayFabPendingSignal> pending_signal = operation->pending_signal;
+        _release_pending_operation(operation);
+        if (pending_signal.is_valid()) {
+            pending_signal->complete_deferred(result);
+        }
+    } else {
         _complete_pending_operation(operation, result);
+    }
+
+    if (result->is_ok()) {
+        _emit_ticket_change(PlayFabMatchTicket::CREATED, p_ticket, result, p_ticket->get_status(), p_ticket->get_match_id(), p_ticket->get_arranged_lobby_connection_string());
     }
 }
 
 void PlayFabMultiplayer::_complete_match_ticket_join_if_ready(
         const Ref<PlayFabMatchTicket> &p_ticket,
-        const Ref<PlayFabResult> &p_terminal_result) {
+        bool p_defer_completion) {
     PendingOperation *operation = _find_pending_ticket_operation(p_ticket, PENDING_MATCH_TICKET_JOIN);
     if (operation == nullptr || p_ticket.is_null()) {
         return;
     }
 
-    Ref<PlayFabResult> result = match_ticket_join_completion_result(p_ticket, p_terminal_result);
+    Ref<PlayFabResult> result = match_ticket_join_completion_result(p_ticket);
     if (result.is_null()) {
         return;
     }
 
-    _complete_pending_operation(operation, result);
+    if (p_defer_completion) {
+        Ref<PlayFabPendingSignal> pending_signal = operation->pending_signal;
+        _release_pending_operation(operation);
+        if (pending_signal.is_valid()) {
+            pending_signal->complete_deferred(result);
+        }
+    } else {
+        _complete_pending_operation(operation, result);
+    }
+
     if (result->is_ok()) {
         _emit_ticket_change(
                 PlayFabMatchTicket::CREATED,
@@ -1952,6 +2037,86 @@ void PlayFabMultiplayer::_complete_match_ticket_join_if_ready(
                 p_ticket->get_match_id(),
                 p_ticket->get_arranged_lobby_connection_string());
     }
+}
+
+void PlayFabMultiplayer::_complete_terminal_match_ticket_operations(
+        const Ref<PlayFabMatchTicket> &p_ticket,
+        const Ref<PlayFabResult> &p_terminal_result) {
+    PendingOperation *create_operation = _find_pending_ticket_operation(p_ticket, PlayFabMatchTicket::CREATED);
+    if (create_operation != nullptr) {
+        Ref<PlayFabResult> result = match_ticket_create_completion_result(p_ticket, p_terminal_result);
+        _complete_pending_operation(create_operation, result);
+        if (result.is_valid() && result->is_ok()) {
+            _emit_ticket_change(
+                    PlayFabMatchTicket::CREATED,
+                    p_ticket,
+                    result,
+                    p_ticket->get_status(),
+                    p_ticket->get_match_id(),
+                    p_ticket->get_arranged_lobby_connection_string());
+        }
+    }
+
+    PendingOperation *join_operation = _find_pending_ticket_operation(p_ticket, PENDING_MATCH_TICKET_JOIN);
+    if (join_operation != nullptr) {
+        Ref<PlayFabResult> result = match_ticket_join_completion_result(p_ticket, p_terminal_result);
+        _complete_pending_operation(join_operation, result);
+        if (result.is_valid() && result->is_ok()) {
+            _emit_ticket_change(
+                    PlayFabMatchTicket::CREATED,
+                    p_ticket,
+                    result,
+                    p_ticket->get_status(),
+                    p_ticket->get_match_id(),
+                    p_ticket->get_arranged_lobby_connection_string());
+        }
+    }
+
+    PendingOperation *cancel_operation = _find_pending_ticket_operation(p_ticket, PlayFabMatchTicket::CANCELLED);
+    if (cancel_operation != nullptr) {
+        Ref<PlayFabResult> result;
+        if (!p_terminal_result->is_ok()) {
+            result = p_terminal_result;
+        } else if (p_ticket->is_cancelled()) {
+            result = PlayFabResult::ok_result();
+        } else {
+            result = PlayFabResult::error_result(
+                    E_ABORT,
+                    "match_ticket_cancel_lost_race",
+                    "The PlayFab matchmaking ticket matched before cancellation completed.",
+                    p_ticket);
+        }
+        _complete_pending_operation(cancel_operation, result);
+    }
+}
+
+HRESULT PlayFabMultiplayer::_start_match_ticket_cancel(const Ref<PlayFabMatchTicket> &p_ticket) {
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (p_ticket.is_valid() && p_ticket->m_test_match_ticket) {
+        ++m_test_match_ticket_cancel_starts;
+        return m_test_match_ticket_cancel_result;
+    }
+#endif
+    return PFMatchmakingTicketCancel(p_ticket->get_native_handle());
+}
+
+void PlayFabMultiplayer::_destroy_match_ticket(const Ref<PlayFabMatchTicket> &p_ticket) {
+    if (p_ticket.is_null() || p_ticket->get_native_handle() == nullptr) {
+        return;
+    }
+
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    if (p_ticket->m_test_match_ticket) {
+        ++m_test_match_ticket_destroys;
+        p_ticket->mark_destroyed();
+        return;
+    }
+#endif
+
+    if (m_handle != nullptr) {
+        PFMultiplayerDestroyMatchmakingTicket(m_handle, p_ticket->get_native_handle());
+    }
+    p_ticket->mark_destroyed();
 }
 
 void PlayFabMultiplayer::_terminate_multiplayer_queue() {
@@ -2017,9 +2182,7 @@ void PlayFabMultiplayer::_reset_after_state_change_finish_failure(const Ref<Play
     m_lobbies.clear();
 
     for (const Ref<PlayFabMatchTicket> &ticket : m_tickets) {
-        if (ticket.is_valid()) {
-            ticket->mark_destroyed();
-        }
+        _destroy_match_ticket(ticket);
     }
     m_tickets.clear();
 
@@ -2128,10 +2291,7 @@ void PlayFabMultiplayer::shutdown() {
 
     std::vector<Ref<PlayFabMatchTicket>> tickets_to_destroy = m_tickets;
     for (const Ref<PlayFabMatchTicket> &ticket : tickets_to_destroy) {
-        if (ticket.is_valid() && ticket->get_native_handle() != nullptr && m_handle != nullptr) {
-            PFMultiplayerDestroyMatchmakingTicket(m_handle, ticket->get_native_handle());
-            ticket->mark_destroyed();
-        }
+        _destroy_match_ticket(ticket);
     }
 
     std::vector<PFLobbyHandle> leave_requested;
@@ -2834,12 +2994,7 @@ Signal PlayFabMultiplayer::create_match_ticket_async(const Ref<PlayFabUser> &p_u
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     PendingOperation *operation = _create_pending_operation(PlayFabMatchTicket::CREATED, pending_signal);
     operation->ticket = ticket;
-    if (!ticket->get_ticket_id().is_empty()) {
-        _release_pending_operation(operation);
-        Ref<PlayFabResult> result = PlayFabResult::ok_result(ticket);
-        pending_signal->complete_deferred(result);
-        _emit_ticket_change(PlayFabMatchTicket::CREATED, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
-    }
+    _complete_match_ticket_create_if_ready(ticket, true);
     return pending_signal->get_completed_signal();
 }
 
@@ -2900,21 +3055,7 @@ Signal PlayFabMultiplayer::join_match_ticket_async(
     Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
     PendingOperation *operation = _create_pending_operation(PENDING_MATCH_TICKET_JOIN, pending_signal);
     operation->ticket = ticket;
-
-    Ref<PlayFabResult> immediate_result = match_ticket_join_completion_result(ticket);
-    if (immediate_result.is_valid()) {
-        _release_pending_operation(operation);
-        pending_signal->complete_deferred(immediate_result);
-        if (immediate_result->is_ok()) {
-            _emit_ticket_change(
-                    PlayFabMatchTicket::CREATED,
-                    ticket,
-                    immediate_result,
-                    ticket->get_status(),
-                    ticket->get_match_id(),
-                    ticket->get_arranged_lobby_connection_string());
-        }
-    }
+    _complete_match_ticket_join_if_ready(ticket, true);
     return pending_signal->get_completed_signal();
 }
 
@@ -2922,22 +3063,35 @@ Signal PlayFabMultiplayer::_cancel_match_ticket_async(const Ref<PlayFabMatchTick
     if (m_shutting_down) {
         return _make_error_signal(E_ABORT, "shutting_down", "PlayFab Multiplayer operations cannot start while shutdown is in progress.");
     }
-    if (!m_initialized || m_handle == nullptr) {
+    bool test_fixture = false;
+#ifdef GODOT_PLAYFAB_TEST_HOOKS
+    test_fixture = m_test_matchmaking_fixture;
+#endif
+    if (!m_initialized || (m_handle == nullptr && !test_fixture)) {
         return _make_error_signal(E_FAIL, "not_initialized", "PlayFab Multiplayer is not initialized. Call PlayFab.multiplayer.initialize_async() first.");
     }
-    if (!p_ticket.is_valid() || p_ticket->get_native_handle() == nullptr) {
+    if (!p_ticket.is_valid() || p_ticket->get_native_handle() == nullptr ||
+            p_ticket->m_completion_received) {
         return _make_error_signal(E_INVALIDARG, "invalid_match_ticket", "PlayFabMatchTicket.cancel_async requires a tracked PlayFabMatchTicket.");
     }
 
-    Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
-    HRESULT hr = PFMatchmakingTicketCancel(p_ticket->get_native_handle());
-    if (FAILED(hr)) {
-        Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start cancelling the PlayFab matchmaking ticket.", "match_ticket_cancel_start_failed");
-        pending_signal->complete_deferred(result);
-    } else {
-        PendingOperation *operation = _create_pending_operation(PlayFabMatchTicket::CANCELLED, pending_signal);
-        operation->ticket = p_ticket;
+    PendingOperation *existing_operation = _find_pending_ticket_operation(p_ticket, PlayFabMatchTicket::CANCELLED);
+    if (existing_operation != nullptr) {
+        return existing_operation->pending_signal->get_completed_signal();
     }
+
+    Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+    if (!p_ticket->is_complete()) {
+        HRESULT hr = _start_match_ticket_cancel(p_ticket);
+        if (FAILED(hr)) {
+            Ref<PlayFabResult> result = multiplayer_hresult_error(hr, "Failed to start cancelling the PlayFab matchmaking ticket.", "match_ticket_cancel_start_failed");
+            pending_signal->complete_deferred(result);
+            return pending_signal->get_completed_signal();
+        }
+    }
+
+    PendingOperation *operation = _create_pending_operation(PlayFabMatchTicket::CANCELLED, pending_signal);
+    operation->ticket = p_ticket;
     return pending_signal->get_completed_signal();
 }
 
@@ -3010,6 +3164,154 @@ int64_t PlayFabMultiplayer::_test_pending_operation_count() const {
 
 int64_t PlayFabMultiplayer::_test_join_match_ticket_readiness(int64_t p_status) const {
     return static_cast<int64_t>(match_ticket_join_readiness(p_status));
+}
+
+Dictionary PlayFabMultiplayer::_test_begin_match_ticket(const String &p_operation, const Dictionary &p_snapshot) {
+    ERR_FAIL_COND_V_MSG(
+            m_owner != nullptr || m_handle != nullptr || m_initialized || m_processing_state_changes ||
+                    !m_tickets.empty() || !m_pending_operations.empty() || !m_pending_operations_deferred_delete.empty(),
+            Dictionary(),
+            "Match-ticket fixtures require an idle, detached PlayFabMultiplayer service.");
+    ERR_FAIL_COND_V_MSG(
+            p_operation != "tracked" && p_operation != "create" && p_operation != "join",
+            Dictionary(),
+            "Match-ticket fixture operation must be tracked, create, or join.");
+    ERR_FAIL_COND_V_MSG(
+            !p_snapshot.has("status") || !p_snapshot.has("ticket_id"),
+            Dictionary(),
+            "Match-ticket fixture snapshots require status and ticket_id.");
+
+    m_test_matchmaking_fixture = true;
+    m_test_match_ticket_cancel_result = S_OK;
+    m_test_match_ticket_cancel_starts = 0;
+    m_test_match_ticket_destroys = 0;
+    m_initialized = true;
+    m_shutting_down = false;
+    ++m_dispatch_generation;
+
+    Ref<PlayFabMatchTicket> ticket;
+    ticket.instantiate();
+    ticket->set_owner(this);
+    ticket->m_test_match_ticket = true;
+    ticket->m_test_next_native_snapshot = p_snapshot.duplicate();
+    ticket->adopt_handle(
+            reinterpret_cast<PFMatchmakingTicketHandle>(&ticket->m_test_handle_storage),
+            "offline-queue",
+            Array());
+    ERR_FAIL_COND_V_MSG(
+            FAILED(ticket->refresh_snapshot()),
+            Dictionary(),
+            "Match-ticket fixture failed to apply its initial native snapshot.");
+    _track_ticket(ticket);
+
+    Dictionary result;
+    result["ticket"] = ticket;
+    result["completion"] = Variant();
+
+    if (p_operation == "create" || p_operation == "join") {
+        Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
+        PendingOperation *operation = _create_pending_operation(
+                p_operation == "create" ? PlayFabMatchTicket::CREATED : PENDING_MATCH_TICKET_JOIN,
+                pending_signal);
+        operation->ticket = ticket;
+        if (p_operation == "create") {
+            _complete_match_ticket_create_if_ready(ticket, true);
+        } else {
+            _complete_match_ticket_join_if_ready(ticket, true);
+        }
+        result["completion"] = pending_signal->get_completed_signal();
+    }
+
+    return result;
+}
+
+void PlayFabMultiplayer::_test_matchmaking_batch(const Array &p_changes, int64_t p_finish_hresult) {
+    ERR_FAIL_COND_MSG(!m_test_matchmaking_fixture || m_processing_state_changes,
+            "Match-ticket fixture batches require an active fixture outside state processing.");
+
+    for (int64_t i = 0; i < p_changes.size(); ++i) {
+        ERR_FAIL_COND_MSG(p_changes[i].get_type() != Variant::DICTIONARY,
+                "Match-ticket fixture batch entries must be dictionaries.");
+        Dictionary input = p_changes[i];
+        const String type = String(input.get("type", String()));
+        ERR_FAIL_COND_MSG(type != "status" && type != "completed",
+                "Match-ticket fixture batch type must be status or completed.");
+        ERR_FAIL_COND_MSG(!input.has("ticket") || !input.has("snapshot"),
+                "Match-ticket fixture batch entries require ticket and snapshot.");
+        ERR_FAIL_COND_MSG(input["snapshot"].get_type() != Variant::DICTIONARY,
+                "Match-ticket fixture snapshots must be dictionaries.");
+        Dictionary snapshot = input["snapshot"];
+        ERR_FAIL_COND_MSG(!snapshot.has("status") || !snapshot.has("ticket_id"),
+                "Match-ticket fixture snapshots require status and ticket_id.");
+        ERR_FAIL_COND_MSG(type == "completed" && !input.has("hresult"),
+                "Completed match-ticket fixture entries require hresult.");
+        Ref<PlayFabMatchTicket> ticket = input["ticket"];
+        ERR_FAIL_COND_MSG(
+                ticket.is_null() || !ticket->m_test_match_ticket || ticket->m_owner != this,
+                "Match-ticket fixture entries require a ticket owned by this service.");
+    }
+
+    m_processing_state_changes = true;
+    std::vector<Ref<PlayFabMatchTicket>> terminal_tickets;
+    for (int64_t i = 0; i < p_changes.size(); ++i) {
+        Dictionary input = p_changes[i];
+        const String type = String(input.get("type", String()));
+        Ref<PlayFabMatchTicket> ticket = input["ticket"];
+        ticket->m_test_next_native_snapshot = Dictionary(input["snapshot"]).duplicate();
+        PFMatchmakingTicketHandle ticket_handle =
+                reinterpret_cast<PFMatchmakingTicketHandle>(&ticket->m_test_handle_storage);
+
+        if (type == "status") {
+            PFMatchmakingTicketStatusChangedStateChange change = {};
+            change.stateChangeType = PFMatchmakingStateChangeType::TicketStatusChanged;
+            change.ticket = ticket_handle;
+            _process_matchmaking_state_change(&change, terminal_tickets);
+        } else {
+            PFMatchmakingTicketCompletedStateChange change = {};
+            change.stateChangeType = PFMatchmakingStateChangeType::TicketCompleted;
+            change.ticket = ticket_handle;
+            change.result = static_cast<HRESULT>(static_cast<uint32_t>(int64_t(input["hresult"])));
+            _process_matchmaking_state_change(&change, terminal_tickets);
+        }
+    }
+
+    _finish_matchmaking_batch(
+            static_cast<HRESULT>(static_cast<uint32_t>(p_finish_hresult)),
+            terminal_tickets);
+    m_processing_state_changes = false;
+    if (m_shutdown_deferred_until_dispatch_complete) {
+        shutdown();
+    }
+}
+
+void PlayFabMultiplayer::_test_set_match_ticket_cancel_result(int64_t p_hresult) {
+    ERR_FAIL_COND(!m_test_matchmaking_fixture);
+    m_test_match_ticket_cancel_result = static_cast<HRESULT>(static_cast<uint32_t>(p_hresult));
+}
+
+Dictionary PlayFabMultiplayer::_test_matchmaking_snapshot(const Ref<PlayFabMatchTicket> &p_ticket) const {
+    Dictionary result;
+    result["tracked"] = p_ticket.is_valid() &&
+            std::find(m_tickets.begin(), m_tickets.end(), p_ticket) != m_tickets.end();
+
+    int64_t pending = 0;
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation != nullptr && operation->ticket == p_ticket) {
+            ++pending;
+        }
+    }
+    for (PendingOperation *operation : m_pending_operations_deferred_delete) {
+        if (operation != nullptr && operation->ticket == p_ticket) {
+            ++pending;
+        }
+    }
+
+    result["pending"] = pending;
+    result["native_handle_live"] = p_ticket.is_valid() && p_ticket->get_native_handle() != nullptr;
+    result["completion_received"] = p_ticket.is_valid() && p_ticket->m_completion_received;
+    result["cancel_starts"] = m_test_match_ticket_cancel_starts;
+    result["ticket_destroys"] = m_test_match_ticket_destroys;
+    return result;
 }
 #endif
 
@@ -3439,6 +3741,114 @@ int PlayFabMultiplayer::_dispatch_lobby_state_changes() {
     return static_cast<int>(state_change_count);
 }
 
+void PlayFabMultiplayer::_process_matchmaking_state_change(
+        const PFMatchmakingStateChange *p_change,
+        std::vector<Ref<PlayFabMatchTicket>> &r_terminal_tickets) {
+    if (p_change == nullptr) {
+        return;
+    }
+
+    PFMatchmakingTicketHandle ticket_handle = nullptr;
+    switch (p_change->stateChangeType) {
+        case PFMatchmakingStateChangeType::TicketStatusChanged:
+            ticket_handle = static_cast<const PFMatchmakingTicketStatusChangedStateChange *>(p_change)->ticket;
+            break;
+        case PFMatchmakingStateChangeType::TicketCompleted:
+            ticket_handle = static_cast<const PFMatchmakingTicketCompletedStateChange *>(p_change)->ticket;
+            break;
+        default:
+            return;
+    }
+
+    Ref<PlayFabMatchTicket> ticket = _find_ticket(ticket_handle);
+    if (ticket.is_null() || ticket->m_completion_received) {
+        return;
+    }
+
+    ticket->refresh_snapshot();
+
+    if (p_change->stateChangeType == PFMatchmakingStateChangeType::TicketStatusChanged) {
+        if (ticket->is_complete()) {
+            return;
+        }
+
+        _complete_match_ticket_create_if_ready(ticket);
+        _complete_match_ticket_join_if_ready(ticket);
+
+        // Suppress pre-readiness status events; CREATED carries the latest snapshot.
+        const bool suppress_premature_status_change =
+                (_find_pending_ticket_operation(ticket, PlayFabMatchTicket::CREATED) != nullptr &&
+                        ticket->get_ticket_id().is_empty()) ||
+                _find_pending_ticket_operation(ticket, PENDING_MATCH_TICKET_JOIN) != nullptr;
+        if (!suppress_premature_status_change) {
+            _emit_ticket_change(
+                    PlayFabMatchTicket::STATUS_CHANGED,
+                    ticket,
+                    PlayFabResult::ok_result(ticket),
+                    ticket->get_status(),
+                    ticket->get_match_id(),
+                    ticket->get_arranged_lobby_connection_string());
+        }
+        return;
+    }
+
+    const auto *change = static_cast<const PFMatchmakingTicketCompletedStateChange *>(p_change);
+    Ref<PlayFabResult> result;
+    if (ticket->is_cancelled()) {
+        // The SDK may complete a cancelled ticket with a failure HRESULT describing the cancellation.
+        result = PlayFabResult::ok_result(ticket);
+    } else if (FAILED(change->result)) {
+        result = multiplayer_hresult_error(
+                change->result,
+                "PlayFab matchmaking ticket failed.",
+                "match_ticket_completed_failed",
+                ticket);
+    } else if (ticket->get_status() == static_cast<int64_t>(PFMatchmakingTicketStatus::Matched)) {
+        result = PlayFabResult::ok_result(ticket);
+    } else {
+        result = PlayFabResult::error_result(
+                E_FAIL,
+                "match_ticket_completed_failed",
+                "PlayFab matchmaking ticket completed without a matched or cancelled status.",
+                ticket);
+    }
+
+    const int64_t kind = !result->is_ok() ?
+            PlayFabMatchTicket::FAILED :
+            (ticket->is_cancelled() ? PlayFabMatchTicket::CANCELLED : PlayFabMatchTicket::COMPLETED);
+
+    ticket->m_completion_received = true;
+    r_terminal_tickets.push_back(ticket);
+    _complete_terminal_match_ticket_operations(ticket, result);
+    _emit_ticket_change(
+            kind,
+            ticket,
+            result,
+            ticket->get_status(),
+            ticket->get_match_id(),
+            ticket->get_arranged_lobby_connection_string());
+}
+
+void PlayFabMultiplayer::_finish_matchmaking_batch(
+        HRESULT p_finish_hresult,
+        const std::vector<Ref<PlayFabMatchTicket>> &p_terminal_tickets) {
+    if (FAILED(p_finish_hresult)) {
+        Ref<PlayFabResult> result = multiplayer_hresult_error(
+                p_finish_hresult,
+                "Failed to finish PlayFab matchmaking state changes.",
+                "matchmaking_state_finish_failed");
+        _reset_after_state_change_finish_failure(result);
+        return;
+    }
+
+    for (const Ref<PlayFabMatchTicket> &ticket : p_terminal_tickets) {
+        _destroy_match_ticket(ticket);
+    }
+    m_tickets.erase(std::remove_if(m_tickets.begin(), m_tickets.end(), [](const Ref<PlayFabMatchTicket> &ticket) {
+        return !ticket.is_valid() || ticket->is_destroyed();
+    }), m_tickets.end());
+}
+
 int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
     uint32_t state_change_count = 0;
     const PFMatchmakingStateChange *const *state_changes = nullptr;
@@ -3451,91 +3861,11 @@ int PlayFabMultiplayer::_dispatch_matchmaking_state_changes() {
 
     std::vector<Ref<PlayFabMatchTicket>> terminal_tickets;
     for (uint32_t i = 0; i < state_change_count; ++i) {
-        const PFMatchmakingStateChange *state_change = state_changes[i];
-        if (state_change == nullptr) {
-            continue;
-        }
-
-        switch (state_change->stateChangeType) {
-            case PFMatchmakingStateChangeType::TicketStatusChanged: {
-                const auto *change = static_cast<const PFMatchmakingTicketStatusChangedStateChange *>(state_change);
-                Ref<PlayFabMatchTicket> ticket = _find_ticket(change->ticket);
-                if (ticket.is_valid()) {
-                    ticket->refresh_snapshot();
-                    _complete_match_ticket_create_if_ready(ticket);
-                    int64_t kind = PlayFabMatchTicket::STATUS_CHANGED;
-                    if (ticket->is_cancelled()) {
-                        kind = PlayFabMatchTicket::CANCELLED;
-                    } else if (ticket->get_status() == static_cast<int64_t>(PFMatchmakingTicketStatus::Failed)) {
-                        kind = PlayFabMatchTicket::FAILED;
-                    }
-                    Ref<PlayFabResult> result = kind == PlayFabMatchTicket::FAILED ?
-                            PlayFabResult::error_result(E_FAIL, "match_ticket_failed", "PlayFab matchmaking ticket failed.", ticket) :
-                            PlayFabResult::ok_result(ticket);
-                    _complete_match_ticket_join_if_ready(ticket, result);
-                    if (kind == PlayFabMatchTicket::CANCELLED || kind == PlayFabMatchTicket::FAILED) {
-                        PendingOperation *cancel_operation = _find_pending_ticket_operation(ticket, PlayFabMatchTicket::CANCELLED);
-                        if (cancel_operation != nullptr) {
-                            _complete_pending_operation(cancel_operation, kind == PlayFabMatchTicket::CANCELLED ? PlayFabResult::ok_result() : result);
-                        }
-                        terminal_tickets.push_back(ticket);
-                    }
-                    // Keep the cached status level, cancellation completion,
-                    // and terminal cleanup even when the ticket id is not
-                    // ready. Once the id arrives, the CREATED notification
-                    // emitted by _complete_match_ticket_create_if_ready carries
-                    // the current level, so no edge replay queue is needed.
-                    const bool suppress_premature_status_change =
-                            kind == PlayFabMatchTicket::STATUS_CHANGED &&
-                            ((_find_pending_ticket_operation(ticket, PlayFabMatchTicket::CREATED) != nullptr &&
-                                     ticket->get_ticket_id().is_empty()) ||
-                                    _find_pending_ticket_operation(ticket, PENDING_MATCH_TICKET_JOIN) != nullptr);
-                    if (!suppress_premature_status_change) {
-                        _emit_ticket_change(kind, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
-                    }
-                }
-            } break;
-            case PFMatchmakingStateChangeType::TicketCompleted: {
-                const auto *change = static_cast<const PFMatchmakingTicketCompletedStateChange *>(state_change);
-                Ref<PlayFabMatchTicket> ticket = _find_ticket(change->ticket);
-                if (ticket.is_valid()) {
-                    ticket->refresh_snapshot();
-                    _complete_match_ticket_create_if_ready(ticket);
-                    Ref<PlayFabResult> result = SUCCEEDED(change->result) ? PlayFabResult::ok_result(ticket) : multiplayer_hresult_error(change->result, "PlayFab matchmaking ticket failed.", "match_ticket_completed_failed");
-                    int64_t kind = PlayFabMatchTicket::COMPLETED;
-                    if (ticket->is_cancelled()) {
-                        kind = PlayFabMatchTicket::CANCELLED;
-                    } else if (!result->is_ok() || ticket->get_status() == static_cast<int64_t>(PFMatchmakingTicketStatus::Failed)) {
-                        kind = PlayFabMatchTicket::FAILED;
-                    }
-                    _complete_match_ticket_join_if_ready(ticket, result);
-                    PendingOperation *cancel_operation = _find_pending_ticket_operation(ticket, PlayFabMatchTicket::CANCELLED);
-                    if (cancel_operation != nullptr && (kind == PlayFabMatchTicket::CANCELLED || kind == PlayFabMatchTicket::FAILED)) {
-                        _complete_pending_operation(cancel_operation, kind == PlayFabMatchTicket::CANCELLED ? PlayFabResult::ok_result() : result);
-                    }
-                    terminal_tickets.push_back(ticket);
-                    _emit_ticket_change(kind, ticket, result, ticket->get_status(), ticket->get_match_id(), ticket->get_arranged_lobby_connection_string());
-                }
-            } break;
-        }
+        _process_matchmaking_state_change(state_changes[i], terminal_tickets);
     }
 
     HRESULT finish_hr = PFMultiplayerFinishProcessingMatchmakingStateChanges(m_handle, state_change_count, state_changes);
-    if (FAILED(finish_hr)) {
-        Ref<PlayFabResult> result = multiplayer_hresult_error(finish_hr, "Failed to finish PlayFab matchmaking state changes.", "matchmaking_state_finish_failed");
-        _reset_after_state_change_finish_failure(result);
-        return static_cast<int>(state_change_count);
-    }
-
-    for (const Ref<PlayFabMatchTicket> &ticket : terminal_tickets) {
-        if (ticket.is_valid() && ticket->get_native_handle() != nullptr && m_handle != nullptr) {
-            PFMultiplayerDestroyMatchmakingTicket(m_handle, ticket->get_native_handle());
-            ticket->mark_destroyed();
-        }
-    }
-    m_tickets.erase(std::remove_if(m_tickets.begin(), m_tickets.end(), [](const Ref<PlayFabMatchTicket> &t) {
-        return !t.is_valid() || t->is_destroyed();
-    }), m_tickets.end());
+    _finish_matchmaking_batch(finish_hr, terminal_tickets);
     return static_cast<int>(state_change_count);
 }
 

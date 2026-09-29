@@ -5,6 +5,7 @@
 	</brief_description>
 	<description>
 		Returned by PlayFab API calls to indicate success or failure. Check [member ok] for success. On failure, [member code] contains a machine-readable error code, [member message] contains a human-readable description, and [member hresult] contains the native HRESULT value.
+		Native HRESULTs are signed 32-bit values and are sign-extended into Godot's signed 64-bit [code]int[/code]. For example, native [code]0x89235652[/code] is exposed as [code]-1994172846[/code]. Compare the unsigned HRESULT bits with [code](int(result.hresult) &amp; 0xFFFFFFFF) == 0x89235652[/code].
 	</description>
 	<tutorials></tutorials>
 	<methods>
@@ -17,7 +18,7 @@
 		<method name="get_hresult" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the native HRESULT value from the PlayFab operation.
+				Returns [member hresult]. See that member for the signed representation contract.
 			</description>
 		</method>
 		<method name="get_code" qualifiers="const">
@@ -44,7 +45,7 @@
 			[code]true[/code] if the operation succeeded.
 		</member>
 		<member name="hresult" type="int" setter="" getter="get_hresult">
-			The native HRESULT value from the PlayFab operation.
+			The native signed 32-bit HRESULT sign-extended into Godot's signed 64-bit [code]int[/code]. Mask with [code]0xFFFFFFFF[/code] when comparing hexadecimal HRESULT constants.
 		</member>
 		<member name="code" type="String" setter="" getter="get_code">
 			A machine-readable error code string.

@@ -3,6 +3,11 @@ extends "res://addons/godot_gdk_tests/playfab_test_base.gd"
 ## Missing native hooks are a failure, not a skipped regression suite.
 
 const DETAIL := 0x1234
+const E_FAIL := 0x80004005
+const E_INVALIDARG := 0x80070057
+const HRESULT_MASK := 0xFFFFFFFF
+const NETWORK_CHANGE_PEER_JOINED := 2
+const NETWORK_CHANGE_ERROR := 6
 var _party: Object
 var _results: Array = []
 
@@ -47,6 +52,52 @@ func _assert_drained(code: String = "") -> void:
 		assert_false(_results[0].ok)
 		if not code.is_empty():
 			assert_eq(_results[0].code, code)
+
+
+func _entity(entity_id: String, entity_type: String = "title_player_account") -> Dictionary:
+	return {"id": entity_id, "type": entity_type}
+
+
+func _handshake_request(
+		endpoint: int,
+		payload: Dictionary,
+		endpoint_entity: Variant) -> Dictionary:
+	return {
+		"stage": "request",
+		"endpoint": endpoint,
+		"payload": payload,
+		"endpoint_entity": endpoint_entity,
+	}
+
+
+func _network_events_of_kind(events: Array, kind: int) -> Array:
+	var matching: Array = []
+	for change in events:
+		if int(change.kind) == kind:
+			matching.append(change)
+	return matching
+
+
+func _assert_hresult(result: Variant, expected: int, label: String) -> void:
+	assert_eq(
+		int(result.hresult) & HRESULT_MASK,
+		expected & HRESULT_MASK,
+		"%s preserves HRESULT low bits" % label)
+
+
+func _host_handshake_fixture() -> Dictionary:
+	_begin(true)
+	_batch([_done("create"), _done("connect"), _done("authenticate"), _done("endpoint")])
+	assert_eq(_results.size(), 1)
+	assert_true(_results[0].ok)
+	var network: Object = _results[0].data
+	var events: Array = []
+	network.state_changed.connect(func(change): events.append(change))
+	return {
+		"network": network,
+		"peer": network.get_local_peer(),
+		"events": events,
+	}
 
 
 func test_create_sync_failure_has_one_original_result_and_no_connect() -> void:
@@ -345,9 +396,140 @@ func test_host_reply_failure_does_not_publish_a_phantom_peer() -> void:
 	var events: Array = []
 	network.state_changed.connect(func(change): events.append(change.kind))
 	_batch([{"stage": "request"}])
+	assert_eq(_party._test_party_snapshot().dispatches.count("handshake_reply"), 1)
 	assert_has(events, 6, "Handshake send error is surfaced")
 	assert_does_not_have(events, 2, "Failed reply never advertises peer joined")
 	assert_eq(network.get_local_peer().get_peers().size(), 0)
+
+
+func test_handshake_matching_identity() -> void:
+	var fixture := _host_handshake_fixture()
+	_batch([{"stage": "request"}])
+
+	var expected := _entity("offline-fixture")
+	assert_eq(fixture.peer.get_peers(), [2])
+	assert_eq(fixture.peer.get_peer_entity_key(2), expected)
+	var handles: Dictionary = _party._test_native_handles(fixture.network, fixture.peer)
+	assert_eq(handles.endpoint_slots, {2: 0})
+	var dispatches: Array = _party._test_party_snapshot().dispatches
+	assert_eq(dispatches.count("endpoint_entity_id"), 1)
+	assert_eq(dispatches.count("endpoint_entity_type"), 1)
+	assert_eq(dispatches.count("handshake_reply"), 1)
+	assert_eq(_network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size(), 1)
+
+
+func test_handshake_mismatched_identity() -> void:
+	var fixture := _host_handshake_fixture()
+	var endpoint_entity := _entity("offline-fixture")
+	_batch([_handshake_request(0, endpoint_entity, endpoint_entity)])
+
+	var before_handles: Dictionary = _party._test_native_handles(fixture.network, fixture.peer)
+	var before_slots: Dictionary = before_handles.endpoint_slots.duplicate()
+	var before_replies: int = _party._test_party_snapshot().dispatches.count("handshake_reply")
+	var before_joined: int = _network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size()
+	for payload in [
+		_entity("different-id"),
+		_entity("offline-fixture", "different_type"),
+	]:
+		var errors_before: int = _network_events_of_kind(fixture.events, NETWORK_CHANGE_ERROR).size()
+		_batch([_handshake_request(0, payload, endpoint_entity)])
+		var errors := _network_events_of_kind(fixture.events, NETWORK_CHANGE_ERROR)
+		assert_eq(errors.size(), errors_before + 1)
+		var error_change = errors[-1]
+		assert_eq(error_change.peer_id, 0)
+		assert_eq(error_change.result.code, "party_handshake_entity_mismatch")
+		_assert_hresult(error_change.result, E_INVALIDARG, "Mismatched handshake identity")
+		assert_eq(
+			_party._test_native_handles(fixture.network, fixture.peer).endpoint_slots,
+			before_slots)
+		assert_eq(fixture.peer.get_peer_entity_key(2), endpoint_entity)
+		assert_eq(_party._test_party_snapshot().dispatches.count("handshake_reply"), before_replies)
+		assert_eq(
+			_network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size(),
+			before_joined)
+
+	var second_entity := _entity("second-endpoint")
+	_batch([_handshake_request(1, second_entity, second_entity)])
+	var final_slots: Dictionary = _party._test_native_handles(fixture.network, fixture.peer).endpoint_slots
+	assert_eq(final_slots, {2: 0, 3: 1}, "Rejected payloads do not consume peer ids")
+	assert_eq(fixture.peer.get_peer_entity_key(3), second_entity)
+
+
+func test_handshake_unavailable_identity() -> void:
+	var fixture := _host_handshake_fixture()
+	for case in [
+		{"errors": {"endpoint_entity_id": DETAIL}, "endpoint_entity": _entity("offline-fixture")},
+		{"errors": {"endpoint_entity_type": DETAIL}, "endpoint_entity": _entity("offline-fixture")},
+		{"errors": {}, "endpoint_entity": null},
+		{"errors": {}, "endpoint_entity": _entity("")},
+		{"errors": {}, "endpoint_entity": _entity("offline-fixture", "")},
+	]:
+		_party._test_set_dispatch_errors(case.errors)
+		var errors_before: int = _network_events_of_kind(fixture.events, NETWORK_CHANGE_ERROR).size()
+		var replies_before: int = _party._test_party_snapshot().dispatches.count("handshake_reply")
+		_batch([_handshake_request(0, _entity("offline-fixture"), case.endpoint_entity)])
+		var errors := _network_events_of_kind(fixture.events, NETWORK_CHANGE_ERROR)
+		assert_eq(errors.size(), errors_before + 1)
+		var error_change = errors[-1]
+		assert_eq(error_change.peer_id, 0)
+		assert_eq(error_change.result.code, "party_handshake_endpoint_entity_unavailable")
+		_assert_hresult(error_change.result, E_FAIL, "Unavailable endpoint identity")
+		assert_eq(_party._test_party_snapshot().dispatches.count("handshake_reply"), replies_before)
+		assert_eq(fixture.peer.get_peers(), [])
+		assert_eq(_party._test_native_handles(fixture.network, fixture.peer).endpoint_slots, {})
+
+	_party._test_set_dispatch_errors({})
+	var entity := _entity("offline-fixture")
+	_batch([_handshake_request(0, entity, entity)])
+	assert_eq(fixture.peer.get_peers(), [2], "Rejected identities do not consume peer ids")
+
+
+func test_handshake_reconnect_same_entity() -> void:
+	var fixture := _host_handshake_fixture()
+	var entity := _entity("offline-fixture")
+	_batch([_handshake_request(0, entity, entity)])
+	assert_eq(_network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size(), 1)
+
+	_batch([_handshake_request(1, entity, entity)])
+	assert_eq(fixture.peer.get_peers(), [2])
+	assert_eq(fixture.peer.get_peer_entity_key(2), entity)
+	assert_eq(_party._test_native_handles(fixture.network, fixture.peer).endpoint_slots, {2: 1})
+	assert_eq(_party._test_party_snapshot().dispatches.count("handshake_reply"), 2)
+	assert_eq(
+		_network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size(),
+		1,
+		"Reconnect does not announce a second peer")
+
+
+func test_handshake_competing_payloads() -> void:
+	var entity_a := _entity("entity-a")
+	var entity_b := _entity("entity-b")
+	for order_index in range(2):
+		if order_index > 0:
+			assert_true((await await_completion(_party.shutdown_async())).ok)
+			_party = ClassDB.instantiate("PlayFabParty")
+			assert_not_null(_party)
+			assert_true(_party.has_method("_test_begin_establishment"))
+			_results.clear()
+
+		var fixture := _host_handshake_fixture()
+		var endpoint_order: Array = [1, 0] if order_index == 0 else [0, 1]
+		for endpoint in endpoint_order:
+			_batch([_handshake_request(
+				endpoint,
+				entity_a,
+				entity_a if endpoint == 0 else entity_b)])
+
+		assert_eq(fixture.peer.get_peers(), [2])
+		assert_eq(fixture.peer.get_peer_entity_key(2), entity_a)
+		assert_eq(_party._test_native_handles(fixture.network, fixture.peer).endpoint_slots, {2: 0})
+		assert_eq(_party._test_party_snapshot().dispatches.count("handshake_reply"), 1)
+		assert_eq(_network_events_of_kind(fixture.events, NETWORK_CHANGE_PEER_JOINED).size(), 1)
+		var errors := _network_events_of_kind(fixture.events, NETWORK_CHANGE_ERROR)
+		assert_eq(errors.size(), 1)
+		assert_eq(errors[0].peer_id, 0)
+		assert_eq(errors[0].result.code, "party_handshake_entity_mismatch")
+		_assert_hresult(errors[0].result, E_INVALIDARG, "Competing handshake identity")
 
 
 func test_retained_chat_control_is_invalidated_before_reset_notifications() -> void:

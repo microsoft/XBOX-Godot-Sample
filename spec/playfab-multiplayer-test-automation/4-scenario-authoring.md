@@ -328,9 +328,8 @@ func run(orch: TestOrchestrator) -> Dictionary:
     var err := assert_ok(create, "create_match_ticket")
     if err: return err
 
-    var cancelled := host.expect_event("match.status_changed", {
+    var cancelled := host.expect_event("match.ticket_cancelled", {
         "handle": "smoke_ticket",
-        "status": "cancelled",
     })
 
     var cancel := await host.send("cancel_match_ticket", { "ticket_id": create.result.ticket.ticket_id })
@@ -339,7 +338,7 @@ func run(orch: TestOrchestrator) -> Dictionary:
 
     var evt := await cancelled.wait(10000)
     if evt.timed_out:
-        return fail("did not observe match.status_changed=cancelled within 10s")
+        return fail("did not observe match.ticket_cancelled within 10s")
 
     return ok({ "ticket_id": create.result.ticket.ticket_id })
 ```

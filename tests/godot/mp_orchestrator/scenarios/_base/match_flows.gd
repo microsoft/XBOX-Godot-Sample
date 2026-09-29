@@ -67,7 +67,12 @@ func run_match_state_full_match_event_sequence(orch) -> Dictionary:
 	if gate != null: return gate
 	var match: Variant = await _create_two_player_match(orch)
 	if _is_failure(match) or _is_skip(match): return match
-	return ok({ "match_id": match.get("host_ticket", {}).get("match_id", "") })
+	var match_id: String = String(match.get("host_ticket", {}).get("match_id", ""))
+	# COMPLETED is emitted only from the native TicketCompleted record.
+	for role in ["host", "guest"]:
+		var completed: Variant = await _wait_event(_client(orch, role), "match.ticket_completed", { "handle": "match", "match_id": match_id, "result.ok": true }, COMMAND_TIMEOUT_MS)
+		if _is_failure(completed): return completed
+	return ok({ "match_id": match_id })
 
 
 func run_match_integration_arranged_lobby_join(orch) -> Dictionary:

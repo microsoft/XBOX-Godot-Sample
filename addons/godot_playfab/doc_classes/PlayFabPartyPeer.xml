@@ -12,7 +12,7 @@
 		<method name="get_network" qualifiers="const"><return type="PlayFabPartyNetwork" /><description>Returns the owning [PlayFabPartyNetwork].</description></method>
 		<method name="get_local_user" qualifiers="const"><return type="PlayFabUser" /><description>Returns the local [PlayFabUser] for this peer.</description></method>
 		<method name="get_descriptor" qualifiers="const"><return type="String" /><description>Returns the finalized base64 network descriptor, or an empty string while the descriptor is still pending.</description></method>
-		<method name="get_peer_entity_key" qualifiers="const"><return type="Dictionary" /><param index="0" name="peer_id" type="int" /><description>Returns the PlayFab entity key dictionary for [param peer_id].</description></method>
+		<method name="get_peer_entity_key" qualifiers="const"><return type="Dictionary" /><param index="0" name="peer_id" type="int" /><description>Returns the entity-key dictionary ([code]{"id": "...", "type": "..."}[/code]) for the Party endpoint behind [param peer_id], as reported by the Party SDK.</description></method>
 		<method name="get_peer_member" qualifiers="const"><return type="PlayFabPartyMember" /><param index="0" name="peer_id" type="int" /><description>Returns the [PlayFabPartyMember] snapshot for [param peer_id].</description></method>
 		<method name="get_peers" qualifiers="const"><return type="Array" /><description>Returns the list of known peer ids.</description></method>
 		<method name="close_with_reason"><return type="void" /><param index="0" name="reason" type="String" default="&quot;&quot;" /><description>Closes internal routing and network resources, emitting Godot-consistent connection state transitions.</description></method>

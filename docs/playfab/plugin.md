@@ -128,7 +128,7 @@ Before Party emits any shutdown peer/network notification or pending result, it 
 
 These scoped calls do not shut down the root runtime, signed-in accounts, or saves. Titles should attempt graceful leaves within their own shared cleanup deadline, then use scoped shutdown if pending operations (including hidden native creates) do not drain. After success, reinitialize multiplayer services and recreate retained chat controls before a manual retry. `PlayFab.shutdown()` remains the separate application/account lifecycle operation.
 
-Party hosting serializes native create completion before connect. Host/guest establishment failures roll back partial networks through leave/destruction or cleanup before completing the public error signal; failed rollback may therefore remain pending until scoped shutdown. `get_networks()` does not expose partial sessions. The first failure's code/HRESULT is preserved, with native `stage`, `party_error`, and asynchronous `state_change_result` in `result.data`. A missing pre-created chat control permits transport-only operation, but attachment failure of an existing control rolls back the join. A guest handshake-request send failure enters rollback. A host handshake-reply send failure emits a host-local error without announcing that guest as connected.
+Party hosting serializes native create completion before connect. Host/guest establishment failures roll back partial networks through leave/destruction or cleanup before completing the public error signal; failed rollback may therefore remain pending until scoped shutdown. `get_networks()` does not expose partial sessions. The first failure's code/HRESULT is preserved, with native `stage`, `party_error`, and asynchronous `state_change_result` in `result.data`. A missing pre-created chat control permits transport-only operation, but attachment failure of an existing control rolls back the join. A guest handshake-request send failure enters rollback. A host handshake-reply send failure emits a host-local error without announcing that guest as connected. A handshake the host rejects (entity mismatch with its sender endpoint, or endpoint entity unavailable) likewise leaves the guest awaiting its title-owned deadline.
 
 **Establishment deadlines belong to the title**, including the wait for a handshake reply. The addon has no handshake timer or automatic retry. A host-local reply failure cannot notify the waiting guest, so a bare `await join_network_async()` can remain pending. Track the operation against the game's deadline and use scoped `party.shutdown_async()` when an unreturned join must be cancelled; this resets all networks owned by that Party service. Keep the loading/recovery state until cleanup confirms success, and permit manual retry afterward. Do not tear down an established host session merely because one guest reply could not be sent.
 
@@ -286,6 +286,30 @@ The canonical status/event and level-triggered contract is documented on
 `PlayFabMatchTicket`. In title code, connect `state_changed`, then reconcile
 `ticket.status` immediately and on every event kind; do not wait for a replayed
 edge. `ticket.members` remains local users only.
+
+### Match-ticket cancellation
+
+`cancel_async()` settles from the native ticket-completion record. Concurrent
+calls share one pending cancellation, and a terminal status that arrives before
+completion is only a cached level update. Cancellation can therefore lose a
+race to matching:
+
+```gdscript
+var result = await ticket.cancel_async()
+if not result.ok and result.code == "match_ticket_cancel_lost_race":
+	var matched_ticket: PlayFabMatchTicket = result.data
+	_handle_ticket_status(matched_ticket, matched_ticket.status)
+elif not result.ok:
+	push_warning(result.message)
+```
+
+Successful cancellation keeps `result.data == null`; a lost race carries the
+matched ticket. Queue rejection, oversized ticket groups, authentication errors,
+and service outages are identified from the forwarded
+[`PlayFabResult.hresult`](../../addons/godot_playfab/doc_classes/PlayFabResult.xml),
+not from a generic failed status or message text. See the canonical
+[`PlayFabMatchTicket`](../../addons/godot_playfab/doc_classes/PlayFabMatchTicket.xml)
+contract for terminal ordering and retained snapshots.
 
 ### Arranged-lobby initialization
 
