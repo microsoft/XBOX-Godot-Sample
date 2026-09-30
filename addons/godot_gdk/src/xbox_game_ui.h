@@ -32,9 +32,12 @@ class XboxGameUI : public RefCounted {
     bool m_runtime_ready = false;
     std::unique_ptr<VirtualKeyboardEventState> m_virtual_keyboard_events;
     bool m_virtual_keyboard_events_unsupported = false;
-    bool m_virtual_keyboard_events_warning_emitted = false;
+    bool m_virtual_keyboard_events_warning_logged = false;
+    bool m_virtual_keyboard_events_deferred_retry_queued = false;
 
     void ensure_virtual_keyboard_events_registered();
+    void queue_virtual_keyboard_events_deferred_retry();
+    void retry_virtual_keyboard_events_registration();
     void unregister_virtual_keyboard_events();
     void emit_virtual_keyboard_showing();
     void emit_virtual_keyboard_hiding();

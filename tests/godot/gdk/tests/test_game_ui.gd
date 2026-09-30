@@ -77,6 +77,9 @@ func test_virtual_keyboard_event_contract_before_initialization() -> void:
 		assert_true(game_ui.is_connected(signal_name, callback), "%s connection is retained" % signal_name)
 		game_ui.disconnect(signal_name, callback)
 
+	# Registration makes one deferred attempt after service startup, so let that
+	# attempt run and keep the pre-initialization contract explicit.
+	await get_tree().process_frame
 	assert_false(gdk.is_initialized(), "virtual-keyboard event subscriptions do not initialize the GDK runtime")
 
 

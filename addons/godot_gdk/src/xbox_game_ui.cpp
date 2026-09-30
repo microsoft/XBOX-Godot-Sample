@@ -534,6 +534,7 @@ void XboxGameUI::_bind_methods() {
             DEFVAL(static_cast<int64_t>(0)));
     ClassDB::bind_method(D_METHOD("show_virtual_keyboard"), &XboxGameUI::show_virtual_keyboard);
     ClassDB::bind_method(D_METHOD("hide_virtual_keyboard"), &XboxGameUI::hide_virtual_keyboard);
+    ClassDB::bind_method(D_METHOD("_retry_virtual_keyboard_events_registration"), &XboxGameUI::retry_virtual_keyboard_events_registration);
 
     ADD_SIGNAL(MethodInfo("virtual_keyboard_showing"));
     ADD_SIGNAL(MethodInfo("virtual_keyboard_hiding"));
@@ -548,6 +549,7 @@ XboxGameUI::~XboxGameUI() {
 void XboxGameUI::set_owner(Xbox *p_owner) {
     m_owner = p_owner;
     ensure_virtual_keyboard_events_registered();
+    queue_virtual_keyboard_events_deferred_retry();
 }
 
 void XboxGameUI::ensure_virtual_keyboard_events_registered() {
@@ -557,10 +559,10 @@ void XboxGameUI::ensure_virtual_keyboard_events_registered() {
 
     auto state = std::make_unique<VirtualKeyboardEventState>();
     if (FAILED(state->ro_initialize.get_result())) {
-        if (!m_virtual_keyboard_events_warning_emitted) {
+        if (!m_virtual_keyboard_events_warning_logged) {
             UtilityFunctions::push_warning(
                     "[GDK] Windows virtual-keyboard visibility events are unavailable because the Windows Runtime apartment could not be initialized.");
-            m_virtual_keyboard_events_warning_emitted = true;
+            m_virtual_keyboard_events_warning_logged = true;
         }
         return;
     }
@@ -573,10 +575,10 @@ void XboxGameUI::ensure_virtual_keyboard_events_registered() {
         if (!ApiInformation::IsEventPresent(core_input_view_type, L"PrimaryViewShowing") ||
                 !ApiInformation::IsEventPresent(core_input_view_type, L"PrimaryViewHiding")) {
             m_virtual_keyboard_events_unsupported = true;
-            if (!m_virtual_keyboard_events_warning_emitted) {
+            if (!m_virtual_keyboard_events_warning_logged) {
                 UtilityFunctions::push_warning(
                         "[GDK] Windows virtual-keyboard visibility events require Windows 10 version 2004 or later.");
-                m_virtual_keyboard_events_warning_emitted = true;
+                m_virtual_keyboard_events_warning_logged = true;
             }
             return;
         }
@@ -603,12 +605,30 @@ void XboxGameUI::ensure_virtual_keyboard_events_registered() {
             } catch (const winrt::hresult_error &) {
             }
         }
-        if (!m_virtual_keyboard_events_warning_emitted) {
+        if (!m_virtual_keyboard_events_warning_logged) {
             UtilityFunctions::push_warning(
-                    "[GDK] Windows virtual-keyboard visibility events could not be registered for the current view; registration will be retried when the keyboard is requested.");
-            m_virtual_keyboard_events_warning_emitted = true;
+                    "[GDK] Windows virtual-keyboard visibility events could not be registered for the current view; registration will be retried after startup and when the keyboard is requested.");
+            m_virtual_keyboard_events_warning_logged = true;
         }
     }
+}
+
+void XboxGameUI::queue_virtual_keyboard_events_deferred_retry() {
+    if (m_virtual_keyboard_events != nullptr || m_virtual_keyboard_events_unsupported ||
+            m_virtual_keyboard_events_deferred_retry_queued) {
+        return;
+    }
+
+    // XboxGameUI is created before Godot has necessarily attached a current
+    // CoreInputView. Retry once on the first idle frame so scripts which only
+    // subscribe to visibility events are not required to issue a show/hide call.
+    m_virtual_keyboard_events_deferred_retry_queued = true;
+    call_deferred("_retry_virtual_keyboard_events_registration");
+}
+
+void XboxGameUI::retry_virtual_keyboard_events_registration() {
+    m_virtual_keyboard_events_deferred_retry_queued = false;
+    ensure_virtual_keyboard_events_registered();
 }
 
 void XboxGameUI::unregister_virtual_keyboard_events() {
