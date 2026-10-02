@@ -57,6 +57,15 @@
     -Projects. Uses the same matching rules as -Projects. For example,
     `-ExcludeProjects tests\godot\playfab` keeps the rest of the parse gate
     active while skipping the PlayFab host project.
+
+.PARAMETER Paths
+    Optional repo-relative file or directory prefixes. Only .gd files under
+    these paths are validated (before -Projects/-ExcludeProjects are applied);
+    each file is still checked in its normal project context. Entries ending in
+    a separator match as directory prefixes. Pass multiple values
+    comma-separated, e.g. `-Paths addons/godot_playfab/,tests/godot/playfab/`.
+    When no file matches, the script exits 0 without requiring Godot. PR gates
+    pass the scope selector's `parse_paths` output here.
 #>
 [CmdletBinding()]
 param(
@@ -64,7 +73,10 @@ param(
     [string[]]$Projects = @(),
 
     [Alias('ExcludeProject')]
-    [string[]]$ExcludeProjects = @()
+    [string[]]$ExcludeProjects = @(),
+
+    [Alias('Path')]
+    [string[]]$Paths = @()
 )
 
 Set-StrictMode -Version Latest
@@ -153,6 +165,45 @@ function Get-GDScriptFiles {
             ForEach-Object { [System.IO.Path]::GetFullPath((Join-Path $script:RepoRoot $_)) } |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
     )
+}
+
+function Get-NormalizedPathFilters {
+    param([string[]]$PathFilters)
+
+    return @(
+        $PathFilters |
+            ForEach-Object { if ($null -ne $_) { $_ -split ',' } } |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object {
+                $p = ($_ -replace '/', '\')
+                if ($p.StartsWith('.\')) { $p = $p.Substring(2) }
+                if ([System.IO.Path]::IsPathRooted($p)) {
+                    throw "-Paths entries must be repo-relative: $_"
+                }
+                $p
+            } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-FileMatchesPathFilter {
+    param(
+        [string]$FilePath,
+        [string[]]$PathFilters
+    )
+
+    $rel = (Get-RelativePath -BasePath $script:RepoRoot -TargetPath $FilePath) -replace '/', '\'
+    foreach ($filter in $PathFilters) {
+        if ($filter.EndsWith('\')) {
+            if ($rel.StartsWith($filter, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        }
+        elseif ($rel.Equals($filter, [System.StringComparison]::OrdinalIgnoreCase) -or
+                $rel.StartsWith($filter + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Get-ProjectRoots {
@@ -548,12 +599,23 @@ function Invoke-GodotScriptCheck {
 }
 
 try {
-    $godotExecutable = Get-GodotExecutable
     $gdFiles = @(Get-GDScriptFiles)
+    $pathFilters = @(Get-NormalizedPathFilters -PathFilters $Paths)
+    if ($pathFilters.Count -gt 0) {
+        $gdFiles = @($gdFiles | Where-Object { Test-FileMatchesPathFilter -FilePath $_ -PathFilters $pathFilters })
+        if ($gdFiles.Count -eq 0) {
+            Write-Host "No .gd files matched -Paths: $($pathFilters -join ', '); skipping headless GDScript validation."
+            exit 0
+        }
+        Write-Host "Validating $($gdFiles.Count) .gd file(s) under -Paths: $($pathFilters -join ', ')"
+    }
+
     if ($gdFiles.Count -eq 0) {
         Write-Host 'No .gd files found; skipping headless GDScript validation.'
         exit 0
     }
+
+    $godotExecutable = Get-GodotExecutable
 
     $projectRoots = @(Get-ProjectRoots)
     $contexts = @{}

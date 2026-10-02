@@ -31,18 +31,67 @@ inputs:
     description: Retention (days) for the uploaded build-output artifact.
     required: false
     default: '7'
+  components:
+    description: >-
+      Comma-separated native addons to build: any of gdk, playfab, gameinput.
+      Blank builds no addon (doctest-only). Default builds all three. The vcpkg
+      manifest features, BUILD_GODOT_* switches, and editor-tool mirror follow
+      this list, and only the selected hosts land in the artifact.
+    required: false
+    default: 'gdk,playfab,gameinput'
+  doctest:
+    description: Build and run the C++ doctest exe (gdk_unit_tests.exe). 'true' or 'false'.
+    required: false
+    default: 'true'
 
 outputs:
   artifact_name:
     description: The artifact name the test jobs should download.
     value: ${{ inputs.artifact_name }}
   cache_key:
-    description: The resolved build-output cache key (edition + source hash).
+    description: The resolved build-output cache key (edition + scope + source hash).
     value: ${{ steps.key.outputs.cache_key }}
 
 runs:
   using: composite
   steps:
+    # Resolve the build scope once. Everything downstream (configure flags,
+    # cache key, artifact manifest) reads these step outputs.
+    - name: Resolve build scope
+      id: scope
+      shell: pwsh
+      env:
+        INPUT_COMPONENTS: ${{ inputs.components }}
+        INPUT_DOCTEST: ${{ inputs.doctest }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $known = @('gdk', 'playfab', 'gameinput')
+        $requested = @($env:INPUT_COMPONENTS -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } |
+          Where-Object { $_ } | Select-Object -Unique)
+        $unknown = @($requested | Where-Object { $known -notcontains $_ })
+        if ($unknown.Count -gt 0) { throw "Unknown build component(s): $($unknown -join ', ')" }
+        if ($env:INPUT_DOCTEST -notin @('true', 'false')) { throw "doctest must be 'true' or 'false' (got '$env:INPUT_DOCTEST')." }
+        $doctest = $env:INPUT_DOCTEST -eq 'true'
+        $comps = @($known | Where-Object { $requested -contains $_ })
+        if ($comps.Count -eq 0 -and -not $doctest) { throw 'Nothing to build: no components selected and doctest disabled.' }
+        $has = @{}; foreach ($c in $known) { $has[$c] = $comps -contains $c }
+        $onOff = { param($b) if ($b) { 'ON' } else { 'OFF' } }
+        $features = @()
+        if ($has.gdk -or $has.playfab) { $features += 'godot-gdk' }
+        if ($has.gameinput) { $features += 'godot-gameinput' }
+        $label = if ($comps.Count) { $comps -join '+' } else { 'none' }
+        if ($doctest) { $label += '+doctest' }
+        "components=$($comps -join ',')"                         | Out-File $env:GITHUB_OUTPUT -Append
+        "label=$label"                                           | Out-File $env:GITHUB_OUTPUT -Append
+        "doctest=$($doctest.ToString().ToLowerInvariant())"      | Out-File $env:GITHUB_OUTPUT -Append
+        "gdk=$(& $onOff $has.gdk)"                               | Out-File $env:GITHUB_OUTPUT -Append
+        "playfab=$(& $onOff $has.playfab)"                       | Out-File $env:GITHUB_OUTPUT -Append
+        "gameinput=$(& $onOff $has.gameinput)"                   | Out-File $env:GITHUB_OUTPUT -Append
+        "playfab_with_gdk=$(& $onOff ($has.gdk -and $has.playfab))" | Out-File $env:GITHUB_OUTPUT -Append
+        "gdk_build_tests=$(& $onOff $doctest)"                   | Out-File $env:GITHUB_OUTPUT -Append
+        "vcpkg_features=$($features -join ';')"                  | Out-File $env:GITHUB_OUTPUT -Append
+        Write-Host "Build scope: $label (vcpkg features: $(if ($features) { $features -join ';' } else { 'none' }))"
+
     - name: Export VCPKG_ROOT (hosted runners expose VCPKG_INSTALLATION_ROOT)
       shell: pwsh
       run: |
@@ -84,6 +133,7 @@ runs:
       run: |
         $ErrorActionPreference = 'Stop'
         $edition = if ([string]::IsNullOrWhiteSpace('${{ inputs.gdk_version }}')) { 'baseline' } else { '${{ inputs.gdk_version }}' }
+        $scope = '${{ steps.scope.outputs.label }}'
         $parts = @(
           (git rev-parse HEAD:addons),
           (git rev-parse HEAD:cmake),
@@ -99,28 +149,51 @@ runs:
         ) -join '-'
         $sha = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($parts))
         $hash = ([BitConverter]::ToString($sha)).Replace('-', '').Substring(0, 16).ToLower()
-        $key = "build-$($env:RUNNER_OS)-gdk-$edition-$hash"
-        $prefix = "build-$($env:RUNNER_OS)-gdk-$edition-"
+        $key = "build-$($env:RUNNER_OS)-gdk-$edition-$scope-$hash"
+        $prefix = "build-$($env:RUNNER_OS)-gdk-$edition-$scope-"
+        # A scope with no cache yet still seeds from any build of this edition
+        # (warm godot-cpp objects); vcpkg reconciles the manifest features.
+        $editionPrefix = "build-$($env:RUNNER_OS)-gdk-$edition-"
         Write-Host "Build cache key:    $key"
-        Write-Host "Build cache prefix: $prefix"
+        Write-Host "Build cache prefix: $prefix (fallback: $editionPrefix)"
         "cache_key=$key"         | Out-File $env:GITHUB_OUTPUT -Append
         "restore_prefix=$prefix" | Out-File $env:GITHUB_OUTPUT -Append
+        "edition_prefix=$editionPrefix" | Out-File $env:GITHUB_OUTPUT -Append
 
     # Restore the whole build/ tree (includes build/vcpkg_installed). An exact
     # key hit gives a fully warm tree; a prefix hit (restore-keys) seeds warm
     # vcpkg dependencies + incremental object files from a prior build of the
-    # same edition. cmake --build below is incremental either way.
+    # same edition and scope (then any scope). cmake --build below is
+    # incremental either way.
     - name: Restore build cache
       id: build-cache
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: build
         key: ${{ steps.key.outputs.cache_key }}
-        restore-keys: ${{ steps.key.outputs.restore_prefix }}
+        restore-keys: |
+          ${{ steps.key.outputs.restore_prefix }}
+          ${{ steps.key.outputs.edition_prefix }}
 
-    - name: Configure (default preset)
+    # Explicit -D values override the preset's cache variables, and also reset
+    # any switch a fallback-restored cache from another scope left behind.
+    - name: Configure (default preset, scope ${{ steps.scope.outputs.label }})
       shell: pwsh
-      run: cmake --preset default
+      run: |
+        $cmakeArgs = @(
+          '--preset', 'default',
+          '-DBUILD_GODOT_GDK=${{ steps.scope.outputs.gdk }}',
+          '-DBUILD_GODOT_PLAYFAB=${{ steps.scope.outputs.playfab }}',
+          '-DBUILD_GODOT_GAMEINPUT=${{ steps.scope.outputs.gameinput }}',
+          '-DBUILD_GODOT_GDK_EDITORTOOLS=${{ steps.scope.outputs.gdk }}',
+          '-DGODOT_PLAYFAB_TEST_HOST_WITH_GDK=${{ steps.scope.outputs.playfab_with_gdk }}',
+          '-DGDK_BUILD_TESTS=${{ steps.scope.outputs.gdk_build_tests }}',
+          '-DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON',
+          '-DVCPKG_MANIFEST_FEATURES=${{ steps.scope.outputs.vcpkg_features }}'
+        )
+        Write-Host "cmake $($cmakeArgs -join ' ')"
+        cmake @cmakeArgs
+        if ($LASTEXITCODE -ne 0) { throw "cmake configure exited $LASTEXITCODE" }
 
     - name: Build addons (debug)
       shell: pwsh
@@ -129,12 +202,31 @@ runs:
     # Godot-version independent: run it ONCE here so the per-Godot test matrix
     # can pass -SkipDoctest and not re-run it on every engine version.
     - name: C++ doctest (gdk_unit_tests.exe)
+      if: steps.scope.outputs.doctest == 'true'
       shell: pwsh
       run: |
         $exe = 'build\bin\Debug\gdk_unit_tests.exe'
         if (-not (Test-Path $exe)) { throw "Doctest exe not found at $exe (build failed?)." }
         & $exe
         if ($LASTEXITCODE -ne 0) { throw "gdk_unit_tests.exe exited $LASTEXITCODE" }
+
+    # Fail fast if the artifact would not carry every selected host's addon DLL
+    # (or would carry an unselected one, e.g. stale output from a restored cache
+    # of a wider scope leaking into the mirrored hosts).
+    - name: Verify build output manifest
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $selected = @('${{ steps.scope.outputs.components }}' -split ',' | Where-Object { $_ })
+        $problems = @()
+        foreach ($c in 'gdk', 'playfab', 'gameinput') {
+          $dll = "tests/godot/$c/addons/godot_$c/bin/godot_$c.windows.debug.x86_64.dll"
+          $present = Test-Path $dll
+          if (($selected -contains $c) -and -not $present) { $problems += "missing $dll" }
+          if (-not ($selected -contains $c) -and $present) { $problems += "unexpected $dll" }
+        }
+        if ($problems) { throw "Build output manifest mismatch: $($problems -join '; ')" }
+        Write-Host "Build output manifest OK for: $(if ($selected) { $selected -join ', ' } else { '(doctest only)' })"
 
     # Save the build cache only on a non-exact (prefix or miss) restore.
     - name: Save build cache

@@ -64,7 +64,10 @@
 .PARAMETER Hosts
     Optional filter of GUT host project roots (relative to repo root). Default
     is all three coverage hosts: tests\godot\gdk, tests\godot\playfab,
-    tests\godot\gameinput.
+    tests\godot\gameinput. Accepts an array or a comma-separated value (for
+    `pwsh -File`). Any repo-relative Godot project with GUT mirrored into
+    addons\gut and a tests\ directory works, e.g. the native-free editor tools
+    host staged by tools\ci\prepare_editortools_host.ps1.
 
 .PARAMETER ParseProjects
     Optional project/context filter forwarded to the parse gate. Uses the same
@@ -74,6 +77,14 @@
     Optional project/context exclusion forwarded to the parse gate. For example,
     pass `-ParseExcludeProjects tests\godot\playfab` to keep the parse gate
     active while skipping the PlayFab test host.
+
+.PARAMETER ParsePaths
+    Optional repo-relative file/directory prefixes forwarded to the parse gate
+    as -Paths. Only .gd files under these prefixes are parsed.
+
+.PARAMETER SkipParse
+    Skips the parse gate stage (stage 1); it is recorded as `skip`. CI uses
+    this when a dedicated, change-scoped parse job already ran.
 
 .PARAMETER PlayFabTitleId
     Optional PlayFab title id forwarded to Godot children as PLAYFAB_TITLE_ID.
@@ -120,6 +131,8 @@ param(
     [string[]]$Hosts,
     [string[]]$ParseProjects,
     [string[]]$ParseExcludeProjects,
+    [string[]]$ParsePaths,
+    [switch]$SkipParse,
     [string]$PlayFabTitleId,
     [string]$PlayFabCustomId,
     [string]$PlayFabMatchmakingQueue,
@@ -457,7 +470,9 @@ function Invoke-ParseGate {
         [AllowEmptyCollection()]
         [string[]]$Projects = @(),
         [AllowEmptyCollection()]
-        [string[]]$ExcludeProjects = @()
+        [string[]]$ExcludeProjects = @(),
+        [AllowEmptyCollection()]
+        [string[]]$Paths = @()
     )
 
     $rec = New-StageRecord 'parse-gate'
@@ -468,6 +483,9 @@ function Invoke-ParseGate {
     }
     if ($ExcludeProjects.Count -gt 0) {
         $args += @('-ExcludeProjects', ($ExcludeProjects -join ','))
+    }
+    if ($Paths.Count -gt 0) {
+        $args += @('-Paths', ($Paths -join ','))
     }
     $r = Invoke-ChildProcess -FileName $pwsh -Arguments $args -WorkingDirectory $script:RepoRoot `
         -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
@@ -1047,10 +1065,29 @@ function Main {
     }
 
     $hostList = if ($null -ne $Hosts -and $Hosts.Count -gt 0) { $Hosts } else { $script:DefaultHosts }
-    # Normalize separators
-    $hostList = @($hostList | ForEach-Object { ($_ -replace '/', '\').TrimEnd('\') })
+    # Accept comma-separated values (pwsh -File) and normalize separators.
+    $hostList = @($hostList |
+        ForEach-Object { $_ -split ',' } |
+        ForEach-Object { ($_.Trim() -replace '/', '\').TrimEnd('\') } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique)
+    if ($hostList.Count -eq 0) {
+        throw '-Hosts resolved to an empty list.'
+    }
+    foreach ($h in $hostList) {
+        if ([System.IO.Path]::IsPathRooted($h) -or $h -match '(^|\\)\.\.(\\|$)') {
+            throw "-Hosts entries must be repo-relative paths inside the repository: '$h'"
+        }
+    }
     $parseProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseProjects)
     $parseExcludeProjectList = @(ConvertTo-ParseGateFilterList -Filters $ParseExcludeProjects)
+    # Keep trailing separators: the parse gate treats them as directory prefixes.
+    $parsePathList = @($ParsePaths |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        ForEach-Object { $_ -split ',' } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique)
 
     $outDirAbsolute = if ([System.IO.Path]::IsPathRooted($OutDir)) {
         $OutDir
@@ -1064,6 +1101,7 @@ function Main {
     Write-Host "                   Hosts = $($hostList -join ', ')" -ForegroundColor Cyan
     Write-Host "                   ParseProjects = $(if ($parseProjectList.Count -gt 0) { $parseProjectList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   ParseExcludeProjects = $(if ($parseExcludeProjectList.Count -gt 0) { $parseExcludeProjectList -join ', ' } else { 'none' })" -ForegroundColor Cyan
+    Write-Host "                   ParsePaths = $(if ($SkipParse) { 'skipped' } elseif ($parsePathList.Count -gt 0) { $parsePathList -join ', ' } else { 'all' })" -ForegroundColor Cyan
     Write-Host "                   OutDir= $outDirAbsolute" -ForegroundColor Cyan
     if ($AllowLiveWrites) {
         Write-Host "" -ForegroundColor Yellow
@@ -1078,10 +1116,16 @@ function Main {
 
     # 1. Parse gate
     Write-Host '== [1/7] Parse gate (check_gd_scripts_headless.ps1) ==' -ForegroundColor Cyan
-    $stage = Invoke-ParseGate -Projects $parseProjectList -ExcludeProjects $parseExcludeProjectList
+    if ($SkipParse) {
+        $stage = New-StageRecord 'parse-gate'
+        $stage.status = 'skip'
+        $stage.message = 'Skipped (-SkipParse).'
+    } else {
+        $stage = Invoke-ParseGate -Projects $parseProjectList -ExcludeProjects $parseExcludeProjectList -Paths $parsePathList
+    }
     [void]$stages.Add($stage)
     Write-Host "   $($stage.status.ToUpper()): $($stage.message)`n"
-    if ($stage.status -ne 'pass') { $abort = $true }
+    if ($stage.status -eq 'fail') { $abort = $true }
 
     # 2. Build
     if (-not $abort) {

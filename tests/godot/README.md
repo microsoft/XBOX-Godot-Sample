@@ -10,6 +10,8 @@ Each host has its addon mirrored in by CMake when you run `cmake --build build -
 
 GUT is mirrored into each host in two flavors: `addons\gut\` (v9.6.0, the default, for Godot 4.6+) and `addons\gut-4.5\` (bitwes/Gut `b366b70` = v9.5.0 + the #778 push_warning fix, for Godot 4.5.x — GUT 9.6.0 hard-requires Godot 4.6+). The orchestrator picks the right one for the Godot under test via `Select-GutForGodotVersion`, so running against Godot 4.5.1 (`GODOT_CONSOLE=<4.5.1 console exe>`) or 4.6.x both "just work".
 
+To run only some hosts, pass `-Hosts tests\godot\gdk,tests\godot\playfab` (comma-separated repo-relative host paths). PR Gates uses the same switch to test only the hosts a PR touches. Editor-tool suites under `tests\godot\gdk\tests\editortools\` run in CI from a native-free temporary host (`tools\ci\prepare_editortools_host.ps1`), so they must not depend on the GDK extension. See `docs\ci\pr-gates.md` ("Scoped gate selection").
+
 The repo-root orchestrator now owns both GUT hosts and the PlayFab Multiplayer multi-process orchestrator. Use `tools\run_all_tests.ps1 -Live -AllowLiveWrites -PlayFabTitleId <sandbox> -PlayFabMatchmakingQueue <queue>` for the full live MP sweep.
 
 ## Test Tiers

@@ -7,19 +7,100 @@ addon DLLs are built once per Microsoft GDK edition, the build output is cached 
 handed off as an artifact, and the test tiers consume that output without
 rebuilding.
 
-| Gate | Workflow | Trigger | Runner |
+`pr-gates.yml` is **scoped**: a selector job classifies the changed files and
+runs only the gates those files can affect (see
+[Scoped gate selection](#scoped-gate-selection)). Branch protection requires the
+single aggregate check **`PR gates`**.
+
+| Gate | Workflow (job) | Runs on PR / push when | Runner |
 | --- | --- | --- | --- |
-| GDScript parse | `pr-gates.yml` (`parse-gate`) | `pull_request` / `push` to `main` or `experimental/dotnet`, `workflow_dispatch` | `windows-latest`, **matrixed over Godot versions** |
-| Native build + C++ doctest | `pr-gates.yml` (`build`) | same as above | `windows-2022`, **default GDK edition** |
-| Offline tier (load/smoke + non-live GUT) | `pr-gates.yml` (`test-offline`) | same as above | `windows-2022`, **default Godot** |
-| Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | same as above | `windows-2022` (pinned — see below) |
-| C# facade parity | `pr-gates.yml` (`csharp`) | `pull_request` / `push` to **`experimental/dotnet`** only | `windows-latest`, .NET 8 SDK |
+| Gate selection | `pr-gates.yml` (`scope`) | always | `ubuntu-latest` |
+| CI lint (selector tests, actionlint, PowerShell parse) | `pr-gates.yml` (`ci-lint`) | always | `ubuntu-latest` |
+| GDScript parse | `pr-gates.yml` (`parse-gate`) | any parse scope selected; only those scopes | `windows-latest`, **matrixed over Godot versions** |
+| Native build (+ C++ doctest) | `pr-gates.yml` (`build`) | any addon or doctest selected; only those addons | `windows-2022`, **default GDK edition** |
+| Offline tier (load/smoke + non-live GUT) | `pr-gates.yml` (`test-offline`) | any coverage host selected; only those hosts | `windows-2022`, **default Godot** |
+| Editor tools (native-free) | `pr-gates.yml` (`editortools`) | editor-tool sources/tests changed | `windows-latest`, **matrixed over Godot versions** |
+| Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | fuzzed production sources or harnesses changed; only those targets | `windows-2022` (pinned — see below) |
+| C# facade parity | `pr-gates.yml` (`csharp`) | C# facades, their tests, or `doc_classes` changed | `windows-latest`, .NET 8 SDK |
+| **Aggregate (required check)** | `pr-gates.yml` (`PR gates`) | always | `ubuntu-latest` |
 | Native build + C++ doctest | `playfab-live-nightly.yml` (`build`) | nightly `schedule` + `workflow_dispatch` | `windows-2022`, **matrixed over GDK editions** |
 | Offline tier (load/smoke + non-live GUT) | `playfab-live-nightly.yml` (`test-offline`) | same | `windows-2022`, **GDK editions × Godot supported** |
 | PlayFab live (read + write) | `playfab-live-nightly.yml` (`playfab-live`) | same | `windows-2022`, sandbox title, **GDK editions × default Godot** |
 
-> The matrix-resolve / version-resolve steps (`versions`, `resolve`) run
-> on `ubuntu-latest`; the Windows runners above do the actual gate work.
+`workflow_dispatch` of `pr-gates.yml` and the nightly always run the **full**
+set; only `pull_request` and `push` are scoped.
+
+## Scoped gate selection
+
+The `scope` job runs [`tools/ci/pr_gate_scope.cjs`](../../tools/ci/pr_gate_scope.cjs)
+over the PR diff (`merge-base(base, head)..head`, renames count both sides) or
+the push range (`before..after`). It writes one job output per gate and a
+**PR gate scope** table to the job summary listing what was selected and why.
+
+| Changed area (examples) | Selected gates |
+| --- | --- |
+| `addons/godot_gdk/**`, `tests/godot/gdk/**`, `sample/tutorial_gdk/**` | GDK build + GDK host, GDK parse scopes; doctest/fuzz only when their production sources change |
+| `addons/godot_playfab/**`, `tests/godot/playfab/**`, `sample/tutorial_playfab/**` | PlayFab build + PlayFab host (built **without** GDK), PlayFab parse scopes |
+| `addons/godot_gameinput/**`, `tests/godot/gameinput/**`, `sample/tutorial_gameinput/**` | GameInput build + host, GameInput parse scopes |
+| `addons/godot_gdk_editortools/**`, `tests/godot/gdk/tests/editortools/**` | `editortools` lane only (no native build) |
+| `addons/godot_gdk/tests_support/**` (shared GUT bases) | the hosts that use the changed base (the GDK base also feeds PlayFab, which extends it; `test_env.gd` feeds every host + editor tools) |
+| `addons/*_csharp/**`, `tests/csharp/**`, `doc_classes/**` | `csharp` (and the addon's host for `doc_classes`) |
+| `tests/cpp/**` | doctest and/or the matching fuzz targets |
+| `.github/actions/build-addons/**` | all hosts + doctest |
+| `.github/actions/run-offline-tier/**`, `tools/ci/gdextension_load_check.gd` | all hosts |
+| `.github/godot-versions.json`, `.github/actions/setup-godot/**` | all hosts + editor tools + full parse |
+| `.github/gdk-versions.json`, `cmake/GDKDependencies.cmake` | GDK + PlayFab |
+| `pr-gates.yml`, `tools/ci/pr_gate_*`, root `CMakeLists.txt`/presets, `godot-cpp`, `vcpkg*.json`, `.gitmodules` | **full** set |
+| `docs/**`, `spec/**`, `*.md`, `.github/instructions/**`, other workflows | nothing beyond `scope` + `ci-lint` |
+| **Any path without a rule** | **full** set, with a warning listing the path |
+
+Notes:
+
+- **Unknown paths fail safe.** A path no rule matches selects the full set and is
+  listed under a warning in the job summary. Add a rule instead of living with it.
+- **Malformed selector output fails the run**; an empty selection is valid.
+- **Shared code stays shared.** A change to doctest/fuzz production sources
+  (`addons/*/src/**` files they compile) re-runs doctest/fuzz even when only one
+  addon changed; the C# facade gate runs whenever any facade or `doc_classes`
+  file changes.
+- **PlayFab-only builds omit GDK** (`GODOT_PLAYFAB_TEST_HOST_WITH_GDK=OFF`). The
+  default PlayFab coverage uses custom-ID sign-in and is required to pass without
+  GDK; the optional Xbox-backed flows need a live signed-in user and are covered
+  by the full nightly.
+- **Push to `main`** with an unresolvable `before` (new branch, force push)
+  selects the full set.
+
+### Adding or changing a rule
+
+Rules are an ordered table in `pr_gate_scope.cjs` (`RULES`); each matched path
+contributes its selection and a reason. Pin the change with a case in
+`tools/ci/tests/pr_gate_scope.test.cjs` and run:
+
+```powershell
+node --test tools/ci/tests/pr_gate_scope.test.cjs
+# Dry-run a selection for any file list:
+git diff --name-only origin/main... > $env:TEMP\files.txt
+node tools/ci/pr_gate_scope.cjs --files-from $env:TEMP\files.txt
+```
+
+Editing the selector, its tests, or `pr-gates.yml` itself always selects the full set.
+
+### The `PR gates` aggregate and branch protection
+
+Skipped jobs never report a failing status, so requiring individual jobs would
+either block scoped PRs (required job skipped → pending forever) or let a failure
+slip past (job skipped because its dependency failed). The `PR gates` job runs
+with `if: always()`, needs every gate, and passes only when:
+
+- `scope` and `ci-lint` succeeded, and
+- every **selected** gate succeeded, and every **unselected** gate was skipped.
+
+**Rollout (repo admin):** in *Settings → Branches* (or the ruleset) for `main`
+and `experimental/dotnet`, replace the old required checks (`parse-gate (…)`,
+`build`, `test-offline`, `fuzz-replay`, `csharp`) with the single **`PR gates`**
+check. Do this right after the change merges. Until then, the old names never
+report on new PRs and those PRs wait on them. Because `pr-gates.yml` has no
+`paths-ignore`, `PR gates` reports on every PR, including docs-only PRs.
 
 ## Build once per GDK, test across Godot versions
 
@@ -38,14 +119,21 @@ DLLs per Godot version. Two shared local composite actions implement the model s
 
 - **`.github/actions/build-addons`** — builds the addons against one GDK edition
   and packages the output. Inputs: `gdk_version` (ms-gdk port version; blank =
-  registry baseline), `artifact_name`. It exports `VCPKG_ROOT`, pins the edition
-  via a `vcpkg.json` `overrides` entry, restores the per-edition build cache,
-  `cmake --preset default` + `cmake --build build --preset debug`, runs the C++
-  doctest **once** (`build\bin\Debug\gdk_unit_tests.exe`), saves the cache, and
-  uploads the build output as an artifact. Output: `artifact_name`, `cache_key`.
+  registry baseline), `artifact_name`, `components` (comma-separated subset of
+  `gdk,playfab,gameinput`; default all; blank = doctest-only), `doctest`
+  (default `true`). It exports `VCPKG_ROOT`, pins the edition via a `vcpkg.json`
+  `overrides` entry, restores the per-edition **per-scope** build cache,
+  configures `cmake --preset default` with explicit `BUILD_GODOT_*` /
+  `VCPKG_MANIFEST_FEATURES` flags for the selected addons, builds with
+  `cmake --build build --preset debug`, runs the C++ doctest **once** when
+  selected (`build\bin\Debug\gdk_unit_tests.exe`), verifies that exactly the
+  selected host DLLs were produced, saves the cache, and uploads the build output
+  as an artifact. Output: `artifact_name`, `cache_key`.
 - **`.github/actions/run-offline-tier`** — restores a build artifact and runs the
   offline tier against one Godot version. Inputs: `godot_version`,
-  `artifact_name`. It downloads the artifact, **selects the GUT version for the
+  `artifact_name`, `hosts` (comma-separated subset of `gdk,playfab,gameinput`;
+  default all), `skip_parse` (default `false`; the PR workflow passes `true`
+  because `parse-gate` is its own job). It downloads the artifact, **selects the GUT version for the
   engine** (see [below](#per-version-gut-45-vs-46)), sets up Godot via
   `setup-godot`, stages the GDK/PlayFab redist DLLs next to `Godot.exe`, runs the
   **GDExtension load/smoke** (below), then `run_all_tests.ps1 -SkipBuild
@@ -61,10 +149,11 @@ Caching is **hybrid**:
   (git object SHAs of `addons/`, `cmake/`, `tests/cpp/`, `CMakeLists.txt`,
   `CMakePresets.json`, the committed `vcpkg.json` + `vcpkg-configuration.json`
   manifest/config, and the `godot-cpp` + `third_party/Gut` + `third_party/Gut-4.5`
-  submodule pins). A
-  `restore-keys` prefix (`build-<OS>-gdk-<edition>-`) seeds a warm vcpkg restore +
-  incremental object files from a prior build of the same edition, so the cache is
-  naturally per-edition and never cross-contaminates. The cache is saved only on a
+  submodule pins). The key also carries the build scope label (e.g.
+  `playfab+doctest`, `all+doctest`). `restore-keys` try the same scope
+  (`build-<OS>-gdk-<edition>-<scope>-`) first, then any scope of the edition
+  (`build-<OS>-gdk-<edition>-`), to seed a warm vcpkg restore + incremental
+  objects. Editions never cross-contaminate. The cache is saved only on a
   non-exact restore.
 - **Per-run upload artifact** (`build-pr` for PRs, `build-gdk-<edition>` for the
   nightly) for the intra-run handoff to the test jobs. It carries the
@@ -171,7 +260,11 @@ version, so widening the range is purely additive.
 ## Parse gate
 
 Runs `tools/check_gd_scripts_headless.ps1` (headless `--check-only` over every
-`.gd` file). One matrix leg per supported Godot version. The validator groups
+`.gd` file). One matrix leg per supported Godot version. On scoped PRs the job
+passes `-Paths <scope,...>` so only the selected projects/directories are
+parsed; full selections parse everything. The gate needs no native build (the
+coverage hosts are skipped by their `.gut_skip_validation` sentinels and run in
+`test-offline`/`editortools` instead). The validator groups
 `.gd` files by context: scripts inside a Godot project are checked in place;
 repo-root `addons/` and `sample/addons/` scripts are checked against a
 lightweight temp project; and **standalone project-less scripts** (e.g. CI
@@ -181,18 +274,48 @@ checked there.
 
 ## Native build + offline tier (PRs)
 
-Beyond the parse + fuzz gates, every PR also builds the addons natively and runs
-the offline test tier, via the two shared composites
-([above](#build-once-per-gdk-test-across-godot-versions)):
+When the selector picks any addon (or the doctest), the PR builds natively and
+runs the offline test tier for **only the selected addons**, via the two shared
+composites ([above](#build-once-per-gdk-test-across-godot-versions)):
 
-- **`build`** (`windows-2022`) — resolves the **default** GDK edition from
-  `gdk-versions.json` and `uses: ./.github/actions/build-addons`. Produces the
-  `build-pr` artifact + the per-edition build cache, and runs the C++ doctest
-  once. (A cold cache pays the full ms-gdk + godot-cpp compile; the vcpkg +
+- **`build`** (`windows-2022`) — uses the **default** GDK edition from
+  `gdk-versions.json` and `uses: ./.github/actions/build-addons` with
+  `components` / `doctest` from the selector. Produces the `build-pr` artifact +
+  the per-scope build cache, and runs the C++ doctest once when selected. (A
+  cold cache pays the full ms-gdk + godot-cpp compile; the vcpkg +
   build-output caches make repeat PRs fast.)
 - **`test-offline`** (`windows-2022`, single **default** Godot) — `needs:
   build`; `uses: ./.github/actions/run-offline-tier` with the `build-pr`
-  artifact. Runs the GDExtension load/smoke + non-live GUT.
+  artifact, `hosts` = the selected addons, and `skip_parse: true`. Runs the
+  GDExtension load/smoke + non-live GUT + bootstrap for those hosts.
+
+## Editor tools lane (native-free)
+
+The `godot_gdk_editortools` suites (packaging, settings, menu) mock the editor
+plugin and never load a native DLL. The `editortools` job therefore runs them
+without CMake, vcpkg, or the GDK: it fetches only the GUT submodules, runs
+[`tools/ci/prepare_editortools_host.ps1`](../../tools/ci/prepare_editortools_host.ps1)
+to stage a temp Godot project under `build/editortools-host` (the addon, the
+shared test bases, the editor-tool suites, and the GUT build matching the Godot
+version), then runs `run_all_tests.ps1 -Hosts build/editortools-host -SkipBuild
+-SkipDoctest -SkipParse -SkipOrchestrator`. It fans out over the supported Godot
+versions. To reproduce locally:
+
+```powershell
+pwsh -File tools/ci/prepare_editortools_host.ps1 -GodotVersion 4.6.2-stable
+pwsh -File tools/run_all_tests.ps1 -Hosts build/editortools-host -SkipBuild -SkipDoctest -SkipParse -SkipOrchestrator
+```
+
+A full selection still runs these suites inside the GDK host too.
+
+## CI lint
+
+`ci-lint` always runs (seconds on `ubuntu-latest`) so workflow, action, and
+tooling PRs get real signal without a native build: the selector unit tests,
+`actionlint` (pinned) over the hand-written workflows (the generated gh-aw
+`*.lock.yml` files are excluded), and a PowerShell syntax parse of every
+`tools/**/*.ps1`/`*.psm1`. Workflow or action changes also select whatever runtime
+gates the touched action feeds (table above).
 
 Neither job uses secrets, so both are safe on fork PRs. The PR leg deliberately
 uses the single default GDK + default Godot for the fastest signal; the nightly
@@ -226,7 +349,20 @@ has moved to a VS2026 image with no VS2022 instance, so the preset can't
 configure there.
 
 To add a regression input, drop the bytes into the matching
-`tests/cpp/fuzz/corpus/<target>/` directory and commit it.
+`tests/cpp/fuzz/corpus/<target>/` directory and commit it. A corpus directory
+or `tests/cpp/fuzz/*.cpp` file that doesn't match a known target is treated as an
+unknown path: it selects the full gate set and fails the `ci-lint` route-coverage
+test until the target is registered in `tools/ci/pr_gate_scope.cjs`.
+
+On scoped PRs the job builds and replays only the targets the selector picked
+(changed harness, corpus, or production source the target compiles):
+
+```powershell
+cmake --build build/fuzz --preset debug-fuzz --target gdk_fuzz_result_formatting playfab_fuzz_key_lookup
+pwsh -File tools/run_fuzz_replay.ps1 -Targets gdk_fuzz_result_formatting,playfab_fuzz_key_lookup
+```
+
+`-Targets` fails on an unknown or unbuilt target instead of silently skipping it.
 
 ## C# facade parity gate (`experimental/dotnet`)
 
@@ -253,13 +389,10 @@ Godot binary, no native/CMake build, no submodules, and no secrets**. It runs on
 a bare `windows-latest` with only the .NET 8 SDK provisioned by
 `actions/setup-dotnet`, so it is fast and fork-safe.
 
-**Trigger scoping.** The `csharp` job lives in `pr-gates.yml` but exists only on
-the `experimental/dotnet` branch. GitHub runs the copy of a workflow taken from a
-PR's *base* branch (or a push's branch), so `main` events use `main`'s copy —
-which has no `csharp` job — and only `experimental/dotnet` events run it. That is
-also why `experimental/dotnet` was added to the `pull_request` / `push` branch
-filters: on that branch the GDScript/native/fuzz jobs revalidate the inherited
-surface, and the `csharp` job adds the C# parity check on top.
+**Trigger scoping.** The `csharp` job runs on `pull_request` / `push` to both
+`main` and `experimental/dotnet` when the selector picks it: any change under
+`addons/*_csharp/`, `tests/csharp/`, `tools/run_csharp_tests.ps1`, or an addon's
+`doc_classes/` (the parity source of truth).
 
 ## Nightly: build → offline → live (`playfab-live-nightly.yml`)
 

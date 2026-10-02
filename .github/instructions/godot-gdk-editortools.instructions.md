@@ -132,6 +132,12 @@ once, then manually delete the stale mirror files under
 
 ## Tests
 
+Editor-tool suites must stay **native-free** (no `GDK` singleton or GDK DLL).
+PR Gates runs them in a dedicated `editortools` lane that stages a temporary
+host with `tools/ci/prepare_editortools_host.ps1` and no native build, so
+editor-tool-only PRs do not build or test the GDK addon. A suite that needs the
+native extension belongs in the GDK host, not under `tests/editortools/`.
+
 - `tests/godot/gdk/tests/editortools/test_config_import_plugin.gd` — import
   plugin file classification and fixture XML sanity checks.
 - `tests/godot/gdk/tests/editortools/test_export_preset_catalog.gd` — export

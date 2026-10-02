@@ -16,7 +16,7 @@ on:
   pull_request:
     paths:
       - 'tools/ci/issue_triage*'
-      - 'tools/ci/tests/**'
+      - 'tools/ci/tests/issue_triage*'
       - '.github/workflows/issue-triage*'
       - '.github/skills/issue-triage/**'
       - 'tests/evals/issue-triage/**'
@@ -25,7 +25,7 @@ on:
     branches: [main]
     paths:
       - 'tools/ci/issue_triage*'
-      - 'tools/ci/tests/**'
+      - 'tools/ci/tests/issue_triage*'
       - '.github/workflows/issue-triage*'
       - '.github/skills/issue-triage/**'
       - 'tests/evals/issue-triage/**'

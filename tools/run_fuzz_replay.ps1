@@ -33,8 +33,9 @@
     Build configuration subfolder under <BuildDir>\bin. Default: Debug.
 
 .PARAMETER Targets
-    Optional list of fuzz target base names to restrict the run to. Default: all
-    discovered fuzz executables.
+    Optional list of fuzz target base names to restrict the run to (array or a
+    comma-separated value). Every requested target must have been built.
+    Default: all discovered fuzz executables.
 
 .PARAMETER TimeoutSec
     Per-input libFuzzer timeout (-timeout). Default: 25.
@@ -63,9 +64,19 @@ if (-not (Test-Path $binDir)) {
     exit 1
 }
 
-$exes = Get-ChildItem -Path $binDir -Filter '*.exe' -File -ErrorAction SilentlyContinue
+$exes = @(Get-ChildItem -Path $binDir -Filter '*.exe' -File -ErrorAction SilentlyContinue)
 if ($Targets) {
-    $exes = $exes | Where-Object { $Targets -contains $_.BaseName }
+    # Accept comma-separated values (pwsh -File) and require every requested
+    # target to exist, so a scoped CI run cannot silently replay nothing.
+    $requested = @($Targets | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+    $builtNames = @($exes | ForEach-Object { $_.BaseName })
+    $missing = @($requested | Where-Object { $builtNames -notcontains $_ })
+    if ($missing.Count -gt 0) {
+        Write-Error "Requested fuzz target(s) not built under ${binDir}: $($missing -join ', ')"
+        exit 1
+    }
+    $exes = @($exes | Where-Object { $requested -contains $_.BaseName })
 }
 
 if (-not $exes -or $exes.Count -eq 0) {

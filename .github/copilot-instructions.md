@@ -69,6 +69,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 ```
 
 - Do not assume GitHub checks exercised the relevant local build, sample, or validation paths; run the matching local validation yourself.
+- PR Gates are **scoped by changed paths**: `tools\ci\pr_gate_scope.cjs` decides which addons build and test, so a PlayFab-only PR never runs GDK gates, and a docs-only or workflow-only PR runs only lightweight checks. The single required check is the aggregate `PR gates`. When you add a new top-level path or addon area, add a routing rule (and a test in `tools\ci\tests\pr_gate_scope.test.cjs`). Unknown paths fall back to the full gate set. See `docs\ci\pr-gates.md` ("Scoped gate selection").
 - Use the specific Godot project root when invoking Godot commands (a host under `tests\godot\`, or whichever project you are running against — the legacy `sample\gdk_demo`, `sample\gdk_launch_point`, `sample\multiplayer_pong`, and `sample\playfab_demo` projects have been removed and will be replaced by the tutorial-driven samples in PR 3).
 - For end-to-end test coverage, run the repo-root orchestrator. It is the canonical way to validate "tests pass" across all addons:
 

@@ -1,73 +1,49 @@
 name: PR Gates
 
-# Per-PR validation gates:
-#   * parse-gate   -- headless GDScript parse, fanned out across a configurable
-#                     range of Godot versions (.github/godot-versions.json).
-#   * build        -- native addon build against the DEFAULT GDK edition
-#                     (.github/gdk-versions.json) + the C++ doctest, via the
-#                     shared build-addons composite. Produces the build-pr
-#                     artifact (addon DLLs + redist + mirrored test support).
-#   * test-offline -- restores the build-pr artifact and runs the offline
-#                     (non-live) tier -- GDExtension load/smoke + non-live GUT --
-#                     against the single DEFAULT Godot version, via the shared
-#                     run-offline-tier composite. No rebuild.
-#   * fuzz-replay  -- builds the libFuzzer targets and replays their committed
-#                     corpora (regression mode; no active fuzzing).
-#   * csharp       -- (both branches) builds the managed C# facade
-#                     libraries and runs the FacadeParity.Tests xUnit suite,
-#                     asserting every native doc_classes member has a managed
-#                     wrapper. Pure managed metadata -- no Godot binary, no
-#                     native build, no secrets -> fork-safe.
+# Scoped per-PR validation gates. Branch protection should require ONE check:
+# `PR gates` (the aggregate job at the bottom). Every other job is selected by
+# the `scope` job from the changed file set, so a PlayFab-only PR never pays for
+# the GDK or GameInput hosts, a workflow-only PR runs only the CI lint lane plus
+# whatever runtime gate the touched action feeds, and docs-only PRs run just the
+# selector + lint + aggregate. See docs/ci/pr-gates.md for the routing contract
+# and how to add a rule.
+#
+#   * scope        -- runs tools/ci/pr_gate_scope.cjs over the PR (merge-base..
+#                     head) or push (before..after) diff and exposes one output
+#                     per gate. Also reads the default/supported Godot + GDK
+#                     versions. Unknown paths fall back to the FULL gate set and
+#                     are listed in the job summary. workflow_dispatch is always
+#                     full.
+#   * ci-lint      -- always runs (ubuntu, seconds): classifier unit tests,
+#                     actionlint on the hand-written workflows, and a PowerShell
+#                     syntax parse of every tools/ script.
+#   * parse-gate   -- headless GDScript parse across the supported Godot range,
+#                     limited to the selected parse scopes (native-free).
+#   * build        -- native build of ONLY the selected addons (+ C++ doctest
+#                     when selected) against the default GDK edition, via the
+#                     shared build-addons composite.
+#   * test-offline -- GDExtension load/smoke + non-live GUT + bootstrap for the
+#                     selected coverage hosts on the default Godot, via the
+#                     shared run-offline-tier composite. No rebuild.
+#   * editortools  -- the godot_gdk_editortools suites in a native-free temp
+#                     host (no DLLs, no CMake) across the supported Godot range.
+#   * fuzz-replay  -- builds and replays only the selected libFuzzer targets.
+#   * csharp       -- managed C# facade build + FacadeParity.Tests.
+#   * PR gates     -- aggregate: always runs; fails unless every SELECTED gate
+#                     succeeded (unselected gates must be skipped).
 #
 # This file gates BOTH main and the experimental/dotnet branch (see `on:`).
-# For a PR/push, GitHub uses the copy of this workflow on the *base* branch. The
-# csharp job -- and tools/run_csharp_tests.ps1 + the *_csharp projects it drives
-# -- live on both branches, so the C# gate runs alongside the GDScript/native/
-# fuzz jobs for events targeting either branch.
-#
-# build / test-offline share their step logic with playfab-live-nightly.yml via
-# the .github/actions/build-addons + run-offline-tier composites: the addons are
-# built once per GDK edition and the build output is tested across Godot versions
-# without rebuilding. The PR leg uses the default GDK + default Godot for the
-# fastest signal; the nightly fans the same composites across the full matrix.
-#
 # PlayFab live tests are intentionally NOT here -- they run on a schedule /
 # manual dispatch from playfab-live-nightly.yml so secrets never reach fork PRs.
 #
-# Documentation-only changes skip these gates entirely (see paths-ignore below).
-# The filter is all-or-nothing across the whole changed file set: a change that
-# touches ONLY ignored paths does not start a run, but one that touches an
-# ignored path AND anything else still runs every job. So a docs + code change is
-# gated exactly as it is today -- only pure docs/README churn is skipped.
-#
-# '**.md' covers Markdown at any depth, including root README.md/CONTRIBUTING.md,
-# docs/, spec/, and sample/*/README.md. GitHub's path filters are NOT minimatch:
-# '**' matches zero or more of ANY character, '/' included, so '**.md' is the
-# pattern that reaches every depth (the docs use '**.js' for "all .js files in the
-# repository"). Do not "correct" this to '**/*.md' -- that form requires a literal
-# '/' before the filename and would stop ignoring root-level README.md and
-# CONTRIBUTING.md. 'docs/**' is redundant today (docs/ is 100% Markdown) but keeps
-# future doc assets such as screenshots out of the gates.
-#
-# This is safe because no job here reads a Markdown file. The one script that does
-# consume docs -- tools/package_addons.ps1, which stages docs/addon-getting-started.md
-# as GETTING_STARTED.md -- is a local/release tool that no workflow invokes. If a
-# gate ever starts depending on Markdown, narrow this list.
-#
-# workflow_dispatch is deliberately left unfiltered, so a manual run always
-# executes the full set regardless of what changed.
+# There is deliberately no `paths-ignore`: a required check must always report,
+# so docs-only PRs still start a (tiny) run whose aggregate passes.
 
 on:
   pull_request:
     branches: [main, experimental/dotnet]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   push:
     branches: [main, experimental/dotnet]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -78,20 +54,53 @@ permissions:
   contents: read
 
 jobs:
-  # Reads the supported Godot range + the default Godot / GDK editions once and
-  # exposes them as job outputs: the parse gate fans out over `matrix`, while the
-  # PR build + offline tier use the single defaults (fastest signal).
-  versions:
+  scope:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.read.outputs.matrix }}
-      default_godot: ${{ steps.read.outputs.default_godot }}
-      default_gdk: ${{ steps.read.outputs.default_gdk }}
+      full: ${{ steps.select.outputs.full }}
+      native: ${{ steps.select.outputs.native }}
+      components: ${{ steps.select.outputs.components }}
+      editortools: ${{ steps.select.outputs.editortools }}
+      doctest: ${{ steps.select.outputs.doctest }}
+      fuzz: ${{ steps.select.outputs.fuzz }}
+      fuzz_targets: ${{ steps.select.outputs.fuzz_targets }}
+      csharp: ${{ steps.select.outputs.csharp }}
+      parse: ${{ steps.select.outputs.parse }}
+      parse_paths: ${{ steps.select.outputs.parse_paths }}
+      matrix: ${{ steps.versions.outputs.matrix }}
+      default_godot: ${{ steps.versions.outputs.default_godot }}
+      default_gdk: ${{ steps.versions.outputs.default_gdk }}
     steps:
+      # Full history so merge-base / before..after resolve locally.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - id: read
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      # Event data is passed through env (never interpolated into the script).
+      - name: Select gates from the changed files
+        id: select
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) node tools/ci/pr_gate_scope.cjs --event pull_request --base "$PR_BASE" --head "$PR_HEAD" ;;
+            push)         node tools/ci/pr_gate_scope.cjs --event push --before "${PUSH_BEFORE:-0}" --after "$PUSH_AFTER" ;;
+            *)            node tools/ci/pr_gate_scope.cjs --event "$EVENT" ;;
+          esac
+
+      - name: Read Godot / GDK versions
+        id: versions
         shell: bash
         run: |
           set -euo pipefail
@@ -100,18 +109,67 @@ jobs:
           default_gdk=$(jq -r '.default' .github/gdk-versions.json)
           echo "Supported Godot versions: $matrix"
           echo "Default Godot: $default_godot ; default GDK edition: $default_gdk"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "default_godot=$default_godot" >> "$GITHUB_OUTPUT"
-          echo "default_gdk=$default_gdk" >> "$GITHUB_OUTPUT"
+          {
+            echo "matrix=$matrix"
+            echo "default_godot=$default_godot"
+            echo "default_gdk=$default_gdk"
+          } >> "$GITHUB_OUTPUT"
+
+  # Cheap static checks for CI plumbing. Always runs so workflow/action/tooling
+  # PRs get real signal without paying for a native build.
+  ci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Gate selector unit tests
+        shell: bash
+        run: node --test tools/ci/tests/pr_gate_scope.test.cjs
+
+      # The generated gh-aw *.lock.yml workflows use keys actionlint does not
+      # know yet, so lint the hand-written workflows explicitly.
+      - name: actionlint (hand-written workflows)
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          files=()
+          for f in .github/workflows/*.yml; do
+            [[ "$f" == *.lock.yml ]] || files+=("$f")
+          done
+          printf '%s\n' "${files[@]}"
+          "$(go env GOPATH)/bin/actionlint" -color "${files[@]}"
+
+      - name: PowerShell syntax parse (tools/)
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem tools -Recurse -Include *.ps1, *.psm1 | ForEach-Object {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+            foreach ($e in $errors) {
+              Write-Host "::error file=$($_.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+              $bad++
+            }
+          }
+          if ($bad) { throw "$bad PowerShell parse error(s)." }
+          Write-Host 'All tools/ PowerShell scripts parse.'
 
   parse-gate:
-    needs: versions
+    needs: scope
+    if: needs.scope.outputs.parse == 'true'
     runs-on: windows-latest
     name: parse-gate (${{ matrix.godot }})
     strategy:
       fail-fast: false
       matrix:
-        godot: ${{ fromJSON(needs.versions.outputs.matrix) }}
+        godot: ${{ fromJSON(needs.scope.outputs.matrix) }}
     steps:
       # No submodules: an uninitialized third_party/Gut stays empty, so the
       # parse gate never enumerates vendored GUT .gd files.
@@ -127,15 +185,26 @@ jobs:
 
       - name: GDScript parse gate
         shell: pwsh
-        run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1
+        env:
+          PARSE_PATHS: ${{ needs.scope.outputs.parse_paths }}
+        run: |
+          $parseArgs = @()
+          if ($env:PARSE_PATHS) {
+            Write-Host "Scoped parse: $env:PARSE_PATHS"
+            $parseArgs = @('-Paths', $env:PARSE_PATHS)
+          } else {
+            Write-Host 'Full parse (all projects).'
+          }
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_headless.ps1 @parseArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-  # Native addon build for PRs: the DEFAULT GDK edition only (fastest signal),
-  # via the shared build-addons composite. Runs the C++ doctest once and uploads
-  # the build-pr artifact that test-offline consumes -- no rebuild downstream.
+  # Native build of only the selected addons against the DEFAULT GDK edition.
   # windows-2022: the `default` CMake preset targets the VS2022 generator.
   build:
-    needs: versions
+    needs: scope
+    if: needs.scope.outputs.native == 'true'
     runs-on: windows-2022
+    name: build (${{ needs.scope.outputs.components || 'doctest only' }})
     outputs:
       artifact_name: ${{ steps.build.outputs.artifact_name }}
     steps:
@@ -144,33 +213,92 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: Build addons (GDK ${{ needs.versions.outputs.default_gdk }}) + C++ doctest
+      - name: Build addons (GDK ${{ needs.scope.outputs.default_gdk }})
         id: build
         uses: ./.github/actions/build-addons
         with:
-          gdk_version: ${{ needs.versions.outputs.default_gdk }}
+          gdk_version: ${{ needs.scope.outputs.default_gdk }}
           artifact_name: build-pr
+          components: ${{ needs.scope.outputs.components }}
+          doctest: ${{ needs.scope.outputs.doctest }}
 
-  # Offline (non-live) tier for PRs: restore the build-pr artifact and run the
-  # GDExtension load/smoke + non-live GUT against the single DEFAULT Godot
-  # version, via the shared run-offline-tier composite. No secrets -> fork-safe.
+  # Offline (non-live) tier for the selected hosts on the DEFAULT Godot. The
+  # parse gate already ran in its own job, so the orchestrator skips it here.
   test-offline:
-    needs: [versions, build]
+    needs: [scope, build]
+    if: needs.scope.outputs.components != ''
     runs-on: windows-2022
+    name: test-offline (${{ needs.scope.outputs.components }})
     steps:
       # No submodules: the GUT mirror + addon DLLs arrive via the build artifact.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
 
-      - name: Offline tier (Godot ${{ needs.versions.outputs.default_godot }})
+      - name: Offline tier (Godot ${{ needs.scope.outputs.default_godot }})
         uses: ./.github/actions/run-offline-tier
         with:
-          godot_version: ${{ needs.versions.outputs.default_godot }}
+          godot_version: ${{ needs.scope.outputs.default_godot }}
           artifact_name: ${{ needs.build.outputs.artifact_name }}
           run_summary_artifact: pr-offline-run-summary
+          hosts: ${{ needs.scope.outputs.components }}
+          skip_parse: 'true'
+
+  # Editor-tool suites (packaging, settings, menus) mock the plugin and need no
+  # native addon, so they run in a temp host staged from source: no CMake, no
+  # vcpkg, no DLLs. Only the GUT submodules are fetched.
+  editortools:
+    needs: scope
+    if: needs.scope.outputs.editortools == 'true'
+    runs-on: windows-latest
+    name: editortools (${{ matrix.godot }})
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ${{ fromJSON(needs.scope.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch GUT submodules only
+        shell: pwsh
+        run: |
+          git submodule update --init --depth 1 third_party/Gut third_party/Gut-4.5
+          if ($LASTEXITCODE -ne 0) { throw "git submodule update exited $LASTEXITCODE" }
+
+      - name: Setup Godot ${{ matrix.godot }}
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ matrix.godot }}
+          flavor: console
+
+      - name: Stage native-free editor-tools host
+        id: host
+        shell: pwsh
+        run: |
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\ci\prepare_editortools_host.ps1 `
+            -GodotVersion '${{ matrix.godot }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Editor-tools GUT suites
+        shell: pwsh
+        run: |
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_all_tests.ps1 `
+            -Hosts '${{ steps.host.outputs.host }}' -SkipBuild -SkipDoctest -SkipParse -SkipOrchestrator
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: editortools-run-summary-${{ matrix.godot }}
+          path: build/test-results/run-summary.*
+          if-no-files-found: warn
 
   fuzz-replay:
+    needs: scope
+    if: needs.scope.outputs.fuzz == 'true'
     # Pinned to windows-2022: the fuzz preset uses the "Visual Studio 17 2022"
     # generator, but windows-latest now ships VS2026 (no VS2022 instance), which
     # makes `cmake --preset fuzz` fail at project() with "could not find any
@@ -187,13 +315,24 @@ jobs:
         shell: pwsh
         run: cmake --preset fuzz
 
-      - name: Build fuzz targets
+      - name: Build selected fuzz targets
         shell: pwsh
-        run: cmake --build build/fuzz --preset debug-fuzz
+        env:
+          FUZZ_TARGETS: ${{ needs.scope.outputs.fuzz_targets }}
+        run: |
+          $targets = @($env:FUZZ_TARGETS -split ',' | Where-Object { $_ })
+          if ($targets.Count -eq 0) { throw 'fuzz selected but no fuzz_targets were provided.' }
+          Write-Host "Fuzz targets: $($targets -join ', ')"
+          cmake --build build/fuzz --preset debug-fuzz --target @targets
+          if ($LASTEXITCODE -ne 0) { throw "fuzz build exited $LASTEXITCODE" }
 
       - name: Replay committed corpora
         shell: pwsh
-        run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_fuzz_replay.ps1
+        env:
+          FUZZ_TARGETS: ${{ needs.scope.outputs.fuzz_targets }}
+        run: |
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_fuzz_replay.ps1 -Targets $env:FUZZ_TARGETS
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload libFuzzer crash artifacts
         if: failure()
@@ -207,16 +346,14 @@ jobs:
             oom-*
           if-no-files-found: ignore
 
-  # C# facade parity gate (runs on both main and experimental/dotnet; see the
-  # header note and `on:` above). Builds the three managed facade class libraries
-  # (godot_gdk_csharp / godot_playfab_csharp / godot_gameinput_csharp) and runs
-  # the FacadeParity.Tests xUnit suite, which reflects over the built assemblies
-  # and asserts every native doc_classes member has a managed wrapper -- catching
-  # C# facade drift as the native surface evolves. Pure managed metadata: it needs
-  # only the .NET SDK (no Godot binary, no native/CMake build, no submodules, no
-  # secrets), so it is fast and fork-safe. tools/run_csharp_tests.ps1 is the same
-  # script used locally, so CI and local runs stay in lockstep.
+  # C# facade parity gate (runs on both main and experimental/dotnet). Builds the
+  # three managed facade class libraries and runs FacadeParity.Tests, which
+  # asserts every native doc_classes member has a managed wrapper. Pure managed
+  # metadata: .NET SDK only (no Godot, no native build, no submodules, no
+  # secrets). tools/run_csharp_tests.ps1 is the same script used locally.
   csharp:
+    needs: scope
+    if: needs.scope.outputs.csharp == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -231,3 +368,67 @@ jobs:
       - name: C# facade build + parity tests
         shell: pwsh
         run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_csharp_tests.ps1
+
+  # The single required check. Runs even when upstream jobs fail or are skipped.
+  # A selected gate must succeed; an unselected gate must be skipped. If the
+  # selector itself failed, nothing is trusted and this check fails.
+  pr-gates:
+    name: PR gates
+    if: always()
+    needs: [scope, ci-lint, parse-gate, build, test-offline, editortools, fuzz-replay, csharp]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check selected gates
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_LINT: ${{ needs.ci-lint.result }}
+          SEL_PARSE: ${{ needs.scope.outputs.parse }}
+          RES_PARSE: ${{ needs.parse-gate.result }}
+          SEL_BUILD: ${{ needs.scope.outputs.native }}
+          RES_BUILD: ${{ needs.build.result }}
+          SEL_OFFLINE: ${{ needs.scope.outputs.components != '' }}
+          RES_OFFLINE: ${{ needs.test-offline.result }}
+          SEL_EDITOR: ${{ needs.scope.outputs.editortools }}
+          RES_EDITOR: ${{ needs.editortools.result }}
+          SEL_FUZZ: ${{ needs.scope.outputs.fuzz }}
+          RES_FUZZ: ${{ needs.fuzz-replay.result }}
+          SEL_CSHARP: ${{ needs.scope.outputs.csharp }}
+          RES_CSHARP: ${{ needs.csharp.result }}
+        run: |
+          set -uo pipefail
+          failed=0
+          {
+            echo '## PR gates'
+            echo ''
+            echo '| Gate | Selected | Result |'
+            echo '| --- | --- | --- |'
+          } >> "$GITHUB_STEP_SUMMARY"
+          check() {
+            local name=$1 selected=$2 result=$3 ok
+            if [ "$selected" = "true" ]; then
+              [ "$result" = "success" ] && ok=1 || ok=0
+            else
+              [ "$result" = "skipped" ] && ok=1 || ok=0
+            fi
+            echo "| $name | $selected | $result |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$ok" -eq 1 ]; then
+              echo "ok   $name (selected=$selected result=$result)"
+            else
+              echo "::error::$name: selected=$selected but result=$result"
+              failed=1
+            fi
+          }
+          check scope        true           "$SCOPE_RESULT"
+          check ci-lint      true           "$CI_LINT"
+          if [ "$SCOPE_RESULT" != "success" ]; then
+            echo "::error::Gate selection failed; refusing to pass."
+            exit 1
+          fi
+          check parse-gate   "$SEL_PARSE"   "$RES_PARSE"
+          check build        "$SEL_BUILD"   "$RES_BUILD"
+          check test-offline "$SEL_OFFLINE" "$RES_OFFLINE"
+          check editortools  "$SEL_EDITOR"  "$RES_EDITOR"
+          check fuzz-replay  "$SEL_FUZZ"    "$RES_FUZZ"
+          check csharp       "$SEL_CSHARP"  "$RES_CSHARP"
+          exit "$failed"
