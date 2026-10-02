@@ -385,6 +385,10 @@ const invalidReports = [
   ['doc ref too long', { doc_references: [{ url: `https://devdocs.xbox.com/${'a'.repeat(500)}`, explanation: 'x' }] }, /exceeds 500/],
   ['doc ref bad chars', { doc_references: [{ url: 'https://devdocs.xbox.com/a[b]|c', explanation: 'x' }] }, /unsupported characters/],
   ['doc ref backslash', { doc_references: [{ url: 'https://devdocs.xbox.com\\evil', explanation: 'x' }] }, /unsupported characters/],
+  ['doc ref bad percent escape', { doc_references: [{ url: 'https://devdocs.xbox.com/a%ZZb', explanation: 'x' }] }, /malformed percent-encoding/],
+  ['doc ref truncated percent escape', { doc_references: [{ url: 'https://devdocs.xbox.com/a%2', explanation: 'x' }] }, /malformed percent-encoding/],
+  ['doc ref ipv6 host', { doc_references: [{ url: 'https://[::1]/a', explanation: 'x' }] }, /host must be one of/],
+  ['doc ref ipv6 host with port', { doc_references: [{ url: 'https://[::1]:8443/a', explanation: 'x' }] }, /must not specify a port/],
   ['too many doc refs', { doc_references: Array(7).fill({ url: 'https://devdocs.xbox.com/a', explanation: 'x' }) }, /more than 6/],
 ];
 

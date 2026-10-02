@@ -316,6 +316,9 @@ function normalizeDocUrl(raw) {
   if (typeof raw !== 'string') throw new Error('must be a string');
   if (raw.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
   if (raw.includes('\\')) throw new Error('contains unsupported characters');
+  // `new URL()` leaves malformed escapes like "%ZZ" intact, so the normalized
+  // href could differ from what a reader of the raw string would expect.
+  if (/%(?![0-9A-Fa-f]{2})/.test(raw)) throw new Error('contains malformed percent-encoding');
   let url;
   try {
     url = new URL(raw);
@@ -327,7 +330,11 @@ function normalizeDocUrl(raw) {
   // URL drops default ports (":443") and empty ports (":"), so check the raw authority too.
   const authority = /^https:\/\/([^/?#\\]*)/i.exec(raw);
   if (!authority) throw new Error('must be an absolute https URL');
-  if (url.port || authority[1].includes(':')) throw new Error('must not specify a port');
+  // Skip a bracketed IPv6 literal so its colons are not mistaken for a port;
+  // a non-allow-listed IPv6 host is then rejected by the hostname check below.
+  const hostPart = authority[1];
+  const afterHost = hostPart.startsWith('[') ? hostPart.slice(hostPart.indexOf(']') + 1) : hostPart;
+  if (url.port || afterHost.includes(':')) throw new Error('must not specify a port');
   if (!DOC_HOSTS.includes(url.hostname)) throw new Error(`host must be one of: ${DOC_HOSTS.join(', ')}`);
   if (url.search) throw new Error('must not contain a query string');
   const rest = url.href.slice(`https://${url.hostname}`.length);
