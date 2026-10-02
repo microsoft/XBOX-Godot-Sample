@@ -39,7 +39,7 @@ tools:
   bash: false
   cli-proxy: false
   edit: false
-  web-fetch:
+  web-fetch: true
 max-turns: 30
 max-ai-credits: 200
 timeout-minutes: 20
