@@ -96,8 +96,10 @@ against the extracted directory. `validate-report` and `score` rebuild
 `source\` from `target_sha` when it is missing.
 
 gh-aw generates a `conclusion` job with `issues: write` in every agentic
-workflow, including this one. The eval agent has no GitHub tools, and its only
-safe output writes to the job summary.
+workflow, including this one. The eval agent declares no GitHub tools, and its
+only safe output writes to the job summary. Enabling `web-fetch` does leave
+Copilot's built-in `github-mcp-server` reachable (see the note in
+`docs\ci\issue-triage.md`), but the eval job's own token is read-only.
 
 ## Adding a case
 

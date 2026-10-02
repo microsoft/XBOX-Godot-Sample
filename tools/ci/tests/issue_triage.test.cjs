@@ -576,6 +576,28 @@ test('renderReport lists documentation references as inert links', () => {
   assert.ok(!body.includes('](https://evil.test)'));
 });
 
+test('renderReport rejects an unvalidated doc reference as a TriageError', () => {
+  const report = validReport({
+    doc_references: [{ url: 'https://evil.test/a', explanation: 'x' }],
+  });
+  assert.throws(
+    () =>
+      triage.renderReport({
+        report,
+        citations: [{ path: USERS, start: 10, end: 20 }],
+        owner: OWNER,
+        repo: REPO,
+        repoId: REPO_ID,
+        issueNumber: 7,
+        commentId: 100,
+        commentUrl: 'https://github.com/c/100',
+        runUrl: 'https://github.com/r/42',
+        sha: SHA,
+      }),
+    (error) => error instanceof triage.TriageError && /doc_references\[0\]\.url host must be one of/.test(error.message),
+  );
+});
+
 // Agent-job validation -------------------------------------------------------
 
 test('validateAgentOutput fails on security-sensitive reports and bad citations', () => {

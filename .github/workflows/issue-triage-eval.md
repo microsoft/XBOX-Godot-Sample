@@ -39,7 +39,10 @@ tools:
   bash: false
   cli-proxy: false
   edit: false
-  web-fetch: true
+  # Mirrors issue-triage.md: web-fetch makes gh-aw drop --disable-builtin-mcps,
+  # leaving built-in github-mcp-server reachable. Accepted for the same reason
+  # (read-only job token plus the gh-aw firewall).
+  web-fetch: {}
 max-turns: 30
 max-ai-credits: 200
 timeout-minutes: 20

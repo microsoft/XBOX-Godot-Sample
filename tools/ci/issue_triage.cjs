@@ -569,7 +569,12 @@ function renderReport({ report, citations, owner, repo, repoId, issueNumber, com
   if (report.doc_references.length) {
     lines.push('', '### Documentation', '');
     report.doc_references.forEach((ref, i) => {
-      const href = normalizeDocUrl(ref.url);
+      let href;
+      try {
+        href = normalizeDocUrl(ref.url);
+      } catch (error) {
+        throw new TriageError(`Invalid triage report: doc_references[${i}].url ${error.message}`);
+      }
       const target = href.replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
       const label = href.replace(/^https:\/\//, '').replace(/#.*$/, '');
       const explanation = escapeMarkdown(ref.explanation).replace(/\n/g, ' ');

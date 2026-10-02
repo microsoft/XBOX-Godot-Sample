@@ -76,13 +76,23 @@ Its output differs from the workflow's report:
    a digest of the issue content.
 3. **Agent**. The Copilot engine reads the context and the checked-out
    workspace, following the skill's Actions mode. It has no shell, no editing,
-   and no GitHub tools, and runs behind the gh-aw network firewall. Its only
-   network tool is `web-fetch`, and the firewall allows only the gh-aw
-   `defaults` set plus `devdocs.xbox.com` and `learn.microsoft.com`, so it can
-   read GDK and PlayFab documentation. The skill forbids fetching URLs taken
+   and no declared GitHub tools, and runs behind the gh-aw network firewall. Its
+   only declared network tool is `web-fetch`, and the firewall allows only the
+   gh-aw `defaults` set plus `devdocs.xbox.com` and `learn.microsoft.com`, so it
+   can read GDK and PlayFab documentation. The skill forbids fetching URLs taken
    from the issue. The workflow's `network.allowed` list and `DOC_HOSTS` in
    `tools/ci/issue_triage.cjs` must stay in sync. It must call `post_triage_report` exactly once
    with a JSON report that matches the schema in the prompt.
+
+   Note that enabling `web-fetch` makes gh-aw omit `--disable-builtin-mcps` from
+   the compiled harness, because Copilot CLI serves `web_fetch` from its built-in
+   tool schema. That same flag also gates the built-in `github-mcp-server`, so the
+   agent can reach GitHub's API even though the workflow declares `github: false`.
+   This is accepted rather than fixed: the job's token is read-only
+   (`contents: read`, `issues: read`), the agent cannot write to the repository,
+   and every report still passes through the validation and publish gates below.
+   The alternative, gh-aw's `copilot-sdk` engine mode, restores the flag but moves
+   the agent onto a newer execution path that this workflow has not exercised.
 4. **Validation** (agent post-step). `validateAgentOutput` fails the run if the
    report is missing, malformed, flagged `security_sensitive`, cites a path
    or line range that does not exist at the analyzed commit, or lists a

@@ -52,7 +52,12 @@ tools:
   bash: false
   cli-proxy: false
   edit: false
-  web-fetch: true
+  # Enabling web-fetch makes gh-aw drop --disable-builtin-mcps from the compiled
+  # harness, because Copilot CLI serves web_fetch from its built-in tool schema.
+  # That also leaves built-in github-mcp-server reachable despite `github: false`.
+  # Accepted here: the job token is read-only (contents/issues: read) and the
+  # firewall still constrains egress. See docs/ci/issue-triage.md.
+  web-fetch: {}
 max-turns: 30
 max-ai-credits: 200
 timeout-minutes: 20
