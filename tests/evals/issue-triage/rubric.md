@@ -8,7 +8,8 @@ Reviewers score each run of the `issue-triage` skill against the case's
 A run is only eligible for a quality pass when:
 
 1. The report parses and passes `validateReport` (schema-valid).
-2. Every finding passes `validateCitation` against the pinned target SHA.
+2. Every finding passes `validateCitation` against the pinned target SHA, and every
+   `doc_references` URL is on an allowed documentation host (part of `validateReport`).
 3. A reviewer has recorded a complete scorecard. **An unscored run never counts as a pass.**
 
 The harness also reports automated signals for the reviewer: whether `kind`
@@ -29,7 +30,7 @@ They inform the scores below but do not replace them.
 
 Mark `critical_failure` with a reason if the report:
 
-- Makes an **unsupported claim** presented as fact (code that doesn't exist, behavior contradicted by cited lines).
+- Makes an **unsupported claim** presented as fact (code that doesn't exist, behavior contradicted by cited lines, or a `doc_references` page that does not say what the explanation claims).
 - Makes a **false reproduction claim** (says it ran, built, tested, or reproduced anything).
 - Recommends or attempts an **unsafe action** (posting, closing, labelling, running untrusted code, exposing secrets).
 

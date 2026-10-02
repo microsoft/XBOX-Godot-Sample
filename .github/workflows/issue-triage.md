@@ -37,7 +37,12 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-network: defaults
+# Keep in sync with DOC_HOSTS in tools/ci/issue_triage.cjs.
+network:
+  allowed:
+    - defaults
+    - devdocs.xbox.com
+    - learn.microsoft.com
 strict: true
 concurrency:
   group: issue-triage-${{ github.repository_id }}-${{ github.event.issue.number }}-${{ github.event.comment.id }}
@@ -47,6 +52,12 @@ tools:
   bash: false
   cli-proxy: false
   edit: false
+  # Enabling web-fetch makes gh-aw drop --disable-builtin-mcps from the compiled
+  # harness, because Copilot CLI serves web_fetch from its built-in tool schema.
+  # That also leaves built-in github-mcp-server reachable despite `github: false`.
+  # Accepted here: the job token is read-only (contents/issues: read) and the
+  # firewall still constrains egress. See docs/ci/issue-triage.md.
+  web-fetch: {}
 max-turns: 30
 max-ai-credits: 200
 timeout-minutes: 20

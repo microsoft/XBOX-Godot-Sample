@@ -9,6 +9,12 @@ A valid report is **not** the same as a good report. The harness checks the
 schema and citations automatically. A run counts as a quality pass only after
 a reviewer scores it.
 
+The eval workflow uses the same network allow list and `web-fetch` tool as
+`/triage`, so the agent can read `devdocs.xbox.com` and `learn.microsoft.com`.
+Those pages are live, not pinned to the case commit, so a rerun of the same
+case can see different documentation. Reviewers should check that any
+`doc_references` actually support the assessment.
+
 ## Layout
 
 ```text
@@ -90,8 +96,10 @@ against the extracted directory. `validate-report` and `score` rebuild
 `source\` from `target_sha` when it is missing.
 
 gh-aw generates a `conclusion` job with `issues: write` in every agentic
-workflow, including this one. The eval agent has no GitHub tools, and its only
-safe output writes to the job summary.
+workflow, including this one. The eval agent declares no GitHub tools, and its
+only safe output writes to the job summary. Enabling `web-fetch` does leave
+Copilot's built-in `github-mcp-server` reachable (see the note in
+`docs\ci\issue-triage.md`), but the eval job's own token is read-only.
 
 ## Adding a case
 

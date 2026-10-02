@@ -28,7 +28,17 @@ const LIMITS = Object.freeze({
   maxCitationSpan: 200,
   maxCitedFileBytes: 2 * 1024 * 1024,
   maxCommentBodyChars: 60000,
+  maxDocReferences: 6,
+  maxDocUrlChars: 200,
 });
+
+// Documentation hosts the agent may fetch (network.allowed in the workflows) and cite
+// in `doc_references`. Keep this list and the workflow allow lists in sync.
+const DOC_HOSTS = Object.freeze(['devdocs.xbox.com', 'learn.microsoft.com']);
+const DOC_URL_CHARS = /^[A-Za-z0-9\-._~/%#+,=:@!$&'*;()]+$/;
+// Documentation anchors are plain slugs, so the fragment is held to a much
+// narrower shape than the path to limit what a citation can carry.
+const DOC_FRAGMENT_CHARS = /^[A-Za-z0-9\-._]{0,64}$/;
 
 const REPORT_KINDS = new Set(['bug', 'feature', 'question', 'other']);
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
@@ -39,6 +49,7 @@ const REPORT_FIELDS = Object.freeze({
   confidence: { type: 'enum', values: CONFIDENCE_LEVELS },
   confidence_rationale: { type: 'string', min: 1, max: 600 },
   findings: { type: 'findings' },
+  doc_references: { type: 'doc_references' },
   version_notes: { type: 'string', min: 0, max: 1000 },
   missing_information: { type: 'list', itemMax: 300 },
   next_steps: { type: 'list', itemMax: 300 },
@@ -302,6 +313,57 @@ function checkString(name, value, min, max, errors) {
   if (value.length > max) errors.push(`${name} exceeds ${max} characters`);
 }
 
+// Accepts only plain HTTPS documentation URLs and returns the normalized href.
+// Every one of these must hold, so widening any of them widens what the agent
+// can turn into a clickable link:
+//   - a string of at most LIMITS.maxDocUrlChars characters, before and after
+//     normalization;
+//   - no backslashes and no malformed percent-escapes, so the accepted string
+//     and the rendered href cannot diverge;
+//   - scheme exactly `https:`, with no userinfo and no port (including `:443`
+//     and an empty `:`, which `new URL()` drops);
+//   - hostname exactly one of DOC_HOSTS, with no subdomain;
+//   - no query string;
+//   - path plus fragment matching DOC_URL_CHARS;
+//   - the fragment, if present, matching DOC_FRAGMENT_CHARS.
+// The character sets deliberately do not restrict the path to per-host
+// documentation roots: both hosts are Microsoft-owned, so the path is not
+// observable by whoever injected the agent, and one legitimate link outside an
+// allow-listed root would fail validation for the whole report. The length cap
+// is the constraint that actually bounds what a citation can carry.
+// Throws a bare reason message on rejection; callers decide how to report it.
+function normalizeDocUrl(raw) {
+  if (typeof raw !== 'string') throw new Error('must be a string');
+  if (raw.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
+  if (raw.includes('\\')) throw new Error('contains unsupported characters');
+  // `new URL()` leaves malformed escapes like "%ZZ" intact, so the normalized
+  // href could differ from what a reader of the raw string would expect.
+  if (/%(?![0-9A-Fa-f]{2})/.test(raw)) throw new Error('contains malformed percent-encoding');
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('is not a valid URL');
+  }
+  if (url.protocol !== 'https:') throw new Error('must use https');
+  if (url.username || url.password) throw new Error('must not contain credentials');
+  // URL drops default ports (":443") and empty ports (":"), so check the raw authority too.
+  const authority = /^https:\/\/([^/?#\\]*)/i.exec(raw);
+  if (!authority) throw new Error('must be an absolute https URL');
+  // Skip a bracketed IPv6 literal so its colons are not mistaken for a port;
+  // a non-allow-listed IPv6 host is then rejected by the hostname check below.
+  const hostPart = authority[1];
+  const afterHost = hostPart.startsWith('[') ? hostPart.slice(hostPart.indexOf(']') + 1) : hostPart;
+  if (url.port || afterHost.includes(':')) throw new Error('must not specify a port');
+  if (!DOC_HOSTS.includes(url.hostname)) throw new Error(`host must be one of: ${DOC_HOSTS.join(', ')}`);
+  if (url.search) throw new Error('must not contain a query string');
+  const rest = url.href.slice(`https://${url.hostname}`.length);
+  if (!rest.startsWith('/') || !DOC_URL_CHARS.test(rest)) throw new Error('contains unsupported characters');
+  if (url.hash && !DOC_FRAGMENT_CHARS.test(url.hash.slice(1))) throw new Error('has an unsupported fragment');
+  if (url.href.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
+  return url.href;
+}
+
 function validateReport(report) {
   const errors = [];
   if (!report || typeof report !== 'object' || Array.isArray(report)) {
@@ -346,6 +408,28 @@ function validateReport(report) {
           checkString(`findings[${i}].explanation`, finding.explanation, 1, 800, errors);
           for (const key of ['start_line', 'end_line']) {
             if (!Number.isInteger(finding[key])) errors.push(`findings[${i}].${key} must be an integer`);
+          }
+        });
+      }
+    } else if (spec.type === 'doc_references') {
+      if (!Array.isArray(value)) errors.push('doc_references must be an array');
+      else {
+        if (value.length > LIMITS.maxDocReferences) {
+          errors.push(`doc_references has more than ${LIMITS.maxDocReferences} items`);
+        }
+        value.forEach((ref, i) => {
+          if (!ref || typeof ref !== 'object' || Array.isArray(ref)) {
+            errors.push(`doc_references[${i}] must be an object`);
+            return;
+          }
+          for (const key of Object.keys(ref)) {
+            if (!['url', 'explanation'].includes(key)) errors.push(`doc_references[${i}] has unknown field: ${key}`);
+          }
+          checkString(`doc_references[${i}].explanation`, ref.explanation, 1, 800, errors);
+          try {
+            normalizeDocUrl(ref.url);
+          } catch (error) {
+            errors.push(`doc_references[${i}].url ${error.message}`);
           }
         });
       }
@@ -510,6 +594,21 @@ function renderReport({ report, citations, owner, repo, repoId, issueNumber, com
   } else {
     lines.push('No specific code locations were identified.');
   }
+  if (report.doc_references.length) {
+    lines.push('', '### Documentation', '');
+    report.doc_references.forEach((ref, i) => {
+      let href;
+      try {
+        href = normalizeDocUrl(ref.url);
+      } catch (error) {
+        throw new TriageError(`Invalid triage report: doc_references[${i}].url ${error.message}`);
+      }
+      const target = href.replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+      const label = href.replace(/^https:\/\//, '').replace(/#.*$/, '');
+      const explanation = escapeMarkdown(ref.explanation).replace(/\n/g, ' ');
+      lines.push(`${i + 1}. [${codeSpan(label)}](${target}): ${explanation}`);
+    });
+  }
   if (report.version_notes.trim()) {
     lines.push('', '### Version notes', '', escapeMarkdown(report.version_notes));
   }
@@ -627,6 +726,7 @@ async function publish({ github, context, core, env, root, agentOutputPath, cont
 module.exports = {
   COMMAND,
   DEFAULT_BOT_LOGIN,
+  DOC_HOSTS,
   LIMITS,
   MARKER_NAME,
   REPORT_ITEM_TYPE,
@@ -643,6 +743,7 @@ module.exports = {
   isTriageCommand,
   issueSkipReason,
   markerPrefix,
+  normalizeDocUrl,
   parseReportValue,
   permalink,
   prepareContext,

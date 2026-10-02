@@ -30,6 +30,7 @@ function report(overrides = {}) {
     confidence: 'medium',
     confidence_rationale: 'Because.',
     findings: [{ path: 'src/a.cpp', start_line: 2, end_line: 3, explanation: 'Relevant.' }],
+    doc_references: [],
     version_notes: '',
     missing_information: [],
     next_steps: ['Fix it.'],
