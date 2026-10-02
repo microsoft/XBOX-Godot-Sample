@@ -384,6 +384,7 @@ const invalidReports = [
   ['doc ref non-string', { doc_references: [{ url: 7, explanation: 'x' }] }, /url must be a string/],
   ['doc ref too long', { doc_references: [{ url: `https://devdocs.xbox.com/${'a'.repeat(500)}`, explanation: 'x' }] }, /exceeds 500/],
   ['doc ref bad chars', { doc_references: [{ url: 'https://devdocs.xbox.com/a[b]|c', explanation: 'x' }] }, /unsupported characters/],
+  ['doc ref backslash', { doc_references: [{ url: 'https://devdocs.xbox.com\\evil', explanation: 'x' }] }, /unsupported characters/],
   ['too many doc refs', { doc_references: Array(7).fill({ url: 'https://devdocs.xbox.com/a', explanation: 'x' }) }, /more than 6/],
 ];
 

@@ -315,6 +315,7 @@ function checkString(name, value, min, max, errors) {
 function normalizeDocUrl(raw) {
   if (typeof raw !== 'string') throw new Error('must be a string');
   if (raw.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
+  if (raw.includes('\\')) throw new Error('contains unsupported characters');
   let url;
   try {
     url = new URL(raw);
