@@ -29,13 +29,16 @@ const LIMITS = Object.freeze({
   maxCitedFileBytes: 2 * 1024 * 1024,
   maxCommentBodyChars: 60000,
   maxDocReferences: 6,
-  maxDocUrlChars: 500,
+  maxDocUrlChars: 200,
 });
 
 // Documentation hosts the agent may fetch (network.allowed in the workflows) and cite
 // in `doc_references`. Keep this list and the workflow allow lists in sync.
 const DOC_HOSTS = Object.freeze(['devdocs.xbox.com', 'learn.microsoft.com']);
 const DOC_URL_CHARS = /^[A-Za-z0-9\-._~/%#+,=:@!$&'*;()]+$/;
+// Documentation anchors are plain slugs, so the fragment is held to a much
+// narrower shape than the path to limit what a citation can carry.
+const DOC_FRAGMENT_CHARS = /^[A-Za-z0-9\-._]{0,64}$/;
 
 const REPORT_KINDS = new Set(['bug', 'feature', 'question', 'other']);
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
@@ -310,8 +313,25 @@ function checkString(name, value, min, max, errors) {
   if (value.length > max) errors.push(`${name} exceeds ${max} characters`);
 }
 
-// Accepts only plain HTTPS documentation URLs on DOC_HOSTS and returns the
-// normalized href. Throws a bare reason message on rejection.
+// Accepts only plain HTTPS documentation URLs and returns the normalized href.
+// Every one of these must hold, so widening any of them widens what the agent
+// can turn into a clickable link:
+//   - a string of at most LIMITS.maxDocUrlChars characters, before and after
+//     normalization;
+//   - no backslashes and no malformed percent-escapes, so the accepted string
+//     and the rendered href cannot diverge;
+//   - scheme exactly `https:`, with no userinfo and no port (including `:443`
+//     and an empty `:`, which `new URL()` drops);
+//   - hostname exactly one of DOC_HOSTS, with no subdomain;
+//   - no query string;
+//   - path plus fragment matching DOC_URL_CHARS;
+//   - the fragment, if present, matching DOC_FRAGMENT_CHARS.
+// The character sets deliberately do not restrict the path to per-host
+// documentation roots: both hosts are Microsoft-owned, so the path is not
+// observable by whoever injected the agent, and one legitimate link outside an
+// allow-listed root would fail validation for the whole report. The length cap
+// is the constraint that actually bounds what a citation can carry.
+// Throws a bare reason message on rejection; callers decide how to report it.
 function normalizeDocUrl(raw) {
   if (typeof raw !== 'string') throw new Error('must be a string');
   if (raw.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
@@ -339,6 +359,7 @@ function normalizeDocUrl(raw) {
   if (url.search) throw new Error('must not contain a query string');
   const rest = url.href.slice(`https://${url.hostname}`.length);
   if (!rest.startsWith('/') || !DOC_URL_CHARS.test(rest)) throw new Error('contains unsupported characters');
+  if (url.hash && !DOC_FRAGMENT_CHARS.test(url.hash.slice(1))) throw new Error('has an unsupported fragment');
   if (url.href.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
   return url.href;
 }
