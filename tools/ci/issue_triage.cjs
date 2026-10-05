@@ -25,6 +25,7 @@ const LIMITS = Object.freeze({
   totalChars: 60000,
   maxFindings: 8,
   maxListItems: 8,
+  listItemChars: 500,
   maxCitationSpan: 200,
   maxCitedFileBytes: 2 * 1024 * 1024,
   maxCommentBodyChars: 60000,
@@ -51,8 +52,8 @@ const REPORT_FIELDS = Object.freeze({
   findings: { type: 'findings' },
   doc_references: { type: 'doc_references' },
   version_notes: { type: 'string', min: 0, max: 1000 },
-  missing_information: { type: 'list', itemMax: 300 },
-  next_steps: { type: 'list', itemMax: 300 },
+  missing_information: { type: 'list', itemMax: LIMITS.listItemChars },
+  next_steps: { type: 'list', itemMax: LIMITS.listItemChars },
   security_sensitive: { type: 'boolean' },
 });
 
@@ -364,8 +365,23 @@ function normalizeDocUrl(raw) {
   return url.href;
 }
 
-function validateReport(report) {
+// `missing_information` and `next_steps` are advisory prose, so their per-item
+// cap only bounds how much text reaches the posted comment; it is not a safety
+// invariant like the citation or documentation-URL rules. Clip an over-long item
+// at a word boundary instead of rejecting an otherwise valid report, and let the
+// caller surface the clip as a warning. The result is never longer than `max`.
+function clampListItem(value, max) {
+  if (value.length <= max) return { text: value, truncated: false };
+  const hard = value.slice(0, max - 1);
+  const lastSpace = hard.lastIndexOf(' ');
+  const body = lastSpace > Math.floor(max * 0.6) ? hard.slice(0, lastSpace) : hard;
+  return { text: `${body.replace(/[\s.,;:!?-]+$/, '')}…`, truncated: true };
+}
+
+function validateReport(report, { onWarning } = {}) {
   const errors = [];
+  const clampedLists = [];
+  const warnings = [];
   if (!report || typeof report !== 'object' || Array.isArray(report)) {
     throw new TriageError('Report must be a JSON object.');
   }
@@ -388,7 +404,21 @@ function validateReport(report) {
       if (!Array.isArray(value)) errors.push(`${name} must be an array`);
       else {
         if (value.length > LIMITS.maxListItems) errors.push(`${name} has more than ${LIMITS.maxListItems} items`);
-        value.forEach((item, i) => checkString(`${name}[${i}]`, item, 1, spec.itemMax, errors));
+        const items = [];
+        value.forEach((item, i) => {
+          if (typeof item !== 'string') {
+            errors.push(`${name}[${i}] must be a string`);
+            return;
+          }
+          if (!item.trim()) {
+            errors.push(`${name}[${i}] must not be empty`);
+            return;
+          }
+          const clamped = clampListItem(item, spec.itemMax);
+          if (clamped.truncated) warnings.push(`${name}[${i}] was truncated to ${spec.itemMax} characters.`);
+          items.push(clamped.text);
+        });
+        clampedLists.push({ name, items });
       }
     } else if (spec.type === 'findings') {
       if (!Array.isArray(value)) errors.push('findings must be an array');
@@ -436,6 +466,8 @@ function validateReport(report) {
     }
   }
   if (errors.length) throw new TriageError(`Invalid triage report: ${errors.join('; ')}`);
+  for (const { name, items } of clampedLists) report[name] = items;
+  if (onWarning) warnings.forEach((warning) => onWarning(warning));
   return report;
 }
 
@@ -452,7 +484,7 @@ function parseReportValue(raw) {
   }
 }
 
-function readReportFromAgentOutput(agentOutputPath) {
+function readReportFromAgentOutput(agentOutputPath, options) {
   if (!agentOutputPath || !fs.existsSync(agentOutputPath)) {
     throw new TriageError('Agent output file was not found; the agent did not produce a triage report.');
   }
@@ -467,7 +499,7 @@ function readReportFromAgentOutput(agentOutputPath) {
   if (reports.length !== 1) {
     throw new TriageError(`Expected exactly one ${REPORT_ITEM_TYPE} output, found ${reports.length}.`);
   }
-  return validateReport(parseReportValue(reports[0].report));
+  return validateReport(parseReportValue(reports[0].report), options);
 }
 
 const SAFE_PATH = /^[A-Za-z0-9._\-+@ ()/]+$/;
@@ -638,7 +670,8 @@ async function findExistingReport({ github, owner, repo, issueNumber, key, botLo
 // Validates the agent's report inside the agent job so a missing or malformed
 // report fails the run instead of silently skipping the publisher.
 function validateAgentOutput({ core, agentOutputPath, root }) {
-  const report = readReportFromAgentOutput(agentOutputPath);
+  const onWarning = typeof core.warning === 'function' ? (message) => core.warning(message) : (message) => core.info(message);
+  const report = readReportFromAgentOutput(agentOutputPath, { onWarning });
   if (report.security_sensitive) {
     throw new TriageError('The agent flagged this issue as security-sensitive. Nothing was posted; handle it through SECURITY.md.');
   }

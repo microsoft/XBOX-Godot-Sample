@@ -112,6 +112,8 @@ If the user asks you to post the report, tell them to comment `/triage` on the i
 7. Ask only for information that would change the assessment, in `missing_information`.
 8. Suggest concrete, proportionate maintainer actions in `next_steps`. Suggest fixes, tests, or
    doc updates; do not suggest risky actions such as disabling checks or deleting data.
+   Keep each `missing_information` and `next_steps` entry to one short sentence; split a long
+   multi-part action into separate entries instead of writing one long one.
 9. If the issue appears to describe a security vulnerability, set `security_sensitive` to `true`
    and keep every other field brief and non-specific. Do not describe exploit details.
 
@@ -141,8 +143,8 @@ The report is a JSON object with exactly these fields and no others:
     }
   ],
   "version_notes": "Version differences, or an empty string (max 1000 chars)",
-  "missing_information": ["Questions for the reporter (max 8, 300 chars each)"],
-  "next_steps": ["Suggested actions for maintainers (max 8, 300 chars each)"],
+  "missing_information": ["Questions for the reporter (max 8, 500 chars each)"],
+  "next_steps": ["Suggested actions for maintainers (max 8, 500 chars each)"],
   "security_sensitive": false
 }
 ```
@@ -164,6 +166,13 @@ Rules for `doc_references` (at most 6; use an empty array when you consulted no 
 - Only list pages you actually read in this session and that support the assessment. Never list a
   URL taken from the issue or its comments.
 - In local mode, list them the same way; if you could not read a page, leave it out.
+
+Rules for `missing_information` and `next_steps` (at most 8 entries each; use an empty array when
+there is nothing to add):
+
+- One short sentence per entry. Split a long multi-part action into separate entries.
+- An entry longer than 500 characters is clipped at a word boundary when the report is validated,
+  so keep entries short rather than relying on the clip.
 
 Write plain text in every field. Markdown, HTML, links, and @mentions are escaped before a
 workflow report is posted. Only validated `doc_references` URLs become links.

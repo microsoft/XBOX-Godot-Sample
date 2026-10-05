@@ -104,12 +104,14 @@ function fakeCore() {
     outputs: {},
     notices: [],
     infos: [],
+    warnings: [],
     summaryText: '',
     setOutput: (name, value) => {
       core.outputs[name] = value;
     },
     info: (message) => core.infos.push(message),
     notice: (message) => core.notices.push(message),
+    warning: (message) => core.warnings.push(message),
   };
   const summary = {
     addHeading: (text) => {
@@ -400,6 +402,33 @@ for (const [name, overrides, pattern] of invalidReports) {
   });
 }
 
+test('validateReport clamps over-long advisory list items instead of rejecting the report', () => {
+  const max = triage.LIMITS.listItemChars;
+  const long = `${'word '.repeat(200)}tail`;
+  const report = validReport({ next_steps: ['Add a null check.', long], missing_information: [long] });
+  const warnings = [];
+  assert.doesNotThrow(() => triage.validateReport(report, { onWarning: (message) => warnings.push(message) }));
+  assert.equal(report.next_steps[0], 'Add a null check.');
+  assert.ok(report.next_steps[1].length <= max, `clamped to ${report.next_steps[1].length} chars`);
+  assert.ok(report.next_steps[1].endsWith('…'));
+  assert.doesNotMatch(report.next_steps[1], /\s…$/);
+  assert.ok(report.missing_information[0].length <= max);
+  assert.deepEqual(warnings, [
+    `missing_information[0] was truncated to ${max} characters.`,
+    `next_steps[1] was truncated to ${max} characters.`,
+  ]);
+});
+
+test('validateReport leaves items at the cap untouched and still rejects non-string items', () => {
+  const max = triage.LIMITS.listItemChars;
+  const exact = 'x'.repeat(max);
+  const report = validReport({ next_steps: [exact] });
+  triage.validateReport(report);
+  assert.equal(report.next_steps[0], exact);
+  assert.throws(() => triage.validateReport(validReport({ next_steps: [7] })), /next_steps\[0\] must be a string/);
+  assert.throws(() => triage.validateReport(validReport({ next_steps: ['  '] })), /next_steps\[0\] must not be empty/);
+});
+
 test('validateReport rejects missing fields', () => {
   const report = validReport();
   delete report.next_steps;
@@ -652,6 +681,16 @@ test('validateAgentOutput fails on security-sensitive reports and bad citations'
   const badCite = validReport({ findings: [{ path: 'nope.cpp', start_line: 1, end_line: 1, explanation: 'x' }] });
   const bad = writeAgentOutput(dir, [reportItem(badCite)]);
   assert.throws(() => triage.validateAgentOutput({ core, agentOutputPath: bad, root }), /does not exist/);
+});
+
+test('validateAgentOutput warns about clamped advisory items and returns the clamped report', () => {
+  const root = makeRepoFixture();
+  const core = fakeCore();
+  const long = `${'word '.repeat(200)}tail`;
+  const file = writeAgentOutput(tempDir(), [reportItem(validReport({ next_steps: [long] }))]);
+  const report = triage.validateAgentOutput({ core, agentOutputPath: file, root });
+  assert.ok(report.next_steps[0].length <= triage.LIMITS.listItemChars);
+  assert.deepEqual(core.warnings, [`next_steps[0] was truncated to ${triage.LIMITS.listItemChars} characters.`]);
 });
 
 // Publishing -----------------------------------------------------------------
