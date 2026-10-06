@@ -22,6 +22,7 @@ single aggregate check **`PR gates`**.
 | Editor tools (native-free) | `pr-gates.yml` (`editortools`) | editor-tool sources/tests changed | `windows-latest`, **matrixed over Godot versions** |
 | Fuzz replay | `pr-gates.yml` (`fuzz-replay`) | fuzzed production sources or harnesses changed; only those targets | `windows-2022` (pinned — see below) |
 | C# facade parity | `pr-gates.yml` (`csharp`) | C# facades, their tests, or `doc_classes` changed | `windows-latest`, .NET 8 SDK |
+| GDK release watch checks | `pr-gates.yml` (`gdk-watch`) | GDK release watcher/assessor helpers, their tests, their workflows, or `.github/aw/` changed | `ubuntu-latest` |
 | **Aggregate (required check)** | `pr-gates.yml` (`PR gates`) | always | `ubuntu-latest` |
 | Native build + C++ doctest | `playfab-live-nightly.yml` (`build`) | nightly `schedule` + `workflow_dispatch` | `windows-2022`, **matrixed over GDK editions** |
 | Offline tier (load/smoke + non-live GUT) | `playfab-live-nightly.yml` (`test-offline`) | same | `windows-2022`, **GDK editions × Godot supported** |
@@ -46,6 +47,7 @@ the push range (`before..after`). It writes one job output per gate and a
 | `addons/godot_gdk/tests_support/**` (shared GUT bases) | the hosts that use the changed base (the GDK base also feeds PlayFab, which extends it; `test_env.gd` feeds every host + editor tools) |
 | `addons/*_csharp/**`, `tests/csharp/**`, `doc_classes/**` | `csharp` (and the addon's host for `doc_classes`) |
 | `tests/cpp/**` | doctest and/or the matching fuzz targets |
+| `tools/ci/gdk_release_*`, `tools/ci/tests/gdk_*`, `.github/workflows/gdk-release-*`, `.github/aw/**` | `gdk-watch` (helper tests + gh-aw lock drift) |
 | `.github/actions/build-addons/**` | all hosts + doctest |
 | `.github/actions/run-offline-tier/**`, `tools/ci/gdextension_load_check.gd` | all hosts |
 | `.github/godot-versions.json`, `.github/actions/setup-godot/**` | all hosts + editor tools + full parse |

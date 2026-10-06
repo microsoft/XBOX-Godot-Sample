@@ -142,3 +142,6 @@ docs/
 
 - [**Issue triage (`/triage`)**](ci/issue-triage.md) — maintainer-triggered AI
   first-pass evaluation of an issue against the code, rollout, and pilot checklist
+- [**GDK release watch**](ci/gdk-release-watch.md) — weekly watcher for new
+  `microsoft/GDK` releases that files a tracking issue and posts an AI advisory
+  assessment on it as an implementation brief for a human or coding agent

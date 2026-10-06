@@ -106,6 +106,7 @@ function emptySelection() {
     fuzz: new Set(),
     csharp: false,
     triage: false,
+    gdkWatch: false,
     parseFull: false,
     parsePaths: new Set(),
     reasons: [],
@@ -487,6 +488,22 @@ const RULES = [
     },
   },
 
+  // GDK release watch: selects the `gdk-watch` PR gate, which runs the helper
+  // suites and the gh-aw compile-drift check. It is part of the required
+  // aggregate, so a failure here cannot hide behind a green `PR gates`.
+  {
+    name: 'gdk release watch helpers / workflows',
+    kind: 'specific',
+    test: (p) =>
+      /^tools\/ci\/gdk_release_[^/]*$/.test(p) ||
+      /^tools\/ci\/tests\/gdk_[^/]*$/.test(p) ||
+      /^\.github\/workflows\/gdk-release-[^/]*$/.test(p) ||
+      p.startsWith('.github/aw/'),
+    apply: (sel) => {
+      sel.gdkWatch = true;
+    },
+  },
+
   // Scheduled live coverage keeps its own schedule; PRs only lint it.
   {
     name: 'nightly live workflow',
@@ -580,6 +597,7 @@ function finalize(sel, fileCount) {
     allFuzz(sel);
     sel.csharp = true;
     sel.triage = true;
+    sel.gdkWatch = true;
     sel.parseFull = true;
   }
   const components = COMPONENTS.filter((c) => sel.components.has(c));
@@ -593,6 +611,7 @@ function finalize(sel, fileCount) {
     fuzz_targets: FUZZ_TARGETS.filter((t) => sel.fuzz.has(t)),
     csharp: sel.csharp,
     triage: sel.triage,
+    gdk_watch: sel.gdkWatch,
     parse: {
       full: sel.parseFull,
       paths: parsePaths,
@@ -685,7 +704,7 @@ function validateResult(r) {
     throw new Error(`Malformed selection: ${m}`);
   };
   if (typeof r !== 'object' || r === null) fail('not an object');
-  for (const k of ['full', 'editortools', 'doctest', 'native', 'csharp', 'triage']) {
+  for (const k of ['full', 'editortools', 'doctest', 'native', 'csharp', 'triage', 'gdk_watch']) {
     if (typeof r[k] !== 'boolean') fail(`${k} must be boolean`);
   }
   if (!Array.isArray(r.components) || r.components.some((c) => !COMPONENTS.includes(c))) fail('components');
@@ -709,6 +728,7 @@ function toOutputs(r) {
     fuzz: String(r.fuzz_targets.length > 0),
     fuzz_targets: r.fuzz_targets.join(','),
     csharp: String(r.csharp),
+    gdk_watch: String(r.gdk_watch),
     parse: String(r.parse.enabled),
     parse_paths: r.parse.full ? '' : r.parse.paths.join(','),
     scope_json: JSON.stringify(r),
@@ -730,6 +750,7 @@ function renderSummary(r) {
     `| C++ doctest | ${yes(r.doctest)} |`,
     `| Fuzz replay | ${r.fuzz_targets.length ? `✅ ${r.fuzz_targets.join(', ')}` : '— skipped'} |`,
     `| C# facade parity | ${yes(r.csharp)} |`,
+    `| GDK release watch checks | ${yes(r.gdk_watch)} |`,
     `| GDScript parse | ${r.parse.full ? '✅ all projects' : r.parse.paths.length ? `✅ ${r.parse.paths.length} scope(s)` : '— skipped'} |`,
     `| Issue triage checks | ${r.triage ? 'covered by the Issue Triage Checks workflow' : '— not affected'} |`,
     '',

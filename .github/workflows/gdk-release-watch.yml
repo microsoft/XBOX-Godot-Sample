@@ -1,0 +1,78 @@
+name: GDK Release Watch
+
+# Watches https://github.com/microsoft/GDK for stable releases this repository
+# does not support yet, files a tracking issue for each one, and dispatches the
+# agentic assessor once per release.
+#
+# An assessment is a snapshot: it is pinned to the commit it analyzed and is
+# never repeated automatically, not when this repository changes and not when a
+# run fails. Re-running one is a deliberate act - dispatch this workflow with
+# `release_tag` and `retry: true`.
+#
+# Cross-repository `release` events cannot trigger a workflow here, so this runs
+# on a weekly schedule with manual dispatch for ad-hoc checks. All logic lives in
+# tools/ci/gdk_release_watch.cjs; this file only supplies credentials and inputs.
+#
+# Publishing is gated on microsoft/XBOX-Godot-Sample @ refs/heads/main. Anywhere
+# else - a fork, a feature branch, or `preview: true` - the run performs the same
+# discovery and renders a step summary without writing anything.
+#
+# See docs/ci/gdk-release-watch.md.
+
+on:
+  schedule:
+    # Mondays at 07:23 UTC. Offset from the hour so the run is not queued behind
+    # the top-of-hour spike on GitHub's shared schedulers.
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Limit this run to one GDK release tag (for example April-2026-Update-5-v2604.5.7903). Required with retry.'
+        required: false
+        type: string
+      retry:
+        description: 'Assess this release again, replacing nothing: a new report is appended. Needs release_tag.'
+        required: false
+        type: boolean
+        default: false
+      drain_backlog:
+        description: 'Dispatch every release awaiting a first assessment instead of just the oldest one.'
+        required: false
+        type: boolean
+        default: false
+      preview:
+        description: 'Report what would happen without creating issues, comments, or dispatches.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialized on purpose: the tracking issues and their state comments are the
+  # watcher's durable ledger, and two concurrent runs would double-file them.
+  group: gdk-release-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Discover and queue unsupported GDK releases
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          GDK_WATCH_INPUTS: ${{ toJSON(inputs) }}
+        with:
+          script: |
+            const { runWatch } = require('./tools/ci/gdk_release_watch.cjs');
+            await runWatch({ github, context, core, env: process.env, root: process.env.GITHUB_WORKSPACE });

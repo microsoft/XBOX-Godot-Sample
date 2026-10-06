@@ -260,6 +260,32 @@ test('nightly and triage changes select only lightweight work', () => {
   assert.equal(triage.parse.enabled, false);
 });
 
+test('gdk release watch changes select the gdk-watch gate and nothing heavier', () => {
+  const watch = classify(
+    'tools/ci/gdk_release_watch.cjs',
+    'tools/ci/gdk_release_assess.cjs',
+    'tools/ci/tests/gdk_release_assess.test.cjs',
+    '.github/workflows/gdk-release-watch.yml',
+    '.github/workflows/gdk-release-assess.lock.yml',
+  );
+  assert.equal(watch.full, false, 'the gdk-watch gate covers these paths');
+  assert.equal(watch.gdk_watch, true, 'the required aggregate must see a gdk-watch result');
+  assertNoNative(watch);
+  assert.equal(watch.parse.enabled, false);
+  assert.deepEqual(watch.fallback, []);
+});
+
+test('the shared gh-aw action lock selects both agentic check gates', () => {
+  const aw = classify('.github/aw/actions-lock.json');
+  assert.equal(aw.triage, true);
+  assert.equal(aw.gdk_watch, true);
+  assert.equal(aw.full, false);
+});
+
+test('unrelated changes leave the gdk-watch gate unselected', () => {
+  assert.equal(classify('addons/godot_gdk/src/gdk.cpp').gdk_watch, false);
+});
+
 test('specific rules beat documentation exemptions', () => {
   assert.deepEqual(classify('addons/godot_gdk/README.md').components, ['gdk']);
   assert.equal(classify('.github/skills/issue-triage/SKILL.md').triage, true);

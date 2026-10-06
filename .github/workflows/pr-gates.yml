@@ -29,6 +29,9 @@ name: PR Gates
 #                     host (no DLLs, no CMake) across the supported Godot range.
 #   * fuzz-replay  -- builds and replays only the selected libFuzzer targets.
 #   * csharp       -- managed C# facade build + FacadeParity.Tests.
+#   * gdk-watch    -- node:test suites for the GDK release watcher/assessor
+#                     helpers plus the gh-aw compile-drift check for the
+#                     assessor lock file. Deterministic: no model calls.
 #   * PR gates     -- aggregate: always runs; fails unless every SELECTED gate
 #                     succeeded (unselected gates must be skipped).
 #
@@ -65,6 +68,7 @@ jobs:
       fuzz: ${{ steps.select.outputs.fuzz }}
       fuzz_targets: ${{ steps.select.outputs.fuzz_targets }}
       csharp: ${{ steps.select.outputs.csharp }}
+      gdk_watch: ${{ steps.select.outputs.gdk_watch }}
       parse: ${{ steps.select.outputs.parse }}
       parse_paths: ${{ steps.select.outputs.parse_paths }}
       matrix: ${{ steps.versions.outputs.matrix }}
@@ -369,13 +373,60 @@ jobs:
         shell: pwsh
         run: pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run_csharp_tests.ps1
 
+  # Deterministic validation for the GDK release watcher (gdk-release-watch.yml),
+  # the agentic assessor (gdk-release-assess.md), and their helpers
+  # (tools/ci/gdk_release_*.cjs). No model calls, no secrets: the only token use
+  # is the read-only GITHUB_TOKEN that downloads the pinned gh-aw extension.
+  # See docs/ci/gdk-release-watch.md.
+  gdk-watch:
+    needs: scope
+    if: needs.scope.outputs.gdk_watch == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Keep in sync with the gh-aw version recorded in gdk-release-assess.lock.yml.
+      GH_AW_VERSION: v0.89.21
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Helper tests
+        shell: bash
+        run: >-
+          node --test
+          tools/ci/tests/gdk_release_watch.test.cjs
+          tools/ci/tests/gdk_release_assess.test.cjs
+
+      - name: Install gh-aw
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-aw --pin "$GH_AW_VERSION"
+
+      - name: Recompile the assessor and check for drift
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh aw compile gdk-release-assess --strict
+          if ! git diff --exit-code -- .github/workflows/gdk-release-assess.lock.yml .github/aw/; then
+            echo "::error::gdk-release-assess.lock.yml is out of date. Run 'gh aw compile gdk-release-assess --strict' with gh-aw $GH_AW_VERSION and commit the result."
+            exit 1
+          fi
+
   # The single required check. Runs even when upstream jobs fail or are skipped.
   # A selected gate must succeed; an unselected gate must be skipped. If the
   # selector itself failed, nothing is trusted and this check fails.
   pr-gates:
     name: PR gates
     if: always()
-    needs: [scope, ci-lint, parse-gate, build, test-offline, editortools, fuzz-replay, csharp]
+    needs: [scope, ci-lint, parse-gate, build, test-offline, editortools, fuzz-replay, csharp, gdk-watch]
     runs-on: ubuntu-latest
     steps:
       - name: Check selected gates
@@ -395,6 +446,8 @@ jobs:
           RES_FUZZ: ${{ needs.fuzz-replay.result }}
           SEL_CSHARP: ${{ needs.scope.outputs.csharp }}
           RES_CSHARP: ${{ needs.csharp.result }}
+          SEL_GDKWATCH: ${{ needs.scope.outputs.gdk_watch }}
+          RES_GDKWATCH: ${{ needs.gdk-watch.result }}
         run: |
           set -uo pipefail
           failed=0
@@ -431,4 +484,5 @@ jobs:
           check editortools  "$SEL_EDITOR"  "$RES_EDITOR"
           check fuzz-replay  "$SEL_FUZZ"    "$RES_FUZZ"
           check csharp       "$SEL_CSHARP"  "$RES_CSHARP"
+          check gdk-watch    "$SEL_GDKWATCH" "$RES_GDKWATCH"
           exit "$failed"
