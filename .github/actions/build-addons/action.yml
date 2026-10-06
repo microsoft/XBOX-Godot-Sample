@@ -18,7 +18,7 @@ description: >-
 inputs:
   gdk_version:
     description: >-
-      ms-gdk vcpkg port version to pin (e.g. 2604.2.7849). Blank uses the
+      ms-gdk vcpkg port version to pin (format YYMM.N.<build>). Blank uses the
       registry baseline from vcpkg-configuration.json. When set, a top-level
       `overrides` entry is injected into vcpkg.json before configure so vcpkg
       restores exactly this edition.

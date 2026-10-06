@@ -685,8 +685,8 @@ maintained, pre-approved allowlist:
 
 | Option | Default | Behavior |
 |---|---|---|
-| `GDK_VERSION` | _(empty)_ | 6-digit edition to build against (e.g. `251001`). Empty selects the **oldest** pre-approved edition that is installed. Ignored when `GDK_INSTALL_DIR` is set. |
-| `GDK_SUPPORTED_VERSIONS` | `251001;251002;251003;260400;260401;260402` | Pre-approved editions the installed source may select. Maintainers extend this list as new editions are validated. |
+| `GDK_VERSION` | _(empty)_ | 6-digit edition from the installed allowlist. Empty selects the **oldest** pre-approved edition that is installed. Ignored when `GDK_INSTALL_DIR` is set. |
+| `GDK_SUPPORTED_VERSIONS` | See [`GDKDependencies.cmake`](../cmake/GDKDependencies.cmake) | Pre-approved editions the installed source may select. Maintainers extend this list as new editions are validated. |
 | `GDK_ALLOW_UNAPPROVED` | `OFF` | Escape hatch: allow `GDK_VERSION` to name an edition not in the allowlist (warns instead of failing). That edition is unvalidated — use at your own risk. |
 
 | `GAMEINPUT_SOURCE` | Behavior |
@@ -705,15 +705,10 @@ the matching `_GRDK_EDITION`, so the C++ edition gate (activation backend,
 April-2026-only PlayFab fields) and the XSAPI import lib both flip to match the
 selected edition with no extra flags.
 
-The cleanest way to pin a specific edition is a top-level `overrides` block in
-`vcpkg.json`, which forces an exact `ms-gdk` port version regardless of the
-baseline:
-
-```json
-"overrides": [
-  { "name": "ms-gdk", "version": "2510.1.6224" }
-]
-```
+To pin a specific edition on the vcpkg path, set a top-level `overrides` entry
+in `vcpkg.json` to an `ms-gdk` version from the hosted
+[GDK matrix](../.github/gdk-versions.json). CI injects the selected version
+automatically.
 
 Then reconfigure so vcpkg re-restores the port:
 
@@ -721,23 +716,12 @@ Then reconfigure so vcpkg re-restores the port:
 cmake --preset default
 ```
 
-The `ms-gdk` port version is `YYMM.N.<build>`, which maps to the 6-digit GDK
-edition `YYMM0N`:
-
-| `ms-gdk` version | GDK edition (`_GRDK_EDITION`) | Release |
-|---|---|---|
-| `2510.0.6194` | `251000` | October 2025 — below the supported floor (`251001`); builds may work but are unsupported |
-| `2510.1.6224` | `251001` | October 2025 |
-| `2510.2.6247` | `251002` | October 2025 |
-| `2604.1.7839` | `260401` | April 2026 |
-| `2604.2.7849` | `260402` | April 2026 |
-
-> The exact versions available depend on the registry baseline; list them with
-> `vcpkg search ms-gdk`. Note that `260400` is **not** published to the public
-> vcpkg registry (only `2604.1` / `2604.2` are), so it is reachable only through
-> the `installed-gdk` path or a local overlay port. The version named in
-> `overrides` must exist in the registry's `versions/m-/ms-gdk.json` reachable
-> from the baseline, or vcpkg errors at configure time.
+The `ms-gdk` port version uses the `YYMM.N.<build>` format and maps to the
+6-digit GDK edition `YYMM0N`. The current hosted versions are listed in the
+[GDK matrix](../.github/gdk-versions.json); an override must exist in the
+registry's `versions/m-/ms-gdk.json` reachable from the baseline, or vcpkg
+errors at configure time. An edition without a published port can still be
+selected through the installed-GDK path.
 
 Two coarser alternatives:
 
