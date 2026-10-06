@@ -425,6 +425,9 @@ test('the assessor prompt states the limits the validator actually enforces', ()
     }
   }
   assert.match(table, new RegExp(`\\b${assess.LIMITS.maxChangeFindings} findings`));
+  assert.match(table, new RegExp(`\`path\`[^\\n]*\\b${assess.LIMITS.maxFindingPathChars} characters`), 'finding path cap');
+  assert.match(table, new RegExp(`\\b${triage.LIMITS.maxCitationSpan} lines`), 'citation span cap');
+  assert.match(table, new RegExp(`\`explanation\`[^\\n]*\\b${assess.LIMITS.maxExplanationChars} characters`));
   assert.match(table, new RegExp(`\\b${assess.LIMITS.maxDocReferences} entries, ${triage.LIMITS.maxDocUrlChars} characters`));
   for (const host of triage.DOC_HOSTS) assert.ok(prompt.includes(host), host);
   for (const param of triage.DOC_QUERY_PARAMS) assert.ok(prompt.includes(`?${param}=`), param);

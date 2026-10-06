@@ -254,8 +254,9 @@ must exist at the analyzed commit, with line ranges inside the file — a citati
 that does not resolve fails the whole report.
 
 Stay inside these limits. Prose over its cap is clipped mid-sentence and a
-citation that breaks its rule is dropped, so writing past them loses the content
-you wrote rather than extending the report:
+`doc_references` entry that breaks its URL rule is dropped, so writing past them
+loses the content you wrote rather than extending the report. A finding `path`
+or line range that breaks its limit fails the whole report:
 
 | Field | Limit |
 | --- | --- |
@@ -265,6 +266,8 @@ you wrote rather than extending the report:
 | `affected_areas`, `reviewed_areas` | 12 items, 200 characters per item |
 | `validation_tasks`, `evidence_gaps` | 12 items, 300 characters per item |
 | `required_changes`, `optional_improvements` | 25 findings each |
+| each finding `path` | 300 characters |
+| each finding line range | 200 lines |
 | each `explanation` | 800 characters |
 | `doc_references` | 10 entries, 200 characters per URL |
 

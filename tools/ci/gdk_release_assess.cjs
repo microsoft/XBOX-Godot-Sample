@@ -50,6 +50,8 @@ const LIMITS = Object.freeze({
   deltaChars: 16000,
   totalContextChars: 90000,
   maxChangeFindings: 25,
+  maxFindingPathChars: 300,
+  maxExplanationChars: 800,
   maxListItems: 12,
   maxDocReferences: 10,
   maxCommentBodyChars: 60000,
@@ -380,8 +382,8 @@ function checkFindings(name, value, errors, warnings) {
         errors.push(`${name}[${i}] has unknown field: ${key}`);
       }
     }
-    checkString(`${name}[${i}].path`, finding.path, 1, 300, errors);
-    finding.explanation = clampString(`${name}[${i}].explanation`, finding.explanation, 1, 800, errors, warnings);
+    checkString(`${name}[${i}].path`, finding.path, 1, LIMITS.maxFindingPathChars, errors);
+    finding.explanation = clampString(`${name}[${i}].explanation`, finding.explanation, 1, LIMITS.maxExplanationChars, errors, warnings);
     for (const key of ['start_line', 'end_line']) {
       if (!Number.isInteger(finding[key]) || finding[key] < 1) {
         errors.push(`${name}[${i}].${key} must be a positive integer`);
@@ -451,17 +453,18 @@ function validateReport(report, { onWarning } = {}) {
           for (const key of Object.keys(ref)) {
             if (!['url', 'explanation'].includes(key)) errors.push(`doc_references[${i}] has unknown field: ${key}`);
           }
-          ref.explanation = clampString(`doc_references[${i}].explanation`, ref.explanation, 1, 800, errors, warnings);
+          ref.explanation = clampString(`doc_references[${i}].explanation`, ref.explanation, 1, LIMITS.maxExplanationChars, errors, warnings);
           try {
             normalizeDocUrl(ref.url);
             kept.push(ref);
           } catch (error) {
             // A citation that fails validation is dropped rather than rendered,
-            // so nothing unverified reaches the comment. Supporting links are
-            // not the report's evidence of record -- `required_changes` and
-            // `validation_tasks` cite this repository and are still checked --
-            // so losing one is a reportable gap, not grounds for discarding an
-            // otherwise valid assessment.
+            // so nothing unverified reaches the comment. Documentation links are
+            // advisory support, not the report's evidence of record: only
+            // `required_changes` and `optional_improvements` carry repository
+            // citations, and those paths and line ranges are still resolved
+            // against the analyzed commit. Losing a doc link is therefore a
+            // reportable gap, not grounds for discarding a valid assessment.
             warnings.push(`doc_references[${i}] was dropped: url ${error.message}.`);
           }
         });

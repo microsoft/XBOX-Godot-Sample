@@ -62,10 +62,11 @@ with a trailing `…`, and a `doc_references` entry whose URL fails validation i
 dropped. Each adjustment is logged as an Actions warning on the assessment run —
 `Assessment report adjusted: …` — and the report publishes. A dropped citation is
 deliberately *not* added to `evidence_gaps`: doing so would downgrade a sound
-`tests_only` verdict over a malformed supporting link, when the repository
-citations in `required_changes` and `validation_tasks` are the evidence of
-record. Check the run warnings if a published report reads as though it stops
-mid-sentence.
+`tests_only` verdict over a malformed supporting link. Documentation links are
+advisory; the repository citations in `required_changes` and
+`optional_improvements` are the evidence of record, and those are the ones
+resolved against the analyzed commit. Check the run warnings if a published
+report reads as though it stops mid-sentence.
 
 The first production assessment was lost to the older behaviour: a usable
 `tests_only` report was thrown away after the model was paid, because its
