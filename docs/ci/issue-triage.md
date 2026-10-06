@@ -97,7 +97,8 @@ Its output differs from the workflow's report:
    report is missing, malformed, flagged `security_sensitive`, cites a path
    or line range that does not exist at the analyzed commit, or lists a
    `doc_references` URL that is not plain HTTPS on a `DOC_HOSTS` host (no
-   query string, credentials, or port).
+   credentials or port, and no query parameter outside the Microsoft Learn
+   `view`, `tabs`, `pivots` and `preserve-view` version selectors).
 5. **Threat detection**. This is the standard gh-aw detection job.
 6. **Publish** (`post-triage-report` job, the only job that posts the report).
    `publish` validates everything again and re-checks eligibility. It confirms

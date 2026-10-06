@@ -7,6 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const assess = require('../gdk_release_assess.cjs');
+const triage = require('../issue_triage.cjs');
 const watch = require('../gdk_release_watch.cjs');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -349,14 +350,87 @@ test('validateReport enforces the shape of a cited finding', () => {
   assert.throws(() => assess.validateReport({ ...baseReport(), required_changes: ['cmake'] }), /required_changes\[0\] must be an object/);
 });
 
-test('validateReport rejects a documentation reference that is not a trusted https doc URL', () => {
+test('validateReport drops an untrusted documentation reference instead of discarding the report', () => {
   const withRef = (ref) => ({ ...baseReport(), doc_references: [ref] });
-  assert.throws(() => assess.validateReport(withRef({ url: 'javascript:alert(1)', explanation: 'x' })), /doc_references\[0\]\.url/);
   assert.throws(() => assess.validateReport(withRef({ url: 'https://learn.microsoft.com/', explanation: '' })), /explanation/);
   assert.throws(
     () => assess.validateReport(withRef({ url: 'https://learn.microsoft.com/', explanation: 'x', note: 'y' })),
     /unknown field: note/,
   );
+  // A supporting link is not the report's evidence of record, so one bad URL
+  // drops with a visible warning rather than throwing away a paid-for run.
+  const warnings = [];
+  const report = {
+    ...baseReport(),
+    doc_references: [
+      { url: 'javascript:alert(1)', explanation: 'Injected.' },
+      { url: 'https://learn.microsoft.com/gaming/gdk/', explanation: 'GDK documentation root.' },
+    ],
+  };
+  assert.doesNotThrow(() => assess.validateReport(report, { onWarning: (message) => warnings.push(message) }));
+  assert.deepEqual(report.doc_references.map((ref) => ref.url), ['https://learn.microsoft.com/gaming/gdk/']);
+  assert.match(warnings[0], /^doc_references\[0\] was dropped: url /);
+});
+
+// Microsoft Learn pins a page to an SDK version with `?view=`, so the versioned
+// GDK pages the assessor is aimed at must survive citation validation.
+test('validateReport keeps a version-pinned Microsoft Learn citation', () => {
+  const url = 'https://learn.microsoft.com/gaming/gdk/docs/reference/system/xgameactivation/xgameactivation_members?view=gdk-2604';
+  const report = { ...baseReport(), doc_references: [{ url, explanation: 'XGameActivation members.' }] };
+  const warnings = [];
+  assert.doesNotThrow(() => assess.validateReport(report, { onWarning: (message) => warnings.push(message) }));
+  assert.deepEqual(report.doc_references.map((ref) => ref.url), [url]);
+  assert.deepEqual(warnings, []);
+});
+
+// The prose caps bound comment size; they do not gate what the report may
+// claim. Enum values, the field list, citations and line numbers still do, so
+// those stay hard errors above while an extra sentence is clipped and reported.
+test('validateReport clamps over-long advisory prose instead of rejecting the report', () => {
+  const long = (chars) => `${'word '.repeat(Math.ceil(chars / 5))}tail`;
+  const report = baseReport({
+    confidence_rationale: long(assess.REPORT_FIELDS.confidence_rationale.max),
+    summary: long(assess.REPORT_FIELDS.summary.max),
+    validation_tasks: ['Run the orchestrator.', long(400)],
+  });
+  const warnings = [];
+  assert.doesNotThrow(() => assess.validateReport(report, { onWarning: (message) => warnings.push(message) }));
+  for (const field of ['confidence_rationale', 'summary']) {
+    assert.ok(report[field].length <= assess.REPORT_FIELDS[field].max, `${field} is ${report[field].length} chars`);
+    assert.ok(report[field].endsWith('…'));
+    assert.doesNotMatch(report[field], /\s…$/);
+  }
+  assert.equal(report.validation_tasks[0], 'Run the orchestrator.');
+  assert.ok(report.validation_tasks[1].length <= assess.REPORT_FIELDS.validation_tasks.itemMax);
+  assert.deepEqual(warnings.sort(), [
+    `confidence_rationale was truncated to ${assess.REPORT_FIELDS.confidence_rationale.max} characters.`,
+    `summary was truncated to ${assess.REPORT_FIELDS.summary.max} characters.`,
+    `validation_tasks[1] was truncated to ${assess.REPORT_FIELDS.validation_tasks.itemMax} characters.`,
+  ]);
+});
+
+// The validator clips prose that overruns a cap. That is only forgiving if the
+// agent was told the cap: an undocumented limit turns every verbose run into
+// silent truncation, which is how the first production assessment lost its
+// `confidence_rationale` and its `?view=` citation.
+test('the assessor prompt states the limits the validator actually enforces', () => {
+  const prompt = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'gdk-release-assess.md'), 'utf8');
+  const table = prompt.slice(prompt.indexOf('| Field | Limit |'));
+  assert.ok(table.startsWith('| Field | Limit |'), 'prompt has no limits table');
+  for (const [field, spec] of Object.entries(assess.REPORT_FIELDS)) {
+    if (spec.type === 'string') {
+      assert.match(table, new RegExp(`\`${field}\`[^\\n]*\\b${spec.max} characters`), field);
+    } else if (spec.type === 'list') {
+      assert.match(table, new RegExp(`\`${field}\`[^\\n]*\\b${assess.LIMITS.maxListItems} items, ${spec.itemMax} characters`), field);
+    }
+  }
+  assert.match(table, new RegExp(`\\b${assess.LIMITS.maxChangeFindings} findings`));
+  assert.match(table, new RegExp(`\`path\`[^\\n]*\\b${assess.LIMITS.maxFindingPathChars} characters`), 'finding path cap');
+  assert.match(table, new RegExp(`\\b${triage.LIMITS.maxCitationSpan} lines`), 'citation span cap');
+  assert.match(table, new RegExp(`\`explanation\`[^\\n]*\\b${assess.LIMITS.maxExplanationChars} characters`));
+  assert.match(table, new RegExp(`\\b${assess.LIMITS.maxDocReferences} entries, ${triage.LIMITS.maxDocUrlChars} characters`));
+  for (const host of triage.DOC_HOSTS) assert.ok(prompt.includes(host), host);
+  for (const param of triage.DOC_QUERY_PARAMS) assert.ok(prompt.includes(`?${param}=`), param);
 });
 
 // ---------------------------------------------------------------------------

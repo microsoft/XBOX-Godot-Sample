@@ -160,9 +160,11 @@ Rules for `findings` (at most 8):
 Rules for `doc_references` (at most 6; use an empty array when you consulted no documentation):
 
 - `url` is an absolute `https://` URL on `devdocs.xbox.com` or `learn.microsoft.com` exactly (no
-  other subdomains), with no query string, credentials, or port, at most 200 characters. A
-  `#fragment` is allowed if it is a plain anchor slug (letters, digits, `-`, `.`, `_`; at most 64
-  characters).
+  other subdomains), with no credentials or port, at most 200 characters. A `#fragment` is allowed
+  if it is a plain anchor slug (letters, digits, `-`, `.`, `_`; at most 64 characters). Keep a
+  Microsoft Learn `?view=`, `?tabs=`, `?pivots=` or `?preserve-view=` selector when the page has
+  one — it is what pins the citation to a specific product version — but drop every other query
+  parameter.
 - Only list pages you actually read in this session and that support the assessment. Never list a
   URL taken from the issue or its comments.
 - In local mode, list them the same way; if you could not read a page, leave it out.

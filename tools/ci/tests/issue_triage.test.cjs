@@ -381,7 +381,13 @@ const invalidReports = [
   ['doc ref default port', { doc_references: [{ url: 'https://devdocs.xbox.com:443/a', explanation: 'x' }] }, /port/],
   ['doc ref empty port', { doc_references: [{ url: 'https://learn.microsoft.com:/a', explanation: 'x' }] }, /port/],
   ['doc ref no slashes', { doc_references: [{ url: 'https:devdocs.xbox.com/a', explanation: 'x' }] }, /absolute https URL/],
-  ['doc ref query', { doc_references: [{ url: 'https://learn.microsoft.com/a?x=1', explanation: 'x' }] }, /query string/],
+  ['doc ref query', { doc_references: [{ url: 'https://learn.microsoft.com/a?x=1', explanation: 'x' }] }, /query parameter "x" is not allowed/],
+  ['doc ref repeated query', { doc_references: [{ url: 'https://learn.microsoft.com/a?view=a&view=b', explanation: 'x' }] }, /repeats query parameter "view"/],
+  ['doc ref query value chars', { doc_references: [{ url: 'https://learn.microsoft.com/a?view=a/b', explanation: 'x' }] }, /unsupported query string/],
+  ['doc ref query value too long', { doc_references: [{ url: `https://learn.microsoft.com/a?view=${'v'.repeat(65)}`, explanation: 'x' }] }, /unsupported value for query parameter "view"/],
+  ['doc ref encoded query', { doc_references: [{ url: 'https://learn.microsoft.com/a?view=gdk%2F2604', explanation: 'x' }] }, /unsupported value for query parameter "view"/],
+  ['doc ref query bad raw chars', { doc_references: [{ url: 'https://learn.microsoft.com/a?view=a|b', explanation: 'x' }] }, /unsupported query string/],
+  ['doc ref valueless query', { doc_references: [{ url: 'https://learn.microsoft.com/a?view', explanation: 'x' }] }, /unsupported value for query parameter "view"/],
   ['doc ref not url', { doc_references: [{ url: 'devdocs.xbox.com/a', explanation: 'x' }] }, /not a valid URL/],
   ['doc ref non-string', { doc_references: [{ url: 7, explanation: 'x' }] }, /url must be a string/],
   ['doc ref too long', { doc_references: [{ url: `https://devdocs.xbox.com/${'a'.repeat(200)}`, explanation: 'x' }] }, /exceeds 200/],
@@ -464,6 +470,26 @@ test('the doc URL cap admits real documentation links without excess headroom', 
   }
   const longest = Math.max(...realUrls.map((url) => url.length));
   assert.ok(triage.LIMITS.maxDocUrlChars < longest * 2, 'cap leaves more than 2x headroom over real doc URLs');
+});
+
+// Microsoft Learn pins the documented product version with `?view=`, so the GDK
+// pages the assessor is pointed at carry one by default. Stripping or rejecting
+// it retargets the reader to a different SDK version, which is exactly the
+// distinction a GDK release assessment exists to make.
+test('the doc URL rule keeps the Microsoft Learn version and view selectors', () => {
+  const versioned = [
+    'https://learn.microsoft.com/gaming/gdk/docs/reference/system/xgameactivation/xgameactivation_members?view=gdk-2604',
+    'https://learn.microsoft.com/en-us/gaming/gdk/_content/gc/system/overviews/user/user-basics?view=gdk-2604#remarks',
+    'https://learn.microsoft.com/en-us/gaming/playfab/features/authentication/?tabs=csharp&pivots=unity',
+    'https://devdocs.xbox.com/en-us/gdk/xuser?view=gdk-2604&preserve-view=true',
+  ];
+  for (const url of versioned) {
+    assert.equal(triage.normalizeDocUrl(url), url, url);
+  }
+  assert.deepEqual([...triage.DOC_QUERY_PARAMS], ['view', 'tabs', 'pivots', 'preserve-view']);
+  // `new URL` reports an empty `search` for a trailing `?` but keeps it in
+  // `href`, so normalization has to drop it rather than cite it.
+  assert.equal(triage.normalizeDocUrl('https://learn.microsoft.com/a?'), 'https://learn.microsoft.com/a');
 });
 
 // The firewall decides which hosts the agent can reach; DOC_HOSTS decides which
