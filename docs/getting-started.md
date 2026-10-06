@@ -686,7 +686,7 @@ maintained, pre-approved allowlist:
 | Option | Default | Behavior |
 |---|---|---|
 | `GDK_VERSION` | _(empty)_ | 6-digit edition to build against (e.g. `251001`). Empty selects the **oldest** pre-approved edition that is installed. Ignored when `GDK_INSTALL_DIR` is set. |
-| `GDK_SUPPORTED_VERSIONS` | `251001;251002;251003;260400;260401` | Pre-approved editions the installed source may select. Maintainers extend this list as new editions are validated. |
+| `GDK_SUPPORTED_VERSIONS` | `251001;251002;251003;260400;260401;260402` | Pre-approved editions the installed source may select. Maintainers extend this list as new editions are validated. |
 | `GDK_ALLOW_UNAPPROVED` | `OFF` | Escape hatch: allow `GDK_VERSION` to name an edition not in the allowlist (warns instead of failing). That edition is unvalidated — use at your own risk. |
 
 | `GAMEINPUT_SOURCE` | Behavior |

@@ -460,8 +460,9 @@ published to the **public** vcpkg registry and reachable from the baseline in
 
 ```json
 {
-  "default": "2604.1.7839",
+  "default": "2604.2.7849",
   "supported": [
+    { "version": "2604.2.7849", "edition": "260402", "release": "April 2026" },
     { "version": "2604.1.7839", "edition": "260401", "release": "April 2026" },
     { "version": "2510.2.6247", "edition": "251002", "release": "October 2025" },
     { "version": "2510.1.6224", "edition": "251001", "release": "October 2025" }
@@ -479,8 +480,9 @@ published to the **public** vcpkg registry and reachable from the baseline in
 
 ```json
 {
-  "default": "2604.1.7839",
+  "default": "2604.2.7849",
   "supported": [
+    { "version": "2604.2.7849", "edition": "260402", "release": "April 2026" },
     { "version": "2604.1.7839", "edition": "260401", "release": "April 2026" },
     { "version": "2510.2.6247", "edition": "251002", "release": "October 2025" },
     { "version": "2510.1.6224", "edition": "251001", "release": "October 2025" }
@@ -505,9 +507,10 @@ they do not re-pin or rebuild.
   against the shared sandbox title, so they must serialize) and `fail-fast:
   false` (one edition failing still reports the others). Each leg uploads its run
   summary as `playfab-live-run-summary-gdk-<edition>`.
-- Editions outside the public registry (e.g. `260400`, `260402`) are reachable
-  only via the `installed-gdk` path, not on a hosted runner, so they are not in
-  this matrix. To widen coverage, add an entry whose `version` exists in
+- Editions outside the public registry (e.g. `260400`) are reachable only via
+  the `installed-gdk` path, not on a hosted runner, so they are not in this
+  matrix. `260402` is now published in the public registry and reachable from
+  the pinned baseline. To widen coverage, add an entry whose `version` exists in
   `microsoft/vcpkg` `versions/m-/ms-gdk.json` reachable from the baseline — no
   workflow edits are required.
 
