@@ -37,6 +37,16 @@ const LIMITS = Object.freeze({
 // in `doc_references`. Keep this list and the workflow allow lists in sync.
 const DOC_HOSTS = Object.freeze(['devdocs.xbox.com', 'learn.microsoft.com']);
 const DOC_URL_CHARS = /^[A-Za-z0-9\-._~/%#+,=:@!$&'*;()]+$/;
+// Microsoft Learn selects the documented product version with `?view=`, and
+// renders alternate content with `?tabs=`/`?pivots=`; `?preserve-view=` pins
+// that choice across links. A citation that drops them silently retargets the
+// reader to a different version of the page, so these four keys are accepted
+// with a strict value charset rather than stripped. Every other parameter is
+// still rejected, and the raw query must match DOC_QUERY_CHARS so the rendered
+// href cannot carry anything outside this set.
+const DOC_QUERY_PARAMS = Object.freeze(['view', 'tabs', 'pivots', 'preserve-view']);
+const DOC_QUERY_CHARS = /^\?[A-Za-z0-9\-._~%=&]+$/;
+const DOC_QUERY_VALUE_CHARS = /^[A-Za-z0-9\-._~]{1,64}$/;
 // Documentation anchors are plain slugs, so the fragment is held to a much
 // narrower shape than the path to limit what a citation can carry.
 const DOC_FRAGMENT_CHARS = /^[A-Za-z0-9\-._]{0,64}$/;
@@ -324,7 +334,9 @@ function checkString(name, value, min, max, errors) {
 //   - scheme exactly `https:`, with no userinfo and no port (including `:443`
 //     and an empty `:`, which `new URL()` drops);
 //   - hostname exactly one of DOC_HOSTS, with no subdomain;
-//   - no query string;
+//   - a query string, if present, limited to DOC_QUERY_PARAMS keys with
+//     DOC_QUERY_VALUE_CHARS values, no repeats, and a raw form matching
+//     DOC_QUERY_CHARS;
 //   - path plus fragment matching DOC_URL_CHARS;
 //   - the fragment, if present, matching DOC_FRAGMENT_CHARS.
 // The character sets deliberately do not restrict the path to per-host
@@ -357,12 +369,28 @@ function normalizeDocUrl(raw) {
   const afterHost = hostPart.startsWith('[') ? hostPart.slice(hostPart.indexOf(']') + 1) : hostPart;
   if (url.port || afterHost.includes(':')) throw new Error('must not specify a port');
   if (!DOC_HOSTS.includes(url.hostname)) throw new Error(`host must be one of: ${DOC_HOSTS.join(', ')}`);
-  if (url.search) throw new Error('must not contain a query string');
-  const rest = url.href.slice(`https://${url.hostname}`.length);
+  if (url.search) {
+    if (!DOC_QUERY_CHARS.test(url.search)) throw new Error('has an unsupported query string');
+    const seen = new Set();
+    for (const [key, value] of url.searchParams) {
+      if (!DOC_QUERY_PARAMS.includes(key)) {
+        throw new Error(`query parameter "${key}" is not allowed; permitted: ${DOC_QUERY_PARAMS.join(', ')}`);
+      }
+      if (seen.has(key)) throw new Error(`repeats query parameter "${key}"`);
+      seen.add(key);
+      if (!DOC_QUERY_VALUE_CHARS.test(value)) throw new Error(`has an unsupported value for query parameter "${key}"`);
+    }
+  }
+  // The query is validated above against its own character set, so exclude it
+  // from the path/fragment check rather than widening DOC_URL_CHARS with "?".
+  const rest = `${url.pathname}${url.hash}`;
   if (!rest.startsWith('/') || !DOC_URL_CHARS.test(rest)) throw new Error('contains unsupported characters');
   if (url.hash && !DOC_FRAGMENT_CHARS.test(url.hash.slice(1))) throw new Error('has an unsupported fragment');
-  if (url.href.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
-  return url.href;
+  // Rebuild from the parts this function checked instead of returning `href`,
+  // which keeps a trailing `?` that `search` reports as empty.
+  const normalized = `https://${url.hostname}${url.pathname}${url.search}${url.hash}`;
+  if (normalized.length > LIMITS.maxDocUrlChars) throw new Error(`exceeds ${LIMITS.maxDocUrlChars} characters`);
+  return normalized;
 }
 
 // `missing_information` and `next_steps` are advisory prose, so their per-item
@@ -760,12 +788,14 @@ module.exports = {
   COMMAND,
   DEFAULT_BOT_LOGIN,
   DOC_HOSTS,
+  DOC_QUERY_PARAMS,
   LIMITS,
   MARKER_NAME,
   REPORT_ITEM_TYPE,
   SECURITY_LABELS,
   TriageError,
   buildContextMarkdown,
+  clampListItem,
   computeDigest,
   countLines,
   escapeMarkdown,

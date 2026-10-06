@@ -251,5 +251,25 @@ object serialized as a JSON string:
 Every field is required; use an empty array when a list has no entries. Paths in
 `required_changes` and `optional_improvements` must be repository-relative and
 must exist at the analyzed commit, with line ranges inside the file — a citation
-that does not resolve fails the whole report. `doc_references` URLs must be on
-`learn.microsoft.com` or `devdocs.xbox.com`.
+that does not resolve fails the whole report.
+
+Stay inside these limits. Prose over its cap is clipped mid-sentence and a
+citation that breaks its rule is dropped, so writing past them loses the content
+you wrote rather than extending the report:
+
+| Field | Limit |
+| --- | --- |
+| `confidence_rationale` | 600 characters |
+| `summary` | 1500 characters |
+| `assessment` | 6000 characters |
+| `affected_areas`, `reviewed_areas` | 12 items, 200 characters per item |
+| `validation_tasks`, `evidence_gaps` | 12 items, 300 characters per item |
+| `required_changes`, `optional_improvements` | 25 findings each |
+| each `explanation` | 800 characters |
+| `doc_references` | 10 entries, 200 characters per URL |
+
+A `doc_references` URL must be an `https://learn.microsoft.com` or
+`https://devdocs.xbox.com` link with no port and no credentials. Keep the
+Microsoft Learn `?view=`, `?tabs=`, `?pivots=` or `?preserve-view=` selector
+when the page has one — it is what pins the citation to this GDK version — but
+drop every other query parameter.

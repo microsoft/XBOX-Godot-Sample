@@ -42,8 +42,38 @@ and certificate-revocation hosts, and this agent has no shell and installs
 nothing, so those hosts would only widen the exfiltration surface available to a
 prompt-injection payload hidden in upstream release notes. `doc_references`
 hosts are validated a second time in `tools/ci/gdk_release_assess.cjs`, so a
-cited URL outside those two hosts fails publication even if the fetch somehow
-succeeded.
+cited URL outside those two hosts is dropped from the published report even if
+the fetch somehow succeeded.
+
+### Report limits are clipped, not fatal
+
+The prompt states every size cap the validator enforces, and the validator
+treats them in two different ways.
+
+Anything a reader could act on without re-reading the evidence is a hard error
+that fails the run: an unknown classification or confidence value, a missing or
+unexpected field, a list that is not a list, too many items, and a
+`required_changes` citation whose path or line range does not resolve against
+the analyzed commit.
+
+Everything else is advisory prose. An over-long `summary`, `assessment`,
+`confidence_rationale`, list item or `explanation` is clipped at a word boundary
+with a trailing `…`, and a `doc_references` entry whose URL fails validation is
+dropped. Each adjustment is logged as an Actions warning on the assessment run —
+`Assessment report adjusted: …` — and the report publishes. A dropped citation is
+deliberately *not* added to `evidence_gaps`: doing so would downgrade a sound
+`tests_only` verdict over a malformed supporting link, when the repository
+citations in `required_changes` and `validation_tasks` are the evidence of
+record. Check the run warnings if a published report reads as though it stops
+mid-sentence.
+
+The first production assessment was lost to the older behaviour: a usable
+`tests_only` report was thrown away after the model was paid, because its
+rationale ran 113 characters long and it cited a Microsoft Learn page with the
+`?view=gdk-2604` selector that pins the page to this GDK version. Both are now
+accepted — Learn's `?view=`, `?tabs=`, `?pivots=` and `?preserve-view=`
+selectors are allowed in citations, and everything else in a query string is
+still rejected.
 
 ## What counts as a release worth tracking
 

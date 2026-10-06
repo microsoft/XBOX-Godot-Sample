@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  clampListItem,
   escapeMarkdown,
   fenceFor,
   normalizeDocUrl,
@@ -341,7 +342,27 @@ function checkString(name, value, min, max, errors) {
   if (value.length > max) errors.push(`${name} exceeds ${max} characters`);
 }
 
-function checkFindings(name, value, errors) {
+// Narrative fields carry no authority of their own: a long `assessment` is
+// still only prose a maintainer reads, so its cap bounds comment size rather
+// than guarding a decision. Rejecting the whole report over an extra sentence
+// discards a model run that was already paid for, so clip at a word boundary
+// and report the clip. `path`, line numbers, citations, enums and the field
+// list stay hard errors because those do gate what the report may claim.
+function clampString(name, value, min, max, errors, warnings) {
+  if (typeof value !== 'string') {
+    errors.push(`${name} must be a string`);
+    return value;
+  }
+  if (value.trim().length < min) {
+    errors.push(`${name} must not be empty`);
+    return value;
+  }
+  const clamped = clampListItem(value, max);
+  if (clamped.truncated) warnings.push(`${name} was truncated to ${max} characters.`);
+  return clamped.text;
+}
+
+function checkFindings(name, value, errors, warnings) {
   if (!Array.isArray(value)) {
     errors.push(`${name} must be an array`);
     return;
@@ -360,7 +381,7 @@ function checkFindings(name, value, errors) {
       }
     }
     checkString(`${name}[${i}].path`, finding.path, 1, 300, errors);
-    checkString(`${name}[${i}].explanation`, finding.explanation, 1, 800, errors);
+    finding.explanation = clampString(`${name}[${i}].explanation`, finding.explanation, 1, 800, errors, warnings);
     for (const key of ['start_line', 'end_line']) {
       if (!Number.isInteger(finding[key]) || finding[key] < 1) {
         errors.push(`${name}[${i}].${key} must be a positive integer`);
@@ -372,8 +393,9 @@ function checkFindings(name, value, errors) {
   });
 }
 
-function validateReport(report) {
+function validateReport(report, { onWarning } = {}) {
   const errors = [];
+  const warnings = [];
   if (!report || typeof report !== 'object' || Array.isArray(report)) {
     throw new WatchError('Assessment report must be a JSON object.');
   }
@@ -389,20 +411,30 @@ function validateReport(report) {
     if (spec.type === 'enum') {
       if (!spec.values.has(value)) errors.push(`${name} must be one of: ${[...spec.values].join(', ')}`);
     } else if (spec.type === 'string') {
-      checkString(name, value, spec.min, spec.max, errors);
+      report[name] = clampString(name, value, spec.min, spec.max, errors, warnings);
     } else if (spec.type === 'list') {
       if (!Array.isArray(value)) {
         errors.push(`${name} must be an array`);
       } else {
         if (value.length > LIMITS.maxListItems) errors.push(`${name} has more than ${LIMITS.maxListItems} items`);
+        const items = [];
         value.forEach((item, i) => {
-          if (typeof item !== 'string') errors.push(`${name}[${i}] must be a string`);
-          else if (!item.trim()) errors.push(`${name}[${i}] must not be empty`);
-          else if (item.length > spec.itemMax) errors.push(`${name}[${i}] exceeds ${spec.itemMax} characters`);
+          if (typeof item !== 'string') {
+            errors.push(`${name}[${i}] must be a string`);
+            return;
+          }
+          if (!item.trim()) {
+            errors.push(`${name}[${i}] must not be empty`);
+            return;
+          }
+          const clamped = clampListItem(item, spec.itemMax);
+          if (clamped.truncated) warnings.push(`${name}[${i}] was truncated to ${spec.itemMax} characters.`);
+          items.push(clamped.text);
         });
+        if (items.length === value.length) report[name] = items;
       }
     } else if (spec.type === 'findings') {
-      checkFindings(name, value, errors);
+      checkFindings(name, value, errors, warnings);
     } else if (spec.type === 'doc_references') {
       if (!Array.isArray(value)) {
         errors.push('doc_references must be an array');
@@ -410,6 +442,7 @@ function validateReport(report) {
         if (value.length > LIMITS.maxDocReferences) {
           errors.push(`doc_references has more than ${LIMITS.maxDocReferences} items`);
         }
+        const kept = [];
         value.forEach((ref, i) => {
           if (!ref || typeof ref !== 'object' || Array.isArray(ref)) {
             errors.push(`doc_references[${i}] must be an object`);
@@ -418,17 +451,26 @@ function validateReport(report) {
           for (const key of Object.keys(ref)) {
             if (!['url', 'explanation'].includes(key)) errors.push(`doc_references[${i}] has unknown field: ${key}`);
           }
-          checkString(`doc_references[${i}].explanation`, ref.explanation, 1, 800, errors);
+          ref.explanation = clampString(`doc_references[${i}].explanation`, ref.explanation, 1, 800, errors, warnings);
           try {
             normalizeDocUrl(ref.url);
+            kept.push(ref);
           } catch (error) {
-            errors.push(`doc_references[${i}].url ${error.message}`);
+            // A citation that fails validation is dropped rather than rendered,
+            // so nothing unverified reaches the comment. Supporting links are
+            // not the report's evidence of record -- `required_changes` and
+            // `validation_tasks` cite this repository and are still checked --
+            // so losing one is a reportable gap, not grounds for discarding an
+            // otherwise valid assessment.
+            warnings.push(`doc_references[${i}] was dropped: url ${error.message}.`);
           }
         });
+        report[name] = kept;
       }
     }
   }
   if (errors.length) throw new WatchError(`Invalid assessment report: ${errors.join('; ')}`);
+  if (onWarning) warnings.forEach((warning) => onWarning(warning));
   return report;
 }
 
@@ -489,7 +531,7 @@ const TRUNCATION_REASONS = Object.freeze([
   ['contextTruncated', 'the evidence bundle was truncated before the agent saw it'],
 ]);
 
-function readReportFromAgentOutput(agentOutputPath) {
+function readReportFromAgentOutput(agentOutputPath, { onWarning } = {}) {
   if (!agentOutputPath || !fs.existsSync(agentOutputPath)) {
     throw new WatchError('Agent output file was not found; the assessor produced no report.');
   }
@@ -504,11 +546,13 @@ function readReportFromAgentOutput(agentOutputPath) {
   if (reports.length !== 1) {
     throw new WatchError(`Expected exactly one ${REPORT_ITEM_TYPE} output, found ${reports.length}.`);
   }
-  return validateReport(parseReportValue(reports[0].report));
+  return validateReport(parseReportValue(reports[0].report), { onWarning });
 }
 
 function validateAgentOutput({ core, agentOutputPath, root, evidence }) {
-  const report = readReportFromAgentOutput(agentOutputPath);
+  const report = readReportFromAgentOutput(agentOutputPath, {
+    onWarning: (warning) => core.warning(`Assessment report adjusted: ${warning}`),
+  });
   const citations = {
     required_changes: report.required_changes.map((finding) => validateCitation(root, finding)),
     optional_improvements: report.optional_improvements.map((finding) => validateCitation(root, finding)),
