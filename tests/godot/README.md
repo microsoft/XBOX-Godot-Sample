@@ -70,6 +70,14 @@ func before_each() -> void:
 
 `-AllowLiveWrites` without `-Live`, or without `-PlayFabTitleId <sandbox-title>`, is invalid — the orchestrator refuses it.
 
+## Validating a Pull Request Against Live Services
+
+Hosted CI runs the offline tier only — GitHub runners have no GDK, no Xbox sandbox, and cannot form the Party P2P mesh. A green PR is therefore not evidence that a GDK bump, PlayFab change, or engine bump works live.
+
+To produce that evidence, run `tools\validate_pr_local.ps1 -PullRequest <n> -AllowLiveWrites` on a GDK-capable machine. It checks out the PR's exact head commit into a fresh private clone, builds it, runs the orchestrator above with `-Live -AllowLiveWrites` once per supported Godot version, builds Release, restores the Xbox sandbox, and posts an honest result comment. A leg that exits 0 while discovering no tests is reported as `incomplete`, not as a pass.
+
+See [`docs/ci/pr-local-validation.md`](../../docs/ci/pr-local-validation.md).
+
 ## Authoring a New Test
 
 1. Pick the tier honestly. Default to `contract`; promote to `live_read` only if the test cannot be meaningfully asserted offline; promote to `live_write` only if persistent state mutation is the point.
