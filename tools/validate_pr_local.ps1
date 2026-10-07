@@ -49,6 +49,12 @@
     Parent directory for run directories. Defaults to
     $env:LOCALAPPDATA\godot-gdk-pr-validation.
 
+.PARAMETER GodotVersion
+    Narrow the engine matrix to the named Godot version(s), which must appear in
+    the candidate's .github/godot-versions.json supported list. A narrowed run is
+    reported as incomplete coverage (exit 2) even when every leg passes, because
+    it is not the full-matrix evidence the unqualified report claims.
+
 .PARAMETER NoComment
     Produce the report but do not post it to the pull request.
 
@@ -57,6 +63,11 @@
 
 .EXAMPLE
     pwsh -NoLogo -NoProfile -File .\tools\validate_pr_local.ps1 -PullRequest 202 -AllowLiveWrites
+
+.EXAMPLE
+    # A GDK-only bump: the native SDK surface does not vary by engine, so one
+    # engine is usually enough to justify the change.
+    pwsh -NoLogo -NoProfile -File .\tools\validate_pr_local.ps1 -PullRequest 202 -AllowLiveWrites -GodotVersion 4.6.1-stable
 #>
 [CmdletBinding()]
 param(
@@ -67,6 +78,7 @@ param(
     [switch]$AllowLiveWrites,
     [switch]$DryRun,
     [string]$WorkRoot,
+    [string[]]$GodotVersion,
     [switch]$NoComment
 )
 
@@ -344,7 +356,11 @@ try {
         Write-Host '  Live writes     : always - this tool has no read-only mode'
         Write-Host "  Confirmed       : $([bool]$AllowLiveWrites) (-AllowLiveWrites)"
         Write-Host "  Post comment    : $(-not [bool]$NoComment)"
-        Write-Host '  Engines         : read from the candidate checkout .github/godot-versions.json'
+        if ($GodotVersion) {
+            Write-Host "  Engines         : narrowed by request to $($GodotVersion -join ', ') (validated against the candidate manifest; result will be reported as incomplete coverage)"
+        } else {
+            Write-Host '  Engines         : read from the candidate checkout .github/godot-versions.json'
+        }
         Write-Host ''
         Write-Host '  Also performed: Debug build, SDK identity read from the built vcpkg tree,'
         Write-Host '  sandbox switch and restore, and a Release build after the live matrix.'
@@ -423,6 +439,19 @@ try {
         if ($checkedOut -ne $headSha) { throw "Checkout verification failed: HEAD is $checkedOut, expected $headSha." }
         Write-Note "Verified HEAD = $headSha"
 
+        # Resolve the engine matrix before the build: a mistyped -GodotVersion
+        # should cost seconds, not a full Debug build.
+        $manifestPath = Join-Path $checkoutDir '.github\godot-versions.json'
+        $godotManifest = Read-GodotManifest -ManifestPath $manifestPath
+        if (@($godotManifest.Supported).Count -eq 0) { throw "The candidate checkout declares no supported Godot versions in '$manifestPath'." }
+        $matrix = Select-EngineMatrix -Supported $godotManifest.Supported -Requested $GodotVersion
+        $versions = @($matrix.Selected)
+        if ($matrix.Narrowed) {
+            Write-Warning "Engine matrix narrowed to $($versions -join ', '); skipping $($matrix.Skipped -join ', '). This run cannot report full-matrix coverage."
+        } else {
+            Write-Note "Supported versions: $($versions -join ', ')"
+        }
+
         # --- Debug build -------------------------------------------------------
         Write-Phase 'Building Debug'
         $buildLog = Join-Path $logsDir 'build-debug.log'
@@ -437,11 +466,6 @@ try {
 
         # --- Engines -----------------------------------------------------------
         Write-Phase 'Preparing Godot engines'
-        $manifestPath = Join-Path $checkoutDir '.github\godot-versions.json'
-        $godotManifest = Read-GodotManifest -ManifestPath $manifestPath
-        $versions = @($godotManifest.Supported)
-        if ($versions.Count -eq 0) { throw "The candidate checkout declares no supported Godot versions in '$manifestPath'." }
-        Write-Note "Supported versions: $($versions -join ', ')"
 
         $engines = @()
         foreach ($version in $versions) {
@@ -527,7 +551,16 @@ If the run was interrupted, restore it manually from an elevated shell:
                 if (Test-Path -LiteralPath $summaryPath) {
                     $summary = (Get-Content -LiteralPath $summaryPath -Raw) | ConvertFrom-Json
                 }
-                $verdict = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator
+                $mpResultPath = Join-Path $legOut 'mp-orchestrator\mp-test-results.json'
+                $mpResult = $null
+                if (Test-Path -LiteralPath $mpResultPath) {
+                    try {
+                        $mpResult = (Get-Content -LiteralPath $mpResultPath -Raw) | ConvertFrom-Json
+                    } catch {
+                        Write-Note "Could not parse $mpResultPath : $($_.Exception.Message)"
+                    }
+                }
+                $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult -RequireOrchestrator
 
                 $legs += [pscustomobject]@{
                     version     = $engine.Version
@@ -536,6 +569,10 @@ If the run was interrupted, restore it manually from an elevated shell:
                     passing     = $verdict.Passing
                     failing     = $verdict.Failing
                     pending     = $verdict.Pending
+                    mp_total    = $verdict.MpTotal
+                    mp_passed   = $verdict.MpPassed
+                    mp_failed   = $verdict.MpFailed
+                    mp_skipped  = $verdict.MpSkipped
                     duration_ms = $verdict.DurationMs
                     exit_code   = $legCode
                     reasons     = @($verdict.Reasons)
@@ -574,12 +611,19 @@ If the run was interrupted, restore it manually from an elevated shell:
         # --- Verdict and report ------------------------------------------------
         $statuses = @($legs | ForEach-Object { $_.status })
         if ($releaseStatus -ne 'pass') { $statuses += 'fail' }
+        # A narrowed matrix is honest coverage, not a failure, but it must never
+        # settle as an unqualified pass: the report's claim is full-matrix.
+        if ($matrix.Narrowed) { $statuses += 'incomplete' }
         $runStatus = Get-WorstStatus $statuses
 
         $finishedAt = [datetime]::UtcNow
         $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
         $runReasons = @()
+        $runGaps = @()
         if ($releaseStatus -ne 'pass') { $runReasons += 'The Release build failed; see build-release.log.' }
+        if ($matrix.Narrowed) {
+            $runGaps += "Godot matrix narrowed by request: ran $($matrix.Selected -join ', '); did not run $($matrix.Skipped -join ', ')."
+        }
         if ($currentHead -ne $headSha) {
             $runReasons += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only."
         }
@@ -601,8 +645,9 @@ If the run was interrupted, restore it manually from an elevated shell:
             release_build_status = $releaseStatus
             run_directory        = $runDir
             engines              = @($legs)
+            engines_skipped      = @($matrix.Skipped)
             reasons              = @($runReasons)
-            gaps                 = @()
+            gaps                 = @($runGaps)
         }
 
         $manifestOut = Join-Path $runDir 'validation-manifest.json'

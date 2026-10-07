@@ -188,6 +188,7 @@ function Get-EngineLegVerdict {
     #>
     param(
         [Parameter(Mandatory = $true)][AllowNull()]$Summary,
+        [AllowNull()]$OrchestratorResult,
         [string[]]$RequiredHosts = $script:DefaultRequiredHosts,
         [switch]$RequireOrchestrator
     )
@@ -199,6 +200,7 @@ function Get-EngineLegVerdict {
         return [pscustomobject]@{
             Status = 'error'; Reasons = @('No run-summary.json was produced for this engine leg.')
             Gaps = @(); Tests = 0; Passing = 0; Failing = 0; Pending = 0
+            MpTotal = $null; MpPassed = $null; MpFailed = $null; MpSkipped = $null
             DurationMs = 0; GodotVersion = 'unknown'
         }
     }
@@ -209,6 +211,7 @@ function Get-EngineLegVerdict {
             return [pscustomobject]@{
                 Status = 'error'; Reasons = @("run-summary.json is missing the '$required' field; refusing to interpret it.")
                 Gaps = @(); Tests = 0; Passing = 0; Failing = 0; Pending = 0
+            MpTotal = $null; MpPassed = $null; MpFailed = $null; MpSkipped = $null
                 DurationMs = 0; GodotVersion = 'unknown'
             }
         }
@@ -270,6 +273,7 @@ function Get-EngineLegVerdict {
     }
 
     $orchestrator = Get-SummaryStage -Summary $Summary -Name 'playfab-multiplayer-orchestrator'
+    $mpPassed = $null; $mpTotal = $null; $mpFailed = $null; $mpSkipped = $null
     if ($RequireOrchestrator) {
         if ($null -eq $orchestrator -or [string]$orchestrator.status -eq 'skip') {
             $status = Get-WorstStatus @($status, 'incomplete')
@@ -282,8 +286,30 @@ function Get-EngineLegVerdict {
             # run_all_tests only enforces "passed > 0" for an explicitly filtered
             # run, so an unfiltered orchestrator leg can be green having passed
             # nothing. Treat that as a coverage gap, not a success.
-            $op = Get-StageNumber -Stage $orchestrator -Field 'passing'
-            if ($null -eq $op -or $op -le 0) {
+            #
+            # The orchestrator does not populate the per-stage test counters --
+            # they are null even on a run that executed 69 scenarios. Its real
+            # tallies live in mp-test-results.json, so prefer those and fall
+            # back to the stage only when that file is unavailable. Reading the
+            # null stage counter as "passed nothing" would report a false
+            # coverage gap on a run that actually covered plenty.
+            $op = $null
+            if ($null -ne $OrchestratorResult) {
+                $sumProp = $OrchestratorResult.PSObject.Properties['summary']
+                if ($sumProp -and $null -ne $sumProp.Value) {
+                    $mpSummary = $sumProp.Value
+                    $op = Get-StageNumber -Stage $mpSummary -Field 'passed'
+                    $mpTotal = Get-StageNumber -Stage $mpSummary -Field 'total'
+                    $mpFailed = Get-StageNumber -Stage $mpSummary -Field 'failed'
+                    $mpSkipped = Get-StageNumber -Stage $mpSummary -Field 'skipped'
+                }
+            }
+            if ($null -eq $op) { $op = Get-StageNumber -Stage $orchestrator -Field 'passing' }
+            $mpPassed = $op
+            if ($null -eq $op) {
+                $status = Get-WorstStatus @($status, 'incomplete')
+                [void]$gaps.Add('playfab-multiplayer-orchestrator reported no scenario counts, so its coverage cannot be confirmed.')
+            } elseif ($op -le 0) {
                 $status = Get-WorstStatus @($status, 'incomplete')
                 [void]$gaps.Add('playfab-multiplayer-orchestrator passed no scenarios.')
             }
@@ -313,6 +339,10 @@ function Get-EngineLegVerdict {
         Passing      = $passing
         Failing      = $failing
         Pending      = $pending
+        MpTotal      = $mpTotal
+        MpPassed     = $mpPassed
+        MpFailed     = $mpFailed
+        MpSkipped    = $mpSkipped
         DurationMs   = $duration
         GodotVersion = $godot
     }
@@ -397,7 +427,20 @@ function Format-ValidationComment {
     [void]$lines.Add("<!-- pr-local-validation -->")
     [void]$lines.Add("## Local PR validation - $(Get-StatusLabel $status)")
     [void]$lines.Add('')
-    [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit, on every Godot version in the candidate checkout's ``.github/godot-versions.json``.")
+
+    $skippedProp = $Manifest.PSObject.Properties['engines_skipped']
+    $skippedEngines = @()
+    if ($skippedProp) { $skippedEngines = @($skippedProp.Value | Where-Object { $_ }) }
+
+    if ($skippedEngines.Count -gt 0) {
+        $ran = @(@($Manifest.engines) | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_.version)) + '`' })
+        $skip = @($skippedEngines | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_)) + '`' })
+        [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit.")
+        [void]$lines.Add('')
+        [void]$lines.Add("> **The Godot matrix was narrowed by request.** This run covered $($ran -join ', ') and skipped $($skip -join ', '). It is not full-matrix evidence.")
+    } else {
+        [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit, on every Godot version in the candidate checkout's ``.github/godot-versions.json``.")
+    }
     [void]$lines.Add('')
     [void]$lines.Add("- **Head commit**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.head_sha))``")
     [void]$lines.Add("- **Started (UTC)**: $(ConvertTo-MarkdownCell ([string]$Manifest.started_at))")
@@ -408,14 +451,25 @@ function Format-ValidationComment {
     [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (restored to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards)")
     [void]$lines.Add("- **Release build**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.release_build_status))``")
     [void]$lines.Add('')
-    [void]$lines.Add('| Godot | Status | Tests | Passed | Failed | Skipped | Duration |')
-    [void]$lines.Add('|-------|--------|-------|--------|--------|---------|----------|')
+    [void]$lines.Add('| Godot | Status | GUT tests | Passed | Failed | Pending | Multiplayer scenarios | Duration |')
+    [void]$lines.Add('|-------|--------|-----------|--------|--------|---------|-----------------------|----------|')
     foreach ($leg in @($Manifest.engines)) {
         $secs = [Math]::Round(([int]$leg.duration_ms) / 1000.0, 1)
-        [void]$lines.Add(('| `{0}` | {1} | {2} | {3} | {4} | {5} | {6}s |' -f `
+        $mpCell = 'not reported'
+        $mpTotalProp = $leg.PSObject.Properties['mp_total']
+        $mpPassedProp = $leg.PSObject.Properties['mp_passed']
+        if ($mpTotalProp -and $null -ne $mpTotalProp.Value -and $mpPassedProp -and $null -ne $mpPassedProp.Value) {
+            $mpCell = '{0}/{1} passed' -f [int]$mpPassedProp.Value, [int]$mpTotalProp.Value
+            $mpFailedProp = $leg.PSObject.Properties['mp_failed']
+            if ($mpFailedProp -and $null -ne $mpFailedProp.Value -and [int]$mpFailedProp.Value -gt 0) {
+                $mpCell += ', {0} failed' -f [int]$mpFailedProp.Value
+            }
+        }
+        [void]$lines.Add(('| `{0}` | {1} | {2} | {3} | {4} | {5} | {6} | {7}s |' -f `
             (ConvertTo-MarkdownCell ([string]$leg.version)),
             (Get-StatusLabel ([string]$leg.status)),
-            [int]$leg.tests, [int]$leg.passing, [int]$leg.failing, [int]$leg.pending, $secs))
+            [int]$leg.tests, [int]$leg.passing, [int]$leg.failing, [int]$leg.pending,
+            (ConvertTo-MarkdownCell $mpCell), $secs))
     }
     [void]$lines.Add('')
 
@@ -448,9 +502,55 @@ function Format-ValidationComment {
     [void]$lines.Add('- Any PlayFab title other than the one named above.')
     [void]$lines.Add('- The C++ doctest binary is engine-independent, so it ran on the first engine leg only.')
     [void]$lines.Add('')
-    [void]$lines.Add("Generated by ``tools/validate_pr_local.ps1``. Re-run locally with ``pwsh -File tools/validate_pr_local.ps1 -PullRequest $([int]$Manifest.pull_request) -AllowLiveWrites``.")
+    $rerun = "pwsh -File tools/validate_pr_local.ps1 -PullRequest $([int]$Manifest.pull_request) -AllowLiveWrites"
+    if ($skippedEngines.Count -gt 0) {
+        $ranVersions = @(@($Manifest.engines) | ForEach-Object { ConvertTo-MarkdownCell ([string]$_.version) })
+        $rerun += " -GodotVersion $($ranVersions -join ',')"
+    }
+    [void]$lines.Add("Generated by ``tools/validate_pr_local.ps1``. Reproduce this exact scope with ``$rerun``.")
 
     return ($lines -join "`n")
+}
+
+function Select-EngineMatrix {
+    <#
+    .SYNOPSIS
+        Resolve which Godot versions a run will cover.
+    .DESCRIPTION
+        With no request the full supported matrix runs. A request must name
+        versions the candidate actually declares: silently accepting an unknown
+        version would either run nothing or run an unpinned engine, and both
+        look like a narrower pass rather than an error.
+
+        Selection preserves the manifest's order so legs and reports stay
+        comparable between runs, and a narrowed run is reported as such so it
+        can never be mistaken for full-matrix evidence.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Supported,
+        [string[]]$Requested
+    )
+
+    $all = @($Supported | Where-Object { $_ })
+    if ($all.Count -eq 0) { throw 'The candidate declares no supported Godot versions.' }
+
+    $wanted = @($Requested | Where-Object { $_ })
+    if ($wanted.Count -eq 0) {
+        return [pscustomobject]@{ Selected = $all; Skipped = @(); Narrowed = $false }
+    }
+
+    $unknown = @($wanted | Where-Object { $v = $_; -not ($all | Where-Object { $_ -ieq $v }) })
+    if ($unknown.Count -gt 0) {
+        throw ("Godot version(s) '{0}' are not in this pull request's supported matrix. Choose from: {1}." -f ($unknown -join ', '), ($all -join ', '))
+    }
+
+    $selected = @($all | Where-Object { $v = $_; $wanted | Where-Object { $_ -ieq $v } })
+    $skipped = @($all | Where-Object { $selected -notcontains $_ })
+    return [pscustomobject]@{
+        Selected = $selected
+        Skipped  = $skipped
+        Narrowed = ($skipped.Count -gt 0)
+    }
 }
 
 function New-RunDirectoryName {
@@ -488,5 +588,6 @@ Export-ModuleMember -Function @(
     'Format-FencedBlock',
     'Get-StatusLabel',
     'Format-ValidationComment',
+    'Select-EngineMatrix',
     'New-RunDirectoryName'
 )

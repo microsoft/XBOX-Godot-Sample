@@ -31,8 +31,41 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 | `-PullRequest <n>` | Required. The PR number in `microsoft/XBOX-Godot-Sample`. |
 | `-AllowLiveWrites` | Required to execute. Without it the script refuses, because every run writes to a live PlayFab title. |
 | `-DryRun` | Resolve the PR and print the plan, then exit 0. Also reports whether `XblPCSandbox.exe` was found and whether the shell is elevated, so you can tell up front if the machine can run it. |
+| `-GodotVersion <v>[,<v>]` | Narrow the engine matrix. Each value must appear in the candidate's `.github/godot-versions.json` `supported` list; a typo fails immediately after checkout rather than wasting a build. A narrowed run is always reported as `incomplete` (exit 2). See [Narrowing the engine matrix](#narrowing-the-engine-matrix). |
 | `-NoComment` | Produce the artifacts but do not post to the PR. |
 | `-WorkRoot <path>` | Override the run-directory root. Defaults to `%LOCALAPPDATA%\godot-gdk-pr-validation`. |
+
+### Narrowing the engine matrix
+
+By default the script runs every version in the candidate's
+`.github/godot-versions.json` `supported` list, sequentially, at roughly 25-30
+minutes per engine. That is the right default: it is the evidence the posted
+comment claims.
+
+There is **no GDK matrix**. The script builds once against whatever the
+candidate's vcpkg manifest resolves, which is the single `default` entry in
+`.github/gdk-versions.json`. A PR that bumps the GDK is therefore already a
+one-SDK run; what multiplies the wall-clock time is the *Godot* matrix.
+
+For a GDK-only bump, the native GDK and PlayFab code does not branch on engine
+version, so one engine usually buys most of the signal:
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.ps1 `
+    -PullRequest 202 -AllowLiveWrites -GodotVersion 4.6.1-stable
+```
+
+A narrowed run is deliberately **floored to `incomplete` (exit 2)** even when
+every leg passes, and its PR comment replaces the "on every Godot version"
+claim with a callout naming exactly what ran and what did not. A run that
+covered one engine must not read as full-matrix green. If you want a clean
+exit 0, run the full matrix.
+
+> Caveat: `-GodotVersion` does not change which GDK is built. If a PR adds a
+> version to the `supported` list in `.github/gdk-versions.json` without
+> promoting it to `default`, this script still validates the `default` SDK.
+> Confirm the `gdk_edition` / `ms_gdk_version` fields in
+> `validation-manifest.json` match the version the PR claims to add.
 
 ### Prerequisites
 
@@ -113,6 +146,8 @@ its `run-summary.json` rather than trusting the exit code:
 | `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
 
 The worst leg wins. `incomplete` is reported as `incomplete`, never rounded up to a pass.
+A `-GodotVersion` run floors the overall verdict to `incomplete` for the same reason,
+independently of how the individual legs graded.
 
 ## Artifacts
 

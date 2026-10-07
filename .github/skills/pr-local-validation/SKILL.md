@@ -34,10 +34,21 @@ and do not substitute a narrower run for it when the user asked for live validat
   come from the *trusted* checkout you launched from. Only `tools\run_all_tests.ps1` and
   `.github\godot-versions.json` are read from the candidate, because those are the things
   under test.
-- **Run every supported engine.** The engine list comes from the candidate checkout's
-  `.github\godot-versions.json`, not from a hard-coded list and not from whatever Godot is
-  installed on the machine. Each engine is downloaded fresh and hash-verified against the
-  manifest pin.
+- **Run every supported engine by default.** The engine list comes from the candidate
+  checkout's `.github\godot-versions.json`, not from a hard-coded list and not from
+  whatever Godot is installed on the machine. Each engine is downloaded fresh and
+  hash-verified against the manifest pin.
+- **Narrow only on request, and never hide it.** `-GodotVersion <v>[,<v>]` restricts the
+  matrix. Suggest it when the user is time-boxed and the PR is a GDK-only bump — the
+  native SDK surface does not branch on engine version — but do not choose it silently.
+  A narrowed run is floored to `incomplete` (exit 2) by design and its PR comment says
+  which engines were skipped. When reporting such a run, lead with the narrowing; never
+  describe it as a passing validation.
+- **`-GodotVersion` does not pick a GDK.** There is no GDK matrix. The build resolves the
+  single `default` from `.github\gdk-versions.json`. If the PR adds a GDK to `supported`
+  without promoting it to `default`, this run validates the *old* SDK — check
+  `gdk_edition` in the manifest against what the PR claims before reporting it as
+  evidence for that version.
 - **A green exit code is not a pass.** `run_all_tests.ps1` can exit 0 while covering
   nothing: an unfiltered PlayFab Multiplayer run may pass with zero scenarios, and a live
   GUT host may report every test pending. `Get-EngineLegVerdict` downgrades those to
@@ -75,7 +86,7 @@ and do not substitute a narrower run for it when the user asked for live validat
 | Exit code | Status | Meaning |
 | --- | --- | --- |
 | 0 | `pass` | Every engine ran live writes and every required stage covered real tests. |
-| 2 | `incomplete` | Nothing failed, but something was skipped or covered nothing. Not evidence. |
+| 2 | `incomplete` | Nothing failed, but something was skipped or covered nothing — including a deliberately narrowed `-GodotVersion` run. Not full-matrix evidence. |
 | 1 | `fail` / `error` | A stage failed, or the run could not be interpreted at all. |
 
 Artifacts land under `%LOCALAPPDATA%\godot-gdk-pr-validation\pr-<n>-<sha12>-<timestamp>\`:

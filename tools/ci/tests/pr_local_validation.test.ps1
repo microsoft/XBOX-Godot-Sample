@@ -294,6 +294,55 @@ try {
         Assert-Equal 'incomplete' $v.Status 'A zero-scenario orchestrator run must downgrade the verdict.'
     }
 
+    # The orchestrator leaves every per-stage counter null even after running
+    # dozens of scenarios; its real tallies only exist in mp-test-results.json.
+    # Reading the null counter as "passed nothing" produced a false coverage
+    # gap on a real PR comment, so these three cases pin the precedence.
+    Test-Case 'orchestrator scenario counts come from mp-test-results, not the null stage counters' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests $null -Passing $null)
+        )
+        $mp = [pscustomobject]@{ summary = [pscustomobject]@{ total = 69; passed = 69; failed = 0; skipped = 0 } }
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -OrchestratorResult $mp -RequireOrchestrator
+        Assert-Equal 'pass' $v.Status "A fully passing orchestrator must not be a gap. Gaps: $($v.Gaps -join '; ')"
+        Assert-Equal 69 $v.MpTotal 'The scenario total was not carried through.'
+        Assert-Equal 69 $v.MpPassed 'The passed scenario count was not carried through.'
+        Assert-Equal 0 $v.MpFailed 'The failed scenario count was not carried through.'
+    }
+
+    Test-Case 'failed scenarios are a failure, and their counts still surface' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Status 'fail' -Tests $null -Passing $null)
+        )
+        $mp = [pscustomobject]@{ summary = [pscustomobject]@{ total = 69; passed = 59; failed = 10; skipped = 0 } }
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Overall 'fail' -Stages $stages) -OrchestratorResult $mp -RequireOrchestrator
+        Assert-Equal 'fail' $v.Status 'Failing scenarios must fail the leg.'
+        Assert-Equal 59 $v.MpPassed 'The passed scenario count was not carried through.'
+        Assert-Equal 10 $v.MpFailed 'The failed scenario count was not carried through.'
+        Assert-True (-not ([bool](@($v.Gaps) -match 'passed no scenarios'))) 'A run that passed 59 scenarios must not claim it passed none.'
+    }
+
+    Test-Case 'an orchestrator with no counts anywhere is incomplete, not pass' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests $null -Passing $null)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator
+        Assert-Equal 'incomplete' $v.Status 'Unverifiable orchestrator coverage must not pass.'
+        Assert-True ([bool](@($v.Gaps) -match 'no scenario counts')) 'The gap should say the counts were missing.'
+    }
+
     Test-Case 'a skipped parse gate is incomplete' {
         $stages = @(
             (New-Stage -Name 'parse-gate' -Status 'skip' -Tests 0 -Passing 0),
@@ -438,6 +487,71 @@ try {
         $body = Format-ValidationComment -Manifest $manifestObject
         $rows = @($body -split "`n" | Where-Object { $_ -match '^\| `4\.' })
         Assert-Equal 2 $rows.Count "Expected two engine rows, got $($rows.Count)."
+    }
+
+    Test-Case 'a full-matrix comment claims full coverage and omits the narrowing notice' {
+        $body = Format-ValidationComment -Manifest $manifestObject
+        Assert-True ($body -like '*on every Godot version*') 'A full run should claim full-matrix coverage.'
+        Assert-True (-not ($body -like '*narrowed by request*')) 'A full run must not claim it was narrowed.'
+    }
+
+    Test-Case 'a narrowed comment drops the full-matrix claim and names the skipped engines' {
+        $narrowed = $manifestObject.PSObject.Copy()
+        $narrowed | Add-Member -NotePropertyName 'engines_skipped' -NotePropertyValue @('4.5.1-stable')
+        $body = Format-ValidationComment -Manifest $narrowed
+        Assert-True (-not ($body -like '*on every Godot version*')) 'A narrowed run must not claim full-matrix coverage.'
+        Assert-True ($body -like '*narrowed by request*') 'The narrowing notice is missing.'
+        Assert-True ($body -like '*4.5.1-stable*') 'The skipped engine was not named.'
+        Assert-True ($body -like '*-GodotVersion 4.7.1-stable,4.6.1-stable*') 'The reproduce command should pin the narrowed scope.'
+    }
+
+    # --------------------------------------------------------------------------
+    Write-Host 'PrLocalValidation: engine matrix selection'
+    # --------------------------------------------------------------------------
+
+    $supportedMatrix = @('4.7.1-stable', '4.6.1-stable', '4.5.1-stable')
+
+    Test-Case 'no request runs the full matrix and is not marked narrowed' {
+        $m = Select-EngineMatrix -Supported $supportedMatrix
+        Assert-Equal 3 @($m.Selected).Count 'Expected the full matrix.'
+        Assert-Equal 0 @($m.Skipped).Count 'Nothing should be skipped.'
+        Assert-True (-not $m.Narrowed) 'A full matrix must not be flagged as narrowed.'
+    }
+
+    Test-Case 'a single requested version narrows the matrix and records the rest as skipped' {
+        $m = Select-EngineMatrix -Supported $supportedMatrix -Requested @('4.6.1-stable')
+        Assert-Equal 1 @($m.Selected).Count 'Expected exactly one engine.'
+        Assert-Equal '4.6.1-stable' @($m.Selected)[0] 'Selected the wrong engine.'
+        Assert-Equal 2 @($m.Skipped).Count 'Both other engines should be recorded as skipped.'
+        Assert-True $m.Narrowed 'A narrowed matrix must be flagged.'
+    }
+
+    Test-Case 'selection follows manifest order, not request order, and ignores case' {
+        $m = Select-EngineMatrix -Supported $supportedMatrix -Requested @('4.5.1-STABLE', '4.7.1-stable')
+        Assert-Equal '4.7.1-stable' @($m.Selected)[0] 'Selection should preserve manifest order.'
+        Assert-Equal '4.5.1-stable' @($m.Selected)[1] 'Selection should preserve manifest order.'
+        Assert-Equal 1 @($m.Skipped).Count 'Expected one skipped engine.'
+    }
+
+    Test-Case 'requesting every supported version is not treated as narrowed' {
+        $m = Select-EngineMatrix -Supported $supportedMatrix -Requested $supportedMatrix
+        Assert-True (-not $m.Narrowed) 'Requesting the whole matrix is still full coverage.'
+        Assert-Equal 0 @($m.Skipped).Count 'Nothing should be skipped.'
+    }
+
+    Test-Case 'an unsupported version is rejected rather than silently running nothing' {
+        Assert-Throws -MatchPattern 'not in this pull request' -Body {
+            Select-EngineMatrix -Supported $supportedMatrix -Requested @('4.4.0-stable')
+        }
+        Assert-Throws -MatchPattern '4\.7\.1-stable' -Body {
+            Select-EngineMatrix -Supported $supportedMatrix -Requested @('4.4.0-stable')
+        }
+    }
+
+    Test-Case 'an empty supported matrix is an error, not an empty run' {
+        Assert-Throws -MatchPattern 'no supported Godot versions' -Body {
+            Select-EngineMatrix -Supported @() -Requested @('4.6.1-stable')
+        }
     }
 
     Test-Case 'run directory names are commit-scoped and reject non-SHA input' {
