@@ -140,10 +140,14 @@ Two consequences:
   `isCrossRepository`, and the script throws on it. If you genuinely need to validate a fork
   contribution, review the diff first and push it to a branch in this repository.
 - **Even a same-repository PR must be code you are willing to run.** Read the build and
-  tooling changes before you start. Environment scrubbing removes
-  `PLAYFAB_DEVELOPER_SECRET_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`, and ambient live flags from the
-  child processes, but it cannot stop trusted-looking local code from reaching your saved
-  credentials.
+  tooling changes before you start. Every candidate-controlled child process — both `cmake`
+  invocations for Debug, each `run_all_tests.ps1` leg, and both `cmake` invocations for
+  Release — is launched with `PLAYFAB_DEVELOPER_SECRET_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`,
+  their enterprise variants, and the ambient `LIVE_TESTS`/`LIVE_WRITE_TESTS` flags removed
+  from its environment, and the variables are restored afterwards. The trusted `git`,
+  `XblPCSandbox.exe`, and `gh` calls keep their credentials, because the publication step
+  needs them. This is hygiene, not containment: the candidate still runs as you and can
+  read the same `gh` config, credential manager, and PlayFab files you can.
 
 Keep the shell **non-elevated** unless a sandbox switch forces otherwise (see above);
 running the candidate's build as Administrator only widens the blast radius.
@@ -209,8 +213,13 @@ its `run-summary.json` rather than trusting the exit code:
 | --- | --- | --- |
 | `pass` | 0 | Live writes on, every required stage green, every required stage covered real tests. |
 | `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none; or the orchestrator passed no scenarios. |
-| `fail` | 1 | `overall_status` was not `pass`, or a required stage failed. |
+| `fail` | 1 | `overall_status` was not `pass`, a required stage failed, or `run_all_tests.ps1` itself exited nonzero. |
 | `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
+
+The summary is the primary evidence, but it is not the *only* evidence: the orchestrator's
+own exit code is the one signal the file cannot carry — an orchestrator that dies after
+writing a green summary leaves no trace in it. The wrapper passes that exit code to
+`Get-EngineLegVerdict -OrchestratorExitCode`, and anything nonzero fails the leg outright.
 
 The worst leg wins. `incomplete` is reported as `incomplete`, never rounded up to a pass.
 A `-GodotVersion` run floors the overall verdict to `incomplete` for the same reason,

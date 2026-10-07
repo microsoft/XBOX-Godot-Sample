@@ -467,6 +467,31 @@ try {
         Assert-True ([bool](@($v.Gaps) -match 'bootstrap:tests/godot/gdk did not run')) 'The gap should name the genuinely missing host.'
     }
 
+    # run_all_tests.ps1's exit code is the one signal the summary file cannot
+    # carry. A leg that crashed, was cancelled, or failed after writing an
+    # otherwise green summary must never settle as 'pass'.
+    Test-Case 'a nonzero orchestrator exit code fails an otherwise green leg' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary) -RequireOrchestrator -OrchestratorExitCode 1
+        Assert-Equal 'fail' $v.Status 'A nonzero orchestrator exit must fail the leg.'
+        Assert-True ([bool](@($v.Reasons) -match 'exited 1')) 'The reason should name the exit code.'
+    }
+
+    Test-Case 'a nonzero exit code upgrades an incomplete leg to fail' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary -BootstrapStages @()) -RequireOrchestrator -OrchestratorExitCode 2
+        Assert-Equal 'fail' $v.Status 'An exit-code failure must outrank incomplete.'
+        Assert-True ([bool](@($v.Reasons) -match 'exited 2')) 'The reason should name the exit code.'
+    }
+
+    Test-Case 'a nonzero exit code cannot downgrade an error verdict' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Live $false) -RequireOrchestrator -OrchestratorExitCode 2
+        Assert-Equal 'error' $v.Status 'fail must not mask a worse error verdict.'
+    }
+
+    Test-Case 'a zero orchestrator exit code leaves a green leg green' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary) -RequireOrchestrator -OrchestratorExitCode 0
+        Assert-Equal 'pass' $v.Status "Unexpected reasons: $($v.Reasons -join '; ')"
+    }
+
     Test-Case 'Get-SummaryStagesByPrefix tolerates a null or stage-less summary' {
         Assert-Equal 0 (@(Get-SummaryStagesByPrefix -Summary $null -Prefix 'bootstrap').Count) 'A null summary must yield no stages.'
         $bare = [pscustomobject]@{ overall_status = 'pass' }
@@ -781,6 +806,74 @@ try {
         Assert-True (-not (Test-GitSha 'ABCDEF0123456789ABCDEF0123456789ABCDEF01')) 'Uppercase SHA accepted; git reports lowercase.'
         Assert-True (-not (Test-GitSha 'abc1234')) 'Short SHA accepted.'
         Assert-True (-not (Test-GitSha '')) 'Empty SHA accepted.'
+    }
+
+    # --------------------------------------------------------------------------
+    Write-Host 'Engine acquisition call sites'
+    # --------------------------------------------------------------------------
+
+    # Install-Godot reuses an existing engine directory unless -Force is given.
+    # Both callers extract into a location that can outlive a single run (a
+    # self-hosted runner's runner.temp, or a reused -WorkRoot), so omitting
+    # -Force would silently skip download + SHA-512 verification. The cache key
+    # in setup-godot is hashed precisely to force that re-verification.
+    Test-Case 'Install-Godot reuses an existing engine directory unless -Force is given' {
+        $help = (Get-Command Install-Godot).Parameters
+        Assert-True ($help.ContainsKey('Force')) 'Install-Godot must expose -Force for callers to demand re-verification.'
+    }
+
+    Test-Case 'get_godot.ps1 forwards -Force to Install-Godot' {
+        $script = Get-Content -LiteralPath (Join-Path $ciRoot 'get_godot.ps1') -Raw
+        Assert-True ($script.Contains('-Force:$Force')) 'get_godot.ps1 must forward its -Force switch.'
+    }
+
+    Test-Case 'the setup-godot cache-miss step re-verifies with -Force' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $actionPath = Join-Path $repoRoot '.github/actions/setup-godot/action.yml'
+        $action = Get-Content -LiteralPath $actionPath -Raw
+        Assert-True ($action.Contains('-Mode Install')) 'The action should still install through get_godot.ps1.'
+        Assert-True ($action.Contains('-Force')) 'A cache miss must force a fresh, verified download.'
+    }
+
+    Test-Case 'the local wrapper also acquires engines with -Force' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+        Assert-True ($wrapper.Contains('-ArchiveCacheDir $cacheDir -Force')) 'The wrapper must acquire engines with -Force.'
+    }
+
+    # --------------------------------------------------------------------------
+    Write-Host 'Credential scrubbing'
+    # --------------------------------------------------------------------------
+
+    # The clone is workspace isolation, not a sandbox, but the wrapper must at
+    # least not hand its own live secrets to the code it is measuring.
+    Test-Case 'candidate-controlled child processes run with credentials scrubbed' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+
+        foreach ($name in @('PLAYFAB_DEVELOPER_SECRET_KEY', 'GITHUB_TOKEN', 'GH_TOKEN', 'LIVE_TESTS', 'LIVE_WRITE_TESTS')) {
+            Assert-True ($wrapper.Contains("'$name'")) "$name must be on the scrub list."
+        }
+
+        $candidateCalls = @(
+            "ArgumentList @('--preset', 'default') -LogPath `$buildLog -WorkingDirectory `$checkoutDir -ScrubCredentials",
+            "ArgumentList @('--build', '--preset', 'debug') -LogPath `$buildLog -WorkingDirectory `$checkoutDir -ScrubCredentials",
+            "ArgumentList `$legArgs -LogPath `$legLog -WorkingDirectory `$checkoutDir -ScrubCredentials",
+            "ArgumentList @('--preset', 'default-release') -LogPath `$releaseLog -WorkingDirectory `$checkoutDir -ScrubCredentials",
+            "ArgumentList @('--build', '--preset', 'release') -LogPath `$releaseLog -WorkingDirectory `$checkoutDir -ScrubCredentials"
+        )
+        foreach ($call in $candidateCalls) {
+            Assert-True ($wrapper.Contains($call)) "A candidate-controlled call site is missing -ScrubCredentials: $call"
+        }
+    }
+
+    # gh needs the token back, so scrubbing has to be scoped to the child call
+    # rather than applied once for the whole run.
+    Test-Case 'the publication path keeps its GitHub credentials' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+        Assert-True ($wrapper.Contains("Invoke-Logged -FilePath 'gh'")) 'Could not locate the gh publication call.'
+        Assert-True (-not ($wrapper -match "FilePath 'gh'[\s\S]{0,400}?-ScrubCredentials")) 'The trusted gh call must keep its credentials.'
     }
 } finally {
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue

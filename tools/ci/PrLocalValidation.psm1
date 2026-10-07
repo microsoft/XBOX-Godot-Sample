@@ -213,6 +213,10 @@ function Get-EngineLegVerdict {
 
         Those cases are reported as 'incomplete', never as 'pass'.
 
+        The exit code is still necessary evidence, and it is the one signal the
+        summary file cannot carry, so callers must pass it as
+        -OrchestratorExitCode. Anything nonzero fails the leg outright.
+
     .OUTPUTS
         PSCustomObject: Status, Reasons, Gaps, Tests, Passing, Failing, Pending,
         DurationMs, GodotVersion.
@@ -222,7 +226,8 @@ function Get-EngineLegVerdict {
         [AllowNull()]$OrchestratorResult,
         [string[]]$RequiredHosts = $script:DefaultRequiredHosts,
         [switch]$RequireOrchestrator,
-        [switch]$RequireDoctest
+        [switch]$RequireDoctest,
+        [int]$OrchestratorExitCode = 0
     )
 
     $reasons = [System.Collections.Generic.List[string]]::new()
@@ -393,6 +398,14 @@ function Get-EngineLegVerdict {
             $status = Get-WorstStatus @($status, 'incomplete')
             [void]$gaps.Add("$prefix ran no bootstrap suites.")
         }
+    }
+
+    # The orchestrator's own exit code is the one piece of evidence the summary
+    # file cannot contain. A leg that crashed, was cancelled, or failed after
+    # writing an otherwise green summary must never settle as 'pass'.
+    if ($OrchestratorExitCode -ne 0) {
+        $status = Get-WorstStatus @($status, 'fail')
+        [void]$reasons.Add("run_all_tests.ps1 exited $OrchestratorExitCode.")
     }
 
     $duration = 0

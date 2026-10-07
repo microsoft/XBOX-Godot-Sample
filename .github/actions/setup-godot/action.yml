@@ -67,12 +67,20 @@ runs:
         # Downloads into a staging dir OUTSIDE the cached path and only extracts
         # after SHA-512 verification, so a tampered/corrupt download can never
         # poison the per-version cache. See tools\ci\GodotAcquisition.psm1.
+        #
+        # -Force is required, not optional: without it Install-Godot reuses any
+        # executable already sitting in runner.temp\godot\<version>. On a
+        # persistent self-hosted runner that directory can survive a cache miss,
+        # so the miss would silently skip download + SHA-512 verification and
+        # then save the stale binary under the NEW hash-keyed cache key -- the
+        # exact re-verification the key above exists to force.
         & (Join-Path $env:GITHUB_WORKSPACE 'tools/ci/get_godot.ps1') `
           -Mode Install `
           -Version '${{ inputs.version }}' `
           -Flavor '${{ inputs.flavor }}' `
           -ManifestPath (Join-Path $env:GITHUB_WORKSPACE '.github/godot-versions.json') `
           -DestinationRoot (Join-Path '${{ runner.temp }}' 'godot') `
+          -Force `
           -Verbose
 
     - name: Resolve executable and export env

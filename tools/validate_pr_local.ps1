@@ -111,6 +111,27 @@ $script:PlayFabMatchmaking   = 'godot_gdk_ext_live_smoke_queue'
 $script:SandboxId            = 'lykhvw.0'
 $script:LockName             = 'Global\godot-gdk-pr-local-validation'
 
+# Removed from the environment of every candidate-controlled child process:
+# the CMake configure/build, the orchestrator, and everything they spawn.
+#
+# This is not a security sandbox and does not pretend to be one. The candidate
+# still runs as this user and can read the same credential stores, gh's own
+# config, and the keyring. What it does do is stop *this wrapper* from handing
+# a live PlayFab developer secret or a GitHub token to code it is measuring,
+# and stop an operator's ambient LIVE_* flags from reaching tests that are
+# supposed to be gated by this script's explicit arguments. GitHub credentials
+# are restored for the trusted metadata and comment calls, which never run
+# candidate code.
+$script:ScrubbedEnvironment = @(
+    'PLAYFAB_DEVELOPER_SECRET_KEY',
+    'GITHUB_TOKEN',
+    'GH_TOKEN',
+    'GITHUB_ENTERPRISE_TOKEN',
+    'GH_ENTERPRISE_TOKEN',
+    'LIVE_TESTS',
+    'LIVE_WRITE_TESTS'
+)
+
 $script:ToolsRoot = Split-Path -Parent $PSCommandPath
 $script:CiRoot    = Join-Path $script:ToolsRoot 'ci'
 
@@ -150,13 +171,24 @@ function Invoke-Logged {
         [Parameter(Mandatory = $true)][string]$FilePath,
         [Parameter(Mandatory = $true)][string[]]$ArgumentList,
         [Parameter(Mandatory = $true)][string]$LogPath,
-        [string]$WorkingDirectory
+        [string]$WorkingDirectory,
+        [switch]$ScrubCredentials
     )
     $logDir = Split-Path -Parent $LogPath
     if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
 
     $previous = Get-Location
     if ($WorkingDirectory) { Set-Location -LiteralPath $WorkingDirectory }
+    # & inherits this process's environment block at launch, so removing the
+    # variables here is what keeps them out of the child. They go back in the
+    # finally so the wrapper's own trusted gh calls still work.
+    $savedEnv = @{}
+    if ($ScrubCredentials) {
+        foreach ($name in $script:ScrubbedEnvironment) {
+            $savedEnv[$name] = [Environment]::GetEnvironmentVariable($name)
+            if ($null -ne $savedEnv[$name]) { Remove-Item "Env:\$name" -ErrorAction SilentlyContinue }
+        }
+    }
     try {
         Write-Note "$FilePath $($ArgumentList -join ' ')"
         # Out-Host keeps the teed output off this function's own pipeline so the
@@ -164,6 +196,9 @@ function Invoke-Logged {
         & $FilePath @ArgumentList 2>&1 | Tee-Object -FilePath $LogPath -Append | Out-Host
         return $LASTEXITCODE
     } finally {
+        foreach ($name in $savedEnv.Keys) {
+            if ($null -ne $savedEnv[$name]) { Set-Item "Env:\$name" -Value $savedEnv[$name] }
+        }
         Set-Location -LiteralPath $previous
     }
 }
@@ -562,9 +597,9 @@ try {
 
         Write-Phase 'Building Debug'
         $buildLog = Join-Path $logsDir 'build-debug.log'
-        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default') -LogPath $buildLog -WorkingDirectory $checkoutDir
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
         if ($code -ne 0) { throw "cmake --preset default failed with exit code $code." }
-        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'debug') -LogPath $buildLog -WorkingDirectory $checkoutDir
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'debug') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
         if ($code -ne 0) { throw "cmake --build --preset debug failed with exit code $code." }
 
         $sdk = Get-SdkIdentity -CheckoutRoot $checkoutDir
@@ -596,9 +631,13 @@ try {
 
         $engines = @()
         foreach ($version in $versions) {
+            # -Force: the per-run engines directory is fresh, so there is nothing
+            # to reuse. Saying so explicitly keeps the "never a shared extracted
+            # engine directory" promise true even if a future -WorkRoot change
+            # makes the path collide.
             $installJson = & pwsh -NoLogo -NoProfile -File (Join-Path $script:CiRoot 'get_godot.ps1') `
                 -Mode Install -Version $version -ManifestPath $manifestPath `
-                -DestinationRoot $enginesDir -ArchiveCacheDir $cacheDir 2>&1
+                -DestinationRoot $enginesDir -ArchiveCacheDir $cacheDir -Force 2>&1
             if ($LASTEXITCODE -ne 0) { throw "Acquiring Godot $version failed: $($installJson | Out-String)" }
             $info = ($installJson | Select-Object -Last 1 | Out-String).Trim() | ConvertFrom-Json
 
@@ -654,6 +693,7 @@ If the run was interrupted, restore it manually from an elevated shell:
                 }
 
                 $saved = @{}
+                $legCode = $null
                 foreach ($name in @('GODOT', 'GODOT_BIN', 'GODOT_CONSOLE')) {
                     $saved[$name] = [Environment]::GetEnvironmentVariable($name)
                 }
@@ -662,7 +702,7 @@ If the run was interrupted, restore it manually from an elevated shell:
                     $env:GODOT_BIN = $engine.Info.Path
                     $env:GODOT_CONSOLE = $engine.Info.Path
                     $legLog = Join-Path $logsDir "run-$($engine.Version).log"
-                    $legCode = Invoke-Logged -FilePath 'pwsh' -ArgumentList $legArgs -LogPath $legLog -WorkingDirectory $checkoutDir
+                    $legCode = Invoke-Logged -FilePath 'pwsh' -ArgumentList $legArgs -LogPath $legLog -WorkingDirectory $checkoutDir -ScrubCredentials
                 } finally {
                     foreach ($name in $saved.Keys) {
                         if ($null -eq $saved[$name]) {
@@ -697,8 +737,13 @@ If the run was interrupted, restore it manually from an elevated shell:
                         Write-Note "Could not parse $mpResultPath : $($_.Exception.Message)"
                     }
                 }
+                # $legCode is $null only if the leg never produced an exit code at
+                # all, which would make 'did it pass?' unanswerable. Passing $null
+                # to an [int] parameter silently becomes 0, i.e. green, so convert
+                # it to an unmistakable failure instead.
+                $legExitCode = if ($null -eq $legCode) { -1 } else { [int]$legCode }
                 $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult `
-                    -RequireOrchestrator -RequireDoctest:$first
+                    -RequireOrchestrator -RequireDoctest:$first -OrchestratorExitCode $legExitCode
                 $legReasons = @($verdict.Reasons)
                 if ($summaryError) { $legReasons += $summaryError }
 
@@ -741,9 +786,9 @@ If the run was interrupted, restore it manually from an elevated shell:
         Write-Phase 'Building Release'
         $releaseLog = Join-Path $logsDir 'build-release.log'
         $releaseStatus = 'pass'
-        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default-release') -LogPath $releaseLog -WorkingDirectory $checkoutDir
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default-release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
         if ($code -eq 0) {
-            $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'release') -LogPath $releaseLog -WorkingDirectory $checkoutDir
+            $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
         }
         if ($code -ne 0) { $releaseStatus = 'fail' }
         Write-Note "Release build: $releaseStatus"
