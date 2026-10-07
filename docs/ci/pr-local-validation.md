@@ -220,6 +220,14 @@ its `run-summary.json` rather than trusting the exit code:
 | `fail` | 1 | `overall_status` was not `pass`, a required stage failed, or `run_all_tests.ps1` itself exited nonzero. |
 | `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
 
+"Unreadable" covers more than a missing or truncated file. A summary that is valid JSON can
+still be uninterpretable — a counter that is not a number, a `stages` value that is not a
+list of records — and grading happens *after* the live writes have already landed, so an
+exception there would skip the manifest, the report, and the PR comment for a run that
+already touched the shared title. `Get-EngineLegVerdict` therefore never throws: any failure
+to read the summary is preserved as an `error` leg naming the field it could not read, which
+outranks every other status and fails the run loudly.
+
 The summary is the primary evidence, but it is not the *only* evidence: the orchestrator's
 own exit code is the one signal the file cannot carry — an orchestrator that dies after
 writing a green summary leaves no trace in it. The wrapper passes that exit code to

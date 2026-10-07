@@ -183,15 +183,97 @@ function Get-SummaryStagesByPrefix {
 }
 
 function Get-StageNumber {
+    <#
+    .SYNOPSIS
+        Read one numeric counter out of a run-summary record.
+    .DESCRIPTION
+        An absent or null counter is legitimate -- the orchestrator leaves the
+        per-stage tallies null for stages that do not count tests -- and is
+        reported as $null for the caller to interpret.
+
+        A counter that is present but not a number means the file is not the
+        shape this tool knows how to read. That is raised as a descriptive
+        error naming the stage, field, and offending value, rather than being
+        left as a bare cast failure or quietly coerced to zero.
+    #>
     param([AllowNull()]$Stage, [Parameter(Mandatory = $true)][string]$Field)
     if ($null -eq $Stage) { return $null }
     if (-not ($Stage.PSObject.Properties.Name -contains $Field)) { return $null }
     $v = $Stage.$Field
     if ($null -eq $v) { return $null }
-    return [int]$v
+    try {
+        return [int]$v
+    } catch {
+        $owner = 'run-summary.json'
+        if ($Stage.PSObject.Properties['name']) { $owner = "stage '$([string]$Stage.name)' in run-summary.json" }
+        throw "$owner reported a non-numeric '$Field' value '$v'."
+    }
+}
+
+function New-EngineLegError {
+    <#
+    .SYNOPSIS
+        Build the 'error' leg object used whenever a leg cannot be interpreted.
+    .DESCRIPTION
+        Every caller downstream -- manifest, report, and PR comment -- reads the
+        same field set, so an uninterpretable leg must still return all of them.
+        Keeping the shape in one place stops the failure paths from drifting
+        away from the success path.
+    #>
+    param([Parameter(Mandatory = $true)][string[]]$Reasons)
+    return [pscustomobject]@{
+        Status       = 'error'
+        Reasons      = @($Reasons)
+        Gaps         = @()
+        Tests        = 0
+        Passing      = 0
+        Failing      = 0
+        Pending      = 0
+        MpTotal      = $null
+        MpPassed     = $null
+        MpFailed     = $null
+        MpSkipped    = $null
+        DurationMs   = 0
+        GodotVersion = 'unknown'
+    }
 }
 
 function Get-EngineLegVerdict {
+    <#
+    .SYNOPSIS
+        Turn one engine leg's run-summary.json into an honest verdict, and
+        never throw while doing it.
+
+    .DESCRIPTION
+        See Get-EngineLegVerdictCore for the grading rules. This wrapper exists
+        because the caller has no fallback: the verdict is computed after the
+        tests have already run, and an exception escaping here would skip the
+        manifest, the report, and the PR comment for a run whose live writes
+        have already happened. A summary that is valid JSON can still be
+        uninterpretable -- a non-numeric counter, a 'stages' value that is not
+        a list of records -- so any failure to read it is preserved as an
+        'error' leg instead, which outranks every other status and fails the
+        run loudly.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()]$Summary,
+        [AllowNull()]$OrchestratorResult,
+        [string[]]$RequiredHosts = $script:DefaultRequiredHosts,
+        [switch]$RequireOrchestrator,
+        [switch]$RequireDoctest,
+        [int]$OrchestratorExitCode = 0
+    )
+
+    try {
+        return Get-EngineLegVerdictCore -Summary $Summary -OrchestratorResult $OrchestratorResult `
+            -RequiredHosts $RequiredHosts -RequireOrchestrator:$RequireOrchestrator `
+            -RequireDoctest:$RequireDoctest -OrchestratorExitCode $OrchestratorExitCode
+    } catch {
+        return New-EngineLegError -Reasons @("run-summary.json could not be interpreted: $($_.Exception.Message)")
+    }
+}
+
+function Get-EngineLegVerdictCore {
     <#
     .SYNOPSIS
         Turn one engine leg's run-summary.json into an honest verdict.
@@ -234,23 +316,13 @@ function Get-EngineLegVerdict {
     $gaps = [System.Collections.Generic.List[string]]::new()
 
     if ($null -eq $Summary) {
-        return [pscustomobject]@{
-            Status = 'error'; Reasons = @('No run-summary.json was produced for this engine leg.')
-            Gaps = @(); Tests = 0; Passing = 0; Failing = 0; Pending = 0
-            MpTotal = $null; MpPassed = $null; MpFailed = $null; MpSkipped = $null
-            DurationMs = 0; GodotVersion = 'unknown'
-        }
+        return New-EngineLegError -Reasons @('No run-summary.json was produced for this engine leg.')
     }
 
     $names = @($Summary.PSObject.Properties.Name)
     foreach ($required in @('overall_status', 'stages', 'live', 'live_writes')) {
         if ($names -notcontains $required) {
-            return [pscustomobject]@{
-                Status = 'error'; Reasons = @("run-summary.json is missing the '$required' field; refusing to interpret it.")
-                Gaps = @(); Tests = 0; Passing = 0; Failing = 0; Pending = 0
-            MpTotal = $null; MpPassed = $null; MpFailed = $null; MpSkipped = $null
-                DurationMs = 0; GodotVersion = 'unknown'
-            }
+            return New-EngineLegError -Reasons @("run-summary.json is missing the '$required' field; refusing to interpret it.")
         }
     }
 
@@ -409,9 +481,8 @@ function Get-EngineLegVerdict {
     }
 
     $duration = 0
-    if ($names -contains 'total_duration_ms' -and $null -ne $Summary.total_duration_ms) {
-        $duration = [int]$Summary.total_duration_ms
-    }
+    $durationValue = Get-StageNumber -Stage $Summary -Field 'total_duration_ms'
+    if ($null -ne $durationValue) { $duration = $durationValue }
     $godot = 'unknown'
     if ($names -contains 'godot_version' -and -not [string]::IsNullOrWhiteSpace([string]$Summary.godot_version)) {
         $godot = [string]$Summary.godot_version

@@ -998,6 +998,90 @@ try {
     # differ. The assertions above are therefore call-site shape only; the
     # .NET contract they rely on (WaitOne transfers ownership, then throws) is
     # documented behaviour, not something this suite proves.
+
+    # ----------------------------------------------------------------------
+    Write-Host 'Uninterpretable summaries never escape the verdict'
+    # ----------------------------------------------------------------------
+    # The verdict is computed after the live writes have already happened, so a
+    # throw here would skip the manifest, the report, and the PR comment for a
+    # run that has already touched the shared title. Every one of these must
+    # come back as an 'error' leg instead.
+
+    Test-Case 'a non-numeric stage counter produces an error leg, not an exception' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Tests 'unknown'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A counter that cannot be read must not be graded as pass.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet "could not be interpreted") 'The reason must say the summary could not be interpreted.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet "gut:tests/godot/gdk") 'The reason must name the offending stage.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet "'tests'") 'The reason must name the offending field.'
+    }
+
+    Test-Case 'a non-numeric orchestrator count produces an error leg' {
+        $mp = [pscustomobject]@{ summary = [pscustomobject]@{ total = 69; passed = 'n/a'; failed = 0; skipped = 0 } }
+        $v = Get-EngineLegVerdict -Summary (New-Summary) -OrchestratorResult $mp -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'An unreadable scenario tally must not be graded as pass.'
+    }
+
+    Test-Case 'a non-numeric total_duration_ms produces an error leg' {
+        $summary = New-Summary
+        $summary.total_duration_ms = 'a while'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A summary whose own fields cannot be read must not be graded as pass.'
+    }
+
+    Test-Case "a 'stages' value that is not a list of records produces an error leg" {
+        $summary = [pscustomobject]@{
+            overall_status = 'pass'; live = $true; live_writes = $true
+            total_duration_ms = 1000; godot_version = '4.7.1-stable'
+            stages = 'none'
+        }
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A stages field of the wrong shape must not be graded as pass.'
+    }
+
+    Test-Case 'an error leg still carries every field the report and manifest read' {
+        $summary = New-Summary
+        $summary.total_duration_ms = 'a while'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        foreach ($field in @('Status', 'Reasons', 'Gaps', 'Tests', 'Passing', 'Failing', 'Pending',
+                             'MpTotal', 'MpPassed', 'MpFailed', 'MpSkipped', 'DurationMs', 'GodotVersion')) {
+            Assert-True ([bool]$v.PSObject.Properties[$field]) "An error leg must still expose '$field'."
+        }
+        Assert-Equal 0 $v.Tests 'An uninterpretable leg must not claim test counts.'
+        Assert-Equal 'unknown' $v.GodotVersion 'An uninterpretable leg must not claim an engine version.'
+        Assert-Equal 0 @($v.Gaps).Count 'An uninterpretable leg reports a reason, not a coverage gap.'
+    }
+
+    Test-Case 'an error leg from a bad counter is rendered and exits nonzero' {
+        $summary = New-Summary
+        $summary.total_duration_ms = 'a while'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        $run = Get-RunVerdict -LegStatuses @($v.Status) -ReleaseStatus 'pass' `
+            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false -HeadMoved $false
+        Assert-Equal 'error' $run 'An uninterpretable leg must fail the run.'
+        Assert-True ((Get-ExitCodeForStatus $run) -ne 0) 'An uninterpretable leg must not exit 0.'
+    }
+
+    Test-Case 'a null or absent counter is still a legitimate null, not an error' {
+        $stage = [pscustomobject]@{ name = 'gut:tests/godot/gdk'; status = 'pass'; passing = $null }
+        Assert-True ($null -eq (Get-StageNumber -Stage $stage -Field 'passing')) 'An explicit null counter reads as null.'
+        Assert-True ($null -eq (Get-StageNumber -Stage $stage -Field 'tests')) 'An absent counter reads as null.'
+        Assert-Equal 7 (Get-StageNumber -Stage ([pscustomobject]@{ tests = 7 }) -Field 'tests') 'A real counter still reads as a number.'
+    }
+
+    Test-Case 'Get-StageNumber names the stage and field it could not read' {
+        $stage = [pscustomobject]@{ name = 'gut:tests/godot/playfab'; tests = 'unknown' }
+        Assert-Throws -MatchPattern "gut:tests/godot/playfab.*'tests'.*unknown" -Body {
+            Get-StageNumber -Stage $stage -Field 'tests'
+        }
+    }
 } finally {
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
