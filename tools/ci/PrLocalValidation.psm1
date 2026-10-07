@@ -154,6 +154,34 @@ function Get-SummaryStage {
     return $null
 }
 
+function Get-SummaryStagesByPrefix {
+    <#
+    .SYNOPSIS
+        Return every stage whose name is $Prefix or begins with "$Prefix:".
+    .DESCRIPTION
+        run_all_tests.ps1 emits one bootstrap stage per discovered script
+        ("bootstrap:tests/godot/gdk:gdk_bootstrap") but collapses an absent or
+        empty directory into a single skip record named for the host alone
+        ("bootstrap:tests/godot/gdk"). Both shapes must be found by one lookup,
+        and a prefix match must not let "bootstrap:tests/godot/gdk2" satisfy a
+        requirement for "bootstrap:tests/godot/gdk".
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()]$Summary,
+        [Parameter(Mandatory = $true)][string]$Prefix
+    )
+    $found = @()
+    if ($null -eq $Summary) { return $found }
+    if (-not ($Summary.PSObject.Properties.Name -contains 'stages')) { return $found }
+    foreach ($s in @($Summary.stages)) {
+        $name = [string]$s.name
+        if ($name -eq $Prefix -or $name.StartsWith("${Prefix}:", [StringComparison]::Ordinal)) {
+            $found += $s
+        }
+    }
+    return $found
+}
+
 function Get-StageNumber {
     param([AllowNull()]$Stage, [Parameter(Mandatory = $true)][string]$Field)
     if ($null -eq $Stage) { return $null }
@@ -179,6 +207,9 @@ function Get-EngineLegVerdict {
             live gate is not actually reached, and still exit 0.
           - A leg invoked without -Live/-AllowLiveWrites would exit 0 having
             validated none of what this tool claims to validate.
+          - run_all_tests.ps1 derives overall_status from failures only, so a
+            skipped C++ doctest or a host with no bootstrap runners leaves the
+            run green while this tool's report claims both were exercised.
 
         Those cases are reported as 'incomplete', never as 'pass'.
 
@@ -190,7 +221,8 @@ function Get-EngineLegVerdict {
         [Parameter(Mandatory = $true)][AllowNull()]$Summary,
         [AllowNull()]$OrchestratorResult,
         [string[]]$RequiredHosts = $script:DefaultRequiredHosts,
-        [switch]$RequireOrchestrator
+        [switch]$RequireOrchestrator,
+        [switch]$RequireDoctest
     )
 
     $reasons = [System.Collections.Generic.List[string]]::new()
@@ -320,6 +352,47 @@ function Get-EngineLegVerdict {
     if ($null -eq $parse -or [string]$parse.status -eq 'skip') {
         $status = Get-WorstStatus @($status, 'incomplete')
         [void]$gaps.Add('parse-gate did not run.')
+    }
+
+    # The native suite runs once, on the first engine leg; later legs are
+    # invoked with -SkipDoctest on purpose, so only the first leg may assert it.
+    if ($RequireDoctest) {
+        $doctest = Get-SummaryStage -Summary $Summary -Name 'cpp-doctest'
+        if ($null -eq $doctest -or [string]$doctest.status -eq 'skip') {
+            $status = Get-WorstStatus @($status, 'incomplete')
+            [void]$gaps.Add('cpp-doctest did not run on the first engine leg, so no leg covered the native tests.')
+        } elseif ([string]$doctest.status -ne 'pass') {
+            $status = Get-WorstStatus @($status, 'fail')
+            [void]$reasons.Add("cpp-doctest status='$($doctest.status)'.")
+        }
+    }
+
+    # Bootstrap runners are per host and per script. An absent or empty
+    # tests\bootstrap\ directory collapses to a single 'skip' record, which
+    # overall_status ignores -- that is exactly the silent coverage loss this
+    # has to surface.
+    foreach ($h in $RequiredHosts) {
+        $prefix = "bootstrap:$h"
+        $stages = @(Get-SummaryStagesByPrefix -Summary $Summary -Prefix $prefix)
+        if ($stages.Count -eq 0) {
+            $status = Get-WorstStatus @($status, 'incomplete')
+            [void]$gaps.Add("$prefix did not run.")
+            continue
+        }
+        $ran = 0
+        foreach ($stage in $stages) {
+            $sStatus = [string]$stage.status
+            if ($sStatus -eq 'skip') { continue }
+            $ran++
+            if ($sStatus -ne 'pass') {
+                $status = Get-WorstStatus @($status, 'fail')
+                [void]$reasons.Add("$([string]$stage.name) status='$sStatus'.")
+            }
+        }
+        if ($ran -eq 0) {
+            $status = Get-WorstStatus @($status, 'incomplete')
+            [void]$gaps.Add("$prefix ran no bootstrap suites.")
+        }
     }
 
     $duration = 0
@@ -714,6 +787,7 @@ Export-ModuleMember -Function @(
     'Get-GrdkEdition',
     'Get-MsGdkPackageVersion',
     'Get-SummaryStage',
+    'Get-SummaryStagesByPrefix',
     'Get-StageNumber',
     'Get-EngineLegVerdict',
     'ConvertTo-MarkdownCell',

@@ -73,16 +73,22 @@ and do not substitute a narrower run for it when the user asked for live validat
 
 ## Preconditions to confirm before running
 
-1. The machine has the GDK, Visual Studio build tools, and `XblPCSandbox.exe`.
-2. `gh auth status` succeeds, with write access if a comment will be posted.
-3. The shell is **elevated** if the machine is not already in the test sandbox, because
-   switching restarts Xbox Live Auth Manager.
-4. Better still, the machine is **already in the test sandbox with a test account signed
+1. **The PR is same-repository, not a fork.** The script refuses `isCrossRepository` PRs
+   before it fetches anything, and that refusal has no override: a run executes candidate
+   build and test code with the operator's account, credentials, and Xbox identity, and the
+   fresh clone is workspace isolation rather than a security sandbox. For a fork
+   contribution, review the diff and push it to a branch in this repository first.
+2. The machine has the GDK, Visual Studio build tools, and `XblPCSandbox.exe`.
+3. `gh auth status` succeeds, with write access if a comment will be posted.
+4. The shell is **elevated only if** the machine is not already in the test sandbox, because
+   switching restarts Xbox Live Auth Manager. Do not elevate otherwise — the candidate's
+   build and tests should not run with more privilege than they need.
+5. Better still, the machine is **already in the test sandbox with a test account signed
    into the Xbox app**. Switching mid-run signs the Xbox app out, and the GDK live tiers
    need a signed-in account that only an interactive UI can provide — so a mid-run switch
    usually yields `no_default_user` legs. Tell the user to switch and sign in first; the
    script then skips the switch, the restore, and the elevation requirement.
-5. The nightly `playfab-live` workflow is not mid-run. The script takes a machine-local
+6. The nightly `playfab-live` workflow is not mid-run. The script takes a machine-local
    mutex, which cannot serialize against GitHub Actions or another machine — coordinate
    that by hand.
 

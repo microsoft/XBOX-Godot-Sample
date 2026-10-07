@@ -91,11 +91,23 @@ function New-Summary {
         [string]$Overall = 'pass',
         [bool]$Live = $true,
         [bool]$LiveWrites = $true,
-        $Stages
+        $Stages,
+        # Appended to $Stages so the many cases that only care about GUT hosts
+        # do not each have to restate a realistic bootstrap set. Pass @() to
+        # model a run whose bootstrap runners never executed.
+        $BootstrapStages
     )
+    if ($null -eq $BootstrapStages) {
+        $BootstrapStages = @(
+            (New-Stage -Name 'bootstrap:tests/godot/gdk:run_gdk_bootstrap'),
+            (New-Stage -Name 'bootstrap:tests/godot/playfab:run_playfab_bootstrap'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput:run_gameinput_bootstrap')
+        )
+    }
     if ($null -eq $Stages) {
         $Stages = @(
             (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
             (New-Stage -Name 'gut:tests/godot/gdk'),
             (New-Stage -Name 'gut:tests/godot/playfab'),
             (New-Stage -Name 'gut:tests/godot/gameinput'),
@@ -110,7 +122,7 @@ function New-Summary {
         live = $Live
         live_writes = $LiveWrites
         godot_version = '4.7.1-stable'
-        stages = @($Stages)
+        stages = @($Stages) + @($BootstrapStages)
     }
 }
 
@@ -353,6 +365,112 @@ try {
         )
         $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator
         Assert-Equal 'incomplete' $v.Status 'A skipped parse gate must downgrade the verdict.'
+    }
+
+    # run_all_tests.ps1 derives overall_status from failures only, so a stage
+    # that never ran leaves the run green. These cases pin the two stages the
+    # report claims were exercised but nothing else was checking.
+    Test-Case 'a missing cpp-doctest stage is incomplete on the first leg' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'incomplete' $v.Status 'A missing native suite must downgrade the verdict.'
+        Assert-True ([bool](@($v.Gaps) -match 'cpp-doctest')) 'The gap should name the native stage.'
+    }
+
+    Test-Case 'a skipped cpp-doctest stage is incomplete on the first leg' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest' -Status 'skip' -Tests 0 -Passing 0),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'incomplete' $v.Status 'A skipped native suite must downgrade the verdict.'
+    }
+
+    Test-Case 'a failed cpp-doctest stage fails the leg' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest' -Status 'fail'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Overall 'fail' -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'fail' $v.Status 'A failing native suite must fail the leg.'
+    }
+
+    # The wrapper appends -SkipDoctest to every leg after the first on purpose,
+    # so only the first leg may assert it. A later leg must not be penalised.
+    Test-Case 'a later leg is not penalised for the deliberately skipped doctest' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest' -Status 'skip' -Tests 0 -Passing 0),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator
+        Assert-Equal 'pass' $v.Status "Later legs intentionally skip the native suite. Gaps: $($v.Gaps -join '; ')"
+    }
+
+    Test-Case 'a host with no bootstrap stages at all is incomplete' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary -BootstrapStages @()) -RequireOrchestrator
+        Assert-Equal 'incomplete' $v.Status 'Absent bootstrap coverage must downgrade the verdict.'
+        Assert-True ([bool](@($v.Gaps) -match 'bootstrap:tests/godot/gdk')) 'The gap should name the host.'
+    }
+
+    # An absent or empty tests\bootstrap\ directory collapses to one 'skip'
+    # record, which overall_status ignores entirely.
+    Test-Case 'a host whose bootstrap runners were all skipped is incomplete' {
+        $boot = @(
+            (New-Stage -Name 'bootstrap:tests/godot/gdk' -Status 'skip' -Tests 0 -Passing 0),
+            (New-Stage -Name 'bootstrap:tests/godot/playfab:run_playfab_bootstrap'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput:run_gameinput_bootstrap')
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -BootstrapStages $boot) -RequireOrchestrator
+        Assert-Equal 'incomplete' $v.Status 'An all-skipped bootstrap host must downgrade the verdict.'
+        Assert-True ([bool](@($v.Gaps) -match 'ran no bootstrap suites')) 'The gap should say nothing ran.'
+    }
+
+    Test-Case 'a failed bootstrap runner fails the leg' {
+        $boot = @(
+            (New-Stage -Name 'bootstrap:tests/godot/gdk:run_gdk_bootstrap' -Status 'fail'),
+            (New-Stage -Name 'bootstrap:tests/godot/playfab:run_playfab_bootstrap'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput:run_gameinput_bootstrap')
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Overall 'fail' -BootstrapStages $boot) -RequireOrchestrator
+        Assert-Equal 'fail' $v.Status 'A failing bootstrap runner must fail the leg.'
+        Assert-True ([bool](@($v.Reasons) -match 'run_gdk_bootstrap')) 'The reason should name the runner.'
+    }
+
+    # 'bootstrap:tests/godot/gdk2' must not satisfy a requirement for
+    # 'bootstrap:tests/godot/gdk'; the match is on an exact name or a ':' boundary.
+    Test-Case 'bootstrap host matching does not collide on a name prefix' {
+        $boot = @(
+            (New-Stage -Name 'bootstrap:tests/godot/gdk2:run_other'),
+            (New-Stage -Name 'bootstrap:tests/godot/playfab:run_playfab_bootstrap'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput:run_gameinput_bootstrap')
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -BootstrapStages $boot) -RequireOrchestrator
+        Assert-Equal 'incomplete' $v.Status 'A similarly named host must not satisfy the requirement.'
+        Assert-True ([bool](@($v.Gaps) -match 'bootstrap:tests/godot/gdk did not run')) 'The gap should name the genuinely missing host.'
+    }
+
+    Test-Case 'Get-SummaryStagesByPrefix tolerates a null or stage-less summary' {
+        Assert-Equal 0 (@(Get-SummaryStagesByPrefix -Summary $null -Prefix 'bootstrap').Count) 'A null summary must yield no stages.'
+        $bare = [pscustomobject]@{ overall_status = 'pass' }
+        Assert-Equal 0 (@(Get-SummaryStagesByPrefix -Summary $bare -Prefix 'bootstrap').Count) 'A summary without stages must yield no stages.'
     }
 
     Test-Case 'worst status wins and maps to the documented exit codes' {

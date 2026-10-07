@@ -415,6 +415,18 @@ try {
         Write-Warning "PR #$PullRequest is $($pr.state). Validating it anyway, at the head commit above."
     }
 
+    # This tool executes the candidate's CMake, PowerShell, native binaries and
+    # GDScript with the operator's own account, GitHub credentials and signed-in
+    # Xbox identity. The fresh clone is workspace isolation, not a security
+    # boundary. A fork PR is therefore untrusted code and is refused outright --
+    # there is no flag to override this, because an override would be used.
+    if ([bool]$pr.isCrossRepository) {
+        throw ("PR #$PullRequest comes from a fork ($($pr.headRefName)). This tool runs candidate " +
+            'build and test code with your full account context and cannot sandbox it, so it only ' +
+            'validates same-repository pull requests. Review the diff and re-push it to a branch in ' +
+            "$script:Repository if you need to validate it locally.")
+    }
+
     $startedAt = [datetime]::UtcNow
     $runName = New-RunDirectoryName -PullRequest $PullRequest -HeadSha $headSha -TimestampUtc $startedAt
     $runDir = Join-Path $WorkRoot $runName
@@ -663,8 +675,18 @@ If the run was interrupted, restore it manually from an elevated shell:
 
                 $summaryPath = Join-Path $legOut 'run-summary.json'
                 $summary = $null
+                $summaryError = $null
                 if (Test-Path -LiteralPath $summaryPath) {
-                    $summary = (Get-Content -LiteralPath $summaryPath -Raw) | ConvertFrom-Json
+                    try {
+                        $summary = (Get-Content -LiteralPath $summaryPath -Raw) | ConvertFrom-Json
+                    } catch {
+                        # A truncated or malformed summary must not abort the run:
+                        # the leg still has to produce a verdict, a manifest, and a
+                        # posted report that say why it could not be interpreted.
+                        $summary = $null
+                        $summaryError = "run-summary.json could not be parsed: $($_.Exception.Message)"
+                        Write-Note $summaryError
+                    }
                 }
                 $mpResultPath = Join-Path $legOut 'mp-orchestrator\mp-test-results.json'
                 $mpResult = $null
@@ -675,7 +697,10 @@ If the run was interrupted, restore it manually from an elevated shell:
                         Write-Note "Could not parse $mpResultPath : $($_.Exception.Message)"
                     }
                 }
-                $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult -RequireOrchestrator
+                $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult `
+                    -RequireOrchestrator -RequireDoctest:$first
+                $legReasons = @($verdict.Reasons)
+                if ($summaryError) { $legReasons += $summaryError }
 
                 $legs += [pscustomobject]@{
                     version     = $engine.Version
@@ -690,7 +715,7 @@ If the run was interrupted, restore it manually from an elevated shell:
                     mp_skipped  = $verdict.MpSkipped
                     duration_ms = $verdict.DurationMs
                     exit_code   = $legCode
-                    reasons     = @($verdict.Reasons)
+                    reasons     = @($legReasons)
                     gaps        = @($verdict.Gaps)
                     summary     = $summaryPath
                     log         = $legLog
@@ -724,6 +749,12 @@ If the run was interrupted, restore it manually from an elevated shell:
         Write-Note "Release build: $releaseStatus"
 
         # --- Verdict and report ------------------------------------------------
+        # Re-read the head *before* computing the verdict: if the PR moved while
+        # this run was in progress, the evidence describes an obsolete commit and
+        # must never be published under a PASS heading.
+        $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
+        $headMoved = ($currentHead -ne $headSha)
+
         $statuses = @($legs | ForEach-Object { $_.status })
         if ($releaseStatus -ne 'pass') { $statuses += 'fail' }
         # A narrowed matrix is honest coverage, not a failure, but it must never
@@ -732,10 +763,10 @@ If the run was interrupted, restore it manually from an elevated shell:
         # Likewise for an SDK the candidate does not declare as its default: the
         # run is real evidence, just not evidence for the version under review.
         if ($gdkIdentityGap) { $statuses += 'incomplete' }
+        if ($headMoved) { $statuses += 'incomplete' }
         $runStatus = Get-WorstStatus $statuses
 
         $finishedAt = [datetime]::UtcNow
-        $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
         $runReasons = @()
         $runGaps = @()
         if ($releaseStatus -ne 'pass') { $runReasons += 'The Release build failed; see build-release.log.' }
@@ -744,8 +775,8 @@ If the run was interrupted, restore it manually from an elevated shell:
         }
         if ($gdkIdentityGap) { $runGaps += $gdkIdentityGap }
         if ($gdkCoverageGap) { $runGaps += $gdkCoverageGap }
-        if ($currentHead -ne $headSha) {
-            $runReasons += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only."
+        if ($headMoved) {
+            $runGaps += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only and are not validation of the current head."
         }
 
         $manifest = [pscustomobject]@{

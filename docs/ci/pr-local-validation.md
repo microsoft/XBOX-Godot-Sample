@@ -110,6 +110,8 @@ gap list meaningless.
 
 ### Prerequisites
 
+- **A same-repository pull request.** The script refuses fork PRs outright, and there is no
+  override. See [Trust boundary](#trust-boundary).
 - Windows, with the GDK and Visual Studio build tools installed (the same machine that can
   already run `cmake --preset default`).
 - `git`, `gh`, `cmake`, and `pwsh` on `PATH`, and `gh auth status` succeeding.
@@ -124,6 +126,27 @@ gap list meaningless.
 > likely come back `no_default_user`. Switch first, sign a test account for that sandbox into
 > the Xbox app, and then run: the script sees it is already in the right sandbox, skips both
 > the switch and the restore, and no longer needs elevation.
+
+### Trust boundary
+
+A run executes the candidate's `CMakeLists.txt`, `tools\run_all_tests.ps1`, freshly compiled
+native binaries, and GDScript — all with your account, your `gh` credentials, and your
+signed-in Xbox identity. The fresh clone is **workspace isolation, not a security sandbox**:
+it stops one run clobbering another, and nothing more.
+
+Two consequences:
+
+- **Fork PRs are refused before anything is fetched.** `gh pr view` reports
+  `isCrossRepository`, and the script throws on it. If you genuinely need to validate a fork
+  contribution, review the diff first and push it to a branch in this repository.
+- **Even a same-repository PR must be code you are willing to run.** Read the build and
+  tooling changes before you start. Environment scrubbing removes
+  `PLAYFAB_DEVELOPER_SECRET_KEY`, `GITHUB_TOKEN`/`GH_TOKEN`, and ambient live flags from the
+  child processes, but it cannot stop trusted-looking local code from reaching your saved
+  credentials.
+
+Keep the shell **non-elevated** unless a sandbox switch forces otherwise (see above);
+running the candidate's build as Administrator only widens the blast radius.
 
 ## What a run actually does
 
@@ -175,6 +198,9 @@ gap list meaningless.
 - A live GUT host can report every test as pending when the live gate is never reached.
 - A leg invoked without `-Live`/`-AllowLiveWrites` would exit 0 having validated none of
   what this tool claims to validate.
+- `overall_status` is derived from *failures only*, so a skipped `cpp-doctest` stage, or a
+  host whose `tests\bootstrap\` directory is empty or missing, leaves the run green while
+  this tool's report claims both were exercised.
 
 `Get-EngineLegVerdict` in `tools\ci\PrLocalValidation.psm1` therefore grades each leg from
 its `run-summary.json` rather than trusting the exit code:
@@ -182,13 +208,18 @@ its `run-summary.json` rather than trusting the exit code:
 | Verdict | Exit code | Trigger |
 | --- | --- | --- |
 | `pass` | 0 | Live writes on, every required stage green, every required stage covered real tests. |
-| `incomplete` | 2 | A required GUT host or the parse gate was missing or skipped, a host discovered no tests, a host passed none, or the orchestrator passed no scenarios. |
+| `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none; or the orchestrator passed no scenarios. |
 | `fail` | 1 | `overall_status` was not `pass`, or a required stage failed. |
 | `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
 
 The worst leg wins. `incomplete` is reported as `incomplete`, never rounded up to a pass.
 A `-GodotVersion` run floors the overall verdict to `incomplete` for the same reason,
-independently of how the individual legs graded.
+independently of how the individual legs graded. So does a head that moved mid-run: the
+evidence then describes the old commit, and is labelled as such instead of published as a
+pass for the new one.
+
+`cpp-doctest` is asserted on the **first** engine leg only, because the wrapper deliberately
+appends `-SkipDoctest` to later legs — the native suite does not depend on the engine.
 
 ## Artifacts
 
