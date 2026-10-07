@@ -267,6 +267,20 @@ change: proving support means building on Windows against an installed GDK, whic
 no hosted agent can do. **Nothing in this automation ever runs a build or a
 test.**
 
+The maintainer in step 5 does not do that by hand either. Once the draft pull
+request exists, run it through
+[PR-local live validation](pr-local-validation.md):
+
+```powershell
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.ps1 `
+  -PullRequest <n> -AllowLiveWrites
+```
+
+That checks out the PR head into a fresh clone, builds it, proves from the built
+vcpkg tree which `ms-gdk` version and `_GRDK_EDITION` were actually restored —
+rather than trusting the matrix entry the brief asked for — runs the live-write
+suite on every supported Godot version, and comments the result on the PR.
+
 ## Posting and staged mode
 
 `GDK_ASSESS_MODE` in the publisher step of `gdk-release-assess.md` controls

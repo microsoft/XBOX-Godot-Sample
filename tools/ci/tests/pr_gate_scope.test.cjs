@@ -220,6 +220,36 @@ test('CI inputs fan out to their consumers', () => {
   const runner = classify('tools/run_all_tests.ps1');
   assert.equal(runner.editortools, true);
   assert.equal(runner.full, false);
+
+  // The shared Godot acquisition module and its CLI back the setup-godot
+  // action, so they have to fan out to the same consumers the manifest does.
+  for (const p of ['tools/ci/get_godot.ps1', 'tools/ci/GodotAcquisition.psm1']) {
+    const r = classify(p);
+    assert.deepEqual(r.components, ['gdk', 'playfab', 'gameinput'], p);
+    assert.equal(r.editortools, true, p);
+    assert.equal(r.parse.full, true, p);
+    assert.equal(r.full, false, p);
+    assert.deepEqual(r.fallback, [], p);
+  }
+});
+
+test('PR-local live validation tooling never runs in CI', () => {
+  // These drive a self-hosted machine with a real GDK, Xbox sandbox, and
+  // PlayFab title. The always-on ci-lint job parses them and runs their
+  // offline contract tests, so they must not pull in any addon gate.
+  const local = classify(
+    'tools/validate_pr_local.ps1',
+    'tools/ci/PrLocalValidation.psm1',
+    'tools/ci/tests/pr_local_validation.test.ps1',
+    '.github/skills/pr-local-validation/SKILL.md',
+    'docs/ci/pr-local-validation.md',
+  );
+  assert.equal(local.full, false);
+  assertNoNative(local);
+  assert.equal(local.parse.enabled, false);
+  assert.equal(local.gdk_watch, false);
+  assert.equal(local.triage, false);
+  assert.deepEqual(local.fallback, []);
 });
 
 test('core gate wiring and shared native inputs select everything', () => {

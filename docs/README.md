@@ -145,3 +145,6 @@ docs/
 - [**GDK release watch**](ci/gdk-release-watch.md) — weekly watcher for new
   `microsoft/GDK` releases that files a tracking issue and posts an AI advisory
   assessment on it as an implementation brief for a human or coding agent
+- [**PR-local live validation**](ci/pr-local-validation.md) — checks a pull
+  request out at its exact head commit on a GDK-capable machine, runs the full
+  live-write suite on every supported Godot version, and comments the result

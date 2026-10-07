@@ -232,7 +232,11 @@ const RULES = [
   {
     name: 'Godot version manifest / setup action',
     kind: 'specific',
-    test: (p) => p === '.github/godot-versions.json' || p.startsWith('.github/actions/setup-godot/'),
+    test: (p) =>
+      p === '.github/godot-versions.json' ||
+      p.startsWith('.github/actions/setup-godot/') ||
+      p === 'tools/ci/get_godot.ps1' ||
+      p === 'tools/ci/GodotAcquisition.psm1',
     apply: godotConsumers,
   },
   {
@@ -548,6 +552,13 @@ const RULES = [
       'tools/clean_repo.ps1',
       'tools/migrate_gdk_to_xbox.ps1',
       'tools/setup_sample.ps1',
+      // The PR-local live validation wrapper never runs in CI -- it drives a
+      // self-hosted machine with a real GDK, Xbox sandbox, and PlayFab title.
+      // Its pure logic and the offline contract tests are covered by the
+      // always-on ci-lint job, so it needs no addon gates.
+      'tools/validate_pr_local.ps1',
+      'tools/ci/PrLocalValidation.psm1',
+      'tools/ci/tests/pr_local_validation.test.ps1',
     ),
     apply: () => {},
   },

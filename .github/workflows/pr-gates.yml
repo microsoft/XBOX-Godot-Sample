@@ -165,6 +165,12 @@ jobs:
           if ($bad) { throw "$bad PowerShell parse error(s)." }
           Write-Host 'All tools/ PowerShell scripts parse.'
 
+      # Offline contract tests for the Godot acquisition policy and the
+      # PR-local validation verdict rules. No network, no Godot, no GDK.
+      - name: PR-local validation unit tests
+        shell: pwsh
+        run: ./tools/ci/tests/pr_local_validation.test.ps1
+
   parse-gate:
     needs: scope
     if: needs.scope.outputs.parse == 'true'
