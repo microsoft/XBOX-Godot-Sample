@@ -55,6 +55,14 @@
     reported as incomplete coverage (exit 2) even when every leg passes, because
     it is not the full-matrix evidence the unqualified report claims.
 
+.PARAMETER GdkVersion
+    Pin the build to a specific ms-gdk version, which must appear in the
+    candidate's .github/gdk-versions.json supported list. Without it the build
+    resolves ms-gdk from the candidate's vcpkg.json and registry baseline, which
+    is not necessarily the default that manifest declares. Only one GDK is built
+    per run: a second GDK means a full reconfigure plus the whole engine matrix
+    again, which is hours of additional live writes.
+
 .PARAMETER NoComment
     Produce the report but do not post it to the pull request.
 
@@ -68,6 +76,11 @@
     # A GDK-only bump: the native SDK surface does not vary by engine, so one
     # engine is usually enough to justify the change.
     pwsh -NoLogo -NoProfile -File .\tools\validate_pr_local.ps1 -PullRequest 202 -AllowLiveWrites -GodotVersion 4.6.1-stable
+
+.EXAMPLE
+    # Validate a supported edition the pull request adds without promoting it to
+    # default, which the plain build would otherwise never resolve.
+    pwsh -NoLogo -NoProfile -File .\tools\validate_pr_local.ps1 -PullRequest 202 -AllowLiveWrites -GdkVersion 2604.2.7849
 #>
 [CmdletBinding()]
 param(
@@ -79,6 +92,7 @@ param(
     [switch]$DryRun,
     [string]$WorkRoot,
     [string[]]$GodotVersion,
+    [string]$GdkVersion,
     [switch]$NoComment
 )
 
@@ -182,7 +196,7 @@ function Get-GitOutput {
 
 function Get-PullRequestMetadata {
     param([Parameter(Mandatory = $true)][int]$Number)
-    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,state,isCrossRepository,title,url 2>&1
+    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,state,isCrossRepository,title,url,files 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "gh pr view $Number failed: $($json | Out-String)"
     }
@@ -274,6 +288,70 @@ function Copy-RedistributableDlls {
     return $copied
 }
 
+function Test-PullRequestTouchesPath {
+    <#
+    .SYNOPSIS
+        Did this pull request change the given repository-relative path?
+    #>
+    param(
+        [Parameter(Mandatory = $true)]$Metadata,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+    $filesProp = $Metadata.PSObject.Properties['files']
+    if (-not $filesProp -or -not $filesProp.Value) { return $false }
+    $needle = $Path.Replace('\', '/')
+    foreach ($file in @($filesProp.Value)) {
+        if (([string]$file.path).Replace('\', '/') -ieq $needle) { return $true }
+    }
+    return $false
+}
+
+function Read-GdkManifest {
+    <#
+    .SYNOPSIS
+        Read the candidate checkout's declared GDK support list.
+    #>
+    param([Parameter(Mandatory = $true)][string]$ManifestPath)
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        throw "The candidate checkout has no GDK manifest at '$ManifestPath'."
+    }
+    $json = (Get-Content -LiteralPath $ManifestPath -Raw) | ConvertFrom-Json
+    $default = $null
+    if ($json.PSObject.Properties['default']) { $default = [string]$json.default }
+    $supported = @()
+    if ($json.PSObject.Properties['supported']) { $supported = @($json.supported) }
+    return [pscustomobject]@{ Default = $default; Supported = $supported }
+}
+
+function Set-MsGdkOverride {
+    <#
+    .SYNOPSIS
+        Pin ms-gdk in the candidate checkout's vcpkg manifest.
+    .DESCRIPTION
+        Mirrors .github/actions/build-addons/action.yml, which injects the same
+        top-level 'overrides' entry before configuring. Editing the candidate's
+        manifest is a deliberate, recorded deviation from its source: without it
+        the build resolves whatever the registry baseline offers, so a requested
+        edition could not be validated at all.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$Version
+    )
+    $manifestPath = Join-Path $CheckoutRoot 'vcpkg.json'
+    $json = (Get-Content -LiteralPath $manifestPath -Raw) | ConvertFrom-Json
+
+    $override = New-MsGdkOverride -Version $Version
+    $existing = @()
+    if ($json.PSObject.Properties['overrides']) {
+        $existing = @($json.overrides | Where-Object { $_ -and ([string]$_.name) -ne 'ms-gdk' })
+    }
+    $json | Add-Member -NotePropertyName 'overrides' -NotePropertyValue (@($override) + $existing) -Force
+
+    ($json | ConvertTo-Json -Depth 32) | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    return $manifestPath
+}
+
 function Get-SdkIdentity {
     <#
     .SYNOPSIS
@@ -360,6 +438,11 @@ try {
             Write-Host "  Engines         : narrowed by request to $($GodotVersion -join ', ') (validated against the candidate manifest; result will be reported as incomplete coverage)"
         } else {
             Write-Host '  Engines         : read from the candidate checkout .github/godot-versions.json'
+        }
+        if ($GdkVersion) {
+            Write-Host "  GDK             : pinned by request to ms-gdk $GdkVersion (validated against the candidate manifest; an overrides entry is written into the checkout's vcpkg.json)"
+        } else {
+            Write-Host '  GDK             : whatever the candidate vcpkg.json and registry baseline resolve, compared against .github/gdk-versions.json default'
         }
         Write-Host ''
         Write-Host '  Also performed: Debug build, SDK identity read from the built vcpkg tree,'
@@ -453,6 +536,18 @@ try {
         }
 
         # --- Debug build -------------------------------------------------------
+        # Resolve the GDK before the build too, for the same reason: a mistyped
+        # -GdkVersion must fail in seconds.
+        $gdkManifestPath = Join-Path $checkoutDir '.github\gdk-versions.json'
+        $gdkManifest = Read-GdkManifest -ManifestPath $gdkManifestPath
+        $gdk = Select-GdkVersion -Supported $gdkManifest.Supported -Default $gdkManifest.Default -Requested $GdkVersion
+        if ($gdk.Pinned) {
+            $pinnedManifest = Set-MsGdkOverride -CheckoutRoot $checkoutDir -Version $gdk.Version
+            Write-Warning "Pinned ms-gdk to $($gdk.Version) by writing an overrides entry into '$pinnedManifest'. The checkout no longer matches the pull request's vcpkg manifest exactly."
+        } else {
+            Write-Note "GDK (candidate default): $($gdk.Version)"
+        }
+
         Write-Phase 'Building Debug'
         $buildLog = Join-Path $logsDir 'build-debug.log'
         $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default') -LogPath $buildLog -WorkingDirectory $checkoutDir
@@ -463,6 +558,26 @@ try {
         $sdk = Get-SdkIdentity -CheckoutRoot $checkoutDir
         Write-Note "Resolved GDK edition : $($sdk.Edition)"
         Write-Note "Restored ms-gdk      : $($sdk.Package)"
+
+        # A pinned run asked for one exact SDK. If vcpkg resolved a different one
+        # the override did not take, and every result below would be attributed
+        # to an SDK that was never built.
+        if ($gdk.Pinned) {
+            if ($sdk.Package -ine $gdk.Version) {
+                throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
+            }
+            # We know we got the requested package, so a differing edition means
+            # the candidate's own version-to-edition mapping is wrong.
+            if ($gdk.Edition -and $sdk.Edition -ine $gdk.Edition) {
+                throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
+            }
+        }
+
+        $gdkManifestChanged = Test-PullRequestTouchesPath -Metadata $pr -Path '.github/gdk-versions.json'
+        $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
+        $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdk.Uncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
+        if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }
+        if ($gdkCoverageGap) { Write-Warning $gdkCoverageGap }
 
         # --- Engines -----------------------------------------------------------
         Write-Phase 'Preparing Godot engines'
@@ -614,6 +729,9 @@ If the run was interrupted, restore it manually from an elevated shell:
         # A narrowed matrix is honest coverage, not a failure, but it must never
         # settle as an unqualified pass: the report's claim is full-matrix.
         if ($matrix.Narrowed) { $statuses += 'incomplete' }
+        # Likewise for an SDK the candidate does not declare as its default: the
+        # run is real evidence, just not evidence for the version under review.
+        if ($gdkIdentityGap) { $statuses += 'incomplete' }
         $runStatus = Get-WorstStatus $statuses
 
         $finishedAt = [datetime]::UtcNow
@@ -624,6 +742,8 @@ If the run was interrupted, restore it manually from an elevated shell:
         if ($matrix.Narrowed) {
             $runGaps += "Godot matrix narrowed by request: ran $($matrix.Selected -join ', '); did not run $($matrix.Skipped -join ', ')."
         }
+        if ($gdkIdentityGap) { $runGaps += $gdkIdentityGap }
+        if ($gdkCoverageGap) { $runGaps += $gdkCoverageGap }
         if ($currentHead -ne $headSha) {
             $runReasons += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only."
         }
@@ -639,6 +759,9 @@ If the run was interrupted, restore it manually from an elevated shell:
             finished_at          = $finishedAt.ToString('o')
             gdk_edition          = $sdk.Edition
             ms_gdk_version       = $sdk.Package
+            gdk_pinned           = [bool]$gdk.Pinned
+            gdk_declared_default = $gdkManifest.Default
+            gdk_not_covered      = @($gdk.Uncovered)
             playfab_title_id     = $script:PlayFabTitleId
             sandbox_id           = $script:SandboxId
             sandbox_restored_to  = $originalSandbox

@@ -32,6 +32,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 | `-AllowLiveWrites` | Required to execute. Without it the script refuses, because every run writes to a live PlayFab title. |
 | `-DryRun` | Resolve the PR and print the plan, then exit 0. Also reports whether `XblPCSandbox.exe` was found and whether the shell is elevated, so you can tell up front if the machine can run it. |
 | `-GodotVersion <v>[,<v>]` | Narrow the engine matrix. Each value must appear in the candidate's `.github/godot-versions.json` `supported` list; a typo fails immediately after checkout rather than wasting a build. A narrowed run is always reported as `incomplete` (exit 2). See [Narrowing the engine matrix](#narrowing-the-engine-matrix). |
+| `-GdkVersion <v>` | Pin the GDK. The value must appear in the candidate's `.github/gdk-versions.json` `supported` list. Writes an `ms-gdk` `overrides` entry into the checkout's `vcpkg.json` before configuring. See [Choosing the GDK](#choosing-the-gdk). |
 | `-NoComment` | Produce the artifacts but do not post to the PR. |
 | `-WorkRoot <path>` | Override the run-directory root. Defaults to `%LOCALAPPDATA%\godot-gdk-pr-validation`. |
 
@@ -42,10 +43,9 @@ By default the script runs every version in the candidate's
 minutes per engine. That is the right default: it is the evidence the posted
 comment claims.
 
-There is **no GDK matrix**. The script builds once against whatever the
-candidate's vcpkg manifest resolves, which is the single `default` entry in
-`.github/gdk-versions.json`. A PR that bumps the GDK is therefore already a
-one-SDK run; what multiplies the wall-clock time is the *Godot* matrix.
+Each run builds exactly **one** GDK. There is no GDK matrix, and adding one is
+not a cheap change: a second SDK means a full reconfigure plus the entire Godot
+matrix again, so the wall-clock cost multiplies rather than adds.
 
 For a GDK-only bump, the native GDK and PlayFab code does not branch on engine
 version, so one engine usually buys most of the signal:
@@ -61,11 +61,52 @@ claim with a callout naming exactly what ran and what did not. A run that
 covered one engine must not read as full-matrix green. If you want a clean
 exit 0, run the full matrix.
 
-> Caveat: `-GodotVersion` does not change which GDK is built. If a PR adds a
-> version to the `supported` list in `.github/gdk-versions.json` without
-> promoting it to `default`, this script still validates the `default` SDK.
-> Confirm the `gdk_edition` / `ms_gdk_version` fields in
-> `validation-manifest.json` match the version the PR claims to add.
+### Choosing the GDK
+
+Nothing in the local build path reads `.github/gdk-versions.json` — that file
+is consumed by CI, which injects an `ms-gdk` override into `vcpkg.json` before
+configuring. Locally, `cmake --preset default` resolves `ms-gdk` from whatever
+`vcpkg.json` and the `vcpkg-configuration.json` registry baseline happen to
+select. The manifest's `default` is therefore an *expectation*, not a
+guarantee.
+
+That matters because a PR can advance the declared default, or add a
+`supported` entry without promoting it, while the local build silently keeps
+the old SDK — and the comment's accurate "edition 260401" line then reads as if
+it had validated the PR's claim.
+
+The script closes this two ways:
+
+- **It always checks.** After the Debug build it reads the real
+  `_GRDK_EDITION` and `ms-gdk` version out of the built vcpkg tree and compares
+  them with the candidate's declared `default`. A mismatch becomes a coverage
+  gap and floors the run to `incomplete` (exit 2), naming both versions.
+- **You can pin.** `-GdkVersion` writes the same `ms-gdk` override CI uses into
+  the checkout's `vcpkg.json` before configuring:
+
+  ```powershell
+  pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.ps1 `
+      -PullRequest 202 -AllowLiveWrites -GdkVersion 2604.2.7849
+  ```
+
+  The value must be in the candidate's `supported` list. If vcpkg still
+  restores something else, the run **fails hard** rather than attributing the
+  results to an SDK that was never built — we asked for a specific SDK, so a
+  silent substitution invalidates everything downstream. A pinned run also
+  cross-checks the resolved `_GRDK_EDITION` against the edition the candidate's
+  manifest maps to that version, which catches a wrong edition number in the PR
+  itself. Unpinned runs skip that check, because there a differing edition just
+  means the registry baseline chose a different SDK — the coverage gap above.
+
+Pinning edits the checkout, so the run no longer matches the PR byte for byte;
+the script warns when it does this, and the posted comment says `pinned by
+request` instead of `inherited from the candidate checkout`.
+
+When a PR *changes* `.github/gdk-versions.json`, any supported version the run
+did not build is reported as a coverage gap with the command to cover it. For
+PRs that do not touch that file this is suppressed: every run leaves the
+non-default editions unbuilt, so reporting it unconditionally would make the
+gap list meaningless.
 
 ### Prerequisites
 

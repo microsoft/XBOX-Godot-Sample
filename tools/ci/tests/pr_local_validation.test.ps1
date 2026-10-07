@@ -554,6 +554,103 @@ try {
         }
     }
 
+    # --------------------------------------------------------------------------
+    Write-Host 'PrLocalValidation: GDK selection and identity'
+    # --------------------------------------------------------------------------
+
+    $supportedGdk = @(
+        [pscustomobject]@{ version = '2604.2.7849'; edition = '260402'; release = 'April 2026' },
+        [pscustomobject]@{ version = '2604.1.7839'; edition = '260401'; release = 'April 2026' },
+        [pscustomobject]@{ version = '2510.2.6247'; edition = '251002'; release = 'October 2025' }
+    )
+
+    Test-Case 'no request falls back to the candidate default and is not marked pinned' {
+        $g = Select-GdkVersion -Supported $supportedGdk -Default '2604.1.7839'
+        Assert-Equal '2604.1.7839' $g.Version 'Should build the candidate default.'
+        Assert-Equal '260401' $g.Edition 'The declared edition should come from the manifest entry.'
+        Assert-True (-not $g.Pinned) 'An unrequested GDK must not be reported as pinned.'
+        Assert-Equal 2 @($g.Uncovered).Count 'The other supported versions are uncovered.'
+    }
+
+    Test-Case 'a requested version is pinned and ignores case' {
+        $g = Select-GdkVersion -Supported $supportedGdk -Default '2604.1.7839' -Requested '2604.2.7849'
+        Assert-Equal '2604.2.7849' $g.Version 'Should build the requested version.'
+        Assert-Equal '260402' $g.Edition 'Should carry the requested entry edition.'
+        Assert-True $g.Pinned 'An explicit request must be reported as pinned.'
+        Assert-True (@($g.Uncovered) -notcontains '2604.2.7849') 'The built version must not be listed as uncovered.'
+    }
+
+    Test-Case 'an unsupported GDK is rejected and the error names the real choices' {
+        Assert-Throws -MatchPattern 'not in this pull request' -Body {
+            Select-GdkVersion -Supported $supportedGdk -Default '2604.1.7839' -Requested '2604.3.7874'
+        }
+        Assert-Throws -MatchPattern '2604\.2\.7849' -Body {
+            Select-GdkVersion -Supported $supportedGdk -Default '2604.1.7839' -Requested '2604.3.7874'
+        }
+    }
+
+    Test-Case 'a missing default or empty support list is an error, not an arbitrary SDK' {
+        Assert-Throws -MatchPattern 'no default GDK version' -Body {
+            Select-GdkVersion -Supported $supportedGdk -Default ''
+        }
+        Assert-Throws -MatchPattern 'no supported GDK versions' -Body {
+            Select-GdkVersion -Supported @() -Default '2604.1.7839'
+        }
+    }
+
+    Test-Case 'a default missing from the support list still builds but carries no declared edition' {
+        $g = Select-GdkVersion -Supported $supportedGdk -Default '2604.9.9999'
+        Assert-Equal '2604.9.9999' $g.Version 'The declared default should still be the expectation.'
+        Assert-True ($null -eq $g.Edition) 'An unlisted default has no manifest edition to assert against.'
+    }
+
+    Test-Case 'the vcpkg override matches the shape CI injects' {
+        $o = New-MsGdkOverride -Version '2604.2.7849'
+        Assert-Equal 'ms-gdk' $o.name 'The override must target the ms-gdk port.'
+        Assert-Equal '2604.2.7849' $o.version 'The override must carry the requested version.'
+        $json = $o | ConvertTo-Json -Compress
+        Assert-True ($json -like '*"name":"ms-gdk"*') "Unexpected override JSON: $json"
+        Assert-Throws -MatchPattern 'non-version string' -Body { New-MsGdkOverride -Version 'latest' }
+    }
+
+    Test-Case 'uncovered editions are only reported when the pull request edits the support list' {
+        $none = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2510.2.6247') -ManifestChanged $false -PullRequest 202
+        Assert-True ($null -eq $none) 'Every run leaves editions unbuilt; reporting that always would be noise.'
+
+        $gap = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2510.2.6247') -ManifestChanged $true -PullRequest 202
+        Assert-True ($gap -like '*2510.2.6247*') 'The unvalidated edition was not named.'
+        Assert-True ($gap -like '*-GdkVersion*') 'The gap must say how to cover the remaining editions.'
+    }
+
+    Test-Case 'a support-list change with nothing left uncovered reports no gap' {
+        $gap = Get-GdkCoverageGap -Selected '2604.2.7849' -Uncovered @() -ManifestChanged $true -PullRequest 202
+        Assert-True ($null -eq $gap) 'Full coverage must not produce a gap.'
+    }
+
+    Test-Case 'building an SDK other than the declared default is reported as a gap' {
+        $gap = Get-GdkIdentityGap -Expected '2604.2.7849' -Restored '2604.1.7839' -Pinned $false
+        Assert-True ($gap -like '*2604.2.7849*') 'The expected version is missing from the gap.'
+        Assert-True ($gap -like '*2604.1.7839*') 'The actually-built version is missing from the gap.'
+        Assert-True ($gap -like '*registry baseline*') 'The gap must explain why the two can differ.'
+    }
+
+    Test-Case 'a matching or deliberately pinned SDK produces no identity gap' {
+        Assert-True ($null -eq (Get-GdkIdentityGap -Expected '2604.2.7849' -Restored '2604.2.7849' -Pinned $false)) 'A matching SDK is not a gap.'
+        Assert-True ($null -eq (Get-GdkIdentityGap -Expected '2604.1.7839' -Restored '2604.2.7849' -Pinned $true)) 'A pinned run deliberately overrides the default.'
+    }
+
+    Test-Case 'the comment distinguishes a pinned GDK from an inherited one' {
+        $inherited = Format-ValidationComment -Manifest $manifestObject
+        Assert-True ($inherited -like '*inherited from the candidate checkout*') 'An unpinned run should say the SDK was inherited.'
+        Assert-True (-not ($inherited -like '*-GdkVersion*')) 'An unpinned run must not suggest it pinned anything.'
+
+        $pinned = $manifestObject.PSObject.Copy()
+        $pinned | Add-Member -NotePropertyName 'gdk_pinned' -NotePropertyValue $true
+        $body = Format-ValidationComment -Manifest $pinned
+        Assert-True ($body -like '*pinned by request*') 'A pinned run should say so.'
+        Assert-True ($body -like '*-GdkVersion 2604.2.7849*') 'The reproduce command should carry the pinned SDK.'
+    }
+
     Test-Case 'run directory names are commit-scoped and reject non-SHA input' {
         $name = New-RunDirectoryName -PullRequest 202 -HeadSha ('a' * 40) -TimestampUtc ([datetime]::new(2026, 1, 2, 3, 4, 5, [DateTimeKind]::Utc))
         Assert-Equal 'pr-202-aaaaaaaaaaaa-20260102T030405Z' $name 'Unexpected run directory name.'

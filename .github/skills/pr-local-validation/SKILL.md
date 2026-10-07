@@ -17,7 +17,8 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 ```
 
 Add `-DryRun` first to print the plan without touching anything. Add `-NoComment` to keep
-the result local.
+the result local. Add `-GodotVersion <v>[,<v>]` to narrow the engine matrix, or
+`-GdkVersion <v>` to pin a specific supported GDK.
 
 `tools\validate_pr_local.ps1` is the whole workflow. Do not reimplement its steps by hand,
 and do not substitute a narrower run for it when the user asked for live validation.
@@ -31,9 +32,9 @@ and do not substitute a narrower run for it when the user asked for live validat
   directory. A dirty local tree, a stale `build\`, or leftover mirrored addons would make
   the result meaningless.
 - **Never source logic from the candidate PR.** The wrapper, its modules, and its policy
-  come from the *trusted* checkout you launched from. Only `tools\run_all_tests.ps1` and
-  `.github\godot-versions.json` are read from the candidate, because those are the things
-  under test.
+  come from the *trusted* checkout you launched from. Only `tools\run_all_tests.ps1`,
+  `.github\godot-versions.json`, and `.github\gdk-versions.json` are read from the
+  candidate, because those are the things under test.
 - **Run every supported engine by default.** The engine list comes from the candidate
   checkout's `.github\godot-versions.json`, not from a hard-coded list and not from
   whatever Godot is installed on the machine. Each engine is downloaded fresh and
@@ -44,11 +45,15 @@ and do not substitute a narrower run for it when the user asked for live validat
   A narrowed run is floored to `incomplete` (exit 2) by design and its PR comment says
   which engines were skipped. When reporting such a run, lead with the narrowing; never
   describe it as a passing validation.
-- **`-GodotVersion` does not pick a GDK.** There is no GDK matrix. The build resolves the
-  single `default` from `.github\gdk-versions.json`. If the PR adds a GDK to `supported`
-  without promoting it to `default`, this run validates the *old* SDK — check
-  `gdk_edition` in the manifest against what the PR claims before reporting it as
-  evidence for that version.
+- **One GDK per run; pin it when the PR is about the GDK.** Nothing in the local build
+  path reads `.github\gdk-versions.json` — CI injects an `ms-gdk` override, but
+  `cmake --preset default` just resolves the registry baseline. So the manifest `default`
+  is an expectation, not a guarantee. The run always compares the restored SDK against
+  that expectation and reports a mismatch as a coverage gap that floors it to
+  `incomplete`. Use `-GdkVersion <v>` to write the same override CI uses and build a
+  specific supported SDK; if vcpkg then restores something else the run fails hard.
+  Pinning edits the checkout, so say so when reporting. There is no GDK matrix: a second
+  SDK means a full reconfigure plus the whole Godot matrix again.
 - **A green exit code is not a pass.** `run_all_tests.ps1` can exit 0 while covering
   nothing: an unfiltered PlayFab Multiplayer run may pass with zero scenarios, and a live
   GUT host may report every test pending. `Get-EngineLegVerdict` downgrades those to
