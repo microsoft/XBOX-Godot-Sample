@@ -875,6 +875,129 @@ try {
         Assert-True ($wrapper.Contains("Invoke-Logged -FilePath 'gh'")) 'Could not locate the gh publication call.'
         Assert-True (-not ($wrapper -match "FilePath 'gh'[\s\S]{0,400}?-ScrubCredentials")) 'The trusted gh call must keep its credentials.'
     }
+
+    # --------------------------------------------------------------------------
+    Write-Host 'Run-level verdict'
+    # --------------------------------------------------------------------------
+
+    $greenRun = @{
+        LegStatuses       = @('pass', 'pass')
+        ReleaseStatus     = 'pass'
+        MatrixNarrowed    = $false
+        HasGdkIdentityGap = $false
+        HasGdkCoverageGap = $false
+        HeadMoved         = $false
+    }
+
+    Test-Case 'an all-green run passes' {
+        Assert-Equal 'pass' (Get-RunVerdict @greenRun) 'A fully green run must pass.'
+    }
+
+    # The finding: a GDK support-list change names editions one run cannot
+    # build. That gap was reported in the comment but never graded, so the
+    # heading read PASS above unvalidated support claims.
+    Test-Case 'an unvalidated GDK support edition floors the verdict at incomplete' {
+        $args = $greenRun.Clone()
+        $args.HasGdkCoverageGap = $true
+        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A GDK coverage gap must prevent an unqualified pass.'
+    }
+
+    Test-Case 'a narrowed Godot matrix floors the verdict at incomplete' {
+        $args = $greenRun.Clone()
+        $args.MatrixNarrowed = $true
+        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A narrowed matrix must prevent an unqualified pass.'
+    }
+
+    Test-Case 'an SDK identity gap floors the verdict at incomplete' {
+        $args = $greenRun.Clone()
+        $args.HasGdkIdentityGap = $true
+        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'An identity gap must prevent an unqualified pass.'
+    }
+
+    Test-Case 'a moved head floors the verdict at incomplete' {
+        $args = $greenRun.Clone()
+        $args.HeadMoved = $true
+        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A moved head must prevent an unqualified pass.'
+    }
+
+    Test-Case 'a failed Release build fails the run' {
+        $args = $greenRun.Clone()
+        $args.ReleaseStatus = 'fail'
+        Assert-Equal 'fail' (Get-RunVerdict @args) 'A failed Release build must fail the run.'
+    }
+
+    # Coverage gaps must never soften a real failure.
+    Test-Case 'a coverage gap cannot downgrade a failing leg' {
+        $args = $greenRun.Clone()
+        $args.LegStatuses = @('pass', 'fail')
+        $args.HasGdkCoverageGap = $true
+        Assert-Equal 'fail' (Get-RunVerdict @args) 'A gap must not mask a failing leg.'
+    }
+
+    Test-Case 'an error leg outranks every coverage gap' {
+        $args = $greenRun.Clone()
+        $args.LegStatuses = @('error')
+        $args.MatrixNarrowed = $true
+        $args.HasGdkCoverageGap = $true
+        Assert-Equal 'error' (Get-RunVerdict @args) 'An error leg must stay an error.'
+    }
+
+    # Nothing measured is not success.
+    Test-Case 'a run with no engine legs is an error' {
+        $args = $greenRun.Clone()
+        $args.LegStatuses = @()
+        Assert-Equal 'error' (Get-RunVerdict @args) 'A run that measured nothing must not pass.'
+    }
+
+    Test-Case 'incomplete maps to a nonzero exit code' {
+        Assert-True ((Get-ExitCodeForStatus 'incomplete') -ne 0) 'An incomplete run must not exit 0.'
+    }
+
+    # --------------------------------------------------------------------------
+    Write-Host 'Wrapper verdict and lock call sites'
+    # --------------------------------------------------------------------------
+
+    Test-Case 'the wrapper grades the run through Get-RunVerdict' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+        Assert-True ($wrapper -match '\$runStatus\s*=\s*Get-RunVerdict') 'The wrapper must fold its verdict through Get-RunVerdict.'
+        foreach ($flag in @('-HasGdkCoverageGap', '-HasGdkIdentityGap', '-MatrixNarrowed', '-HeadMoved', '-ReleaseStatus')) {
+            Assert-True ($wrapper.Contains($flag)) "The wrapper must pass $flag to Get-RunVerdict."
+        }
+    }
+
+    # The edition check used to live inside `if ($gdk.Pinned)`, so an unpinned
+    # run that restored exactly the declared default still skipped it: a PR that
+    # mapped that version to the wrong edition produced no identity gap and
+    # passed. Gate it on "the restored package is the selected one" instead.
+    Test-Case 'the declared edition is validated on the unpinned path too' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+
+        Assert-True ($wrapper.Contains('if ($gdk.Edition -and $sdk.Package -ieq $gdk.Version -and $sdk.Edition -ine $gdk.Edition)')) 'The edition check must trigger whenever the restored package is the selected one.'
+        # Package substitution stays pin-specific: an unpinned run resolving a
+        # different version is the ordinary baseline case, reported as a gap.
+        Assert-True ($wrapper.Contains('if ($gdk.Pinned -and $sdk.Package -ine $gdk.Version)')) 'The package-substitution check must stay pin-specific.'
+        Assert-True (-not ($wrapper -match 'if \(\$gdk\.Pinned\) \{[\s\S]{0,600}?\$sdk\.Edition -ine')) 'The edition check must not be nested inside the pinned-only branch.'
+    }
+
+
+    # Letting that escape skips the finally that releases the mutex, which wedges
+    # every later run on the machine.
+    Test-Case 'an abandoned lock is treated as acquired rather than fatal' {
+        $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
+        $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
+        Assert-True ($wrapper.Contains('catch [System.Threading.AbandonedMutexException]')) 'The wrapper must catch AbandonedMutexException.'
+        Assert-True ($wrapper -match 'AbandonedMutexException\][\s\S]{0,600}?\$lockAcquired\s*=\s*\$true') 'An abandoned lock must be treated as acquired so the finally releases it.'
+        Assert-True ($wrapper -match 'AbandonedMutexException\][\s\S]{0,600}?Write-Warning') 'An abandoned lock must warn about the interrupted run.'
+    }
+
+    # The genuine abandoned state cannot be synthesized here: a child process
+    # that exits cleanly releases the mutex, a hard kill is not reproducible in
+    # a test, and this suite also runs on Linux where named-mutex semantics
+    # differ. The assertions above are therefore call-site shape only; the
+    # .NET contract they rely on (WaitOne transfers ownership, then throws) is
+    # documented behaviour, not something this suite proves.
 } finally {
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

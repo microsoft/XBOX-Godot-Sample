@@ -92,11 +92,15 @@ The script closes this two ways:
   The value must be in the candidate's `supported` list. If vcpkg still
   restores something else, the run **fails hard** rather than attributing the
   results to an SDK that was never built — we asked for a specific SDK, so a
-  silent substitution invalidates everything downstream. A pinned run also
-  cross-checks the resolved `_GRDK_EDITION` against the edition the candidate's
-  manifest maps to that version, which catches a wrong edition number in the PR
-  itself. Unpinned runs skip that check, because there a differing edition just
-  means the registry baseline chose a different SDK — the coverage gap above.
+  silent substitution invalidates everything downstream.
+
+Whether or not you pin, the run cross-checks the resolved `_GRDK_EDITION`
+against the edition the candidate's manifest maps to that version, **whenever
+the SDK that got restored is the one the manifest selected**. That catches a
+wrong edition number in the PR itself, which is a defect on the unpinned path
+too. Only the *substitution* check is pin-specific: an unpinned run resolving a
+different version is the ordinary registry-baseline case, reported as the
+coverage gap above rather than a hard failure.
 
 Pinning edits the checkout, so the run no longer matches the PR byte for byte;
 the script warns when it does this, and the posted comment says `pinned by
@@ -221,11 +225,23 @@ own exit code is the one signal the file cannot carry — an orchestrator that d
 writing a green summary leaves no trace in it. The wrapper passes that exit code to
 `Get-EngineLegVerdict -OrchestratorExitCode`, and anything nonzero fails the leg outright.
 
-The worst leg wins. `incomplete` is reported as `incomplete`, never rounded up to a pass.
-A `-GodotVersion` run floors the overall verdict to `incomplete` for the same reason,
-independently of how the individual legs graded. So does a head that moved mid-run: the
-evidence then describes the old commit, and is labelled as such instead of published as a
-pass for the new one.
+The worst leg wins, but legs are not the only input. `Get-RunVerdict` folds the leg
+verdicts together with the run-level conditions below, so that anything the report lists
+as a gap also moves the verdict — a `PASS` heading above a list of things the run never
+validated is exactly the failure mode this tool exists to prevent:
+
+| Run-level condition | Effect |
+| --- | --- |
+| Release build failed | `fail` |
+| `-GodotVersion` narrowed the matrix | floors to `incomplete` |
+| Resolved SDK is not the candidate's declared default | floors to `incomplete` |
+| A GDK support-list change named editions this run could not build | floors to `incomplete` |
+| The PR head moved mid-run | floors to `incomplete` |
+| No engine legs ran at all | `error` |
+
+`incomplete` is reported as `incomplete`, never rounded up to a pass, and exits 2. A head
+that moved mid-run is the clearest case: the evidence then describes the old commit, and
+is labelled as such instead of published as a pass for the new one.
 
 `cpp-doctest` is asserted on the **first** engine leg only, because the wrapper deliberately
 appends `-SkipDoctest` to later legs — the native suite does not depend on the engine.
@@ -265,7 +281,10 @@ provisions, and never needs `PLAYFAB_DEVELOPER_SECRET_KEY`.
 
 - **The mutex is machine-local.** It cannot serialize against the nightly `playfab-live`
   workflow or another developer's machine. Confirm the nightly is not mid-run before
-  starting.
+  starting. If a previous run was killed rather than allowed to exit, the next run takes
+  the abandoned lock and warns instead of refusing forever — but that warning matters:
+  the dead run never restored the Xbox sandbox and never finished its live writes, so
+  check both before trusting the new run.
 - **This does not cover console targets, packaging, or submission.** The report says so
   explicitly under "Not covered by this run"; keep that section honest.
 - **Only title `10D176` is exercised.** Nothing here says anything about any other title.

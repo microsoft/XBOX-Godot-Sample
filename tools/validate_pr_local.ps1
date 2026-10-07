@@ -536,7 +536,19 @@ try {
     }
 
     $lock = [System.Threading.Mutex]::new($false, $script:LockName)
-    if (-not $lock.WaitOne(0)) {
+    $lockAcquired = $false
+    try {
+        $lockAcquired = $lock.WaitOne(0)
+    } catch [System.Threading.AbandonedMutexException] {
+        # A previous run was killed without releasing the mutex. WaitOne grants
+        # *this* process ownership and then throws, so letting the exception
+        # escape would skip the finally that releases it and wedge every later
+        # run. Take it, and warn: the dead run may have left the machine in its
+        # sandbox, and its PlayFab writes were never completed or cleaned up.
+        $lockAcquired = $true
+        Write-Warning "The previous local validation run on this machine did not exit cleanly (abandoned lock). Continuing, but check that the Xbox sandbox and any in-flight PlayFab state from that run are what you expect."
+    }
+    if (-not $lockAcquired) {
         throw "Another local validation run is already in progress on this machine. Live writes target a single shared PlayFab title, so runs must not overlap."
     }
     Write-Warning "Live writes target the shared PlayFab title $script:PlayFabTitleId. Coordinate with the nightly 'playfab-live' workflow before continuing; this lock only covers this machine."
@@ -608,16 +620,17 @@ try {
 
         # A pinned run asked for one exact SDK. If vcpkg resolved a different one
         # the override did not take, and every result below would be attributed
-        # to an SDK that was never built.
-        if ($gdk.Pinned) {
-            if ($sdk.Package -ine $gdk.Version) {
-                throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
-            }
-            # We know we got the requested package, so a differing edition means
-            # the candidate's own version-to-edition mapping is wrong.
-            if ($gdk.Edition -and $sdk.Edition -ine $gdk.Edition) {
-                throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
-            }
+        # to an SDK that was never built. Only a pin can make this a hard error:
+        # an unpinned run resolving something else is the ordinary registry
+        # baseline case, which Get-GdkIdentityGap reports as a coverage gap.
+        if ($gdk.Pinned -and $sdk.Package -ine $gdk.Version) {
+            throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
+        }
+        # Whenever the build restored the package the candidate's support list
+        # describes - pinned or not - its declared edition becomes a checkable
+        # claim, and a wrong mapping would silently mislabel every result below.
+        if ($gdk.Edition -and $sdk.Package -ieq $gdk.Version -and $sdk.Edition -ine $gdk.Edition) {
+            throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
         }
 
         $gdkManifestChanged = Test-PullRequestTouchesPath -Metadata $pr -Path '.github/gdk-versions.json'
@@ -801,15 +814,12 @@ If the run was interrupted, restore it manually from an elevated shell:
         $headMoved = ($currentHead -ne $headSha)
 
         $statuses = @($legs | ForEach-Object { $_.status })
-        if ($releaseStatus -ne 'pass') { $statuses += 'fail' }
-        # A narrowed matrix is honest coverage, not a failure, but it must never
-        # settle as an unqualified pass: the report's claim is full-matrix.
-        if ($matrix.Narrowed) { $statuses += 'incomplete' }
-        # Likewise for an SDK the candidate does not declare as its default: the
-        # run is real evidence, just not evidence for the version under review.
-        if ($gdkIdentityGap) { $statuses += 'incomplete' }
-        if ($headMoved) { $statuses += 'incomplete' }
-        $runStatus = Get-WorstStatus $statuses
+        $runStatus = Get-RunVerdict -LegStatuses $statuses `
+            -ReleaseStatus $releaseStatus `
+            -MatrixNarrowed ([bool]$matrix.Narrowed) `
+            -HasGdkIdentityGap ([bool]$gdkIdentityGap) `
+            -HasGdkCoverageGap ([bool]$gdkCoverageGap) `
+            -HeadMoved $headMoved
 
         $finishedAt = [datetime]::UtcNow
         $runReasons = @()

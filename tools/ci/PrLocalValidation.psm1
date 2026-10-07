@@ -771,6 +771,48 @@ function Get-GdkIdentityGap {
     return ("The candidate declares default GDK ``{0}`` but the build resolved ``{1}``. The local default build resolves ``ms-gdk`` from ``vcpkg.json`` and the registry baseline, not from ``.github/gdk-versions.json``. Re-run with ``-GdkVersion {0}`` to pin it." -f $Expected, $Restored)
 }
 
+function Get-RunVerdict {
+    <#
+    .SYNOPSIS
+        Fold every engine leg and every run-level coverage gap into one verdict.
+    .DESCRIPTION
+        The run status is the worst of the per-engine leg verdicts and the
+        run-level conditions below. The distinction that matters is 'fail' for
+        something that went wrong versus 'incomplete' for evidence that is
+        sound but narrower than the report's headline claim. Anything that
+        appears in the report as a gap must also appear here, or the comment
+        can read PASS above a list of things the run never validated.
+
+        - A failed Release build is a real failure.
+        - A narrowed Godot matrix is honest coverage of fewer engines than the
+          report claims, so it floors the verdict at 'incomplete'.
+        - A GDK identity gap means the build resolved an SDK other than the one
+          the candidate declares: real evidence, for the wrong version.
+        - A GDK coverage gap means a support-list change named editions this
+          run could not build, since one run builds one GDK.
+        - A moved head means the evidence describes an obsolete commit.
+    .OUTPUTS
+        One of 'pass', 'incomplete', 'fail', 'error'.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$LegStatuses,
+        [Parameter(Mandatory = $true)][string]$ReleaseStatus,
+        [Parameter(Mandatory = $true)][bool]$MatrixNarrowed,
+        [Parameter(Mandatory = $true)][bool]$HasGdkIdentityGap,
+        [Parameter(Mandatory = $true)][bool]$HasGdkCoverageGap,
+        [Parameter(Mandatory = $true)][bool]$HeadMoved
+    )
+    $statuses = @($LegStatuses)
+    if ($ReleaseStatus -ne 'pass') { $statuses += 'fail' }
+    if ($MatrixNarrowed) { $statuses += 'incomplete' }
+    if ($HasGdkIdentityGap) { $statuses += 'incomplete' }
+    if ($HasGdkCoverageGap) { $statuses += 'incomplete' }
+    if ($HeadMoved) { $statuses += 'incomplete' }
+    # No legs at all is not a pass: nothing was measured.
+    if ($statuses.Count -eq 0) { return 'error' }
+    return Get-WorstStatus $statuses
+}
+
 function New-RunDirectoryName {
     <#
     .SYNOPSIS
@@ -811,6 +853,7 @@ Export-ModuleMember -Function @(
     'Select-GdkVersion',
     'New-MsGdkOverride',
     'Get-GdkCoverageGap',
+    'Get-RunVerdict',
     'Get-GdkIdentityGap',
     'New-RunDirectoryName'
 )
