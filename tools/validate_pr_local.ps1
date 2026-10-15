@@ -286,7 +286,7 @@ function Get-ChangedPathsFromCheckout {
         }
         $out = Get-GitOutput -ArgumentList @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', $mergeBase, $HeadSha) -WorkingDirectory $CheckoutDir
     } catch {
-        Write-Warning "Could not derive the files head $HeadSha changes against base '$BaseRef' ($($_.Exception.Message)). Treating the change list as unknown."
+        Write-Warning -WarningAction Continue "Could not derive the files head $HeadSha changes against base '$BaseRef' ($($_.Exception.Message)). Treating the change list as unknown."
         return [pscustomobject]@{ Paths = @(); Complete = $false }
     }
     $paths = @(($out -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -721,6 +721,8 @@ If the run was interrupted, restore it manually from an elevated shell:
         $sandboxLog = Join-Path $logsDir 'sandbox.log'
 
         $legs = @()
+        $sandboxRestoreFailed = $false
+        $sandboxRestoreError = $null
         try {
             if ($originalSandbox -ine $script:SandboxId) {
                 # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
@@ -845,7 +847,25 @@ If the run was interrupted, restore it manually from an elevated shell:
                 Write-Note "Sandbox restored to $originalSandbox"
                 Remove-Item -LiteralPath $restoreNote -ErrorAction SilentlyContinue
             } catch {
-                Write-Error "FAILED to restore the Xbox sandbox. Restore it manually: & `"$sandboxExe`" $originalSandbox /noApps  ($_)"
+                # $ErrorActionPreference is 'Stop', so Write-Error here would
+                # throw out of this finally and discard hours of live-write
+                # evidence before the manifest, report or comment are written.
+                # Record it instead: SANDBOX-RESTORE.txt stays on disk with the
+                # manual command, and the run verdict is floored to 'error' so
+                # a machine left in the test sandbox can never be published
+                # under a PASS heading.
+                # The flag, not the message, is the source of truth: an
+                # exception can carry an empty Message, and [bool]'' is $false,
+                # which would publish a PASS saying the sandbox was restored.
+                $sandboxRestoreFailed = $true
+                $sandboxRestoreError = $_.Exception.Message
+                if (-not $sandboxRestoreError) { $sandboxRestoreError = "$($_.Exception.GetType().FullName) (no message)" }
+                # -WarningAction Continue because Write-Warning is itself
+                # terminating when the caller passes -WarningAction Stop (or
+                # sets $WarningPreference), which would reintroduce the exact
+                # throw this catch exists to prevent.
+                Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox. Restore it manually: & `"$sandboxExe`" $originalSandbox /noApps  ($sandboxRestoreError)"
+                Write-Warning -WarningAction Continue "Leaving $restoreNote in place."
             }
         }
 
@@ -873,7 +893,8 @@ If the run was interrupted, restore it manually from an elevated shell:
             $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
         } catch {
             $headLookupError = $_.Exception.Message
-            Write-Warning "Could not re-read the pull request head after the run ($headLookupError). The results below cannot be confirmed to describe the current head."
+            if (-not $headLookupError) { $headLookupError = "$($_.Exception.GetType().FullName) (no message)" }
+            Write-Warning -WarningAction Continue "Could not re-read the pull request head after the run ($headLookupError). The results below cannot be confirmed to describe the current head."
         }
         $headMoved = ($null -ne $currentHead -and $currentHead -ne $headSha)
         $headUnverified = ($null -eq $currentHead)
@@ -885,12 +906,16 @@ If the run was interrupted, restore it manually from an elevated shell:
             -HasGdkIdentityGap ([bool]$gdkIdentityGap) `
             -HasGdkCoverageGap ([bool]$gdkCoverageGap) `
             -HeadMoved $headMoved `
-            -HeadUnverified $headUnverified
+            -HeadUnverified $headUnverified `
+            -SandboxRestoreFailed $sandboxRestoreFailed
 
         $finishedAt = [datetime]::UtcNow
         $runReasons = @()
         $runGaps = @()
         if ($releaseStatus -ne 'pass') { $runReasons += 'The Release build failed; see build-release.log.' }
+        if ($sandboxRestoreFailed) {
+            $runReasons += "The Xbox sandbox was NOT restored to ``$originalSandbox`` after the run ($sandboxRestoreError). This machine is still in ``$script:SandboxId``; restore it with: ``& `"$sandboxExe`" $originalSandbox /noApps``"
+        }
         if ($matrix.Narrowed) {
             $runGaps += "Godot matrix narrowed by request: ran $($matrix.Selected -join ', '); did not run $($matrix.Skipped -join ', ')."
         }
@@ -904,28 +929,30 @@ If the run was interrupted, restore it manually from an elevated shell:
         }
 
         $manifest = [pscustomobject]@{
-            schema_version       = 1
-            pull_request         = $PullRequest
-            repository           = $script:Repository
-            head_sha             = $headSha
-            head_sha_at_finish   = $currentHead
-            status               = $runStatus
-            started_at           = $startedAt.ToString('o')
-            finished_at          = $finishedAt.ToString('o')
-            gdk_edition          = $sdk.Edition
-            ms_gdk_version       = $sdk.Package
-            gdk_pinned           = [bool]$gdk.Pinned
-            gdk_declared_default = $gdkManifest.Default
-            gdk_not_covered      = @($gdkUncovered)
-            playfab_title_id     = $script:PlayFabTitleId
-            sandbox_id           = $script:SandboxId
-            sandbox_restored_to  = $originalSandbox
-            release_build_status = $releaseStatus
-            run_directory        = $runDir
-            engines              = @($legs)
-            engines_skipped      = @($matrix.Skipped)
-            reasons              = @($runReasons)
-            gaps                 = @($runGaps)
+            schema_version        = 1
+            pull_request          = $PullRequest
+            repository            = $script:Repository
+            head_sha              = $headSha
+            head_sha_at_finish    = $currentHead
+            status                = $runStatus
+            started_at            = $startedAt.ToString('o')
+            finished_at           = $finishedAt.ToString('o')
+            gdk_edition           = $sdk.Edition
+            ms_gdk_version        = $sdk.Package
+            gdk_pinned            = [bool]$gdk.Pinned
+            gdk_declared_default  = $gdkManifest.Default
+            gdk_not_covered       = @($gdkUncovered)
+            playfab_title_id      = $script:PlayFabTitleId
+            sandbox_id            = $script:SandboxId
+            sandbox_restored_to   = $originalSandbox
+            sandbox_restored      = (-not $sandboxRestoreFailed)
+            sandbox_restore_error = $sandboxRestoreError
+            release_build_status  = $releaseStatus
+            run_directory         = $runDir
+            engines               = @($legs)
+            engines_skipped       = @($matrix.Skipped)
+            reasons               = @($runReasons)
+            gaps                  = @($runGaps)
         }
 
         $manifestOut = Join-Path $runDir 'validation-manifest.json'

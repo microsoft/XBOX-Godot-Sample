@@ -190,7 +190,12 @@ running the candidate's build as Administrator only widens the blast radius.
    The C++ doctest binary is engine-independent, so it runs on the first leg only;
    subsequent legs add `-SkipDoctest`.
 10. **Restore the sandbox** in a `finally`. If restoration fails, `SANDBOX-RESTORE.txt`
-    stays behind with the command to run by hand.
+    stays behind with the command to run by hand, the manifest records
+    `sandbox_restored: false` plus the error, the report says the machine is still in the
+    test sandbox, and the run verdict is forced to `error`. The failure is deliberately
+    *not* thrown: by this point the live writes have already landed, and losing the
+    manifest, the report and the comment would discard hours of real evidence over a
+    machine-state problem that says nothing about the candidate's code.
 11. **Build Release** — `cmake --preset default-release` then
     `cmake --build --preset release`. This runs *after* the live matrix because builds
     mirror binaries into shared addon and test-host directories.
@@ -216,11 +221,11 @@ its `run-summary.json` rather than trusting the exit code:
 | Verdict | Exit code | Trigger |
 | --- | --- | --- |
 | `pass` | 0 | Live writes on, every required stage green, every required stage covered real tests. |
-| `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none or reported no passing count at all; or the orchestrator passed no scenarios. |
-| `fail` | 1 | `overall_status` was not `pass`, a required stage failed — including a parse gate that ran and did not pass — or `run_all_tests.ps1` itself exited nonzero. |
-| `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
+| `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none, reported no passing count at all, or reported no failing count at all; or the orchestrator passed no scenarios. |
+| `fail` | 1 | `overall_status` was not `pass`, a required stage failed — including a parse gate that ran and did not pass — a required GUT host reported a nonzero `failing` count, or `run_all_tests.ps1` itself exited nonzero. |
+| `error` | 1 | No summary, an unreadable summary, a leg that did not actually run live writes, or a required GUT host reporting a negative `failing` count. |
 
-The strictness is deliberate in three places that would otherwise read as green:
+The strictness is deliberate in four places that would otherwise read as green:
 
 - `live` and `live_writes` must be real JSON booleans. PowerShell casts every non-empty
   string to `$true`, so a summary carrying `"live": "false"` would otherwise satisfy exactly
@@ -231,6 +236,16 @@ The strictness is deliberate in three places that would otherwise read as green:
 - The parse gate is graded from its own stage status, not only from `overall_status`. Those
   are written by the same run, so a stale or inconsistent summary must not be able to leave a
   failed parse gate inside a passing leg.
+- A GUT host's `failing` count fails the leg on its own, independently of its stage status.
+  The status field and the tallies beside it are separate evidence from the same file, and
+  where they disagree the count is the harder of the two — without this, a summary carrying
+  `"status": "pass"` next to `"failing": 1` would put a `PASS` heading above a nonzero
+  `Failed` column. The reason text names the host and says the status disagreed. The same
+  suspicion runs the other way: a host that discovered tests and then reported *no* `failing`
+  count is `incomplete`, because an absent tally is as unconfirmed as a zero one and would
+  otherwise print as a clean `0`. A negative count is `error` — it is not a result this tool
+  can read, and it is not greater than zero, so a bare "did anything fail?" check would wave
+  it through.
 
 "Unreadable" covers more than a missing or truncated file. A summary that is valid JSON can
 still be uninterpretable — a counter that is not a number, a `stages` value that is not a
@@ -258,6 +273,7 @@ validated is exactly the failure mode this tool exists to prevent:
 | A GDK support-list change named editions this run could not build | floors to `incomplete` |
 | The PR head moved mid-run | floors to `incomplete` |
 | The PR head could not be re-read after the run | floors to `incomplete` |
+| The Xbox sandbox could not be restored | `error` |
 | No engine legs ran at all | `error` |
 
 The GDK support-list row depends on knowing which files the pull request changed, which the

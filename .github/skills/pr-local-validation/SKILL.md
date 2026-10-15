@@ -1,3 +1,13 @@
+---
+name: pr-local-validation
+description: >
+  Validate a pull request on real hardware: clone its exact head commit into a disposable
+  checkout, build it, run the full live-write test suite once per supported Godot version, build
+  Release, and publish an honest pass/incomplete/fail comment back on the pull request. Triggers:
+  validate a PR locally, run the live tests for a PR, local PR validation, run the live-write
+  suite, validate PR on hardware, pr-local-validation
+---
+
 # PR Local Validation Skill
 
 You are the repo-local pr-local-validation skill. Your job is to take a pull request and

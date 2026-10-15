@@ -1298,9 +1298,28 @@ try {
         Assert-True ($src -match '\$headLookupError = \$_\.Exception\.Message') 'A failed head re-read must be caught, not fatal.'
         Assert-True ($src -match '-HeadUnverified \$headUnverified') 'An unverified head must reach the verdict.'
         Assert-True ($src -match 'gdk_not_covered\s+= @\(\$gdkUncovered\)') 'The manifest must report the recomputed uncovered list.'
+        Assert-True ($src -match '\$sandboxRestoreError = \$_\.Exception\.Message') 'A failed sandbox restore must be recorded, not thrown.'
+        # The flag, not the message, must drive the verdict and the manifest:
+        # an exception can carry an empty Message, and [bool]'' is $false,
+        # which would publish a PASS claiming the sandbox was restored.
+        Assert-True ($src -match '\$sandboxRestoreFailed = \$true') 'A failed restore must set an explicit flag.'
+        Assert-True ($src -match '-SandboxRestoreFailed \$sandboxRestoreFailed') 'The verdict must read the flag, not the message.'
+        Assert-True ($src -match 'sandbox_restored\s+= \(-not \$sandboxRestoreFailed\)') 'The manifest must distinguish a failed restore from a confirmed one.'
+        Assert-True ($src -notmatch '\[bool\]\$sandboxRestoreError') 'An empty exception message must not read as a successful restore.'
+        # Write-Warning is itself terminating under -WarningAction Stop, so a
+        # warning that reports a degraded path must opt out of preference
+        # escalation or it reintroduces the throw it was written to replace.
+        Assert-Equal 4 (@([regex]::Matches($src, 'Write-Warning -WarningAction Continue')).Count) 'Every degradation warning must be non-escalatable.'
+        Assert-True ($src -match 'Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox') 'The restore warning must not be escalatable.'
+        Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not re-read the pull request head') 'The head re-read warning must not be escalatable.'
+        Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not derive the files head') 'The change-list warning must not be escalatable.'
         $headIndex = $src.IndexOf('$headLookupError = $_.Exception.Message')
-        $manifestIndex = $src.IndexOf('schema_version       = 1')
+        $restoreErrIndex = $src.IndexOf('$sandboxRestoreError = $_.Exception.Message')
+        # Matched loosely: pinning the exact padding would fail on a column
+        # realignment that changes nothing about the behaviour under test.
+        $manifestIndex = [regex]::Match($src, 'schema_version\s+= 1').Index
         Assert-True ($headIndex -gt 0 -and $manifestIndex -gt $headIndex) 'Evidence must still be written after a failed lookup.'
+        Assert-True ($restoreErrIndex -gt 0 -and $manifestIndex -gt $restoreErrIndex) 'Evidence must still be written after a failed restore.'
     }
 
     # ----------------------------------------------------------------------
@@ -1360,6 +1379,124 @@ try {
         )
         $body = Format-ValidationComment -Manifest $m
         Assert-True (-not ($body -like '*Signed-in Xbox identity on*')) 'A reported leg is graded, not listed as unknown.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host ''
+    Write-Host 'Reported failures and an unrestored sandbox are graded independently'
+    # ----------------------------------------------------------------------
+    # A stage's status field and the tallies beside it come from the same file,
+    # written by the run being graded. Where the two disagree, the count is the
+    # harder evidence, and the report would otherwise print a PASS heading over
+    # a nonzero Failed column.
+    Test-Case 'a host reporting failures fails the leg even when its status says pass' {
+        $summary = New-Summary -Stages @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Status 'pass' -Tests 10 -Passing 9 -Failing 1),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'fail' $v.Status 'A reported failure must fail the leg on its own.'
+        Assert-True (@($v.Reasons | Where-Object { $_ -match "gut:tests/godot/gdk reported 1 failing test\(s\) despite status='pass'" }).Count -gt 0) 'The reason must name the host and the disagreement.'
+        Assert-Equal 1 $v.Failing 'The failing count must still be reported.'
+    }
+
+    Test-Case 'a host reporting failures with no discovered tests is still a failure' {
+        # The tally is read before the test-count branch, so a host that also
+        # reports nothing discovered cannot swallow its own failures.
+        $summary = New-Summary -Stages @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Status 'pass' -Tests 0 -Passing 0 -Failing 2),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'fail' $v.Status 'A failure outranks the no-tests coverage gap.'
+        Assert-Equal 2 $v.Failing 'The failing count must be carried into the report.'
+    }
+
+    Test-Case 'a clean host tally is unaffected by the failure check' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary) -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'pass' $v.Status "A zero failing count must not fail the leg: $($v.Reasons -join '; ')"
+        Assert-Equal 0 $v.Failing 'No failures were reported.'
+    }
+
+    # A host that ran tests and then declined to say how many failed has not
+    # shown that none did. The same rule already applies to the passing count:
+    # an absent tally is as unconfirmed as a zero one, and $null coerces to 0
+    # on the way into the report's Failed column.
+    Test-Case 'a host that reports no failing count cannot confirm a clean result' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'), (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Failing $null),
+            (New-Stage -Name 'gut:tests/godot/playfab'), (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'bootstrap:tests/godot/gdk'), (New-Stage -Name 'bootstrap:tests/godot/playfab'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput')
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'incomplete' $v.Status 'An absent failure tally cannot support a pass.'
+        Assert-True (@($v.Gaps | Where-Object { $_ -match 'no failing count' }).Count -gt 0) 'The gap must name the missing tally.'
+    }
+
+    Test-Case 'a negative failing count is an unreadable result, not a pass' {
+        # -1 is not greater than zero, so a bare "> 0" guard would wave it
+        # through as a clean host.
+        $stages = @(
+            (New-Stage -Name 'parse-gate'), (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Failing -1),
+            (New-Stage -Name 'gut:tests/godot/playfab'), (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'bootstrap:tests/godot/gdk'), (New-Stage -Name 'bootstrap:tests/godot/playfab'),
+            (New-Stage -Name 'bootstrap:tests/godot/gameinput')
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'error' $v.Status 'An impossible tally must not be graded as a result.'
+        Assert-True (@($v.Reasons | Where-Object { $_ -match 'negative failing count' }).Count -gt 0) 'The reason must name the bad value.'
+    }
+
+    # A sandbox this run could not put back is an operator action item, not a
+    # statement about the candidate's code -- but it must never sit under a PASS
+    # heading, and the evidence must still be published.
+    Test-Case 'a failed sandbox restore errors the run verdict' {
+        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' `
+            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false `
+            -HeadMoved $false -HeadUnverified $false -SandboxRestoreFailed $true
+        Assert-Equal 'error' $status 'A machine left in the test sandbox cannot be a pass.'
+    }
+
+    Test-Case 'a restored sandbox leaves an otherwise clean run passing' {
+        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' `
+            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false `
+            -HeadMoved $false -HeadUnverified $false -SandboxRestoreFailed $false
+        Assert-Equal 'pass' $status 'A successful restore must not degrade the verdict.'
+    }
+
+    Test-Case 'the report says plainly when the sandbox was not restored' {
+        $m = $manifestObject.PSObject.Copy()
+        $m | Add-Member -NotePropertyName 'sandbox_restored' -NotePropertyValue $false -Force
+        $body = Format-ValidationComment -Manifest $m
+        Assert-True ($body -like '*NOT restored*') 'An unrestored sandbox must be stated, not implied.'
+        Assert-True (-not ($body -match '\(restored to `RETAIL` afterwards\)')) 'The success wording must not survive a failed restore.'
+    }
+
+    Test-Case 'the report keeps the restored wording for a successful restore' {
+        $m = $manifestObject.PSObject.Copy()
+        $m | Add-Member -NotePropertyName 'sandbox_restored' -NotePropertyValue $true -Force
+        $body = Format-ValidationComment -Manifest $m
+        Assert-True ($body -match 'restored to .RETAIL. afterwards') 'A confirmed restore reads as before.'
+        Assert-True (-not ($body -like '*NOT restored*')) 'A confirmed restore must not warn.'
+    }
+
+    Test-Case 'a manifest predating the restore flag still renders' {
+        # Set-StrictMode would throw on the absent property if it were read
+        # directly, and an older manifest should read as it always did.
+        $m = $manifestObject.PSObject.Copy()
+        $body = Format-ValidationComment -Manifest $m
+        Assert-True ($body -match 'restored to .RETAIL. afterwards') 'An absent flag keeps the original wording.'
     }
 
     # ----------------------------------------------------------------------

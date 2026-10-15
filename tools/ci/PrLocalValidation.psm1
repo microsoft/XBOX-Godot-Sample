@@ -319,6 +319,10 @@ function Get-EngineLegVerdictCore {
           - run_all_tests.ps1 derives overall_status from failures only, so a
             skipped C++ doctest or a host with no bootstrap runners leaves the
             run green while this tool's report claims both were exercised.
+          - A stage's status field and its tallies are separate evidence from
+            the same file. A host reporting a nonzero 'failing' count fails the
+            leg on its own, so a stale or inconsistent status='pass' cannot put
+            a PASS heading above a nonzero Failed column.
 
         Those cases are reported as 'incomplete', never as 'pass'.
 
@@ -417,9 +421,27 @@ function Get-EngineLegVerdictCore {
         $p = Get-StageNumber -Stage $stage -Field 'passing'
         $f = Get-StageNumber -Stage $stage -Field 'failing'
         $n = Get-StageNumber -Stage $stage -Field 'pending'
+        # The stage status is a single field written by the run being graded;
+        # the tallies beside it are independent evidence. A host that reports
+        # failures has failures regardless of what that field says, and the
+        # report would otherwise print a PASS heading above a nonzero Failed
+        # column. Graded before the test-count branch so a failure is never
+        # swallowed by a host that also reported no discovered tests.
+        if ($null -ne $f -and $f -lt 0) {
+            $status = Get-WorstStatus @($status, 'error')
+            [void]$reasons.Add("$stageName reported a negative failing count ($f), which is not a result this tool can read.")
+        } elseif ($null -ne $f -and $f -gt 0) {
+            $status = Get-WorstStatus @($status, 'fail')
+            if ($sStatus -eq 'pass') {
+                [void]$reasons.Add("$stageName reported $f failing test(s) despite status='pass'.")
+            } else {
+                [void]$reasons.Add("$stageName reported $f failing test(s).")
+            }
+        }
         if ($null -eq $t -or $t -le 0) {
             $status = Get-WorstStatus @($status, 'incomplete')
             [void]$gaps.Add("$stageName discovered no tests.")
+            if ($null -ne $f) { $failing += $f }
         } else {
             $tests += $t
             if ($null -ne $p) { $passing += $p }
@@ -434,6 +456,14 @@ function Get-EngineLegVerdictCore {
             } elseif ($p -le 0) {
                 $status = Get-WorstStatus @($status, 'incomplete')
                 [void]$gaps.Add("$stageName passed no tests (all skipped or risky).")
+            }
+            # Same rule for the failure tally. A host that ran tests and then
+            # reported no failing count has not shown that nothing failed, and
+            # the report's Failed column would print a zero it cannot stand
+            # behind.
+            if ($null -eq $f) {
+                $status = Get-WorstStatus @($status, 'incomplete')
+                [void]$gaps.Add("$stageName reported no failing count, so a clean result cannot be confirmed.")
             }
         }
     }
@@ -672,7 +702,12 @@ function Format-ValidationComment {
     $gdkOrigin = if ($gdkPinnedProp -and $gdkPinnedProp.Value) { 'pinned by request' } else { 'inherited from the candidate checkout' }
     [void]$lines.Add("- **ms-gdk package (restored by vcpkg)**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.ms_gdk_version))`` ($gdkOrigin)")
     [void]$lines.Add("- **PlayFab title**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.playfab_title_id))``")
-    [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (restored to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards)")
+    $restoredProp = $Manifest.PSObject.Properties['sandbox_restored']
+    if ($restoredProp -and -not $restoredProp.Value) {
+        [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (**NOT restored** to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards -- this machine is still in the test sandbox)")
+    } else {
+        [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (restored to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards)")
+    }
     [void]$lines.Add("- **Release build**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.release_build_status))``")
     [void]$lines.Add('')
     [void]$lines.Add('| Godot | Status | GUT tests | Passed | Failed | Pending | Multiplayer scenarios | Duration |')
@@ -997,6 +1032,11 @@ function Get-RunVerdict {
         - An unverifiable head is the same claim with no answer at all: the
           run cannot say the evidence still describes the current commit, so it
           must not claim a clean pass either.
+        - A failed Xbox sandbox restore left the machine in the test sandbox.
+          That says nothing about the candidate's code, but it is an operator
+          action item that must never sit under a PASS heading, so it floors
+          the verdict at 'error' -- the one condition here about the machine
+          rather than the evidence.
     .OUTPUTS
         One of 'pass', 'incomplete', 'fail', 'error'.
     #>
@@ -1007,7 +1047,8 @@ function Get-RunVerdict {
         [Parameter(Mandatory = $true)][bool]$HasGdkIdentityGap,
         [Parameter(Mandatory = $true)][bool]$HasGdkCoverageGap,
         [Parameter(Mandatory = $true)][bool]$HeadMoved,
-        [bool]$HeadUnverified = $false
+        [bool]$HeadUnverified = $false,
+        [bool]$SandboxRestoreFailed = $false
     )
     $statuses = @($LegStatuses)
     if ($ReleaseStatus -ne 'pass') { $statuses += 'fail' }
@@ -1016,6 +1057,7 @@ function Get-RunVerdict {
     if ($HasGdkCoverageGap) { $statuses += 'incomplete' }
     if ($HeadMoved) { $statuses += 'incomplete' }
     if ($HeadUnverified) { $statuses += 'incomplete' }
+    if ($SandboxRestoreFailed) { $statuses += 'error' }
     # No legs at all is not a pass: nothing was measured.
     if ($statuses.Count -eq 0) { return 'error' }
     return Get-WorstStatus $statuses
