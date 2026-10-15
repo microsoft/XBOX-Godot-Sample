@@ -11,6 +11,7 @@ const watch = require('../gdk_release_watch.cjs');
 const OWNER = 'microsoft';
 const REPO = 'XBOX-Godot-Sample';
 const BOT = watch.DEFAULT_BOT_LOGIN;
+const ROOT = path.resolve(__dirname, '..', '..', '..');
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gdk-release-watch-test-'));
@@ -281,6 +282,16 @@ test('readSupportState reads both independent support lists', () => {
   assert.equal(state.hosted.supported.length, 3);
   assert.equal(state.baseline, '0'.repeat(40));
   assert.equal(state.minimumEdition, String(watch.MINIMUM_EDITION));
+});
+
+test('GDK 2604.3 is enabled for installed and hosted builds', () => {
+  const state = watch.readSupportState(ROOT);
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'vcpkg.json'), 'utf8'));
+
+  assert.ok(state.installedEditions.includes('260403'));
+  assert.deepEqual(watch.supportStatusFor('260403', state), { supported: true, hosted: true });
+  assert.equal(state.hosted.default, '2604.3.7874');
+  assert.equal(manifest.overrides.find((entry) => entry.name === 'ms-gdk')?.version, '2604.3.7874');
 });
 
 test('readSupportState rejects malformed support configuration', () => {
