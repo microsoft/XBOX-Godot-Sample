@@ -231,7 +231,7 @@ function Get-GitOutput {
 
 function Get-PullRequestMetadata {
     param([Parameter(Mandatory = $true)][int]$Number)
-    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,state,isCrossRepository,title,url,files 2>&1
+    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,baseRefOid,state,isCrossRepository,title,url 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "gh pr view $Number failed: $($json | Out-String)"
     }
@@ -239,7 +239,58 @@ function Get-PullRequestMetadata {
     if (-not (Test-GitSha ([string]$meta.headRefOid))) {
         throw "gh returned an unusable head commit '$($meta.headRefOid)' for PR $Number."
     }
+    if (-not (Test-GitSha ([string]$meta.baseRefOid))) {
+        throw "gh returned an unusable base commit '$($meta.baseRefOid)' for PR $Number."
+    }
     return $meta
+}
+
+function Get-ChangedPathsFromCheckout {
+    <#
+    .SYNOPSIS
+        List the files a pull request changes, read from the verified checkout.
+    .DESCRIPTION
+        Asking GitHub for the live file list describes whatever the branch points
+        at when the question is asked, not the commit this run actually built.
+        Diffing inside the clone ties the change list to the same commit as every
+        other piece of evidence, and has no file-count ceiling.
+
+        The comparison point is pinned to the base commit the trusted metadata
+        query reported and to the merge base taken from it, never re-read from
+        the branch tip. A base that moves - or one that has already absorbed this
+        head, which is exactly what an ordinary merge of this very pull request
+        does - would otherwise shrink the diff and silently retire a coverage
+        gap. A head already contained in the base makes the question
+        unanswerable, so it is reported as unknown rather than as an empty diff.
+
+        '--no-renames' reports a rename as a delete plus an add, so a renamed
+        support list still counts as a change to both paths, and
+        core.quotePath=false keeps unusual paths verbatim instead of C-quoted.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$CheckoutDir,
+        [Parameter(Mandatory = $true)][string]$HeadSha,
+        [Parameter(Mandatory = $true)][string]$BaseRef,
+        [Parameter(Mandatory = $true)][string]$BaseSha,
+        [Parameter(Mandatory = $true)][string]$LogPath
+    )
+    try {
+        Invoke-GitChecked -ArgumentList @('fetch', '--no-tags', 'origin', "+refs/heads/${BaseRef}:refs/remotes/origin/base/$BaseRef") -WorkingDirectory $CheckoutDir -LogPath $LogPath
+        $resolvedBase = Get-GitOutput -ArgumentList @('rev-parse', '--verify', "$BaseSha^{commit}") -WorkingDirectory $CheckoutDir
+        if ($resolvedBase -ne $BaseSha) {
+            throw "the fetched base does not contain commit $BaseSha (git resolved '$resolvedBase')"
+        }
+        $mergeBase = Get-GitOutput -ArgumentList @('merge-base', $BaseSha, $HeadSha) -WorkingDirectory $CheckoutDir
+        if ($mergeBase -eq $HeadSha) {
+            throw "base '$BaseRef' already contains head $HeadSha, so this pull request's own change list cannot be derived from it"
+        }
+        $out = Get-GitOutput -ArgumentList @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', $mergeBase, $HeadSha) -WorkingDirectory $CheckoutDir
+    } catch {
+        Write-Warning "Could not derive the files head $HeadSha changes against base '$BaseRef' ($($_.Exception.Message)). Treating the change list as unknown."
+        return [pscustomobject]@{ Paths = @(); Complete = $false }
+    }
+    $paths = @(($out -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    return [pscustomobject]@{ Paths = $paths; Complete = $true }
 }
 
 # --- Xbox sandbox --------------------------------------------------------------
@@ -321,24 +372,6 @@ function Copy-RedistributableDlls {
         throw "No redistributable DLLs were found under '$CheckoutRoot\build\vcpkg_installed'. The Debug build did not restore the GDK/PlayFab runtime, so live tests would fail misleadingly."
     }
     return $copied
-}
-
-function Test-PullRequestTouchesPath {
-    <#
-    .SYNOPSIS
-        Did this pull request change the given repository-relative path?
-    #>
-    param(
-        [Parameter(Mandatory = $true)]$Metadata,
-        [Parameter(Mandatory = $true)][string]$Path
-    )
-    $filesProp = $Metadata.PSObject.Properties['files']
-    if (-not $filesProp -or -not $filesProp.Value) { return $false }
-    $needle = $Path.Replace('\', '/')
-    foreach ($file in @($filesProp.Value)) {
-        if (([string]$file.path).Replace('\', '/') -ieq $needle) { return $true }
-    }
-    return $false
 }
 
 function Read-GdkManifest {
@@ -575,6 +608,17 @@ try {
             throw "Fetched ref does not contain head commit $headSha (git resolved '$resolved'). The PR may have been updated mid-run."
         }
         Invoke-GitChecked -ArgumentList @('checkout', '--detach', $headSha) -WorkingDirectory $checkoutDir -LogPath $gitLog
+
+        # Read the change list here, while the clone is still exactly what this
+        # wrapper fetched. Submodule init and everything after it runs candidate
+        # content, which could rewrite origin, refs, or .git/config and answer
+        # this question from history that never contained the support-list edit.
+        $changedFiles = Get-ChangedPathsFromCheckout -CheckoutDir $checkoutDir -HeadSha $headSha `
+            -BaseRef ([string]$pr.baseRefName) -BaseSha ([string]$pr.baseRefOid) -LogPath $gitLog
+        if (-not $changedFiles.Complete) {
+            Write-Warning "The file list for PR #$PullRequest could not be derived from the checkout, so '.github/gdk-versions.json' is treated as changed and the GDK coverage gap is reported conservatively."
+        }
+
         Invoke-GitChecked -ArgumentList @('submodule', 'update', '--init', '--recursive') -WorkingDirectory $checkoutDir -LogPath $gitLog
 
         $checkedOut = Get-GitOutput -ArgumentList @('rev-parse', 'HEAD') -WorkingDirectory $checkoutDir
@@ -633,7 +677,7 @@ try {
             throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
         }
 
-        $gdkManifestChanged = Test-PullRequestTouchesPath -Metadata $pr -Path '.github/gdk-versions.json'
+        $gdkManifestChanged = Test-ChangedPathsInclude -ChangedPaths $changedFiles.Paths -Complete $changedFiles.Complete -Path '.github/gdk-versions.json'
         $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
         $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdk.Uncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
         if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }

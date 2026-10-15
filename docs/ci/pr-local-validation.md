@@ -216,9 +216,21 @@ its `run-summary.json` rather than trusting the exit code:
 | Verdict | Exit code | Trigger |
 | --- | --- | --- |
 | `pass` | 0 | Live writes on, every required stage green, every required stage covered real tests. |
-| `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none; or the orchestrator passed no scenarios. |
-| `fail` | 1 | `overall_status` was not `pass`, a required stage failed, or `run_all_tests.ps1` itself exited nonzero. |
+| `incomplete` | 2 | A required GUT host, the parse gate, the native `cpp-doctest` stage, or a host's bootstrap runners were missing or skipped; a host discovered no tests; a host passed none or reported no passing count at all; or the orchestrator passed no scenarios. |
+| `fail` | 1 | `overall_status` was not `pass`, a required stage failed — including a parse gate that ran and did not pass — or `run_all_tests.ps1` itself exited nonzero. |
 | `error` | 1 | No summary, an unreadable summary, or a leg that did not actually run live writes. |
+
+The strictness is deliberate in three places that would otherwise read as green:
+
+- `live` and `live_writes` must be real JSON booleans. PowerShell casts every non-empty
+  string to `$true`, so a summary carrying `"live": "false"` would otherwise satisfy exactly
+  the check that exists to demand live evidence. Anything else is an `error` leg.
+- A GUT host that discovered tests but reported *no* passing count is `incomplete`, not
+  `pass`. An absent tally is as unconfirmed as a zero one, and the report would print a zero
+  under a `PASS` heading.
+- The parse gate is graded from its own stage status, not only from `overall_status`. Those
+  are written by the same run, so a stale or inconsistent summary must not be able to leave a
+  failed parse gate inside a passing leg.
 
 "Unreadable" covers more than a missing or truncated file. A summary that is valid JSON can
 still be uninterpretable — a counter that is not a number, a `stages` value that is not a
@@ -246,6 +258,24 @@ validated is exactly the failure mode this tool exists to prevent:
 | A GDK support-list change named editions this run could not build | floors to `incomplete` |
 | The PR head moved mid-run | floors to `incomplete` |
 | No engine legs ran at all | `error` |
+
+The GDK support-list row depends on knowing which files the pull request changed, which the
+wrapper derives inside the verified checkout with `git diff --name-only --no-renames` from a
+pinned merge base to the validated head, immediately after checkout and before submodule init
+or any other candidate content runs. Asking GitHub's API instead would describe whatever the
+branch points at when the question is asked — a force-push away and back during the run would
+answer from a different revision while the final head check still passed — and `gh pr view
+--json files` additionally stops at 100 files.
+
+Both ends of that diff are pinned. The base commit comes from the same trusted `gh pr view`
+query as the head, never re-read from the branch tip, and the merge base is computed from it
+once. A base that moves mid-run therefore cannot shrink the diff. The degenerate case is
+called out explicitly: when the base already contains the head — which is what an ordinary
+fast-forward or merge-commit merge of this very pull request produces, and re-validating a
+merged PR is supported — the diff would be empty for a change that genuinely exists, so the
+wrapper reports the change list as unknown instead. Unknown means the support list is treated
+as changed: over-reporting the gap costs a re-run, while under-reporting it publishes `PASS`
+over an unvalidated support claim.
 
 `incomplete` is reported as `incomplete`, never rounded up to a pass, and exits 2. A head
 that moved mid-run is the clearest case: the evidence then describes the old commit, and

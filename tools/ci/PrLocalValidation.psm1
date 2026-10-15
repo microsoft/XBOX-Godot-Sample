@@ -210,6 +210,24 @@ function Get-StageNumber {
     }
 }
 
+function Get-SummaryFlag {
+    <#
+    .SYNOPSIS
+        Read one boolean field out of a run-summary record, strictly.
+    .DESCRIPTION
+        PowerShell's [bool] cast treats every non-empty string as true, so a
+        summary whose schema drifted to "live": "false" would read as a live
+        run. The flags that gate the live-coverage claims are exactly where
+        that must not happen, so anything other than a real JSON boolean is
+        raised as an uninterpretable file rather than coerced.
+    #>
+    param([Parameter(Mandatory = $true)]$Summary, [Parameter(Mandatory = $true)][string]$Field)
+    $v = $Summary.$Field
+    if ($v -is [bool]) { return [bool]$v }
+    $shown = if ($null -eq $v) { '<null>' } else { [string]$v }
+    throw "run-summary.json reported a non-boolean '$Field' value '$shown'."
+}
+
 function New-EngineLegError {
     <#
     .SYNOPSIS
@@ -333,10 +351,16 @@ function Get-EngineLegVerdictCore {
         [void]$reasons.Add("run_all_tests reported overall_status='$($Summary.overall_status)'.")
     }
 
-    if (-not [bool]$Summary.live) {
+    # Read as strict booleans. [bool] on a string is true for anything
+    # non-empty, so a summary carrying "live": "false" would otherwise read as
+    # a live run and manufacture exactly the evidence these two checks exist to
+    # demand. Anything that is not a JSON boolean is an uninterpretable file.
+    $live = Get-SummaryFlag -Summary $Summary -Field 'live'
+    $liveWrites = Get-SummaryFlag -Summary $Summary -Field 'live_writes'
+    if (-not $live) {
         $status = 'error'
         [void]$reasons.Add('The leg did not run with -Live; it cannot support a live-coverage claim.')
-    } elseif (-not [bool]$Summary.live_writes) {
+    } elseif (-not $liveWrites) {
         $status = 'error'
         [void]$reasons.Add('The leg did not run with -AllowLiveWrites; it cannot support a live-write claim.')
     }
@@ -374,7 +398,13 @@ function Get-EngineLegVerdictCore {
             if ($null -ne $p) { $passing += $p }
             if ($null -ne $f) { $failing += $f }
             if ($null -ne $n) { $pending += $n }
-            if ($null -ne $p -and $p -le 0) {
+            # A host that discovered tests but reported no passing count cannot
+            # support a coverage claim: the report would print a zero against a
+            # PASS heading. Absent is as unconfirmed as zero here.
+            if ($null -eq $p) {
+                $status = Get-WorstStatus @($status, 'incomplete')
+                [void]$gaps.Add("$stageName reported no passing count, so its coverage cannot be confirmed.")
+            } elseif ($p -le 0) {
                 $status = Get-WorstStatus @($status, 'incomplete')
                 [void]$gaps.Add("$stageName passed no tests (all skipped or risky).")
             }
@@ -429,6 +459,13 @@ function Get-EngineLegVerdictCore {
     if ($null -eq $parse -or [string]$parse.status -eq 'skip') {
         $status = Get-WorstStatus @($status, 'incomplete')
         [void]$gaps.Add('parse-gate did not run.')
+    } elseif ([string]$parse.status -ne 'pass') {
+        # overall_status should already carry this, but it is a single field
+        # written by the same run; grading the stage directly means a stale or
+        # inconsistent summary cannot leave a failed parse gate inside a
+        # passing leg.
+        $status = Get-WorstStatus @($status, 'fail')
+        [void]$reasons.Add("parse-gate status='$($parse.status)'.")
     }
 
     # The native suite runs once, on the first engine leg; later legs are
@@ -821,6 +858,31 @@ function Get-GdkCoverageGap {
         $PullRequest)
 }
 
+function Test-ChangedPathsInclude {
+    <#
+    .SYNOPSIS
+        Does an enumerated pull-request change list touch a given path?
+    .DESCRIPTION
+        The caller derives the change list by diffing the verified checkout,
+        which can fail, so the list alone cannot say 'not touched'.
+        Complete=$false therefore answers $true: the only consumer is a
+        coverage gap, and over-reporting a gap costs a re-run while
+        under-reporting it publishes PASS over an unvalidated claim.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()][AllowEmptyCollection()]$ChangedPaths,
+        [Parameter(Mandatory = $true)][bool]$Complete,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+    if (-not $Complete) { return $true }
+    $needle = $Path.Replace('\', '/').TrimStart('/')
+    foreach ($candidate in @($ChangedPaths)) {
+        if ($null -eq $candidate) { continue }
+        if (([string]$candidate).Replace('\', '/').TrimStart('/') -ieq $needle) { return $true }
+    }
+    return $false
+}
+
 function Get-GdkIdentityGap {
     <#
     .SYNOPSIS
@@ -915,6 +977,7 @@ Export-ModuleMember -Function @(
     'Get-SummaryStage',
     'Get-SummaryStagesByPrefix',
     'Get-StageNumber',
+    'Get-SummaryFlag',
     'Get-EngineLegVerdict',
     'ConvertTo-MarkdownCell',
     'Format-FencedBlock',
@@ -924,6 +987,7 @@ Export-ModuleMember -Function @(
     'Select-GdkVersion',
     'New-MsGdkOverride',
     'Get-GdkCoverageGap',
+    'Test-ChangedPathsInclude',
     'Get-RunVerdict',
     'Get-GdkIdentityGap',
     'New-RunDirectoryName'

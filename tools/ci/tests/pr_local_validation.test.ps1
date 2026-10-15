@@ -10,6 +10,12 @@
       tools\ci\GodotAcquisition.psm1  - supply-chain refusal rules
       tools\ci\PrLocalValidation.psm1 - verdict honesty and Markdown safety
 
+    It also lifts the change-list functions out of tools\validate_pr_local.ps1
+    and runs them against throwaway local git repositories, so the rule that an
+    underivable change list degrades instead of reading as "nothing changed" is
+    guarded by behaviour rather than by matching source text. Those fixtures are
+    local-only; git is the sole external tool they need.
+
     Deliberately no new test framework: this is plain PowerShell so it can run
     inside the existing ci-lint job, which already has pwsh but no Pester.
 
@@ -1081,6 +1087,349 @@ try {
         Assert-Throws -MatchPattern "gut:tests/godot/playfab.*'tests'.*unknown" -Body {
             Get-StageNumber -Stage $stage -Field 'tests'
         }
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host 'Live flags, host tallies and the parse gate are graded strictly'
+    # ----------------------------------------------------------------------
+    # Each of these is a way a summary can look green while proving nothing:
+    # a stringified live flag, a host that discovered tests but reported no
+    # passes, and a parse gate that ran and failed.
+
+    Test-Case 'a stringified live flag is not coerced into a live claim' {
+        $summary = New-Summary
+        $summary.live = 'false'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A non-boolean live flag must not grade as a live run.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet "'live'") 'The reason must name the live flag.'
+    }
+
+    Test-Case 'a stringified live_writes flag is not coerced into a live-write claim' {
+        $summary = New-Summary
+        $summary.live_writes = 'no'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A non-boolean live_writes flag must not grade as a live-write run.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet "'live_writes'") 'The reason must name the live_writes flag.'
+    }
+
+    Test-Case 'a null live flag is an error, not a live run' {
+        $summary = New-Summary
+        $summary.live = $null
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A null live flag must not grade as a live run.'
+    }
+
+    Test-Case 'real boolean live flags are still read normally' {
+        Assert-True (Get-SummaryFlag -Summary (New-Summary) -Field 'live') 'A JSON true must read as true.'
+        Assert-True (-not (Get-SummaryFlag -Summary (New-Summary -Live $false) -Field 'live')) 'A JSON false must read as false.'
+        $v = Get-EngineLegVerdict -Summary (New-Summary -LiveWrites $false) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'error' $v.Status 'A genuinely non-live-write run is still an error leg.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet 'AllowLiveWrites') 'The existing live-write reason must survive.'
+    }
+
+    Test-Case 'a GUT host that discovered tests but reported no passing count is incomplete' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Tests 12 -Passing $null),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'incomplete' $v.Status 'A host with no passing count must not grade as pass.'
+        Assert-True (@($v.Gaps) -join ' ' | Select-String -Quiet 'gut:tests/godot/gdk') 'The gap must name the host.'
+        Assert-True (@($v.Gaps) -join ' ' | Select-String -Quiet 'no passing count') 'The gap must say the passing count was missing.'
+    }
+
+    Test-Case 'a host that passed zero tests still reports the all-skipped gap' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk' -Tests 12 -Passing 0 -Pending 12),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'incomplete' $v.Status 'A host that passed nothing must not grade as pass.'
+        Assert-True (@($v.Gaps) -join ' ' | Select-String -Quiet 'passed no tests') 'The all-skipped gap must still be reported.'
+    }
+
+    Test-Case 'a failed parse gate fails the leg even when overall_status disagrees' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate' -Status 'fail'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'fail' $v.Status 'A failed parse gate must fail the leg.'
+        Assert-True (@($v.Reasons) -join ' ' | Select-String -Quiet 'parse-gate') 'The reason must name the parse gate.'
+    }
+
+    Test-Case 'a skipped parse gate is still a coverage gap, not a failure' {
+        $stages = @(
+            (New-Stage -Name 'parse-gate' -Status 'skip'),
+            (New-Stage -Name 'cpp-doctest'),
+            (New-Stage -Name 'gut:tests/godot/gdk'),
+            (New-Stage -Name 'gut:tests/godot/playfab'),
+            (New-Stage -Name 'gut:tests/godot/gameinput'),
+            (New-Stage -Name 'playfab-multiplayer-orchestrator' -Tests 4 -Passing 4)
+        )
+        $v = Get-EngineLegVerdict -Summary (New-Summary -Stages $stages) -RequireOrchestrator -RequireDoctest
+        Assert-Equal 'incomplete' $v.Status 'A skipped parse gate stays a gap.'
+        Assert-True (@($v.Gaps) -join ' ' | Select-String -Quiet 'parse-gate did not run') 'The skip gap must survive.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host 'An unreadable change list cannot hide a coverage gap'
+    # ----------------------------------------------------------------------
+    # The GDK coverage gap is driven by whether the pull request edits the
+    # support list, read by diffing the verified checkout. A diff that could
+    # not be produced must answer 'touched', because the alternative
+    # publishes PASS over an unvalidated support claim.
+
+    Test-Case 'a complete change list answers exactly' {
+        $paths = @('docs/ci/pr-local-validation.md', '.github/gdk-versions.json')
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths $paths -Complete $true -Path '.github/gdk-versions.json') 'A listed path is touched.'
+        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths $paths -Complete $true -Path 'vcpkg.json')) 'An unlisted path is not touched.'
+    }
+
+    Test-Case 'an incomplete change list is treated as touching everything asked about' {
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('README.md') -Complete $false -Path '.github/gdk-versions.json') 'An unreadable list must not answer "not touched".'
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths @() -Complete $false -Path '.github/gdk-versions.json') 'An unavailable list must not answer "not touched".'
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths $null -Complete $false -Path '.github/gdk-versions.json') 'A null list must not answer "not touched".'
+    }
+
+    Test-Case 'an empty but complete change list answers "not touched"' {
+        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths @() -Complete $true -Path '.github/gdk-versions.json')) 'A genuinely empty diff touches nothing.'
+        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths $null -Complete $true -Path '.github/gdk-versions.json')) 'A null list that is complete touches nothing.'
+    }
+
+    Test-Case 'path comparison ignores separator and leading-slash differences' {
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('.github\gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json') 'A backslash path still matches.'
+        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('/.github/gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json') 'A leading slash still matches.'
+        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths @('sample/.github/gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json')) 'A suffix match is not a match.'
+    }
+
+    Test-Case 'an unknown change list surfaces the GDK coverage gap' {
+        $touched = Test-ChangedPathsInclude -ChangedPaths @() -Complete $false -Path '.github/gdk-versions.json'
+        $gap = Get-GdkCoverageGap -Selected '2604.2.7849' -Uncovered @('2602.1.7701') -ManifestChanged $touched -PullRequest 202
+        Assert-True ([bool]$gap) 'An unreadable file list must still produce the coverage gap.'
+    }
+
+    Test-Case 'the wrapper reads changed files from the verified checkout' {
+        $src = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1') -Raw
+        Assert-True ($src -notmatch 'json\s+number[^\r\n]*,files') 'The capped "gh pr view --json files" list must be gone.'
+        Assert-True ($src -notmatch 'pulls/\$Number/files') 'The live REST file list must not decide the change set.'
+        Assert-True ($src -match "'merge-base', \`$BaseSha, \`$HeadSha") 'The comparison point must come from the pinned base commit.'
+        Assert-True ($src -match "diff', '--name-only', '--no-renames', \`$mergeBase, \`$HeadSha") 'The diff must run from that fixed merge base to the validated head.'
+        Assert-True ($src -match '\$mergeBase -eq \$HeadSha') 'A base that already contains the head must not read as an empty diff.'
+        Assert-True ($src -match 'baseRefOid') 'The base commit must be pinned from the trusted metadata query.'
+        Assert-True ($src -match 'Test-ChangedPathsInclude -ChangedPaths \$changedFiles\.Paths -Complete \$changedFiles\.Complete') 'The completeness flag must reach the predicate.'
+        $diffIndex = $src.IndexOf('Get-ChangedPathsFromCheckout -CheckoutDir')
+        $submoduleIndex = $src.IndexOf("'submodule', 'update'")
+        Assert-True ($diffIndex -gt 0 -and $submoduleIndex -gt 0) 'Both the change-list call and the submodule step must exist.'
+        Assert-True ($diffIndex -lt $submoduleIndex) 'The change list must be read before any candidate content runs.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host ''
+    Write-Host 'The change list is derived from real git history'
+    # ----------------------------------------------------------------------
+
+    # The source-text test above pins the command shape; these run the wrapper's
+    # actual functions against real repositories, so a future edit that keeps the
+    # literals intact but changes the behaviour still fails.
+    function Import-WrapperFunction {
+        param([Parameter(Mandatory = $true)][string[]]$Name)
+        $wrapperPath = Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1'
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($wrapperPath, [ref]$null, [ref]$parseErrors)
+        if (@($parseErrors).Count -gt 0) { throw "validate_pr_local.ps1 does not parse: $($parseErrors[0].Message)" }
+        # PowerShell resolves duplicate definitions to the last one, so taking the
+        # first match could lift a dead definition while the wrapper runs another.
+        # Only a single top-level definition is unambiguous enough to test.
+        $bodies = foreach ($wanted in $Name) {
+            $found = @($ast.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                        $node.Name -eq $wanted -and
+                        $node.Parent -is [System.Management.Automation.Language.NamedBlockAst]
+                    }, $false))
+            if ($found.Count -ne 1) {
+                throw "validate_pr_local.ps1 must define $wanted exactly once at the top level (found $($found.Count))."
+            }
+            $found[0].Extent.Text
+        }
+        return ($bodies -join "`n`n")
+    }
+
+    # Console presentation only; the functions under test are the real ones.
+    function Write-Note { param([string]$Message) }
+    . ([scriptblock]::Create((Import-WrapperFunction -Name @('Invoke-Logged', 'Invoke-GitChecked', 'Get-GitOutput', 'Get-ChangedPathsFromCheckout'))))
+
+    # Every fixture command is exit-code checked: a scenario that fails to build
+    # the history it claims must fail loudly, never quietly degrade into a
+    # different scenario that still satisfies the assertions. Hooks are pointed
+    # at an empty directory so a developer's global core.hooksPath cannot run.
+    function Invoke-FixtureGit {
+        param(
+            [Parameter(Mandatory = $true)][string]$Directory,
+            [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+            [string]$HooksPath
+        )
+        $previous = Get-Location
+        Set-Location -LiteralPath $Directory
+        try {
+            $prefix = @()
+            if ($HooksPath) { $prefix = @('-c', "core.hooksPath=$HooksPath") }
+            $out = & git @prefix @ArgumentList 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "fixture git $($ArgumentList -join ' ') failed ($LASTEXITCODE): $(($out | Out-String).Trim())"
+            }
+        } finally {
+            Set-Location -LiteralPath $previous
+        }
+        return ($out | Out-String).Trim()
+    }
+
+    function New-ChangeListFixture {
+        $root = Join-Path $fixtureRoot ('git-' + [guid]::NewGuid().ToString('n').Substring(0, 8))
+        $bare = Join-Path $root 'origin.git'
+        $work = Join-Path $root 'work'
+        $clone = Join-Path $root 'clone'
+        $hooks = Join-Path $root 'no-hooks'
+        New-Item -ItemType Directory -Force -Path $root, $work, $clone, $hooks | Out-Null
+        $fixture = [pscustomobject]@{
+            Root = $root; Work = $work; Clone = $clone; Hooks = $hooks
+            BaseSha = ''; HeadSha = ''
+            LogPath = (Join-Path $root 'git.log')
+        }
+        Invoke-FixtureGit -Directory $root -ArgumentList @('init', '--quiet', '--bare', $bare) -HooksPath $hooks | Out-Null
+        # The bare repo resolves receive hooks through its own config chain, so a
+        # transient -c on the pushing side cannot stop a global hooks path there.
+        # It is addressed by --git-dir because safe.bareRepository=explicit makes
+        # cwd-based discovery of a bare repo fail.
+        Invoke-FixtureGit -Directory $root -ArgumentList @('--git-dir', $bare, 'config', 'core.hooksPath', $hooks) -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('init', '--quiet', '-b', 'main', '.') -HooksPath $hooks | Out-Null
+        foreach ($setting in @(@('user.email', 'tests@example.invalid'), @('user.name', 'pr-local-validation tests'), @('commit.gpgsign', 'false'), @('core.hooksPath', $hooks))) {
+            Invoke-FixtureGit -Directory $work -ArgumentList @('config', $setting[0], $setting[1]) -HooksPath $hooks | Out-Null
+        }
+        New-Item -ItemType Directory -Force -Path (Join-Path $work '.github') | Out-Null
+        'base' | Set-Content -LiteralPath (Join-Path $work '.github/gdk-versions.json')
+        Invoke-FixtureGit -Directory $work -ArgumentList @('add', '-A') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('commit', '--quiet', '-m', 'base') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('remote', 'add', 'origin', $bare) -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $hooks | Out-Null
+        $fixture.BaseSha = Invoke-FixtureGit -Directory $work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks
+        Invoke-FixtureGit -Directory $work -ArgumentList @('checkout', '--quiet', '-b', 'pr') -HooksPath $hooks | Out-Null
+        'changed' | Set-Content -LiteralPath (Join-Path $work '.github/gdk-versions.json')
+        Invoke-FixtureGit -Directory $work -ArgumentList @('add', '-A') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('commit', '--quiet', '-m', 'change the support list') -HooksPath $hooks | Out-Null
+        $fixture.HeadSha = Invoke-FixtureGit -Directory $work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks
+        Invoke-FixtureGit -Directory $work -ArgumentList @('push', '--quiet', 'origin', 'pr:refs/pull/1/head') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $work -ArgumentList @('checkout', '--quiet', 'main') -HooksPath $hooks | Out-Null
+
+        Invoke-FixtureGit -Directory $clone -ArgumentList @('init', '--quiet', '.') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $clone -ArgumentList @('config', 'core.hooksPath', $hooks) -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $clone -ArgumentList @('remote', 'add', 'origin', $bare) -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $clone -ArgumentList @('fetch', '--quiet', '--no-tags', 'origin', '+refs/pull/1/head:refs/remotes/origin/pr/1') -HooksPath $hooks | Out-Null
+        Invoke-FixtureGit -Directory $clone -ArgumentList @('checkout', '--quiet', '--detach', $fixture.HeadSha) -HooksPath $hooks | Out-Null
+        if ((Invoke-FixtureGit -Directory $clone -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks) -ne $fixture.HeadSha) {
+            throw 'fixture clone is not checked out at the intended head.'
+        }
+        foreach ($repo in @(@($root, @('--git-dir', $bare)), @($work, @()), @($clone, @()))) {
+            $probe = $repo[1] + @('config', '--local', '--get', 'core.hooksPath')
+            if ((Invoke-FixtureGit -Directory $repo[0] -ArgumentList $probe -HooksPath $hooks) -ne $hooks) {
+                throw "a fixture repo did not persist the empty hooks path, so ambient hooks could run."
+            }
+        }
+        return $fixture
+    }
+
+    function Invoke-FixtureChangeList {
+        param(
+            [Parameter(Mandatory = $true)]$Fixture,
+            [string]$BaseSha,
+            [string]$ExpectWarningLike
+        )
+        if (-not $BaseSha) { $BaseSha = $Fixture.BaseSha }
+        $warnings = $null
+        $result = Get-ChangedPathsFromCheckout -CheckoutDir $Fixture.Clone -HeadSha $Fixture.HeadSha `
+            -BaseRef 'main' -BaseSha $BaseSha -LogPath $Fixture.LogPath -WarningAction SilentlyContinue -WarningVariable warnings
+        if ($ExpectWarningLike) {
+            # A degraded result is only the expected degradation when the function
+            # says why; otherwise an unrelated git hiccup could stand in for it.
+            $text = (@($warnings) -join ' ')
+            if ($text -notlike "*$ExpectWarningLike*") {
+                throw "expected the change list to degrade with '$ExpectWarningLike' but it reported: $text"
+            }
+        }
+        return $result
+    }
+
+    Test-Case 'an ordinary pull request reports exactly the paths it changed' {
+        $fixture = New-ChangeListFixture
+        $result = Invoke-FixtureChangeList -Fixture $fixture
+        Assert-True $result.Complete 'A readable history must produce a complete change list.'
+        Assert-Equal 1 @($result.Paths).Count 'Only the edited file should appear.'
+        Assert-Equal '.github/gdk-versions.json' $result.Paths[0] 'The support list must be reported as changed.'
+    }
+
+    Test-Case 'the pinned base survives the base branch moving on' {
+        $fixture = New-ChangeListFixture
+        'unrelated' | Set-Content -LiteralPath (Join-Path $fixture.Work 'README.md')
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('add', '-A') -HooksPath $fixture.Hooks | Out-Null
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('commit', '--quiet', '-m', 'unrelated base work') -HooksPath $fixture.Hooks | Out-Null
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $fixture.Hooks | Out-Null
+        $movedTip = Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $fixture.Hooks
+        Assert-True ($movedTip -ne $fixture.BaseSha) 'The scenario requires the base branch to have actually advanced.'
+
+        $result = Invoke-FixtureChangeList -Fixture $fixture
+        Assert-True $result.Complete 'A base that merely moved forward is still answerable.'
+        Assert-True ($result.Paths -contains '.github/gdk-versions.json') 'The support-list change must not be lost when the base advances.'
+        Assert-True ($result.Paths -notcontains 'README.md') 'Commits made on the base after the fork point are not this PR.'
+    }
+
+    Test-Case 'a base that already merged this head is reported as unknown' {
+        $fixture = New-ChangeListFixture
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('merge', '--quiet', '--no-ff', '-m', 'merge the pull request', $fixture.HeadSha) -HooksPath $fixture.Hooks | Out-Null
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $fixture.Hooks | Out-Null
+        $mergedBase = Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $fixture.Hooks
+        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('merge-base', '--is-ancestor', $fixture.HeadSha, $mergedBase) -HooksPath $fixture.Hooks | Out-Null
+
+        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha $mergedBase -ExpectWarningLike 'already contains head'
+        Assert-True (-not $result.Complete) 'An already-merged head cannot yield an honest empty diff.'
+        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
+    }
+
+    Test-Case 'a base commit the fetch did not deliver is reported as unknown' {
+        $fixture = New-ChangeListFixture
+        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha ('0' * 39 + '1') -ExpectWarningLike 'rev-parse --verify'
+        Assert-True (-not $result.Complete) 'A base commit absent from the clone must degrade, not guess.'
+        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
+    }
+
+    Test-Case 'a base that does not resolve to the pinned commit is reported as unknown' {
+        $fixture = New-ChangeListFixture
+        # An abbreviation resolves to a real commit, so only comparing the
+        # resolved object against the pinned one catches the substitution.
+        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha $fixture.BaseSha.Substring(0, 12) -ExpectWarningLike 'does not contain commit'
+        Assert-True (-not $result.Complete) 'A base that resolves to something else must not be diffed against.'
+        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
+    }
+
+    Test-Case 'an unknown change list still reports the GDK coverage gap' {
+        $fixture = New-ChangeListFixture
+        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha ('0' * 39 + '1') -ExpectWarningLike 'rev-parse --verify'
+        $touched = Test-ChangedPathsInclude -ChangedPaths $result.Paths -Complete $result.Complete -Path '.github/gdk-versions.json'
+        Assert-True $touched 'The conservative answer must survive the real degraded result.'
+        $gap = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2604.2.7849') -ManifestChanged $touched -PullRequest 203
+        Assert-True ($null -ne $gap) 'A degraded change list must not retire the coverage gap.'
     }
 } finally {
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
