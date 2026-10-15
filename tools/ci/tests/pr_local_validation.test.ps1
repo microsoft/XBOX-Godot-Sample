@@ -960,7 +960,7 @@ try {
     }
 
     # --------------------------------------------------------------------------
-    Write-Host 'Wrapper verdict and lock call sites'
+    Write-Host 'Wrapper verdict and preflight call sites'
     # --------------------------------------------------------------------------
 
     Test-Case 'the wrapper grades the run through Get-RunVerdict' {
@@ -988,22 +988,19 @@ try {
     }
 
 
-    # Letting that escape skips the finally that releases the mutex, which wedges
-    # every later run on the machine.
-    Test-Case 'an abandoned lock is treated as acquired rather than fatal' {
+    # The machine-local mutex this wrapper used to take was removed on purpose.
+    # This is a manually run tool, and a named mutex could not serialize against
+    # the nightly workflow or another machine anyway, so it bought partial
+    # protection at the cost of a lock lifetime to get wrong. Overlap is now an
+    # operator responsibility, stated out loud at the start of every run rather
+    # than half-enforced.
+    Test-Case 'unserialized live writes are warned about rather than locked' {
         $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
         $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
-        Assert-True ($wrapper.Contains('catch [System.Threading.AbandonedMutexException]')) 'The wrapper must catch AbandonedMutexException.'
-        Assert-True ($wrapper -match 'AbandonedMutexException\][\s\S]{0,600}?\$lockAcquired\s*=\s*\$true') 'An abandoned lock must be treated as acquired so the finally releases it.'
-        Assert-True ($wrapper -match 'AbandonedMutexException\][\s\S]{0,600}?Write-Warning') 'An abandoned lock must warn about the interrupted run.'
+        Assert-True (-not ($wrapper -match 'Mutex')) 'The wrapper must not reintroduce a machine-local lock.'
+        Assert-True ($wrapper -match 'Nothing serializes those writes') 'The wrapper must say that nothing prevents a concurrent run.'
+        Assert-True ($wrapper -match "Start one run at a time") 'The wrapper must tell the operator to run one at a time.'
     }
-
-    # The genuine abandoned state cannot be synthesized here: a child process
-    # that exits cleanly releases the mutex, a hard kill is not reproducible in
-    # a test, and this suite also runs on Linux where named-mutex semantics
-    # differ. The assertions above are therefore call-site shape only; the
-    # .NET contract they rely on (WaitOne transfers ownership, then throws) is
-    # documented behaviour, not something this suite proves.
 
     # ----------------------------------------------------------------------
     Write-Host 'Uninterpretable summaries never escape the verdict'

@@ -161,24 +161,22 @@ running the candidate's build as Administrator only widens the blast radius.
 1. **Preflight** — tool availability, `gh` auth, and (only if a sandbox switch is needed)
    elevation.
 2. **Resolve the PR** — `gh pr view` for the title, state, base, and head SHA.
-3. **Serialize** — take a machine-local named mutex so two runs cannot share the PlayFab
-   title. See the limitation below.
-4. **Checkout** — fetch `refs/pull/<n>/head` into a brand-new run directory and
+3. **Checkout** — fetch `refs/pull/<n>/head` into a brand-new run directory and
    `git checkout --detach <sha>`, then init submodules and verify `HEAD` matches the SHA.
    The **head commit** is validated, never the merge result, so the evidence corresponds to
    a commit that actually exists on the branch.
-5. **Build Debug** — `cmake --preset default` then `cmake --build --preset debug`.
-6. **Prove the SDK identity** — read `_GRDK_EDITION` out of
+4. **Build Debug** — `cmake --preset default` then `cmake --build --preset debug`.
+5. **Prove the SDK identity** — read `_GRDK_EDITION` out of
    `build\vcpkg_installed\x64-windows\include\grdk.h` and the `ms-gdk` `versionInfo` out of
    that tree's `share\ms-gdk\vcpkg.spdx.json`. This is what vcpkg *restored*, as opposed to
    what `.github\gdk-versions.json` *claims*.
-7. **Acquire engines** — read `supported` from the **candidate checkout's**
+6. **Acquire engines** — read `supported` from the **candidate checkout's**
    `.github\godot-versions.json` and download each version through
    `tools\ci\get_godot.ps1`, verifying the pinned SHA-512 before extraction. Engines are
    installed run-private, so whatever Godot is installed on the machine is irrelevant.
-8. **Switch the Xbox sandbox** — capture the current sandbox first and write
+7. **Switch the Xbox sandbox** — capture the current sandbox first and write
    `SANDBOX-RESTORE.txt` before changing anything.
-9. **Run the live matrix** — for each engine, with `GODOT`/`GODOT_BIN`/`GODOT_CONSOLE`
+8. **Run the live matrix** — for each engine, with `GODOT`/`GODOT_BIN`/`GODOT_CONSOLE`
    pointed at that engine and the working directory inside the candidate checkout:
 
    ```powershell
@@ -189,18 +187,18 @@ running the candidate's build as Administrator only widens the blast radius.
 
    The C++ doctest binary is engine-independent, so it runs on the first leg only;
    subsequent legs add `-SkipDoctest`.
-10. **Restore the sandbox** in a `finally`. If restoration fails, `SANDBOX-RESTORE.txt`
+9. **Restore the sandbox** in a `finally`. If restoration fails, `SANDBOX-RESTORE.txt`
     stays behind with the command to run by hand, the manifest records
     `sandbox_restored: false` plus the error, the report says the machine is still in the
     test sandbox, and the run verdict is forced to `error`. The failure is deliberately
     *not* thrown: by this point the live writes have already landed, and losing the
     manifest, the report and the comment would discard hours of real evidence over a
     machine-state problem that says nothing about the candidate's code.
-11. **Build Release** — `cmake --preset default-release` then
+10. **Build Release** — `cmake --preset default-release` then
     `cmake --build --preset release`. This runs *after* the live matrix because builds
     mirror binaries into shared addon and test-host directories.
-12. **Re-check the head SHA** and flag drift if the PR moved during the run.
-13. **Report** — write `validation-manifest.json` and `report.md`, then
+11. **Re-check the head SHA** and flag drift if the PR moved during the run.
+12. **Report** — write `validation-manifest.json` and `report.md`, then
     `gh pr comment --body-file` unless `-NoComment`.
 
 ## Why a green exit code is not enough
@@ -357,12 +355,14 @@ provisions, and never needs `PLAYFAB_DEVELOPER_SECRET_KEY`.
 
 ## Limitations
 
-- **The mutex is machine-local.** It cannot serialize against the nightly `playfab-live`
-  workflow or another developer's machine. Confirm the nightly is not mid-run before
-  starting. If a previous run was killed rather than allowed to exit, the next run takes
-  the abandoned lock and warns instead of refusing forever — but that warning matters:
-  the dead run never restored the Xbox sandbox and never finished its live writes, so
-  check both before trusting the new run.
+- **Nothing stops two runs from overlapping.** There is no lock. Live writes go to a single
+  shared PlayFab title and the sandbox switch is machine-wide, so a second local run, or the
+  nightly `playfab-live` workflow, will interleave with this one and neither result is
+  trustworthy afterwards. A machine-local mutex was deliberately not kept: it could not
+  serialize against the nightly or another developer's machine anyway, so it would have
+  implied a guarantee it could not make. Confirm the nightly is not mid-run, start one run
+  at a time, and if a previous run was killed rather than allowed to exit, check the Xbox
+  sandbox and that run's in-flight PlayFab state before starting another.
 - **This does not cover console targets, packaging, or submission.** The report says so
   explicitly under "Not covered by this run"; keep that section honest.
 - **Only title `10D176` is exercised.** Nothing here says anything about any other title.

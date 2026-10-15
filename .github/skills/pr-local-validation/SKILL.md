@@ -98,9 +98,10 @@ and do not substitute a narrower run for it when the user asked for live validat
    need a signed-in account that only an interactive UI can provide — so a mid-run switch
    usually yields `no_default_user` legs. Tell the user to switch and sign in first; the
    script then skips the switch, the restore, and the elevation requirement.
-6. The nightly `playfab-live` workflow is not mid-run. The script takes a machine-local
-   mutex, which cannot serialize against GitHub Actions or another machine — coordinate
-   that by hand.
+6. The nightly `playfab-live` workflow is not mid-run, and no other local run is in
+   progress. Nothing enforces this: the script has no lock, because a machine-local one
+   could not serialize against GitHub Actions or another machine anyway. Overlapping runs
+   share one PlayFab title and fight over the machine's sandbox, so coordinate by hand.
 
 ## Reading the result
 
