@@ -58,6 +58,12 @@ Output binaries land in each addon's `bin\` folder. Addon-local build logic may 
 
 ## Workflow Quality Gates
 
+- Review feedback is advisory, not a new requirement. Accept a must-fix only with a concrete,
+  reachable failure against the agreed contract and supporting code or test evidence. Prefer a
+  smaller contract over machinery defending unnecessary claims; preserve agreed safety rules.
+  Severity labels or multi-reviewer agreement alone do not justify a fix. Obtain approval for
+  scope-expanding designs, honor explicit deferrals, and stop after one remediation batch plus
+  verification unless the user requests more review.
 - Use repo-local skills when they match the task:
   - `adversarial-review` for risky or cross-cutting diffs that need pressure testing
   - `pr-feedback-loop` when the user mentions PR feedback, review comments, or check results

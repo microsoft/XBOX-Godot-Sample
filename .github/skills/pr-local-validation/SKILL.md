@@ -2,8 +2,8 @@
 name: pr-local-validation
 description: >
   Validate a pull request on real hardware: clone its exact head commit into a disposable
-  checkout, build it, run the full live-write test suite once per supported Godot version, build
-  Release, and publish an honest pass/incomplete/fail comment back on the pull request. Triggers:
+  checkout, build it, run the live-write test suite for the selected Godot versions, build
+  Release, and publish a scoped result back on the pull request. Triggers:
   validate a PR locally, run the live tests for a PR, local PR validation, run the live-write
   suite, validate PR on hardware, pr-local-validation
 ---
@@ -11,8 +11,8 @@ description: >
 # PR Local Validation Skill
 
 You are the repo-local pr-local-validation skill. Your job is to take a pull request and
-produce *honest, reproducible evidence* that the full live-write test suite actually passed
-against that PR's exact code on real hardware — then say so on the PR.
+produce *honest, reproducible evidence* for an exact commit, one actual SDK and the selected
+engines on real hardware. A passing run is not approval of the entire PR support matrix.
 
 This exists because GitHub Actions cannot prove what this repo most needs proven. Hosted
 runners have no GDK, no Xbox sandbox, and cannot form a PlayFab Party P2P mesh, so the
@@ -36,8 +36,8 @@ and do not substitute a narrower run for it when the user asked for live validat
 ## Core rules
 
 - **Validate the head commit, never the merge result.** The script fetches
-  `refs/pull/<n>/head` and checks out the exact SHA detached. If `gh pr view` reports a
-  different head after the run, the result is reported as stale — rerun, do not hand-wave.
+  `refs/pull/<n>/head` and checks out the exact SHA detached. A later head is outside this
+  result's scope. Do not describe an older run as validating it.
 - **Validate a fresh clone, never the working tree.** The run clones into a private run
   directory. A dirty local tree, a stale `build\`, or leftover mirrored addons would make
   the result meaningless.
@@ -52,16 +52,14 @@ and do not substitute a narrower run for it when the user asked for live validat
 - **Narrow only on request, and never hide it.** `-GodotVersion <v>[,<v>]` restricts the
   matrix. Suggest it when the user is time-boxed and the PR is a GDK-only bump — the
   native SDK surface does not branch on engine version — but do not choose it silently.
-  A narrowed run is floored to `incomplete` (exit 2) by design and its PR comment says
-  which engines were skipped. When reporting such a run, lead with the narrowing; never
-  describe it as a passing validation.
+  A narrowed run can pass (exit 0). Name the selected engines and list unselected versions
+  as scope notes, not failures or missing requested work.
 - **One GDK per run; pin it when the PR is about the GDK.** Nothing in the local build
   path reads `.github\gdk-versions.json` — CI injects an `ms-gdk` override, but
   `cmake --preset default` just resolves the registry baseline. So the manifest `default`
-  is an expectation, not a guarantee. The run always compares the restored SDK against
-  that expectation and reports a mismatch as a coverage gap that floors it to
-  `incomplete`. Use `-GdkVersion <v>` to write the same override CI uses and build a
-  specific supported SDK; if vcpkg then restores something else the run fails hard.
+  is informational, not a validation target without a pin. Use `-GdkVersion <v>` to
+  write the same override CI uses and build a specific supported SDK; if vcpkg then
+  restores something else the run fails hard.
   Pinning edits the checkout, so say so when reporting. There is no GDK matrix: a second
   SDK means a full reconfigure plus the whole Godot matrix again.
 - **A green exit code is not a pass.** `run_all_tests.ps1` can exit 0 while covering
@@ -107,8 +105,8 @@ and do not substitute a narrower run for it when the user asked for live validat
 
 | Exit code | Status | Meaning |
 | --- | --- | --- |
-| 0 | `pass` | Every engine ran live writes and every required stage covered real tests. |
-| 2 | `incomplete` | Nothing failed, but something was skipped or covered nothing — including a deliberately narrowed `-GodotVersion` run. Not full-matrix evidence. |
+| 0 | `pass` | The selected engines ran live writes, required stages covered real tests, both builds passed and the sandbox was restored. |
+| 2 | `incomplete` | Requested work was not completed or covered nothing. Deliberately unselected versions do not cause this. |
 | 1 | `fail` / `error` | A stage failed, or the run could not be interpreted at all. |
 
 Artifacts land under `%LOCALAPPDATA%\godot-gdk-pr-validation\pr-<n>-<sha12>-<timestamp>\`:
@@ -130,6 +128,8 @@ and `logs\`. Quote the manifest, not your memory of the console output.
 
 - Do not claim live coverage from a hosted CI run.
 - Do not drop an engine from the matrix to get a green result.
+- Do not add support-list coverage inference, concurrency machinery or another grading framework
+  in response to review feedback. A broader guarantee needs a separate, approved requirement.
 - Do not edit the candidate checkout to make a test pass; fix it on the PR branch instead.
 - Do not delete the run directory before reporting — it is the evidence.
 

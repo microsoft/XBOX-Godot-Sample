@@ -10,11 +10,8 @@
       tools\ci\GodotAcquisition.psm1  - supply-chain refusal rules
       tools\ci\PrLocalValidation.psm1 - verdict honesty and Markdown safety
 
-    It also lifts the change-list functions out of tools\validate_pr_local.ps1
-    and runs them against throwaway local git repositories, so the rule that an
-    underivable change list degrades instead of reading as "nothing changed" is
-    guarded by behaviour rather than by matching source text. Those fixtures are
-    local-only; git is the sole external tool they need.
+    It also executes the wrapper's build/reporting block with simulated tools,
+    so scoped success and retained failure evidence need no live-service access.
 
     Deliberately no new test framework: this is plain PowerShell so it can run
     inside the existing ci-lint job, which already has pwsh but no Pester.
@@ -609,6 +606,10 @@ try {
         finished_at = '2026-01-01T02:00:00Z'
         gdk_edition = '260402'
         ms_gdk_version = '2604.2.7849'
+        gdk_declared_default = '2604.2.7849'
+        engines_selected = @('4.7.1-stable', '4.6.1-stable')
+        engines_skipped = @()
+        engines_not_run = @()
         playfab_title_id = '10D176'
         sandbox_id = 'lykhvw.0'
         sandbox_restored_to = 'RETAIL'
@@ -638,18 +639,18 @@ try {
         Assert-Equal 2 $rows.Count "Expected two engine rows, got $($rows.Count)."
     }
 
-    Test-Case 'a full-matrix comment claims full coverage and omits the narrowing notice' {
+    Test-Case 'the comment limits its claim to the exact commit and selected scope' {
         $body = Format-ValidationComment -Manifest $manifestObject
-        Assert-True ($body -like '*on every Godot version*') 'A full run should claim full-matrix coverage.'
-        Assert-True (-not ($body -like '*narrowed by request*')) 'A full run must not claim it was narrowed.'
+        Assert-True ($body -like '*Results apply only to the exact commit*') 'The result must be scoped.'
+        Assert-True (-not ($body -like '*on every Godot version*')) 'The report must not infer full-matrix success.'
     }
 
     Test-Case 'a narrowed comment drops the full-matrix claim and names the skipped engines' {
         $narrowed = $manifestObject.PSObject.Copy()
-        $narrowed | Add-Member -NotePropertyName 'engines_skipped' -NotePropertyValue @('4.5.1-stable')
+        $narrowed.engines_skipped = @('4.5.1-stable')
         $body = Format-ValidationComment -Manifest $narrowed
         Assert-True (-not ($body -like '*on every Godot version*')) 'A narrowed run must not claim full-matrix coverage.'
-        Assert-True ($body -like '*narrowed by request*') 'The narrowing notice is missing.'
+        Assert-True ($body -like '*Unselected Godot versions*') 'Unselected engines must be named as scope notes.'
         Assert-True ($body -like '*4.5.1-stable*') 'The skipped engine was not named.'
         Assert-True ($body -like '*-GodotVersion 4.7.1-stable,4.6.1-stable*') 'The reproduce command should pin the narrowed scope.'
     }
@@ -718,7 +719,7 @@ try {
         Assert-Equal '2604.1.7839' $g.Version 'Should build the candidate default.'
         Assert-Equal '260401' $g.Edition 'The declared edition should come from the manifest entry.'
         Assert-True (-not $g.Pinned) 'An unrequested GDK must not be reported as pinned.'
-        Assert-Equal 2 @($g.Uncovered).Count 'The other supported versions are uncovered.'
+
     }
 
     Test-Case 'a requested version is pinned and ignores case' {
@@ -726,7 +727,7 @@ try {
         Assert-Equal '2604.2.7849' $g.Version 'Should build the requested version.'
         Assert-Equal '260402' $g.Edition 'Should carry the requested entry edition.'
         Assert-True $g.Pinned 'An explicit request must be reported as pinned.'
-        Assert-True (@($g.Uncovered) -notcontains '2604.2.7849') 'The built version must not be listed as uncovered.'
+
     }
 
     Test-Case 'an unsupported GDK is rejected and the error names the real choices' {
@@ -762,32 +763,6 @@ try {
         Assert-Throws -MatchPattern 'non-version string' -Body { New-MsGdkOverride -Version 'latest' }
     }
 
-    Test-Case 'uncovered editions are only reported when the pull request edits the support list' {
-        $none = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2510.2.6247') -ManifestChanged $false -PullRequest 202
-        Assert-True ($null -eq $none) 'Every run leaves editions unbuilt; reporting that always would be noise.'
-
-        $gap = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2510.2.6247') -ManifestChanged $true -PullRequest 202
-        Assert-True ($gap -like '*2510.2.6247*') 'The unvalidated edition was not named.'
-        Assert-True ($gap -like '*-GdkVersion*') 'The gap must say how to cover the remaining editions.'
-    }
-
-    Test-Case 'a support-list change with nothing left uncovered reports no gap' {
-        $gap = Get-GdkCoverageGap -Selected '2604.2.7849' -Uncovered @() -ManifestChanged $true -PullRequest 202
-        Assert-True ($null -eq $gap) 'Full coverage must not produce a gap.'
-    }
-
-    Test-Case 'building an SDK other than the declared default is reported as a gap' {
-        $gap = Get-GdkIdentityGap -Expected '2604.2.7849' -Restored '2604.1.7839' -Pinned $false
-        Assert-True ($gap -like '*2604.2.7849*') 'The expected version is missing from the gap.'
-        Assert-True ($gap -like '*2604.1.7839*') 'The actually-built version is missing from the gap.'
-        Assert-True ($gap -like '*registry baseline*') 'The gap must explain why the two can differ.'
-    }
-
-    Test-Case 'a matching or deliberately pinned SDK produces no identity gap' {
-        Assert-True ($null -eq (Get-GdkIdentityGap -Expected '2604.2.7849' -Restored '2604.2.7849' -Pinned $false)) 'A matching SDK is not a gap.'
-        Assert-True ($null -eq (Get-GdkIdentityGap -Expected '2604.1.7839' -Restored '2604.2.7849' -Pinned $true)) 'A pinned run deliberately overrides the default.'
-    }
-
     Test-Case 'the comment distinguishes a pinned GDK from an inherited one' {
         $inherited = Format-ValidationComment -Manifest $manifestObject
         Assert-True ($inherited -like '*inherited from the candidate checkout*') 'An unpinned run should say the SDK was inherited.'
@@ -795,6 +770,7 @@ try {
 
         $pinned = $manifestObject.PSObject.Copy()
         $pinned | Add-Member -NotePropertyName 'gdk_pinned' -NotePropertyValue $true
+        $pinned | Add-Member -NotePropertyName 'gdk_requested' -NotePropertyValue '2604.2.7849'
         $body = Format-ValidationComment -Manifest $pinned
         Assert-True ($body -like '*pinned by request*') 'A pinned run should say so.'
         Assert-True ($body -like '*-GdkVersion 2604.2.7849*') 'The reproduce command should carry the pinned SDK.'
@@ -889,41 +865,10 @@ try {
     $greenRun = @{
         LegStatuses       = @('pass', 'pass')
         ReleaseStatus     = 'pass'
-        MatrixNarrowed    = $false
-        HasGdkIdentityGap = $false
-        HasGdkCoverageGap = $false
-        HeadMoved         = $false
     }
 
     Test-Case 'an all-green run passes' {
         Assert-Equal 'pass' (Get-RunVerdict @greenRun) 'A fully green run must pass.'
-    }
-
-    # The finding: a GDK support-list change names editions one run cannot
-    # build. That gap was reported in the comment but never graded, so the
-    # heading read PASS above unvalidated support claims.
-    Test-Case 'an unvalidated GDK support edition floors the verdict at incomplete' {
-        $args = $greenRun.Clone()
-        $args.HasGdkCoverageGap = $true
-        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A GDK coverage gap must prevent an unqualified pass.'
-    }
-
-    Test-Case 'a narrowed Godot matrix floors the verdict at incomplete' {
-        $args = $greenRun.Clone()
-        $args.MatrixNarrowed = $true
-        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A narrowed matrix must prevent an unqualified pass.'
-    }
-
-    Test-Case 'an SDK identity gap floors the verdict at incomplete' {
-        $args = $greenRun.Clone()
-        $args.HasGdkIdentityGap = $true
-        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'An identity gap must prevent an unqualified pass.'
-    }
-
-    Test-Case 'a moved head floors the verdict at incomplete' {
-        $args = $greenRun.Clone()
-        $args.HeadMoved = $true
-        Assert-Equal 'incomplete' (Get-RunVerdict @args) 'A moved head must prevent an unqualified pass.'
     }
 
     Test-Case 'a failed Release build fails the run' {
@@ -932,22 +877,15 @@ try {
         Assert-Equal 'fail' (Get-RunVerdict @args) 'A failed Release build must fail the run.'
     }
 
-    # Coverage gaps must never soften a real failure.
-    Test-Case 'a coverage gap cannot downgrade a failing leg' {
-        $args = $greenRun.Clone()
-        $args.LegStatuses = @('pass', 'fail')
-        $args.HasGdkCoverageGap = $true
-        Assert-Equal 'fail' (Get-RunVerdict @args) 'A gap must not mask a failing leg.'
+    Test-Case 'one selected engine can pass independently' {
+        Assert-Equal 'pass' (Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass') 'Selected scope should stand on its own.'
+        Assert-Equal 0 (Get-ExitCodeForStatus 'pass') 'Selected success must exit zero.'
     }
 
-    Test-Case 'an error leg outranks every coverage gap' {
-        $args = $greenRun.Clone()
-        $args.LegStatuses = @('error')
-        $args.MatrixNarrowed = $true
-        $args.HasGdkCoverageGap = $true
-        Assert-Equal 'error' (Get-RunVerdict @args) 'An error leg must stay an error.'
+    Test-Case 'execution errors retain a non-passing verdict' {
+        Assert-Equal 'error' (Get-RunVerdict @greenRun -ExecutionFailed $true) 'A later error must not hide behind completed legs.'
+        Assert-Equal 'fail' (Get-RunVerdict -LegStatuses @('pass', 'fail') -ReleaseStatus 'pass') 'A failed leg still fails.'
     }
-
     # Nothing measured is not success.
     Test-Case 'a run with no engine legs is an error' {
         $args = $greenRun.Clone()
@@ -967,7 +905,7 @@ try {
         $repoRoot = Split-Path -Parent (Split-Path -Parent $ciRoot)
         $wrapper = Get-Content -LiteralPath (Join-Path $repoRoot 'tools/validate_pr_local.ps1') -Raw
         Assert-True ($wrapper -match '\$runStatus\s*=\s*Get-RunVerdict') 'The wrapper must fold its verdict through Get-RunVerdict.'
-        foreach ($flag in @('-HasGdkCoverageGap', '-HasGdkIdentityGap', '-MatrixNarrowed', '-HeadMoved', '-ReleaseStatus')) {
+        foreach ($flag in @('-ExecutionFailed', '-ReleaseStatus', '-SandboxRestoreFailed', '-DebugStatus')) {
             Assert-True ($wrapper.Contains($flag)) "The wrapper must pass $flag to Get-RunVerdict."
         }
     }
@@ -1066,8 +1004,7 @@ try {
         $summary = New-Summary
         $summary.total_duration_ms = 'a while'
         $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest
-        $run = Get-RunVerdict -LegStatuses @($v.Status) -ReleaseStatus 'pass' `
-            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false -HeadMoved $false
+        $run = Get-RunVerdict -LegStatuses @($v.Status) -ReleaseStatus 'pass'
         Assert-Equal 'error' $run 'An uninterpretable leg must fail the run.'
         Assert-True ((Get-ExitCodeForStatus $run) -ne 0) 'An uninterpretable leg must not exit 0.'
     }
@@ -1182,58 +1119,6 @@ try {
     }
 
     # ----------------------------------------------------------------------
-    Write-Host 'An unreadable change list cannot hide a coverage gap'
-    # ----------------------------------------------------------------------
-    # The GDK coverage gap is driven by whether the pull request edits the
-    # support list, read by diffing the verified checkout. A diff that could
-    # not be produced must answer 'touched', because the alternative
-    # publishes PASS over an unvalidated support claim.
-
-    Test-Case 'a complete change list answers exactly' {
-        $paths = @('docs/ci/pr-local-validation.md', '.github/gdk-versions.json')
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths $paths -Complete $true -Path '.github/gdk-versions.json') 'A listed path is touched.'
-        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths $paths -Complete $true -Path 'vcpkg.json')) 'An unlisted path is not touched.'
-    }
-
-    Test-Case 'an incomplete change list is treated as touching everything asked about' {
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('README.md') -Complete $false -Path '.github/gdk-versions.json') 'An unreadable list must not answer "not touched".'
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths @() -Complete $false -Path '.github/gdk-versions.json') 'An unavailable list must not answer "not touched".'
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths $null -Complete $false -Path '.github/gdk-versions.json') 'A null list must not answer "not touched".'
-    }
-
-    Test-Case 'an empty but complete change list answers "not touched"' {
-        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths @() -Complete $true -Path '.github/gdk-versions.json')) 'A genuinely empty diff touches nothing.'
-        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths $null -Complete $true -Path '.github/gdk-versions.json')) 'A null list that is complete touches nothing.'
-    }
-
-    Test-Case 'path comparison ignores separator and leading-slash differences' {
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('.github\gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json') 'A backslash path still matches.'
-        Assert-True (Test-ChangedPathsInclude -ChangedPaths @('/.github/gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json') 'A leading slash still matches.'
-        Assert-True (-not (Test-ChangedPathsInclude -ChangedPaths @('sample/.github/gdk-versions.json') -Complete $true -Path '.github/gdk-versions.json')) 'A suffix match is not a match.'
-    }
-
-    Test-Case 'an unknown change list surfaces the GDK coverage gap' {
-        $touched = Test-ChangedPathsInclude -ChangedPaths @() -Complete $false -Path '.github/gdk-versions.json'
-        $gap = Get-GdkCoverageGap -Selected '2604.2.7849' -Uncovered @('2602.1.7701') -ManifestChanged $touched -PullRequest 202
-        Assert-True ([bool]$gap) 'An unreadable file list must still produce the coverage gap.'
-    }
-
-    Test-Case 'the wrapper reads changed files from the verified checkout' {
-        $src = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1') -Raw
-        Assert-True ($src -notmatch 'json\s+number[^\r\n]*,files') 'The capped "gh pr view --json files" list must be gone.'
-        Assert-True ($src -notmatch 'pulls/\$Number/files') 'The live REST file list must not decide the change set.'
-        Assert-True ($src -match "'merge-base', \`$BaseSha, \`$HeadSha") 'The comparison point must come from the pinned base commit.'
-        Assert-True ($src -match "diff', '--name-only', '--no-renames', \`$mergeBase, \`$HeadSha") 'The diff must run from that fixed merge base to the validated head.'
-        Assert-True ($src -match '\$mergeBase -eq \$HeadSha') 'A base that already contains the head must not read as an empty diff.'
-        Assert-True ($src -match 'baseRefOid') 'The base commit must be pinned from the trusted metadata query.'
-        Assert-True ($src -match 'Test-ChangedPathsInclude -ChangedPaths \$changedFiles\.Paths -Complete \$changedFiles\.Complete') 'The completeness flag must reach the predicate.'
-        $diffIndex = $src.IndexOf('Get-ChangedPathsFromCheckout -CheckoutDir')
-        $submoduleIndex = $src.IndexOf("'submodule', 'update'")
-        Assert-True ($diffIndex -gt 0 -and $submoduleIndex -gt 0) 'Both the change-list call and the submodule step must exist.'
-        Assert-True ($diffIndex -lt $submoduleIndex) 'The change list must be read before any candidate content runs.'
-    }
-
-    # ----------------------------------------------------------------------
     Write-Host ''
     Write-Host 'Coverage, matrix and verdict inputs come from what actually ran'
     # ----------------------------------------------------------------------
@@ -1255,46 +1140,13 @@ try {
         Assert-Throws -Body { Select-EngineMatrix -Supported @('4.7.1-stable') -Requested @('4.7.1-stable,9.9.9-stable') } -Match 'not in this pull request'
     }
 
-    Test-Case 'uncovered GDK versions are subtracted from the SDK that was built' {
-        $supported = @('2604.2.7849', '2602.1.7701')
-        # An unpinned run expects the declared default but resolves whatever the
-        # registry baseline gives it.
-        $uncovered = Get-UncoveredGdkVersions -Supported $supported -Built '2602.1.7701'
-        Assert-Equal 1 @($uncovered).Count 'Exactly one declared version was left unbuilt.'
-        Assert-Equal '2604.2.7849' @($uncovered)[0] 'The version that was never built is the uncovered one.'
-        $gap = Get-GdkCoverageGap -Selected '2602.1.7701' -Uncovered $uncovered -ManifestChanged $true -PullRequest 203
-        Assert-True ($gap -match 'still unvalidated: `2604\.2\.7849`\.') 'Only the unbuilt edition is listed as unvalidated.'
-        Assert-True ($gap -match 'Validated `2602\.1\.7701`') 'The edition that was actually built is reported as validated.'
-    }
-
-    Test-Case 'an undeclared restored SDK leaves every declared version uncovered' {
-        $uncovered = Get-UncoveredGdkVersions -Supported @('2604.2.7849', '2602.1.7701') -Built '2500.0.0000'
-        Assert-Equal 2 @($uncovered).Count 'Nothing the candidate declares was validated.'
-        $none = Get-UncoveredGdkVersions -Supported @('2604.2.7849') -Built ''
-        Assert-Equal 1 @($none).Count 'An unknown restored package cannot cover anything.'
-    }
-
-    Test-Case 'an unverifiable head cannot settle as a pass' {
-        $args = @{
-            LegStatuses = @('pass'); ReleaseStatus = 'pass'; MatrixNarrowed = $false
-            HasGdkIdentityGap = $false; HasGdkCoverageGap = $false; HeadMoved = $false
-        }
-        Assert-Equal 'pass' (Get-RunVerdict @args) 'A fully verified run is still a pass.'
-        Assert-Equal 'incomplete' (Get-RunVerdict @args -HeadUnverified $true) 'A head the run could not re-read floors the verdict.'
-        Assert-Equal 'fail' (Get-RunVerdict -LegStatuses @('fail') -ReleaseStatus 'pass' -MatrixNarrowed $false `
-            -HasGdkIdentityGap $false -HasGdkCoverageGap $false -HeadMoved $false -HeadUnverified $true) 'It cannot downgrade a real failure.'
-    }
-
-    Test-Case 'the wrapper protects the sandbox switch and survives a failed head re-read' {
+    Test-Case 'the wrapper protects and records sandbox restoration' {
         $src = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1') -Raw
         $tryIndex = $src.IndexOf('$legs = @()')
         $switchIndex = $src.IndexOf('Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId')
         $restoreIndex = $src.IndexOf('Restoring Xbox sandbox to')
         Assert-True ($tryIndex -gt 0 -and $switchIndex -gt 0 -and $restoreIndex -gt 0) 'The switch and its restore must both exist.'
         Assert-True ($switchIndex -gt $tryIndex -and $switchIndex -lt $restoreIndex) 'A switch that half-succeeds must still reach the restore.'
-        Assert-True ($src -match '\$headLookupError = \$_\.Exception\.Message') 'A failed head re-read must be caught, not fatal.'
-        Assert-True ($src -match '-HeadUnverified \$headUnverified') 'An unverified head must reach the verdict.'
-        Assert-True ($src -match 'gdk_not_covered\s+= @\(\$gdkUncovered\)') 'The manifest must report the recomputed uncovered list.'
         Assert-True ($src -match '\$sandboxRestoreError = \$_\.Exception\.Message') 'A failed sandbox restore must be recorded, not thrown.'
         # The flag, not the message, must drive the verdict and the manifest:
         # an exception can carry an empty Message, and [bool]'' is $false,
@@ -1306,16 +1158,11 @@ try {
         # Write-Warning is itself terminating under -WarningAction Stop, so a
         # warning that reports a degraded path must opt out of preference
         # escalation or it reintroduces the throw it was written to replace.
-        Assert-Equal 5 (@([regex]::Matches($src, 'Write-Warning -WarningAction Continue')).Count) 'Every degradation warning must be non-escalatable.'
         Assert-True ($src -match 'Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox') 'The restore warning must not be escalatable.'
-        Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not re-read the pull request head') 'The head re-read warning must not be escalatable.'
-        Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not derive the files head') 'The change-list warning must not be escalatable.'
-        $headIndex = $src.IndexOf('$headLookupError = $_.Exception.Message')
         $restoreErrIndex = $src.IndexOf('$sandboxRestoreError = $_.Exception.Message')
         # Matched loosely: pinning the exact padding would fail on a column
         # realignment that changes nothing about the behaviour under test.
         $manifestIndex = [regex]::Match($src, 'schema_version\s+= 1').Index
-        Assert-True ($headIndex -gt 0 -and $manifestIndex -gt $headIndex) 'Evidence must still be written after a failed lookup.'
         Assert-True ($restoreErrIndex -gt 0 -and $manifestIndex -gt $restoreErrIndex) 'Evidence must still be written after a failed restore.'
     }
 
@@ -1459,16 +1306,12 @@ try {
     # statement about the candidate's code -- but it must never sit under a PASS
     # heading, and the evidence must still be published.
     Test-Case 'a failed sandbox restore errors the run verdict' {
-        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' `
-            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false `
-            -HeadMoved $false -HeadUnverified $false -SandboxRestoreFailed $true
+        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' -SandboxRestoreFailed $true
         Assert-Equal 'error' $status 'A machine left in the test sandbox cannot be a pass.'
     }
 
     Test-Case 'a restored sandbox leaves an otherwise clean run passing' {
-        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' `
-            -MatrixNarrowed $false -HasGdkIdentityGap $false -HasGdkCoverageGap $false `
-            -HeadMoved $false -HeadUnverified $false -SandboxRestoreFailed $false
+        $status = Get-RunVerdict -LegStatuses @('pass') -ReleaseStatus 'pass' -SandboxRestoreFailed $false
         Assert-Equal 'pass' $status 'A successful restore must not degrade the verdict.'
     }
 
@@ -1512,25 +1355,56 @@ try {
         $logsDir = Join-Path $runDir 'logs'
         New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
         $checkoutDir = Join-Path $runDir 'checkout'
+        $enginesDir = Join-Path $runDir 'engines'
+        $resultsDir = Join-Path $runDir 'results'
+        $cacheDir = Join-Path $runDir 'cache'
+        $manifestPath = Join-Path $runDir 'godot-versions.json'
+        $sandboxExe = 'fixture-sandbox.exe'
         $PullRequest = 203
         $headSha = 'f' * 40
         $startedAt = [datetime]::UtcNow
-        $originalSandbox = 'RETAIL'
+        $originalSandbox = 'lykhvw.0'
         $pr = [pscustomobject]@{ url = 'https://github.com/microsoft/XBOX-Godot-Sample/pull/203' }
-        $gdk = [pscustomobject]@{ Supported = @('2604.2.7849'); Pinned = $false }
+        $gdk = [pscustomobject]@{ Version = '2604.2.7849'; Edition = '260402'; Pinned = $true }
+        $GdkVersion = '2604.2.7849'
+        $versions = @('4.6.1-stable')
         $gdkManifest = [pscustomobject]@{ Default = '2604.2.7849' }
-        $matrix = [pscustomobject]@{ Narrowed = $false; Skipped = @() }
+        $matrix = [pscustomobject]@{ Narrowed = $true; Selected = $versions; Skipped = @('4.7.1-stable') }
+        if ($FailureMode -eq 'inherited') {
+            $gdk.Pinned = $false
+            $gdk.Version = '2604.9.9999'
+            $gdk.Edition = $null
+            $gdkManifest.Default = $gdk.Version
+            $GdkVersion = $null
+        }
         $NoComment = $WithoutComment
         $script:Repository = 'microsoft/XBOX-Godot-Sample'
         $script:PlayFabTitleId = '10D176'
+        $script:PlayFabCustomId = 'godot-gdk-ext-live-smoke'
+        $script:PlayFabMatchmaking = 'godot_gdk_ext_live_smoke_queue'
         $script:SandboxId = 'lykhvw.0'
         $calls = [System.Collections.Generic.List[string]]::new()
         $WarningPreference = 'Stop'
 
         function Write-Phase { param($Message) }
         function Write-Note { param($Message) }
-        function Get-PullRequestMetadata { param($Number) return [pscustomobject]@{ headRefOid = $headSha } }
-        function Get-SdkIdentity { throw 'SDK inspection must not run after Debug failed.' }
+        function Get-SdkIdentity {
+            if ($FailureMode -eq 'sdk') { throw 'LOCAL-ONLY-DETAIL SDK identity is missing' }
+            return [pscustomobject]@{ Edition = '260402'; Package = '2604.2.7849' }
+        }
+        function pwsh {
+            param([switch]$NoLogo, [switch]$NoProfile, $File, $Mode, $Version, $ManifestPath, $DestinationRoot, $ArchiveCacheDir, [switch]$Force)
+            if ($FailureMode -eq 'acquire') { throw 'LOCAL-ONLY-DETAIL engine acquisition failed' }
+            Set-Variable -Name LASTEXITCODE -Scope 1 -Value 0
+            return (@{ Path = (Join-Path $enginesDir "$Version\godot.exe") } | ConvertTo-Json -Compress)
+        }
+        function Copy-RedistributableDlls { param($CheckoutRoot, $EngineDir) return 1 }
+        function Set-CurrentSandbox { param($ExePath, $SandboxId, $LogPath) return $SandboxId }
+        function Get-CurrentSandbox {
+            param($ExePath)
+            if ($FailureMode -eq 'restore') { throw 'sandbox restore failed' }
+            return $originalSandbox
+        }
         function Invoke-Logged {
             param($FilePath, $ArgumentList, $LogPath, $WorkingDirectory, [switch]$ScrubCredentials)
             $command = "$FilePath $($ArgumentList -join ' ')"
@@ -1541,10 +1415,24 @@ try {
                 Assert-True (Test-Path -LiteralPath $ArgumentList[$bodyIndex + 1]) 'The report must exist before publication.'
                 return 0
             }
-            Assert-Equal 'cmake' $FilePath 'No engines, sandbox changes or live commands may execute.'
+            if ($FilePath -eq 'pwsh') {
+                $outIndex = [array]::IndexOf($ArgumentList, '-OutDir')
+                $out = $ArgumentList[$outIndex + 1]
+                New-Item -ItemType Directory -Force -Path $out | Out-Null
+                $summary = New-Summary
+                $summary.godot_version = '4.6.1.stable.official.fixture'
+                if ($FailureMode -eq 'wrong-engine') { $summary.godot_version = '4.7.1.stable.official.fixture' }
+                if ($FailureMode -eq 'missing-engine') { $summary.PSObject.Properties.Remove('godot_version') }
+                $summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $out 'run-summary.json')
+                return 0
+            }
+            Assert-Equal 'cmake' $FilePath 'Only simulated build, test and publication commands may execute.'
+            if ($FailureMode -eq 'release' -and $command -eq 'cmake --preset default-release') {
+                throw 'LOCAL-ONLY-DETAIL Release could not start'
+            }
             if ($FailureMode -eq 'launch') { throw 'LOCAL-ONLY-DETAIL C:\private\tool.exe could not start' }
-            if ($FailureMode -eq 'configure' -or $command -eq 'cmake --build --preset debug') { return 17 }
-            Assert-Equal 'cmake --preset default' $command 'Only Debug configuration may succeed in this fixture.'
+            if ($FailureMode -eq 'configure' -or ($FailureMode -eq 'compile' -and $command -eq 'cmake --build --preset debug')) { return 17 }
+            Add-Content -LiteralPath $LogPath -Value $command
             return 0
         }
 
@@ -1553,7 +1441,9 @@ try {
             Manifest = Get-Content -LiteralPath (Join-Path $runDir 'validation-manifest.json') -Raw | ConvertFrom-Json
             Report = Get-Content -LiteralPath (Join-Path $runDir 'report.md') -Raw
             Calls = @($calls.ToArray())
-            Log = Get-Content -LiteralPath (Join-Path $logsDir 'build-debug.log') -Raw
+            Log = if (Test-Path -LiteralPath (Join-Path $logsDir 'execution-errors.log')) {
+                Get-Content -LiteralPath (Join-Path $logsDir 'execution-errors.log') -Raw
+            } else { '' }
         }
     }
 
@@ -1575,6 +1465,7 @@ try {
             Assert-True ($result.Report -match "Local PR validation - $($expected.ToUpperInvariant())") 'The heading must not pass.'
             Assert-True ($result.Report -match 'unavailable') 'Unknown SDK identity must be explicit.'
             Assert-True ($result.Report -match 'not changed') 'The report must not claim a sandbox switch/restore.'
+            Assert-True ($result.Report -like '*-GodotVersion 4.6.1-stable -GdkVersion 2604.2.7849*') 'Reproduction must use requested inputs even before the build resolves an SDK.'
             Assert-True (-not ($result.Report -match 'Ran ``tools/run_all_tests|on every Godot|so it ran on the first')) 'The report must not claim tests ran.'
             Assert-True (-not ($result.Report -match 'LOCAL-ONLY-DETAIL|C:\\private')) 'Local exception details must not be published.'
             Assert-True ($result.Calls[-1] -match '^gh pr comment ') 'A failed build must still publish its report.'
@@ -1588,218 +1479,39 @@ try {
         Assert-Equal 'fail' $result.Manifest.status 'The saved failure remains a failure.'
     }
 
-    Test-Case 'the actual GDK coverage call handles zero, one and multiple uncovered versions' {
-        $callSite = [regex]::Match($wrapperSource, '(?m)^\s*\$gdkUncovered = @\(Get-UncoveredGdkVersions[^\r\n]+\r?\n\s*\$gdkCoverageGap = Get-GdkCoverageGap[^\r\n]+')
-        Assert-True $callSite.Success 'The caller must capture uncovered versions as an array.'
-        foreach ($supported in @(
-                @{ Versions = @('2604.2.7849'); Count = 0 },
-                @{ Versions = @('2604.2.7849', '2602.1.7701'); Count = 1 },
-                @{ Versions = @('2604.2.7849', '2602.1.7701', '2504.0.7000'); Count = 2 }
-            )) {
-            $gdk = [pscustomobject]@{ Supported = $supported.Versions }
-            $sdk = [pscustomobject]@{ Package = '2604.2.7849' }
-            $gdkManifestChanged = $true
-            $PullRequest = 203
-            . ([scriptblock]::Create($callSite.Value))
-            Assert-Equal $supported.Count $gdkUncovered.Count 'The array shape must survive the caller.'
-            Assert-Equal ($supported.Count -gt 0) ([bool]$gdkCoverageGap) 'Only uncovered SDKs require a gap.'
+    foreach ($mode in @('success', 'inherited')) {
+        Test-Case "selected scope passes with $mode SDK selection" {
+            $result = Invoke-DebugFailureFixture -FailureMode $mode
+            Assert-Equal 'pass' $result.Manifest.status "One requested engine should pass independently. $($result.Log)"
+            Assert-Equal 1 @($result.Manifest.engines).Count 'Only the selected engine should run.'
+            Assert-Equal '4.6.1-stable' $result.Manifest.engines[0].version 'The selected identity must be recorded.'
+            Assert-Equal '2604.2.7849' $result.Manifest.ms_gdk_version 'The actual SDK, not the declared default, defines the scope.'
+            Assert-Equal 'pass' $result.Manifest.release_build_status 'Release must complete.'
+            Assert-True ($result.Report -like '*Unselected Godot versions: 4.7.1-stable*') 'Other engines remain visible as scope notes.'
+            Assert-True (-not ($result.Report -match 'Coverage gaps|full-matrix evidence')) 'Selection alone must not introduce a coverage gap.'
         }
     }
 
-    # ----------------------------------------------------------------------
-    Write-Host ''
-    Write-Host 'The change list is derived from real git history'
-    # ----------------------------------------------------------------------
-    # The source-text test above pins the command shape; these run the wrapper's
-    # actual functions against real repositories, so a future edit that keeps the
-    # literals intact but changes the behaviour still fails.
-    function Import-WrapperFunction {
-        param([Parameter(Mandatory = $true)][string[]]$Name)
-        $wrapperPath = Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1'
-        $parseErrors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($wrapperPath, [ref]$null, [ref]$parseErrors)
-        if (@($parseErrors).Count -gt 0) { throw "validate_pr_local.ps1 does not parse: $($parseErrors[0].Message)" }
-        # PowerShell resolves duplicate definitions to the last one, so taking the
-        # first match could lift a dead definition while the wrapper runs another.
-        # Only a single top-level definition is unambiguous enough to test.
-        $bodies = foreach ($wanted in $Name) {
-            $found = @($ast.FindAll({
-                        param($node)
-                        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                        $node.Name -eq $wanted -and
-                        $node.Parent -is [System.Management.Automation.Language.NamedBlockAst]
-                    }, $false))
-            if ($found.Count -ne 1) {
-                throw "validate_pr_local.ps1 must define $wanted exactly once at the top level (found $($found.Count))."
+    foreach ($mode in @('sdk', 'acquire', 'release', 'restore', 'wrong-engine', 'missing-engine')) {
+        Test-Case "a $mode error retains and publishes available results" {
+            $result = Invoke-DebugFailureFixture -FailureMode $mode
+            Assert-Equal 'error' $result.Manifest.status 'An execution or identity error cannot pass.'
+            Assert-Equal 'pass' $result.Manifest.debug_build_status 'Debug results must be retained.'
+            $hasLeg = $mode -in @('release', 'restore', 'wrong-engine', 'missing-engine')
+            Assert-Equal ([int]$hasLeg) @($result.Manifest.engines).Count "Completed leg records must survive later errors. $($result.Log)"
+            Assert-True ($result.Calls[-1] -match '^gh pr comment ') 'Later errors must still publish.'
+            Assert-True (-not ($result.Report -match 'LOCAL-ONLY-DETAIL')) 'Raw execution errors remain in local logs.'
+            if ($mode -eq 'release') {
+                Assert-Equal 'pass' $result.Manifest.engines[0].status 'Completed live evidence must survive a Release launch error.'
+                Assert-Equal 'error' $result.Manifest.release_build_status 'An unlaunched Release build cannot read as pass.'
             }
-            $found[0].Extent.Text
-        }
-        return ($bodies -join "`n`n")
-    }
-
-    # Console presentation only; the functions under test are the real ones.
-    function Write-Note { param([string]$Message) }
-    . ([scriptblock]::Create((Import-WrapperFunction -Name @('Invoke-Logged', 'Invoke-GitChecked', 'Get-GitOutput', 'Get-ChangedPathsFromCheckout'))))
-
-    # Every fixture command is exit-code checked: a scenario that fails to build
-    # the history it claims must fail loudly, never quietly degrade into a
-    # different scenario that still satisfies the assertions. Hooks are pointed
-    # at an empty directory so a developer's global core.hooksPath cannot run.
-    function Invoke-FixtureGit {
-        param(
-            [Parameter(Mandatory = $true)][string]$Directory,
-            [Parameter(Mandatory = $true)][string[]]$ArgumentList,
-            [string]$HooksPath
-        )
-        $previous = Get-Location
-        Set-Location -LiteralPath $Directory
-        try {
-            $prefix = @()
-            if ($HooksPath) { $prefix = @('-c', "core.hooksPath=$HooksPath") }
-            $out = & git @prefix @ArgumentList 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "fixture git $($ArgumentList -join ' ') failed ($LASTEXITCODE): $(($out | Out-String).Trim())"
-            }
-        } finally {
-            Set-Location -LiteralPath $previous
-        }
-        return ($out | Out-String).Trim()
-    }
-
-    function New-ChangeListFixture {
-        $root = Join-Path $fixtureRoot ('git-' + [guid]::NewGuid().ToString('n').Substring(0, 8))
-        $bare = Join-Path $root 'origin.git'
-        $work = Join-Path $root 'work'
-        $clone = Join-Path $root 'clone'
-        $hooks = Join-Path $root 'no-hooks'
-        New-Item -ItemType Directory -Force -Path $root, $work, $clone, $hooks | Out-Null
-        $fixture = [pscustomobject]@{
-            Root = $root; Work = $work; Clone = $clone; Hooks = $hooks
-            BaseSha = ''; HeadSha = ''
-            LogPath = (Join-Path $root 'git.log')
-        }
-        Invoke-FixtureGit -Directory $root -ArgumentList @('init', '--quiet', '--bare', $bare) -HooksPath $hooks | Out-Null
-        # The bare repo resolves receive hooks through its own config chain, so a
-        # transient -c on the pushing side cannot stop a global hooks path there.
-        # It is addressed by --git-dir because safe.bareRepository=explicit makes
-        # cwd-based discovery of a bare repo fail.
-        Invoke-FixtureGit -Directory $root -ArgumentList @('--git-dir', $bare, 'config', 'core.hooksPath', $hooks) -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('init', '--quiet', '-b', 'main', '.') -HooksPath $hooks | Out-Null
-        foreach ($setting in @(@('user.email', 'tests@example.invalid'), @('user.name', 'pr-local-validation tests'), @('commit.gpgsign', 'false'), @('core.hooksPath', $hooks))) {
-            Invoke-FixtureGit -Directory $work -ArgumentList @('config', $setting[0], $setting[1]) -HooksPath $hooks | Out-Null
-        }
-        New-Item -ItemType Directory -Force -Path (Join-Path $work '.github') | Out-Null
-        'base' | Set-Content -LiteralPath (Join-Path $work '.github/gdk-versions.json')
-        Invoke-FixtureGit -Directory $work -ArgumentList @('add', '-A') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('commit', '--quiet', '-m', 'base') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('remote', 'add', 'origin', $bare) -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $hooks | Out-Null
-        $fixture.BaseSha = Invoke-FixtureGit -Directory $work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks
-        Invoke-FixtureGit -Directory $work -ArgumentList @('checkout', '--quiet', '-b', 'pr') -HooksPath $hooks | Out-Null
-        'changed' | Set-Content -LiteralPath (Join-Path $work '.github/gdk-versions.json')
-        Invoke-FixtureGit -Directory $work -ArgumentList @('add', '-A') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('commit', '--quiet', '-m', 'change the support list') -HooksPath $hooks | Out-Null
-        $fixture.HeadSha = Invoke-FixtureGit -Directory $work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks
-        Invoke-FixtureGit -Directory $work -ArgumentList @('push', '--quiet', 'origin', 'pr:refs/pull/1/head') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $work -ArgumentList @('checkout', '--quiet', 'main') -HooksPath $hooks | Out-Null
-
-        Invoke-FixtureGit -Directory $clone -ArgumentList @('init', '--quiet', '.') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $clone -ArgumentList @('config', 'core.hooksPath', $hooks) -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $clone -ArgumentList @('remote', 'add', 'origin', $bare) -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $clone -ArgumentList @('fetch', '--quiet', '--no-tags', 'origin', '+refs/pull/1/head:refs/remotes/origin/pr/1') -HooksPath $hooks | Out-Null
-        Invoke-FixtureGit -Directory $clone -ArgumentList @('checkout', '--quiet', '--detach', $fixture.HeadSha) -HooksPath $hooks | Out-Null
-        if ((Invoke-FixtureGit -Directory $clone -ArgumentList @('rev-parse', 'HEAD') -HooksPath $hooks) -ne $fixture.HeadSha) {
-            throw 'fixture clone is not checked out at the intended head.'
-        }
-        foreach ($repo in @(@($root, @('--git-dir', $bare)), @($work, @()), @($clone, @()))) {
-            $probe = $repo[1] + @('config', '--local', '--get', 'core.hooksPath')
-            if ((Invoke-FixtureGit -Directory $repo[0] -ArgumentList $probe -HooksPath $hooks) -ne $hooks) {
-                throw "a fixture repo did not persist the empty hooks path, so ambient hooks could run."
+            if (-not $hasLeg) {
+                Assert-Equal 1 @($result.Manifest.engines_not_run).Count 'Uncompleted selections must be named.'
+                Assert-Equal 'not run' $result.Manifest.release_build_status 'Unreached Release must not claim success.'
             }
         }
-        return $fixture
     }
 
-    function Invoke-FixtureChangeList {
-        param(
-            [Parameter(Mandatory = $true)]$Fixture,
-            [string]$BaseSha,
-            [string]$ExpectWarningLike
-        )
-        if (-not $BaseSha) { $BaseSha = $Fixture.BaseSha }
-        $warnings = $null
-        $result = Get-ChangedPathsFromCheckout -CheckoutDir $Fixture.Clone -HeadSha $Fixture.HeadSha `
-            -BaseRef 'main' -BaseSha $BaseSha -LogPath $Fixture.LogPath -WarningAction SilentlyContinue -WarningVariable warnings
-        if ($ExpectWarningLike) {
-            # A degraded result is only the expected degradation when the function
-            # says why; otherwise an unrelated git hiccup could stand in for it.
-            $text = (@($warnings) -join ' ')
-            if ($text -notlike "*$ExpectWarningLike*") {
-                throw "expected the change list to degrade with '$ExpectWarningLike' but it reported: $text"
-            }
-        }
-        return $result
-    }
-
-    Test-Case 'an ordinary pull request reports exactly the paths it changed' {
-        $fixture = New-ChangeListFixture
-        $result = Invoke-FixtureChangeList -Fixture $fixture
-        Assert-True $result.Complete 'A readable history must produce a complete change list.'
-        Assert-Equal 1 @($result.Paths).Count 'Only the edited file should appear.'
-        Assert-Equal '.github/gdk-versions.json' $result.Paths[0] 'The support list must be reported as changed.'
-    }
-
-    Test-Case 'the pinned base survives the base branch moving on' {
-        $fixture = New-ChangeListFixture
-        'unrelated' | Set-Content -LiteralPath (Join-Path $fixture.Work 'README.md')
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('add', '-A') -HooksPath $fixture.Hooks | Out-Null
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('commit', '--quiet', '-m', 'unrelated base work') -HooksPath $fixture.Hooks | Out-Null
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $fixture.Hooks | Out-Null
-        $movedTip = Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $fixture.Hooks
-        Assert-True ($movedTip -ne $fixture.BaseSha) 'The scenario requires the base branch to have actually advanced.'
-
-        $result = Invoke-FixtureChangeList -Fixture $fixture
-        Assert-True $result.Complete 'A base that merely moved forward is still answerable.'
-        Assert-True ($result.Paths -contains '.github/gdk-versions.json') 'The support-list change must not be lost when the base advances.'
-        Assert-True ($result.Paths -notcontains 'README.md') 'Commits made on the base after the fork point are not this PR.'
-    }
-
-    Test-Case 'a base that already merged this head is reported as unknown' {
-        $fixture = New-ChangeListFixture
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('merge', '--quiet', '--no-ff', '-m', 'merge the pull request', $fixture.HeadSha) -HooksPath $fixture.Hooks | Out-Null
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('push', '--quiet', 'origin', 'main') -HooksPath $fixture.Hooks | Out-Null
-        $mergedBase = Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('rev-parse', 'HEAD') -HooksPath $fixture.Hooks
-        Invoke-FixtureGit -Directory $fixture.Work -ArgumentList @('merge-base', '--is-ancestor', $fixture.HeadSha, $mergedBase) -HooksPath $fixture.Hooks | Out-Null
-
-        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha $mergedBase -ExpectWarningLike 'already contains head'
-        Assert-True (-not $result.Complete) 'An already-merged head cannot yield an honest empty diff.'
-        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
-    }
-
-    Test-Case 'a base commit the fetch did not deliver is reported as unknown' {
-        $fixture = New-ChangeListFixture
-        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha ('0' * 39 + '1') -ExpectWarningLike 'rev-parse --verify'
-        Assert-True (-not $result.Complete) 'A base commit absent from the clone must degrade, not guess.'
-        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
-    }
-
-    Test-Case 'a base that does not resolve to the pinned commit is reported as unknown' {
-        $fixture = New-ChangeListFixture
-        # An abbreviation resolves to a real commit, so only comparing the
-        # resolved object against the pinned one catches the substitution.
-        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha $fixture.BaseSha.Substring(0, 12) -ExpectWarningLike 'does not contain commit'
-        Assert-True (-not $result.Complete) 'A base that resolves to something else must not be diffed against.'
-        Assert-Equal 0 @($result.Paths).Count 'An unknown change list carries no paths.'
-    }
-
-    Test-Case 'an unknown change list still reports the GDK coverage gap' {
-        $fixture = New-ChangeListFixture
-        $result = Invoke-FixtureChangeList -Fixture $fixture -BaseSha ('0' * 39 + '1') -ExpectWarningLike 'rev-parse --verify'
-        $touched = Test-ChangedPathsInclude -ChangedPaths $result.Paths -Complete $result.Complete -Path '.github/gdk-versions.json'
-        Assert-True $touched 'The conservative answer must survive the real degraded result.'
-        $gap = Get-GdkCoverageGap -Selected '2604.1.7839' -Uncovered @('2604.2.7849') -ManifestChanged $touched -PullRequest 203
-        Assert-True ($null -ne $gap) 'A degraded change list must not retire the coverage gap.'
-    }
 } finally {
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

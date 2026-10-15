@@ -680,22 +680,16 @@ function Format-ValidationComment {
     [void]$lines.Add("## Local PR validation - $(Get-StatusLabel $status)")
     [void]$lines.Add('')
 
-    $skippedProp = $Manifest.PSObject.Properties['engines_skipped']
-    $skippedEngines = @()
-    if ($skippedProp) { $skippedEngines = @($skippedProp.Value | Where-Object { $_ }) }
-
     $debugProp = $Manifest.PSObject.Properties['debug_build_status']
     $debugFailed = $debugProp -and $debugProp.Value -ne 'pass'
-    if ($debugFailed) {
-        [void]$lines.Add('Debug preparation failed in the fresh checkout. Live tests and the Release build were not run; no live-test coverage is claimed.')
-    } elseif ($skippedEngines.Count -gt 0) {
-        $ran = @(@($Manifest.engines) | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_.version)) + '`' })
-        $skip = @($skippedEngines | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_)) + '`' })
-        [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit.")
-        [void]$lines.Add('')
-        [void]$lines.Add("> **The Godot matrix was narrowed by request.** This run covered $($ran -join ', ') and skipped $($skip -join ', '). It is not full-matrix evidence.")
-    } else {
-        [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit, on every Godot version in the candidate checkout's ``.github/godot-versions.json``.")
+    [void]$lines.Add('Results apply only to the exact commit, SDK and selected engines below, not to the entire PR support matrix or a later commit.')
+    $selected = @($Manifest.engines_selected)
+    [void]$lines.Add('')
+    [void]$lines.Add("- **Selected Godot versions**: $(($selected | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_)) + '`' }) -join ', ')")
+    if ($debugFailed) { [void]$lines.Add('- Debug preparation failed. Live tests and Release were not run; no live-test coverage is claimed.') }
+    $notRun = @($Manifest.engines_not_run)
+    if ($notRun.Count -gt 0) {
+        [void]$lines.Add("- **Selected engines not completed**: $(($notRun | ForEach-Object { ConvertTo-MarkdownCell ([string]$_) }) -join ', ')")
     }
     [void]$lines.Add('')
     [void]$lines.Add("- **Head commit**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.head_sha))``")
@@ -707,6 +701,7 @@ function Format-ValidationComment {
     $gdkPinnedProp = $Manifest.PSObject.Properties['gdk_pinned']
     $gdkOrigin = if ($gdkPinnedProp -and $gdkPinnedProp.Value) { 'pinned by request' } else { 'inherited from the candidate checkout' }
     [void]$lines.Add("- **ms-gdk package (restored by vcpkg)**: ``$(ConvertTo-MarkdownCell $package)`` ($gdkOrigin)")
+    [void]$lines.Add("- **Declared default GDK (informational)**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.gdk_declared_default))``")
     [void]$lines.Add("- **PlayFab title**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.playfab_title_id))``")
     $restoredProp = $Manifest.PSObject.Properties['sandbox_restored']
     $attemptedProp = $Manifest.PSObject.Properties['sandbox_attempted']
@@ -769,8 +764,13 @@ function Format-ValidationComment {
     [void]$lines.Add('- Console (Xbox hardware) targets: this validates the PC/GDK desktop target only.')
     [void]$lines.Add('- Packaging and submission flows.')
     [void]$lines.Add('- Any PlayFab title other than the one named above.')
-    if (-not $debugFailed) {
-        [void]$lines.Add('- The C++ doctest binary is engine-independent, so it ran on the first engine leg only.')
+    [void]$lines.Add('- Any other GDK version; this run does not assess the entire support list.')
+    $skippedEngines = @($Manifest.engines_skipped)
+    if ($skippedEngines.Count -gt 0) {
+        [void]$lines.Add("- Unselected Godot versions: $(($skippedEngines | ForEach-Object { ConvertTo-MarkdownCell ([string]$_) }) -join ', ').")
+    }
+    if (@($Manifest.engines).Count -gt 0) {
+        [void]$lines.Add('- The C++ doctest binary is requested on the first engine leg only; see leg results for completion.')
     }
     # A signed-out machine still tallies green, because the Xbox-backed suites
     # mark a missing identity pending. Legs whose summary did not answer are
@@ -786,14 +786,11 @@ function Format-ValidationComment {
     }
     [void]$lines.Add('')
     $rerun = "pwsh -File tools/validate_pr_local.ps1 -PullRequest $([int]$Manifest.pull_request) -AllowLiveWrites"
-    if ($skippedEngines.Count -gt 0) {
-        $ranVersions = @(@($Manifest.engines) | ForEach-Object { ConvertTo-MarkdownCell ([string]$_.version) })
-        $rerun += " -GodotVersion $($ranVersions -join ',')"
-    }
+    $rerun += " -GodotVersion $($selected -join ',')"
     if ($gdkPinnedProp -and $gdkPinnedProp.Value) {
-        $rerun += " -GdkVersion $(ConvertTo-MarkdownCell ([string]$Manifest.ms_gdk_version))"
+        $rerun += " -GdkVersion $(ConvertTo-MarkdownCell ([string]$Manifest.gdk_requested))"
     }
-    [void]$lines.Add("Generated by ``tools/validate_pr_local.ps1``. Reproduce this exact scope with ``$rerun``.")
+    [void]$lines.Add("Generated by ``tools/validate_pr_local.ps1``. Run this selection again with ``$rerun`` (resolves the PR head anew).")
 
     return ($lines -join "`n")
 }
@@ -857,7 +854,7 @@ function Select-GdkVersion {
         an expectation, not a guarantee -- the local default build resolves
         'ms-gdk' from vcpkg.json and the registry baseline, not from
         .github/gdk-versions.json -- so the caller must still compare the
-        restored package against the Expected value this returns.
+        report the actual restored package, not this declared default.
 
         A request must name a version the candidate declares as supported.
         Accepting an unknown version would pin an SDK the pull request never
@@ -900,11 +897,8 @@ function Select-GdkVersion {
 
     return [pscustomobject]@{
         Version   = $chosen.Version
-        Expected  = $chosen.Version
         Edition   = $chosen.Edition
         Pinned    = $pinned
-        Supported = $all
-        Uncovered = @($all | Where-Object { $_ -ine $chosen.Version })
     }
 }
 
@@ -925,143 +919,17 @@ function New-MsGdkOverride {
     return [pscustomobject]@{ name = 'ms-gdk'; version = $Version }
 }
 
-function Get-GdkCoverageGap {
-    <#
-    .SYNOPSIS
-        Report GDK editions a GDK-touching pull request left unvalidated.
-    .DESCRIPTION
-        Every run leaves the non-default supported editions unbuilt, so
-        reporting that unconditionally would make the gap list meaningless
-        noise. It only matters when the pull request itself edits the support
-        list: then the uncovered entries are exactly the support claims this
-        run did not exercise.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Selected,
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Uncovered,
-        [Parameter(Mandatory = $true)][bool]$ManifestChanged,
-        [Parameter(Mandatory = $true)][int]$PullRequest
-    )
-    $rest = @($Uncovered | Where-Object { $_ })
-    if (-not $ManifestChanged -or $rest.Count -eq 0) { return $null }
-    return ("This pull request changes ``.github/gdk-versions.json``, and one run builds one GDK. Validated ``{0}``; still unvalidated: {1}. Re-run per edition with ``-PullRequest {2} -GdkVersion <version>``." -f
-        $Selected,
-        (($rest | ForEach-Object { '`' + $_ + '`' }) -join ', '),
-        $PullRequest)
-}
-
-function Get-UncoveredGdkVersions {
-    <#
-    .SYNOPSIS
-        Which declared GDK versions did this run not build?
-    .DESCRIPTION
-        The answer must be derived from the SDK vcpkg actually restored, not
-        from the version the run expected. An unpinned run expects the declared
-        default but resolves whatever the registry baseline gives it, so
-        subtracting the expectation would list the edition that was built as
-        unvalidated while omitting the one that was not -- the gap would then
-        point a re-run at the wrong version.
-
-        A restored package the candidate does not declare at all leaves every
-        declared version uncovered, which is the honest answer; the separate
-        identity gap explains why.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Supported,
-        [AllowNull()][AllowEmptyString()][string]$Built
-    )
-    $all = @($Supported | Where-Object { $_ })
-    if ([string]::IsNullOrWhiteSpace($Built)) { return $all }
-    return @($all | Where-Object { $_ -ine $Built })
-}
-
-function Test-ChangedPathsInclude {
-    <#
-    .SYNOPSIS
-        Does an enumerated pull-request change list touch a given path?
-    .DESCRIPTION
-        The caller derives the change list by diffing the verified checkout,
-        which can fail, so the list alone cannot say 'not touched'.
-        Complete=$false therefore answers $true: the only consumer is a
-        coverage gap, and over-reporting a gap costs a re-run while
-        under-reporting it publishes PASS over an unvalidated claim.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][AllowNull()][AllowEmptyCollection()]$ChangedPaths,
-        [Parameter(Mandatory = $true)][bool]$Complete,
-        [Parameter(Mandatory = $true)][string]$Path
-    )
-    if (-not $Complete) { return $true }
-    $needle = $Path.Replace('\', '/').TrimStart('/')
-    foreach ($candidate in @($ChangedPaths)) {
-        if ($null -eq $candidate) { continue }
-        if (([string]$candidate).Replace('\', '/').TrimStart('/') -ieq $needle) { return $true }
-    }
-    return $false
-}
-
-function Get-GdkIdentityGap {
-    <#
-    .SYNOPSIS
-        Report when the build resolved a different GDK than the candidate declares.
-    .DESCRIPTION
-        .github/gdk-versions.json drives CI, which injects an explicit override.
-        A plain 'cmake --preset default' does not read it at all, so a pull
-        request can advance the declared default while the local build quietly
-        keeps resolving the old SDK from the registry baseline. Reporting the
-        restored version alone is accurate but easy to misread as validating
-        the new default, so the mismatch is called out explicitly.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Expected,
-        [Parameter(Mandatory = $true)][string]$Restored,
-        [Parameter(Mandatory = $true)][bool]$Pinned
-    )
-    if ($Pinned -or $Expected -ieq $Restored) { return $null }
-    return ("The candidate declares default GDK ``{0}`` but the build resolved ``{1}``. The local default build resolves ``ms-gdk`` from ``vcpkg.json`` and the registry baseline, not from ``.github/gdk-versions.json``. Re-run with ``-GdkVersion {0}`` to pin it." -f $Expected, $Restored)
-}
-
 function Get-RunVerdict {
     <#
     .SYNOPSIS
-        Fold every engine leg and every run-level coverage gap into one verdict.
-    .DESCRIPTION
-        The run status is the worst of the per-engine leg verdicts and the
-        run-level conditions below. The distinction that matters is 'fail' for
-        something that went wrong versus 'incomplete' for evidence that is
-        sound but narrower than the report's headline claim. Anything that
-        appears in the report as a gap must also appear here, or the comment
-        can read PASS above a list of things the run never validated.
-
-        - A failed Debug or Release build is a real failure; a Debug execution
-          error is 'error'. Downstream stages skipped after a Debug failure
-          must not hide it or claim any test coverage.
-        - A narrowed Godot matrix is honest coverage of fewer engines than the
-          report claims, so it floors the verdict at 'incomplete'.
-        - A GDK identity gap means the build resolved an SDK other than the one
-          the candidate declares: real evidence, for the wrong version.
-        - A GDK coverage gap means a support-list change named editions this
-          run could not build, since one run builds one GDK.
-        - A moved head means the evidence describes an obsolete commit.
-        - An unverifiable head is the same claim with no answer at all: the
-          run cannot say the evidence still describes the current commit, so it
-          must not claim a clean pass either.
-        - A failed Xbox sandbox restore left the machine in the test sandbox.
-          That says nothing about the candidate's code, but it is an operator
-          action item that must never sit under a PASS heading, so it floors
-          the verdict at 'error' -- the one condition here about the machine
-          rather than the evidence.
+        Grade only the selected work, builds and sandbox restoration.
     .OUTPUTS
         One of 'pass', 'incomplete', 'fail', 'error'.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$LegStatuses,
         [Parameter(Mandatory = $true)][string]$ReleaseStatus,
-        [Parameter(Mandatory = $true)][bool]$MatrixNarrowed,
-        [Parameter(Mandatory = $true)][bool]$HasGdkIdentityGap,
-        [Parameter(Mandatory = $true)][bool]$HasGdkCoverageGap,
-        [Parameter(Mandatory = $true)][bool]$HeadMoved,
-        [bool]$HeadUnverified = $false,
+        [bool]$ExecutionFailed = $false,
         [bool]$SandboxRestoreFailed = $false,
         [ValidateSet('pass', 'fail', 'error')][string]$DebugStatus = 'pass'
     )
@@ -1069,14 +937,10 @@ function Get-RunVerdict {
     if ($DebugStatus -ne 'pass') { $statuses += $DebugStatus }
     if ($ReleaseStatus -ne 'pass' -and $ReleaseStatus -ne 'not run') { $statuses += 'fail' }
     if ($DebugStatus -eq 'pass' -and $ReleaseStatus -eq 'not run') { $statuses += 'incomplete' }
-    if ($MatrixNarrowed) { $statuses += 'incomplete' }
-    if ($HasGdkIdentityGap) { $statuses += 'incomplete' }
-    if ($HasGdkCoverageGap) { $statuses += 'incomplete' }
-    if ($HeadMoved) { $statuses += 'incomplete' }
-    if ($HeadUnverified) { $statuses += 'incomplete' }
+    if ($ExecutionFailed) { $statuses += 'error' }
     if ($SandboxRestoreFailed) { $statuses += 'error' }
     # No legs at all is not a pass: nothing was measured.
-    if ($statuses.Count -eq 0) { return 'error' }
+    if ($LegStatuses.Count -eq 0 -and $DebugStatus -eq 'pass') { $statuses += 'error' }
     return Get-WorstStatus $statuses
 }
 
@@ -1120,10 +984,6 @@ Export-ModuleMember -Function @(
     'Select-EngineMatrix',
     'Select-GdkVersion',
     'New-MsGdkOverride',
-    'Get-GdkCoverageGap',
-    'Get-UncoveredGdkVersions',
-    'Test-ChangedPathsInclude',
     'Get-RunVerdict',
-    'Get-GdkIdentityGap',
     'New-RunDirectoryName'
 )

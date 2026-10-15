@@ -33,14 +33,13 @@
       8. Write a validation manifest plus a human-readable report, and post the
          result as a PR comment.
 
-    Exit codes: 0 fully green, 2 ran but coverage was incomplete, 1 failed.
+    Exit codes: 0 selected scope passed, 2 selected work was incomplete, 1 failed.
 
 .PARAMETER PullRequest
     Pull request number in the upstream repository.
 
 .PARAMETER AllowLiveWrites
-    Required to actually run. Without it the script performs preflight and the
-    checkout/build phases only, and refuses to touch live services.
+    Required to actually run. Without it the script refuses before checkout.
 
 .PARAMETER DryRun
     Resolve metadata, print the exact plan, and exit without creating anything.
@@ -51,9 +50,8 @@
 
 .PARAMETER GodotVersion
     Narrow the engine matrix to the named Godot version(s), which must appear in
-    the candidate's .github/godot-versions.json supported list. A narrowed run is
-    reported as incomplete coverage (exit 2) even when every leg passes, because
-    it is not the full-matrix evidence the unqualified report claims.
+    the candidate's .github/godot-versions.json supported list. Success applies
+    to those selected versions only; unselected versions do not affect status.
 
 .PARAMETER GdkVersion
     Pin the build to a specific ms-gdk version, which must appear in the
@@ -230,7 +228,7 @@ function Get-GitOutput {
 
 function Get-PullRequestMetadata {
     param([Parameter(Mandatory = $true)][int]$Number)
-    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,baseRefOid,state,isCrossRepository,title,url 2>&1
+    $json = & gh pr view $Number --repo $script:Repository --json number,headRefOid,headRefName,baseRefName,state,isCrossRepository,title,url 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "gh pr view $Number failed: $($json | Out-String)"
     }
@@ -238,58 +236,7 @@ function Get-PullRequestMetadata {
     if (-not (Test-GitSha ([string]$meta.headRefOid))) {
         throw "gh returned an unusable head commit '$($meta.headRefOid)' for PR $Number."
     }
-    if (-not (Test-GitSha ([string]$meta.baseRefOid))) {
-        throw "gh returned an unusable base commit '$($meta.baseRefOid)' for PR $Number."
-    }
     return $meta
-}
-
-function Get-ChangedPathsFromCheckout {
-    <#
-    .SYNOPSIS
-        List the files a pull request changes, read from the verified checkout.
-    .DESCRIPTION
-        Asking GitHub for the live file list describes whatever the branch points
-        at when the question is asked, not the commit this run actually built.
-        Diffing inside the clone ties the change list to the same commit as every
-        other piece of evidence, and has no file-count ceiling.
-
-        The comparison point is pinned to the base commit the trusted metadata
-        query reported and to the merge base taken from it, never re-read from
-        the branch tip. A base that moves - or one that has already absorbed this
-        head, which is exactly what an ordinary merge of this very pull request
-        does - would otherwise shrink the diff and silently retire a coverage
-        gap. A head already contained in the base makes the question
-        unanswerable, so it is reported as unknown rather than as an empty diff.
-
-        '--no-renames' reports a rename as a delete plus an add, so a renamed
-        support list still counts as a change to both paths, and
-        core.quotePath=false keeps unusual paths verbatim instead of C-quoted.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$CheckoutDir,
-        [Parameter(Mandatory = $true)][string]$HeadSha,
-        [Parameter(Mandatory = $true)][string]$BaseRef,
-        [Parameter(Mandatory = $true)][string]$BaseSha,
-        [Parameter(Mandatory = $true)][string]$LogPath
-    )
-    try {
-        Invoke-GitChecked -ArgumentList @('fetch', '--no-tags', 'origin', "+refs/heads/${BaseRef}:refs/remotes/origin/base/$BaseRef") -WorkingDirectory $CheckoutDir -LogPath $LogPath
-        $resolvedBase = Get-GitOutput -ArgumentList @('rev-parse', '--verify', "$BaseSha^{commit}") -WorkingDirectory $CheckoutDir
-        if ($resolvedBase -ne $BaseSha) {
-            throw "the fetched base does not contain commit $BaseSha (git resolved '$resolvedBase')"
-        }
-        $mergeBase = Get-GitOutput -ArgumentList @('merge-base', $BaseSha, $HeadSha) -WorkingDirectory $CheckoutDir
-        if ($mergeBase -eq $HeadSha) {
-            throw "base '$BaseRef' already contains head $HeadSha, so this pull request's own change list cannot be derived from it"
-        }
-        $out = Get-GitOutput -ArgumentList @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', $mergeBase, $HeadSha) -WorkingDirectory $CheckoutDir
-    } catch {
-        Write-Warning -WarningAction Continue "Could not derive the files head $HeadSha changes against base '$BaseRef' ($($_.Exception.Message)). Treating the change list as unknown."
-        return [pscustomobject]@{ Paths = @(); Complete = $false }
-    }
-    $paths = @(($out -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-    return [pscustomobject]@{ Paths = $paths; Complete = $true }
 }
 
 # --- Xbox sandbox --------------------------------------------------------------
@@ -514,14 +461,14 @@ try {
         Write-Host "  Confirmed       : $([bool]$AllowLiveWrites) (-AllowLiveWrites)"
         Write-Host "  Post comment    : $(-not [bool]$NoComment)"
         if ($GodotVersion) {
-            Write-Host "  Engines         : narrowed by request to $($GodotVersion -join ', ') (validated against the candidate manifest; result will be reported as incomplete coverage)"
+            Write-Host "  Engines         : selected by request: $($GodotVersion -join ', ') (validated against the candidate manifest)"
         } else {
             Write-Host '  Engines         : read from the candidate checkout .github/godot-versions.json'
         }
         if ($GdkVersion) {
             Write-Host "  GDK             : pinned by request to ms-gdk $GdkVersion (validated against the candidate manifest; an overrides entry is written into the checkout's vcpkg.json)"
         } else {
-            Write-Host '  GDK             : whatever the candidate vcpkg.json and registry baseline resolve, compared against .github/gdk-versions.json default'
+            Write-Host '  GDK             : whatever the candidate vcpkg.json and registry baseline resolve; the report names the actual SDK'
         }
         Write-Host ''
         Write-Host '  Also performed: Debug build, SDK identity read from the built vcpkg tree,'
@@ -591,16 +538,6 @@ try {
     }
     Invoke-GitChecked -ArgumentList @('checkout', '--detach', $headSha) -WorkingDirectory $checkoutDir -LogPath $gitLog
 
-    # Read the change list here, while the clone is still exactly what this
-    # wrapper fetched. Submodule init and everything after it runs candidate
-    # content, which could rewrite origin, refs, or .git/config and answer
-    # this question from history that never contained the support-list edit.
-    $changedFiles = Get-ChangedPathsFromCheckout -CheckoutDir $checkoutDir -HeadSha $headSha `
-        -BaseRef ([string]$pr.baseRefName) -BaseSha ([string]$pr.baseRefOid) -LogPath $gitLog
-    if (-not $changedFiles.Complete) {
-        Write-Warning "The file list for PR #$PullRequest could not be derived from the checkout, so '.github/gdk-versions.json' is treated as changed and the GDK coverage gap is reported conservatively."
-    }
-
     Invoke-GitChecked -ArgumentList @('submodule', 'update', '--init', '--recursive') -WorkingDirectory $checkoutDir -LogPath $gitLog
 
     $checkedOut = Get-GitOutput -ArgumentList @('rev-parse', 'HEAD') -WorkingDirectory $checkoutDir
@@ -615,7 +552,7 @@ try {
     $matrix = Select-EngineMatrix -Supported $godotManifest.Supported -Requested $GodotVersion
     $versions = @($matrix.Selected)
     if ($matrix.Narrowed) {
-        Write-Warning "Engine matrix narrowed to $($versions -join ', '); skipping $($matrix.Skipped -join ', '). This run cannot report full-matrix coverage."
+        Write-Note "Selected engines: $($versions -join ', '); outside this run: $($matrix.Skipped -join ', ')."
     } else {
         Write-Note "Supported versions: $($versions -join ', ')"
     }
@@ -637,10 +574,9 @@ try {
     $debugFailure = $null
     $debugStep = 'cmake --preset default'
     $sdk = [pscustomobject]@{ Edition = $null; Package = $null }
-    $gdkUncovered = @($gdk.Supported)
-    $gdkIdentityGap = $null
-    $gdkCoverageGap = $null
     $legs = @()
+    $executionFailed = $false
+    $executionStage = $debugStep
     $sandboxRestoreFailed = $false
     $sandboxRestoreError = $null
     $sandboxAttempted = $false
@@ -655,6 +591,7 @@ try {
             throw "$debugStep failed with exit code $code."
         }
         $debugStep = 'cmake --build --preset debug'
+        $executionStage = $debugStep
         $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'debug') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
         if ($code -ne 0) {
             $debugStatus = 'fail'
@@ -662,6 +599,7 @@ try {
         }
         $debugStatus = 'pass'
 
+        $executionStage = 'SDK identity'
         $sdk = Get-SdkIdentity -CheckoutRoot $checkoutDir
         Write-Note "Resolved GDK edition : $($sdk.Edition)"
         Write-Note "Restored ms-gdk      : $($sdk.Package)"
@@ -669,8 +607,7 @@ try {
         # A pinned run asked for one exact SDK. If vcpkg resolved a different one
         # the override did not take, and every result below would be attributed
         # to an SDK that was never built. Only a pin can make this a hard error:
-        # an unpinned run resolving something else is the ordinary registry
-        # baseline case, which Get-GdkIdentityGap reports as a coverage gap.
+        # an unpinned run reports whatever the registry baseline resolved.
         if ($gdk.Pinned -and $sdk.Package -ine $gdk.Version) {
             throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
         }
@@ -681,22 +618,12 @@ try {
             throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
         }
 
-        $gdkManifestChanged = Test-ChangedPathsInclude -ChangedPaths $changedFiles.Paths -Complete $changedFiles.Complete -Path '.github/gdk-versions.json'
-        $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
-        # Subtract the SDK that was actually restored, never the one the run
-        # expected: an unpinned run that resolves a different supported version
-        # would otherwise call the built edition unvalidated and omit the one it
-        # never built.
-        $gdkUncovered = @(Get-UncoveredGdkVersions -Supported $gdk.Supported -Built $sdk.Package)
-        $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdkUncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
-        if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }
-        if ($gdkCoverageGap) { Write-Warning $gdkCoverageGap }
-
         # --- Engines -----------------------------------------------------------
         Write-Phase 'Preparing Godot engines'
 
         $engines = @()
         foreach ($version in $versions) {
+            $executionStage = "Acquire Godot $version"
             # -Force: the per-run engines directory is fresh, so there is nothing
             # to reuse. Saying so explicitly keeps the "never a shared extracted
             # engine directory" promise true even if a future -WorkRoot change
@@ -725,6 +652,7 @@ If the run was interrupted, restore it manually from an elevated shell:
         $sandboxLog = Join-Path $logsDir 'sandbox.log'
 
         $sandboxAttempted = $true
+        $executionStage = 'Xbox sandbox setup'
         try {
             if ($originalSandbox -ine $script:SandboxId) {
                 # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
@@ -743,6 +671,7 @@ If the run was interrupted, restore it manually from an elevated shell:
 
             $first = $true
             foreach ($engine in $engines) {
+                $executionStage = "Live tests on Godot $($engine.Version)"
                 Write-Phase "Live run on Godot $($engine.Version)"
                 $legOut = Join-Path $resultsDir $engine.Version
                 New-Item -ItemType Directory -Force -Path $legOut | Out-Null
@@ -814,11 +743,18 @@ If the run was interrupted, restore it manually from an elevated shell:
                 $legExitCode = if ($null -eq $legCode) { -1 } else { [int]$legCode }
                 $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult `
                     -RequireOrchestrator -RequireDoctest:$first -OrchestratorExitCode $legExitCode
+                $expectedEngine = [regex]::Escape($engine.Version.Replace('-', '.'))
+                $reportedEngine = $verdict.GodotVersion.Replace('-', '.')
+                if ($reportedEngine -notmatch "^$expectedEngine(\.|$)") {
+                    $verdict.Status = 'error'
+                    $verdict.Reasons += "Requested Godot $($engine.Version), but the summary reported '$($verdict.GodotVersion)'."
+                }
                 $legReasons = @($verdict.Reasons)
                 if ($summaryError) { $legReasons += $summaryError }
 
                 $legs += [pscustomobject]@{
                     version       = $engine.Version
+                    reported_version = $verdict.GodotVersion
                     status        = $verdict.Status
                     tests         = $verdict.Tests
                     passing       = $verdict.Passing
@@ -873,52 +809,36 @@ If the run was interrupted, restore it manually from an elevated shell:
 
         # --- Release build -----------------------------------------------------
         Write-Phase 'Building Release'
+        $executionStage = 'Release build'
         $releaseLog = Join-Path $logsDir 'build-release.log'
-        $releaseStatus = 'pass'
+        $releaseStatus = 'error'
         $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default-release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
         if ($code -eq 0) {
             $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
         }
-        if ($code -ne 0) { $releaseStatus = 'fail' }
+        $releaseStatus = if ($code -eq 0) { 'pass' } else { 'fail' }
         Write-Note "Release build: $releaseStatus"
     } catch {
-        if ($debugStatus -eq 'pass') { throw }
-        $debugFailure = if ($debugStatus -eq 'fail') {
-            "$debugStep failed with exit code $code."
+        Add-Content -LiteralPath (Join-Path $logsDir 'execution-errors.log') -Value "$executionStage`: $($_.Exception.Message)"
+        if ($debugStatus -eq 'pass') {
+            $executionFailed = $true
+            Write-Warning -WarningAction Continue "$executionStage could not be completed; see execution-errors.log. Preserving completed results."
         } else {
-            "$debugStep could not be completed; see build-debug.log."
+            $debugFailure = if ($debugStatus -eq 'fail') {
+                "$debugStep failed with exit code $code."
+            } else {
+                "$debugStep could not be completed; see build-debug.log."
+            }
+            Add-Content -LiteralPath $buildLog -Value $_.Exception.Message
+            Write-Warning -WarningAction Continue "$debugFailure Live tests and Release were not run."
         }
-        Add-Content -LiteralPath $buildLog -Value $_.Exception.Message
-        Write-Warning -WarningAction Continue "$debugFailure Live tests and Release were not run."
     }
 
     # --- Verdict and report ------------------------------------------------
-    # Re-read the head *before* computing the verdict: if the PR moved while
-    # this run was in progress, the evidence describes an obsolete commit and
-    # must never be published under a PASS heading. A lookup that fails after
-    # hours of live writes must not discard that evidence either, so an
-    # unanswerable check degrades the verdict and still writes the manifest
-    # and report.
-    $currentHead = $null
-    $headLookupError = $null
-    try {
-        $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
-    } catch {
-        $headLookupError = $_.Exception.Message
-        if (-not $headLookupError) { $headLookupError = "$($_.Exception.GetType().FullName) (no message)" }
-        Write-Warning -WarningAction Continue "Could not re-read the pull request head after the run ($headLookupError). The results below cannot be confirmed to describe the current head."
-    }
-    $headMoved = ($null -ne $currentHead -and $currentHead -ne $headSha)
-    $headUnverified = ($null -eq $currentHead)
-
     $statuses = @($legs | ForEach-Object { $_.status })
     $runStatus = Get-RunVerdict -LegStatuses $statuses `
         -ReleaseStatus $releaseStatus `
-        -MatrixNarrowed ([bool]$matrix.Narrowed) `
-        -HasGdkIdentityGap ([bool]$gdkIdentityGap) `
-        -HasGdkCoverageGap ([bool]$gdkCoverageGap) `
-        -HeadMoved $headMoved `
-        -HeadUnverified $headUnverified `
+        -ExecutionFailed $executionFailed `
         -SandboxRestoreFailed $sandboxRestoreFailed `
         -DebugStatus $debugStatus
 
@@ -932,16 +852,12 @@ If the run was interrupted, restore it manually from an elevated shell:
     if ($sandboxRestoreFailed) {
         $runReasons += "The Xbox sandbox was NOT restored to ``$originalSandbox`` after the run ($sandboxRestoreError). This machine is still in ``$script:SandboxId``; restore it with: ``& `"$sandboxExe`" $originalSandbox /noApps``"
     }
-    if ($matrix.Narrowed) {
-        $runGaps += "Godot matrix narrowed by request: ran $($matrix.Selected -join ', '); did not run $($matrix.Skipped -join ', ')."
+    if ($executionFailed) {
+        $runReasons += "$executionStage could not be completed; see logs/execution-errors.log. Completed results are retained; later stages were not run."
     }
-    if ($gdkIdentityGap) { $runGaps += $gdkIdentityGap }
-    if ($gdkCoverageGap) { $runGaps += $gdkCoverageGap }
-    if ($headMoved) {
-        $runGaps += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only and are not validation of the current head."
-    }
-    if ($headUnverified) {
-        $runGaps += "The pull request head could not be re-read after the run ($headLookupError); these results describe ``$headSha`` only and were not confirmed against the current head."
+    $enginesNotRun = @($versions | Where-Object { $v = $_; -not ($legs | Where-Object { $_.version -eq $v }) })
+    if ($enginesNotRun.Count -gt 0) {
+        $runGaps += "Selected engines not completed: $($enginesNotRun -join ', ')."
     }
 
     $manifest = [pscustomobject]@{
@@ -949,15 +865,14 @@ If the run was interrupted, restore it manually from an elevated shell:
         pull_request          = $PullRequest
         repository            = $script:Repository
         head_sha              = $headSha
-        head_sha_at_finish    = $currentHead
         status                = $runStatus
         started_at            = $startedAt.ToString('o')
         finished_at           = $finishedAt.ToString('o')
         gdk_edition           = $sdk.Edition
         ms_gdk_version        = $sdk.Package
         gdk_pinned            = [bool]$gdk.Pinned
+        gdk_requested         = $GdkVersion
         gdk_declared_default  = $gdkManifest.Default
-        gdk_not_covered       = @($gdkUncovered)
         playfab_title_id      = $script:PlayFabTitleId
         sandbox_id            = $script:SandboxId
         sandbox_restored_to   = $originalSandbox
@@ -968,8 +883,11 @@ If the run was interrupted, restore it manually from an elevated shell:
         debug_build_step      = $debugStep
         live_matrix_status    = if ($sandboxAttempted) { 'attempted' } else { 'not run' }
         release_build_status  = $releaseStatus
+        execution_error_stage = if ($executionFailed) { $executionStage } else { $null }
         run_directory         = $runDir
         engines               = @($legs)
+        engines_selected      = @($versions)
+        engines_not_run       = @($enginesNotRun)
         engines_skipped       = @($matrix.Skipped)
         reasons               = @($runReasons)
         gaps                  = @($runGaps)

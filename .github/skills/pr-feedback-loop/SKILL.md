@@ -30,11 +30,20 @@ repeatable fix loop instead of treating each review pass as ad hoc cleanup.
   - `disputed`
   - `informational`
   - `already-addressed`
-- Fix only the concrete `must-fix` issues plus local `informational` follow-ups that close a real
-  validation or contract gap.
+- A `must-fix` needs an agreed requirement, a reachable failure under the supported usage or
+  trust model, and code or test evidence of the consequence. Reviewer severity and reviewer
+  agreement are not evidence by themselves.
+- Fix only accepted `must-fix` issues. Do not bundle informational improvements into remediation.
 - Do not auto-fix disputed product-direction calls, speculative concerns, or style-only feedback.
-- If the review feedback suggests a broader design risk, use `adversarial-review` on the touched
-  files before editing.
+- Prefer deleting an unnecessary claim or simplifying the contract over adding machinery to
+  defend it. Do not weaken an agreed safety requirement.
+- A fix that introduces coordination, a new abstraction, a second grading layer, or a stronger
+  trust guarantee is a design decision: explain the simpler alternative and obtain user approval.
+- Do not launch another reviewer merely because a finding sounds serious. Use
+  `adversarial-review` only when requested or a specific unresolved risk needs it.
+- Default to one triage batch and one verification pass over the fixes. New unrelated findings
+  go into a follow-up list, not another automatic fix/review cycle. Reopen a deferred item only
+  with new evidence or user direction.
 - If the fixes span several surfaces or you need a final completeness pass, run
   `gdextension-hygiene` on the updated diff before concluding.
 
@@ -54,10 +63,12 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\check_gd_scripts_h
 
 1. Define the PR and changed-file scope.
 2. Pull review threads, comments, and check runs.
-3. Synthesize the actionable list and separate `must-fix` from `disputed`.
+3. State the agreed contract. For each finding, name the violated requirement, reachable failure,
+   evidence, and smallest proportionate fix; otherwise classify it as disputed or informational.
 4. Fix the `must-fix` items in coherent batches.
 5. Run the matching local validation.
-6. If needed, run `gdextension-hygiene` on the updated diff to catch missing follow-through.
+6. Verify the accepted fixes and their regressions. If needed, run `gdextension-hygiene` for
+   completeness; do not turn verification into a new open-ended review.
 7. Summarize:
    - what was fixed
    - what remains disputed or intentionally unchanged

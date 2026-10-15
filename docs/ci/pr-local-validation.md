@@ -10,6 +10,19 @@ private checkout on a self-hosted Windows machine, builds it, runs the canonical
 `tools\run_all_tests.ps1` live-write suite once per supported Godot version, builds
 Release, and posts an honest result back on the PR.
 
+## Contract
+
+One invocation validates **one exact commit, one actual SDK and the selected Godot versions**.
+By default every supported engine is selected; `-GodotVersion` selects a smaller scope.
+`PASS` means that selected work succeeded, not that the entire PR or support matrix is approved.
+Unselected engines and other SDKs are scope notes, not failures. `INCOMPLETE` means requested
+work lacked evidence, not that the operator deliberately requested less.
+
+The wrapper runs the existing test orchestrator and retains its results and logs. It does not
+infer required coverage from changed files, certify every support-list entry, coordinate
+concurrent runs or provide a security sandbox. Later commits require their own evidence.
+The report's rerun command repeats the selection, resolving the PR head again.
+
 > Related: [PR gates](pr-gates.md) describes the hosted, scoped gate set.
 > [`tests/godot/README.md`](../../tests/godot/README.md) defines the test tiers this run
 > exercises.
@@ -31,7 +44,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 | `-PullRequest <n>` | Required. The PR number in `microsoft/XBOX-Godot-Sample`. |
 | `-AllowLiveWrites` | Required to execute. Without it the script refuses, because every run writes to a live PlayFab title. |
 | `-DryRun` | Resolve the PR and print the plan, then exit 0. Also reports whether `XblPCSandbox.exe` was found and whether the shell is elevated, so you can tell up front if the machine can run it. |
-| `-GodotVersion <v>[,<v>]` | Narrow the engine matrix. Pass several versions as one comma-separated value — `pwsh -File` binds a repeated `-GodotVersion` as an error, not as a list, so the comma form is the only one that works from the command line, and it is the form the report's reproduction command prints. Each value must appear in the candidate's `.github/godot-versions.json` `supported` list; a typo fails immediately after checkout rather than wasting a build. A narrowed run is always reported as `incomplete` (exit 2). See [Narrowing the engine matrix](#narrowing-the-engine-matrix). |
+| `-GodotVersion <v>[,<v>]` | Select engines; pass multiple versions as one comma-separated value for `pwsh -File`. Each must appear in the candidate's `.github/godot-versions.json` `supported` list. Selection alone does not prevent `PASS` or exit 0. |
 | `-GdkVersion <v>` | Pin the GDK. The value must appear in the candidate's `.github/gdk-versions.json` `supported` list. Writes an `ms-gdk` `overrides` entry into the checkout's `vcpkg.json` before configuring. See [Choosing the GDK](#choosing-the-gdk). |
 | `-NoComment` | Produce the artifacts but do not post to the PR. |
 | `-WorkRoot <path>` | Override the run-directory root. Defaults to `%LOCALAPPDATA%\godot-gdk-pr-validation`. |
@@ -40,8 +53,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 
 By default the script runs every version in the candidate's
 `.github/godot-versions.json` `supported` list, sequentially, at roughly 25-30
-minutes per engine. That is the right default: it is the evidence the posted
-comment claims.
+minutes per engine. The report always names the selected scope.
 
 Each run builds exactly **one** GDK. There is no GDK matrix, and adding one is
 not a cheap change: a second SDK means a full reconfigure plus the entire Godot
@@ -55,11 +67,9 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
     -PullRequest 202 -AllowLiveWrites -GodotVersion 4.6.1-stable
 ```
 
-A narrowed run is deliberately **floored to `incomplete` (exit 2)** even when
-every leg passes, and its PR comment replaces the "on every Godot version"
-claim with a callout naming exactly what ran and what did not. A run that
-covered one engine must not read as full-matrix green. If you want a clean
-exit 0, run the full matrix.
+A narrowed run can **pass with exit 0** when the selected work succeeds.
+The report names the selected engines and lists unselected versions under
+"Not covered by this run." It makes no full-matrix claim.
 
 ### Choosing the GDK
 
@@ -67,22 +77,11 @@ Nothing in the local build path reads `.github/gdk-versions.json` — that file
 is consumed by CI, which injects an `ms-gdk` override into `vcpkg.json` before
 configuring. Locally, `cmake --preset default` resolves `ms-gdk` from whatever
 `vcpkg.json` and the `vcpkg-configuration.json` registry baseline happen to
-select. The manifest's `default` is therefore an *expectation*, not a
-guarantee.
+select. Without a pin the actual restored SDK defines the scope; the declared
+default is shown for information and does not affect the verdict.
 
-That matters because a PR can advance the declared default, or add a
-`supported` entry without promoting it, while the local build silently keeps
-the old SDK — and the comment's accurate "edition 260401" line then reads as if
-it had validated the PR's claim.
-
-The script closes this two ways:
-
-- **It always checks.** After the Debug build it reads the real
-  `_GRDK_EDITION` and `ms-gdk` version out of the built vcpkg tree and compares
-  them with the candidate's declared `default`. A mismatch becomes a coverage
-  gap and floors the run to `incomplete` (exit 2), naming both versions.
-- **You can pin.** `-GdkVersion` writes the same `ms-gdk` override CI uses into
-  the checkout's `vcpkg.json` before configuring:
+Use `-GdkVersion` when validating a particular SDK. It writes the same
+`ms-gdk` override CI uses into the checkout's `vcpkg.json` before configuring:
 
   ```powershell
   pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.ps1 `
@@ -100,17 +99,14 @@ the SDK that got restored is the one the manifest selected**. That catches a
 wrong edition number in the PR itself, which is a defect on the unpinned path
 too. Only the *substitution* check is pin-specific: an unpinned run resolving a
 different version is the ordinary registry-baseline case, reported as the
-coverage gap above rather than a hard failure.
+actual SDK scope rather than a failure.
 
 Pinning edits the checkout, so the run no longer matches the PR byte for byte;
 the script warns when it does this, and the posted comment says `pinned by
 request` instead of `inherited from the candidate checkout`.
 
-When a PR *changes* `.github/gdk-versions.json`, any supported version the run
-did not build is reported as a coverage gap with the command to cover it. For
-PRs that do not touch that file this is suppressed: every run leaves the
-non-default editions unbuilt, so reporting it unconditionally would make the
-gap list meaningless.
+Other supported SDKs are outside this invocation. The wrapper does not inspect
+changed files or decide how many SDKs a support-list edit should validate.
 
 ### Prerequisites
 
@@ -186,7 +182,8 @@ running the candidate's build as Administrator only widens the blast radius.
    ```
 
    The C++ doctest binary is engine-independent, so it runs on the first leg only;
-   subsequent legs add `-SkipDoctest`.
+   subsequent legs add `-SkipDoctest`. Each summary must report the requested engine version;
+   missing or mismatched identity makes that leg an error.
 9. **Restore the sandbox** in a `finally`. If restoration fails, `SANDBOX-RESTORE.txt`
     stays behind with the command to run by hand, the manifest records
     `sandbox_restored: false` plus the error, the report says the machine is still in the
@@ -197,8 +194,7 @@ running the candidate's build as Administrator only widens the blast radius.
 10. **Build Release** — `cmake --preset default-release` then
     `cmake --build --preset release`. This runs *after* the live matrix because builds
     mirror binaries into shared addon and test-host directories.
-11. **Re-check the head SHA** and flag drift if the PR moved during the run.
-12. **Report** — write `validation-manifest.json` and `report.md`, then
+11. **Report** — write `validation-manifest.json` and `report.md`, then
     `gh pr comment --body-file` unless `-NoComment`.
 
 If Debug configuration or compilation fails, the same reporting path publishes
@@ -207,6 +203,12 @@ as not run, and unresolved SDK identity as null (rendered as `unavailable`).
 The Xbox sandbox is not changed, and no test coverage is claimed. A nonzero
 CMake exit is `fail`; inability to execute the build is `error`. Build details
 remain in `logs\build-debug.log`.
+
+Exceptions after Debug also reach reporting with an `error` verdict: completed legs are
+retained, uncompleted selected engines are named, and the failing step is recorded in
+`logs\execution-errors.log`. Reproduction uses the selected inputs even if no tests ran or
+the SDK could not be resolved. This applies once build execution begins; preflight and
+checkout errors still stop before a validation report is available.
 
 ## Why a green exit code is not enough
 
@@ -265,53 +267,22 @@ own exit code is the one signal the file cannot carry — an orchestrator that d
 writing a green summary leaves no trace in it. The wrapper passes that exit code to
 `Get-EngineLegVerdict -OrchestratorExitCode`, and anything nonzero fails the leg outright.
 
-The worst leg wins, but legs are not the only input. `Get-RunVerdict` folds the leg
-verdicts together with the run-level conditions below, so that anything the report lists
-as a gap also moves the verdict — a `PASS` heading above a list of things the run never
-validated is exactly the failure mode this tool exists to prevent:
+The worst selected leg wins. `Get-RunVerdict` also accounts for the builds,
+execution errors and sandbox restoration:
 
 | Run-level condition | Effect |
 | --- | --- |
+| Debug build failed | `fail` (or `error` if it could not execute) |
 | Release build failed | `fail` |
-| `-GodotVersion` narrowed the matrix | floors to `incomplete` |
-| Resolved SDK is not the candidate's declared default | floors to `incomplete` |
-| A GDK support-list change named editions this run could not build | floors to `incomplete` |
-| The PR head moved mid-run | floors to `incomplete` |
-| The PR head could not be re-read after the run | floors to `incomplete` |
+| A later execution step threw | `error`, retaining completed results |
+| Release was not run after a successful Debug build | `incomplete` unless an error already explains it |
 | The Xbox sandbox could not be restored | `error` |
 | No engine legs ran at all | `error` |
 
-The GDK support-list row depends on knowing which files the pull request changed, which the
-wrapper derives inside the verified checkout with `git diff --name-only --no-renames` from a
-pinned merge base to the validated head, immediately after checkout and before submodule init
-or any other candidate content runs. Asking GitHub's API instead would describe whatever the
-branch points at when the question is asked — a force-push away and back during the run would
-answer from a different revision while the final head check still passed — and `gh pr view
---json files` additionally stops at 100 files.
-
-Both ends of that diff are pinned. The base commit comes from the same trusted `gh pr view`
-query as the head, never re-read from the branch tip, and the merge base is computed from it
-once. A base that moves mid-run therefore cannot shrink the diff. The degenerate case is
-called out explicitly: when the base already contains the head — which is what an ordinary
-fast-forward or merge-commit merge of this very pull request produces, and re-validating a
-merged PR is supported — the diff would be empty for a change that genuinely exists, so the
-wrapper reports the change list as unknown instead. Unknown means the support list is treated
-as changed: over-reporting the gap costs a re-run, while under-reporting it publishes `PASS`
-over an unvalidated support claim.
-
-`incomplete` is reported as `incomplete`, never rounded up to a pass, and exits 2. A head
-that moved mid-run is the clearest case: the evidence then describes the old commit, and
-is labelled as such instead of published as a pass for the new one. A head re-read that
-*fails* — a dropped network, an expired token — is treated the same way rather than
-abandoning the run: by then hours of live writes have already landed, so the wrapper records
-the head as unverified, floors the verdict, and still writes the manifest and report before
-it tries to publish.
-
-The unvalidated-editions list is likewise computed from the `ms-gdk` version vcpkg actually
-restored, not from the one the run expected. An unpinned run takes whatever the registry
-baseline resolves, so subtracting the expectation would name the edition that *was* built as
-unvalidated and silently omit the one that was not — pointing the suggested re-run at the
-wrong version.
+`incomplete` exits 2 and concerns missing work *inside* the selected scope. A deliberately
+unselected engine, a different unpinned registry SDK, or a later PR commit does not change
+the result for the named commit and actual configuration. The script does not re-read the
+PR head after testing or infer required coverage from a diff.
 
 One thing a host-wide passing tally cannot prove is that the machine was signed in to Xbox.
 `test_game_save.gd` and `test_presence.gd` mark a missing Xbox identity *pending* and still

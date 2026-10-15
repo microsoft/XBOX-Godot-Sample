@@ -3,8 +3,8 @@ name: adversarial-review
 description: >
   Run a multi-model adversarial review loop over the current diff or requested scope. Use one
   Claude-family reviewer and one GPT-family reviewer in parallel, fix only high-confidence
-  consensus issues, then rerun until no new consensus issues remain. Surface disputed findings to
-  the user for a judgment call instead of auto-fixing them.
+  in-scope consensus issues, then verify those fixes once. Surface disputed or scope-expanding
+  findings to the user instead of auto-fixing them.
   Triggers: adversarial review, hostile review, red-team review, consensus review, review until
   clean, multi-model review
 ---
@@ -25,13 +25,19 @@ and leave the disputed calls to the user.
 - Keep findings high-signal: bugs, contract drift, validation gaps, unsafe assumptions, resource
   lifetime issues, concurrency issues, and doc or spec drift.
 - Ignore style-only or cosmetic feedback.
+- State the agreed requirements and trust model before launching reviewers. Require a reachable
+  failure, code or test evidence, and a smallest-fix direction for each finding.
 - Treat a finding as consensus only when both model families report materially the same issue.
+  Consensus is corroboration, not permission to expand the requirements.
 - Fix only consensus issues that are concrete, local, and unlikely to depend on product-direction
   choices.
 - Do not auto-fix disputed, speculative, or low-confidence findings.
-- After fixing consensus issues, rerun the same two-family review loop on the updated diff.
-- Stop when both review passes find no new high-signal issues, or when only disputed findings
-  remain.
+- Prefer removing an unnecessary claim or simplifying the design over adding machinery to defend
+  it. Preserve agreed safety requirements.
+- Default to one initial review round and one verification round limited to the accepted fixes
+  and regressions they introduced. Additional rounds require explicit user direction.
+- Stop after verification. Surface unrelated new findings and design decisions without fixing
+  them automatically; do not reopen explicitly deferred findings without new evidence.
 
 ## Default scope
 
@@ -57,12 +63,12 @@ and leave the disputed calls to the user.
    - fix them directly
    - update nearby tests, docs, or spec text when the fix changes behavior or closes contract drift
    - run the narrowest existing validation that proves the fix
-6. Run the two-family review again on the new diff.
-7. Repeat until no new consensus issues remain.
+6. Run one two-family verification pass limited to the accepted fixes and their regressions.
+7. Stop. Report any remaining issues; ask before another round or a scope-expanding fix.
 
 ## Synthesis rules
 
-- If both reviewers find nothing new, stop and say so plainly.
+- Verification checks the accepted fixes, not whether the entire change is beyond criticism.
 - If only one reviewer finds an issue, do not auto-fix it. Surface it as disputed.
 - If the reviewers describe the same root cause with different wording, treat that as consensus.
 - If the reviewers disagree on severity, keep the issue disputed unless the code or validation
@@ -85,4 +91,4 @@ Use this structure:
 - Synthesize the overlap into a consensus list.
 - Fix the consensus list in one coherent batch.
 - Re-run the same two-agent review on the updated diff.
-- End only when the loop stabilizes, then present the disputed remainder for the user.
+- Stop after the verification round and present the disputed or out-of-scope remainder.
