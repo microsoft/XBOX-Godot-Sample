@@ -31,7 +31,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\validate_pr_local.
 | `-PullRequest <n>` | Required. The PR number in `microsoft/XBOX-Godot-Sample`. |
 | `-AllowLiveWrites` | Required to execute. Without it the script refuses, because every run writes to a live PlayFab title. |
 | `-DryRun` | Resolve the PR and print the plan, then exit 0. Also reports whether `XblPCSandbox.exe` was found and whether the shell is elevated, so you can tell up front if the machine can run it. |
-| `-GodotVersion <v>[,<v>]` | Narrow the engine matrix. Each value must appear in the candidate's `.github/godot-versions.json` `supported` list; a typo fails immediately after checkout rather than wasting a build. A narrowed run is always reported as `incomplete` (exit 2). See [Narrowing the engine matrix](#narrowing-the-engine-matrix). |
+| `-GodotVersion <v>[,<v>]` | Narrow the engine matrix. Pass several versions as one comma-separated value — `pwsh -File` binds a repeated `-GodotVersion` as an error, not as a list, so the comma form is the only one that works from the command line, and it is the form the report's reproduction command prints. Each value must appear in the candidate's `.github/godot-versions.json` `supported` list; a typo fails immediately after checkout rather than wasting a build. A narrowed run is always reported as `incomplete` (exit 2). See [Narrowing the engine matrix](#narrowing-the-engine-matrix). |
 | `-GdkVersion <v>` | Pin the GDK. The value must appear in the candidate's `.github/gdk-versions.json` `supported` list. Writes an `ms-gdk` `overrides` entry into the checkout's `vcpkg.json` before configuring. See [Choosing the GDK](#choosing-the-gdk). |
 | `-NoComment` | Produce the artifacts but do not post to the PR. |
 | `-WorkRoot <path>` | Override the run-directory root. Defaults to `%LOCALAPPDATA%\godot-gdk-pr-validation`. |
@@ -257,6 +257,7 @@ validated is exactly the failure mode this tool exists to prevent:
 | Resolved SDK is not the candidate's declared default | floors to `incomplete` |
 | A GDK support-list change named editions this run could not build | floors to `incomplete` |
 | The PR head moved mid-run | floors to `incomplete` |
+| The PR head could not be re-read after the run | floors to `incomplete` |
 | No engine legs ran at all | `error` |
 
 The GDK support-list row depends on knowing which files the pull request changed, which the
@@ -279,7 +280,30 @@ over an unvalidated support claim.
 
 `incomplete` is reported as `incomplete`, never rounded up to a pass, and exits 2. A head
 that moved mid-run is the clearest case: the evidence then describes the old commit, and
-is labelled as such instead of published as a pass for the new one.
+is labelled as such instead of published as a pass for the new one. A head re-read that
+*fails* — a dropped network, an expired token — is treated the same way rather than
+abandoning the run: by then hours of live writes have already landed, so the wrapper records
+the head as unverified, floors the verdict, and still writes the manifest and report before
+it tries to publish.
+
+The unvalidated-editions list is likewise computed from the `ms-gdk` version vcpkg actually
+restored, not from the one the run expected. An unpinned run takes whatever the registry
+baseline resolves, so subtracting the expectation would name the edition that *was* built as
+unvalidated and silently omit the one that was not — pointing the suggested re-run at the
+wrong version.
+
+One thing a host-wide passing tally cannot prove is that the machine was signed in to Xbox.
+`test_game_save.gd` and `test_presence.gd` mark a missing Xbox identity *pending* and still
+pass their contract tests, and the GDK bootstrap exits 0 when sign-in does not succeed, so a
+signed-out PC produces a leg that looks exactly like a signed-in one. The leg verdict
+therefore reads an **optional** `xbox_signed_in` boolean from `run-summary.json`: `true`
+records the leg as `signed-in` and changes nothing, `false` floors the leg to `incomplete`
+with a gap naming the missing identity, and anything that is not a real JSON boolean is an
+`error` leg for the same reason `live` and `live_writes` are. When the field is absent the
+leg is recorded as `unreported` and the verdict is left alone — the summary is written by the
+*candidate's* orchestrator, so grading its absence would permanently mark every branch that
+predates the field as incomplete. Unreported legs are instead named in the report's "Not
+covered by this run" list, so the gap is stated rather than assumed away.
 
 `cpp-doctest` is asserted on the **first** engine leg only, because the wrapper deliberately
 appends `-SkipDoctest` to later legs — the native suite does not depend on the engine.

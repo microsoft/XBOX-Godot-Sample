@@ -679,7 +679,12 @@ try {
 
         $gdkManifestChanged = Test-ChangedPathsInclude -ChangedPaths $changedFiles.Paths -Complete $changedFiles.Complete -Path '.github/gdk-versions.json'
         $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
-        $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdk.Uncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
+        # Subtract the SDK that was actually restored, never the one the run
+        # expected: an unpinned run that resolves a different supported version
+        # would otherwise call the built edition unvalidated and omit the one it
+        # never built.
+        $gdkUncovered = Get-UncoveredGdkVersions -Supported $gdk.Supported -Built $sdk.Package
+        $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdkUncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
         if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }
         if ($gdkCoverageGap) { Write-Warning $gdkCoverageGap }
 
@@ -714,20 +719,24 @@ If the run was interrupted, restore it manually from an elevated shell:
     & "$sandboxExe" $originalSandbox /noApps
 "@
         $sandboxLog = Join-Path $logsDir 'sandbox.log'
-        if ($originalSandbox -ine $script:SandboxId) {
-            # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
-            # out. The GDK live tiers need a test account signed in, and this
-            # script cannot do that for you -- it is an interactive system UI.
-            # So a mid-run switch usually produces a 'no_default_user' leg.
-            Write-Warning "The machine is in '$originalSandbox', not '$script:SandboxId'. Switching now restarts Xbox Live Auth Manager and signs the Xbox app out, and the GDK live tiers need a signed-in test account. For a clean run, cancel, switch the sandbox, sign a $script:SandboxId test account into the Xbox app, then re-run; this script will then skip the switch entirely."
-            Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId -LogPath $sandboxLog | Out-Null
-            Write-Note "Sandbox is now $script:SandboxId"
-        } else {
-            Write-Note "Already in $script:SandboxId; no switch needed."
-        }
 
         $legs = @()
         try {
+            if ($originalSandbox -ine $script:SandboxId) {
+                # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
+                # out. The GDK live tiers need a test account signed in, and this
+                # script cannot do that for you -- it is an interactive system UI.
+                # So a mid-run switch usually produces a 'no_default_user' leg.
+                # The switch lives inside this try so a switch that changes the
+                # machine and then fails its own verification still reaches the
+                # restore below.
+                Write-Warning "The machine is in '$originalSandbox', not '$script:SandboxId'. Switching now restarts Xbox Live Auth Manager and signs the Xbox app out, and the GDK live tiers need a signed-in test account. For a clean run, cancel, switch the sandbox, sign a $script:SandboxId test account into the Xbox app, then re-run; this script will then skip the switch entirely."
+                Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId -LogPath $sandboxLog | Out-Null
+                Write-Note "Sandbox is now $script:SandboxId"
+            } else {
+                Write-Note "Already in $script:SandboxId; no switch needed."
+            }
+
             $first = $true
             foreach ($engine in $engines) {
                 Write-Phase "Live run on Godot $($engine.Version)"
@@ -805,22 +814,23 @@ If the run was interrupted, restore it manually from an elevated shell:
                 if ($summaryError) { $legReasons += $summaryError }
 
                 $legs += [pscustomobject]@{
-                    version     = $engine.Version
-                    status      = $verdict.Status
-                    tests       = $verdict.Tests
-                    passing     = $verdict.Passing
-                    failing     = $verdict.Failing
-                    pending     = $verdict.Pending
-                    mp_total    = $verdict.MpTotal
-                    mp_passed   = $verdict.MpPassed
-                    mp_failed   = $verdict.MpFailed
-                    mp_skipped  = $verdict.MpSkipped
-                    duration_ms = $verdict.DurationMs
-                    exit_code   = $legCode
-                    reasons     = @($legReasons)
-                    gaps        = @($verdict.Gaps)
-                    summary     = $summaryPath
-                    log         = $legLog
+                    version       = $engine.Version
+                    status        = $verdict.Status
+                    tests         = $verdict.Tests
+                    passing       = $verdict.Passing
+                    failing       = $verdict.Failing
+                    pending       = $verdict.Pending
+                    mp_total      = $verdict.MpTotal
+                    mp_passed     = $verdict.MpPassed
+                    mp_failed     = $verdict.MpFailed
+                    mp_skipped    = $verdict.MpSkipped
+                    duration_ms   = $verdict.DurationMs
+                    exit_code     = $legCode
+                    reasons       = @($legReasons)
+                    gaps          = @($verdict.Gaps)
+                    xbox_identity = $verdict.XboxIdentity
+                    summary       = $summaryPath
+                    log           = $legLog
                 }
                 Write-Host "    Godot $($engine.Version): $(Get-StatusLabel $verdict.Status) (orchestrator exit $legCode)" -ForegroundColor Yellow
                 $first = $false
@@ -853,9 +863,20 @@ If the run was interrupted, restore it manually from an elevated shell:
         # --- Verdict and report ------------------------------------------------
         # Re-read the head *before* computing the verdict: if the PR moved while
         # this run was in progress, the evidence describes an obsolete commit and
-        # must never be published under a PASS heading.
-        $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
-        $headMoved = ($currentHead -ne $headSha)
+        # must never be published under a PASS heading. A lookup that fails after
+        # hours of live writes must not discard that evidence either, so an
+        # unanswerable check degrades the verdict and still writes the manifest
+        # and report.
+        $currentHead = $null
+        $headLookupError = $null
+        try {
+            $currentHead = (Get-PullRequestMetadata -Number $PullRequest).headRefOid
+        } catch {
+            $headLookupError = $_.Exception.Message
+            Write-Warning "Could not re-read the pull request head after the run ($headLookupError). The results below cannot be confirmed to describe the current head."
+        }
+        $headMoved = ($null -ne $currentHead -and $currentHead -ne $headSha)
+        $headUnverified = ($null -eq $currentHead)
 
         $statuses = @($legs | ForEach-Object { $_.status })
         $runStatus = Get-RunVerdict -LegStatuses $statuses `
@@ -863,7 +884,8 @@ If the run was interrupted, restore it manually from an elevated shell:
             -MatrixNarrowed ([bool]$matrix.Narrowed) `
             -HasGdkIdentityGap ([bool]$gdkIdentityGap) `
             -HasGdkCoverageGap ([bool]$gdkCoverageGap) `
-            -HeadMoved $headMoved
+            -HeadMoved $headMoved `
+            -HeadUnverified $headUnverified
 
         $finishedAt = [datetime]::UtcNow
         $runReasons = @()
@@ -876,6 +898,9 @@ If the run was interrupted, restore it manually from an elevated shell:
         if ($gdkCoverageGap) { $runGaps += $gdkCoverageGap }
         if ($headMoved) {
             $runGaps += "The pull request head moved to ``$currentHead`` while this run was in progress; these results describe ``$headSha`` only and are not validation of the current head."
+        }
+        if ($headUnverified) {
+            $runGaps += "The pull request head could not be re-read after the run ($headLookupError); these results describe ``$headSha`` only and were not confirmed against the current head."
         }
 
         $manifest = [pscustomobject]@{
@@ -891,7 +916,7 @@ If the run was interrupted, restore it manually from an elevated shell:
             ms_gdk_version       = $sdk.Package
             gdk_pinned           = [bool]$gdk.Pinned
             gdk_declared_default = $gdkManifest.Default
-            gdk_not_covered      = @($gdk.Uncovered)
+            gdk_not_covered      = @($gdkUncovered)
             playfab_title_id     = $script:PlayFabTitleId
             sandbox_id           = $script:SandboxId
             sandbox_restored_to  = $originalSandbox

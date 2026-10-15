@@ -253,6 +253,7 @@ function New-EngineLegError {
         MpSkipped    = $null
         DurationMs   = 0
         GodotVersion = 'unknown'
+        XboxIdentity = 'unreported'
     }
 }
 
@@ -305,6 +306,14 @@ function Get-EngineLegVerdictCore {
             while covering nothing.
           - A live GUT host can report every test as pending (skipped) when the
             live gate is not actually reached, and still exit 0.
+          - A signed-out machine is a specific case of that: the Xbox-backed
+            suites mark a missing Xbox identity pending while their contract
+            tests still pass, so a positive host tally alone does not prove
+            signed-in coverage. run-summary.json carries that evidence only on
+            candidates whose orchestrator emits 'xbox_signed_in', so it is
+            graded when present and reported as unverified when absent --
+            grading absence would permanently mark every branch that predates
+            the field incomplete for evidence it cannot produce.
           - A leg invoked without -Live/-AllowLiveWrites would exit 0 having
             validated none of what this tool claims to validate.
           - run_all_tests.ps1 derives overall_status from failures only, so a
@@ -319,7 +328,7 @@ function Get-EngineLegVerdictCore {
 
     .OUTPUTS
         PSCustomObject: Status, Reasons, Gaps, Tests, Passing, Failing, Pending,
-        DurationMs, GodotVersion.
+        DurationMs, GodotVersion, XboxIdentity.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowNull()]$Summary,
@@ -363,6 +372,24 @@ function Get-EngineLegVerdictCore {
     } elseif (-not $liveWrites) {
         $status = 'error'
         [void]$reasons.Add('The leg did not run with -AllowLiveWrites; it cannot support a live-write claim.')
+    }
+
+    # Signed-in Xbox identity, graded only when the candidate reports it. The
+    # Xbox-backed suites mark a missing identity pending and still pass, so the
+    # host tallies below cannot distinguish a signed-in run from a signed-out
+    # one. 'xbox_signed_in' is an optional field for that reason: a candidate
+    # that predates it has no way to answer, and failing those runs would mean
+    # no pull request could ever be validated until the orchestrator change
+    # merged. A candidate that does answer is held to its answer.
+    $xboxIdentity = 'unreported'
+    if ($names -contains 'xbox_signed_in') {
+        if (Get-SummaryFlag -Summary $Summary -Field 'xbox_signed_in') {
+            $xboxIdentity = 'signed-in'
+        } else {
+            $xboxIdentity = 'signed-out'
+            $status = Get-WorstStatus @($status, 'incomplete')
+            [void]$gaps.Add('The leg ran without a signed-in Xbox identity, so its Xbox-backed tests were pending rather than covered.')
+        }
     }
 
     $tests = 0; $passing = 0; $failing = 0; $pending = 0
@@ -539,6 +566,7 @@ function Get-EngineLegVerdictCore {
         MpSkipped    = $mpSkipped
         DurationMs   = $duration
         GodotVersion = $godot
+        XboxIdentity = $xboxIdentity
     }
 }
 
@@ -697,6 +725,18 @@ function Format-ValidationComment {
     [void]$lines.Add('- Packaging and submission flows.')
     [void]$lines.Add('- Any PlayFab title other than the one named above.')
     [void]$lines.Add('- The C++ doctest binary is engine-independent, so it ran on the first engine leg only.')
+    # A signed-out machine still tallies green, because the Xbox-backed suites
+    # mark a missing identity pending. Legs whose summary did not answer are
+    # named here rather than graded, so the reader is never told a run proved
+    # signed-in coverage that nothing in its evidence establishes.
+    $identityUnreported = @(@($Manifest.engines) | Where-Object {
+            $p = $_.PSObject.Properties['xbox_identity']
+            (-not $p) -or ([string]$p.Value -ne 'signed-in' -and [string]$p.Value -ne 'signed-out')
+        })
+    if ($identityUnreported.Count -gt 0) {
+        $unreportedVersions = @($identityUnreported | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_.version)) + '`' })
+        [void]$lines.Add(("- Signed-in Xbox identity on {0}: that run_all_tests.ps1 does not report it, so Xbox-backed tests may have been marked pending rather than run." -f ($unreportedVersions -join ', ')))
+    }
     [void]$lines.Add('')
     $rerun = "pwsh -File tools/validate_pr_local.ps1 -PullRequest $([int]$Manifest.pull_request) -AllowLiveWrites"
     if ($skippedEngines.Count -gt 0) {
@@ -724,6 +764,11 @@ function Select-EngineMatrix {
         Selection preserves the manifest's order so legs and reports stay
         comparable between runs, and a narrowed run is reported as such so it
         can never be mistaken for full-matrix evidence.
+
+        Requests are split on commas because the wrapper is launched with
+        'pwsh -File', which binds '-GodotVersion a,b' as one string rather than
+        two elements. The report's own reproduction command prints that form, so
+        rejecting it would make the documented copy-paste path fail.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Supported,
@@ -733,7 +778,7 @@ function Select-EngineMatrix {
     $all = @($Supported | Where-Object { $_ })
     if ($all.Count -eq 0) { throw 'The candidate declares no supported Godot versions.' }
 
-    $wanted = @($Requested | Where-Object { $_ })
+    $wanted = @($Requested | ForEach-Object { ([string]$_).Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     if ($wanted.Count -eq 0) {
         return [pscustomobject]@{ Selected = $all; Skipped = @(); Narrowed = $false }
     }
@@ -858,6 +903,31 @@ function Get-GdkCoverageGap {
         $PullRequest)
 }
 
+function Get-UncoveredGdkVersions {
+    <#
+    .SYNOPSIS
+        Which declared GDK versions did this run not build?
+    .DESCRIPTION
+        The answer must be derived from the SDK vcpkg actually restored, not
+        from the version the run expected. An unpinned run expects the declared
+        default but resolves whatever the registry baseline gives it, so
+        subtracting the expectation would list the edition that was built as
+        unvalidated while omitting the one that was not -- the gap would then
+        point a re-run at the wrong version.
+
+        A restored package the candidate does not declare at all leaves every
+        declared version uncovered, which is the honest answer; the separate
+        identity gap explains why.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Supported,
+        [AllowNull()][AllowEmptyString()][string]$Built
+    )
+    $all = @($Supported | Where-Object { $_ })
+    if ([string]::IsNullOrWhiteSpace($Built)) { return $all }
+    return @($all | Where-Object { $_ -ine $Built })
+}
+
 function Test-ChangedPathsInclude {
     <#
     .SYNOPSIS
@@ -924,6 +994,9 @@ function Get-RunVerdict {
         - A GDK coverage gap means a support-list change named editions this
           run could not build, since one run builds one GDK.
         - A moved head means the evidence describes an obsolete commit.
+        - An unverifiable head is the same claim with no answer at all: the
+          run cannot say the evidence still describes the current commit, so it
+          must not claim a clean pass either.
     .OUTPUTS
         One of 'pass', 'incomplete', 'fail', 'error'.
     #>
@@ -933,7 +1006,8 @@ function Get-RunVerdict {
         [Parameter(Mandatory = $true)][bool]$MatrixNarrowed,
         [Parameter(Mandatory = $true)][bool]$HasGdkIdentityGap,
         [Parameter(Mandatory = $true)][bool]$HasGdkCoverageGap,
-        [Parameter(Mandatory = $true)][bool]$HeadMoved
+        [Parameter(Mandatory = $true)][bool]$HeadMoved,
+        [bool]$HeadUnverified = $false
     )
     $statuses = @($LegStatuses)
     if ($ReleaseStatus -ne 'pass') { $statuses += 'fail' }
@@ -941,6 +1015,7 @@ function Get-RunVerdict {
     if ($HasGdkIdentityGap) { $statuses += 'incomplete' }
     if ($HasGdkCoverageGap) { $statuses += 'incomplete' }
     if ($HeadMoved) { $statuses += 'incomplete' }
+    if ($HeadUnverified) { $statuses += 'incomplete' }
     # No legs at all is not a pass: nothing was measured.
     if ($statuses.Count -eq 0) { return 'error' }
     return Get-WorstStatus $statuses
@@ -987,6 +1062,7 @@ Export-ModuleMember -Function @(
     'Select-GdkVersion',
     'New-MsGdkOverride',
     'Get-GdkCoverageGap',
+    'Get-UncoveredGdkVersions',
     'Test-ChangedPathsInclude',
     'Get-RunVerdict',
     'Get-GdkIdentityGap',

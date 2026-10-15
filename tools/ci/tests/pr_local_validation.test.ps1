@@ -1238,9 +1238,134 @@ try {
 
     # ----------------------------------------------------------------------
     Write-Host ''
-    Write-Host 'The change list is derived from real git history'
+    Write-Host 'Coverage, matrix and verdict inputs come from what actually ran'
     # ----------------------------------------------------------------------
 
+    Test-Case 'a comma-delimited Godot request is accepted' {
+        # pwsh -File binds '-GodotVersion a,b' as one string, and the report's
+        # own reproduction command prints exactly that form.
+        $m = Select-EngineMatrix -Supported @('4.7.1-stable', '4.6.1-stable', '4.5.1-stable') -Requested @('4.7.1-stable,4.6.1-stable')
+        Assert-Equal 2 @($m.Selected).Count 'Both requested versions must be selected.'
+        Assert-Equal '4.7.1-stable' $m.Selected[0] 'Manifest order is preserved.'
+        Assert-Equal '4.6.1-stable' $m.Selected[1] 'Manifest order is preserved.'
+        Assert-True $m.Narrowed 'A two-of-three request is still a narrowed run.'
+    }
+
+    Test-Case 'a comma-delimited request tolerates spaces and still rejects unknown versions' {
+        $m = Select-EngineMatrix -Supported @('4.7.1-stable', '4.6.1-stable') -Requested @(' 4.6.1-stable , ')
+        Assert-Equal 1 @($m.Selected).Count 'Padding and trailing separators must not invent versions.'
+        Assert-Equal '4.6.1-stable' $m.Selected[0] 'The named version is selected.'
+        Assert-Throws -Body { Select-EngineMatrix -Supported @('4.7.1-stable') -Requested @('4.7.1-stable,9.9.9-stable') } -Match 'not in this pull request'
+    }
+
+    Test-Case 'uncovered GDK versions are subtracted from the SDK that was built' {
+        $supported = @('2604.2.7849', '2602.1.7701')
+        # An unpinned run expects the declared default but resolves whatever the
+        # registry baseline gives it.
+        $uncovered = Get-UncoveredGdkVersions -Supported $supported -Built '2602.1.7701'
+        Assert-Equal 1 @($uncovered).Count 'Exactly one declared version was left unbuilt.'
+        Assert-Equal '2604.2.7849' @($uncovered)[0] 'The version that was never built is the uncovered one.'
+        $gap = Get-GdkCoverageGap -Selected '2602.1.7701' -Uncovered $uncovered -ManifestChanged $true -PullRequest 203
+        Assert-True ($gap -match 'still unvalidated: `2604\.2\.7849`\.') 'Only the unbuilt edition is listed as unvalidated.'
+        Assert-True ($gap -match 'Validated `2602\.1\.7701`') 'The edition that was actually built is reported as validated.'
+    }
+
+    Test-Case 'an undeclared restored SDK leaves every declared version uncovered' {
+        $uncovered = Get-UncoveredGdkVersions -Supported @('2604.2.7849', '2602.1.7701') -Built '2500.0.0000'
+        Assert-Equal 2 @($uncovered).Count 'Nothing the candidate declares was validated.'
+        $none = Get-UncoveredGdkVersions -Supported @('2604.2.7849') -Built ''
+        Assert-Equal 1 @($none).Count 'An unknown restored package cannot cover anything.'
+    }
+
+    Test-Case 'an unverifiable head cannot settle as a pass' {
+        $args = @{
+            LegStatuses = @('pass'); ReleaseStatus = 'pass'; MatrixNarrowed = $false
+            HasGdkIdentityGap = $false; HasGdkCoverageGap = $false; HeadMoved = $false
+        }
+        Assert-Equal 'pass' (Get-RunVerdict @args) 'A fully verified run is still a pass.'
+        Assert-Equal 'incomplete' (Get-RunVerdict @args -HeadUnverified $true) 'A head the run could not re-read floors the verdict.'
+        Assert-Equal 'fail' (Get-RunVerdict -LegStatuses @('fail') -ReleaseStatus 'pass' -MatrixNarrowed $false `
+            -HasGdkIdentityGap $false -HasGdkCoverageGap $false -HeadMoved $false -HeadUnverified $true) 'It cannot downgrade a real failure.'
+    }
+
+    Test-Case 'the wrapper protects the sandbox switch and survives a failed head re-read' {
+        $src = Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools/validate_pr_local.ps1') -Raw
+        $tryIndex = $src.IndexOf('$legs = @()')
+        $switchIndex = $src.IndexOf('Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId')
+        $restoreIndex = $src.IndexOf('Restoring Xbox sandbox to')
+        Assert-True ($tryIndex -gt 0 -and $switchIndex -gt 0 -and $restoreIndex -gt 0) 'The switch and its restore must both exist.'
+        Assert-True ($switchIndex -gt $tryIndex -and $switchIndex -lt $restoreIndex) 'A switch that half-succeeds must still reach the restore.'
+        Assert-True ($src -match '\$headLookupError = \$_\.Exception\.Message') 'A failed head re-read must be caught, not fatal.'
+        Assert-True ($src -match '-HeadUnverified \$headUnverified') 'An unverified head must reach the verdict.'
+        Assert-True ($src -match 'gdk_not_covered\s+= @\(\$gdkUncovered\)') 'The manifest must report the recomputed uncovered list.'
+        $headIndex = $src.IndexOf('$headLookupError = $_.Exception.Message')
+        $manifestIndex = $src.IndexOf('schema_version       = 1')
+        Assert-True ($headIndex -gt 0 -and $manifestIndex -gt $headIndex) 'Evidence must still be written after a failed lookup.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host ''
+    Write-Host 'Signed-in Xbox evidence is graded when the candidate reports it'
+    # ----------------------------------------------------------------------
+    # A host-wide passing tally cannot distinguish a signed-in run from a
+    # signed-out one, because the Xbox-backed suites mark a missing identity
+    # pending and still pass their contract tests. The summary field is optional
+    # so that branches predating it are not permanently incomplete, but a
+    # candidate that answers is held to its answer.
+    Test-Case 'a leg that reports a signed-out machine cannot settle as a pass' {
+        $summary = New-Summary
+        $summary | Add-Member -NotePropertyName 'xbox_signed_in' -NotePropertyValue $false
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'incomplete' $v.Status 'A signed-out leg must not pass.'
+        Assert-Equal 'signed-out' $v.XboxIdentity 'The identity state must be recorded.'
+        Assert-True (@($v.Gaps | Where-Object { $_ -match 'signed-in Xbox identity' }).Count -gt 0) 'The gap must name the missing identity.'
+    }
+
+    Test-Case 'a leg that reports a signed-in machine passes and records the evidence' {
+        $summary = New-Summary
+        $summary | Add-Member -NotePropertyName 'xbox_signed_in' -NotePropertyValue $true
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'pass' $v.Status "Reported sign-in should not change the verdict: $($v.Reasons -join '; ') / $($v.Gaps -join '; ')"
+        Assert-Equal 'signed-in' $v.XboxIdentity 'Confirmed sign-in must be recorded as such.'
+    }
+
+    Test-Case 'a candidate that cannot report sign-in is not failed for it' {
+        $v = Get-EngineLegVerdict -Summary (New-Summary) -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'pass' $v.Status 'An older candidate must still be gradeable.'
+        Assert-Equal 'unreported' $v.XboxIdentity 'Absent evidence is unreported, not confirmed.'
+    }
+
+    Test-Case 'a non-boolean sign-in field is an uninterpretable summary' {
+        # Same trap as live/live_writes: [bool]'false' is $true, so a drifted
+        # schema would manufacture the exact evidence being demanded.
+        $summary = New-Summary
+        $summary | Add-Member -NotePropertyName 'xbox_signed_in' -NotePropertyValue 'false'
+        $v = Get-EngineLegVerdict -Summary $summary -RequireOrchestrator -RequireDoctest -OrchestratorResult $null
+        Assert-Equal 'error' $v.Status 'A non-boolean flag must not be coerced.'
+        Assert-Equal 'unreported' $v.XboxIdentity 'An unreadable summary proves no identity.'
+    }
+
+    Test-Case 'the report names the legs whose sign-in state is unknown' {
+        $m = $manifestObject.PSObject.Copy()
+        $body = Format-ValidationComment -Manifest $m
+        Assert-True ($body -like '*Signed-in Xbox identity on*') 'An unreported leg must be disclosed as not covered.'
+        Assert-True ($body -like '*4.7.1-stable*') 'The unreported leg must be named.'
+    }
+
+    Test-Case 'the report drops the sign-in caveat once every leg confirms it' {
+        $m = $manifestObject.PSObject.Copy()
+        $m.engines = @(
+            [pscustomobject]@{ version = '4.7.1-stable'; status = 'pass'; tests = 30; passing = 30; failing = 0; pending = 0; duration_ms = 61000; reasons = @(); gaps = @(); xbox_identity = 'signed-in' },
+            [pscustomobject]@{ version = '4.6.1-stable'; status = 'incomplete'; tests = 20; passing = 20; failing = 0; pending = 0; duration_ms = 55000; reasons = @(); gaps = @(); xbox_identity = 'signed-out' }
+        )
+        $body = Format-ValidationComment -Manifest $m
+        Assert-True (-not ($body -like '*Signed-in Xbox identity on*')) 'A reported leg is graded, not listed as unknown.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host ''
+    Write-Host 'The change list is derived from real git history'
+    # ----------------------------------------------------------------------
     # The source-text test above pins the command shape; these run the wrapper's
     # actual functions against real repositories, so a future edit that keeps the
     # literals intact but changes the behaviour still fails.
