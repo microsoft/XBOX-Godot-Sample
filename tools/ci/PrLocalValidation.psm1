@@ -684,7 +684,11 @@ function Format-ValidationComment {
     $skippedEngines = @()
     if ($skippedProp) { $skippedEngines = @($skippedProp.Value | Where-Object { $_ }) }
 
-    if ($skippedEngines.Count -gt 0) {
+    $debugProp = $Manifest.PSObject.Properties['debug_build_status']
+    $debugFailed = $debugProp -and $debugProp.Value -ne 'pass'
+    if ($debugFailed) {
+        [void]$lines.Add('Debug preparation failed in the fresh checkout. Live tests and the Release build were not run; no live-test coverage is claimed.')
+    } elseif ($skippedEngines.Count -gt 0) {
         $ran = @(@($Manifest.engines) | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_.version)) + '`' })
         $skip = @($skippedEngines | ForEach-Object { '`' + (ConvertTo-MarkdownCell ([string]$_)) + '`' })
         [void]$lines.Add("Ran ``tools/run_all_tests.ps1 -Live -AllowLiveWrites`` against a fresh checkout of this pull request's head commit.")
@@ -697,17 +701,23 @@ function Format-ValidationComment {
     [void]$lines.Add("- **Head commit**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.head_sha))``")
     [void]$lines.Add("- **Started (UTC)**: $(ConvertTo-MarkdownCell ([string]$Manifest.started_at))")
     [void]$lines.Add("- **Finished (UTC)**: $(ConvertTo-MarkdownCell ([string]$Manifest.finished_at))")
-    [void]$lines.Add("- **GDK edition (resolved ``grdk.h``)**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.gdk_edition))``")
+    $edition = if ($Manifest.gdk_edition) { [string]$Manifest.gdk_edition } else { 'unavailable' }
+    $package = if ($Manifest.ms_gdk_version) { [string]$Manifest.ms_gdk_version } else { 'unavailable' }
+    [void]$lines.Add("- **GDK edition (resolved ``grdk.h``)**: ``$(ConvertTo-MarkdownCell $edition)``")
     $gdkPinnedProp = $Manifest.PSObject.Properties['gdk_pinned']
     $gdkOrigin = if ($gdkPinnedProp -and $gdkPinnedProp.Value) { 'pinned by request' } else { 'inherited from the candidate checkout' }
-    [void]$lines.Add("- **ms-gdk package (restored by vcpkg)**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.ms_gdk_version))`` ($gdkOrigin)")
+    [void]$lines.Add("- **ms-gdk package (restored by vcpkg)**: ``$(ConvertTo-MarkdownCell $package)`` ($gdkOrigin)")
     [void]$lines.Add("- **PlayFab title**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.playfab_title_id))``")
     $restoredProp = $Manifest.PSObject.Properties['sandbox_restored']
-    if ($restoredProp -and -not $restoredProp.Value) {
+    $attemptedProp = $Manifest.PSObject.Properties['sandbox_attempted']
+    if ($attemptedProp -and -not $attemptedProp.Value) {
+        [void]$lines.Add('- **Xbox sandbox**: not changed (live execution was not reached)')
+    } elseif ($restoredProp -and -not $restoredProp.Value) {
         [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (**NOT restored** to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards -- this machine is still in the test sandbox)")
     } else {
         [void]$lines.Add("- **Xbox sandbox**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_id))`` (restored to ``$(ConvertTo-MarkdownCell ([string]$Manifest.sandbox_restored_to))`` afterwards)")
     }
+    if ($debugProp) { [void]$lines.Add("- **Debug build**: ``$(ConvertTo-MarkdownCell ([string]$debugProp.Value))``") }
     [void]$lines.Add("- **Release build**: ``$(ConvertTo-MarkdownCell ([string]$Manifest.release_build_status))``")
     [void]$lines.Add('')
     [void]$lines.Add('| Godot | Status | GUT tests | Passed | Failed | Pending | Multiplayer scenarios | Duration |')
@@ -759,7 +769,9 @@ function Format-ValidationComment {
     [void]$lines.Add('- Console (Xbox hardware) targets: this validates the PC/GDK desktop target only.')
     [void]$lines.Add('- Packaging and submission flows.')
     [void]$lines.Add('- Any PlayFab title other than the one named above.')
-    [void]$lines.Add('- The C++ doctest binary is engine-independent, so it ran on the first engine leg only.')
+    if (-not $debugFailed) {
+        [void]$lines.Add('- The C++ doctest binary is engine-independent, so it ran on the first engine leg only.')
+    }
     # A signed-out machine still tallies green, because the Xbox-backed suites
     # mark a missing identity pending. Legs whose summary did not answer are
     # named here rather than graded, so the reader is never told a run proved
@@ -1021,7 +1033,9 @@ function Get-RunVerdict {
         appears in the report as a gap must also appear here, or the comment
         can read PASS above a list of things the run never validated.
 
-        - A failed Release build is a real failure.
+        - A failed Debug or Release build is a real failure; a Debug execution
+          error is 'error'. Downstream stages skipped after a Debug failure
+          must not hide it or claim any test coverage.
         - A narrowed Godot matrix is honest coverage of fewer engines than the
           report claims, so it floors the verdict at 'incomplete'.
         - A GDK identity gap means the build resolved an SDK other than the one
@@ -1048,10 +1062,13 @@ function Get-RunVerdict {
         [Parameter(Mandatory = $true)][bool]$HasGdkCoverageGap,
         [Parameter(Mandatory = $true)][bool]$HeadMoved,
         [bool]$HeadUnverified = $false,
-        [bool]$SandboxRestoreFailed = $false
+        [bool]$SandboxRestoreFailed = $false,
+        [ValidateSet('pass', 'fail', 'error')][string]$DebugStatus = 'pass'
     )
     $statuses = @($LegStatuses)
-    if ($ReleaseStatus -ne 'pass') { $statuses += 'fail' }
+    if ($DebugStatus -ne 'pass') { $statuses += $DebugStatus }
+    if ($ReleaseStatus -ne 'pass' -and $ReleaseStatus -ne 'not run') { $statuses += 'fail' }
+    if ($DebugStatus -eq 'pass' -and $ReleaseStatus -eq 'not run') { $statuses += 'incomplete' }
     if ($MatrixNarrowed) { $statuses += 'incomplete' }
     if ($HasGdkIdentityGap) { $statuses += 'incomplete' }
     if ($HasGdkCoverageGap) { $statuses += 'incomplete' }

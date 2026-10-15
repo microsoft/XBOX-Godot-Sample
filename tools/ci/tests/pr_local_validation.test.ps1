@@ -1301,12 +1301,12 @@ try {
         # which would publish a PASS claiming the sandbox was restored.
         Assert-True ($src -match '\$sandboxRestoreFailed = \$true') 'A failed restore must set an explicit flag.'
         Assert-True ($src -match '-SandboxRestoreFailed \$sandboxRestoreFailed') 'The verdict must read the flag, not the message.'
-        Assert-True ($src -match 'sandbox_restored\s+= \(-not \$sandboxRestoreFailed\)') 'The manifest must distinguish a failed restore from a confirmed one.'
+        Assert-True ($src -match 'sandbox_restored\s+= if \(\$sandboxAttempted\) \{ -not \$sandboxRestoreFailed \} else \{ \$null \}') 'The manifest must distinguish failed, confirmed and unattempted restores.'
         Assert-True ($src -notmatch '\[bool\]\$sandboxRestoreError') 'An empty exception message must not read as a successful restore.'
         # Write-Warning is itself terminating under -WarningAction Stop, so a
         # warning that reports a degraded path must opt out of preference
         # escalation or it reintroduces the throw it was written to replace.
-        Assert-Equal 4 (@([regex]::Matches($src, 'Write-Warning -WarningAction Continue')).Count) 'Every degradation warning must be non-escalatable.'
+        Assert-Equal 5 (@([regex]::Matches($src, 'Write-Warning -WarningAction Continue')).Count) 'Every degradation warning must be non-escalatable.'
         Assert-True ($src -match 'Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox') 'The restore warning must not be escalatable.'
         Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not re-read the pull request head') 'The head re-read warning must not be escalatable.'
         Assert-True ($src -match 'Write-Warning -WarningAction Continue "Could not derive the files head') 'The change-list warning must not be escalatable.'
@@ -1494,6 +1494,116 @@ try {
         $m = $manifestObject.PSObject.Copy()
         $body = Format-ValidationComment -Manifest $m
         Assert-True ($body -match 'restored to .RETAIL. afterwards') 'An absent flag keeps the original wording.'
+    }
+
+    # ----------------------------------------------------------------------
+    Write-Host 'Debug failures use the real wrapper reporting path'
+    # ----------------------------------------------------------------------
+    $wrapperPath = Join-Path (Split-Path -Parent (Split-Path -Parent $ciRoot)) 'tools\validate_pr_local.ps1'
+    $wrapperSource = Get-Content -LiteralPath $wrapperPath -Raw
+    $flowStart = $wrapperSource.IndexOf("    `$debugStatus = 'error'")
+    $flowEnd = $wrapperSource.IndexOf("`n} catch {", $flowStart)
+    if ($flowStart -lt 0 -or $flowEnd -lt 0) { throw 'Could not locate the wrapper execution/reporting block.' }
+    $failureFlow = [scriptblock]::Create($wrapperSource.Substring($flowStart, $flowEnd - $flowStart))
+
+    function Invoke-DebugFailureFixture {
+        param([string]$FailureMode, [bool]$WithoutComment = $false)
+        $runDir = Join-Path $fixtureRoot ([guid]::NewGuid().ToString('n'))
+        $logsDir = Join-Path $runDir 'logs'
+        New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        $checkoutDir = Join-Path $runDir 'checkout'
+        $PullRequest = 203
+        $headSha = 'f' * 40
+        $startedAt = [datetime]::UtcNow
+        $originalSandbox = 'RETAIL'
+        $pr = [pscustomobject]@{ url = 'https://github.com/microsoft/XBOX-Godot-Sample/pull/203' }
+        $gdk = [pscustomobject]@{ Supported = @('2604.2.7849'); Pinned = $false }
+        $gdkManifest = [pscustomobject]@{ Default = '2604.2.7849' }
+        $matrix = [pscustomobject]@{ Narrowed = $false; Skipped = @() }
+        $NoComment = $WithoutComment
+        $script:Repository = 'microsoft/XBOX-Godot-Sample'
+        $script:PlayFabTitleId = '10D176'
+        $script:SandboxId = 'lykhvw.0'
+        $calls = [System.Collections.Generic.List[string]]::new()
+        $WarningPreference = 'Stop'
+
+        function Write-Phase { param($Message) }
+        function Write-Note { param($Message) }
+        function Get-PullRequestMetadata { param($Number) return [pscustomobject]@{ headRefOid = $headSha } }
+        function Get-SdkIdentity { throw 'SDK inspection must not run after Debug failed.' }
+        function Invoke-Logged {
+            param($FilePath, $ArgumentList, $LogPath, $WorkingDirectory, [switch]$ScrubCredentials)
+            $command = "$FilePath $($ArgumentList -join ' ')"
+            $calls.Add($command)
+            if ($FilePath -eq 'gh') {
+                $bodyIndex = [array]::IndexOf($ArgumentList, '--body-file')
+                Assert-True ($bodyIndex -ge 0) 'Publication must use the saved report.'
+                Assert-True (Test-Path -LiteralPath $ArgumentList[$bodyIndex + 1]) 'The report must exist before publication.'
+                return 0
+            }
+            Assert-Equal 'cmake' $FilePath 'No engines, sandbox changes or live commands may execute.'
+            if ($FailureMode -eq 'launch') { throw 'LOCAL-ONLY-DETAIL C:\private\tool.exe could not start' }
+            if ($FailureMode -eq 'configure' -or $command -eq 'cmake --build --preset debug') { return 17 }
+            Assert-Equal 'cmake --preset default' $command 'Only Debug configuration may succeed in this fixture.'
+            return 0
+        }
+
+        & $failureFlow | Out-Null
+        return [pscustomobject]@{
+            Manifest = Get-Content -LiteralPath (Join-Path $runDir 'validation-manifest.json') -Raw | ConvertFrom-Json
+            Report = Get-Content -LiteralPath (Join-Path $runDir 'report.md') -Raw
+            Calls = @($calls.ToArray())
+            Log = Get-Content -LiteralPath (Join-Path $logsDir 'build-debug.log') -Raw
+        }
+    }
+
+    foreach ($mode in @('configure', 'compile', 'launch')) {
+        Test-Case "a Debug $mode failure writes and publishes honest failure evidence" {
+            $result = Invoke-DebugFailureFixture -FailureMode $mode
+            $expected = if ($mode -eq 'launch') { 'error' } else { 'fail' }
+            Assert-Equal $expected $result.Manifest.status 'The overall verdict must reflect the Debug failure.'
+            Assert-Equal $expected $result.Manifest.debug_build_status 'The Debug verdict must be recorded.'
+            $step = if ($mode -eq 'compile') { 'cmake --build --preset debug' } else { 'cmake --preset default' }
+            Assert-Equal $step $result.Manifest.debug_build_step 'The failing step must be identified.'
+            Assert-Equal 'not run' $result.Manifest.release_build_status 'Release must not execute.'
+            Assert-Equal 'not run' $result.Manifest.live_matrix_status 'Live tests must not execute.'
+            Assert-Equal 0 @($result.Manifest.engines).Count 'No engine evidence may be invented.'
+            Assert-True ($null -eq $result.Manifest.gdk_edition) 'The resolved edition must stay unknown.'
+            Assert-True ($null -eq $result.Manifest.ms_gdk_version) 'The resolved package must stay unknown.'
+            Assert-True (-not $result.Manifest.sandbox_attempted) 'The sandbox must not be touched.'
+            Assert-True ($null -eq $result.Manifest.sandbox_restored) 'An unattempted restore must not be reported as confirmed.'
+            Assert-True ($result.Report -match "Local PR validation - $($expected.ToUpperInvariant())") 'The heading must not pass.'
+            Assert-True ($result.Report -match 'unavailable') 'Unknown SDK identity must be explicit.'
+            Assert-True ($result.Report -match 'not changed') 'The report must not claim a sandbox switch/restore.'
+            Assert-True (-not ($result.Report -match 'Ran ``tools/run_all_tests|on every Godot|so it ran on the first')) 'The report must not claim tests ran.'
+            Assert-True (-not ($result.Report -match 'LOCAL-ONLY-DETAIL|C:\\private')) 'Local exception details must not be published.'
+            Assert-True ($result.Calls[-1] -match '^gh pr comment ') 'A failed build must still publish its report.'
+            Assert-Equal $(if ($mode -eq 'compile') { 3 } else { 2 }) $result.Calls.Count 'Execution must stop at the failed Debug step, then publish.'
+        }
+    }
+
+    Test-Case 'NoComment preserves Debug failure artifacts without publishing' {
+        $result = Invoke-DebugFailureFixture -FailureMode 'configure' -WithoutComment $true
+        Assert-Equal 1 $result.Calls.Count 'NoComment must suppress publication without losing artifacts.'
+        Assert-Equal 'fail' $result.Manifest.status 'The saved failure remains a failure.'
+    }
+
+    Test-Case 'the actual GDK coverage call handles zero, one and multiple uncovered versions' {
+        $callSite = [regex]::Match($wrapperSource, '(?m)^\s*\$gdkUncovered = @\(Get-UncoveredGdkVersions[^\r\n]+\r?\n\s*\$gdkCoverageGap = Get-GdkCoverageGap[^\r\n]+')
+        Assert-True $callSite.Success 'The caller must capture uncovered versions as an array.'
+        foreach ($supported in @(
+                @{ Versions = @('2604.2.7849'); Count = 0 },
+                @{ Versions = @('2604.2.7849', '2602.1.7701'); Count = 1 },
+                @{ Versions = @('2604.2.7849', '2602.1.7701', '2504.0.7000'); Count = 2 }
+            )) {
+            $gdk = [pscustomobject]@{ Supported = $supported.Versions }
+            $sdk = [pscustomobject]@{ Package = '2604.2.7849' }
+            $gdkManifestChanged = $true
+            $PullRequest = 203
+            . ([scriptblock]::Create($callSite.Value))
+            Assert-Equal $supported.Count $gdkUncovered.Count 'The array shape must survive the caller.'
+            Assert-Equal ($supported.Count -gt 0) ([bool]$gdkCoverageGap) 'Only uncovered SDKs require a gap.'
+        }
     }
 
     # ----------------------------------------------------------------------

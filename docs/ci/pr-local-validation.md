@@ -201,6 +201,13 @@ running the candidate's build as Administrator only widens the blast radius.
 12. **Report** — write `validation-manifest.json` and `report.md`, then
     `gh pr comment --body-file` unless `-NoComment`.
 
+If Debug configuration or compilation fails, the same reporting path publishes
+the failure: the manifest records the failed Debug step, live tests and Release
+as not run, and unresolved SDK identity as null (rendered as `unavailable`).
+The Xbox sandbox is not changed, and no test coverage is claimed. A nonzero
+CMake exit is `fail`; inability to execute the build is `error`. Build details
+remain in `logs\build-debug.log`.
+
 ## Why a green exit code is not enough
 
 `run_all_tests.ps1` can exit 0 while covering nothing that matters:

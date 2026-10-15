@@ -633,234 +633,264 @@ try {
         Write-Note "GDK (candidate default): $($gdk.Version)"
     }
 
-    Write-Phase 'Building Debug'
+    $debugStatus = 'error'
+    $debugFailure = $null
+    $debugStep = 'cmake --preset default'
+    $sdk = [pscustomobject]@{ Edition = $null; Package = $null }
+    $gdkUncovered = @($gdk.Supported)
+    $gdkIdentityGap = $null
+    $gdkCoverageGap = $null
+    $legs = @()
+    $sandboxRestoreFailed = $false
+    $sandboxRestoreError = $null
+    $sandboxAttempted = $false
+    $releaseStatus = 'not run'
     $buildLog = Join-Path $logsDir 'build-debug.log'
-    $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
-    if ($code -ne 0) { throw "cmake --preset default failed with exit code $code." }
-    $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'debug') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
-    if ($code -ne 0) { throw "cmake --build --preset debug failed with exit code $code." }
 
-    $sdk = Get-SdkIdentity -CheckoutRoot $checkoutDir
-    Write-Note "Resolved GDK edition : $($sdk.Edition)"
-    Write-Note "Restored ms-gdk      : $($sdk.Package)"
+    try {
+        Write-Phase 'Building Debug'
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
+        if ($code -ne 0) {
+            $debugStatus = 'fail'
+            throw "$debugStep failed with exit code $code."
+        }
+        $debugStep = 'cmake --build --preset debug'
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'debug') -LogPath $buildLog -WorkingDirectory $checkoutDir -ScrubCredentials
+        if ($code -ne 0) {
+            $debugStatus = 'fail'
+            throw "$debugStep failed with exit code $code."
+        }
+        $debugStatus = 'pass'
 
-    # A pinned run asked for one exact SDK. If vcpkg resolved a different one
-    # the override did not take, and every result below would be attributed
-    # to an SDK that was never built. Only a pin can make this a hard error:
-    # an unpinned run resolving something else is the ordinary registry
-    # baseline case, which Get-GdkIdentityGap reports as a coverage gap.
-    if ($gdk.Pinned -and $sdk.Package -ine $gdk.Version) {
-        throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
-    }
-    # Whenever the build restored the package the candidate's support list
-    # describes - pinned or not - its declared edition becomes a checkable
-    # claim, and a wrong mapping would silently mislabel every result below.
-    if ($gdk.Edition -and $sdk.Package -ieq $gdk.Version -and $sdk.Edition -ine $gdk.Edition) {
-        throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
-    }
+        $sdk = Get-SdkIdentity -CheckoutRoot $checkoutDir
+        Write-Note "Resolved GDK edition : $($sdk.Edition)"
+        Write-Note "Restored ms-gdk      : $($sdk.Package)"
 
-    $gdkManifestChanged = Test-ChangedPathsInclude -ChangedPaths $changedFiles.Paths -Complete $changedFiles.Complete -Path '.github/gdk-versions.json'
-    $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
-    # Subtract the SDK that was actually restored, never the one the run
-    # expected: an unpinned run that resolves a different supported version
-    # would otherwise call the built edition unvalidated and omit the one it
-    # never built.
-    $gdkUncovered = Get-UncoveredGdkVersions -Supported $gdk.Supported -Built $sdk.Package
-    $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdkUncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
-    if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }
-    if ($gdkCoverageGap) { Write-Warning $gdkCoverageGap }
+        # A pinned run asked for one exact SDK. If vcpkg resolved a different one
+        # the override did not take, and every result below would be attributed
+        # to an SDK that was never built. Only a pin can make this a hard error:
+        # an unpinned run resolving something else is the ordinary registry
+        # baseline case, which Get-GdkIdentityGap reports as a coverage gap.
+        if ($gdk.Pinned -and $sdk.Package -ine $gdk.Version) {
+            throw "Requested ms-gdk $($gdk.Version) but the build restored $($sdk.Package). Refusing to report results against an SDK that was not the one requested."
+        }
+        # Whenever the build restored the package the candidate's support list
+        # describes - pinned or not - its declared edition becomes a checkable
+        # claim, and a wrong mapping would silently mislabel every result below.
+        if ($gdk.Edition -and $sdk.Package -ieq $gdk.Version -and $sdk.Edition -ine $gdk.Edition) {
+            throw "The candidate maps ms-gdk $($gdk.Version) to edition $($gdk.Edition), but that package resolved edition $($sdk.Edition)."
+        }
 
-    # --- Engines -----------------------------------------------------------
-    Write-Phase 'Preparing Godot engines'
+        $gdkManifestChanged = Test-ChangedPathsInclude -ChangedPaths $changedFiles.Paths -Complete $changedFiles.Complete -Path '.github/gdk-versions.json'
+        $gdkIdentityGap = Get-GdkIdentityGap -Expected $gdk.Expected -Restored $sdk.Package -Pinned ([bool]$gdk.Pinned)
+        # Subtract the SDK that was actually restored, never the one the run
+        # expected: an unpinned run that resolves a different supported version
+        # would otherwise call the built edition unvalidated and omit the one it
+        # never built.
+        $gdkUncovered = @(Get-UncoveredGdkVersions -Supported $gdk.Supported -Built $sdk.Package)
+        $gdkCoverageGap = Get-GdkCoverageGap -Selected $sdk.Package -Uncovered $gdkUncovered -ManifestChanged $gdkManifestChanged -PullRequest $PullRequest
+        if ($gdkIdentityGap) { Write-Warning $gdkIdentityGap }
+        if ($gdkCoverageGap) { Write-Warning $gdkCoverageGap }
 
-    $engines = @()
-    foreach ($version in $versions) {
-        # -Force: the per-run engines directory is fresh, so there is nothing
-        # to reuse. Saying so explicitly keeps the "never a shared extracted
-        # engine directory" promise true even if a future -WorkRoot change
-        # makes the path collide.
-        $installJson = & pwsh -NoLogo -NoProfile -File (Join-Path $script:CiRoot 'get_godot.ps1') `
-            -Mode Install -Version $version -ManifestPath $manifestPath `
-            -DestinationRoot $enginesDir -ArchiveCacheDir $cacheDir -Force 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "Acquiring Godot $version failed: $($installJson | Out-String)" }
-        $info = ($installJson | Select-Object -Last 1 | Out-String).Trim() | ConvertFrom-Json
+        # --- Engines -----------------------------------------------------------
+        Write-Phase 'Preparing Godot engines'
 
-        $engineDir = Split-Path -Parent $info.Path
-        $dlls = Copy-RedistributableDlls -CheckoutRoot $checkoutDir -EngineDir $engineDir
-        Write-Note "$version -> $($info.Path) (+$dlls runtime DLLs)"
-        $engines += [pscustomobject]@{ Version = $version; Info = $info; EngineDir = $engineDir }
-    }
+        $engines = @()
+        foreach ($version in $versions) {
+            # -Force: the per-run engines directory is fresh, so there is nothing
+            # to reuse. Saying so explicitly keeps the "never a shared extracted
+            # engine directory" promise true even if a future -WorkRoot change
+            # makes the path collide.
+            $installJson = & pwsh -NoLogo -NoProfile -File (Join-Path $script:CiRoot 'get_godot.ps1') `
+                -Mode Install -Version $version -ManifestPath $manifestPath `
+                -DestinationRoot $enginesDir -ArchiveCacheDir $cacheDir -Force 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Acquiring Godot $version failed: $($installJson | Out-String)" }
+            $info = ($installJson | Select-Object -Last 1 | Out-String).Trim() | ConvertFrom-Json
 
-    # --- Live matrix -------------------------------------------------------
-    Write-Phase "Switching Xbox sandbox to $script:SandboxId"
-    $restoreNote = Join-Path $runDir 'SANDBOX-RESTORE.txt'
-    Set-Content -LiteralPath $restoreNote -Encoding utf8 -Value @"
+            $engineDir = Split-Path -Parent $info.Path
+            $dlls = Copy-RedistributableDlls -CheckoutRoot $checkoutDir -EngineDir $engineDir
+            Write-Note "$version -> $($info.Path) (+$dlls runtime DLLs)"
+            $engines += [pscustomobject]@{ Version = $version; Info = $info; EngineDir = $engineDir }
+        }
+
+        # --- Live matrix -------------------------------------------------------
+        Write-Phase "Switching Xbox sandbox to $script:SandboxId"
+        $restoreNote = Join-Path $runDir 'SANDBOX-RESTORE.txt'
+        Set-Content -LiteralPath $restoreNote -Encoding utf8 -Value @"
 This run changed the machine's Xbox sandbox.
 Original sandbox: $originalSandbox
 If the run was interrupted, restore it manually from an elevated shell:
     & "$sandboxExe" $originalSandbox /noApps
 "@
-    $sandboxLog = Join-Path $logsDir 'sandbox.log'
+        $sandboxLog = Join-Path $logsDir 'sandbox.log'
 
-    $legs = @()
-    $sandboxRestoreFailed = $false
-    $sandboxRestoreError = $null
-    try {
-        if ($originalSandbox -ine $script:SandboxId) {
-            # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
-            # out. The GDK live tiers need a test account signed in, and this
-            # script cannot do that for you -- it is an interactive system UI.
-            # So a mid-run switch usually produces a 'no_default_user' leg.
-            # The switch lives inside this try so a switch that changes the
-            # machine and then fails its own verification still reaches the
-            # restore below.
-            Write-Warning "The machine is in '$originalSandbox', not '$script:SandboxId'. Switching now restarts Xbox Live Auth Manager and signs the Xbox app out, and the GDK live tiers need a signed-in test account. For a clean run, cancel, switch the sandbox, sign a $script:SandboxId test account into the Xbox app, then re-run; this script will then skip the switch entirely."
-            Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId -LogPath $sandboxLog | Out-Null
-            Write-Note "Sandbox is now $script:SandboxId"
-        } else {
-            Write-Note "Already in $script:SandboxId; no switch needed."
-        }
-
-        $first = $true
-        foreach ($engine in $engines) {
-            Write-Phase "Live run on Godot $($engine.Version)"
-            $legOut = Join-Path $resultsDir $engine.Version
-            New-Item -ItemType Directory -Force -Path $legOut | Out-Null
-
-            $legArgs = @(
-                '-NoLogo', '-NoProfile', '-File', (Join-Path $checkoutDir 'tools\run_all_tests.ps1'),
-                '-SkipBuild', '-Live', '-AllowLiveWrites',
-                '-PlayFabTitleId', $script:PlayFabTitleId,
-                '-PlayFabCustomId', $script:PlayFabCustomId,
-                '-PlayFabMatchmakingQueue', $script:PlayFabMatchmaking,
-                '-OutDir', $legOut
-            )
-            if (-not $first) {
-                # The C++ doctest binary is engine-independent; running it
-                # once is evidence enough and keeps the matrix honest about
-                # what each leg adds.
-                $legArgs += '-SkipDoctest'
+        $sandboxAttempted = $true
+        try {
+            if ($originalSandbox -ine $script:SandboxId) {
+                # Switching restarts Xbox Live Auth Manager, which signs the Xbox app
+                # out. The GDK live tiers need a test account signed in, and this
+                # script cannot do that for you -- it is an interactive system UI.
+                # So a mid-run switch usually produces a 'no_default_user' leg.
+                # The switch lives inside this try so a switch that changes the
+                # machine and then fails its own verification still reaches the
+                # restore below.
+                Write-Warning "The machine is in '$originalSandbox', not '$script:SandboxId'. Switching now restarts Xbox Live Auth Manager and signs the Xbox app out, and the GDK live tiers need a signed-in test account. For a clean run, cancel, switch the sandbox, sign a $script:SandboxId test account into the Xbox app, then re-run; this script will then skip the switch entirely."
+                Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $script:SandboxId -LogPath $sandboxLog | Out-Null
+                Write-Note "Sandbox is now $script:SandboxId"
+            } else {
+                Write-Note "Already in $script:SandboxId; no switch needed."
             }
 
-            $saved = @{}
-            $legCode = $null
-            foreach ($name in @('GODOT', 'GODOT_BIN', 'GODOT_CONSOLE')) {
-                $saved[$name] = [Environment]::GetEnvironmentVariable($name)
-            }
-            try {
-                $env:GODOT = $engine.Info.Path
-                $env:GODOT_BIN = $engine.Info.Path
-                $env:GODOT_CONSOLE = $engine.Info.Path
-                $legLog = Join-Path $logsDir "run-$($engine.Version).log"
-                $legCode = Invoke-Logged -FilePath 'pwsh' -ArgumentList $legArgs -LogPath $legLog -WorkingDirectory $checkoutDir -ScrubCredentials
-            } finally {
-                foreach ($name in $saved.Keys) {
-                    if ($null -eq $saved[$name]) {
-                        Remove-Item "Env:\$name" -ErrorAction SilentlyContinue
-                    } else {
-                        Set-Item "Env:\$name" -Value $saved[$name]
+            $first = $true
+            foreach ($engine in $engines) {
+                Write-Phase "Live run on Godot $($engine.Version)"
+                $legOut = Join-Path $resultsDir $engine.Version
+                New-Item -ItemType Directory -Force -Path $legOut | Out-Null
+
+                $legArgs = @(
+                    '-NoLogo', '-NoProfile', '-File', (Join-Path $checkoutDir 'tools\run_all_tests.ps1'),
+                    '-SkipBuild', '-Live', '-AllowLiveWrites',
+                    '-PlayFabTitleId', $script:PlayFabTitleId,
+                    '-PlayFabCustomId', $script:PlayFabCustomId,
+                    '-PlayFabMatchmakingQueue', $script:PlayFabMatchmaking,
+                    '-OutDir', $legOut
+                )
+                if (-not $first) {
+                    # The C++ doctest binary is engine-independent; running it
+                    # once is evidence enough and keeps the matrix honest about
+                    # what each leg adds.
+                    $legArgs += '-SkipDoctest'
+                }
+
+                $saved = @{}
+                $legCode = $null
+                foreach ($name in @('GODOT', 'GODOT_BIN', 'GODOT_CONSOLE')) {
+                    $saved[$name] = [Environment]::GetEnvironmentVariable($name)
+                }
+                try {
+                    $env:GODOT = $engine.Info.Path
+                    $env:GODOT_BIN = $engine.Info.Path
+                    $env:GODOT_CONSOLE = $engine.Info.Path
+                    $legLog = Join-Path $logsDir "run-$($engine.Version).log"
+                    $legCode = Invoke-Logged -FilePath 'pwsh' -ArgumentList $legArgs -LogPath $legLog -WorkingDirectory $checkoutDir -ScrubCredentials
+                } finally {
+                    foreach ($name in $saved.Keys) {
+                        if ($null -eq $saved[$name]) {
+                            Remove-Item "Env:\$name" -ErrorAction SilentlyContinue
+                        } else {
+                            Set-Item "Env:\$name" -Value $saved[$name]
+                        }
                     }
                 }
-            }
 
-            $summaryPath = Join-Path $legOut 'run-summary.json'
-            $summary = $null
-            $summaryError = $null
-            if (Test-Path -LiteralPath $summaryPath) {
-                try {
-                    $summary = (Get-Content -LiteralPath $summaryPath -Raw) | ConvertFrom-Json
-                } catch {
-                    # A truncated or malformed summary must not abort the run:
-                    # the leg still has to produce a verdict, a manifest, and a
-                    # posted report that say why it could not be interpreted.
-                    $summary = $null
-                    $summaryError = "run-summary.json could not be parsed: $($_.Exception.Message)"
-                    Write-Note $summaryError
+                $summaryPath = Join-Path $legOut 'run-summary.json'
+                $summary = $null
+                $summaryError = $null
+                if (Test-Path -LiteralPath $summaryPath) {
+                    try {
+                        $summary = (Get-Content -LiteralPath $summaryPath -Raw) | ConvertFrom-Json
+                    } catch {
+                        # A truncated or malformed summary must not abort the run:
+                        # the leg still has to produce a verdict, a manifest, and a
+                        # posted report that say why it could not be interpreted.
+                        $summary = $null
+                        $summaryError = "run-summary.json could not be parsed: $($_.Exception.Message)"
+                        Write-Note $summaryError
+                    }
                 }
-            }
-            $mpResultPath = Join-Path $legOut 'mp-orchestrator\mp-test-results.json'
-            $mpResult = $null
-            if (Test-Path -LiteralPath $mpResultPath) {
-                try {
-                    $mpResult = (Get-Content -LiteralPath $mpResultPath -Raw) | ConvertFrom-Json
-                } catch {
-                    Write-Note "Could not parse $mpResultPath : $($_.Exception.Message)"
+                $mpResultPath = Join-Path $legOut 'mp-orchestrator\mp-test-results.json'
+                $mpResult = $null
+                if (Test-Path -LiteralPath $mpResultPath) {
+                    try {
+                        $mpResult = (Get-Content -LiteralPath $mpResultPath -Raw) | ConvertFrom-Json
+                    } catch {
+                        Write-Note "Could not parse $mpResultPath : $($_.Exception.Message)"
+                    }
                 }
-            }
-            # $legCode is $null only if the leg never produced an exit code at
-            # all, which would make 'did it pass?' unanswerable. Passing $null
-            # to an [int] parameter silently becomes 0, i.e. green, so convert
-            # it to an unmistakable failure instead.
-            $legExitCode = if ($null -eq $legCode) { -1 } else { [int]$legCode }
-            $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult `
-                -RequireOrchestrator -RequireDoctest:$first -OrchestratorExitCode $legExitCode
-            $legReasons = @($verdict.Reasons)
-            if ($summaryError) { $legReasons += $summaryError }
+                # $legCode is $null only if the leg never produced an exit code at
+                # all, which would make 'did it pass?' unanswerable. Passing $null
+                # to an [int] parameter silently becomes 0, i.e. green, so convert
+                # it to an unmistakable failure instead.
+                $legExitCode = if ($null -eq $legCode) { -1 } else { [int]$legCode }
+                $verdict = Get-EngineLegVerdict -Summary $summary -OrchestratorResult $mpResult `
+                    -RequireOrchestrator -RequireDoctest:$first -OrchestratorExitCode $legExitCode
+                $legReasons = @($verdict.Reasons)
+                if ($summaryError) { $legReasons += $summaryError }
 
-            $legs += [pscustomobject]@{
-                version       = $engine.Version
-                status        = $verdict.Status
-                tests         = $verdict.Tests
-                passing       = $verdict.Passing
-                failing       = $verdict.Failing
-                pending       = $verdict.Pending
-                mp_total      = $verdict.MpTotal
-                mp_passed     = $verdict.MpPassed
-                mp_failed     = $verdict.MpFailed
-                mp_skipped    = $verdict.MpSkipped
-                duration_ms   = $verdict.DurationMs
-                exit_code     = $legCode
-                reasons       = @($legReasons)
-                gaps          = @($verdict.Gaps)
-                xbox_identity = $verdict.XboxIdentity
-                summary       = $summaryPath
-                log           = $legLog
+                $legs += [pscustomobject]@{
+                    version       = $engine.Version
+                    status        = $verdict.Status
+                    tests         = $verdict.Tests
+                    passing       = $verdict.Passing
+                    failing       = $verdict.Failing
+                    pending       = $verdict.Pending
+                    mp_total      = $verdict.MpTotal
+                    mp_passed     = $verdict.MpPassed
+                    mp_failed     = $verdict.MpFailed
+                    mp_skipped    = $verdict.MpSkipped
+                    duration_ms   = $verdict.DurationMs
+                    exit_code     = $legCode
+                    reasons       = @($legReasons)
+                    gaps          = @($verdict.Gaps)
+                    xbox_identity = $verdict.XboxIdentity
+                    summary       = $summaryPath
+                    log           = $legLog
+                }
+                Write-Host "    Godot $($engine.Version): $(Get-StatusLabel $verdict.Status) (orchestrator exit $legCode)" -ForegroundColor Yellow
+                $first = $false
             }
-            Write-Host "    Godot $($engine.Version): $(Get-StatusLabel $verdict.Status) (orchestrator exit $legCode)" -ForegroundColor Yellow
-            $first = $false
-        }
-    } finally {
-        Write-Phase "Restoring Xbox sandbox to $originalSandbox"
-        try {
-            $now = Get-CurrentSandbox -ExePath $sandboxExe
-            if ($now -ine $originalSandbox) {
-                Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $originalSandbox -LogPath $sandboxLog | Out-Null
+        } finally {
+            Write-Phase "Restoring Xbox sandbox to $originalSandbox"
+            try {
+                $now = Get-CurrentSandbox -ExePath $sandboxExe
+                if ($now -ine $originalSandbox) {
+                    Set-CurrentSandbox -ExePath $sandboxExe -SandboxId $originalSandbox -LogPath $sandboxLog | Out-Null
+                }
+                Write-Note "Sandbox restored to $originalSandbox"
+                Remove-Item -LiteralPath $restoreNote -ErrorAction SilentlyContinue
+            } catch {
+                # $ErrorActionPreference is 'Stop', so Write-Error here would
+                # throw out of this finally and discard hours of live-write
+                # evidence before the manifest, report or comment are written.
+                # Record it instead: SANDBOX-RESTORE.txt stays on disk with the
+                # manual command, and the run verdict is floored to 'error' so
+                # a machine left in the test sandbox can never be published
+                # under a PASS heading.
+                # The flag, not the message, is the source of truth: an
+                # exception can carry an empty Message, and [bool]'' is $false,
+                # which would publish a PASS saying the sandbox was restored.
+                $sandboxRestoreFailed = $true
+                $sandboxRestoreError = $_.Exception.Message
+                if (-not $sandboxRestoreError) { $sandboxRestoreError = "$($_.Exception.GetType().FullName) (no message)" }
+                # -WarningAction Continue because Write-Warning is itself
+                # terminating when the caller passes -WarningAction Stop (or
+                # sets $WarningPreference), which would reintroduce the exact
+                # throw this catch exists to prevent.
+                Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox. Restore it manually: & `"$sandboxExe`" $originalSandbox /noApps  ($sandboxRestoreError)"
+                Write-Warning -WarningAction Continue "Leaving $restoreNote in place."
             }
-            Write-Note "Sandbox restored to $originalSandbox"
-            Remove-Item -LiteralPath $restoreNote -ErrorAction SilentlyContinue
-        } catch {
-            # $ErrorActionPreference is 'Stop', so Write-Error here would
-            # throw out of this finally and discard hours of live-write
-            # evidence before the manifest, report or comment are written.
-            # Record it instead: SANDBOX-RESTORE.txt stays on disk with the
-            # manual command, and the run verdict is floored to 'error' so
-            # a machine left in the test sandbox can never be published
-            # under a PASS heading.
-            # The flag, not the message, is the source of truth: an
-            # exception can carry an empty Message, and [bool]'' is $false,
-            # which would publish a PASS saying the sandbox was restored.
-            $sandboxRestoreFailed = $true
-            $sandboxRestoreError = $_.Exception.Message
-            if (-not $sandboxRestoreError) { $sandboxRestoreError = "$($_.Exception.GetType().FullName) (no message)" }
-            # -WarningAction Continue because Write-Warning is itself
-            # terminating when the caller passes -WarningAction Stop (or
-            # sets $WarningPreference), which would reintroduce the exact
-            # throw this catch exists to prevent.
-            Write-Warning -WarningAction Continue "FAILED to restore the Xbox sandbox. Restore it manually: & `"$sandboxExe`" $originalSandbox /noApps  ($sandboxRestoreError)"
-            Write-Warning -WarningAction Continue "Leaving $restoreNote in place."
         }
-    }
 
-    # --- Release build -----------------------------------------------------
-    Write-Phase 'Building Release'
-    $releaseLog = Join-Path $logsDir 'build-release.log'
-    $releaseStatus = 'pass'
-    $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default-release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
-    if ($code -eq 0) {
-        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
+        # --- Release build -----------------------------------------------------
+        Write-Phase 'Building Release'
+        $releaseLog = Join-Path $logsDir 'build-release.log'
+        $releaseStatus = 'pass'
+        $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--preset', 'default-release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
+        if ($code -eq 0) {
+            $code = Invoke-Logged -FilePath 'cmake' -ArgumentList @('--build', '--preset', 'release') -LogPath $releaseLog -WorkingDirectory $checkoutDir -ScrubCredentials
+        }
+        if ($code -ne 0) { $releaseStatus = 'fail' }
+        Write-Note "Release build: $releaseStatus"
+    } catch {
+        if ($debugStatus -eq 'pass') { throw }
+        $debugFailure = if ($debugStatus -eq 'fail') {
+            "$debugStep failed with exit code $code."
+        } else {
+            "$debugStep could not be completed; see build-debug.log."
+        }
+        Add-Content -LiteralPath $buildLog -Value $_.Exception.Message
+        Write-Warning -WarningAction Continue "$debugFailure Live tests and Release were not run."
     }
-    if ($code -ne 0) { $releaseStatus = 'fail' }
-    Write-Note "Release build: $releaseStatus"
 
     # --- Verdict and report ------------------------------------------------
     # Re-read the head *before* computing the verdict: if the PR moved while
@@ -889,12 +919,16 @@ If the run was interrupted, restore it manually from an elevated shell:
         -HasGdkCoverageGap ([bool]$gdkCoverageGap) `
         -HeadMoved $headMoved `
         -HeadUnverified $headUnverified `
-        -SandboxRestoreFailed $sandboxRestoreFailed
+        -SandboxRestoreFailed $sandboxRestoreFailed `
+        -DebugStatus $debugStatus
 
     $finishedAt = [datetime]::UtcNow
     $runReasons = @()
     $runGaps = @()
-    if ($releaseStatus -ne 'pass') { $runReasons += 'The Release build failed; see build-release.log.' }
+    if ($debugStatus -ne 'pass') {
+        $runReasons += "$debugFailure See build-debug.log. Live tests and Release were not run; resolved SDK identity is unavailable."
+    }
+    if ($releaseStatus -eq 'fail') { $runReasons += 'The Release build failed; see build-release.log.' }
     if ($sandboxRestoreFailed) {
         $runReasons += "The Xbox sandbox was NOT restored to ``$originalSandbox`` after the run ($sandboxRestoreError). This machine is still in ``$script:SandboxId``; restore it with: ``& `"$sandboxExe`" $originalSandbox /noApps``"
     }
@@ -927,8 +961,12 @@ If the run was interrupted, restore it manually from an elevated shell:
         playfab_title_id      = $script:PlayFabTitleId
         sandbox_id            = $script:SandboxId
         sandbox_restored_to   = $originalSandbox
-        sandbox_restored      = (-not $sandboxRestoreFailed)
+        sandbox_restored      = if ($sandboxAttempted) { -not $sandboxRestoreFailed } else { $null }
         sandbox_restore_error = $sandboxRestoreError
+        sandbox_attempted     = $sandboxAttempted
+        debug_build_status    = $debugStatus
+        debug_build_step      = $debugStep
+        live_matrix_status    = if ($sandboxAttempted) { 'attempted' } else { 'not run' }
         release_build_status  = $releaseStatus
         run_directory         = $runDir
         engines               = @($legs)
