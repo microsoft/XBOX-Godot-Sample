@@ -100,7 +100,7 @@ precedence over GDK_VERSION. Only used when GDK_DEPENDENCY_SOURCE is \
 # 2025, 260400 = April 2026) that the installed-GDK source may build against.
 # Maintained in-repo: extend this default when a new edition is validated.
 # `GDK_VERSION` must name one of these unless `GDK_ALLOW_UNAPPROVED` is ON.
-set(GDK_SUPPORTED_VERSIONS "251001;251002;251003;260400;260401" CACHE STRING
+set(GDK_SUPPORTED_VERSIONS "251001;251002;251003;260400;260401;260402" CACHE STRING
     "Semicolon-separated list of pre-approved 6-digit Microsoft GDK editions \
 the installed-GDK source may select. GDK_VERSION must be one of these unless \
 GDK_ALLOW_UNAPPROVED is ON.")

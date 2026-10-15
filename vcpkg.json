@@ -4,6 +4,12 @@
     "version-string": "0.1.0-preview",
     "description": "GDExtension addons for the Microsoft public GDK and PlayFab. Build-time dependencies for godot_gdk, godot_playfab, and godot_gameinput.",
     "dependencies": [],
+    "overrides": [
+        {
+            "name": "ms-gdk",
+            "version": "2604.2.7849"
+        }
+    ],
     "default-features": [
         "godot-gdk",
         "godot-gameinput"
