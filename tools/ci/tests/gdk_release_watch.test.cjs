@@ -294,6 +294,12 @@ test('GDK 2604.3 is enabled for installed and hosted builds', () => {
   assert.equal(manifest.overrides.find((entry) => entry.name === 'ms-gdk')?.version, '2604.3.7874');
 });
 
+test('GDK 2604.4 is enabled for installed builds', () => {
+  const state = watch.readSupportState(ROOT);
+
+  assert.deepEqual(watch.supportStatusFor('260404', state), { supported: true, hosted: false });
+});
+
 test('readSupportState rejects malformed support configuration', () => {
   assert.throws(
     () => watch.readSupportState(makeSupportFixture({ editions: ['2604'] })),
