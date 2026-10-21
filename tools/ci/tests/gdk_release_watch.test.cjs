@@ -286,12 +286,18 @@ test('readSupportState reads both independent support lists', () => {
 
 test('GDK 2604.3 is enabled for installed and hosted builds', () => {
   const state = watch.readSupportState(ROOT);
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'vcpkg.json'), 'utf8'));
 
   assert.ok(state.installedEditions.includes('260403'));
   assert.deepEqual(watch.supportStatusFor('260403', state), { supported: true, hosted: true });
-  assert.equal(state.hosted.default, '2604.3.7874');
-  assert.equal(manifest.overrides.find((entry) => entry.name === 'ms-gdk')?.version, '2604.3.7874');
+});
+
+test('GDK 2604.4 is enabled for installed and hosted builds', () => {
+  const state = watch.readSupportState(ROOT);
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'vcpkg.json'), 'utf8'));
+
+  assert.deepEqual(watch.supportStatusFor('260404', state), { supported: true, hosted: true });
+  assert.equal(state.hosted.default, '2604.4.7897');
+  assert.equal(manifest.overrides.find((entry) => entry.name === 'ms-gdk')?.version, '2604.4.7897');
 });
 
 test('readSupportState rejects malformed support configuration', () => {
