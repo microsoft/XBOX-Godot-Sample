@@ -25,7 +25,6 @@ This Godot 4.x project is the reference implementation for the [integrated tutor
 
 GDK and PlayFab development initialization support independent local ETW events,
 one per successful addon cycle, not one per shared Gaming Runtime acquisition.
-Set `$env:GODOT_ADDON_SUPPRESS_TELEMETRY = '1'` before launching Godot to suppress them.
 Packaged (including debug-packaged) and release games are excluded. No uploader
 or cloud destination is configured; see the
 [shared telemetry contract](../../spec/initialization-telemetry.md).

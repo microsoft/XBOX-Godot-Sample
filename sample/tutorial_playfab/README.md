@@ -50,8 +50,7 @@ The P1 sign-in scene and the picker status show the active custom id.
 ## Configuration
 
 Development initialization supports local ETW capture; it does not call PlayFab
-analytics or upload events. Set `$env:GODOT_ADDON_SUPPRESS_TELEMETRY = '1'` before
-launching Godot to suppress it. Packaged and release games are excluded. See the
+analytics or upload events. Packaged and release games are excluded. See the
 [shared telemetry contract](../../spec/initialization-telemetry.md) for provider,
 fields, repeated-cycle counting and the still-unconfigured production route.
 
