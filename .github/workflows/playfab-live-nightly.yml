@@ -46,9 +46,6 @@ on:
 permissions:
   contents: read
 
-env:
-  GODOT_ADDON_SUPPRESS_TELEMETRY: '1'
-
 concurrency:
   # Serialize live runs: a manual dispatch must never overlap the nightly run (or
   # another dispatch). Queue instead of cancel -- the live-write tier mutates
