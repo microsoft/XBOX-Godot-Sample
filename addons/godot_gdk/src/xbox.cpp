@@ -29,6 +29,7 @@
 #include "xbox_title_storage.h"
 #include "xbox_user.h"
 #include "xbox_services.h"
+#include "../../initialization_telemetry/godot_telemetry.h"
 
 #include <iterator>
 #include <vector>
@@ -337,6 +338,8 @@ Ref<XboxResult> Xbox::initialize(const Variant &p_config) {
     }
 
     guard.commit();
+    initialization_telemetry::record_initialized(!m_runtime->get_game_config_path().is_empty(),
+            m_runtime->get_game_config_path());
     emit_signal("initialized");
     return XboxResult::ok_result();
 }

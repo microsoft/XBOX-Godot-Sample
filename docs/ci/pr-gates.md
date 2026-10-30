@@ -42,6 +42,7 @@ the push range (`before..after`). It writes one job output per gate and a
 | --- | --- |
 | `addons/godot_gdk/**`, `tests/godot/gdk/**`, `sample/tutorial_gdk/**` | GDK build + GDK host, GDK parse scopes; doctest/fuzz only when their production sources change |
 | `addons/godot_playfab/**`, `tests/godot/playfab/**`, `sample/tutorial_playfab/**` | PlayFab build + PlayFab host (built **without** GDK), PlayFab parse scopes |
+| `addons/initialization_telemetry/**` | GDK + PlayFab builds/hosts and C++ doctest; no GameInput or editor-tool scope |
 | `addons/godot_gameinput/**`, `tests/godot/gameinput/**`, `sample/tutorial_gameinput/**` | GameInput build + host, GameInput parse scopes |
 | `addons/godot_gdk_editortools/**`, `tests/godot/gdk/tests/editortools/**` | `editortools` lane only (no native build) |
 | `addons/godot_gdk/tests_support/**` (shared GUT bases) | the hosts that use the changed base (the GDK base also feeds PlayFab, which extends it; `test_env.gd` feeds every host + editor tools) |

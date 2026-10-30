@@ -49,6 +49,11 @@ The P1 sign-in scene and the picker status show the active custom id.
 
 ## Configuration
 
+Development initialization supports local ETW capture; it does not call PlayFab
+analytics or upload events. Packaged and release games are excluded. See the
+[shared telemetry contract](../../spec/initialization-telemetry.md) for provider,
+fields, repeated-cycle counting and the still-unconfigured production route.
+
 - Requires a PlayFab title id.
 - Does not require `MicrosoftGame.config`.
 - Game Saves is **not** part of this track: PlayFab Game Saves requires an Xbox-backed PlayFab user, which the custom-id PlayFab-only session cannot provide. See the integrated sample for a working Game Saves run.

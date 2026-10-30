@@ -1,4 +1,5 @@
 #include "register_types.h"
+#include "../../initialization_telemetry/godot_telemetry.h"
 
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -180,6 +181,7 @@ void initialize_gdk_extension(ModuleInitializationLevel p_level) {
     if (gdk_extension_ref_count > 1) {
         return;
     }
+    initialization_telemetry::initialize();
 
     ClassDB::register_abstract_class<Xbox>();
     ClassDB::register_class<XboxResult>();
@@ -257,6 +259,7 @@ void uninitialize_gdk_extension(ModuleInitializationLevel p_level) {
         memdelete(gdk_singleton);
         gdk_singleton = nullptr;
     }
+    initialization_telemetry::shutdown();
 }
 
 extern "C" {

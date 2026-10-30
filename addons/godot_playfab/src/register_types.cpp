@@ -1,4 +1,5 @@
 #include "register_types.h"
+#include "../../initialization_telemetry/godot_telemetry.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/classes/engine.hpp>
@@ -195,6 +196,7 @@ void initialize_playfab_extension(ModuleInitializationLevel p_level) {
     if (playfab_extension_ref_count > 1) {
         return;
     }
+    initialization_telemetry::initialize();
 
     ClassDB::register_abstract_class<PlayFab>();
     ClassDB::register_class<PlayFabResult>();
@@ -271,6 +273,7 @@ void uninitialize_playfab_extension(ModuleInitializationLevel p_level) {
         memdelete(playfab_singleton);
         playfab_singleton = nullptr;
     }
+    initialization_telemetry::shutdown();
 }
 
 extern "C" {

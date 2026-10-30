@@ -60,6 +60,24 @@ test('GameInput change selects only GameInput', () => {
   assert.deepEqual(r.parse.paths, scope.PARSE_SCOPES.gameinput.slice().sort());
 });
 
+test('shared initialization telemetry selects both owners and native tests', () => {
+  for (const file of ['development_policy.h', 'native_telemetry.cpp', 'godot_telemetry.cpp']) {
+    const r = classify(`addons/initialization_telemetry/${file}`);
+    assert.deepEqual(r.components, ['gdk', 'playfab']);
+    assert.equal(r.doctest, true);
+    assert.equal(r.full, false);
+    assert.equal(r.editortools, false);
+    assert.deepEqual(r.fuzz_targets, []);
+    assert.deepEqual(r.fallback, []);
+  }
+  const suite = classify('tests/cpp/initialization_telemetry/test_development_policy.cpp');
+  assert.equal(suite.doctest, true);
+  assert.equal(suite.full, false);
+  assert.deepEqual(suite.components, []);
+  assert.deepEqual(suite.fuzz_targets, []);
+  assert.deepEqual(suite.fallback, []);
+});
+
 test('GDK change selects GDK without PlayFab or GameInput', () => {
   const r = classify('addons/godot_gdk/src/xbox_users.cpp', 'tests/godot/gdk/tests/test_users.gd');
   assert.deepEqual(r.components, ['gdk']);

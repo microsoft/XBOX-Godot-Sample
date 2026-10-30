@@ -6,6 +6,12 @@ This is the landing page for the `godot_playfab` docs set.
 
 ## Current implementation status
 
+**Privacy disclosure:** successful unpackaged development initialization may
+write a local ETW event when a local consumer enables it. Packaged and release
+games are excluded. This implementation does not upload events or configure a
+cloud destination. See Microsoft's
+[Privacy Statement](https://privacy.microsoft.com/privacystatement).
+
 ### Implemented now
 
 - abstract root singleton registration through `PlayFab`

@@ -138,6 +138,7 @@ Ref<XboxResult> XboxRuntime::initialize() {
             Ref<XboxResult> result = XboxResult::hresult_error(hr, message, "runtime_initialize_failed");
             return result;
         }
+        m_xgame_runtime_config_path = attempted_config_path;
         m_xgame_runtime_initialized = true;
     }
 
