@@ -71,8 +71,8 @@ setting. An ETW consumer must enable the provider; otherwise no event is written
 Check the **process environment** before optional telemetry collection and again
 before a write. Any nonempty `GODOT_ADDON_SUPPRESS_TELEMETRY` value suppresses,
 including `0`, `false`, or whitespace. Do not parse it as a Boolean or query raw
-user/system registry environment values. Tests/CI must suppress ordinary telemetry; approved
-controlled capture is a separate explicit scenario.
+user/system registry environment values. The shared test runner does not set
+this variable automatically; controlled validation can set it explicitly.
 
 After Gaming Runtime initialization, **both addons** must query
 `XPackageIsPackagedProcess()`. A true result excludes all installation-identity
@@ -248,8 +248,8 @@ It does not configure remote collection or reporting.
 
 ## Local capture
 
-Ordinary test/CI execution sets `GODOT_ADDON_SUPPRESS_TELEMETRY` to a nonempty
-value. For an explicitly authorized synthetic capture, remove that
+Controlled validation can set `GODOT_ADDON_SUPPRESS_TELEMETRY` to a nonempty
+value explicitly. For an explicitly authorized synthetic capture, remove that
 variable **only from the controlled process environment**, run the game, then
 stop/decode:
 

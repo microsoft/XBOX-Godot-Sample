@@ -488,7 +488,7 @@ function Invoke-ParseGate {
         $args += @('-Paths', ($Paths -join ','))
     }
     $r = Invoke-ChildProcess -FileName $pwsh -Arguments $args -WorkingDirectory $script:RepoRoot `
-        -EnvOverrides @{ GODOT_ADDON_SUPPRESS_TELEMETRY = '1' } -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
+        -TimeoutSec $GutTimeoutSec -Stream:$VerboseOutput
     $rec.duration_ms = $r.DurationMs
     $rec.exit_code   = $r.ExitCode
     $rec.status      = if ($r.ExitCode -eq 0) { 'pass' } else { 'fail' }
@@ -1051,7 +1051,7 @@ function Main {
         ''
     }
 
-    $childEnv = @{ GODOT_ADDON_SUPPRESS_TELEMETRY = '1' }
+    $childEnv = @{}
     if ($Live) { $childEnv['LIVE_TESTS'] = '1' }
     if ($AllowLiveWrites) { $childEnv['LIVE_WRITE_TESTS'] = '1' }
     if (-not [string]::IsNullOrWhiteSpace($effectivePlayFabTitleId)) {
