@@ -23,6 +23,13 @@ This Godot 4.x project is the reference implementation for the [integrated tutor
 
 ## Producing a packaged build
 
+GDK and PlayFab development initialization support independent local ETW events,
+one per successful addon cycle, not one per shared Gaming Runtime acquisition.
+Set `$env:GODOT_ADDON_SUPPRESS_TELEMETRY = '1'` before launching Godot to suppress them.
+Packaged (including debug-packaged) and release games are excluded. No uploader
+or cloud destination is configured; see the
+[shared telemetry contract](../../spec/initialization-telemetry.md).
+
 The sample includes a committed `export_presets.cfg` so a clean clone has editable `Windows Desktop` and `XBOX on PC` presets under **Project → Export**.
 
 - Install the Godot 4.6.1 export templates under `%APPDATA%\Godot\export_templates\` before exporting either preset.

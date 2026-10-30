@@ -38,6 +38,12 @@ This Godot 4.x project is the reference implementation for the [GDK tutorial tra
 
 ## Configuration
 
+Development initialization supports local ETW capture; it does not upload events.
+Set `$env:GODOT_ADDON_SUPPRESS_TELEMETRY = '1'` before launching Godot to suppress it.
+Packaged and release games are excluded. See the
+[shared telemetry contract](../../spec/initialization-telemetry.md) for provider,
+fields, repeated-cycle counting and the still-unconfigured production route.
+
 - Requires `MicrosoftGame.config` with title id, SCID, sandbox, and service configuration.
 - Does not require a PlayFab title id.
 

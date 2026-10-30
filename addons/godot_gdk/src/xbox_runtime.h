@@ -38,6 +38,7 @@ class XboxRuntime {
     // XGameRuntimeInitialize() for packaged GDK launches that get identity
     // from the registered package.
     bool m_xgame_runtime_initialized = false;
+    String m_xgame_runtime_config_path;
     XTaskQueueHandle m_task_queue = nullptr;
     std::vector<Ref<XboxPendingSignal>> m_active_pending_signals;
 
@@ -54,6 +55,7 @@ public:
     bool is_initialized() const;
     bool is_shutting_down() const;
     bool is_available() const;
+    const String &get_game_config_path() const { return m_xgame_runtime_config_path; }
     XTaskQueueHandle get_task_queue() const;
 
     void retain_pending_signal(const Ref<XboxPendingSignal> &p_pending_signal);

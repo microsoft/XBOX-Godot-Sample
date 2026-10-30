@@ -9,6 +9,7 @@
 #include "playfab_user.h"
 #include "playfab_users.h"
 #include "api/playfab_api_services.h"
+#include "../../initialization_telemetry/godot_telemetry.h"
 
 namespace godot {
 
@@ -210,6 +211,8 @@ Ref<PlayFabResult> PlayFab::initialize() {
         return users_result;
     }
 
+    initialization_telemetry::record_initialized(!m_runtime->get_game_config_path().is_empty(),
+            m_runtime->get_game_config_path(), m_runtime->get_title_id());
     emit_signal("initialized");
     return PlayFabResult::ok_result();
 }

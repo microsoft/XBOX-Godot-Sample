@@ -177,6 +177,7 @@ Ref<PlayFabResult> PlayFabRuntime::initialize() {
             Ref<PlayFabResult> result = PlayFabResult::hresult_error(runtime_hr, message, "runtime_initialize_failed");
             return result;
         }
+        m_xgame_runtime_config_path = attempted_config_path;
         m_xgame_runtime_initialized = true;
     }
 

@@ -22,6 +22,19 @@ add_library(godot_playfab SHARED
     src/playfab_multiplayer.cpp
     src/playfab_party_codec.cpp
     src/playfab_party.cpp
+    ../initialization_telemetry/native_telemetry.cpp
+    ../initialization_telemetry/godot_telemetry.cpp
+)
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/plugin.cfg")
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/plugin.cfg" _component_version REGEX "^version=\"[^\"]+\"$")
+string(REGEX REPLACE "^version=\"([^\"]+)\"$" "\\1" _component_version "${_component_version}")
+if(NOT _component_version MATCHES "^[0-9A-Za-z.+_-]+$")
+    message(FATAL_ERROR "godot_playfab/plugin.cfg must provide an ASCII component version")
+endif()
+target_compile_definitions(godot_playfab PRIVATE
+    "SDK_COMPONENT_ID=L\"godot_playfab\""
+    "SDK_COMPONENT_VERSION=L\"${_component_version}\""
 )
 
 target_include_directories(godot_playfab PRIVATE
@@ -37,6 +50,8 @@ target_link_libraries(godot_playfab PRIVATE
     Xbox::PlayFabMultiplayer
     Xbox::PlayFabParty
     Xbox::PlayFabGameSave
+    advapi32
+    ole32
 )
 
 godot_cpp_config_guard(godot_playfab)

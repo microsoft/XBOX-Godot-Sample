@@ -6,6 +6,18 @@ This is the landing page for the `godot_playfab` docs set.
 
 ## Current implementation status
 
+**Privacy disclosure:** successful unpackaged development initialization may
+write a local ETW event when a local consumer enables it. Packaged and release
+games are excluded. Set the process-environment variable
+`GODOT_ADDON_SUPPRESS_TELEMETRY` to any nonempty value to suppress events.
+This implementation does not upload events or configure a cloud destination.
+The event contains component/runtime context, configured title identity, device
+type and title identifiers; it does not include account IDs or credentials.
+Its Product and Service Usage tag classifies the event but does not enable
+collection or transmission. See Microsoft's
+[Privacy Statement](https://privacy.microsoft.com/privacystatement) and the
+[event schema](../../spec/initialization-telemetry.md).
+
 ### Implemented now
 
 - abstract root singleton registration through `PlayFab`

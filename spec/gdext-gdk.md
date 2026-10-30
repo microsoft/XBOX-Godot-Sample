@@ -10,6 +10,9 @@ The core architectural rule is: **C++ is internal; GDScript is the primary publi
 
 ## Design goals
 
+The shared local-capture development initialization telemetry design and its
+approval/implementation ledger live in [initialization-telemetry.md](initialization-telemetry.md).
+
 1. **GDScript-first API**: snake_case methods, signals, Godot types, no raw native handles.
 2. **GDExtension-only**: no custom Godot fork required.
 3. **Service partitioning**: avoid one flat mega-singleton.

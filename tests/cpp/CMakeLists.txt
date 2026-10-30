@@ -30,10 +30,13 @@ if(GDK_BUILD_TESTS)
             "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_gdk_result_codes.cpp"
             "${CMAKE_CURRENT_SOURCE_DIR}/result_codes/test_playfab_result_codes.cpp"
             "${CMAKE_CURRENT_SOURCE_DIR}/request_key/test_playfab_request_key.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/initialization_telemetry/test_development_policy.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/initialization_telemetry/test_native_telemetry.cpp"
+            "${CMAKE_SOURCE_DIR}/addons/initialization_telemetry/native_telemetry.cpp"
             "${_GDK_RC_SRC}/xbox_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_request_key.cpp"
-        LINK_LIBS   godot::cpp
+        LINK_LIBS   godot::cpp advapi32 ole32
         INCLUDES
             "${CMAKE_CURRENT_SOURCE_DIR}"
             "${_GDK_RC_SRC}"

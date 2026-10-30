@@ -56,6 +56,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  GODOT_ADDON_SUPPRESS_TELEMETRY: '1'
+
 jobs:
   scope:
     runs-on: ubuntu-latest

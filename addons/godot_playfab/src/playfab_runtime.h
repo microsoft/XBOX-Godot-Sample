@@ -28,6 +28,7 @@ class PlayFabRuntime {
     bool m_initialized = false;
     bool m_shutting_down = false;
     bool m_xgame_runtime_initialized = false;
+    String m_xgame_runtime_config_path;
     bool m_game_save_files_initialized = false;
     XTaskQueueHandle m_task_queue = nullptr;
     PFServiceConfigHandle m_service_config_handle = nullptr;
@@ -52,6 +53,7 @@ public:
     bool is_initialized() const;
     bool is_shutting_down() const;
     bool is_available() const;
+    const String &get_game_config_path() const { return m_xgame_runtime_config_path; }
     XTaskQueueHandle get_task_queue() const;
     PFServiceConfigHandle get_service_config_handle() const;
     String get_title_id() const;

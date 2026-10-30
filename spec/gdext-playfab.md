@@ -10,6 +10,9 @@ Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-pl
 
 ## Design goals
 
+The shared local-capture development initialization telemetry design and its
+approval/implementation ledger live in [initialization-telemetry.md](initialization-telemetry.md).
+
 1. **Single root singleton** — expose one `PlayFab` entry point instead of multiple global singletons.
 2. **Manual sign-in** — PlayFab sign-in is an explicit gameplay action, even though the addon can resolve local Xbox users through `XUser`.
 3. **Project-settings-backed config** — runtime configuration comes from `playfab/runtime/title_id` and `playfab/runtime/endpoint`.

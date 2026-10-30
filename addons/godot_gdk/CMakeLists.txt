@@ -40,6 +40,19 @@ add_library(godot_gdk SHARED
     src/xbox_game_save.cpp
     src/xbox_game_chat.cpp
     src/xbox_networking.cpp
+    ../initialization_telemetry/native_telemetry.cpp
+    ../initialization_telemetry/godot_telemetry.cpp
+)
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/plugin.cfg")
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/plugin.cfg" _component_version REGEX "^version=\"[^\"]+\"$")
+string(REGEX REPLACE "^version=\"([^\"]+)\"$" "\\1" _component_version "${_component_version}")
+if(NOT _component_version MATCHES "^[0-9A-Za-z.+_-]+$")
+    message(FATAL_ERROR "godot_gdk/plugin.cfg must provide an ASCII component version")
+endif()
+target_compile_definitions(godot_gdk PRIVATE
+    "SDK_COMPONENT_ID=L\"godot_gdk\""
+    "SDK_COMPONENT_VERSION=L\"${_component_version}\""
 )
 
 target_include_directories(godot_gdk PRIVATE
@@ -53,6 +66,8 @@ target_link_libraries(godot_gdk PRIVATE
     Xbox::HTTPClient
     Xbox::GameChat2
     windowsapp
+    advapi32
+    ole32
 )
 
 godot_cpp_config_guard(godot_gdk)

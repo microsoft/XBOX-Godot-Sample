@@ -62,6 +62,16 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
 
 ## Public API Documentation Contract
 
+- Initialization telemetry is private native code shared under
+  `addons\initialization_telemetry\`, compiled independently into both DLLs.
+  Keep its success hook after rollback commit and before `initialized`; preserve
+  per-image session/cycle state and actual successful WithOptions config evidence.
+  Do not repurpose `GDK.events`, add a singleton, or collect installation tokens.
+  Follow `spec\initialization-telemetry.md`; ordinary tests must suppress collection
+  with a nonempty process-environment telemetry-suppression setting.
+  Emit initialization success only, never shutdown events. Keep telemetry
+  documentation out of `doc_classes\*.xml`; use the shared spec and Markdown docs.
+
 - Public Godot-facing classes in `godot_gdk` should have matching documentation under `addons\godot_gdk\doc_classes\`.
 - When public methods, properties, signals, enums, or behavior change, update the relevant `doc_classes\*.xml` in the same change.
 - The addon CMake already collects `doc_classes\*.xml` automatically for editor and debug-template builds; keep the XML set aligned with the script-visible surface instead of treating it as optional follow-up documentation.
