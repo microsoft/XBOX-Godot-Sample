@@ -38,15 +38,11 @@ struct EventPayload {
     std::wstring playfab_title_id;
 };
 
-class ImageSession {
-    GUID id{};
+class InitializationCounter {
     uint64_t sequence = 0;
-    bool initialized = false;
 
 public:
-    HRESULT initialize();
     bool record_success();
-    const GUID &get_id() const { return id; }
     uint64_t get_sequence() const { return sequence; }
 };
 
@@ -60,7 +56,7 @@ DevelopmentContext development_context(DevelopmentDecision p_decision);
 ULONG register_provider();
 void unregister_provider();
 bool provider_enabled();
-void write_initialized(const ImageSession &p_session, const EventPayload &p_payload);
+void write_initialized(const InitializationCounter &p_counter, const EventPayload &p_payload);
 
 } // namespace initialization_telemetry
 

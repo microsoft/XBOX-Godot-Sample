@@ -19,7 +19,7 @@ Use native ETW/TraceLogging, not an HTTP uploader, PlayFab analytics, title-faci
 `GDK.events`, a managed facade emitter, or a new engine singleton. Do not introduce
 a telemetry framework, spool, upload thread, retry, backfill, or shutdown flush.
 PlayFab must work independently of the GDK addon; each DLL owns its provider and
-loaded-image correlation state.
+loaded-image cycle counter.
 
 The event is `SdkComponentInitialized`. It measures successful eligible
 development initialization cycles, not attempts, success rates, unique developers,
@@ -27,16 +27,16 @@ devices, installs, or process launches. Count the two components independently.
 A native Gaming Runtime reference acquisition is not another addon success.
 
 At full addon success, after GDK's rollback guard commits or PlayFab's users
-initialize, assign the cycle key and attempt at most one write **before** the
+initialize, advance the cycle counter and attempt at most one write **before** the
 existing `initialized` signal can reenter shutdown/initialization:
 
-- `RuntimeSessionId`: random GUID for one loaded DLL image, preserved across
-  ordinary shutdown/reinitialization and replaced only on actual unload/reload.
 - `InitializationSequence`: UInt64 successful-cycle counter for that image.
   Advance on each full success, even when collection is suppressed; not on
   failure, rollback, rejected `already_initialized`, or shutdown.
-- Deduplication key: `(ComponentId, RuntimeSessionId, InitializationSequence)`.
-  Distinct legitimate cycles must not be collapsed.
+  Preserve it across ordinary shutdown/reinitialization; actual DLL unload/reload
+  resets it. No session GUID or globally unique deduplication key is emitted.
+  Use ETW process/timestamp metadata and ComponentId to interpret captured cycles;
+  distinct legitimate cycles must not be collapsed.
 
 Provider registration belongs at safe extension registration boundaries, respecting
 each `register_types.cpp` duplicate-load reference count, never `DllMain`.
@@ -109,11 +109,11 @@ its opaque installation/session token is not a PFN.
 
 ## Local-capture schema version 1
 
-Exactly 18 application fields plus the standard UInt64 `PartA_PrivTags` field:
-19 ETW payload fields total, plus the ETW header timestamp. The privacy field
-precedes the application fields below; their names, types and order are unchanged.
-This remains the unreleased schema revision 1; earlier 18-field local captures
-predate the standard privacy field and are not the current capture contract.
+Exactly 17 application fields plus the standard UInt64 `PartA_PrivTags` field:
+18 ETW payload fields total, plus the ETW header timestamp. The privacy field
+precedes the application fields below.
+This remains the unreleased schema revision 1; earlier captures containing a
+runtime session GUID are not the current capture contract.
 Empty optional strings retain the fixed schema. No per-field status/source, package/evidence/path,
 HRESULT, success flag, redundant SignalType, or current-process PFN fields.
 No persistent user/device/install identifiers.
@@ -125,7 +125,6 @@ No persistent user/device/install identifiers.
 | ComponentId | UnicodeString | `godot_gdk` or `godot_playfab` |
 | ComponentVersion | UnicodeString | Owning addon's plugin.cfg release version, embedded at build time |
 | ComponentKind | UInt32 enum | Engine addon = 3; reserved native SDK = 1, managed SDK = 2, language wrapper = 4 |
-| RuntimeSessionId | GUID | Loaded DLL image, not process/user/install identity |
 | InitializationSequence | UInt64 | Successful-cycle number within image |
 | EngineName | UnicodeString | Godot for these emitters |
 | EngineVersion | UnicodeString | Actual calling `Engine::get_version_info()`, not godot-cpp build constants |
@@ -207,15 +206,16 @@ development-eligibility and metadata sources.
 | Consumer | Component attribution | Engine / execution runtime | Counting |
 | --- | --- | --- | --- |
 | Native addon for another engine | Its own ComponentId/version; ComponentKind = engine addon (3) | For example, Unreal and the actual running engine version; execution-runtime fields empty for native code | One event per successful eligible initialization of that addon, not its dependencies |
-| Direct native SDK | The measured SDK's own identity/version; ComponentKind = native SDK (1) | Engine and execution-runtime fields empty when neither exists | Its own initialization lifecycle and image/cycle keys |
+| Direct native SDK | The measured SDK's own identity/version; ComponentKind = native SDK (1) | Engine and execution-runtime fields empty when neither exists | Its own initialization lifecycle and cycle counter |
 | Independently initialized managed SDK | Its own identity/version; ComponentKind = managed SDK (2) | Actual engine if present; observed .NET runtime/version, never inferred from build dependencies | Its own initialization, separate from native dependency initialization |
 | Managed wrapper forwarding to these Godot addons | The existing native event retains `godot_gdk` / `godot_playfab` identity | The native event remains Godot with empty execution-runtime fields | No additional initialization event; separate wrapper-use attribution remains deferred |
 
 Unavailable optional values stay empty. Xbox and PlayFab title IDs remain
 separate namespaces. Publisher grouping identifies configured Windows package
 publisher identity, not ownership verification or a universal organization ID.
-Reporting deduplicates `(ComponentId, RuntimeSessionId, InitializationSequence)`;
-distinct successful cycles remain distinct. Empty publisher identity means
+Use ETW process/timestamp metadata, ComponentId and InitializationSequence to
+interpret cycles; these are not a globally unique deduplication key.
+Distinct successful cycles remain distinct. Empty publisher identity means
 unknown, not a shared organization. This success-only event cannot
 provide an initialization success rate without a separate attempt denominator.
 
@@ -239,7 +239,7 @@ provide an initialization success rate without a separate attempt denominator.
    Suppress ordinary test emissions.
 4. **Capture locally.** Enable this provider with an authorized ETW session, run
    controlled synthetic addon lifecycle scenarios, stop the session and decode
-   its ETL. Check names/types, counts, session/sequence and truthful metadata.
+   its ETL. Check names/types, counts, cycle sequences and truthful metadata.
    Do not elevate, install/register a package or switch sandbox without permission.
 
 This implementation does not perform live-service writes, change a sandbox,
@@ -267,6 +267,22 @@ ETW header process metadata: handle them as local diagnostic artifacts, not
 public repository content. There is no uploader or remote destination.
 
 ## Validation record
+
+After removing the runtime session GUID, both Debug addons and the native test
+target rebuilt with their explicit `ole32` links removed:
+
+| Command | Result |
+| --- | --- |
+| `cmake --build build\addon-package --config Debug --target godot_gdk godot_playfab gdk_unit_tests -- /verbosity:minimal` | Passed |
+| `.\build\addon-package\bin\Debug\gdk_unit_tests.exe` | 26 cases / 1813 assertions passed |
+| `git diff --check` | Passed |
+
+Compiled telemetry objects no longer reference `CoCreateGuid`. A source schema
+check confirmed 17 application fields plus the standard privacy field, with
+SchemaVersion still 1. No ETW recapture or Release rebuild was performed for this
+change. No `.gd` files changed, so the parse gate was not rerun. The orchestrator
+was intentionally narrowed to the native targets above; live tests/writes were
+skipped. Earlier validation below describes the pre-removal schema.
 
 The implementation was built and tested in Debug and Release with
 `GODOT_ADDON_SUPPRESS_TELEMETRY=1`; the existing native suite passed 26 cases and 1816
@@ -317,8 +333,9 @@ Non-elevated local ETW captures used a synthetic config/title and official Godot
 4.6.2. Combined GDK-first and PlayFab-first runs each produced four events;
 GDK reentrant, PlayFab failed-then-successful, GDK-only and PlayFab-only runs each
 produced two. `GODOT_ADDON_SUPPRESS_TELEMETRY` values `0`, `false` and whitespace each
-produced zero. Sequences were 1/2 per component, session GUIDs were stable within
-each image and distinct across components/processes. Captured metadata included
+produced zero. Sequences were 1/2 per component. These captures predate removal
+of the runtime session GUID; the current schema has not been recaptured.
+Captured metadata included
 the actual engine string, running Gaming Runtime version, real `_GRDK_EDITION`
 value, configured PFN/publisher, canonical Xbox/PlayFab title IDs and the exact
 `XSystemDeviceType::Pc` value (1). Console/devkit and future device values have

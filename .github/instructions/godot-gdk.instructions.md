@@ -65,7 +65,7 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
 - Initialization telemetry is private native code shared under
   `addons\initialization_telemetry\`, compiled independently into both DLLs.
   Keep its success hook after rollback commit and before `initialized`; preserve
-  per-image session/cycle state and actual successful WithOptions config evidence.
+  per-image cycle counter and actual successful WithOptions config evidence.
   Do not repurpose `GDK.events`, add a singleton, or collect installation tokens.
   Follow `spec\initialization-telemetry.md`; ordinary tests must suppress collection
   with a nonempty process-environment telemetry-suppression setting.

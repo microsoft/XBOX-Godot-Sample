@@ -5,22 +5,18 @@
 
 using namespace initialization_telemetry;
 
-TEST_CASE("telemetry session survives repeated setup and counts only explicit successes") {
-    ImageSession session;
-    CHECK_FALSE(session.record_success());
-    REQUIRE(SUCCEEDED(session.initialize()));
-    const GUID original = session.get_id();
-    CHECK(session.get_sequence() == 0);
-    REQUIRE(session.record_success());
-    CHECK(session.get_sequence() == 1);
-    REQUIRE(SUCCEEDED(session.initialize()));
-    CHECK(IsEqualGUID(original, session.get_id()));
-    REQUIRE(session.record_success());
-    CHECK(session.get_sequence() == 2);
-    ImageSession other_image;
-    REQUIRE(SUCCEEDED(other_image.initialize()));
-    CHECK_FALSE(IsEqualGUID(session.get_id(), other_image.get_id()));
+TEST_CASE("telemetry counter counts only explicit successes independently for each image") {
+    InitializationCounter counter;
+    CHECK(counter.get_sequence() == 0);
+    REQUIRE(counter.record_success());
+    CHECK(counter.get_sequence() == 1);
+    REQUIRE(counter.record_success());
+    CHECK(counter.get_sequence() == 2);
+    InitializationCounter other_image;
     CHECK(other_image.get_sequence() == 0);
+    REQUIRE(other_image.record_success());
+    CHECK(other_image.get_sequence() == 1);
+    CHECK(counter.get_sequence() == 2);
 }
 
 TEST_CASE("telemetry suppression reads the process environment without Boolean parsing") {

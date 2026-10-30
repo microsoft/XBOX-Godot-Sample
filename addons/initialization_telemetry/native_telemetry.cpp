@@ -3,7 +3,6 @@
 #include <appmodel.h>
 #include <winmeta.h>
 #include <TraceLoggingProvider.h>
-#include <objbase.h>
 
 #include <limits>
 #include <vector>
@@ -20,17 +19,8 @@ namespace {
 bool registered = false;
 }
 
-HRESULT ImageSession::initialize() {
-    if (initialized) {
-        return S_OK;
-    }
-    const HRESULT result = CoCreateGuid(&id);
-    initialized = SUCCEEDED(result);
-    return result;
-}
-
-bool ImageSession::record_success() {
-    if (!initialized || sequence == std::numeric_limits<uint64_t>::max()) {
+bool InitializationCounter::record_success() {
+    if (sequence == std::numeric_limits<uint64_t>::max()) {
         return false;
     }
     ++sequence;
@@ -186,7 +176,7 @@ bool provider_enabled() {
     return registered && TraceLoggingProviderEnabled(provider, WINEVENT_LEVEL_INFO, INITIALIZATION_KEYWORD);
 }
 
-void write_initialized(const ImageSession &p_session, const EventPayload &p) {
+void write_initialized(const InitializationCounter &p_counter, const EventPayload &p) {
     TraceLoggingWrite(provider, "SdkComponentInitialized",
             TraceLoggingLevel(WINEVENT_LEVEL_INFO),
             TraceLoggingKeyword(INITIALIZATION_KEYWORD),
@@ -196,8 +186,7 @@ void write_initialized(const ImageSession &p_session, const EventPayload &p) {
             TraceLoggingWideString(p.component_id.c_str(), "ComponentId"),
             TraceLoggingWideString(p.component_version.c_str(), "ComponentVersion"),
             TraceLoggingUInt32(static_cast<uint32_t>(ComponentKind::engine_addon), "ComponentKind"),
-            TraceLoggingGuid(p_session.get_id(), "RuntimeSessionId"),
-            TraceLoggingUInt64(p_session.get_sequence(), "InitializationSequence"),
+            TraceLoggingUInt64(p_counter.get_sequence(), "InitializationSequence"),
             TraceLoggingWideString(L"Godot", "EngineName"),
             TraceLoggingWideString(p.engine_version.c_str(), "EngineVersion"),
             TraceLoggingWideString(L"", "ExecutionRuntimeName"),

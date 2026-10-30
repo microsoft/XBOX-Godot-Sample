@@ -36,7 +36,7 @@ if(GDK_BUILD_TESTS)
             "${_GDK_RC_SRC}/xbox_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_result_codes_internal.cpp"
             "${_PF_RC_SRC}/playfab_request_key.cpp"
-        LINK_LIBS   godot::cpp advapi32 ole32
+        LINK_LIBS   godot::cpp advapi32
         INCLUDES
             "${CMAKE_CURRENT_SOURCE_DIR}"
             "${_GDK_RC_SRC}"

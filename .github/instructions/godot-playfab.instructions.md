@@ -80,7 +80,7 @@ cd tests\godot\playfab
 - Initialization telemetry is private native code shared under
   `addons\initialization_telemetry\`, compiled into PlayFab independently of GDK.
   Keep its success hook after users setup and before `initialized`; preserve
-  per-image session/cycle state and actual successful WithOptions config evidence.
+  per-image cycle counter and actual successful WithOptions config evidence.
   Follow `spec\initialization-telemetry.md`; ordinary tests must suppress collection
   with a nonempty process-environment telemetry-suppression setting. Do not add a PlayFab
   analytics dependency, SDK-version fields, managed attribution or a new singleton.

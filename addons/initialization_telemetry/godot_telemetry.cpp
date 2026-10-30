@@ -21,7 +21,7 @@
 namespace initialization_telemetry {
 namespace {
 
-ImageSession session;
+InitializationCounter counter;
 bool usable = false;
 bool warned = false;
 
@@ -101,11 +101,10 @@ void collect_configured_identity(const godot::String &p_selected_path, EventPayl
 } // namespace
 
 void initialize() {
-    const HRESULT session_status = session.initialize();
     const ULONG provider_status = register_provider();
-    usable = SUCCEEDED(session_status) && provider_status == ERROR_SUCCESS;
+    usable = provider_status == ERROR_SUCCESS;
     if (!usable) {
-        diagnostic("Provider/session initialization failed; addon initialization is unaffected.");
+        diagnostic("Provider initialization failed; addon initialization is unaffected.");
     }
 }
 
@@ -117,7 +116,7 @@ void shutdown() {
 void record_initialized(bool p_with_options, const godot::String &p_config_path,
         const godot::String &p_playfab_title_id) {
     using namespace godot;
-    if (!session.record_success()) {
+    if (!counter.record_success()) {
         diagnostic("Cycle correlation is unavailable; this event is suppressed.");
         return;
     }
@@ -189,7 +188,7 @@ void record_initialized(bool p_with_options, const godot::String &p_config_path,
     }
     if (process_suppression() == EnvironmentSuppression::absent_or_empty && provider_enabled()) {
         // TraceLoggingWrite has no result; ETW delivery is best-effort, without replay.
-        write_initialized(session, payload);
+        write_initialized(counter, payload);
     }
 }
 
