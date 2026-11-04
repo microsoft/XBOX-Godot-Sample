@@ -45,15 +45,16 @@ runtime ownership. Use bounded local diagnostics for unexpected errors without
 printing identity values, paths, credentials, or payloads. Disabled consumers and
 missing optional metadata are expected, not failures to retry.
 
-Provider name: `Microsoft.Gaming.Middleware`, name-derived GUID
-`{D13E8219-218A-51FC-8362-8C90CF602D01}`, informational ETW severity level 4,
+Provider name: `Microsoft.Gaming.Middleware`, explicitly assigned GUID
+`{AB2F0BE6-763C-4048-818B-33999458B21C}`, informational ETW severity level 4,
 Core event tag `0x00080000` and Critical Data category keyword
 `0x0000800000000000`. Core is not an ETW severity level. These values match
 `MICROSOFT_EVENTTAG_CORE_DATA` and `MICROSOFT_KEYWORD_CRITICAL_DATA` in the
 [public WIL definitions](https://github.com/microsoft/wil/blob/master/include/wil/traceloggingconfig.h).
 They are event metadata, not additional payload fields or an upload mechanism.
-The GUID is the stable provider ID derived from the provider name, not a Core
-provider-group ID.
+The GUID is the explicitly assigned stable provider ID, not a name-derived ID
+or a Core provider-group ID. Consumers must enable this GUID explicitly rather
+than derive a GUID from the provider name.
 
 The MIT-licensed `addons\initialization_telemetry\TraceLoggingConfig.h` supplies
 the public-build configuration. Provider registration uses its
@@ -263,7 +264,7 @@ variable **only from the controlled process environment**, run the game, then
 stop/decode:
 
 ```powershell
-logman start GodotAddonInit -p "{D13E8219-218A-51FC-8362-8C90CF602D01}" 0x0000800000000000 4 -o .\addon-init.etl -ets
+logman start GodotAddonInit -p "{AB2F0BE6-763C-4048-818B-33999458B21C}" 0x0000800000000000 4 -o .\addon-init.etl -ets
 # Launch the eligible development game here, with suppression removed from that process.
 logman stop GodotAddonInit -ets
 tracerpt .\addon-init.etl -o .\addon-init.xml -of XML -y
