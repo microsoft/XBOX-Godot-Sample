@@ -8,7 +8,6 @@ namespace {
 DevelopmentEvidence unpackaged_debug() {
     DevelopmentEvidence evidence;
     evidence.gaming_package = PackageIdentity::unpackaged;
-    evidence.windows_package = PackageIdentity::unpackaged;
     evidence.engine_available = true;
     evidence.debug_feature = true;
     return evidence;
@@ -49,31 +48,30 @@ TEST_CASE("initialization telemetry requires positive development evidence") {
 
 TEST_CASE("initialization telemetry packaging exclusions dominate every development combination") {
     for (const auto gaming : {PackageIdentity::unknown, PackageIdentity::unpackaged, PackageIdentity::packaged}) {
-        for (const auto windows : {PackageIdentity::unknown, PackageIdentity::unpackaged, PackageIdentity::packaged}) {
-            for (unsigned flags = 0; flags < 64; ++flags) {
-                DevelopmentEvidence evidence;
-                evidence.gaming_package = gaming;
-                evidence.windows_package = windows;
-                evidence.engine_available = (flags & 1) != 0;
-                evidence.editor_hint = (flags & 2) != 0;
-                evidence.editor_feature = (flags & 4) != 0;
-                evidence.debug_feature = (flags & 8) != 0;
-                evidence.release_feature = (flags & 16) != 0;
-                evidence.initialized_with_options = (flags & 32) != 0;
-                const auto decision = classify_development(evidence);
-                if (gaming == PackageIdentity::packaged || windows == PackageIdentity::packaged) {
-                    CHECK(decision == DevelopmentDecision::packaged);
-                } else if (gaming == PackageIdentity::unknown || windows == PackageIdentity::unknown ||
-                        !evidence.engine_available) {
-                    CHECK(decision == DevelopmentDecision::unavailable);
-                }
-                if (gaming != PackageIdentity::unpackaged || windows != PackageIdentity::unpackaged ||
-                        !evidence.engine_available || evidence.release_feature) {
-                    CHECK_FALSE(is_eligible(decision));
-                }
-                evidence.suppressed = true;
-                CHECK(classify_development(evidence) == DevelopmentDecision::suppressed);
+        for (unsigned flags = 0; flags < 64; ++flags) {
+            CAPTURE(gaming);
+            CAPTURE(flags);
+            DevelopmentEvidence evidence;
+            evidence.gaming_package = gaming;
+            evidence.engine_available = (flags & 1) != 0;
+            evidence.editor_hint = (flags & 2) != 0;
+            evidence.editor_feature = (flags & 4) != 0;
+            evidence.debug_feature = (flags & 8) != 0;
+            evidence.release_feature = (flags & 16) != 0;
+            evidence.initialized_with_options = (flags & 32) != 0;
+            const auto decision = classify_development(evidence);
+            if (gaming == PackageIdentity::packaged) {
+                CHECK(decision == DevelopmentDecision::packaged);
+            } else if (gaming == PackageIdentity::unknown || !evidence.engine_available) {
+                CHECK(decision == DevelopmentDecision::unavailable);
             }
+            const bool expected_eligible = gaming == PackageIdentity::unpackaged &&
+                    evidence.engine_available && !evidence.release_feature &&
+                    (!evidence.editor_hint || evidence.editor_feature) &&
+                    (evidence.editor_feature || evidence.debug_feature || evidence.initialized_with_options);
+            CHECK(is_eligible(decision) == expected_eligible);
+            evidence.suppressed = true;
+            CHECK(classify_development(evidence) == DevelopmentDecision::suppressed);
         }
     }
 }
@@ -83,9 +81,9 @@ TEST_CASE("initialization telemetry WithOptions cannot bypass unknown or release
     evidence.debug_feature = false;
     evidence.initialized_with_options = true;
     CHECK(classify_development(evidence) == DevelopmentDecision::development_runtime);
-    evidence.windows_package = PackageIdentity::unknown;
+    evidence.gaming_package = PackageIdentity::unknown;
     CHECK_FALSE(is_eligible(classify_development(evidence)));
-    evidence.windows_package = PackageIdentity::unpackaged;
+    evidence.gaming_package = PackageIdentity::unpackaged;
     evidence.release_feature = true;
     CHECK_FALSE(is_eligible(classify_development(evidence)));
 }

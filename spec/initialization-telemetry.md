@@ -45,15 +45,16 @@ runtime ownership. Use bounded local diagnostics for unexpected errors without
 printing identity values, paths, credentials, or payloads. Disabled consumers and
 missing optional metadata are expected, not failures to retry.
 
-Provider name: `Microsoft.Gaming.Middleware`, name-derived GUID
-`{D13E8219-218A-51FC-8362-8C90CF602D01}`, informational ETW severity level 4,
+Provider name: `Microsoft.Gaming.Middleware`, explicitly assigned GUID
+`{AB2F0BE6-763C-4048-818B-33999458B21C}`, informational ETW severity level 4,
 Core event tag `0x00080000` and Critical Data category keyword
 `0x0000800000000000`. Core is not an ETW severity level. These values match
 `MICROSOFT_EVENTTAG_CORE_DATA` and `MICROSOFT_KEYWORD_CRITICAL_DATA` in the
 [public WIL definitions](https://github.com/microsoft/wil/blob/master/include/wil/traceloggingconfig.h).
 They are event metadata, not additional payload fields or an upload mechanism.
-The GUID is the stable provider ID derived from the provider name, not a Core
-provider-group ID.
+The GUID is the explicitly assigned stable provider ID, not a name-derived ID
+or a Core provider-group ID. Consumers must enable this GUID explicitly rather
+than derive a GUID from the provider name.
 
 The MIT-licensed `addons\initialization_telemetry\TraceLoggingConfig.h` supplies
 the public-build configuration. Provider registration uses its
@@ -75,11 +76,20 @@ user/system registry environment values. The shared test runner does not set
 this variable automatically; controlled validation can set it explicitly.
 
 After Gaming Runtime initialization, **both addons** must query
-`XPackageIsPackagedProcess()`. A true result excludes all installation-identity
-processes, including debug packages. False is not sufficient for eligibility.
-Supplement it with Windows `GetCurrentPackageFamilyName`; treat
-`APPMODEL_ERROR_NO_PACKAGE` as positive unpackaged evidence, confirmed identity as
-excluded, and an unexpected result as unknown/suppressed. Packaging is not retail.
+`XPackageIsPackagedProcess()`. A true result excludes Gaming Runtime packaged
+processes, including debug packages. This is the sole package-classification
+gate; do not supplement it with Windows `GetCurrentPackageFamilyName`, whose
+import is not supported on console. False establishes unpackaged Gaming Runtime
+evidence, but is not sufficient for eligibility without the development checks
+below. Unknown Gaming Runtime package evidence still suppresses. Packaging is
+not retail.
+
+Check each built GDK and PlayFab DLL for regressions with
+`cmake -DDUMPBIN="<path to dumpbin.exe>" -DBINARY="<addon DLL>" -P tests\cpp\initialization_telemetry\check_imports.cmake`.
+The check rejects the unsupported import; desktop import inspection alone is
+not console build or hardware validation. The configured-identity conversion
+APIs still require `<appmodel.h>`; that header is not exclusive to the removed
+current-process probe.
 
 Require positive running-engine development evidence and suppress release,
 conflicting, or unavailable evidence. Use `Engine::is_editor_hint()` for editor UI,
@@ -254,7 +264,7 @@ variable **only from the controlled process environment**, run the game, then
 stop/decode:
 
 ```powershell
-logman start GodotAddonInit -p "{D13E8219-218A-51FC-8362-8C90CF602D01}" 0x0000800000000000 4 -o .\addon-init.etl -ets
+logman start GodotAddonInit -p "{AB2F0BE6-763C-4048-818B-33999458B21C}" 0x0000800000000000 4 -o .\addon-init.etl -ets
 # Launch the eligible development game here, with suppression removed from that process.
 logman stop GodotAddonInit -ets
 tracerpt .\addon-init.etl -o .\addon-init.xml -of XML -y

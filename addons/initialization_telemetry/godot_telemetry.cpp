@@ -132,11 +132,6 @@ void record_initialized(bool p_with_options, const godot::String &p_config_path,
     }
     DevelopmentEvidence evidence;
     evidence.gaming_package = XPackageIsPackagedProcess() ? PackageIdentity::packaged : PackageIdentity::unpackaged;
-    LONG package_status = ERROR_SUCCESS;
-    evidence.windows_package = windows_package_identity(package_status);
-    if (evidence.windows_package == PackageIdentity::unknown) {
-        diagnostic("Windows package classification is unknown; collection is suppressed.");
-    }
     Engine *engine = Engine::get_singleton();
     OS *os = OS::get_singleton();
     evidence.engine_available = engine != nullptr && os != nullptr;
