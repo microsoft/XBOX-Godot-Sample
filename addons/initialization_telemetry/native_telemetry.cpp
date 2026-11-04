@@ -40,25 +40,6 @@ EnvironmentSuppression process_suppression() {
             : EnvironmentSuppression::unavailable;
 }
 
-PackageIdentity windows_package_identity(LONG &r_status) {
-    UINT32 length = 0;
-    r_status = GetCurrentPackageFamilyName(&length, nullptr);
-    if (r_status == APPMODEL_ERROR_NO_PACKAGE) {
-        return PackageIdentity::unpackaged;
-    }
-    if (r_status != ERROR_INSUFFICIENT_BUFFER || length == 0 || length > PACKAGE_FAMILY_NAME_MAX_LENGTH + 1) {
-        return PackageIdentity::unknown;
-    }
-    std::vector<wchar_t> buffer(length);
-    r_status = GetCurrentPackageFamilyName(&length, buffer.data());
-    if (r_status == APPMODEL_ERROR_NO_PACKAGE) {
-        return PackageIdentity::unpackaged;
-    }
-    return r_status == ERROR_SUCCESS && buffer[0] != L'\0'
-            ? PackageIdentity::packaged
-            : PackageIdentity::unknown;
-}
-
 bool valid_value(std::wstring_view p_value, size_t p_limit) {
     if (p_value.size() > p_limit) {
         return false;

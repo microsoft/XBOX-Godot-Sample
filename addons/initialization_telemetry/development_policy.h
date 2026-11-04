@@ -26,7 +26,6 @@ enum class DevelopmentDecision {
 struct DevelopmentEvidence {
     bool suppressed = false;
     PackageIdentity gaming_package = PackageIdentity::unknown;
-    PackageIdentity windows_package = PackageIdentity::unknown;
     bool engine_available = false;
     bool editor_hint = false;
     bool editor_feature = false;
@@ -43,13 +42,10 @@ constexpr DevelopmentDecision classify_development(const DevelopmentEvidence &p_
     if (p_evidence.suppressed) {
         return DevelopmentDecision::suppressed;
     }
-    if (p_evidence.gaming_package == PackageIdentity::packaged ||
-            p_evidence.windows_package == PackageIdentity::packaged) {
+    if (p_evidence.gaming_package == PackageIdentity::packaged) {
         return DevelopmentDecision::packaged;
     }
-    if (p_evidence.gaming_package != PackageIdentity::unpackaged ||
-            p_evidence.windows_package != PackageIdentity::unpackaged ||
-            !p_evidence.engine_available) {
+    if (p_evidence.gaming_package != PackageIdentity::unpackaged || !p_evidence.engine_available) {
         return DevelopmentDecision::unavailable;
     }
     const bool development_evidence = p_evidence.editor_hint || p_evidence.editor_feature ||

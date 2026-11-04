@@ -75,11 +75,20 @@ user/system registry environment values. The shared test runner does not set
 this variable automatically; controlled validation can set it explicitly.
 
 After Gaming Runtime initialization, **both addons** must query
-`XPackageIsPackagedProcess()`. A true result excludes all installation-identity
-processes, including debug packages. False is not sufficient for eligibility.
-Supplement it with Windows `GetCurrentPackageFamilyName`; treat
-`APPMODEL_ERROR_NO_PACKAGE` as positive unpackaged evidence, confirmed identity as
-excluded, and an unexpected result as unknown/suppressed. Packaging is not retail.
+`XPackageIsPackagedProcess()`. A true result excludes Gaming Runtime packaged
+processes, including debug packages. This is the sole package-classification
+gate; do not supplement it with Windows `GetCurrentPackageFamilyName`, whose
+import is not supported on console. False establishes unpackaged Gaming Runtime
+evidence, but is not sufficient for eligibility without the development checks
+below. Unknown Gaming Runtime package evidence still suppresses. Packaging is
+not retail.
+
+Check each built GDK and PlayFab DLL for regressions with
+`cmake -DDUMPBIN="<path to dumpbin.exe>" -DBINARY="<addon DLL>" -P tests\cpp\initialization_telemetry\check_imports.cmake`.
+The check rejects the unsupported import; desktop import inspection alone is
+not console build or hardware validation. The configured-identity conversion
+APIs still require `<appmodel.h>`; that header is not exclusive to the removed
+current-process probe.
 
 Require positive running-engine development evidence and suppress release,
 conflicting, or unavailable evidence. Use `Engine::is_editor_hint()` for editor UI,

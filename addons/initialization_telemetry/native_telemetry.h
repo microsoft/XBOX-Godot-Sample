@@ -47,7 +47,6 @@ public:
 };
 
 EnvironmentSuppression process_suppression();
-PackageIdentity windows_package_identity(LONG &r_status);
 LONG configured_package_identity(std::wstring_view p_name, std::wstring_view p_publisher,
         std::wstring &r_family, std::wstring &r_publisher_id);
 bool valid_value(std::wstring_view p_value, size_t p_limit);
