@@ -243,7 +243,7 @@ class PlayFabPartyChatControl : public RefCounted {
     bool m_text_enabled = false;
     bool m_transcription_enabled = false;
     bool m_local = false;
-    // Persisted UTF-8 device identifiers backing manual audio device selection.
+    // Persisted UTF-8 device identifiers or XUIDs backing audio device selection.
     // PartyLocalChatControl::SetAudioInput()/SetAudioOutput() take the device-id
     // context by pointer and complete asynchronously, so the backing memory must
     // outlive the call. The chat control wrapper owns its own selection now that
@@ -879,6 +879,7 @@ public:
         Ref<PlayFabPartyNetwork> network;
         Ref<PlayFabUser> user;
         Ref<PlayFabPartyConfig> config;
+        String audio_platform_user_id;
         bool host = false;
         String descriptor;
         Party::PartyLocalUser *native_user = nullptr;
@@ -1012,7 +1013,7 @@ private:
     // audio devices so enabled voice chat actually flows. Without this a
     // freshly created chat control has no audio device bound and no voice is
     // captured or rendered even when voice permissions are granted.
-    void _configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config);
+    void _configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config, const String &p_platform_user_id);
     Signal _set_chat_permissions(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, int64_t p_permissions, bool *r_succeeded = nullptr);
     Signal _set_incoming_audio_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);
     Signal _set_incoming_text_muted(Party::PartyLocalChatControl *p_local_chat_control, Party::PartyChatControl *p_target, bool p_muted, bool *r_succeeded = nullptr);

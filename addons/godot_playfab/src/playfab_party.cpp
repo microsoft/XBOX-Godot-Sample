@@ -3841,12 +3841,12 @@ void PlayFabParty::_process_create_chat_control_completed(const Party::PartyStat
     // even when voice chat and permissions are enabled.
     //
     // Bind unconditionally — matches the canonical PlayFab Party sample
-    // (BumbleRumble), which always wires SystemDefault input/output on the local
+    // (BumbleRumble), which always wires default input/output on the local
     // chat control regardless of whether voice is actually used. If voice is
     // denied later (no SendAudio/ReceiveAudio permission, no mic device, etc.),
     // the device just sits unused; binding it costs nothing and removes a silent
     // failure mode where voice was implicitly disabled.
-    _configure_chat_audio_devices(wrapper, change->localChatControl, operation->config);
+    _configure_chat_audio_devices(wrapper, change->localChatControl, operation->config, operation->audio_platform_user_id);
     // Apply the config's language / transcription / translation intent. Without
     // this the enable_transcription and enable_translation flags are inert:
     // Party never generates transcriptions or translations unless
@@ -3962,22 +3962,30 @@ void PlayFabParty::_process_destroy_chat_control_completed(const Party::PartySta
     _complete_pending(operation, result);
 }
 
-void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config) {
+void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatControl> &p_chat_control_wrapper, Party::PartyLocalChatControl *p_chat_control, const Ref<PlayFabPartyConfig> &p_config, const String &p_platform_user_id) {
     if (p_chat_control == nullptr) {
         return;
     }
 
-    // Capture device (microphone). Empty device id => system default
-    // communication device; a non-empty id selects that device manually.
+#if defined(_GAMING_XBOX)
+    const auto default_selection = Party::PartyAudioDeviceSelectionType::PlatformUserDefault;
+#else
+    const auto default_selection = Party::PartyAudioDeviceSelectionType::SystemDefault;
+#endif
+
+    // Xbox defaults require the owning user's decimal XUID as context.
+    // Explicit device ids retain Manual selection on every platform.
     String input_id = p_config.is_valid() ? p_config->get_audio_input() : String();
-    Party::PartyAudioDeviceSelectionType input_type = Party::PartyAudioDeviceSelectionType::SystemDefault;
+    Party::PartyAudioDeviceSelectionType input_type = default_selection;
     PartyString input_ctx = nullptr;
     if (!input_id.is_empty()) {
         input_type = Party::PartyAudioDeviceSelectionType::Manual;
-        if (p_chat_control_wrapper.is_valid()) {
-            p_chat_control_wrapper->m_audio_input_device_id = input_id.utf8();
-            input_ctx = p_chat_control_wrapper->m_audio_input_device_id.get_data();
-        }
+    } else {
+        input_id = p_platform_user_id;
+    }
+    if (!input_id.is_empty() && p_chat_control_wrapper.is_valid()) {
+        p_chat_control_wrapper->m_audio_input_device_id = input_id.utf8();
+        input_ctx = p_chat_control_wrapper->m_audio_input_device_id.get_data();
     }
     PartyError input_err = p_chat_control->SetAudioInput(input_type, input_ctx, nullptr);
     if (PARTY_FAILED(input_err)) {
@@ -3989,14 +3997,16 @@ void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatContr
     // Render device (speaker/headset). Same selection rules as the capture
     // device above.
     String output_id = p_config.is_valid() ? p_config->get_audio_output() : String();
-    Party::PartyAudioDeviceSelectionType output_type = Party::PartyAudioDeviceSelectionType::SystemDefault;
+    Party::PartyAudioDeviceSelectionType output_type = default_selection;
     PartyString output_ctx = nullptr;
     if (!output_id.is_empty()) {
         output_type = Party::PartyAudioDeviceSelectionType::Manual;
-        if (p_chat_control_wrapper.is_valid()) {
-            p_chat_control_wrapper->m_audio_output_device_id = output_id.utf8();
-            output_ctx = p_chat_control_wrapper->m_audio_output_device_id.get_data();
-        }
+    } else {
+        output_id = p_platform_user_id;
+    }
+    if (!output_id.is_empty() && p_chat_control_wrapper.is_valid()) {
+        p_chat_control_wrapper->m_audio_output_device_id = output_id.utf8();
+        output_ctx = p_chat_control_wrapper->m_audio_output_device_id.get_data();
     }
     PartyError output_err = p_chat_control->SetAudioOutput(output_type, output_ctx, nullptr);
     if (PARTY_FAILED(output_err)) {
@@ -4622,9 +4632,36 @@ Signal PlayFabParty::_create_local_chat_control(const Ref<PlayFabUser> &p_user, 
         }
     }
 
+    String audio_platform_user_id;
+#if defined(_GAMING_XBOX)
+    if (p_config.is_null() || p_config->get_audio_input().is_empty() || p_config->get_audio_output().is_empty()) {
+        XUserLocalId local_id = {};
+        local_id.value = p_user->get_local_id();
+        if (local_id.value == 0) {
+            return _make_error_signal(E_INVALIDARG, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                    "Default Party audio devices on Xbox console require an Xbox-backed PlayFabUser.");
+        }
+        XUserHandle user_handle = nullptr;
+        hr = XUserFindUserByLocalId(local_id, &user_handle);
+        if (FAILED(hr)) {
+            return _make_error_signal(hr, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                    "Failed to resolve the owning Xbox user for default Party audio devices.");
+        }
+        uint64_t xuid = 0;
+        hr = XUserGetId(user_handle, &xuid);
+        XUserCloseHandle(user_handle);
+        if (FAILED(hr) || xuid == 0) {
+            return _make_error_signal(FAILED(hr) ? hr : E_FAIL, PARTY_CHAT_CONTROL_CREATE_FAILED,
+                    "Failed to resolve the owning Xbox user's XUID for default Party audio devices.");
+        }
+        audio_platform_user_id = String::utf8(std::to_string(xuid).c_str());
+    }
+#endif
+
     PendingOperation *operation = _create_pending(PENDING_CREATE_CHAT_CONTROL);
     operation->user = p_user;
     operation->config = p_config;
+    operation->audio_platform_user_id = audio_platform_user_id;
     operation->native_user = local_user;
     hr = _start_create_chat_control_step(operation);
     if (FAILED(hr)) {
