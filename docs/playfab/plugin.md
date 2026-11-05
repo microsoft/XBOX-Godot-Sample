@@ -29,7 +29,8 @@ cloud destination. See Microsoft's
 - `PlayFab.events` as a reserved service namespace; the current Microsoft GDK PlayFab headers do not expose an active client event/telemetry operation in the client wrapper scope
 - PlayFab Multiplayer initialization, lobby create/join/search, lobby-owned leave and property updates, matchmaking ticket create/join for premade groups, match-ticket-owned cancel/status refresh, and explicit arranged-lobby joins
 - PlayFab Party network host (`create_and_join_network_async`) and join (`join_network_async`) flows over the PartyManager runtime, with peer-id handshake (the host marks its endpoint with an immutable `pf.role=host` shared property so clients identify and target the host deterministically; host is peer id `1`), descriptor publishing, chat controls (voice/text/transcription) created explicitly per local user via `chat.create_local_chat_control_async` and reused across networks, mute, and permission management; the per-network peer object is a Godot `MultiplayerPeerExtension`
-- PlayFab Party voice surface: polled chat indicators (`chat.get_local_chat_indicator()`, `chat.get_chat_indicator(entity_key)`, `chat.get_chat_indicators()` — Party raises no state change for indicators, so titles poll them), local mic mute for push-to-talk (`chat.set_audio_input_muted_async`), per-peer render volume, encoder bitrate, voice audio options, chat language, transcription/translation options, text-to-speech, and polled audio device state. Empty audio device ids select the system default on PC and the owning Xbox user's platform default on console; console defaults fail chat-control creation if the owner's Xbox identity/XUID cannot be resolved. Explicit device ids keep manual selection.
+- PlayFab Party voice surface: polled chat indicators (`chat.get_local_chat_indicator()`, `chat.get_chat_indicator(entity_key)`, `chat.get_chat_indicators()` — Party raises no state change for indicators, so titles poll them), local mic mute for push-to-talk (`chat.set_audio_input_muted_async`), per-peer render volume, encoder bitrate, voice audio options, chat language, transcription/translation options, text-to-speech, and polled audio device state. `PlayFabPartyConfig.audio_device_default_mode` selects system or owning-user defaults at runtime, even in one shared desktop-built DLL. Explicit device ids keep per-direction manual selection. See [Party audio defaults](#party-audio-defaults).
+
 - PlayFab Party diagnostics: `PlayFabPartyNetwork.get_statistics()` (the 16 native `NETWORK_STATISTIC_*` counters) and `get_device_connection_type(peer_id)` (relay vs. direct peer connection)
 - GUT coverage under `tests\godot\playfab\tests\`
 - idempotent extension registration so duplicated synced `.gdextension` files do not spam duplicate singleton/class registration
@@ -39,6 +40,46 @@ cloud destination. See Microsoft's
 - custom non-Windows Game Saves UI callback/response wrappers are not yet exposed as a public Godot surface
 - server/admin/title-secret PlayFab APIs are intentionally excluded from the client wrapper set
 - PlayFab-native credential sign-in (email + password, PlayFab username + password, register a PlayFab user) is **not wrappable** in this addon: those entry points are compiled out (`#if 0`) of the GDK flavor of the PlayFab Core C SDK. Other platform logins (Google, Apple, Facebook, PSN, Nintendo, Game Center, Twitch) are gated to non-GDK `HC_PLATFORM` targets and are likewise unavailable here. See the sign-in coverage matrix in `spec\gdext-playfab.md` for the full picture.
+
+## Party audio defaults
+
+Set the mode on the config passed to `create_local_chat_control_async`, not just
+the network or initialization config. The addon does not infer a shared DLL's
+runtime platform from its compile target:
+
+```gdscript
+var config := PlayFabPartyConfig.new()
+config.audio_device_default_mode = (
+    PlayFabPartyConfig.AUDIO_DEVICE_DEFAULT_PLATFORM_USER
+    if OS.has_feature("scarlett")
+    else PlayFabPartyConfig.AUDIO_DEVICE_DEFAULT_SYSTEM
+)
+var result = await PlayFab.party.chat.create_local_chat_control_async(user, config)
+if not result.ok:
+    push_error(result.message)
+```
+
+`AUDIO_DEVICE_DEFAULT_AUTO` (`0`, the default) preserves legacy behavior:
+`PlatformUserDefault` in `_GAMING_XBOX` builds, otherwise `SystemDefault`.
+`AUDIO_DEVICE_DEFAULT_SYSTEM` (`1`) uses `SystemDefault` with null context.
+`AUDIO_DEVICE_DEFAULT_PLATFORM_USER` (`2`) uses `PlatformUserDefault` and resolves
+the owning Xbox-backed `PlayFabUser`'s decimal XUID internally through GDK,
+including in `_GAMING_DESKTOP` builds. No raw identity config field is needed.
+Custom-ID-only sessions cannot provide this identity.
+
+Nonempty `audio_input` or `audio_output` overrides the mode with `Manual` for that
+direction; both nonempty means no Xbox identity is required. An unsupported mode
+fails with `party_invalid_options`; missing or unresolvable required identity
+fails with `party_chat_control_create_failed`. Diagnostics do not include identity
+values. Async creation snapshots the config and retains device contexts for the
+control's lifetime. Repeated creation reuses an existing control without applying
+new device settings; destroy and recreate to change them. SDK audio setup remains
+best-effort and reports failures separately: successful creation is not evidence
+of working capture/playback on hardware.
+
+The C# facade exposes writable `AudioDeviceDefaultMode` and constants
+`AUDIODEVICEDEFAULTAUTO`, `AUDIODEVICEDEFAULTSYSTEM`, and
+`AUDIODEVICEDEFAULTPLATFORMUSER` on `GodotPlayFab.Types.PlayFabPartyConfig`.
 
 ## Runtime configuration
 

@@ -57,6 +57,7 @@ fields, repeated-cycle counting and the still-unconfigured production route.
 - Requires a PlayFab title id.
 - Does not require `MicrosoftGame.config`.
 - Game Saves is **not** part of this track: PlayFab Game Saves requires an Xbox-backed PlayFab user, which the custom-id PlayFab-only session cannot provide. See the integrated sample for a working Game Saves run.
+- Party keeps `AUDIO_DEVICE_DEFAULT_AUTO` (system defaults in desktop builds). This custom-ID-only track cannot use `AUDIO_DEVICE_DEFAULT_PLATFORM_USER` without an Xbox-backed owner. See [Party audio defaults](../../docs/playfab/plugin.md#party-audio-defaults) for the shared PC/console DLL configuration.
 
 ## Files generated locally (git-ignored)
 

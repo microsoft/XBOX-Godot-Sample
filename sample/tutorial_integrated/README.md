@@ -50,6 +50,12 @@ The sample includes a committed `export_presets.cfg` so a clean clone has editab
 - `Lobby` (`autoload/lobby.gd`) — integrated PlayFab lobby plus Xbox Multiplayer Activity, social, presence, and multiplayer privilege gates.
 - `Party` (`autoload/party.gd`) — PlayFab Party network layered on the active lobby with Xbox communications and per-peer permission gates.
 
+Party leaves `audio_device_default_mode` at `AUDIO_DEVICE_DEFAULT_AUTO` for the
+desktop tutorial. A title sharing the desktop DLL with Xbox console must set
+`AUDIO_DEVICE_DEFAULT_PLATFORM_USER` on the chat-control config for runtime
+`scarlett` (and `AUDIO_DEVICE_DEFAULT_SYSTEM` on PC). The Xbox-backed `PlayFabUser`
+supplies the owner context internally. See [Party audio defaults](../../docs/playfab/plugin.md#party-audio-defaults).
+
 ## Files generated locally (git-ignored)
 
 - `MicrosoftGame.config`
