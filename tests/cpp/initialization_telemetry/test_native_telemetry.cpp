@@ -1,6 +1,7 @@
 #include "../../../addons/initialization_telemetry/native_telemetry.h"
 #include "doctest.h"
 
+#include <appmodel.h>
 #include <vector>
 
 using namespace initialization_telemetry;
@@ -57,6 +58,70 @@ TEST_CASE("configured identity derives Windows family and publisher IDs without 
     CHECK(configured_package_identity(L"", L"", family, publisher) == ERROR_INVALID_PARAMETER);
     CHECK(family.empty());
     CHECK(publisher.empty());
+}
+
+TEST_CASE("manifest identity hashing matches known publisher IDs and the desktop package API") {
+    struct Identity {
+        const wchar_t *name;
+        const wchar_t *publisher;
+        const wchar_t *publisher_id;
+    };
+    for (const auto &value : {
+                 Identity{L"Microsoft.WindowsCalculator",
+                         L"CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+                         L"8wekyb3d8bbwe"},
+                 Identity{L"Microsoft.Windows.ShellExperienceHost",
+                         L"CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+                         L"cw5n1h2txyewy"}}) {
+        std::wstring family;
+        std::wstring publisher_id;
+        REQUIRE(configured_package_identity(value.name, value.publisher, family, publisher_id) == ERROR_SUCCESS);
+        CHECK(publisher_id == value.publisher_id);
+        CHECK(family == std::wstring(value.name) + L"_" + value.publisher_id);
+    }
+    for (const std::wstring &publisher : {
+                 std::wstring(L"CN=Telemetry Synthetic"), std::wstring(L"CN=Different Synthetic"),
+                 std::wstring(L"CN=T\u00e9l\u00e9m\u00e9trie \u4e2d\u6587"),
+                 std::wstring(L"CN=Supplementary \U0001f600")}) {
+        for (const std::wstring &name : {std::wstring(L"Telemetry.Synthetic.One"),
+                     std::wstring(L"Abc"), std::wstring(PACKAGE_NAME_MAX_LENGTH, L'A')}) {
+            std::wstring family;
+            std::wstring publisher_id;
+            REQUIRE(configured_package_identity(name, publisher, family, publisher_id) == ERROR_SUCCESS);
+            PACKAGE_ID identity{};
+            identity.processorArchitecture = PROCESSOR_ARCHITECTURE_NEUTRAL;
+            identity.name = const_cast<wchar_t *>(name.c_str());
+            identity.publisher = const_cast<wchar_t *>(publisher.c_str());
+            UINT32 length = 0;
+            REQUIRE(PackageFamilyNameFromId(&identity, &length, nullptr) == ERROR_INSUFFICIENT_BUFFER);
+            std::vector<wchar_t> expected(length);
+            REQUIRE(PackageFamilyNameFromId(&identity, &length, expected.data()) == ERROR_SUCCESS);
+            CHECK(family == expected.data());
+            CHECK(publisher_id.size() == PACKAGE_PUBLISHERID_MAX_LENGTH);
+        }
+    }
+}
+
+TEST_CASE("manifest identity hashing preserves input and payload limits") {
+    std::wstring family = L"stale";
+    std::wstring publisher = L"stale";
+    for (const auto &name : {std::wstring(L""), std::wstring(L"ab"), std::wstring(L"has_space"),
+                 std::wstring(L"has space"), std::wstring(L"invalid\u00e9"),
+                 std::wstring(PACKAGE_NAME_MAX_LENGTH + 1, L'A')}) {
+        CHECK(configured_package_identity(name, L"CN=Telemetry Synthetic", family, publisher) == ERROR_INVALID_PARAMETER);
+        CHECK(family.empty());
+        CHECK(publisher.empty());
+    }
+    for (const auto &value : {std::wstring(), std::wstring(8193, L'P'),
+                 std::wstring(L"CN=line\nbreak"), std::wstring(L"CN=a\0b", 6),
+                 std::wstring(1, wchar_t(0xd800))}) {
+        CHECK(configured_package_identity(L"Telemetry.Synthetic", value, family, publisher) == ERROR_INVALID_PARAMETER);
+        CHECK(family.empty());
+        CHECK(publisher.empty());
+    }
+    REQUIRE(configured_package_identity(std::wstring(PACKAGE_NAME_MAX_LENGTH, L'A'),
+                    std::wstring(8192, L'P'), family, publisher) == ERROR_SUCCESS);
+    CHECK(family.size() == PACKAGE_FAMILY_NAME_MAX_LENGTH);
 }
 
 TEST_CASE("telemetry payload rejects oversized, malformed Unicode and noncanonical identity values") {

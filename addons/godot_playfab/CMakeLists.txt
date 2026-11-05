@@ -51,6 +51,7 @@ target_link_libraries(godot_playfab PRIVATE
     Xbox::PlayFabParty
     Xbox::PlayFabGameSave
     advapi32
+    bcrypt
 )
 
 godot_cpp_config_guard(godot_playfab)

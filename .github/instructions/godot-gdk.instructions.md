@@ -71,6 +71,8 @@ Lessons that have cost rework in past sessions. Apply them as starting assumptio
   with a nonempty process-environment telemetry-suppression setting.
   Emit initialization success only, never shutdown events. Keep telemetry
   documentation out of `doc_classes\*.xml`; use the shared spec and Markdown docs.
+  Derive configured PFN/publisher IDs with BCrypt, never Windows appmodel APIs.
+  Desktop native tests may use the Windows package API as an identity oracle.
 
 - Public Godot-facing classes in `godot_gdk` should have matching documentation under `addons\godot_gdk\doc_classes\`.
 - When public methods, properties, signals, enums, or behavior change, update the relevant `doc_classes\*.xml` in the same change.
