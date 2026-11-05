@@ -149,10 +149,21 @@ var enable_transcription: bool = false
 var enable_translation: bool = false
 var audio_input: String = ""  # platform default when empty
 var audio_output: String = "" # platform default when empty
+var audio_device_default_mode: int = 0 # AUDIO_DEVICE_DEFAULT_AUTO
 var language: String = ""     # BCP-47; Party default when empty
 ```
 
-`enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags. They decide whether and how the addon creates/connects Party chat controls; they are not native Party network settings. The local chat control's capture and render audio devices are always bound when the chat control is created (regardless of `enable_voice_chat`): non-empty `audio_input`/`audio_output` select a specific device id with `Manual` selection. An empty string uses `SystemDefault` with null context on PC; on GDK Xbox console (`_GAMING_XBOX`) it uses `PlatformUserDefault` with the owning local Xbox user's decimal XUID string as context. The addon resolves that XUID before creating the chat control and retains the UTF-8 context for the control's lifetime. If either default selection needs an Xbox identity that cannot be resolved, creation fails with `party_chat_control_create_failed` instead of falling back. Whether voice actually flows still depends on chat permissions (`SendAudio`/`ReceiveAudio` granted via `set_chat_permissions_async`) and the audio subsystem successfully initializing the chosen devices; the addon logs warnings for non-`Initialized` audio device states to surface silent device-init failures.
+`enable_voice_chat`, `enable_text_chat`, transcription, translation, and audio fields are addon policy flags, not native Party network settings. Pass them to `chat.create_local_chat_control_async` before joining; joins reuse the existing control. Capture and render devices are always bound at creation, regardless of `enable_voice_chat`. Nonempty `audio_input`/`audio_output` select `Manual` independently per direction. Empty ids use `audio_device_default_mode` (constants on `PlayFabPartyConfig`):
+
+| Mode | Value | Empty-id selection / context |
+| --- | --- | --- |
+| `AUDIO_DEVICE_DEFAULT_AUTO` | 0 | Legacy compile-target selection: `_GAMING_XBOX` uses `PlatformUserDefault`, otherwise `SystemDefault` |
+| `AUDIO_DEVICE_DEFAULT_SYSTEM` | 1 | `SystemDefault`, null context |
+| `AUDIO_DEVICE_DEFAULT_PLATFORM_USER` | 2 | `PlatformUserDefault`, owning Xbox user's decimal XUID, regardless of compile target |
+
+Shared desktop-built DLLs can explicitly select mode 2 on runtime `scarlett` and mode 1 on PC. XUID resolution uses the owning `PlayFabUser`'s local Xbox identity with `XUserFindUserByLocalId` / `XUserGetId`, outside `_GAMING_XBOX` guards. There is no caller-supplied identity field. Required identity failures return `party_chat_control_create_failed` before chat-control creation, without including identity values in diagnostics. Both explicit device ids bypass identity resolution; unsupported mode values always fail with `party_invalid_options`. Creation snapshots all config fields and retains UTF-8 device contexts for the control's lifetime. Repeated creation reuses an existing control without reconfiguration; destroy/recreate to change selection. C# exposes writable `AudioDeviceDefaultMode` plus matching constants.
+
+Whether voice actually flows still depends on chat permissions (`SendAudio`/`ReceiveAudio`) and audio subsystem initialization. SDK binding remains best-effort with warnings, so offline selection tests do not establish hardware capture/playback.
 
 ### `direct_peer_connectivity` flag rules
 

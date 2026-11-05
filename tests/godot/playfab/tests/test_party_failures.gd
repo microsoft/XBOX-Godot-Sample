@@ -34,6 +34,80 @@ func _begin(host: bool = true, chat: bool = false, errors: Dictionary = {}) -> S
 	return completion
 
 
+func test_desktop_audio_defaults_and_explicit_platform_user_selection() -> void:
+	var config: Object = ClassDB.instantiate("PlayFabPartyConfig")
+	var selection: Dictionary = _party._test_chat_audio_selection(null, "")
+	assert_true(selection.ok)
+	assert_eq(selection.input_type, 1, "Desktop AUTO selects SDK SystemDefault")
+	assert_eq(selection.output_type, 1)
+	assert_eq(selection.input_context, "")
+	assert_eq(selection.output_context, "")
+
+	config.audio_device_default_mode = 1
+	selection = _party._test_chat_audio_selection(config, "123456789")
+	assert_true(selection.ok)
+	assert_eq(selection.input_type, 1)
+	assert_eq(selection.output_type, 1)
+	assert_eq(selection.input_context, "", "SystemDefault never receives an XUID")
+	assert_eq(selection.output_context, "")
+
+	config.audio_device_default_mode = 2
+	selection = _party._test_chat_audio_selection(config, "123456789")
+	assert_true(selection.ok, "PlatformUserDefault is available in the desktop DLL")
+	assert_eq(selection.input_type, 2, "SDK PlatformUserDefault")
+	assert_eq(selection.output_type, 2)
+	assert_eq(selection.input_context, "123456789")
+	assert_eq(selection.output_context, "123456789")
+	config.audio_device_default_mode = 1
+	assert_eq(selection.config.audio_device_default_mode, 2, "Pending chat config is a snapshot")
+
+
+func test_audio_default_mode_and_required_context_validation() -> void:
+	var config: Object = ClassDB.instantiate("PlayFabPartyConfig")
+	for mode in [-1, 3, 9223372036854775807]:
+		config.audio_device_default_mode = mode
+		var selection: Dictionary = _party._test_chat_audio_selection(config, "")
+		assert_false(selection.ok)
+		assert_string_contains(selection.message, "audio_device_default_mode")
+		var result: Variant = await await_completion(_party.get_chat().create_local_chat_control_async(null, config))
+		assert_false(result.ok)
+		assert_eq(result.code, "party_invalid_options", "Invalid mode fails before native dispatch")
+
+	config.audio_device_default_mode = 2
+	for context in ["", "0", "-1", "+1", "user-context", "18446744073709551616"]:
+		var selection: Dictionary = _party._test_chat_audio_selection(config, context)
+		assert_false(selection.ok, "Missing or invalid platform context fails explicitly")
+		assert_eq(selection.message, "Platform-user-default Party audio devices require an Xbox-backed PlayFabUser with a resolvable XUID.")
+
+
+func test_manual_audio_devices_override_defaults_per_direction() -> void:
+	var config: Object = ClassDB.instantiate("PlayFabPartyConfig")
+	config.audio_device_default_mode = 2
+	for manual_input in [true, false]:
+		config.audio_input = "capture-device" if manual_input else ""
+		config.audio_output = "" if manual_input else "render-device"
+		var selection: Dictionary = _party._test_chat_audio_selection(config, "123456789")
+		assert_true(selection.ok)
+		assert_eq(selection.input_type, 3 if manual_input else 2, "SDK Manual overrides only its own direction")
+		assert_eq(selection.output_type, 2 if manual_input else 3)
+		assert_eq(selection.input_context, "capture-device" if manual_input else "123456789")
+		assert_eq(selection.output_context, "123456789" if manual_input else "render-device")
+		assert_false(_party._test_chat_audio_selection(config, "").ok, "The remaining default still needs an owner")
+
+	config.audio_input = "capture-device"
+	config.audio_output = "render-device"
+	for mode in [0, 1, 2]:
+		config.audio_device_default_mode = mode
+		var selection: Dictionary = _party._test_chat_audio_selection(config, "")
+		assert_true(selection.ok, "Both Manual selections need no Xbox identity")
+		assert_eq(selection.input_type, 3)
+		assert_eq(selection.output_type, 3)
+		assert_eq(selection.input_context, "capture-device")
+		assert_eq(selection.output_context, "render-device")
+	config.audio_device_default_mode = 99
+	assert_false(_party._test_chat_audio_selection(config, "").ok, "Manual devices do not hide an invalid mode")
+
+
 func _batch(stages: Array) -> void:
 	_party._test_party_batch(stages)
 

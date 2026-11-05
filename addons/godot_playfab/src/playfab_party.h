@@ -70,11 +70,18 @@ class PlayFabPartyConfig : public RefCounted {
     String m_language;
     String m_audio_input;
     String m_audio_output;
+    int64_t m_audio_device_default_mode = 0;
 
 protected:
     static void _bind_methods();
 
 public:
+    enum AudioDeviceDefaultMode : int64_t {
+        AUDIO_DEVICE_DEFAULT_AUTO = 0,
+        AUDIO_DEVICE_DEFAULT_SYSTEM = 1,
+        AUDIO_DEVICE_DEFAULT_PLATFORM_USER = 2,
+    };
+
     int64_t get_max_players() const;
     void set_max_players(int64_t p_max_players);
     int64_t get_direct_peer_connectivity() const;
@@ -95,6 +102,8 @@ public:
     void set_audio_input(const String &p_audio_input);
     String get_audio_output() const;
     void set_audio_output(const String &p_audio_output);
+    int64_t get_audio_device_default_mode() const;
+    void set_audio_device_default_mode(int64_t p_mode);
 };
 
 // Per-message options for PlayFabPartyChat.send_text_async(). PlayFab Party has
@@ -1003,6 +1012,7 @@ private:
             bool p_finish_failure = false);
     int64_t _test_pending_operation_count() const;
     Dictionary _test_classify_leave_network_completed(int64_t p_state_change_result, int64_t p_error_detail) const;
+    Dictionary _test_chat_audio_selection(const Ref<PlayFabPartyConfig> &p_config, const String &p_platform_user_id) const;
 #endif
 
     void _emit_network_state(const Ref<PlayFabPartyNetwork> &p_network, int64_t p_kind, int64_t p_peer_id, const Ref<PlayFabResult> &p_result, const String &p_reason);

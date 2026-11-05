@@ -8,6 +8,11 @@ This document defines the current design direction for the `godot_playfab` addon
 
 Lobby/matchmaking and Party design work are tracked separately in `spec\gdext-playfab-lobby-matchmaking.md` and `spec\gdext-playfab-party.md`. The MLP adds `PlayFab.multiplayer` for lobbies and matchmaking while keeping Party transport deferred to `PlayFab.party`.
 
+Party chat config supports `audio_device_default_mode` for title-selected system
+or owning-user defaults in a shared desktop-built DLL; see
+[Party audio selection](gdext-playfab-party.md) and the
+[runtime usage example](../docs/playfab/plugin.md#party-audio-defaults).
+
 ## Design goals
 
 The shared local-capture development initialization telemetry design and its

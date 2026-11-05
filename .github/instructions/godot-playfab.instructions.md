@@ -21,6 +21,7 @@ applyTo: "addons/godot_playfab/**, tests/godot/playfab/**, sample/tutorial_playf
 - Immediate failures should still return an already-completed completion signal instead of failing silently or returning inconsistent shapes.
 - Party hosting must serialize CreateNewNetwork completion before ConnectToNetwork; never overlap those calls on one async context. Failed host/guest chains retain private partial-network ownership through rollback. Scoped Party/Multiplayer shutdown settles cancellation only after successful SDK cleanup; never free contexts merely because a dispatch batch ended. Keep the offline native failure suite mandatory when test hooks are enabled, and keep NETWORK_CHANGE_* values 1 through 6 stable.
 - Party shutdown must invalidate all retained native handles and Party user registries before any synchronous callback, including peer status setters. Preserve ownership on failed Cleanup and reject local-user release while shutdown owns the service.
+- Party `audio_device_default_mode` is runtime-selectable even in desktop-built DLLs. Preserve AUTO compile-target behavior and per-direction Manual precedence; resolve required owner XUIDs outside `_GAMING_XBOX` guards, snapshot chat config, retain contexts, and never log identity values.
 
 ## User and Service Model
 

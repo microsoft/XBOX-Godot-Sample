@@ -228,6 +228,10 @@ func test_party_config_defaults() -> void:
 	assert_eq(config.enable_translation, false, "PlayFabPartyConfig.enable_translation default")
 	assert_eq(config.audio_input, "", "PlayFabPartyConfig.audio_input default")
 	assert_eq(config.audio_output, "", "PlayFabPartyConfig.audio_output default")
+	assert_eq(config.audio_device_default_mode, 0, "Audio default mode preserves compile-target behavior")
+	assert_eq(get_class_constant("PlayFabPartyConfig", "AUDIO_DEVICE_DEFAULT_AUTO"), 0)
+	assert_eq(get_class_constant("PlayFabPartyConfig", "AUDIO_DEVICE_DEFAULT_SYSTEM"), 1)
+	assert_eq(get_class_constant("PlayFabPartyConfig", "AUDIO_DEVICE_DEFAULT_PLATFORM_USER"), 2)
 
 	config.max_players = 4
 	config.direct_peer_connectivity = get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE")
@@ -236,12 +240,14 @@ func test_party_config_defaults() -> void:
 	config.enable_text_chat = false
 	config.audio_input = "capture-device-1"
 	config.audio_output = "render-device-1"
+	config.audio_device_default_mode = 2
 	config.language = "en-US"
 	assert_eq(config.max_players, 4, "PlayFabPartyConfig.max_players setter")
 	assert_eq(config.direct_peer_connectivity, get_class_constant("PlayFabParty", "DIRECT_PEER_CONNECTIVITY_SAME_PLATFORM_TYPE"), "PlayFabPartyConfig.direct_peer_connectivity setter")
 	assert_eq(config.invitation_id, "invite-1", "PlayFabPartyConfig.invitation_id setter")
 	assert_eq(config.audio_input, "capture-device-1", "PlayFabPartyConfig.audio_input setter")
 	assert_eq(config.audio_output, "render-device-1", "PlayFabPartyConfig.audio_output setter")
+	assert_eq(config.audio_device_default_mode, 2, "Audio default mode setter")
 	assert_eq(config.language, "en-US", "PlayFabPartyConfig.language setter")
 
 	var text_config = instantiate_class("PlayFabPartyTextMessageConfig")

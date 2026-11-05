@@ -176,6 +176,101 @@ Ref<PlayFabPartyTextToSpeechProfile> text_to_speech_profile_snapshot(Party::Part
     return wrapper;
 }
 
+bool chat_audio_default_selection(const Ref<PlayFabPartyConfig> &p_config, Party::PartyAudioDeviceSelectionType &r_selection) {
+    const int64_t mode = p_config.is_valid() ? p_config->get_audio_device_default_mode() : PlayFabPartyConfig::AUDIO_DEVICE_DEFAULT_AUTO;
+    switch (mode) {
+        case PlayFabPartyConfig::AUDIO_DEVICE_DEFAULT_AUTO:
+#if defined(_GAMING_XBOX)
+            r_selection = Party::PartyAudioDeviceSelectionType::PlatformUserDefault;
+#else
+            r_selection = Party::PartyAudioDeviceSelectionType::SystemDefault;
+#endif
+            return true;
+        case PlayFabPartyConfig::AUDIO_DEVICE_DEFAULT_SYSTEM:
+            r_selection = Party::PartyAudioDeviceSelectionType::SystemDefault;
+            return true;
+        case PlayFabPartyConfig::AUDIO_DEVICE_DEFAULT_PLATFORM_USER:
+            r_selection = Party::PartyAudioDeviceSelectionType::PlatformUserDefault;
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool chat_audio_needs_platform_user(const Ref<PlayFabPartyConfig> &p_config, Party::PartyAudioDeviceSelectionType p_selection) {
+    return p_selection == Party::PartyAudioDeviceSelectionType::PlatformUserDefault &&
+            (p_config.is_null() || p_config->get_audio_input().is_empty() || p_config->get_audio_output().is_empty());
+}
+
+bool valid_audio_platform_user_id(const String &p_id) {
+    uint64_t value = 0;
+    if (p_id.is_empty()) {
+        return false;
+    }
+    for (int64_t i = 0; i < p_id.length(); ++i) {
+        const char32_t ch = p_id[i];
+        if (ch < U'0' || ch > U'9') {
+            return false;
+        }
+        const uint64_t digit = ch - U'0';
+        if (value > (UINT64_MAX - digit) / 10) {
+            return false;
+        }
+        value = value * 10 + digit;
+    }
+    return value != 0;
+}
+
+struct ChatAudioSelection {
+    Party::PartyAudioDeviceSelectionType input_type;
+    Party::PartyAudioDeviceSelectionType output_type;
+    String input_context;
+    String output_context;
+};
+
+bool chat_audio_selection(const Ref<PlayFabPartyConfig> &p_config, const String &p_platform_user_id,
+        ChatAudioSelection &r_selection, String &r_error) {
+    Party::PartyAudioDeviceSelectionType default_selection;
+    if (!chat_audio_default_selection(p_config, default_selection)) {
+        r_error = "PlayFabPartyConfig.audio_device_default_mode must be AUDIO_DEVICE_DEFAULT_AUTO, AUDIO_DEVICE_DEFAULT_SYSTEM, or AUDIO_DEVICE_DEFAULT_PLATFORM_USER.";
+        return false;
+    }
+    if (chat_audio_needs_platform_user(p_config, default_selection) && !valid_audio_platform_user_id(p_platform_user_id)) {
+        r_error = "Platform-user-default Party audio devices require an Xbox-backed PlayFabUser with a resolvable XUID.";
+        return false;
+    }
+    r_selection.input_context = p_config.is_valid() ? p_config->get_audio_input() : String();
+    r_selection.output_context = p_config.is_valid() ? p_config->get_audio_output() : String();
+    r_selection.input_type = r_selection.input_context.is_empty() ? default_selection : Party::PartyAudioDeviceSelectionType::Manual;
+    r_selection.output_type = r_selection.output_context.is_empty() ? default_selection : Party::PartyAudioDeviceSelectionType::Manual;
+    if (r_selection.input_type == Party::PartyAudioDeviceSelectionType::PlatformUserDefault) {
+        r_selection.input_context = p_platform_user_id;
+    }
+    if (r_selection.output_type == Party::PartyAudioDeviceSelectionType::PlatformUserDefault) {
+        r_selection.output_context = p_platform_user_id;
+    }
+    return true;
+}
+
+Ref<PlayFabPartyConfig> chat_config_snapshot(const Ref<PlayFabPartyConfig> &p_config) {
+    Ref<PlayFabPartyConfig> snapshot;
+    snapshot.instantiate();
+    if (p_config.is_valid()) {
+        snapshot->set_max_players(p_config->get_max_players());
+        snapshot->set_direct_peer_connectivity(p_config->get_direct_peer_connectivity());
+        snapshot->set_invitation_id(p_config->get_invitation_id());
+        snapshot->set_voice_chat_enabled(p_config->is_voice_chat_enabled());
+        snapshot->set_text_chat_enabled(p_config->is_text_chat_enabled());
+        snapshot->set_transcription_enabled(p_config->is_transcription_enabled());
+        snapshot->set_translation_enabled(p_config->is_translation_enabled());
+        snapshot->set_language(p_config->get_language());
+        snapshot->set_audio_input(p_config->get_audio_input());
+        snapshot->set_audio_output(p_config->get_audio_output());
+        snapshot->set_audio_device_default_mode(p_config->get_audio_device_default_mode());
+    }
+    return snapshot;
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -202,6 +297,12 @@ void PlayFabPartyConfig::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_audio_input", "audio_input"), &PlayFabPartyConfig::set_audio_input);
     ClassDB::bind_method(D_METHOD("get_audio_output"), &PlayFabPartyConfig::get_audio_output);
     ClassDB::bind_method(D_METHOD("set_audio_output", "audio_output"), &PlayFabPartyConfig::set_audio_output);
+    ClassDB::bind_method(D_METHOD("get_audio_device_default_mode"), &PlayFabPartyConfig::get_audio_device_default_mode);
+    ClassDB::bind_method(D_METHOD("set_audio_device_default_mode", "mode"), &PlayFabPartyConfig::set_audio_device_default_mode);
+
+    BIND_CONSTANT(AUDIO_DEVICE_DEFAULT_AUTO);
+    BIND_CONSTANT(AUDIO_DEVICE_DEFAULT_SYSTEM);
+    BIND_CONSTANT(AUDIO_DEVICE_DEFAULT_PLATFORM_USER);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "max_players"), "set_max_players", "get_max_players");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "direct_peer_connectivity"), "set_direct_peer_connectivity", "get_direct_peer_connectivity");
@@ -213,6 +314,7 @@ void PlayFabPartyConfig::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "language"), "set_language", "get_language");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "audio_input"), "set_audio_input", "get_audio_input");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "audio_output"), "set_audio_output", "get_audio_output");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "audio_device_default_mode", PROPERTY_HINT_ENUM, "Auto,System,Platform User"), "set_audio_device_default_mode", "get_audio_device_default_mode");
 }
 
 int64_t PlayFabPartyConfig::get_max_players() const { return m_max_players; }
@@ -235,6 +337,8 @@ String PlayFabPartyConfig::get_audio_input() const { return m_audio_input; }
 void PlayFabPartyConfig::set_audio_input(const String &p_audio_input) { m_audio_input = p_audio_input; }
 String PlayFabPartyConfig::get_audio_output() const { return m_audio_output; }
 void PlayFabPartyConfig::set_audio_output(const String &p_audio_output) { m_audio_output = p_audio_output; }
+int64_t PlayFabPartyConfig::get_audio_device_default_mode() const { return m_audio_device_default_mode; }
+void PlayFabPartyConfig::set_audio_device_default_mode(int64_t p_mode) { m_audio_device_default_mode = p_mode; }
 
 // ---------------------------------------------------------------------------
 // PlayFabPartyTextMessageConfig
@@ -2637,6 +2741,23 @@ Dictionary PlayFabParty::_test_classify_leave_network_completed(int64_t p_state_
     }
     return payload;
 }
+
+Dictionary PlayFabParty::_test_chat_audio_selection(const Ref<PlayFabPartyConfig> &p_config, const String &p_platform_user_id) const {
+    Ref<PlayFabPartyConfig> snapshot = chat_config_snapshot(p_config);
+    ChatAudioSelection selection;
+    String error;
+    Dictionary payload;
+    payload["ok"] = chat_audio_selection(snapshot, p_platform_user_id, selection, error);
+    payload["message"] = error;
+    payload["config"] = snapshot;
+    if (error.is_empty()) {
+        payload["input_type"] = static_cast<int64_t>(selection.input_type);
+        payload["output_type"] = static_cast<int64_t>(selection.output_type);
+        payload["input_context"] = selection.input_context;
+        payload["output_context"] = selection.output_context;
+    }
+    return payload;
+}
 #endif
 
 void PlayFabParty::_track_network(const Ref<PlayFabPartyNetwork> &p_network) {
@@ -3967,27 +4088,19 @@ void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatContr
         return;
     }
 
-#if defined(_GAMING_XBOX)
-    const auto default_selection = Party::PartyAudioDeviceSelectionType::PlatformUserDefault;
-#else
-    const auto default_selection = Party::PartyAudioDeviceSelectionType::SystemDefault;
-#endif
-
-    // Xbox defaults require the owning user's decimal XUID as context.
-    // Explicit device ids retain Manual selection on every platform.
-    String input_id = p_config.is_valid() ? p_config->get_audio_input() : String();
-    Party::PartyAudioDeviceSelectionType input_type = default_selection;
-    PartyString input_ctx = nullptr;
-    if (!input_id.is_empty()) {
-        input_type = Party::PartyAudioDeviceSelectionType::Manual;
-    } else {
-        input_id = p_platform_user_id;
+    ChatAudioSelection selection;
+    String error;
+    if (!chat_audio_selection(p_config, p_platform_user_id, selection, error)) {
+        ERR_PRINT(error);
+        return;
     }
-    if (!input_id.is_empty() && p_chat_control_wrapper.is_valid()) {
-        p_chat_control_wrapper->m_audio_input_device_id = input_id.utf8();
+
+    PartyString input_ctx = nullptr;
+    if (!selection.input_context.is_empty() && p_chat_control_wrapper.is_valid()) {
+        p_chat_control_wrapper->m_audio_input_device_id = selection.input_context.utf8();
         input_ctx = p_chat_control_wrapper->m_audio_input_device_id.get_data();
     }
-    PartyError input_err = p_chat_control->SetAudioInput(input_type, input_ctx, nullptr);
+    PartyError input_err = p_chat_control->SetAudioInput(selection.input_type, input_ctx, nullptr);
     if (PARTY_FAILED(input_err)) {
         Ref<PlayFabResult> result = _party_error_result(input_err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioInput");
         WARN_PRINT(vformat("PlayFab.party: SetAudioInput failed; voice capture is disabled. %s",
@@ -3996,19 +4109,12 @@ void PlayFabParty::_configure_chat_audio_devices(const Ref<PlayFabPartyChatContr
 
     // Render device (speaker/headset). Same selection rules as the capture
     // device above.
-    String output_id = p_config.is_valid() ? p_config->get_audio_output() : String();
-    Party::PartyAudioDeviceSelectionType output_type = default_selection;
     PartyString output_ctx = nullptr;
-    if (!output_id.is_empty()) {
-        output_type = Party::PartyAudioDeviceSelectionType::Manual;
-    } else {
-        output_id = p_platform_user_id;
-    }
-    if (!output_id.is_empty() && p_chat_control_wrapper.is_valid()) {
-        p_chat_control_wrapper->m_audio_output_device_id = output_id.utf8();
+    if (!selection.output_context.is_empty() && p_chat_control_wrapper.is_valid()) {
+        p_chat_control_wrapper->m_audio_output_device_id = selection.output_context.utf8();
         output_ctx = p_chat_control_wrapper->m_audio_output_device_id.get_data();
     }
-    PartyError output_err = p_chat_control->SetAudioOutput(output_type, output_ctx, nullptr);
+    PartyError output_err = p_chat_control->SetAudioOutput(selection.output_type, output_ctx, nullptr);
     if (PARTY_FAILED(output_err)) {
         Ref<PlayFabResult> result = _party_error_result(output_err, PARTY_CHAT_CONTROL_CREATE_FAILED, "PartyLocalChatControl::SetAudioOutput");
         WARN_PRINT(vformat("PlayFab.party: SetAudioOutput failed; voice playback is disabled. %s",
@@ -4602,6 +4708,12 @@ Signal PlayFabParty::_create_local_chat_control(const Ref<PlayFabUser> &p_user, 
         return _make_error_signal(E_ABORT, PARTY_SHUTTING_DOWN,
                 "PlayFab.party chat control creation cannot start while PlayFab Party is shutting down.");
     }
+    Ref<PlayFabPartyConfig> config = chat_config_snapshot(p_config);
+    Party::PartyAudioDeviceSelectionType default_selection;
+    if (!chat_audio_default_selection(config, default_selection)) {
+        return _make_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS,
+                "PlayFabPartyConfig.audio_device_default_mode must be AUDIO_DEVICE_DEFAULT_AUTO, AUDIO_DEVICE_DEFAULT_SYSTEM, or AUDIO_DEVICE_DEFAULT_PLATFORM_USER.");
+    }
     Ref<PlayFabResult> validation = _validate_user(p_user);
     if (validation.is_valid() && !validation->is_ok()) {
         Ref<PlayFabPendingSignal> pending_signal = _make_pending_signal();
@@ -4633,13 +4745,12 @@ Signal PlayFabParty::_create_local_chat_control(const Ref<PlayFabUser> &p_user, 
     }
 
     String audio_platform_user_id;
-#if defined(_GAMING_XBOX)
-    if (p_config.is_null() || p_config->get_audio_input().is_empty() || p_config->get_audio_output().is_empty()) {
+    if (chat_audio_needs_platform_user(config, default_selection)) {
         XUserLocalId local_id = {};
         local_id.value = p_user->get_local_id();
         if (local_id.value == 0) {
             return _make_error_signal(E_INVALIDARG, PARTY_CHAT_CONTROL_CREATE_FAILED,
-                    "Default Party audio devices on Xbox console require an Xbox-backed PlayFabUser.");
+                    "Platform-user-default Party audio devices require an Xbox-backed PlayFabUser.");
         }
         XUserHandle user_handle = nullptr;
         hr = XUserFindUserByLocalId(local_id, &user_handle);
@@ -4656,11 +4767,10 @@ Signal PlayFabParty::_create_local_chat_control(const Ref<PlayFabUser> &p_user, 
         }
         audio_platform_user_id = String::utf8(std::to_string(xuid).c_str());
     }
-#endif
 
     PendingOperation *operation = _create_pending(PENDING_CREATE_CHAT_CONTROL);
     operation->user = p_user;
-    operation->config = p_config;
+    operation->config = config;
     operation->audio_platform_user_id = audio_platform_user_id;
     operation->native_user = local_user;
     hr = _start_create_chat_control_step(operation);
@@ -5170,6 +5280,7 @@ void PlayFabParty::_bind_methods() {
             &PlayFabParty::_test_dispatch_destroy_chat_control_completed, DEFVAL(false), DEFVAL(false));
     ClassDB::bind_method(D_METHOD("_test_pending_operation_count"), &PlayFabParty::_test_pending_operation_count);
     ClassDB::bind_method(D_METHOD("_test_classify_leave_network_completed", "state_change_result", "error_detail"), &PlayFabParty::_test_classify_leave_network_completed);
+    ClassDB::bind_method(D_METHOD("_test_chat_audio_selection", "config", "platform_user_id"), &PlayFabParty::_test_chat_audio_selection);
 #endif
 
     ADD_SIGNAL(MethodInfo("party_error", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_RESOURCE_TYPE, "PlayFabResult")));
