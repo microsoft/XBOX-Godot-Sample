@@ -87,6 +87,8 @@ cd tests\godot\playfab
   analytics dependency, SDK-version fields, managed attribution or a new singleton.
   Emit initialization success only, never shutdown events. Keep telemetry
   documentation out of `doc_classes\*.xml`; use the shared spec and Markdown docs.
+  Derive configured PFN/publisher IDs with BCrypt, never Windows appmodel APIs.
+  Desktop native tests may use the Windows package API as an identity oracle.
 
 - Public Godot-facing class docs live in `addons\godot_playfab\doc_classes\`.
 - `docs\playfab\plugin.md` is the user-facing addon overview. Update it when the public surface or sample workflow changes.

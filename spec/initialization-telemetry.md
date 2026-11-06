@@ -86,10 +86,9 @@ not retail.
 
 Check each built GDK and PlayFab DLL for regressions with
 `cmake -DDUMPBIN="<path to dumpbin.exe>" -DBINARY="<addon DLL>" -P tests\cpp\initialization_telemetry\check_imports.cmake`.
-The check rejects the unsupported import; desktop import inspection alone is
-not console build or hardware validation. The configured-identity conversion
-APIs still require `<appmodel.h>`; that header is not exclusive to the removed
-current-process probe.
+The check rejects the appmodel runtime API set and all three Windows package
+identity imports. Desktop import inspection alone is not console hardware
+validation. Configured-identity conversion uses BCrypt instead of appmodel APIs.
 
 Require positive running-engine development evidence and suppress release,
 conflicting, or unavailable evidence. Use `Engine::is_editor_hint()` for editor UI,
@@ -167,10 +166,15 @@ invalid surrogate pairs. Invalid optional metadata becomes unavailable, not
 truncated; an invalid required payload suppresses the event with a bounded local
 diagnostic. These local choices still need review for any future production route.
 
-Use `PackageFamilyNameFromId` with explicit valid game config `Identity.Name` and
-`Identity.Publisher`, then `PackageNameAndPublisherIdFromFamilyName` to extract
-the publisher ID with documented buffer sizing. Leave both empty if unavailable.
-No custom hashing, raw publisher DN telemetry, installed-package enumeration,
+Derive the Windows-compatible identity from valid game config `Identity.Name`
+and `Identity.Publisher`: BCrypt SHA-256 over UTF-16LE publisher bytes without
+the terminator, first eight digest bytes encoded MSB-first in 13 lowercase
+Crockford base32 characters (`0123456789abcdefghjkmnpqrstvwxyz`) with a trailing
+zero bit. The family is `Name + "_" + publisherId`. Preserve Windows identity
+length limits and input validation. Desktop tests compare canonical known
+publisher IDs and `PackageFamilyNameFromId` results; addon DLLs never import
+that API. Leave both fields empty with a bounded diagnostic on derivation error.
+No raw publisher DN telemetry, installed-package enumeration,
 editor identity substitution, or new setting before using existing config.
 This is configured identity, not ownership verification; it is not a Partner
 Center seller/organization ID or a PlayFab publisher ID.

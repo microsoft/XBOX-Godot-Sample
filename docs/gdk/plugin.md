@@ -11,6 +11,8 @@ write a local ETW event when a local consumer enables it. Packaged and release
 games are excluded. This implementation does not upload events or configure a
 cloud destination. See Microsoft's
 [Privacy Statement](https://privacy.microsoft.com/privacystatement).
+Configured PFN/publisher metadata is derived with BCrypt from manifest identity;
+the addon does not import Windows appmodel runtime APIs.
 
 ### Implemented now
 

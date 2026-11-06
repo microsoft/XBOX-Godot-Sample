@@ -67,6 +67,7 @@ target_link_libraries(godot_gdk PRIVATE
     Xbox::GameChat2
     windowsapp
     advapi32
+    bcrypt
 )
 
 godot_cpp_config_guard(godot_gdk)
