@@ -48,6 +48,20 @@ public class PlayFabParityTests
     }
 
     [Fact]
+    public void PartyAudioDeviceDefaultModeIsWritableAndKeepsConstants()
+    {
+        Type type = typeof(GodotPlayFab.Types.PlayFabPartyConfig);
+        PropertyInfo mode = type.GetProperty("AudioDeviceDefaultMode");
+        Assert.NotNull(mode);
+        Assert.Equal(typeof(int), mode.PropertyType);
+        Assert.True(mode.CanRead);
+        Assert.True(mode.CanWrite);
+        Assert.Equal(0, GodotPlayFab.Types.PlayFabPartyConfig.AUDIODEVICEDEFAULTAUTO);
+        Assert.Equal(1, GodotPlayFab.Types.PlayFabPartyConfig.AUDIODEVICEDEFAULTSYSTEM);
+        Assert.Equal(2, GodotPlayFab.Types.PlayFabPartyConfig.AUDIODEVICEDEFAULTPLATFORMUSER);
+    }
+
+    [Fact]
     public void ArrangedLobbyJoinConfigExposesPresenceMethodsAndProperties()
     {
         // Generic parity requires the members by name; these assertions also

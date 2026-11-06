@@ -31,5 +31,17 @@ public sealed class PlayFabPartyConfig : PlayFabObject
 
     public string AudioOutput => GetString("audio_output");
 
+    public const int AUDIODEVICEDEFAULTAUTO = 0;
+
+    public const int AUDIODEVICEDEFAULTSYSTEM = 1;
+
+    public const int AUDIODEVICEDEFAULTPLATFORMUSER = 2;
+
+    public int AudioDeviceDefaultMode
+    {
+        get => GetInt32("audio_device_default_mode");
+        set => Raw.Set("audio_device_default_mode", value);
+    }
+
     public string Language => GetString("language");
 }

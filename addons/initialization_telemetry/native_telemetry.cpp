@@ -1,11 +1,10 @@
 #include "native_telemetry.h"
 
-#include <appmodel.h>
+#include <bcrypt.h>
 #include <winmeta.h>
 #include <TraceLoggingProvider.h>
 
 #include <limits>
-#include <vector>
 
 namespace initialization_telemetry {
 
@@ -17,6 +16,9 @@ TRACELOGGING_DEFINE_PROVIDER(
 
 namespace {
 bool registered = false;
+constexpr size_t PACKAGE_NAME_LIMIT = 50;
+constexpr size_t PACKAGE_FAMILY_NAME_LIMIT = 64;
+constexpr size_t PACKAGE_PUBLISHER_ID_LIMIT = 13;
 }
 
 bool InitializationCounter::record_success() {
@@ -64,43 +66,44 @@ LONG configured_package_identity(std::wstring_view p_name, std::wstring_view p_p
         std::wstring &r_family, std::wstring &r_publisher_id) {
     r_family.clear();
     r_publisher_id.clear();
-    if (p_name.empty() || p_publisher.empty() ||
-            !valid_value(p_name, PACKAGE_NAME_MAX_LENGTH) || !valid_value(p_publisher, 8192)) {
+    if (p_name.size() < 3 || p_publisher.empty() ||
+            !valid_value(p_name, PACKAGE_NAME_LIMIT) || !valid_value(p_publisher, 8192)) {
         return ERROR_INVALID_PARAMETER;
     }
-    std::wstring name(p_name);
-    std::wstring publisher(p_publisher);
-    PACKAGE_ID identity{};
-    identity.processorArchitecture = PROCESSOR_ARCHITECTURE_NEUTRAL;
-    identity.name = name.data();
-    identity.publisher = publisher.data();
-    UINT32 length = 0;
-    LONG status = PackageFamilyNameFromId(&identity, &length, nullptr);
-    if (status != ERROR_INSUFFICIENT_BUFFER || length == 0 || length > PACKAGE_FAMILY_NAME_MAX_LENGTH + 1) {
-        return status == ERROR_SUCCESS ? ERROR_INVALID_DATA : status;
+    for (const wchar_t value : p_name) {
+        if (!(value >= L'a' && value <= L'z') && !(value >= L'A' && value <= L'Z') &&
+                !(value >= L'0' && value <= L'9') && value != L'.' && value != L'-') {
+            return ERROR_INVALID_PARAMETER;
+        }
     }
-    std::vector<wchar_t> family(length);
-    status = PackageFamilyNameFromId(&identity, &length, family.data());
-    if (status != ERROR_SUCCESS) {
+    static_assert(sizeof(wchar_t) == 2, "Publisher hashing requires UTF-16LE on Windows.");
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    NTSTATUS status = BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
+    if (status < 0) {
         return status;
     }
-
-    UINT32 name_length = 0;
-    UINT32 publisher_length = 0;
-    status = PackageNameAndPublisherIdFromFamilyName(family.data(), &name_length, nullptr, &publisher_length, nullptr);
-    if (status != ERROR_INSUFFICIENT_BUFFER || name_length == 0 || publisher_length == 0 ||
-            name_length > PACKAGE_NAME_MAX_LENGTH + 1 || publisher_length > PACKAGE_PUBLISHERID_MAX_LENGTH + 1) {
-        return status == ERROR_SUCCESS ? ERROR_INVALID_DATA : status;
+    UCHAR digest[32]{};
+    status = BCryptHash(algorithm, nullptr, 0,
+            reinterpret_cast<PUCHAR>(const_cast<wchar_t *>(p_publisher.data())),
+            static_cast<ULONG>(p_publisher.size() * sizeof(wchar_t)), digest, sizeof(digest));
+    const NTSTATUS close_status = BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (status < 0 || close_status < 0) {
+        return status < 0 ? status : close_status;
     }
-    std::vector<wchar_t> package_name(name_length);
-    std::vector<wchar_t> publisher_id(publisher_length);
-    status = PackageNameAndPublisherIdFromFamilyName(family.data(), &name_length, package_name.data(),
-            &publisher_length, publisher_id.data());
-    if (status == ERROR_SUCCESS) {
-        r_family = family.data();
-        r_publisher_id = publisher_id.data();
+    // Windows publisher IDs use lowercase Crockford base32, MSB first, with one trailing zero bit.
+    constexpr wchar_t alphabet[] = L"0123456789abcdefghjkmnpqrstvwxyz";
+    std::wstring publisher_id;
+    publisher_id.reserve(PACKAGE_PUBLISHER_ID_LIMIT);
+    for (size_t group = 0; group < PACKAGE_PUBLISHER_ID_LIMIT; ++group) {
+        unsigned index = 0;
+        for (size_t bit = group * 5; bit < group * 5 + 5; ++bit) {
+            index = (index << 1) | (bit < 64 ? ((digest[bit / 8] >> (7 - bit % 8)) & 1) : 0);
+        }
+        publisher_id += alphabet[index];
     }
-    return status;
+    r_family = std::wstring(p_name) + L"_" + publisher_id;
+    r_publisher_id = publisher_id;
+    return ERROR_SUCCESS;
 }
 
 DevelopmentContext development_context(DevelopmentDecision p_decision) {
@@ -117,8 +120,8 @@ bool valid_payload(const EventPayload &p) {
             !valid_value(p.component_id, IDENTIFIER_LIMIT) || !valid_value(p.component_version, VERSION_LIMIT) ||
             !valid_value(p.engine_version, VERSION_LIMIT) || !valid_value(p.gaming_runtime_version, VERSION_LIMIT) ||
             !valid_value(p.gdk_build_sdk_version, VERSION_LIMIT) ||
-            !valid_value(p.configured_title_package_family_name, PACKAGE_FAMILY_NAME_MAX_LENGTH) ||
-            !valid_value(p.package_publisher_id, PACKAGE_PUBLISHERID_MAX_LENGTH) ||
+            !valid_value(p.configured_title_package_family_name, PACKAGE_FAMILY_NAME_LIMIT) ||
+            !valid_value(p.package_publisher_id, PACKAGE_PUBLISHER_ID_LIMIT) ||
             !valid_value(p.playfab_title_id, IDENTIFIER_LIMIT) ||
             p.development_context < DevelopmentContext::editor ||
             p.development_context > DevelopmentContext::development_runtime) {
