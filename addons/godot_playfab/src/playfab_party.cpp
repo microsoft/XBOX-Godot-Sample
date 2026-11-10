@@ -2587,6 +2587,9 @@ void PlayFabParty::_test_party_batch(const Array &p_changes) {
             change.result = result;
             change.errorDetail = detail;
             _process_state_change(&change);
+            if (bool(input.get("repeat_completion", false))) {
+                _process_state_change(&change);
+            }
         } else if (stage == "reply") {
             ERR_CONTINUE(operation->kind != PENDING_JOIN_HANDSHAKE);
             _resolve_handshake_assignment(operation->network->get_local_peer().ptr(), nullptr, 2, operation);
@@ -2906,6 +2909,9 @@ void PlayFabParty::_complete_pending(PendingOperation *p_operation, const Ref<Pl
     if (p_operation == nullptr) {
         return;
     }
+    ERR_FAIL_COND_MSG(
+            std::find(m_pending_operations.begin(), m_pending_operations.end(), p_operation) == m_pending_operations.end(),
+            "PlayFab.party cannot complete an operation it no longer owns.");
     if (m_shutting_down && m_initialized) {
         return;
     }
@@ -3292,6 +3298,14 @@ Signal PlayFabParty::leave_network_async(const Ref<PlayFabPartyNetwork> &p_netwo
     if (!p_network.is_valid()) {
         return _make_error_signal(E_INVALIDARG, PARTY_INVALID_OPTIONS,
                 "PlayFab.party.leave_network_async() requires a non-null network.");
+    }
+
+    // Godot may close a guest peer when the host disappears before the title
+    // requests its own leave. Both callers must share the SDK-owned context.
+    for (PendingOperation *operation : m_pending_operations) {
+        if (operation->kind == PENDING_LEAVE_NETWORK && operation->network == p_network) {
+            return operation->pending_signal->get_completed_signal();
+        }
     }
 
     Ref<PlayFabPartyNetwork> tracked;
@@ -3850,6 +3864,13 @@ void PlayFabParty::_process_network_descriptor_changed(const Party::PartyStateCh
 void PlayFabParty::_process_leave_network_completed(const Party::PartyStateChange *p_change) {
     const auto *change = static_cast<const Party::PartyLeaveNetworkCompletedStateChange *>(p_change);
     PendingOperation *operation = static_cast<PendingOperation *>(change->asyncIdentifier);
+    if (operation != nullptr &&
+            std::find(m_pending_operations.begin(), m_pending_operations.end(), operation) == m_pending_operations.end()) {
+        WARN_PRINT("PlayFab.party ignored LeaveNetworkCompleted for an operation it no longer owns.");
+        return;
+    }
+    ERR_FAIL_COND_MSG(operation != nullptr && operation->kind != PENDING_LEAVE_NETWORK,
+            "PlayFab.party received LeaveNetworkCompleted for a different pending operation kind.");
     Ref<PlayFabResult> result = _party_leave_network_completed_result(change->result, change->errorDetail);
     Ref<PlayFabPartyNetwork> network;
     if (operation != nullptr) {
