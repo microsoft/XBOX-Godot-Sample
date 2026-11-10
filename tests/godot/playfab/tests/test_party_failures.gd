@@ -319,6 +319,48 @@ func test_leave_completion_then_destruction_settles_once() -> void:
 	_assert_drained("party_network_connect_failed")
 
 
+func test_repeated_leave_completion_does_not_reuse_released_context() -> void:
+	_begin(false)
+	_batch([_done("connect"), _done("authenticate"), _done("endpoint"), {"stage": "reply"}])
+	var network: Object = _results[0].data
+	var completed: Array = []
+	network.leave_async().connect(func(result): completed.append(result))
+	_batch([{"stage": "destroy"}, {"stage": "leave", "repeat_completion": true}])
+	assert_engine_error("PlayFab.party ignored LeaveNetworkCompleted for an operation it no longer owns.")
+	assert_eq(completed.size(), 1, "A late completion cannot settle a released operation again")
+	assert_true(completed[0].ok)
+	assert_eq(_party._test_party_snapshot().pending, 0)
+	assert_eq(_party.get_networks().size(), 0)
+
+
+func test_peer_close_and_explicit_leave_share_one_native_operation() -> void:
+	for host in [false, true]:
+		_begin(host)
+		var stages: Array = [_done("connect"), _done("authenticate"), _done("endpoint")]
+		if host:
+			stages.push_front(_done("create"))
+		else:
+			stages.append({"stage": "reply"})
+		_batch(stages)
+		var network: Object = _results[0].data
+		var peer: MultiplayerPeer = network.get_local_peer()
+		var completed: Array = []
+		peer.close()
+		network.leave_async().connect(func(result): completed.append(result))
+		network.leave_async().connect(func(result): completed.append(result))
+		assert_eq(_party._test_party_snapshot().dispatches.count("leave"), 1)
+		assert_eq(_party._test_party_snapshot().pending, 1)
+		_batch([{"stage": "destroy"}])
+		assert_eq(_party._test_party_snapshot().pending, 1, "Destruction retains the SDK-owned leave context")
+		assert_eq(completed.size(), 0)
+		network.leave_async().connect(func(result): completed.append(result))
+		_batch([_done("leave")])
+		assert_eq(completed.size(), 3, "All callers observe the same leave completion, including after destruction")
+		for result in completed:
+			assert_true(result.ok)
+		assert_eq(_party._test_party_snapshot().pending, 0)
+
+
 func test_failed_rollback_dispatch_or_completion_requires_scoped_cleanup() -> void:
 	for synchronous in [true, false]:
 		_begin(false, false, {"leave": DETAIL} if synchronous else {})
