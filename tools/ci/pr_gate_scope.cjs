@@ -38,7 +38,6 @@ const DOCTEST_PRODUCTION_SOURCES = [
   'addons/godot_gdk/src/xbox_result_codes_internal',
   'addons/godot_playfab/src/playfab_result_codes_internal',
   'addons/godot_playfab/src/playfab_request_key',
-  'addons/initialization_telemetry/native_telemetry',
 ];
 
 // Production sources (and their headers) -> fuzz targets that compile them,
@@ -205,13 +204,12 @@ const RULES = [
 
   // Repo-wide native build inputs: conservative full fan-out.
   {
-    name: 'shared initialization telemetry',
+    name: 'shared initialization stubs',
     kind: 'specific',
     test: pre('addons/initialization_telemetry/'),
     apply: (sel) => {
       component(sel, 'gdk');
       component(sel, 'playfab');
-      sel.doctest = true;
     },
   },
   {
@@ -450,7 +448,6 @@ const RULES = [
       p === 'tests/cpp/main.cpp' ||
       p.startsWith('tests/cpp/result_codes/') ||
       p.startsWith('tests/cpp/request_key/') ||
-      p.startsWith('tests/cpp/initialization_telemetry/') ||
       p.startsWith('tests/cpp/third_party/'),
     apply: (sel) => {
       sel.doctest = true;
