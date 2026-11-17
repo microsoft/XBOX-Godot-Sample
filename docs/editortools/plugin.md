@@ -86,8 +86,9 @@ on every verb: `--help` (`-h`), `--no-json`, `--config <path>`,
 
 ### Export prerequisites
 
-The `export` verb uses Godot's Windows Desktop exporter, so install the Godot
-4.6.1 export templates under `%APPDATA%\Godot\export_templates\` first.
+The `export` verb uses Godot's Windows Desktop exporter, so install the export
+templates that match your Godot editor version under
+`%APPDATA%\Godot\export_templates\` first.
 MSIXVC and loose-registration flows also need the public Microsoft GDK toolchain on
 `PATH` (`makepkg.exe`, `wdapp.exe`, `XblPCSandbox.exe`), or `GDK_BIN` pointing
 at the Microsoft GDK `bin\` directory.

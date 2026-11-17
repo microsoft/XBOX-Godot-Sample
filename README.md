@@ -48,9 +48,25 @@ The sample covers roughly **85–95% of the surface area** a Godot developer nee
 
 The **PlayFab extension sample code does not have a specific dependency on the Microsoft GDK extension sample code**, so the two can be adopted modularly - use either on its own, or compose them (e.g. sign in to PlayFab with the XBOX user provided by the GDK side).
 
-The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The default (vcpkg) build targets the **April 2026 Microsoft GDK** out of the box; the sample also builds against an installed **October 2025 Microsoft GDK (edition `251001`)** or later via the `installed-gdk` preset and `-DGDK_VERSION=<edition>` - see [Source for the Microsoft GDK dependency](docs/getting-started.md#source-for-the-microsoft-gdk-dependency).
+The sample is intended to give you insights and re-usable integration code that you can leverage in your own game. The default (vcpkg) build targets a [supported Microsoft GDK edition](#compatibility) out of the box; the sample also builds against an installed Microsoft GDK via the `installed-gdk` preset and `-DGDK_VERSION=<edition>` - see [Source for the Microsoft GDK dependency](docs/getting-started.md#source-for-the-microsoft-gdk-dependency).
 
 This is the **first step** in our XBOX Godot Sample integration journey. We plan to evolve it over time based on what the community tells us is most valuable.
+
+## Compatibility
+
+The supported versions below are read from the version files CI uses, so they update when those files change.
+
+### Godot Engine
+
+[![Supported Godot versions][badge-godot-versions]](.github/godot-versions.json)
+
+Source: [`.github/godot-versions.json`](.github/godot-versions.json)
+
+### Microsoft GDK
+
+[![Supported Microsoft GDK editions][badge-gdk-editions]](.github/gdk-versions.json)
+
+Source: [`.github/gdk-versions.json`](.github/gdk-versions.json), which maps each edition to its release name and `ms-gdk` vcpkg port version. Builds against an installed Microsoft GDK select from a separate allowlist; see [Source for the Microsoft GDK dependency](docs/getting-started.md#source-for-the-microsoft-gdk-dependency).
 
 ## Addons
 
@@ -115,8 +131,10 @@ Design specs live in [`spec/`](spec/) - design intent that is not always reflect
 [link-license]: LICENSE
 [badge-godot]: https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white
 [link-godot]: https://godotengine.org/
+[badge-godot-versions]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmicrosoft%2FXBOX-Godot-Sample%2Fmain%2F.github%2Fgodot-versions.json&query=%24.supported%5B*%5D&label=Godot&logo=godotengine&logoColor=white&color=478CBF
 [badge-gdk]: https://img.shields.io/badge/Microsoft%20GDK-%E2%9C%93-107C10
 [link-gdk]: https://github.com/microsoft/GDK/releases
+[badge-gdk-editions]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmicrosoft%2FXBOX-Godot-Sample%2Fmain%2F.github%2Fgdk-versions.json&query=%24.supported%5B*%5D.edition&label=Microsoft%20GDK&color=107C10
 [badge-playfab]: https://img.shields.io/badge/PlayFab-%E2%9C%93-107C10?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYuNiAxOS42YTQuNiA0LjYgMCAwIDEtLjQzLTkuMTggNi42NSA2LjY1IDAgMCAxIDEyLjYtLjk4IDQuNTcgNC41NyAwIDAgMS0uODcgOS4xNkg2LjZaIi8%2BPC9zdmc%2BDQo%3D
 [link-playfab]: docs/playfab/plugin.md
 [badge-gameinput]: https://img.shields.io/badge/GameInput-%E2%9C%93-0078D4?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nI2ZmZicgZmlsbC1ydWxlPSdldmVub2RkJz48cGF0aCBkPSdNNyA3aDEwYTUgNSAwIDAgMSA1IDQuNmwuOCA1LjJBMy4yIDMuMiAwIDAgMSAxNyAxOC42TDE1LjQgMTZIOC42TDcgMTguNmEzLjIgMy4yIDAgMCAxLTUuOC0xLjhMMiAxMS42QTUgNSAwIDAgMSA3IDdabS0xIDN2MS41SDQuNXYxLjdINlYxNWgxLjd2LTEuOGgxLjV2LTEuN0g3LjdWMTBabTEwLjMuNGExLjIgMS4yIDAgMSAwIDAgMi40IDEuMiAxLjIgMCAwIDAgMC0yLjRabS0yLjYgMi42YTEuMiAxLjIgMCAxIDAgMCAyLjQgMS4yIDEuMiAwIDAgMCAwLTIuNFonLz48L3N2Zz4%3D
