@@ -36,6 +36,10 @@ your Godot project's `addons/` directory.
 
 ## Prerequisites
 
+> [!NOTE]
+> Check [Compatibility](../README.md#compatibility) for the supported Godot
+> Engine and Microsoft GDK versions.
+
 - Windows 10 (build 18362+) or Windows 11, 64-bit
 - Godot 4.5+ stable, Windows 64-bit
 - [Microsoft GDK](https://github.com/microsoft/GDK/releases) installed

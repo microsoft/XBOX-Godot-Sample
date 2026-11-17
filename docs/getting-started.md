@@ -38,6 +38,10 @@ account.
 
 ## You need
 
+> [!NOTE]
+> Check [Compatibility](../README.md#compatibility) for the supported Godot
+> Engine and Microsoft GDK versions.
+
 - Windows 10 (build 18362+) or Windows 11
 - [Godot 4.5+](https://godotengine.org/download) (stable, Windows
   64-bit)
