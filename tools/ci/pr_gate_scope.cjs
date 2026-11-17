@@ -210,7 +210,6 @@ const RULES = [
     apply: (sel) => {
       component(sel, 'gdk');
       component(sel, 'playfab');
-      sel.doctest = true;
     },
   },
   {
