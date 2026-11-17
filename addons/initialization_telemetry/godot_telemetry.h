@@ -1,10 +1,6 @@
 #ifndef INITIALIZATION_TELEMETRY_GODOT_TELEMETRY_H
 #define INITIALIZATION_TELEMETRY_GODOT_TELEMETRY_H
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
 #include <godot_cpp/variant/string.hpp>
 
 namespace initialization_telemetry {
