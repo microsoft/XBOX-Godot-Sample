@@ -16,5 +16,7 @@ configuration:
     role: Maintain
   - member: jameslen
     role: Maintain
+  - member: joelbaker-xbox
+    role: Maintain
   - member: GerardoMal-ATG
     role: Maintain
